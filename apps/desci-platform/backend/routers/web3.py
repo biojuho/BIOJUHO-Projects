@@ -12,6 +12,7 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadF
 from firestore_db import db
 from services.auth import get_current_user
 from services.logging_config import get_logger
+from services.upload_security import normalize_upload_file
 
 log = get_logger("biolinker.routers.web3")
 
@@ -116,7 +117,7 @@ async def upload_company_asset(
 ):
     """Upload and index a company asset."""
     manager = get_asset_manager()
-    return await manager.upload_asset(file, asset_type)
+    return await manager.upload_asset(normalize_upload_file(file), asset_type)
 
 
 @router.post("/upload", tags=["Web3"])
@@ -130,7 +131,7 @@ async def upload_paper(
     """Upload a paper, pin it to IPFS, and index structured metadata."""
     manager = get_asset_manager()
     return await manager.upload_paper(
-        file=file,
+        file=normalize_upload_file(file),
         user=user,
         title=title,
         authors=authors,

@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `46`
-- Status counts: `blocked=1, covered=45`
+- Criteria: `47`
+- Status counts: `blocked=1, covered=46`
 
 ## Missing Required
 
@@ -183,6 +183,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### desci_uploaded_file_label_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `6`
 
 ### agent_workflow_gate_runner
 

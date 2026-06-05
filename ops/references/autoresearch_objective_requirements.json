@@ -25,6 +25,7 @@
         "dashboard_credential_live_unblock_queue",
         "dashboard_credential_operator_checklist",
         "workspace_smoke_trace_drain_guard",
+        "desci_uploaded_file_label_guard",
         "pre_push_regression_gate"
       ],
       "evidence": [
@@ -92,6 +93,14 @@
             "drain_mcp_trace_events",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Filename Guard",
+            "normalize_client_upload_filename",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -116,7 +125,8 @@
         "github_source_snapshot_manifest_drift_guard",
         "github_modernization_radar_report_drift_guard",
         "canva_mcp_openai_namespace_metadata_guard",
-        "canva_widget_state_continuation_guard"
+        "canva_widget_state_continuation_guard",
+        "desci_uploaded_file_label_guard"
       ],
       "evidence": [
         {
@@ -194,6 +204,15 @@
           "must_contain": [
             "mastra-ai/mastra",
             "fix(client-js): keep client tools for signal continuations (#17593)",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "must_contain": [
+            "pydantic/pydantic-ai",
+            "Handle UploadedFile consistently with FileUrl",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -417,7 +436,8 @@
         "hosted_agent_approval_boundary",
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
-        "workspace_smoke_trace_drain_guard"
+        "workspace_smoke_trace_drain_guard",
+        "desci_uploaded_file_label_guard"
       ],
       "evidence": [
         {
@@ -523,6 +543,14 @@
           "must_contain": [
             "pydantic/pydantic-ai",
             "event_stream_handler doesn't consume the stream",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "must_contain": [
+            "URL/path-like filenames",
+            "normalize_client_upload_filename",
             "global_objective_complete=false"
           ]
         }

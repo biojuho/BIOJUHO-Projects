@@ -57,6 +57,36 @@ async def test_upload_asset_uses_parser_metadata(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_upload_asset_normalizes_url_like_filename(monkeypatch, tmp_path):
+    """Multipart filenames should be local labels before parsing or indexing."""
+    captured: dict[str, object] = {}
+    parse_result = SimpleNamespace(text="Uploaded paper text", metadata={}, parser="grobid")
+
+    def parse_document(content, filename="document.pdf"):  # noqa: ARG001
+        captured["parser_filename"] = filename
+        return parse_result
+
+    class StubVectorStore:
+        def add_company_asset(self, asset_id, title, content, metadata):  # noqa: ARG002
+            captured["title"] = title
+            captured["metadata"] = metadata
+
+    monkeypatch.setattr(asset_manager_module, "get_pdf_parser", lambda: SimpleNamespace(parse_document=parse_document))
+    monkeypatch.setattr(asset_manager_module, "get_vector_store", lambda: StubVectorStore())
+
+    manager = asset_manager_module.AssetManager(asset_dir=str(tmp_path))
+    result = await manager.upload_asset(
+        StubUploadFile("file:///var/run/secrets/private-paper.pdf?token=secret", b"%PDF-1.4 test"),
+        asset_type="paper",
+    )
+
+    assert result["filename"] == "private-paper.pdf"
+    assert captured["parser_filename"] == "private-paper.pdf"
+    assert captured["title"] == "private-paper.pdf"
+    assert captured["metadata"]["original_filename"] == "private-paper.pdf"
+
+
+@pytest.mark.asyncio
 async def test_upload_paper_indexes_structured_metadata(monkeypatch, tmp_path):
     """Paper uploads should merge parser output, pin metadata, and index user-scoped records."""
     parse_result = SimpleNamespace(
@@ -114,3 +144,46 @@ async def test_upload_paper_indexes_structured_metadata(monkeypatch, tmp_path):
     assert captured["paper"]["affiliations"] == ["Bio Lab"]
     assert captured["paper"]["cid"] == "QmStructuredPaper123"
     assert captured["ipfs_metadata"]["owner_uid"] == "user-123"
+
+
+@pytest.mark.asyncio
+async def test_upload_paper_normalizes_remote_reference_filename(monkeypatch, tmp_path):
+    """Paper manifests and IPFS metadata should not preserve client file references."""
+    captured: dict[str, object] = {}
+    parse_result = SimpleNamespace(text="Paper body", metadata={}, parser="grobid")
+
+    def parse_document(content, filename="document.pdf"):  # noqa: ARG001
+        captured["parser_filename"] = filename
+        return parse_result
+
+    class StubIPFS:
+        async def upload_file(self, file_path: str, metadata: dict):
+            captured["file_path"] = file_path
+            captured["ipfs_metadata"] = metadata
+            return {
+                "cid": "QmNormalizedPaper123",
+                "url": "https://ipfs.io/ipfs/QmNormalizedPaper123",
+            }
+
+    class StubVectorStore:
+        def add_paper(self, **kwargs):
+            captured["paper"] = kwargs
+
+    monkeypatch.setattr(asset_manager_module, "get_pdf_parser", lambda: SimpleNamespace(parse_document=parse_document))
+    monkeypatch.setattr(asset_manager_module, "get_vector_store", lambda: StubVectorStore())
+    monkeypatch.setattr(asset_manager_module, "get_ipfs_service", lambda: StubIPFS())
+
+    manager = asset_manager_module.AssetManager(asset_dir=str(tmp_path))
+    result = await manager.upload_paper(
+        StubUploadFile("s3://private-bucket/research/report.pdf", b"%PDF-1.4 test"),
+        user={"uid": "user-123", "email": "user@example.com", "name": "Test User"},
+    )
+    manifest = manager.get_paper_manifest("QmNormalizedPaper123")
+
+    assert result["filename"] == "report.pdf"
+    assert result["title"] == "report.pdf"
+    assert captured["parser_filename"] == "report.pdf"
+    assert captured["ipfs_metadata"]["title"] == "report.pdf"
+    assert captured["paper"]["title"] == "report.pdf"
+    assert manifest["filename"] == "report.pdf"
+    assert "s3://" not in captured["file_path"]

@@ -1823,6 +1823,68 @@
       ]
     },
     {
+      "id": "desci_uploaded_file_label_guard",
+      "requirement": "DeSci upload workflows treat multipart filenames as local labels so URL/path-like client file references do not flow into parser, manifest, response, or indexing metadata surfaces.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/desci-platform/backend/services/upload_security.py",
+          "must_contain": [
+            "normalize_client_upload_filename",
+            "split.scheme == \"data\"",
+            "posixpath.basename",
+            "normalize_upload_file"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/routers/web3.py",
+          "must_contain": [
+            "normalize_upload_file(file)",
+            "upload_company_asset",
+            "upload_paper"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/services/asset_manager.py",
+          "must_contain": [
+            "display_filename",
+            "original_filename",
+            "parse_document(content, filename=filename)",
+            "filename=display_filename"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/tests/test_asset_manager.py",
+          "must_contain": [
+            "test_upload_asset_normalizes_url_like_filename",
+            "test_upload_paper_normalizes_remote_reference_filename",
+            "file:///var/run/secrets/private-paper.pdf",
+            "s3://private-bucket/research/report.pdf"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/tests/test_api_endpoints.py",
+          "must_contain": [
+            "test_upload_route_normalizes_url_like_filename",
+            "file:///private/runtime/paper.pdf",
+            "captured[\"filename\"] == \"paper.pdf\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Filename Guard",
+            "pydantic/pydantic-ai",
+            "Handle UploadedFile consistently with FileUrl",
+            "A/B Contract",
+            "26",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
       "id": "agent_workflow_gate_runner",
       "requirement": "Declared agent workflow quality gates can be executed through existing project CLIs without claiming full autonomous orchestration.",
       "required": true,

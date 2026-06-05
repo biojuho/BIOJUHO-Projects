@@ -9,6 +9,7 @@ from fastapi import UploadFile
 
 from .ipfs_service import PaperMetadata, get_ipfs_service
 from .pdf_parser import get_pdf_parser
+from .upload_security import normalize_client_upload_filename
 from .vector_store import get_vector_store
 
 
@@ -24,17 +25,18 @@ class AssetManager:
         self.pdf_parser = get_pdf_parser()
         self.ipfs_service = get_ipfs_service()
 
-    def _save_upload(self, file: UploadFile, content: bytes) -> tuple[str, str, str]:
+    def _save_upload(self, file: UploadFile, content: bytes) -> tuple[str, str, str, str]:
         """Persist the uploaded file locally and return identifiers."""
         asset_id = str(uuid.uuid4())
-        file_ext = os.path.splitext(file.filename)[1]
+        display_filename = normalize_client_upload_filename(getattr(file, "filename", None))
+        file_ext = os.path.splitext(display_filename)[1]
         saved_filename = f"{asset_id}{file_ext}"
         file_path = os.path.join(self.asset_dir, saved_filename)
 
         with open(file_path, "wb") as f:
             f.write(content)
 
-        return asset_id, file_ext, file_path
+        return asset_id, file_ext, file_path, display_filename
 
     def _paper_manifest_path(self, paper_id: str) -> str:
         return os.path.join(self.manifest_dir, f"{paper_id}.json")
@@ -125,7 +127,7 @@ class AssetManager:
 
     def _extract_text_and_metadata(
         self,
-        file: UploadFile,
+        filename: str,
         file_ext: str,
         content: bytes,
     ) -> tuple[str, dict[str, Any], str]:
@@ -136,7 +138,7 @@ class AssetManager:
 
         if file_ext.lower() == ".pdf":
             if hasattr(self.pdf_parser, "parse_document"):
-                parse_result = self.pdf_parser.parse_document(content, filename=file.filename)
+                parse_result = self.pdf_parser.parse_document(content, filename=filename)
                 text_content = parse_result.text
                 parsed_metadata = parse_result.metadata
                 parser_name = parse_result.parser
@@ -159,7 +161,7 @@ class AssetManager:
 
     def _resolve_paper_fields(
         self,
-        file: UploadFile,
+        filename: str,
         submitted_title: str,
         submitted_authors: str,
         submitted_abstract: str,
@@ -189,7 +191,7 @@ class AssetManager:
         keywords = [str(keyword).strip() for keyword in parsed_metadata.get("keywords", []) if str(keyword).strip()]
 
         final_title = (
-            (submitted_title or "").strip() or str(parsed_metadata.get("title") or "").strip() or file.filename
+            (submitted_title or "").strip() or str(parsed_metadata.get("title") or "").strip() or filename
         )
         final_abstract = (submitted_abstract or "").strip() or str(parsed_metadata.get("abstract") or "").strip()
 
@@ -216,8 +218,12 @@ class AssetManager:
             Upload result metadata.
         """
         content = await file.read()
-        asset_id, file_ext, _file_path = self._save_upload(file, content)
-        text_content, parsed_metadata, parser_name = self._extract_text_and_metadata(file, file_ext, content)
+        asset_id, file_ext, _file_path, display_filename = self._save_upload(file, content)
+        text_content, parsed_metadata, parser_name = self._extract_text_and_metadata(
+            display_filename,
+            file_ext,
+            content,
+        )
 
         extracted_text = bool(text_content)
         if not text_content:
@@ -227,7 +233,7 @@ class AssetManager:
         metadata = {
             "type": "company_asset",
             "asset_type": asset_type,
-            "original_filename": file.filename,
+            "original_filename": display_filename,
             "uploaded_at": datetime.now().isoformat(),
             "source": "UserUpload",
             "parser": parser_name,
@@ -246,14 +252,14 @@ class AssetManager:
 
         self.vector_store.add_company_asset(
             asset_id=asset_id,
-            title=parsed_metadata.get("title") or file.filename,
+            title=parsed_metadata.get("title") or display_filename,
             content=text_content,
             metadata=metadata,
         )
 
         return {
             "id": asset_id,
-            "filename": file.filename,
+            "filename": display_filename,
             "type": asset_type,
             "size": len(content),
             "indexed": extracted_text,
@@ -275,15 +281,19 @@ class AssetManager:
     ) -> dict[str, Any]:
         """Upload a research paper, pin it to IPFS, and index structured metadata."""
         content = await file.read()
-        fallback_id, file_ext, file_path = self._save_upload(file, content)
-        text_content, parsed_metadata, parser_name = self._extract_text_and_metadata(file, file_ext, content)
+        fallback_id, file_ext, file_path, display_filename = self._save_upload(file, content)
+        text_content, parsed_metadata, parser_name = self._extract_text_and_metadata(
+            display_filename,
+            file_ext,
+            content,
+        )
 
         extracted_text = bool(text_content)
         if not text_content:
             text_content = "No text content extracted."
 
         resolved_fields = self._resolve_paper_fields(
-            file=file,
+            filename=display_filename,
             submitted_title=title,
             submitted_authors=authors,
             submitted_abstract=abstract,
@@ -332,7 +342,7 @@ class AssetManager:
             {
                 "paper_id": paper_id,
                 "cid": paper_id,
-                "filename": file.filename,
+                "filename": display_filename,
                 "file_path": file_path,
                 "title": resolved_fields["title"],
                 "authors_csv": authors,
@@ -347,7 +357,7 @@ class AssetManager:
 
         return self._paper_response_from_record(
             paper_id,
-            filename=file.filename,
+            filename=display_filename,
             metadata={
                 "cid": paper_id,
                 "title": resolved_fields["title"],
@@ -381,19 +391,14 @@ class AssetManager:
             with open(file_path, "rb") as handle:
                 content = handle.read()
 
-            class StoredFile:
-                def __init__(self, stored_filename: str):
-                    self.filename = stored_filename
-
-            stored_file = StoredFile(filename)
             file_ext = os.path.splitext(filename)[1]
-            text_content, parsed_metadata, parser_name = self._extract_text_and_metadata(stored_file, file_ext, content)
+            text_content, parsed_metadata, parser_name = self._extract_text_and_metadata(filename, file_ext, content)
             extracted_text = bool(text_content)
             if not text_content:
                 text_content = "No text content extracted."
 
             resolved_fields = self._resolve_paper_fields(
-                file=stored_file,
+                filename=filename,
                 submitted_title=str(manifest.get("title") or ""),
                 submitted_authors=str(manifest.get("authors_csv") or ""),
                 submitted_abstract=str(manifest.get("abstract") or ""),

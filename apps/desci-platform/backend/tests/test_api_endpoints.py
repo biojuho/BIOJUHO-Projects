@@ -353,6 +353,36 @@ async def test_upload_route_uses_authenticated_user(async_client: AsyncClient, m
 
 
 @pytest.mark.asyncio
+async def test_upload_route_normalizes_url_like_filename(async_client: AsyncClient, monkeypatch):
+    """POST /upload should not pass client file references downstream."""
+    captured = {}
+
+    class StubAssetManager:
+        async def upload_paper(self, file, user, title, authors, abstract):  # noqa: ARG002
+            captured["filename"] = file.filename
+            return {
+                "id": "QmPaper123",
+                "cid": "QmPaper123",
+                "title": title,
+                "abstract": abstract,
+                "authors": ["Jane Doe"],
+                "ipfs_url": "https://ipfs.io/ipfs/QmPaper123",
+                "analysis": {"status": "indexed"},
+            }
+
+    monkeypatch.setattr(web3_router, "get_asset_manager", lambda: StubAssetManager())
+
+    response = await async_client.post(
+        "/upload",
+        files={"file": ("file:///private/runtime/paper.pdf?token=secret", b"%PDF-1.4 test", "application/pdf")},
+        data={"title": "Uploaded Paper", "authors": "Jane Doe", "abstract": "Summary"},
+    )
+
+    assert response.status_code == 200
+    assert captured["filename"] == "paper.pdf"
+
+
+@pytest.mark.asyncio
 async def test_papers_me_returns_user_scoped_records(async_client: AsyncClient, monkeypatch):
     """GET /papers/me should return papers only for the current authenticated user."""
 
