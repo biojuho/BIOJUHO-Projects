@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T00:38:38+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh",
+  "generatedAt": "2026-06-06T00:40:30+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -721,12 +721,12 @@
       "openPRs": 64,
       "mergedPRs": 0,
       "closedIssues": 0,
-      "stars": 4606,
+      "stars": 4605,
       "forks": 348,
-      "diskKb": 61520,
-      "pushedAt": "2026-06-05T04:51:49Z",
+      "diskKb": 59857,
+      "pushedAt": "2026-06-05T14:50:11Z",
       "createdAt": "2023-03-16T05:55:09Z",
-      "lastCommit": null
+      "lastCommit": "6d854a92b5c5a55d171fb6584f9686d50af10b7c"
     },
     {
       "id": "repo-openloaf-openloaf",
@@ -755,7 +755,7 @@
       "diskKb": 201235,
       "pushedAt": "2026-05-14T11:24:18Z",
       "createdAt": "2025-12-08T08:32:33Z",
-      "lastCommit": null
+      "lastCommit": "f7eccf6064317cb2923137079b68d79b8e5c5f3e"
     },
     {
       "id": "repo-happybhati-workstream",
@@ -983,7 +983,7 @@
       "mergedPRs": 0,
       "closedIssues": 0,
       "stars": 8037,
-      "forks": 517,
+      "forks": 516,
       "diskKb": 985782,
       "pushedAt": "2026-06-05T02:04:08Z",
       "createdAt": "2023-05-22T10:39:33Z",

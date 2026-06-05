@@ -349,6 +349,8 @@ const interactionExpression = `
   let worklenzCandidateFreshnessVisibleOk = false;
   let anytypeCandidateFreshnessVisibleOk = false;
   let focalboardCandidateFreshnessVisibleOk = false;
+  let epicenterCandidateFreshnessVisibleOk = false;
+  let openLoafCandidateFreshnessVisibleOk = false;
   let veritasCandidateFreshnessVisibleOk = false;
   let openProjectCandidateFreshnessVisibleOk = false;
   let leantimeCandidateFreshnessVisibleOk = false;
@@ -532,6 +534,8 @@ const interactionExpression = `
     await nav("pm-portfolio");
     const candidate = dashboard.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
     assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
+    const epicenterCandidate = dashboard.projects.find((project) => project.name === "EpicenterHQ/epicenter");
+    assert(epicenterCandidate && epicenterCandidate.sourceKind === "adoption-candidate", "Epicenter workspace benchmark candidate was not loaded");
     const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
     assert(benchmarkCandidate && benchmarkCandidate.sourceKind === "adoption-candidate", "Colanode workspace benchmark candidate was not loaded");
     const parabolCandidate = dashboard.projects.find((project) => project.name === "ParabolInc/parabol");
@@ -548,6 +552,12 @@ const interactionExpression = `
     assert(adoptionResponse.ok, "adoption candidate snapshot did not load for metadata refresh");
     const adoptionSnapshot = await adoptionResponse.json();
     const formatMetric = (value) => typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("en-US") : "-";
+    const snapshotEpicenter = adoptionSnapshot.projects.find((project) => project.name === "EpicenterHQ/epicenter");
+    assert(snapshotEpicenter && /^[0-9a-f]{40}$/i.test(snapshotEpicenter.lastCommit || "") && !Number.isNaN(Date.parse(snapshotEpicenter.pushedAt || "")), "Epicenter snapshot freshness evidence was missing");
+    const shortEpicenterCommit = snapshotEpicenter.lastCommit.slice(0, 8);
+    const snapshotOpenLoaf = adoptionSnapshot.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
+    assert(snapshotOpenLoaf && /^[0-9a-f]{40}$/i.test(snapshotOpenLoaf.lastCommit || "") && !Number.isNaN(Date.parse(snapshotOpenLoaf.pushedAt || "")), "OpenLoaf snapshot freshness evidence was missing");
+    const shortOpenLoafCommit = snapshotOpenLoaf.lastCommit.slice(0, 8);
     const snapshotColanode = adoptionSnapshot.projects.find((project) => project.name === "colanode/colanode");
     assert(snapshotColanode && /^[0-9a-f]{40}$/i.test(snapshotColanode.lastCommit || "") && !Number.isNaN(Date.parse(snapshotColanode.pushedAt || "")), "Colanode snapshot freshness evidence was missing");
     const shortColanodeCommit = snapshotColanode.lastCommit.slice(0, 8);
@@ -572,6 +582,10 @@ const interactionExpression = `
     const snapshotFocalboard = adoptionSnapshot.projects.find((project) => project.name === "mattermost-community/focalboard");
     assert(snapshotFocalboard && /^[0-9a-f]{40}$/i.test(snapshotFocalboard.lastCommit || "") && !Number.isNaN(Date.parse(snapshotFocalboard.pushedAt || "")), "Focalboard snapshot freshness evidence was missing");
     const shortFocalboardCommit = snapshotFocalboard.lastCommit.slice(0, 8);
+    assert(epicenterCandidate.lastCommit === snapshotEpicenter.lastCommit, "Epicenter candidate commit was stale");
+    assert(epicenterCandidate.pushedAt === snapshotEpicenter.pushedAt, "Epicenter candidate pushedAt was stale");
+    assert(candidate.lastCommit === snapshotOpenLoaf.lastCommit, "OpenLoaf candidate commit was stale");
+    assert(candidate.pushedAt === snapshotOpenLoaf.pushedAt, "OpenLoaf candidate pushedAt was stale");
     assert(benchmarkCandidate.lastCommit === snapshotColanode.lastCommit, "Colanode candidate commit was stale");
     assert(benchmarkCandidate.pushedAt === snapshotColanode.pushedAt, "Colanode candidate pushedAt was stale");
     assert(riskCandidate.lastCommit === snapshotOpenProject.lastCommit, "OpenProject candidate commit was stale");
@@ -651,8 +665,22 @@ const interactionExpression = `
     assert(meta.innerText.includes("Fork") && meta.innerText.includes("7"), "OpenLoaf fork count did not render");
     assert(meta.innerText.includes("TypeScript"), "OpenLoaf language did not render");
     assert(qs("[data-candidate-priority]", card).textContent.includes(String(projectCandidatePriority(candidate).score)), "OpenLoaf priority score did not render");
+    const openLoafCommit = qs("[data-candidate-commit]", card);
+    assert(openLoafCommit.dataset.candidateCommit === shortOpenLoafCommit, "OpenLoaf freshness commit did not render");
+    assert(openLoafCommit.dataset.candidatePushedAt === snapshotOpenLoaf.pushedAt, "OpenLoaf pushedAt freshness marker did not render");
     const href = qs(".portfolio-candidate-link", card).href;
     assert(href === "https://github.com/OpenLoaf/OpenLoaf" || href === "https://github.com/OpenLoaf/OpenLoaf/", "OpenLoaf GitHub link did not render safely");
+    fill("#globalSearch", shortEpicenterCommit);
+    await waitFor(() => state.query === shortEpicenterCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Epicenter commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + epicenterCandidate.id + '"]'), "Epicenter portfolio card did not render after commit search");
+    const epicenterCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + epicenterCandidate.id + '"]');
+    const epicenterText = epicenterCard.innerText;
+    assert(epicenterText.includes("EpicenterHQ/epicenter"), "Epicenter candidate card did not render");
+    const epicenterCommit = qs("[data-candidate-commit]", epicenterCard);
+    assert(epicenterCommit.dataset.candidateCommit === shortEpicenterCommit, "Epicenter freshness commit did not render");
+    assert(epicenterCommit.dataset.candidatePushedAt === snapshotEpicenter.pushedAt, "Epicenter pushedAt freshness marker did not render");
+    const epicenterHref = qs(".portfolio-candidate-link", epicenterCard).href;
+    assert(epicenterHref === "https://github.com/EpicenterHQ/epicenter" || epicenterHref === "https://github.com/EpicenterHQ/epicenter/", "Epicenter GitHub link did not render safely");
     fill("#globalSearch", "colanode");
     await waitFor(() => state.query === "colanode" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Colanode search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]'), "Colanode portfolio card did not render after search");
@@ -763,6 +791,8 @@ const interactionExpression = `
     worklenzCandidateFreshnessVisibleOk = true;
     anytypeCandidateFreshnessVisibleOk = true;
     focalboardCandidateFreshnessVisibleOk = true;
+    epicenterCandidateFreshnessVisibleOk = true;
+    openLoafCandidateFreshnessVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
     leantimeCandidateFreshnessVisibleOk = true;
@@ -988,6 +1018,8 @@ const interactionExpression = `
     worklenzCandidateFreshnessVisible: worklenzCandidateFreshnessVisibleOk,
     anytypeCandidateFreshnessVisible: anytypeCandidateFreshnessVisibleOk,
     focalboardCandidateFreshnessVisible: focalboardCandidateFreshnessVisibleOk,
+    epicenterCandidateFreshnessVisible: epicenterCandidateFreshnessVisibleOk,
+    openLoafCandidateFreshnessVisible: openLoafCandidateFreshnessVisibleOk,
     veritasCandidateFreshnessVisible: veritasCandidateFreshnessVisibleOk,
     openProjectCandidateFreshnessVisible: openProjectCandidateFreshnessVisibleOk,
     leantimeCandidateFreshnessVisible: leantimeCandidateFreshnessVisibleOk,
