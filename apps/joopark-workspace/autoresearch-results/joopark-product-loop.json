@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T00:58:00+09:00",
+  "generatedAt": "2026-06-06T01:12:26+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -370,6 +370,13 @@
       "baseline": 9,
       "candidate": 14,
       "decision": "keep"
+    },
+    {
+      "id": "remaining-workspace-metadata-drift-refresh",
+      "primaryMetric": "remainingWorkspaceOpenIssueDriftCount",
+      "baseline": 5,
+      "candidate": 0,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -384,6 +391,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "candidate freshness metadata drift monitor",
-    "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces"
+    "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces",
+    "refresh high-churn benchmark repo counts after scheduled drift detection lands"
   ]
 }
