@@ -138,6 +138,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_sdk_floor_guard",
+        "browser_smoke_ephemeral_context_guard",
         "mcp_service_expected_tools_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
@@ -257,6 +258,15 @@
             "A/B Contract",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EPHEMERAL_CONTEXT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "microsoft/playwright-mcp",
+            "persistent profile single-instance limitation",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
         }
       ],
       "residual_risk": "The word 'all' is unbounded; the current cycle proves a live tracked source set and recency gate, not an exhaustive internet-wide proof."
@@ -339,6 +349,7 @@
       "completion_criteria": [
         "direct_app_click_qa",
         "direct_browser_qa_freshness_gate",
+        "browser_smoke_ephemeral_context_guard",
         "browser_smoke_expected_text_evidence",
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
@@ -457,6 +468,14 @@
             "pass: `8/8` actions",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EPHEMERAL_CONTEXT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Browser Smoke Ephemeral Context Guard",
+            "ephemeral_context",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -483,6 +502,7 @@
         "dashboard_credential_live_unblock_queue",
         "dashboard_credential_operator_checklist",
         "browser_smoke_expected_text_evidence",
+        "browser_smoke_ephemeral_context_guard",
         "canva_mcp_continuation_guard",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard",
@@ -553,6 +573,14 @@
           "must_contain": [
             "stronger direct browser QA evidence",
             "matched expected text",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EPHEMERAL_CONTEXT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "microsoft/playwright-mcp",
+            "persistent profile",
             "global_objective_complete=false"
           ]
         },

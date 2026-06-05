@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "tool": "dev_server_browser_smoke",
+  "generated_at": "2026-06-05T02:03:53.536846Z",
+  "status": "pass",
+  "summary": {
+    "targets": 1,
+    "routes": 1,
+    "completed": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0
+  },
+  "browser_isolation": {
+    "mode": "ephemeral_context",
+    "persistent_profile": false,
+    "user_data_dir": "",
+    "reason": "Each browser-smoke run creates a fresh context to avoid persistent profile lock contention."
+  },
+  "results": [
+    {
+      "target_id": "canva-widget-preview",
+      "name": "preview",
+      "path": "",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "Canva Design Widgets"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/src/dev/preview.html"
+    }
+  ],
+  "failures": []
+}

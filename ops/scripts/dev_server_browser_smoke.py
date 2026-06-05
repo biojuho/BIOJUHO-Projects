@@ -45,6 +45,15 @@ class RouteResult:
     final_path: str | None = None
 
 
+def browser_isolation_policy() -> dict[str, Any]:
+    return {
+        "mode": "ephemeral_context",
+        "persistent_profile": False,
+        "user_data_dir": "",
+        "reason": "Each browser-smoke run creates a fresh context to avoid persistent profile lock contention.",
+    }
+
+
 def load_browser_manifest(path: Path = DEFAULT_BROWSER_MANIFEST) -> dict[str, Any]:
     with path.open(encoding="utf-8") as handle:
         payload = json.load(handle)
@@ -141,12 +150,16 @@ def run_browser_smoke(
     results: list[RouteResult] = []
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page()
-        for check in checks:
-            target = targets[check["target_id"]]
-            for route in check["routes"]:
-                results.append(run_route(page, target, route, timeout_ms))
-        browser.close()
+        context = browser.new_context()
+        try:
+            page = context.new_page()
+            for check in checks:
+                target = targets[check["target_id"]]
+                for route in check["routes"]:
+                    results.append(run_route(page, target, route, timeout_ms))
+        finally:
+            context.close()
+            browser.close()
 
     failed = any(not result.ok for result in results)
     return build_report(checks, results, status="fail" if failed else "pass")
@@ -275,6 +288,7 @@ def build_report(
             "failed": sum(1 for result in results if not result.ok),
             "blocked": 1 if blocker else 0,
         },
+        "browser_isolation": browser_isolation_policy(),
         "results": [asdict(result) for result in results],
         "failures": failures,
     }
@@ -291,6 +305,8 @@ def format_markdown(report: dict[str, Any]) -> str:
         f"- Passed: `{summary['passed']}`",
         f"- Failed: `{summary['failed']}`",
         f"- Blocked: `{summary['blocked']}`",
+        f"- Browser isolation: `{report['browser_isolation']['mode']}`",
+        f"- Persistent profile: `{str(report['browser_isolation']['persistent_profile']).lower()}`",
         "",
         "## Results",
         "",

@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `56`
-- Status counts: `blocked=1, covered=55`
+- Criteria: `57`
+- Status counts: `blocked=1, covered=56`
 
 ## Missing Required
 
@@ -117,6 +117,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `11`
+
+### browser_smoke_ephemeral_context_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### dashboard_next_credential_unblock
 

@@ -101,7 +101,92 @@ def test_validate_only_writes_machine_and_markdown_reports(tmp_path: Path) -> No
     assert payload["status"] == "valid"
     assert payload["summary"]["targets"] == 1
     assert payload["summary"]["routes"] == 5
+    assert payload["browser_isolation"]["mode"] == "ephemeral_context"
+    assert payload["browser_isolation"]["persistent_profile"] is False
     assert "Dev-Server Browser Smoke" in markdown
+    assert "Browser isolation: `ephemeral_context`" in markdown
+
+
+def test_run_browser_smoke_uses_explicit_ephemeral_context(monkeypatch) -> None:
+    smoke = load_browser_smoke_module()
+    events: list[str] = []
+
+    class Response:
+        status = 200
+
+    class Locator:
+        def inner_text(self, timeout: int) -> str:
+            return "ok"
+
+    class Page:
+        url = "http://127.0.0.1:5173/"
+
+        def on(self, event: str, callback) -> None:
+            return None
+
+        def remove_listener(self, event: str, callback) -> None:
+            return None
+
+        def goto(self, url: str, wait_until: str, timeout: int):
+            self.url = url
+            return Response()
+
+        def locator(self, selector: str) -> Locator:
+            return Locator()
+
+    class Context:
+        def new_page(self) -> Page:
+            events.append("context.new_page")
+            return Page()
+
+        def close(self) -> None:
+            events.append("context.close")
+
+    class Browser:
+        def new_context(self) -> Context:
+            events.append("browser.new_context")
+            return Context()
+
+        def new_page(self) -> Page:  # pragma: no cover - must not be used
+            raise AssertionError("browser.new_page should not be used")
+
+        def close(self) -> None:
+            events.append("browser.close")
+
+    class Chromium:
+        def launch(self, *, headless: bool) -> Browser:
+            assert headless is True
+            events.append("chromium.launch")
+            return Browser()
+
+    class Playwright:
+        chromium = Chromium()
+
+    class PlaywrightManager:
+        def __enter__(self) -> Playwright:
+            return Playwright()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            events.append("playwright.close")
+
+    monkeypatch.setattr(smoke, "sync_playwright", lambda: PlaywrightManager())
+
+    report = smoke.run_browser_smoke(
+        {"checks": [{"target_id": "dashboard-frontend", "routes": [{"name": "home", "path": "/", "expected_text": ["ok"]}]}]},
+        {"targets": [{"id": "dashboard-frontend", "kind": "frontend", "url": "http://127.0.0.1:5173/"}]},
+        timeout_seconds=1,
+    )
+
+    assert report["status"] == "pass"
+    assert report["browser_isolation"]["mode"] == "ephemeral_context"
+    assert events == [
+        "chromium.launch",
+        "browser.new_context",
+        "context.new_page",
+        "context.close",
+        "browser.close",
+        "playwright.close",
+    ]
 
 
 def test_route_result_records_expected_text_matches() -> None:

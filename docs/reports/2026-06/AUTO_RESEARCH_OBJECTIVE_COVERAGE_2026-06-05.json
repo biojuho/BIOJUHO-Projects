@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T02:16:13.421670+00:00",
+  "generated_at": "2026-06-05T02:19:54.817631+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -101,6 +101,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_sdk_floor_guard",
+        "browser_smoke_ephemeral_context_guard",
         "mcp_service_expected_tools_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
@@ -156,6 +157,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_EXPECTED_TOOLS_GUARD_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EPHEMERAL_CONTEXT_GUARD_2026-06-05.md",
           "term_count": 4
         }
       ],
@@ -227,6 +232,7 @@
       "completion_criteria": [
         "direct_app_click_qa",
         "direct_browser_qa_freshness_gate",
+        "browser_smoke_ephemeral_context_guard",
         "browser_smoke_expected_text_evidence",
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
@@ -289,6 +295,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EPHEMERAL_CONTEXT_GUARD_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "direct_app_click_qa",
@@ -316,6 +326,7 @@
         "dashboard_credential_live_unblock_queue",
         "dashboard_credential_operator_checklist",
         "browser_smoke_expected_text_evidence",
+        "browser_smoke_ephemeral_context_guard",
         "canva_mcp_continuation_guard",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard",
@@ -357,6 +368,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EXPECTED_TEXT_EVIDENCE_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EPHEMERAL_CONTEXT_GUARD_2026-06-05.md",
           "term_count": 3
         },
         {
