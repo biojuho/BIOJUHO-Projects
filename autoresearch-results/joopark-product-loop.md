@@ -1014,6 +1014,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/audit-release-readiness.mjs` now includes `appflowy_affine_candidate_freshness_ui_smoke`.
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 18 monitored candidates and 32 source markers.
 
+## Experiment: Outline knowledge-base benchmark candidate
+
+- Hypothesis: The GitHub project discovery surface becomes more useful for JooPark planning when a fast, self-hostable, Markdown-compatible team knowledge base is tracked beside AppFlowy and AFFiNE.
+- Primary metric: Outline knowledge-base candidate freshness checks.
+- Baseline: 0 Outline knowledge-base candidate checks; `outline/outline` was absent from the adoption candidate snapshot.
+- Candidate: add `outline/outline` as a researched knowledge-base workspace candidate with current GitHub metadata, license risk context, default-branch commit, and portfolio interaction smoke.
+- Decision: keep; Outline has 38,776 stars, 3,324 forks, 38 open issues, 22 open PRs, recent push `2026-06-05T14:54:48Z`, and commit `e864684d569c81ca2b03c816d22e0c80e2ff6466`.
+
+## Evidence
+
+- `data/adoption-candidates.json` now includes `outline/outline` with source markers `github-search:outline-knowledge-base-benchmark` and `github-api:outline-freshness-refresh`.
+- `scripts/smoke-interactions.mjs` now reports `outlineCandidateFreshnessVisible` and verifies Outline by commit search, star/fork count, language, spike recommendation action, pushedAt, and safe GitHub link.
+- `scripts/audit-release-readiness.mjs` now includes `outline_knowledge_base_candidate_freshness_ui_smoke`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 19 monitored candidates and 33 source markers.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research Outline as a knowledge-base candidate, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, research BookStack as a self-hosted documentation benchmark after the Outline candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.

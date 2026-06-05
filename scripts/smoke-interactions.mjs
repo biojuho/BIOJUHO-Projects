@@ -368,6 +368,7 @@ const interactionExpression = `
   let planeCandidateFreshnessVisibleOk = false;
   let appFlowyCandidateFreshnessVisibleOk = false;
   let affineCandidateFreshnessVisibleOk = false;
+  let outlineCandidateFreshnessVisibleOk = false;
   const remainingWorkspaceFreshnessOk = {
     workstream: false,
     taskosaur: false,
@@ -573,6 +574,8 @@ const interactionExpression = `
     assert(appFlowyCandidate && appFlowyCandidate.sourceKind === "adoption-candidate", "AppFlowy workspace benchmark candidate was not loaded");
     const affineCandidate = dashboard.projects.find((project) => project.name === "toeverything/AFFiNE");
     assert(affineCandidate && affineCandidate.sourceKind === "adoption-candidate", "AFFiNE workspace benchmark candidate was not loaded");
+    const outlineCandidate = dashboard.projects.find((project) => project.name === "outline/outline");
+    assert(outlineCandidate && outlineCandidate.sourceKind === "adoption-candidate", "Outline knowledge-base benchmark candidate was not loaded");
     const epicenterCandidate = dashboard.projects.find((project) => project.name === "EpicenterHQ/epicenter");
     assert(epicenterCandidate && epicenterCandidate.sourceKind === "adoption-candidate", "Epicenter workspace benchmark candidate was not loaded");
     const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
@@ -617,6 +620,9 @@ const interactionExpression = `
     const snapshotAffine = adoptionSnapshot.projects.find((project) => project.name === "toeverything/AFFiNE");
     assert(snapshotAffine && /^[0-9a-f]{40}$/i.test(snapshotAffine.lastCommit || "") && !Number.isNaN(Date.parse(snapshotAffine.pushedAt || "")), "AFFiNE snapshot freshness evidence was missing");
     const shortAffineCommit = snapshotAffine.lastCommit.slice(0, 8);
+    const snapshotOutline = adoptionSnapshot.projects.find((project) => project.name === "outline/outline");
+    assert(snapshotOutline && /^[0-9a-f]{40}$/i.test(snapshotOutline.lastCommit || "") && !Number.isNaN(Date.parse(snapshotOutline.pushedAt || "")), "Outline snapshot freshness evidence was missing");
+    const shortOutlineCommit = snapshotOutline.lastCommit.slice(0, 8);
     const snapshotColanode = adoptionSnapshot.projects.find((project) => project.name === "colanode/colanode");
     assert(snapshotColanode && /^[0-9a-f]{40}$/i.test(snapshotColanode.lastCommit || "") && !Number.isNaN(Date.parse(snapshotColanode.pushedAt || "")), "Colanode snapshot freshness evidence was missing");
     const shortColanodeCommit = snapshotColanode.lastCommit.slice(0, 8);
@@ -656,6 +662,8 @@ const interactionExpression = `
     assert(appFlowyCandidate.pushedAt === snapshotAppFlowy.pushedAt, "AppFlowy candidate pushedAt was stale");
     assert(affineCandidate.lastCommit === snapshotAffine.lastCommit, "AFFiNE candidate commit was stale");
     assert(affineCandidate.pushedAt === snapshotAffine.pushedAt, "AFFiNE candidate pushedAt was stale");
+    assert(outlineCandidate.lastCommit === snapshotOutline.lastCommit, "Outline candidate commit was stale");
+    assert(outlineCandidate.pushedAt === snapshotOutline.pushedAt, "Outline candidate pushedAt was stale");
     assert(benchmarkCandidate.lastCommit === snapshotColanode.lastCommit, "Colanode candidate commit was stale");
     assert(benchmarkCandidate.pushedAt === snapshotColanode.pushedAt, "Colanode candidate pushedAt was stale");
     assert(riskCandidate.lastCommit === snapshotOpenProject.lastCommit, "OpenProject candidate commit was stale");
@@ -911,6 +919,22 @@ const interactionExpression = `
     assert(affineCommit.dataset.candidatePushedAt === snapshotAffine.pushedAt, "AFFiNE pushedAt freshness marker did not render");
     const affineHref = qs(".portfolio-candidate-link", affineCard).href;
     assert(affineHref === "https://github.com/toeverything/AFFiNE" || affineHref === "https://github.com/toeverything/AFFiNE/", "AFFiNE GitHub link did not render safely");
+    fill("#globalSearch", shortOutlineCommit);
+    await waitFor(() => state.query === shortOutlineCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Outline commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + outlineCandidate.id + '"]'), "Outline portfolio card did not render after commit search");
+    const outlineCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + outlineCandidate.id + '"]');
+    const outlineText = outlineCard.innerText;
+    assert(outlineText.includes("outline/outline"), "Outline candidate card did not render");
+    assert(outlineText.includes("Markdown") && outlineText.includes("지식"), "Outline candidate description did not render");
+    assert(outlineText.includes(formatMetric(snapshotOutline.stars)), "Outline star count did not render");
+    assert(outlineText.includes(formatMetric(snapshotOutline.forks)), "Outline fork count did not render");
+    assert(outlineText.includes("TypeScript"), "Outline language did not render");
+    assert(qs("[data-candidate-action]", outlineCard).textContent.includes("스파이크"), "Outline candidate action did not render spike recommendation");
+    const outlineCommit = qs("[data-candidate-commit]", outlineCard);
+    assert(outlineCommit.dataset.candidateCommit === shortOutlineCommit, "Outline freshness commit did not render");
+    assert(outlineCommit.dataset.candidatePushedAt === snapshotOutline.pushedAt, "Outline pushedAt freshness marker did not render");
+    const outlineHref = qs(".portfolio-candidate-link", outlineCard).href;
+    assert(outlineHref === "https://github.com/outline/outline" || outlineHref === "https://github.com/outline/outline/", "Outline GitHub link did not render safely");
     fill("#globalSearch", shortEpicenterCommit);
     await waitFor(() => state.query === shortEpicenterCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Epicenter commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + epicenterCandidate.id + '"]'), "Epicenter portfolio card did not render after commit search");
@@ -1066,6 +1090,7 @@ const interactionExpression = `
     planeCandidateFreshnessVisibleOk = true;
     appFlowyCandidateFreshnessVisibleOk = true;
     affineCandidateFreshnessVisibleOk = true;
+    outlineCandidateFreshnessVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
     leantimeCandidateFreshnessVisibleOk = true;
@@ -1305,6 +1330,7 @@ const interactionExpression = `
     planeCandidateFreshnessVisible: planeCandidateFreshnessVisibleOk,
     appFlowyCandidateFreshnessVisible: appFlowyCandidateFreshnessVisibleOk,
     affineCandidateFreshnessVisible: affineCandidateFreshnessVisibleOk,
+    outlineCandidateFreshnessVisible: outlineCandidateFreshnessVisibleOk,
     workstreamCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.workstream,
     taskosaurCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.taskosaur,
     markdownTaskManagerCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.markdownTaskManager,
