@@ -25,6 +25,29 @@ def _relative_workspace_path(path: Path) -> str:
         return str(path)
 
 
+_MISSING = object()
+
+
+def _present_value(mapping: dict[str, Any], key: str, default: Any = None) -> Any:
+    value = mapping.get(key, _MISSING)
+    return default if value is _MISSING or value is None else value
+
+
+def _text_field(mapping: dict[str, Any], key: str, default: str = "") -> str:
+    return str(_present_value(mapping, key, default))
+
+
+def _int_field(mapping: dict[str, Any], key: str, default: int = 0) -> int:
+    try:
+        return int(_present_value(mapping, key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _bool_field(mapping: dict[str, Any], key: str, default: bool = False) -> bool:
+    return bool(_present_value(mapping, key, default))
+
+
 def _latest_workspace_file(patterns: tuple[str, ...], *, skip_validated_status: bool = False) -> Path | None:
     candidates: list[Path] = []
     for pattern in patterns:
@@ -300,7 +323,7 @@ def _credential_next_unblock_overview() -> dict[str, Any] | None:
     if not isinstance(raw_next, dict):
         return None
 
-    boundary_id = str(raw_next.get("boundary_id", ""))
+    boundary_id = _text_field(raw_next, "boundary_id")
     raw_boundaries = payload.get("boundaries") if isinstance(payload.get("boundaries"), list) else []
     boundaries_by_id = {
         str(item.get("id", "")): item for item in raw_boundaries if isinstance(item, dict)
@@ -313,16 +336,11 @@ def _credential_next_unblock_overview() -> dict[str, Any] | None:
         else []
     )
 
-    try:
-        plan_rank = int(raw_next.get("plan_rank", 0) or 0)
-    except (TypeError, ValueError):
-        plan_rank = 0
-
     return {
         "boundary_id": boundary_id,
-        "title": str(boundary.get("title") or boundary_id),
-        "plan_rank": plan_rank,
-        "live_status": str(raw_next.get("live_status", "")),
+        "title": _text_field(boundary, "title", boundary_id),
+        "plan_rank": _int_field(raw_next, "plan_rank"),
+        "live_status": _text_field(raw_next, "live_status"),
         "env_names": [str(item) for item in raw_env_names][:6],
         "verification_command_count": len(raw_commands),
         "first_verification_command": str(raw_commands[0]) if raw_commands else "",
@@ -348,19 +366,16 @@ def _credential_live_plan_overview() -> list[dict[str, Any]]:
     for item in raw_boundaries:
         if not isinstance(item, dict):
             continue
-        try:
-            plan_rank = int(item.get("plan_rank", 0) or 0)
-        except (TypeError, ValueError):
-            plan_rank = 0
+        plan_rank = _int_field(item, "plan_rank")
         raw_commands = item.get("verification_commands") if isinstance(item.get("verification_commands"), list) else []
         missing_env = item.get("missing_required_env") if isinstance(item.get("missing_required_env"), list) else []
         plan_items.append(
             {
-                "id": str(item.get("id", "")),
-                "title": str(item.get("title", item.get("id", ""))),
+                "id": _text_field(item, "id"),
+                "title": _text_field(item, "title", _text_field(item, "id")),
                 "plan_rank": plan_rank,
-                "live_status": str(item.get("live_status", "")),
-                "registry_status": str(item.get("registry_status", "")),
+                "live_status": _text_field(item, "live_status"),
+                "registry_status": _text_field(item, "registry_status"),
                 "verification_command_count": len(raw_commands),
                 "missing_required_env_count": len(missing_env),
             }
@@ -408,16 +423,13 @@ def _credential_operator_checklist_overview() -> dict[str, Any]:
         raw_steps = raw_item.get("checklist") if isinstance(raw_item.get("checklist"), list) else []
         raw_commands = raw_item.get("verify_after_unblock") if isinstance(raw_item.get("verify_after_unblock"), list) else []
         raw_env_names = raw_item.get("env_names") if isinstance(raw_item.get("env_names"), list) else []
-        try:
-            rank = int(raw_item.get("rank", 0) or 0)
-        except (TypeError, ValueError):
-            rank = 0
+        rank = _int_field(raw_item, "rank")
         steps = [
             {
-                "id": str(step.get("id", "")),
-                "label": str(step.get("label", "")),
-                "state": str(step.get("state", "")),
-                "detail": str(step.get("detail", "")),
+                "id": _text_field(step, "id"),
+                "label": _text_field(step, "label"),
+                "state": _text_field(step, "state"),
+                "detail": _text_field(step, "detail"),
             }
             for step in raw_steps
             if isinstance(step, dict)
@@ -425,11 +437,11 @@ def _credential_operator_checklist_overview() -> dict[str, Any]:
         items.append(
             {
                 "rank": rank,
-                "boundary_id": str(raw_item.get("boundary_id", "")),
-                "title": str(raw_item.get("title", raw_item.get("boundary_id", ""))),
-                "live_status": str(raw_item.get("live_status", "")),
+                "boundary_id": _text_field(raw_item, "boundary_id"),
+                "title": _text_field(raw_item, "title", _text_field(raw_item, "boundary_id")),
+                "live_status": _text_field(raw_item, "live_status"),
                 "ready_to_execute": bool(raw_item.get("ready_to_execute", False)),
-                "blocked_reason": str(raw_item.get("blocked_reason", "")),
+                "blocked_reason": _text_field(raw_item, "blocked_reason"),
                 "env_names": [str(item) for item in raw_env_names][:6],
                 "checklist": steps[:4],
                 "verification_command_count": len(raw_commands),
@@ -444,9 +456,9 @@ def _credential_operator_checklist_overview() -> dict[str, Any]:
         "path": _relative_workspace_path(report_path),
         "generated_at": payload.get("generated_at"),
         "summary": {
-            "item_count": int(raw_summary.get("item_count", len(items)) or 0),
-            "ready_to_execute": int(raw_summary.get("ready_to_execute", 0) or 0),
-            "blocked": int(raw_summary.get("blocked", 0) or 0),
+            "item_count": _int_field(raw_summary, "item_count", len(items)),
+            "ready_to_execute": _int_field(raw_summary, "ready_to_execute"),
+            "blocked": _int_field(raw_summary, "blocked"),
             "next_boundary_id": raw_summary.get("next_boundary_id"),
         },
         "items": items[:6],
@@ -474,13 +486,13 @@ def _credential_boundary_overview() -> dict[str, Any]:
         missing_env = item.get("missing_required_env") if isinstance(item.get("missing_required_env"), list) else []
         boundaries.append(
             {
-                "id": str(item.get("id", "")),
-                "title": str(item.get("title", item.get("id", ""))),
-                "status": str(item.get("status", "")),
-                "owner": str(item.get("owner", "")),
+                "id": _text_field(item, "id"),
+                "title": _text_field(item, "title", _text_field(item, "id")),
+                "status": _text_field(item, "status"),
+                "owner": _text_field(item, "owner"),
                 "missing_required_env_count": len(missing_env),
-                "optional_env_available": bool(item.get("optional_env_available", False)),
-                "evidence_count": int(item.get("evidence_count", 0) or 0),
+                "optional_env_available": _bool_field(item, "optional_env_available"),
+                "evidence_count": _int_field(item, "evidence_count"),
             }
         )
     boundaries.sort(
@@ -499,8 +511,8 @@ def _credential_boundary_overview() -> dict[str, Any]:
         "path": _relative_workspace_path(report_path),
         "generated_at": payload.get("generated_at"),
         "registry_generated_at": payload.get("registry_generated_at"),
-        "boundary_count": int(payload.get("boundary_count", len(boundaries)) or 0),
-        "missing_required_env_count": int(payload.get("missing_required_env_count", 0) or 0),
+        "boundary_count": _int_field(payload, "boundary_count", len(boundaries)),
+        "missing_required_env_count": _int_field(payload, "missing_required_env_count"),
         "missing_required_env": [str(item) for item in missing_required_env][:8],
         "status_counts": payload.get("status_counts") if isinstance(payload.get("status_counts"), dict) else {},
         "boundaries": boundaries[:6],

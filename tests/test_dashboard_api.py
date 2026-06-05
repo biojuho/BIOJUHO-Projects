@@ -458,6 +458,128 @@ class TestQualityOverview:
         assert checklist["items"][1]["blocked_reason"] == "missing operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED"
 
 
+    def test_preserves_falsy_credential_metadata_values(self, tmp_path, monkeypatch):
+        report_dir = tmp_path / "docs" / "reports" / "2026-06"
+        report_dir.mkdir(parents=True)
+        boundary_id = "zero_metadata_boundary"
+        (report_dir / "EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_2026-06-05.json").write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "generated_at": "2026-06-05T00:00:00+00:00",
+                    "registry_generated_at": "2026-06-05T03:04:31+09:00",
+                    "boundary_count": 1,
+                    "missing_required_env_count": 0,
+                    "missing_required_env": [],
+                    "status_counts": {},
+                    "boundaries": [
+                        {
+                            "id": boundary_id,
+                            "title": "",
+                            "status": "",
+                            "owner": "",
+                            "missing_required_env": [],
+                            "optional_env_available": False,
+                            "evidence_count": 0,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (report_dir / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json").write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "summary": {
+                        "next_unblock": {
+                            "boundary_id": boundary_id,
+                            "env_names": [],
+                            "live_status": "",
+                            "plan_rank": 0,
+                            "verification_commands": [],
+                        }
+                    },
+                    "boundaries": [
+                        {
+                            "id": boundary_id,
+                            "title": "",
+                            "live_status": "",
+                            "registry_status": "",
+                            "plan_rank": 0,
+                            "missing_required_env": [],
+                            "verification_commands": [],
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (report_dir / "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json").write_text(
+            json.dumps(
+                {
+                    "status": "operator_action_required",
+                    "generated_at": "2026-06-05T00:00:00+00:00",
+                    "summary": {
+                        "item_count": 1,
+                        "ready_to_execute": 0,
+                        "blocked": 1,
+                        "next_boundary_id": "",
+                        "secret_values_emitted": False,
+                    },
+                    "items": [
+                        {
+                            "rank": 0,
+                            "boundary_id": boundary_id,
+                            "title": "",
+                            "live_status": "",
+                            "ready_to_execute": False,
+                            "blocked_reason": "",
+                            "env_names": [],
+                            "verify_after_unblock": [],
+                            "checklist": [
+                                {"id": "zero_step", "label": "", "state": "", "detail": ""},
+                            ],
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(gdt_router, "WORKSPACE", tmp_path)
+
+        credential_boundaries = client.get("/api/quality_overview").json()["credential_boundaries"]
+
+        boundary = credential_boundaries["boundaries"][0]
+        assert boundary["title"] == ""
+        assert boundary["status"] == ""
+        assert boundary["owner"] == ""
+        assert boundary["optional_env_available"] is False
+        assert boundary["evidence_count"] == 0
+        next_unblock = credential_boundaries["next_unblock"]
+        assert next_unblock["title"] == ""
+        assert next_unblock["plan_rank"] == 0
+        assert next_unblock["live_status"] == ""
+        assert next_unblock["verification_command_count"] == 0
+        live_plan = credential_boundaries["live_plan"][0]
+        assert live_plan["title"] == ""
+        assert live_plan["plan_rank"] == 0
+        assert live_plan["live_status"] == ""
+        assert live_plan["registry_status"] == ""
+        checklist = credential_boundaries["operator_checklist"]
+        assert checklist["summary"]["ready_to_execute"] == 0
+        assert checklist["summary"]["next_boundary_id"] == ""
+        checklist_item = checklist["items"][0]
+        assert checklist_item["rank"] == 0
+        assert checklist_item["title"] == ""
+        assert checklist_item["ready_to_execute"] is False
+        assert checklist_item["blocked_reason"] == ""
+        assert checklist_item["verification_command_count"] == 0
+        assert checklist_item["checklist"][0]["label"] == ""
+        assert checklist_item["checklist"][0]["state"] == ""
+        assert checklist_item["checklist"][0]["detail"] == ""
+
+
 # ── /api/overview structure ────────────────────────────────────────
 
 

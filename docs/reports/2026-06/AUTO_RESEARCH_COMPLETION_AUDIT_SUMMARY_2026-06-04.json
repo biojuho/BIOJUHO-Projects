@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T10:22:27+09:00",
+  "generated_at": "2026-06-05T11:04:34+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 53
+    "covered": 54
   },
-  "criterion_count": 54,
+  "criterion_count": 55,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 31,
+          "term_count": 37,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -727,6 +727,20 @@
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_FALSY_CREDENTIAL_METADATA_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
         }
       ]
     },
@@ -990,6 +1004,41 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md",
           "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "dashboard_falsy_credential_metadata_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/dashboard/routers/gdt.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_dashboard_api.py",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_FALSY_CREDENTIAL_METADATA_2026-06-05.md",
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
