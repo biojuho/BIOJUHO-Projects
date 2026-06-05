@@ -1,12 +1,16 @@
+import { config as loadEnv } from "dotenv";
 import {
   createServer,
   type IncomingMessage,
+  type Server as HttpServer,
   type ServerResponse,
 } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+
+loadEnv({ quiet: true });
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -52,9 +56,11 @@ import {
   pendingAuthStates,
   generateCodeVerifier,
   generateAuthUrl,
+  getCanvaRedirectUri,
   exchangeCodeForToken,
   getValidAccessToken,
   canvaApiRequest,
+  isMockToken,
 } from "./auth.js";
 
 import {
@@ -72,7 +78,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const ASSETS_DIR = path.resolve(ROOT_DIR, "assets");
 
-function createCanvaServer(sessionId: string): Server {
+function normalizeBearerToken(authHeader?: string | string[]): string | null {
+  const header = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  if (!header) return null;
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const token = match[1].trim();
+  if (!token || isMockToken(token)) return null;
+  return token;
+}
+
+function getCallbackStatus() {
+  const status = process.env.CANVA_MCP_CALLBACK_STATUS || "http-server";
+  return {
+    status,
+    available: !status.startsWith("unavailable") && status !== "disabled",
+    url: getCanvaRedirectUri(),
+  };
+}
+
+export function createCanvaServer(sessionId: string): Server {
   const server = new Server(
     {
       name: "canva-mcp",
@@ -134,6 +159,51 @@ function createCanvaServer(sessionId: string): Server {
     async (request: CallToolRequest) => {
       const toolName = request.params.name;
 
+      if (toolName === "auth-status") {
+        const session = authSessions.get(sessionId);
+        const authenticated = Boolean(session);
+        const callback = getCallbackStatus();
+        return {
+          content: [
+            {
+              type: "text",
+              text: authenticated
+                ? "Canva is authenticated for this MCP session."
+                : "Canva is not authenticated for this MCP session.",
+            },
+          ],
+          structuredContent: {
+            authenticated,
+            expiresAt: session?.expiresAt ?? null,
+            sessionId,
+            callback,
+          },
+        };
+      }
+
+      if (toolName === "authenticate") {
+        const state = crypto.randomBytes(16).toString("hex");
+        const codeVerifier = generateCodeVerifier();
+        pendingAuthStates.set(state, { sessionId, createdAt: Date.now(), codeVerifier });
+        const authUrl = generateAuthUrl(state, codeVerifier);
+        const callback = getCallbackStatus();
+        return {
+          content: [
+            {
+              type: "text",
+              text: callback.available
+                ? `Authenticate with Canva by visiting: ${authUrl}`
+                : `Authenticate with Canva by visiting: ${authUrl}\n\nWarning: the local OAuth callback server is not available (${callback.status}). The redirect URL is ${callback.url}.`,
+            },
+          ],
+          structuredContent: {
+            authUrl,
+            state,
+            callback,
+          },
+        };
+      }
+
       // Check authentication for all tools
       // First check if we have session tokens
       let accessToken: string | null = null;
@@ -144,14 +214,11 @@ function createCanvaServer(sessionId: string): Server {
         // Fallback: Check for Authorization header stored in session (from HTTP request)
         // This allows tokens from user profile to be passed via headers
         const storedAuthHeader = sessionAuthHeaders.get(sessionId);
-        if (storedAuthHeader && storedAuthHeader.startsWith("Bearer ")) {
-          accessToken = storedAuthHeader.substring(7);
-          // Store in session for future use (without refresh token - will need re-auth when expired)
-          authSessions.set(sessionId, {
-            accessToken: accessToken,
-            refreshToken: "", // We don't have refresh token from header
-            expiresAt: Date.now() + 3600000, // Assume 1 hour expiration
-          });
+        const tokenFromHeader = normalizeBearerToken(storedAuthHeader);
+        if (tokenFromHeader) {
+          accessToken = tokenFromHeader;
+        } else if (storedAuthHeader) {
+          sessionAuthHeaders.delete(sessionId);
         }
       }
 
@@ -427,13 +494,23 @@ async function handleSseRequest(res: ServerResponse, sessionId?: string, authHea
   transportToSessionId.set(transport.sessionId, actualSessionId);
 
   // Store auth header if provided (use actualSessionId which matches the closure in createCanvaServer)
-  if (authHeader) {
-    sessionAuthHeaders.set(actualSessionId, authHeader);
+  const normalizedAuthHeader = normalizeBearerToken(authHeader);
+  if (normalizedAuthHeader) {
+    sessionAuthHeaders.set(actualSessionId, `Bearer ${normalizedAuthHeader}`);
   }
 
-  sessions.set(transport.sessionId, { server, transport, authHeader });
+  if (authHeader && !normalizedAuthHeader) {
+    sessionAuthHeaders.delete(actualSessionId);
+  }
+
+  sessions.set(transport.sessionId, {
+    server,
+    transport,
+    authHeader: normalizedAuthHeader ? `Bearer ${normalizedAuthHeader}` : undefined,
+  });
 
   transport.onclose = async () => {
+    if (!sessions.has(transport.sessionId)) return;
     const mappedSessionId = transportToSessionId.get(transport.sessionId);
     if (mappedSessionId) {
       sessionAuthHeaders.delete(mappedSessionId);
@@ -481,15 +558,25 @@ async function handlePostMessage(
   // Extract Authorization header from HTTP request and store in session
   const authHeader = req.headers.authorization || req.headers.Authorization;
   if (authHeader) {
-    const authHeaderStr = typeof authHeader === "string" ? authHeader : authHeader[0];
-    session.authHeader = authHeaderStr;
-    // Map transport.sessionId to actualSessionId and store authHeader with actualSessionId
-    const actualSessionId = transportToSessionId.get(sessionId);
-    if (actualSessionId) {
-      sessionAuthHeaders.set(actualSessionId, authHeaderStr);
+    const authHeaderStr = authHeader;
+    const tokenFromHeader = normalizeBearerToken(authHeaderStr);
+    if (tokenFromHeader) {
+      session.authHeader = `Bearer ${tokenFromHeader}`;
+      // Map transport.sessionId to actualSessionId and store authHeader with actualSessionId
+      const actualSessionId = transportToSessionId.get(sessionId);
+      if (actualSessionId) {
+        sessionAuthHeaders.set(actualSessionId, `Bearer ${tokenFromHeader}`);
+      } else {
+        // Fallback: also store with transport.sessionId in case mapping doesn't exist yet
+        sessionAuthHeaders.set(sessionId, `Bearer ${tokenFromHeader}`);
+      }
     } else {
-      // Fallback: also store with transport.sessionId in case mapping doesn't exist yet
-      sessionAuthHeaders.set(sessionId, authHeaderStr);
+      session.authHeader = undefined;
+      sessionAuthHeaders.delete(sessionId);
+      const actualSessionId = transportToSessionId.get(sessionId);
+      if (actualSessionId) {
+        sessionAuthHeaders.delete(actualSessionId);
+      }
     }
   }
 
@@ -566,7 +653,9 @@ async function handleAuthCallback(req: IncomingMessage, res: ServerResponse, url
       </html>
     `);
   } catch (error: any) {
-    console.error("Failed to exchange code for token", error);
+    if (process.env.CANVA_MCP_QUIET_AUTH_ERRORS !== "true") {
+      console.error("Failed to exchange code for token", error);
+    }
     res.writeHead(500, { "Content-Type": "text/html" }).end(`
       <html>
         <body>
@@ -607,8 +696,9 @@ function setCorsHeaders(res: ServerResponse, origin?: string) {
   res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
 }
 
-const httpServer = createServer(
-  async (req: IncomingMessage, res: ServerResponse) => {
+function createCanvaHttpServer(): HttpServer {
+  const httpServer = createServer(
+    async (req: IncomingMessage, res: ServerResponse) => {
     const rawOrigin = req.headers.origin;
     const origin = Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin;
 
@@ -640,7 +730,7 @@ const httpServer = createServer(
       // Extract Authorization header if present
       const authHeader = req.headers.authorization || req.headers.Authorization;
       const authHeaderStr = authHeader ? (typeof authHeader === "string" ? authHeader : authHeader[0]) : undefined;
-      await handleSseRequest(res, undefined, authHeaderStr);
+      await handleSseRequest(res, url.searchParams.get("sessionId") || undefined, authHeaderStr);
       return;
     }
 
@@ -691,21 +781,61 @@ const httpServer = createServer(
     }
 
     res.writeHead(404).end("Not Found");
-  }
-);
+    }
+  );
 
-httpServer.on("clientError", (err: Error, socket) => {
-  console.error("HTTP client error", err);
-  socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
-});
+  httpServer.on("clientError", (err: Error, socket) => {
+    console.error("HTTP client error", err);
+    socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+  });
 
-httpServer.listen(port, '0.0.0.0', () => {
-  console.log(`Canva MCP server listening on http://0.0.0.0:${port}`);
-  console.log(`  SSE stream: GET http://0.0.0.0:${port}${ssePath}`);
-  console.log(`  Message post endpoint: POST http://0.0.0.0:${port}${postPath}?sessionId=...`);
-  console.log(`  OAuth callback: GET http://0.0.0.0:${port}${authCallbackPath}`);
-  console.log(`\nMake sure to set your environment variables:`);
-  console.log(`  CANVA_CLIENT_ID=<your_client_id>`);
-  console.log(`  CANVA_CLIENT_SECRET=<your_client_secret>`);
-  console.log(`  CANVA_REDIRECT_URI=${process.env.CANVA_REDIRECT_URI || "http://127.0.0.1:8001/auth/callback"}`);
-});
+  return httpServer;
+}
+
+export function startCanvaHttpServer(options?: {
+  host?: string;
+  port?: number;
+  log?: boolean;
+}): Promise<HttpServer> {
+  const host = options?.host ?? "0.0.0.0";
+  const listenPort = options?.port ?? port;
+  const shouldLog = options?.log ?? true;
+  const httpServer = createCanvaHttpServer();
+
+  return new Promise((resolve, reject) => {
+    const onError = (error: Error) => {
+      httpServer.off("listening", onListening);
+      reject(error);
+    };
+
+    const onListening = () => {
+      httpServer.off("error", onError);
+      if (shouldLog) {
+        console.log(`Canva MCP server listening on http://${host}:${listenPort}`);
+        console.log(`  SSE stream: GET http://${host}:${listenPort}${ssePath}`);
+        console.log(`  Message post endpoint: POST http://${host}:${listenPort}${postPath}?sessionId=...`);
+        console.log(`  OAuth callback: GET http://${host}:${listenPort}${authCallbackPath}`);
+        console.log(`\nMake sure to set your environment variables:`);
+        console.log(`  CANVA_CLIENT_ID=<your_client_id>`);
+        console.log(`  CANVA_CLIENT_SECRET=<your_client_secret>`);
+        console.log(`  CANVA_REDIRECT_URI=${process.env.CANVA_REDIRECT_URI || "http://127.0.0.1:8001/auth/callback"}`);
+      }
+      resolve(httpServer);
+    };
+
+    httpServer.once("error", onError);
+    httpServer.once("listening", onListening);
+    httpServer.listen(listenPort, host);
+  });
+}
+
+const isDirectRun =
+  process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  startCanvaHttpServer().catch((error) => {
+    console.error("Failed to start Canva MCP HTTP server", error);
+    process.exitCode = 1;
+  });
+}

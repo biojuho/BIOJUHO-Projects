@@ -33,12 +33,15 @@
   - `tests/test_mcp_service_inventory.py`
   - `docs/reports/2026-06/MCP_SERVICE_INVENTORY_2026-06-05.md`
   - `mcp/canva-mcp/src/server/server.ts`
+  - `mcp/canva-mcp/src/server/stdio.ts`
   - `mcp/canva-mcp/src/server/tools.ts`
   - `mcp/canva-mcp/tests/tool-inventory.test.mjs`
+  - `mcp/canva-mcp/tests/stdio-auth.test.mjs`
   - `mcp/desci-research-mcp/server.py`
   - `mcp/telegram-mcp/server.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_STDIO_AUTH_CONTRACT_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md`
-- Gap: No remaining structural gap for tracked MCP service inventory and composition metadata; future work can connect the inventory to live MCP health probes.
+- Gap: No remaining structural gap for tracked MCP service inventory, stdio/http transport entrypoints, and composition metadata; future work can connect the inventory to live MCP health probes.
 
 ### lastmile-ai/mcp-eval
 

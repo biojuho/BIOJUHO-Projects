@@ -24,10 +24,13 @@
 - Entrypoints:
   - `mcp/canva-mcp/package.json`
   - `mcp/canva-mcp/src/server/server.ts`
+  - `mcp/canva-mcp/src/server/stdio.ts`
   - `mcp/canva-mcp/src/server/tools.ts`
 - Evidence:
   - `mcp/canva-mcp/tests/tool-inventory.test.mjs`
+  - `mcp/canva-mcp/tests/stdio-auth.test.mjs`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_TOOL_INVENTORY_GUARD_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_STDIO_AUTH_CONTRACT_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md`
 
 ### desci-research-mcp

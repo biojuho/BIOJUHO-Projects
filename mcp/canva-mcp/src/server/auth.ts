@@ -1,14 +1,148 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Canva OAuth configuration
 const CANVA_CLIENT_ID = process.env.CANVA_CLIENT_ID || "";
 const CANVA_CLIENT_SECRET = process.env.CANVA_CLIENT_SECRET || "";
-const CANVA_REDIRECT_URI = process.env.CANVA_REDIRECT_URI || "http://127.0.0.1:8001/auth/callback";
+const CANVA_REDIRECT_URI = process.env.CANVA_REDIRECT_URI || "http://localhost:8001/auth/callback";
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
+const MOCK_TOKEN_PREFIX = "mock_canva_";
 
-// Store OAuth state and tokens in memory (use database in production)
-export const authSessions = new Map<string, { accessToken: string; refreshToken: string; expiresAt: number }>();
+export function getCanvaRedirectUri(): string {
+  return CANVA_REDIRECT_URI;
+}
+
+export function isMockToken(value: string): boolean {
+  return value.trim().toLowerCase().startsWith(MOCK_TOKEN_PREFIX);
+}
+
+function isUsableSession(
+  session: { accessToken: string; refreshToken: string; expiresAt: number } | undefined
+): session is { accessToken: string; refreshToken: string; expiresAt: number } {
+  if (!session) {
+    return false;
+  }
+  if (
+    !session.accessToken ||
+    !session.refreshToken ||
+    !session.expiresAt ||
+    isMockToken(session.accessToken) ||
+    isMockToken(session.refreshToken)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+class PersistentAuthSessions {
+  private filePath: string;
+  private memoryMap = new Map<string, { accessToken: string; refreshToken: string; expiresAt: number }>();
+  private useFileStore: boolean;
+
+  constructor() {
+    this.useFileStore = process.env.TOKEN_STORE === "file";
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const rootDir = path.resolve(__dirname, "..", "..");
+    this.filePath = process.env.TOKEN_STORE_PATH || path.join(rootDir, "data", "tokens.json");
+
+    if (this.useFileStore) {
+      // Ensure the parent directory exists
+      const dir = path.dirname(this.filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      this.loadFromFile();
+    }
+  }
+
+  private loadFromFile() {
+    if (!fs.existsSync(this.filePath)) {
+      this.memoryMap.clear();
+      return;
+    }
+    try {
+      const raw = fs.readFileSync(this.filePath, "utf-8");
+      const data = JSON.parse(raw);
+      this.memoryMap.clear();
+      for (const [key, val] of Object.entries(data)) {
+        const session = val as any;
+        if (isUsableSession(session)) {
+          this.memoryMap.set(key, session);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load tokens from file:", e);
+    }
+  }
+
+  private saveToFile() {
+    if (!this.useFileStore) return;
+    try {
+      const data: Record<string, any> = {};
+      for (const [key, val] of this.memoryMap.entries()) {
+        data[key] = val;
+      }
+      const tmpPath = `${this.filePath}.tmp`;
+      fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), "utf-8");
+      fs.renameSync(tmpPath, this.filePath);
+    } catch (e) {
+      console.error("Failed to save tokens to file:", e);
+    }
+  }
+
+  has(key: string): boolean {
+    if (this.useFileStore) {
+      this.loadFromFile();
+    }
+    const session = this.memoryMap.get(key);
+    if (!isUsableSession(session)) {
+      if (session) {
+        this.memoryMap.delete(key);
+        this.saveToFile();
+      }
+      return false;
+    }
+    return true;
+  }
+
+  get(key: string) {
+    if (this.useFileStore) {
+      this.loadFromFile();
+    }
+    const session = this.memoryMap.get(key);
+    if (!isUsableSession(session)) {
+      if (session) {
+        this.memoryMap.delete(key);
+        this.saveToFile();
+      }
+      return undefined;
+    }
+    return session;
+  }
+
+  set(key: string, value: { accessToken: string; refreshToken: string; expiresAt: number }) {
+    this.memoryMap.set(key, value);
+    if (this.useFileStore) {
+      this.saveToFile();
+    }
+    return this;
+  }
+
+  delete(key: string): boolean {
+    const result = this.memoryMap.delete(key);
+    if (this.useFileStore) {
+      this.saveToFile();
+    }
+    return result;
+  }
+}
+
+// Store OAuth state and tokens in memory (or file if TOKEN_STORE=file)
+export const authSessions = new PersistentAuthSessions();
 export const pendingAuthStates = new Map<string, { sessionId: string; createdAt: number; codeVerifier: string }>();
+
 
 // OAuth helper functions with PKCE
 export function generateCodeVerifier(): string {

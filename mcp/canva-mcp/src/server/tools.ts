@@ -137,6 +137,34 @@ widgets.forEach((widget) => {
 
 export const tools: Tool[] = [
   {
+    name: "auth-status",
+    description: "Check whether the current Canva MCP session has usable Canva OAuth tokens. This does not call the Canva API and is safe to run before any other tool.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    } as any,
+    annotations: {
+      destructiveHint: false,
+      openWorldHint: false,
+      readOnlyHint: true,
+    },
+  },
+  {
+    name: "authenticate",
+    description: "Create a Canva OAuth authorization URL for the current MCP session. Use this when auth-status reports that Canva is not connected.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    } as any,
+    annotations: {
+      destructiveHint: false,
+      openWorldHint: false,
+      readOnlyHint: true,
+    },
+  },
+  {
     name: "upload-asset-from-url",
     description: 'Upload an asset (e.g. an image, a video) from a URL into Canva. If the API call returns "Missing scopes: [asset:write]", you should ask the user to disconnect and reconnect their connector. This will generate a new access token with the required scope for this tool.',
     inputSchema: uploadAssetFromUrlSchema as any,
