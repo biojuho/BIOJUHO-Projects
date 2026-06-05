@@ -28,7 +28,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from workspace_paths import find_workspace_root, rel_unit_path  # noqa: E402
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
 EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output|archive|var)([\\/]|$)"
 TAIL_LINE_COUNT = 20
@@ -945,10 +945,39 @@ def write_json_report(
     tmp_path.replace(out_path)
 
 
-def write_mcp_trace_export(out_path: Path, results: Sequence[Result]) -> None:
+def drain_mcp_trace_events(
+    events: "Iterable[dict[str, object]]",
+    *,
+    event_stream_handler: "Callable[[Iterable[dict[str, object]]], object] | None" = None,
+) -> list[dict[str, object]]:
+    iterator = iter(events)
+    drained: list[dict[str, object]] = []
+
+    if event_stream_handler is not None:
+        def observed_events() -> "Iterable[dict[str, object]]":
+            for event in iterator:
+                drained.append(event)
+                yield event
+
+        event_stream_handler(observed_events())
+
+    for event in iterator:
+        drained.append(event)
+    return drained
+
+
+def write_mcp_trace_export(
+    out_path: Path,
+    results: Sequence[Result],
+    *,
+    event_stream_handler: "Callable[[Iterable[dict[str, object]]], object] | None" = None,
+) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = out_path.with_name(f".{out_path.name}.tmp")
-    events = build_mcp_trace_events(results)
+    events = drain_mcp_trace_events(
+        build_mcp_trace_events(results),
+        event_stream_handler=event_stream_handler,
+    )
     content = "".join(f"{json.dumps(event, ensure_ascii=False)}\n" for event in events)
     tmp_path.write_text(content, encoding="utf-8")
     tmp_path.replace(out_path)

@@ -39,6 +39,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "mcp_runtime_subprocess_smoke",
         "mcp_service_runtime_smoke",
         "mcp_otel_collector_handoff",
+        "workspace_smoke_trace_drain_guard",
         "agent_workflow_gate_runner",
         "agent_workflow_gate_safety",
         "agent_workflow_gate_matrix",

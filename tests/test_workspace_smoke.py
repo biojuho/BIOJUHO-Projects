@@ -216,6 +216,38 @@ def test_build_mcp_trace_events_exports_jsonl_ready_rows() -> None:
     assert events[0]["stderr_tail"] == "failed"
 
 
+def test_drain_mcp_trace_events_drains_after_handler_ignores_stream() -> None:
+    smoke = load_smoke_module()
+    events = [
+        {"name": "first", "event_type": "workspace_smoke.mcp_check"},
+        {"name": "second", "event_type": "workspace_smoke.mcp_check"},
+    ]
+
+    drained = smoke.drain_mcp_trace_events(
+        events,
+        event_stream_handler=lambda stream: None,
+    )
+
+    assert [event["name"] for event in drained] == ["first", "second"]
+
+
+def test_drain_mcp_trace_events_drains_after_handler_reads_prefix() -> None:
+    smoke = load_smoke_module()
+    events = [
+        {"name": "first", "event_type": "workspace_smoke.mcp_check"},
+        {"name": "second", "event_type": "workspace_smoke.mcp_check"},
+    ]
+    consumed = []
+
+    def handler(stream):
+        consumed.append(next(iter(stream))["name"])
+
+    drained = smoke.drain_mcp_trace_events(events, event_stream_handler=handler)
+
+    assert consumed == ["first"]
+    assert [event["name"] for event in drained] == ["first", "second"]
+
+
 def test_build_mcp_otel_export_uses_file_exporter_shape() -> None:
     smoke = load_smoke_module()
     results = [
@@ -672,12 +704,13 @@ def test_write_mcp_trace_export_replaces_existing_jsonl(tmp_path) -> None:
     results = [
         smoke.Result("workspace", "fake check", ".", "python -V", 0, True, "ok", ""),
         smoke.Result("mcp", "DailyNews unit tests", "automation/DailyNews", "python -m pytest tests/unit", 0, True, "ok", ""),
+        smoke.Result("mcp", "Canva MCP tools", "mcp/canva-mcp", "npm run test", 0, True, "ok", ""),
     ]
 
-    smoke.write_mcp_trace_export(trace_path, results)
+    smoke.write_mcp_trace_export(trace_path, results, event_stream_handler=lambda stream: None)
 
     lines = trace_path.read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 1
+    assert len(lines) == 2
     event = json.loads(lines[0])
     assert event["event_type"] == "workspace_smoke.mcp_check"
     assert event["name"] == "DailyNews unit tests"

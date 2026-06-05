@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:30:00+09:00",
+  "generated_at": "2026-06-05T09:40:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -1735,6 +1735,41 @@
             "OpenTelemetry Collector",
             "future-scoped/operator-owned",
             "validator status `pass`"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workspace_smoke_trace_drain_guard",
+      "requirement": "MCP trace JSONL export drains all generated trace events even if a future event-stream observer does not consume them.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/run_workspace_smoke.py",
+          "must_contain": [
+            "drain_mcp_trace_events",
+            "event_stream_handler",
+            "write_mcp_trace_export",
+            "for event in iterator"
+          ]
+        },
+        {
+          "path": "tests/test_workspace_smoke.py",
+          "must_contain": [
+            "test_drain_mcp_trace_events_drains_after_handler_ignores_stream",
+            "test_drain_mcp_trace_events_drains_after_handler_reads_prefix",
+            "event_stream_handler=lambda stream: None"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Workspace Smoke Trace Drain Guard",
+            "pydantic/pydantic-ai",
+            "event_stream_handler doesn't consume the stream",
+            "drain_mcp_trace_events",
+            "global_objective_complete=false"
           ]
         }
       ]
