@@ -215,6 +215,8 @@ function workspaceCandidateSnapshot(relPath) {
     "EpicenterHQ/epicenter",
     "OpenLoaf/OpenLoaf",
     "makeplane/plane",
+    "AppFlowy-IO/AppFlowy",
+    "toeverything/AFFiNE",
     "happybhati/workstream",
     "colanode/colanode",
     "anyproto/anytype-ts",
@@ -243,6 +245,16 @@ function workspaceCandidateSnapshot(relPath) {
       key: "plane",
       name: "makeplane/plane",
       sourceMarker: "github-api:plane-freshness-refresh",
+    },
+    {
+      key: "appFlowy",
+      name: "AppFlowy-IO/AppFlowy",
+      sourceMarker: "github-api:appflowy-freshness-refresh",
+    },
+    {
+      key: "affine",
+      name: "toeverything/AFFiNE",
+      sourceMarker: "github-api:affine-freshness-refresh",
     },
     {
       key: "colanode",
@@ -418,7 +430,7 @@ function smokeRelease() {
   let result;
   try {
     result = run(process.execPath, ["scripts/smoke-release.mjs"], {
-      timeout: 180000,
+      timeout: 300000,
       env: { RELEASE_OUT_DIR: releaseOutDir },
     });
   } finally {
@@ -776,6 +788,39 @@ function buildChecklist() {
     requirement: "The portfolio includes Plane as a researched PM benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and risk-review metadata.",
     status: planeFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: planeFreshnessUiTerms,
+  });
+
+  const appFlowyFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["AppFlowy-IO/AppFlowy", "github-search:appflowy-workspace-benchmark", "github-api:appflowy-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAppFlowy", "shortAppFlowyCommit", "AppFlowy freshness commit did not render", "appFlowyCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_workspace_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes AppFlowy as a researched workspace benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and risk-review metadata.",
+    status: appFlowyFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appFlowyFreshnessUiTerms,
+  });
+
+  const affineFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["toeverything/AFFiNE", "github-search:affine-workspace-benchmark", "github-api:affine-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAffine", "shortAffineCommit", "AFFiNE freshness commit did not render", "affineCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "affine_workspace_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes AFFiNE as a researched workspace benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and risk-review metadata.",
+    status: affineFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: affineFreshnessUiTerms,
+  });
+
+  const appflowyAffineFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["AppFlowy-IO/AppFlowy", "toeverything/AFFiNE", "github-search:appflowy-affine-benchmark", "github-api:appflowy-freshness-refresh", "github-api:affine-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAppFlowy", "shortAppFlowyCommit", "AppFlowy freshness commit did not render", "appFlowyCandidateFreshnessVisible", "snapshotAffine", "shortAffineCommit", "AFFiNE freshness commit did not render", "affineCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes AppFlowy and AFFiNE as researched knowledge-workspace benchmark candidates and interaction smoke can find both by current GitHub commit with popularity and risk-review metadata.",
+    status: appflowyAffineFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineFreshnessUiTerms,
   });
 
   const veritasFreshnessUiTerms = [
