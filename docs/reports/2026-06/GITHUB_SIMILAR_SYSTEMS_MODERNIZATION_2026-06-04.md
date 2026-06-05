@@ -3,7 +3,7 @@
 ## Summary
 
 - Sources reviewed: 6
-- Adoption counts: adopted=1, partially_adopted=4, watch=1
+- Adoption counts: adopted=2, partially_adopted=3, watch=1
 - Generated at: `2026-06-04T12:25:00+09:00`
 
 ## Search Context
@@ -47,10 +47,13 @@
 - Local evidence:
   - `ops/scripts/run_workspace_smoke.py`
   - `ops/scripts/workspace_smoke_report.py`
+  - `ops/scripts/mcp_smoke_trace_metrics.py`
+  - `tests/test_mcp_smoke_trace_metrics.py`
   - `apps/desci-platform/scripts/product_smoke.py`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `docs/QUALITY_GATE.md`
-- Gap: MCP-specific trace metrics are not yet first-class in the workspace smoke schema.
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md`
+- Gap: MCP smoke trace metrics now have a deterministic offline post-processor; OpenTelemetry-style timing and path-depth metrics remain future scoped work.
 
 ### evalstate/fast-agent
 
@@ -107,7 +110,7 @@
 
 - URL: https://github.com/Uninen/devserver-mcp
 - Category: `devserver-observability`
-- Adoption status: `partially_adopted`
+- Adoption status: `adopted`
 - Why similar: MCP-driven development server manager with process monitoring, log visibility, and Playwright automation.
 - Observed patterns:
   - multiple local service process monitoring
@@ -116,12 +119,17 @@
 - Local evidence:
   - `ops/references/dev_server_targets.json`
   - `ops/scripts/dev_server_status.py`
+  - `ops/scripts/dev_server_control.py`
   - `tests/test_dev_server_status.py`
+  - `tests/test_dev_server_control.py`
+  - `docs/guides/dev-server-control.md`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `apps/dashboard/src/components/QualityPanel.jsx`
   - `ops/scripts/workspace_smoke_report.py`
   - `docs/QUALITY_GATE.md`
-- Gap: The workspace now has a manifest-backed live dev-server readiness probe; start-stop orchestration and log tailing remain future scoped work.
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_CONTROL_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_RUNBOOK_2026-06-04.md`
+- Gap: No remaining structural gap for manifest-backed dev-server readiness, dependency-aware start-stop, log tailing, and operator runbook coverage; keep browser evidence current as target apps change.
 
 ## Operating Decision
 
