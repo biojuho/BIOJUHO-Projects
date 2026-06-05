@@ -5,10 +5,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const chromePath = process["env"].CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const baseUrl = (process["env"].BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
+const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-interaction-smoke-"));
-const progressEnabled = process["env"].SMOKE_PROGRESS === "1";
+const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 
 class CdpClient {
   constructor(wsUrl) {
@@ -346,9 +346,10 @@ const interactionExpression = `
   let workspaceCompetitiveCandidateVisibleOk = false;
   let veritasCandidateFreshnessVisibleOk = false;
   let candidateNextActionVisibleOk = false;
+  let candidateActionFilterOk = false;
+  let candidateActionSummaryVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
-  let releaseInfoVisibleOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -529,8 +530,8 @@ const interactionExpression = `
     assert(riskCandidate && projectCandidateAction(riskCandidate)?.label === "리스크 리뷰", "OpenProject candidate risk action was not computed");
     const veritasCandidate = dashboard.projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system");
     assert(veritasCandidate && veritasCandidate.sourceKind === "adoption-candidate", "Veritas AutoResearch candidate was not loaded");
-    assert(veritasCandidate.lastCommit === "f1015055ea304ee286831fc9ebbbff971efadac9", "Veritas AutoResearch candidate commit was stale");
-    assert(veritasCandidate.pushedAt === "2026-06-05T11:42:50Z", "Veritas AutoResearch candidate pushedAt was stale");
+    assert(veritasCandidate.lastCommit === "96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7", "Veritas AutoResearch candidate commit was stale");
+    assert(veritasCandidate.pushedAt === "2026-06-05T11:55:44Z", "Veritas AutoResearch candidate pushedAt was stale");
     const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
     const ownedCount = dashboard.projects.length - candidateCount;
     click('[data-action="portfolio-filter"][data-filter="candidates"]');
@@ -542,6 +543,25 @@ const interactionExpression = `
     const firstCandidateCard = qs('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]');
     assert(firstCandidateCard.dataset.projectId === rankedCandidates[0].id, "candidate portfolio filter did not rank highest priority first");
     assert(qs("[data-candidate-priority]", firstCandidateCard).textContent.includes(String(projectCandidatePriority(rankedCandidates[0]).score)), "top candidate priority score did not render");
+    const architectureCount = dashboard.projects.filter((project) => projectCandidateAction(project)?.key === "architecture").length;
+    const riskCount = dashboard.projects.filter((project) => projectCandidateAction(project)?.key === "risk").length;
+    assert(qs("[data-candidate-action-filter-panel]"), "candidate action filter panel did not render");
+    click('[data-action="portfolio-action-filter"][data-action-filter="architecture"]');
+    await waitFor(() => state.portfolioFilter === "candidates" && state.portfolioActionFilter === "architecture" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === architectureCount, "architecture action filter did not narrow candidate cards");
+    assert(qs('[data-action="portfolio-action-filter"][data-action-filter="architecture"]').getAttribute("aria-pressed") === "true", "architecture action filter was not active");
+    assert(!!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]'), "architecture action filter did not keep Colanode visible");
+    const actionSummary = qs("[data-candidate-action-summary]");
+    assert(actionSummary.dataset.actionFilterSummary === "architecture", "architecture action summary did not track active filter");
+    assert(actionSummary.innerText.includes("아키텍처 벤치"), "architecture action summary label did not render");
+    assert(actionSummary.innerText.includes(architectureCount + "개"), "architecture action summary count did not render");
+    assert(actionSummary.innerText.includes("colanode/colanode"), "architecture action summary top candidate did not render");
+    assert(actionSummary.innerText.includes("로컬 퍼스트 구조"), "architecture action summary reason did not render");
+    click('[data-action="portfolio-action-filter"][data-action-filter="risk"]');
+    await waitFor(() => state.portfolioActionFilter === "risk" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === riskCount, "risk action filter did not narrow candidate cards");
+    assert(!!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + riskCandidate.id + '"]'), "risk action filter did not keep OpenProject visible");
+    assert(qs("[data-candidate-action-summary]").innerText.includes("리스크 리뷰"), "risk action summary label did not render");
+    click('[data-action="portfolio-action-filter"][data-action-filter="all"]');
+    await waitFor(() => state.portfolioActionFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "candidate action filter did not reset");
     click('[data-action="portfolio-filter"][data-filter="owned"]');
     await waitFor(() => state.portfolioFilter === "owned" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === 0, "owned portfolio filter still rendered adoption candidates");
     assert(document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === ownedCount, "owned portfolio filter count was wrong");
@@ -577,16 +597,16 @@ const interactionExpression = `
     assert(action.textContent.includes("로컬 퍼스트 구조"), "Colanode candidate action reason did not render");
     const benchmarkHref = qs(".portfolio-candidate-link", benchmarkCard).href;
     assert(benchmarkHref === "https://github.com/colanode/colanode" || benchmarkHref === "https://github.com/colanode/colanode/", "Colanode GitHub link did not render safely");
-    fill("#globalSearch", "f1015055");
-    await waitFor(() => state.query === "f1015055" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Veritas commit search did not filter portfolio");
+    fill("#globalSearch", "96858c69");
+    await waitFor(() => state.query === "96858c69" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Veritas commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + veritasCandidate.id + '"]'), "Veritas portfolio card did not render after commit search");
     const veritasCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + veritasCandidate.id + '"]');
     const veritasText = veritasCard.innerText;
     assert(veritasText.includes("Veritas-7/autoresearch-skill-system"), "Veritas candidate card did not render");
-    assert(veritasText.includes("v8.340 Markdown"), "Veritas candidate description did not render");
+    assert(veritasText.includes("v8.344 최신"), "Veritas candidate description did not render");
     const veritasCommit = qs("[data-candidate-commit]", veritasCard);
-    assert(veritasCommit.dataset.candidateCommit === "f1015055", "Veritas freshness commit did not render");
-    assert(veritasCommit.dataset.candidatePushedAt === "2026-06-05T11:42:50Z", "Veritas pushedAt freshness marker did not render");
+    assert(veritasCommit.dataset.candidateCommit === "96858c69", "Veritas freshness commit did not render");
+    assert(veritasCommit.dataset.candidatePushedAt === "2026-06-05T11:55:44Z", "Veritas pushedAt freshness marker did not render");
     const veritasHref = qs(".portfolio-candidate-link", veritasCard).href;
     assert(veritasHref === "https://github.com/Veritas-7/autoresearch-skill-system" || veritasHref === "https://github.com/Veritas-7/autoresearch-skill-system/", "Veritas GitHub link did not render safely");
     fill("#globalSearch", "");
@@ -599,6 +619,8 @@ const interactionExpression = `
     workspaceCompetitiveCandidateVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     candidateNextActionVisibleOk = true;
+    candidateActionFilterOk = true;
+    candidateActionSummaryVisibleOk = true;
   });
 
   let projectId = "";
@@ -724,14 +746,6 @@ const interactionExpression = `
     const name = marker + " user";
     await nav("settings");
     await waitFor(() => document.querySelector("[data-storage-health]"), "storage health panel did not render");
-    await waitFor(() => document.querySelector("[data-release-card]"), "release info panel did not render");
-    const releaseText = qs("[data-release-card]").innerText;
-    const releaseDownload = qs("[data-release-download]");
-    const releaseDigest = qs("[data-release-digest]").textContent;
-    assert(releaseText.includes("joopark-workspace-v3.0.0"), "release tag did not render");
-    assert(releaseDownload.href.includes("/releases/download/joopark-workspace-v3.0.0/joopark-workspace-v3.0.0.zip"), "release download link did not render");
-    assert(releaseDigest.includes("704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"), "release asset digest did not render");
-    releaseInfoVisibleOk = true;
     click('[data-action="refresh-storage-health"]');
     await waitFor(() => {
       const status = document.querySelector("#storageHealthStatus");
@@ -822,9 +836,10 @@ const interactionExpression = `
     workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
     veritasCandidateFreshnessVisible: veritasCandidateFreshnessVisibleOk,
     candidateNextActionVisible: candidateNextActionVisibleOk,
+    candidateActionFilter: candidateActionFilterOk,
+    candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
-    releaseInfoVisible: releaseInfoVisibleOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);

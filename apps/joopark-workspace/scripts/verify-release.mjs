@@ -14,6 +14,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const releaseDir = process.argv[2] ? resolve(root, process.argv[2]) : join(root, "dist", "release");
 const manifestPath = join(releaseDir, "release-manifest.json");
 const expectedRuntimeFiles = [
+  "404.html",
+  "_headers",
+  "_redirects",
   "README.md",
   "app.js",
   "data/adoption-candidates.json",
@@ -21,11 +24,13 @@ const expectedRuntimeFiles = [
   "favicon.svg",
   "index.html",
   "styles.css",
+  "vercel.json",
   "vendor/LICENSES.md",
   "vendor/fuse.min.js",
   "vendor/marked.umd.js",
   "vendor/purify.min.js",
 ];
+const expectedDeploySupportFiles = ["404.html", "_headers", "_redirects", "vercel.json"];
 const metadataFiles = new Set(["RELEASE.md", "release-manifest.json"]);
 
 function sha256(path) {
@@ -105,6 +110,65 @@ function assertManifestShape(manifest, failures) {
   }
 }
 
+function verifyDeploySupport(failures) {
+  const missingSupport = expectedDeploySupportFiles.filter((file) => !existsSync(join(releaseDir, file)));
+  if (missingSupport.length > 0) {
+    for (const file of missingSupport) failures.push(`deploy support file missing: ${file}`);
+    return;
+  }
+
+  const indexHtml = readFileSync(join(releaseDir, "index.html"), "utf-8");
+  const notFoundHtml = readFileSync(join(releaseDir, "404.html"), "utf-8");
+  if (notFoundHtml !== indexHtml) {
+    failures.push("404.html must mirror index.html for GitHub Pages static fallback");
+  }
+
+  const redirects = readFileSync(join(releaseDir, "_redirects"), "utf-8");
+  if (!redirects.includes("/* /index.html 200")) {
+    failures.push("_redirects must rewrite unmatched direct paths to index.html");
+  }
+
+  const headers = readFileSync(join(releaseDir, "_headers"), "utf-8");
+  for (const term of [
+    "X-Content-Type-Options: nosniff",
+    "X-Frame-Options: DENY",
+    "Referrer-Policy: strict-origin-when-cross-origin",
+    "Permissions-Policy: camera=(), microphone=(), geolocation=()",
+    "Cache-Control: public, max-age=31536000, immutable",
+    "Cache-Control: no-cache",
+  ]) {
+    if (!headers.includes(term)) failures.push(`_headers missing ${term}`);
+  }
+
+  let vercel;
+  try {
+    vercel = JSON.parse(readFileSync(join(releaseDir, "vercel.json"), "utf-8"));
+  } catch (error) {
+    failures.push(`vercel.json is not valid JSON: ${error.message}`);
+    return;
+  }
+  if (vercel.$schema !== "https://openapi.vercel.sh/vercel.json") {
+    failures.push("vercel.json schema mismatch");
+  }
+  if (vercel.cleanUrls !== false) failures.push("vercel.json cleanUrls must be false");
+  if (vercel.trailingSlash !== false) failures.push("vercel.json trailingSlash must be false");
+  const headerPairs = Array.isArray(vercel.headers)
+    ? vercel.headers.flatMap((rule) => Array.isArray(rule.headers) ? rule.headers : [])
+    : [];
+  for (const pair of [
+    ["X-Content-Type-Options", "nosniff"],
+    ["X-Frame-Options", "DENY"],
+    ["Referrer-Policy", "strict-origin-when-cross-origin"],
+    ["Permissions-Policy", "camera=(), microphone=(), geolocation=()"],
+    ["Cache-Control", "public, max-age=31536000, immutable"],
+    ["Cache-Control", "no-cache"],
+  ]) {
+    if (!headerPairs.some((item) => item.key === pair[0] && item.value === pair[1])) {
+      failures.push(`vercel.json missing ${pair[0]}=${pair[1]}`);
+    }
+  }
+}
+
 function verify() {
   const failures = [];
   if (!existsSync(releaseDir)) failures.push(`release directory missing: ${relative(root, releaseDir)}`);
@@ -162,6 +226,8 @@ function verify() {
     if (!actualByPath.has(path)) failures.push(`manifest file missing from release: ${path}`);
   }
 
+  verifyDeploySupport(failures);
+
   if (failures.length > 0) return failResult(failures);
   return {
     status: "pass",
@@ -171,6 +237,7 @@ function verify() {
     sourceCommit: manifest.sourceCommit,
     sourceDirty: manifest.source.dirty,
     sourceDirtyFiles: manifest.source.dirtyFiles.length,
+    deploySupportFiles: expectedDeploySupportFiles.filter((file) => actualByPath.has(file)).length,
   };
 }
 

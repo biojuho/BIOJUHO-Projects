@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T21:01:23+09:00",
+  "generatedAt": "2026-06-05T21:11:00+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 23,
+      "pass": 31,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 24
+      "total": 31
     },
     "browserEvidence": {
       "routes": 15,
@@ -21,10 +21,19 @@
       "workspaceCompetitiveCandidateVisible": true,
       "veritasCandidateFreshnessVisible": true,
       "candidateNextActionVisible": true,
+      "candidateActionFilter": true,
+      "candidateActionSummaryVisible": true,
       "candidateTriageMetaVisible": true,
       "portfolioCandidateFilter": true,
       "portfolioCandidateRanked": true,
-      "releaseInfoVisible": true,
+      "deploySupportFiles": 4,
+      "releaseHeaderSmokeChecks": 6,
+      "releaseFallbackSmokeChecks": 4,
+      "pagesPublishWorkflowTemplateChecks": 3,
+      "pagesWorkflowHandoffChecks": 5,
+      "mainBridgeStrategyChecks": 5,
+      "veritasFreshnessChecks": 5,
+      "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
       "layoutIssues": 0
@@ -144,45 +153,80 @@
       "decision": "keep"
     },
     {
-      "id": "main-compatible-release-branch",
-      "primaryMetric": "prCompatibleBranch",
+      "id": "portfolio-candidate-action-filter",
+      "primaryMetric": "candidateActionFilter",
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
     },
     {
-      "id": "github-release-artifact-workflow",
-      "primaryMetric": "publishableReleaseArtifactWorkflow",
-      "baseline": 0,
-      "candidate": 0,
-      "decision": "reject"
-    },
-    {
-      "id": "github-prerelease-asset-publication",
-      "primaryMetric": "publicDownloadableReleaseAssets",
+      "id": "portfolio-candidate-action-summary",
+      "primaryMetric": "candidateActionSummaryVisible",
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
     },
     {
-      "id": "github-final-release-publication",
-      "primaryMetric": "publicFinalReleaseAssets",
+      "id": "standalone-deploy-support-files",
+      "primaryMetric": "standaloneDeploySupportFiles",
       "baseline": 0,
-      "candidate": 1,
+      "candidate": 4,
       "decision": "keep"
     },
     {
-      "id": "release-publication-surface",
-      "primaryMetric": "releasePublicationSurfaceAuditChecks",
+      "id": "release-host-header-smoke",
+      "primaryMetric": "releaseHeaderSmokeChecks",
       "baseline": 0,
-      "candidate": 1,
+      "candidate": 6,
       "decision": "keep"
     },
     {
-      "id": "veritas-autoresearch-source-refresh",
-      "primaryMetric": "veritasFreshnessGate",
+      "id": "release-direct-path-fallback-smoke",
+      "primaryMetric": "releaseFallbackSmokeChecks",
       "baseline": 0,
-      "candidate": 1,
+      "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "github-pages-publish-workflow-template",
+      "primaryMetric": "pagesPublishWorkflowTemplateChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
+    },
+    {
+      "id": "github-pages-workflow-scope-handoff",
+      "primaryMetric": "pagesWorkflowHandoffChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "github-main-pr-bridge-strategy",
+      "primaryMetric": "mainBridgeStrategyChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "monorepo-safe-pages-workflow-target",
+      "primaryMetric": "pagesWorkflowHandoffChecks",
+      "baseline": 4,
+      "candidate": 5,
+      "decision": "keep"
+    },
+    {
+      "id": "pr-ready-main-bridge-plan-state",
+      "primaryMetric": "mainBridgeStrategyChecks",
+      "baseline": 4,
+      "candidate": 5,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-autoresearch-refresh-v8344",
+      "primaryMetric": "veritasFreshnessChecks",
+      "baseline": 0,
+      "candidate": 5,
       "decision": "keep"
     },
     {
@@ -194,34 +238,16 @@
     }
   ],
   "publish": {
-    "commit": "bf7852d",
-    "branch": "main",
+    "commit": "tracked release branch head",
+    "branch": "codex/joopark-workspace-release",
     "remote": "biojuho-projects",
     "push": "pass",
-    "draftPr": "pass",
-    "draftPrUrl": "https://github.com/biojuho/BIOJUHO-Projects/pull/149",
-    "prerelease": {
-      "status": "pass",
-      "tag": "joopark-workspace-v3.0.0-rc.1",
-      "url": "https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0-rc.1",
-      "targetCommit": "c9d689a2d935c89a38370e62abef1635baa53d79",
-      "asset": "joopark-workspace-v3.0.0-rc.1.zip",
-      "assetBytes": 137650,
-      "assetSha256": "da4f72efcd547f0dbe8a0510e0d9d8d7939ad9e611f205a24287dcca2b81bcf6"
-    },
-    "release": {
-      "status": "pass",
-      "tag": "joopark-workspace-v3.0.0",
-      "url": "https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0",
-      "targetCommit": "bf7852dfed3204b869b94b893e6e628c1c5c2d47",
-      "asset": "joopark-workspace-v3.0.0.zip",
-      "assetBytes": 137649,
-      "assetSha256": "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"
-    }
+    "draftPr": "blocked",
+    "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
   },
   "nextCandidates": [
-    "merge Veritas UI smoke PR",
-    "post-release workflow deprecation cleanup",
-    "deeper UI workflow coverage"
+    "main-based PR bridge PR",
+    "Pages workflow activation verification",
+    "post-release workflow deprecation cleanup"
   ]
 }

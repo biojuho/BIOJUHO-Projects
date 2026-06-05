@@ -16,8 +16,8 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = process["env"].RELEASE_OUT_DIR
-  ? resolve(root, process["env"].RELEASE_OUT_DIR)
+const outDir = process.env.RELEASE_OUT_DIR
+  ? resolve(root, process.env.RELEASE_OUT_DIR)
   : join(root, "dist", "release");
 const sourceEntries = [
   "index.html",
@@ -111,7 +111,7 @@ function sourceMetadata() {
   const statusText = gitOutputRaw(["status", "--short", "--untracked-files=all"]);
   const dirtyFiles = statusText ? statusText.split("\n").filter(Boolean) : [];
   return {
-    commit: process["env"].SOURCE_COMMIT || currentCommit(),
+    commit: process.env.SOURCE_COMMIT || currentCommit(),
     branch: gitOutput(["branch", "--show-current"]) || gitOutput(["rev-parse", "--abbrev-ref", "HEAD"]),
     dirty: dirtyFiles.length > 0,
     dirtyFiles,
@@ -160,9 +160,66 @@ function writeReleaseNotes(manifest) {
   writeFileSync(join(outDir, "RELEASE.md"), lines.join("\n"), "utf-8");
 }
 
+function writeDeploySupportFiles() {
+  copyFileSync(join(outDir, "index.html"), join(outDir, "404.html"));
+  writeFileSync(join(outDir, "_redirects"), [
+    "# Netlify fallback for static SPA deployments.",
+    "# Existing files are served normally; unmatched direct paths rewrite to the app shell.",
+    "/* /index.html 200",
+    "",
+  ].join("\n"), "utf-8");
+  writeFileSync(join(outDir, "_headers"), [
+    "/*",
+    "  X-Content-Type-Options: nosniff",
+    "  X-Frame-Options: DENY",
+    "  Referrer-Policy: strict-origin-when-cross-origin",
+    "  Permissions-Policy: camera=(), microphone=(), geolocation=()",
+    "/vendor/*",
+    "  Cache-Control: public, max-age=31536000, immutable",
+    "/app.js",
+    "  Cache-Control: no-cache",
+    "/styles.css",
+    "  Cache-Control: no-cache",
+    "/index.html",
+    "  Cache-Control: no-cache",
+    "/404.html",
+    "  Cache-Control: no-cache",
+    "",
+  ].join("\n"), "utf-8");
+  writeFileSync(join(outDir, "vercel.json"), `${JSON.stringify({
+    $schema: "https://openapi.vercel.sh/vercel.json",
+    cleanUrls: false,
+    trailingSlash: false,
+    headers: [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      {
+        source: "/vendor/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        source: "/(app.js|styles.css|index.html|404.html)",
+        headers: [
+          { key: "Cache-Control", value: "no-cache" },
+        ],
+      },
+    ],
+  }, null, 2)}\n`, "utf-8");
+}
+
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 for (const entry of sourceEntries) copyEntry(entry);
+writeDeploySupportFiles();
 const manifest = buildManifest();
 writeReleaseNotes(manifest);
 manifest.files = buildManifest().files;

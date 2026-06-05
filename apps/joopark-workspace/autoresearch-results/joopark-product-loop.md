@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T19:53:06+09:00
+Generated: 2026-06-05T21:11:00+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -228,128 +228,191 @@ Generated: 2026-06-05T19:53:06+09:00
 
 ## Experiment: portfolio candidate next action
 
-- Hypothesis: Candidate priority scores become more actionable when each adoption-candidate card shows a next recommended review action and reason.
+- Hypothesis: Candidate cards become more useful when they recommend the next review action instead of only showing score and metadata.
 - Primary metric: `candidateNextActionVisible` in packaged interaction smoke.
-- Baseline: candidate cards had stage, metrics, links, and priority, but no explicit next action.
-- Candidate: candidate cards compute and render action labels such as `아키텍처 벤치` and `리스크 리뷰` with reasons; smoke verifies `colanode/colanode` and `opf/openproject`.
+- Baseline: candidate cards showed priority, stage, stars, forks, language, and safe GitHub links, but no next-action recommendation.
+- Candidate: adoption candidates now receive deterministic action chips such as `아키텍처 벤치`, `PM 벤치`, `리스크 리뷰`, `스파이크`, or `월간 관찰`, derived from source availability, priority, risks, issues, category, and topics.
 - Decision: keep.
 
 ## Evidence
 
-- `node scripts/audit-release-readiness.mjs --run-gates` passed with `portfolio_candidate_next_action`.
+- External source signals used: Colanode documents local SQLite + Yjs + kanban/calendar workspace patterns, Anytype documents offline-first/P2P blocks with kanban/calendar, and OpenProject documents planning, roadmap, Gantt, boards, and GitHub-linked work packages.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 22/22.
 - Packaged interaction smoke reported `candidateNextActionVisible: true`, `workspaceCompetitiveCandidateVisible: true`, and `portfolioCandidateRanked: true`.
+- `scripts/smoke-interactions.mjs` verifies Colanode renders `아키텍처 벤치` with `로컬 퍼스트 구조`, and verifies OpenProject computes `리스크 리뷰`.
 
-## Experiment: main-compatible release branch
+## Experiment: portfolio candidate action filter
 
-- Hypothesis: Product launch readiness improves when the latest JooPark Workspace release is available on a branch based on repository `main`, because GitHub can open a normal review PR.
-- Primary metric: PR-compatible branch state.
-- Baseline: standalone branch `codex/joopark-workspace-release` was pushed, but PR creation was blocked because it had no common history with `main`.
-- Candidate: branch `codex/joopark-workspace-release-main` is based on `biojuho-projects/main` and carries the latest app, data snapshots, release gates, and AutoResearch evidence under `apps/joopark-workspace/`.
+- Hypothesis: Once candidates have next-action recommendations, the portfolio should let operators narrow the candidate queue by those actions instead of scanning every card.
+- Primary metric: `candidateActionFilter` in packaged interaction smoke.
+- Baseline: candidate cards showed action chips, but the portfolio could not filter by action type.
+- Candidate: a candidate action segmented filter narrows the queue by `스파이크`, `아키텍처 벤치`, `PM 벤치`, `리스크 리뷰`, `일정 UX 벤치`, `월간 관찰`, `기능 검토`, or `소스 보강`; selecting an action also keeps the portfolio in candidate mode.
 - Decision: keep.
 
 ## Evidence
 
-- `npm run lint` passed in `apps/joopark-workspace`.
-- `npm run build` and `node scripts/verify-release.mjs` passed in `apps/joopark-workspace`.
-- `npm run verify` passed 22/22 in `apps/joopark-workspace`, including packaged route, mobile, interaction, and accessibility gates.
-- `PYTHONPATH=.:packages:automation:apps/desci-platform:automation/DailyNews/src:automation/DailyNews/scripts uv run --with pytest pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q` passed `20 passed, 2 skipped`.
-- `python3 ops/scripts/run_workspace_smoke.py --scope workspace --json-out var/tmp/joopark-workspace-scope-smoke-rerun.json` passed 6/6 after installing dashboard dependencies with `npm ci --prefix apps/dashboard`.
-- Pushed `9f07a71 Port JooPark release to main branch` to `biojuho-projects/codex/joopark-workspace-release-main`.
-- Created draft PR `#149`: `https://github.com/biojuho/BIOJUHO-Projects/pull/149`.
+- External source signals used: Linear documents filters across nearly every view and a Triage inbox for review/prioritization, while OpenProject documents work package views as filter-based lists and table configurations.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 23/23.
+- Packaged interaction smoke reported `candidateActionFilter: true`, `candidateNextActionVisible: true`, and `portfolioCandidateRanked: true`.
+- `scripts/smoke-interactions.mjs` verifies the architecture filter keeps Colanode visible and the risk filter keeps OpenProject visible.
 
-## Experiment: GitHub release artifact workflow
+## Experiment: portfolio candidate action summary
 
-- Hypothesis: Product launch readiness improves when GitHub can package the static JooPark Workspace release and expose it as a downloadable Actions artifact without requiring deployment credentials.
-- Primary metric: publishable release artifact workflow availability.
-- Baseline: no `joopark-workspace-release.yml` workflow existed, so PR and main builds did not produce a JooPark Workspace release artifact.
-- Candidate: a local `.github/workflows/joopark-workspace-release.yml` package workflow passed syntax, release, and packaged-browser gates, but could not be published from this OAuth session.
-- Decision: reject.
-
-## Evidence
-
-- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/joopark-workspace-release.yml"); puts "workflow_yaml=pass"'` passed.
-- `git diff --check` passed.
-- `python3 ops/scripts/pr_self_review.py --base biojuho-projects/main` passed with 0 red findings.
-- `npm run lint`, `npm run build`, `node scripts/verify-release.mjs`, and `npm run test` passed in `apps/joopark-workspace`.
-- Packaged-release smoke passed 15 desktop routes, 15 mobile routes, 18 interaction steps, Markdown sanitizer checks, candidate next-action checks, and accessibility checks with 0 console, network, and layout issues.
-- `git push biojuho-projects codex/joopark-workspace-release-main` was rejected because the OAuth app cannot create or update `.github/workflows/joopark-workspace-release.yml` without `workflow` scope.
-- Removed the workflow file from the candidate branch and kept the blocker as evidence rather than adopting an unpublishable change.
-
-## Experiment: GitHub prerelease asset publication
-
-- Hypothesis: Product launch readiness improves when the JooPark Workspace package is available as a public GitHub prerelease asset, even without workflow-edit scope.
-- Primary metric: public downloadable release assets.
-- Baseline: `gh release list --repo biojuho/BIOJUHO-Projects --limit 20` returned no releases, and no matching `joopark-workspace` tags existed.
-- Candidate: `joopark-workspace-v3.0.0-rc.1` prerelease targets `codex/joopark-workspace-release-main` and uploads `joopark-workspace-v3.0.0-rc.1.zip`.
+- Hypothesis: Selected action queues are easier to act on when the UI shows the matching count, top candidate, top reason, and risk count near the action filter.
+- Primary metric: `candidateActionSummaryVisible` in packaged interaction smoke.
+- Baseline: the action filter narrowed candidate cards, but operators had no queue summary for the selected next action.
+- Candidate: the selected action queue renders a compact summary with the action label, queue count, top candidate, top priority reason, and risk count.
 - Decision: keep.
 
 ## Evidence
 
-- Built the release package from a clean detached worktree at `c9d689a`.
-- `node scripts/verify-release.mjs` passed with `sourceCommit: c9d689a`, `sourceDirty: false`, and 11 runtime files.
-- `npm run test` passed on the exact release asset, including 15 desktop routes, 15 mobile routes, 18 interaction steps, Markdown sanitizer checks, candidate next-action checks, and accessibility checks with 0 console, network, and layout issues.
-- `gh release create joopark-workspace-v3.0.0-rc.1 ... --target codex/joopark-workspace-release-main --prerelease` succeeded after the short-SHA target attempt was rejected by the API.
-- Published release: `https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0-rc.1`.
-- Published asset: `joopark-workspace-v3.0.0-rc.1.zip`, 137650 bytes, `sha256:da4f72efcd547f0dbe8a0510e0d9d8d7939ad9e611f205a24287dcca2b81bcf6`.
-- `git ls-remote --tags biojuho-projects 'joopark-workspace-v3.0.0-rc.1*'` showed the tag at `c9d689a2d935c89a38370e62abef1635baa53d79`.
+- External source signals used: Linear filter and triage patterns, plus OpenProject filtered work package views, support keeping filtered queues visible with review context.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 24/24.
+- Packaged interaction smoke reported `candidateActionSummaryVisible: true`.
+- `scripts/smoke-interactions.mjs` verifies the architecture summary shows `colanode/colanode` and `로컬 퍼스트 구조`, and the risk summary shows `리스크 리뷰`.
+- External sources checked: `https://linear.app/docs/filters`, `https://linear.app/docs/triage`, and `https://www.openproject.org/docs/user-guide/work-packages`.
 
-## Experiment: final GitHub release publication
+## Experiment: standalone deploy support files
 
-- Hypothesis: Product launch is materially stronger when the merged `main` commit has a non-prerelease release asset, not only an RC asset.
-- Primary metric: public final release assets.
-- Baseline: only `joopark-workspace-v3.0.0-rc.1` existed.
-- Candidate: `joopark-workspace-v3.0.0` targets the `main` merge commit and uploads `joopark-workspace-v3.0.0.zip`.
+- Hypothesis: The release artifact is more publishable if the package includes host-specific static deployment support files and the verifier rejects missing or malformed deployment metadata.
+- Primary metric: `standaloneDeploySupportFiles`.
+- Baseline: `dist/release` had 0 of the target static-host support files: `404.html`, `_headers`, `_redirects`, and `vercel.json`.
+- Candidate: `scripts/package-release.mjs` generates all 4 files, and `scripts/verify-release.mjs` validates GitHub Pages 404 fallback, Netlify headers/redirects, and Vercel header configuration.
 - Decision: keep.
 
 ## Evidence
 
-- PR `#149` merged into `main` as `bf7852dfed3204b869b94b893e6e628c1c5c2d47`.
-- Main-branch workflows after merge passed: Workspace Smoke Test, Security & Quality Gate, CodeQL Security Scan, and Gitleaks Secret Scan.
-- Built the final release package from a clean detached worktree at `bf7852d`.
-- `node scripts/verify-release.mjs` passed with `sourceCommit: bf7852d`, `sourceDirty: false`, and 11 runtime files.
-- `npm run test` passed on the exact final release asset, including 15 desktop routes, 15 mobile routes, 18 interaction steps, Markdown sanitizer checks, candidate next-action checks, and accessibility checks with 0 console, network, and layout issues.
-- Published release: `https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0`.
-- Published asset: `joopark-workspace-v3.0.0.zip`, 137649 bytes, `sha256:704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681`.
-- `git ls-remote --tags biojuho-projects 'joopark-workspace-v3.0.0'` showed the tag at `bf7852dfed3204b869b94b893e6e628c1c5c2d47`.
+- External source signals used: GitHub Pages documents `404.html` custom pages, Netlify documents `_headers` and `_redirects` files in the publish directory, and Vercel documents project configuration through `vercel.json` headers.
+- `node scripts/package-release.mjs && node scripts/verify-release.mjs` passed with `files: 15`, `bytes: 557204`, and `deploySupportFiles: 4`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 25/25.
+- Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, and `candidateActionSummaryVisible: true`.
+- External sources checked: `https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site`, `https://docs.netlify.com/manage/routing/headers/`, `https://docs.netlify.com/routing/redirects/`, and `https://vercel.com/docs/project-configuration/vercel-json`.
 
-## Experiment: release publication surface
+## Experiment: release host header smoke
 
-- Hypothesis: Users should be able to find and verify the public release from the product settings screen and README, not only from GitHub release history.
-- Primary metric: release-publication audit and browser-smoke coverage.
-- Baseline: the app documented local package generation, but did not surface the actual public release URL, ZIP asset, target commit, or SHA-256 checksum in the app UI; the release audit had no publication-surface requirement.
-- Candidate: settings renders a `공개 릴리스` panel with release tag, download link, target commit, and SHA-256 digest; README mirrors the release URL and digest; interaction smoke asserts the card/link/digest; release audit adds `release_publication_surface`.
+- Hypothesis: Deployment header support is stronger if the packaged-release smoke serves `_headers` locally and proves the configured security/cache headers over HTTP.
+- Primary metric: `releaseHeaderSmokeChecks`.
+- Baseline: `scripts/smoke-release.mjs` had 0 explicit HTTP header checks.
+- Candidate: the release smoke parses `_headers`, applies matching rules in its temporary server, and verifies 6 headers: root content-type, frame, referrer, permissions, app no-cache, and vendor immutable cache.
 - Decision: keep.
 
 ## Evidence
 
-- `npm run lint` passed in `apps/joopark-workspace`.
-- `npm run build` and `node scripts/verify-release.mjs` passed after adding the release surface.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 23/23 with `release_publication_surface`.
-- Packaged interaction smoke reported `releaseInfoVisible: true`, along with `candidateNextActionVisible: true`, `portfolioCandidateRanked: true`, and 0 console/network/layout issues.
-- Computer Use app attachment was attempted for Chrome and Safari at `http://127.0.0.1:5181/#settings`, but the local Computer Use server returned `cgWindowNotFound` for both native app windows; deterministic Chrome/CDP smoke remains the verified browser evidence.
+- External source signals used: Netlify documents `_headers` syntax in the publish directory and Vercel documents equivalent `vercel.json` headers, so local smoke should verify the same intended response behavior before upload.
+- `node scripts/smoke-release.mjs` passed with `headers.status: pass` and all 6 header checks true.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 26/26 with `release_header_smoke`.
+- Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, and `candidateActionSummaryVisible: true`.
 
-## Experiment: Veritas AutoResearch source refresh
+## Experiment: release direct-path fallback smoke
 
-- Hypothesis: AutoResearch launch data is safer when the Veritas source-backed harness entry records the latest upstream commit and the release audit fails on stale source metadata.
-- Primary metric: Veritas freshness gate.
-- Baseline: `Veritas-7/autoresearch-skill-system` had `pushedAt: 2026-06-05T09:43:59Z`, `lastCommit: null`, and no source marker proving the v8.340 refresh.
-- Candidate: the adoption snapshot records `f1015055ea304ee286831fc9ebbbff971efadac9`, `pushedAt: 2026-06-05T11:42:50Z`, a `github-api:veritas-autoresearch-refresh` source marker, and an audit requirement for that exact freshness evidence.
+- Hypothesis: Static deployment readiness is stronger if the package uses a Netlify `200` rewrite for direct paths and the packaged-release smoke proves both the rewrite and GitHub Pages `404.html` app-shell fallback over HTTP.
+- Primary metric: `releaseFallbackSmokeChecks`.
+- Baseline: `scripts/smoke-release.mjs` had 0 explicit fallback checks, and `_redirects` used a temporary root redirect.
+- Candidate: `_redirects` now uses `/* /index.html 200`; `scripts/smoke-release.mjs` parses redirect rules and verifies 4 fallback checks for direct path rewrite, no redirect `Location`, `404.html` matching the app shell, and HTML content type.
 - Decision: keep.
 
 ## Evidence
 
-- `gh repo view Veritas-7/autoresearch-skill-system --json pushedAt,updatedAt,description,stargazerCount,forkCount,defaultBranchRef,latestRelease` returned pushedAt `2026-06-05T11:42:50Z`, default branch `main`, 1 star, 1 fork, and no latest release.
-- `git ls-remote https://github.com/Veritas-7/autoresearch-skill-system.git refs/heads/main` returned `f1015055ea304ee286831fc9ebbbff971efadac9`.
-- `npm run lint` passed in `apps/joopark-workspace`.
-- `npm run build` and `node scripts/verify-release.mjs` passed after the data refresh; manifest provenance correctly showed dirty source files before commit.
-- `npm run verify` passed 23/23, including the refreshed `autoresearch_ecosystem_candidates` evidence with `fresh: true`, 15 desktop routes, 15 mobile routes, 18 interaction steps, and 0 console/network/layout issues.
+- External source signals used: Netlify documents `200` status redirects as rewrites that keep the browser URL, and GitHub Pages documents `404.html` as the custom missing-page file.
+- `node scripts/package-release.mjs && node scripts/verify-release.mjs && node scripts/smoke-release.mjs` passed with `fallbacks.status: pass` and all 4 fallback checks true.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 27/27 with `release_fallback_smoke`.
+- Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, `releaseHeaderSmokeChecks: 6`, and `candidateActionSummaryVisible: true`.
+- External sources checked: `https://docs.netlify.com/routing/redirects/rewrites-proxies/`, `https://docs.netlify.com/manage/routing/redirects/redirect-options/`, and `https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site`.
+
+## Experiment: GitHub Pages publish workflow template
+
+- Hypothesis: The project is closer to publish-ready when the verified release package has a checked GitHub Pages workflow template and operator docs that account for GitHub's `workflow` scope requirement.
+- Primary metric: `pagesPublishWorkflowTemplateChecks`.
+- Baseline: 0 Pages publish workflow template checks; the package could be built locally but no repository-safe workflow artifact documented upload or deploy steps.
+- Candidate: `docs/github-pages-workflow.yml` packages `dist/release`, verifies it, uploads it through `actions/upload-pages-artifact@v3`, and deploys with `actions/deploy-pages@v4` using `pages: write` and `id-token: write`; README documents copying it to `.github/workflows/joopark-pages.yml` with a token or UI session that has `workflow` scope.
+- Decision: keep.
+
+## Evidence
+
+- External source signals used: GitHub Pages custom workflow docs require `configure-pages`, `upload-pages-artifact`, and `deploy-pages`; GitHub Actions permission docs require explicit `pages` and `id-token` permissions for Pages deployments.
+- Directly adding `.github/workflows/joopark-pages.yml` was rejected by GitHub because the OAuth token lacks `workflow` scope, so the adopted artifact is a pushable workflow template under `docs/`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 29/29 with `release_publish_workflow_template_files` and `github_pages_publish_workflow_template`.
+- Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, `releaseHeaderSmokeChecks: 6`, `releaseFallbackSmokeChecks: 4`, and `candidateActionSummaryVisible: true`.
+- External sources checked: `https://docs.github.com/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages`, `https://github.com/actions/deploy-pages`, and `https://docs.github.com/actions/reference/workflow-syntax-for-github-actions`.
+
+## Experiment: GitHub Pages workflow scope handoff
+
+- Hypothesis: The workflow template is more operational if a dry-run handoff script validates the template and target path while refusing to create `.github/workflows/joopark-pages.yml` unless the operator explicitly requests it in a workflow-scope session.
+- Primary metric: `pagesWorkflowHandoffChecks`.
+- Baseline: 0 handoff checks; the README described copying the template, but no script proved dry-run behavior or guarded accidental workflow file creation.
+- Candidate: `scripts/prepare-github-pages-workflow.mjs` validates required Pages workflow terms, reports the target, defaults to dry-run, lets `--dry-run` override `--write`, and only writes with explicit `--write`; the release audit runs the dry-run and verifies README handoff commands.
+- Decision: keep.
+
+## Evidence
+
+- The first dry-run validation caught a no-exit bug that would have continued into the write path; the adopted candidate fixes `result()` to exit on pass and rechecks that `.github/workflows/joopark-pages.yml` is not created.
+- `node scripts/prepare-github-pages-workflow.mjs --dry-run` passed with `willWrite: false`, `targetExists: false`, and all template/target checks true.
+- `node scripts/prepare-github-pages-workflow.mjs --write --dry-run` also stayed in dry-run mode, proving the safer flag wins.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 30/30 with `github_pages_workflow_scope_handoff`.
+
+## Experiment: GitHub main PR bridge strategy
+
+- Hypothesis: The no-common-history PR blocker becomes actionable when the release branch can prove why direct PR creation fails and outputs a main-based bridge plan for `apps/joopark-workspace`.
+- Primary metric: `mainBridgeStrategyChecks`.
+- Baseline: 0 PR bridge strategy checks; the log only recorded that GitHub rejected a draft PR because `codex/joopark-workspace-release` has no common history with `main`.
+- Candidate: `scripts/plan-main-bridge.mjs` checks `merge-base`, verifies GitHub `main` already has `apps/joopark-workspace`, and prints the main-based bridge branch plan for `codex/joopark-workspace-main-bridge`; the release audit verifies the script, README guidance, and live plan output.
+- Decision: keep.
+
+## Evidence
+
+- `git ls-remote --heads biojuho-projects main codex/joopark-workspace-release` observed `main` at `f32affb` and the release branch at `01f9bee`.
+- `git merge-base HEAD biojuho-projects/main` returned no merge base, matching the previous GitHub PR blocker.
+- `node scripts/plan-main-bridge.mjs` passed with `noCommonHistory: true`, `mainAppPathExists: true`, `appPath: apps/joopark-workspace`, and `bridgeBranch: codex/joopark-workspace-main-bridge`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 with `github_main_pr_bridge_strategy`.
+
+## Experiment: monorepo-safe Pages workflow target
+
+- Hypothesis: The Pages workflow handoff must target the Git repository root, not the app directory, before the app is synced into `apps/joopark-workspace` on the main branch.
+- Primary metric: `pagesWorkflowHandoffChecks`.
+- Baseline: 4 handoff checks; the helper validated dry-run behavior and explicit writes, but its target path was relative to the app root.
+- Candidate: `scripts/prepare-github-pages-workflow.mjs` resolves `git rev-parse --show-toplevel`, reports `targetRepositoryPath`, and writes only to the repository-root `.github/workflows/joopark-pages.yml`; the release audit now requires the repo-root target evidence.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/prepare-github-pages-workflow.mjs --dry-run` passed with `targetRepositoryPath: .github/workflows/joopark-pages.yml`, `willWrite: false`, and a repository-root path.
+- `node scripts/prepare-github-pages-workflow.mjs --write --dry-run` stayed in dry-run mode and did not create `.github/workflows/joopark-pages.yml`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 after requiring `gitRoot`, `rev-parse --show-toplevel`, and `targetRepositoryPath`.
+
+## Experiment: PR-ready main bridge plan state
+
+- Hypothesis: The bridge plan should pass both before and after creating the main-based branch: before, it should detect `noCommonHistory`; after, it should detect a PR-ready branch with common history.
+- Primary metric: `mainBridgeStrategyChecks`.
+- Baseline: 4 bridge strategy checks; the audit required `noCommonHistory: true`, which is correct on the orphan release branch but wrong after the bridge branch is based on `main`.
+- Candidate: `scripts/plan-main-bridge.mjs` now emits `main-subdirectory-bridge` for orphan release state and `pr-ready-main-history` for main-based branch state; the release audit accepts both while still requiring `apps/joopark-workspace`.
+- Decision: keep.
+
+## Evidence
+
+- The bridge worktree surfaced the issue: once based on `biojuho-projects/main`, the branch correctly has a merge base and should be PR-ready rather than failing the bridge audit.
+- `node scripts/plan-main-bridge.mjs` still passes on the orphan release branch with `strategy: main-subdirectory-bridge`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 after accepting both bridge states.
+
+## Experiment: Veritas AutoResearch refresh v8.344
+
+- Hypothesis: The release branch should preserve and advance the main branch Veritas freshness evidence instead of overwriting it during the PR bridge sync.
+- Primary metric: `veritasFreshnessChecks`.
+- Baseline: release data had stale Veritas metadata with `lastCommit: null`, `pushedAt: 2026-06-05T09:43:59Z`, and no `github-api:veritas-autoresearch-refresh` source marker.
+- Candidate: `data/adoption-candidates.json` records Veritas `lastCommit: 96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7`, `pushedAt: 2026-06-05T11:55:44Z`, the source marker, and a release audit freshness gate for that exact evidence.
+- Decision: keep.
+
+## Evidence
+
+- `git ls-remote https://github.com/Veritas-7/autoresearch-skill-system.git refs/heads/main` returned `96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7`.
+- `gh repo view Veritas-7/autoresearch-skill-system --json pushedAt,updatedAt,description,stargazerCount,forkCount,defaultBranchRef,latestRelease` returned pushedAt `2026-06-05T11:55:44Z`, updatedAt `2026-06-05T11:55:49Z`, default branch `main`, 1 star, 1 fork, and no latest release.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 with refreshed `autoresearch_ecosystem_candidates.veritas.fresh: true`.
 
 ## Experiment: Veritas freshness UI smoke
 
 - Hypothesis: The Veritas freshness data is more useful when the portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
 - Primary metric: `veritasCandidateFreshnessVisible`.
-- Baseline: the adoption snapshot and audit required `f1015055ea304ee286831fc9ebbbff971efadac9`, but portfolio cards did not render `lastCommit` and the interaction smoke did not prove the Veritas card could be found by source evidence.
-- Candidate: candidate cards render a short `Commit f1015055` badge with the exact pushedAt marker, project search indexes `lastCommit`, and the packaged interaction smoke searches `f1015055` to verify the Veritas card, commit, pushedAt marker, description, and safe GitHub link.
+- Baseline: the adoption snapshot and audit required `f1015055ea304ee286831fc9ebbbff971efadac9`, but portfolio cards did not render the newest `lastCommit` and the interaction smoke did not prove the Veritas card could be found by source evidence.
+- Candidate: candidate cards render a short `Commit 96858c69` badge with the exact pushedAt marker, project search indexes `lastCommit`, and the packaged interaction smoke searches `96858c69` to verify the Veritas card, commit, pushedAt marker, description, and safe GitHub link.
 - Decision: keep.
 
 ## Evidence
@@ -361,4 +424,4 @@ Generated: 2026-06-05T19:53:06+09:00
 
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: merge Veritas UI smoke PR, post-release workflow deprecation cleanup, or deeper UI workflow coverage.
+- Continue with the highest-impact product gap after the next full gate: open the main-based PR bridge, verify Pages workflow activation, or clean up post-release workflow handoff docs.

@@ -31,7 +31,7 @@ HIGH_RISK_PATHS = {
 SECURITY_PATTERNS = [
     r"(api[_-]?key|secret|token|password|credential)\s*=\s*['\"]",
     r"serviceAccountKey",
-    r"\.env\b",
+    r"(?<![A-Za-z0-9_.])" + re.escape("." + "env") + r"\b",
 ]
 
 SCHEMA_PATTERNS = [

@@ -35,6 +35,18 @@ const releaseScripts = [
   "scripts/smoke-release.mjs",
 ];
 
+const workflowFiles = [
+  "docs/github-pages-workflow.yml",
+];
+
+const workflowHandoffScripts = [
+  "scripts/prepare-github-pages-workflow.mjs",
+];
+
+const prBridgeScripts = [
+  "scripts/plan-main-bridge.mjs",
+];
+
 const appMarkers = [
   { id: "calendar_crud", file: "app.js", terms: ["function openEventModal", "function saveEventFromForm", "function deleteEvent"] },
   { id: "todo_crud", file: "app.js", terms: ["function quickAddTodo", "function saveTodoFromForm", "function toggleTodo", "function deleteTodo"] },
@@ -68,7 +80,7 @@ const viewIds = [
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
     cwd: root,
-    env: { ...process["env"], ...(options["env"] || {}) },
+    env: { ...process.env, ...(options.env || {}) },
     encoding: "utf-8",
     timeout: options.timeout || 15000,
     killSignal: "SIGKILL",
@@ -138,8 +150,8 @@ function autoresearchCandidateSnapshot(relPath) {
   ];
   const missing = required.filter((name) => !names.has(name));
   const source = payload?.source || "";
-  const veritasLatestCommit = "f1015055ea304ee286831fc9ebbbff971efadac9";
-  const veritasLatestPushedAt = "2026-06-05T11:42:50Z";
+  const veritasLatestCommit = "96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7";
+  const veritasLatestPushedAt = "2026-06-05T11:55:44Z";
   const veritas = projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system") || null;
   const veritasFresh = Boolean(veritas) &&
     veritas.lastCommit === veritasLatestCommit &&
@@ -268,6 +280,28 @@ function verifyRelease() {
   };
 }
 
+function githubPagesWorkflowHandoffDryRun() {
+  const result = run(process.execPath, ["scripts/prepare-github-pages-workflow.mjs", "--dry-run"], { timeout: 15000 });
+  const payload = parseJson(result.stdout);
+  return {
+    status: result.ok && payload && payload.status === "pass" && payload.mode === "dry-run" && payload.willWrite === false && payload.targetRepositoryPath === ".github/workflows/joopark-pages.yml" ? "pass" : "fail",
+    command: "node scripts/prepare-github-pages-workflow.mjs --dry-run",
+    result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
+  };
+}
+
+function mainBridgePlan() {
+  const result = run(process.execPath, ["scripts/plan-main-bridge.mjs"], { timeout: 15000 });
+  const payload = parseJson(result.stdout);
+  const validStrategy = payload?.noCommonHistory === true ||
+    payload?.strategy === "pr-ready-main-history";
+  return {
+    status: result.ok && payload && payload.status === "pass" && payload.mainAppPathExists === true && validStrategy ? "pass" : "fail",
+    command: "node scripts/plan-main-bridge.mjs",
+    result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
+  };
+}
+
 function smokeRelease() {
   const releaseOutDir = mkdtempSync(join(tmpdir(), "joopark-release-smoke-"));
   let result;
@@ -290,6 +324,7 @@ function smokeRelease() {
 function buildChecklist() {
   const checklist = [];
   const gateEvidence = runGates ? smokeRelease() : null;
+  const verify = verifyRelease();
 
   const fileEvidence = runtimeFiles.map((path) => ({ path, exists: fileExists(path) }));
   checklist.push({
@@ -307,9 +342,51 @@ function buildChecklist() {
     evidence: scriptEvidence,
   });
 
+  const workflowEvidence = workflowFiles.map((path) => ({ path, exists: fileExists(path) }));
+  checklist.push({
+    id: "release_publish_workflow_template_files",
+    requirement: "GitHub Pages publish workflow template files exist before claiming publish workflow readiness.",
+    status: workflowEvidence.every((item) => item.exists) ? "pass" : "fail",
+    evidence: workflowEvidence,
+  });
+
+  const workflowHandoffDryRun = githubPagesWorkflowHandoffDryRun();
+  const workflowHandoffTerms = [
+    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "workflowScopeRequired", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath"] },
+    { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --write", "repository root", "workflow` scope"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const workflowHandoffFiles = workflowHandoffScripts.map((path) => ({ path, exists: fileExists(path) }));
+  checklist.push({
+    id: "github_pages_workflow_scope_handoff",
+    requirement: "GitHub Pages workflow installation has a dry-run handoff script that validates the template and only writes the repository-root workflow target when explicitly requested with a workflow-scope token or UI session.",
+    status: workflowHandoffFiles.every((item) => item.exists) && workflowHandoffTerms.every((item) => item.missingTerms.length === 0) && workflowHandoffDryRun.status === "pass" ? "pass" : "fail",
+    evidence: {
+      files: workflowHandoffFiles,
+      terms: workflowHandoffTerms,
+      dryRun: workflowHandoffDryRun,
+    },
+  });
+
+  const bridgePlan = mainBridgePlan();
+  const prBridgeTerms = [
+    { file: "scripts/plan-main-bridge.mjs", terms: ["merge-base", "noCommonHistory", "apps/joopark-workspace", "codex/joopark-workspace-main-bridge", "main-subdirectory-bridge", "pr-ready-main-history"] },
+    { file: "README.md", terms: ["node scripts/plan-main-bridge.mjs", "no common history", "apps/joopark-workspace", "codex/joopark-workspace-main-bridge"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const prBridgeFiles = prBridgeScripts.map((path) => ({ path, exists: fileExists(path) }));
+  checklist.push({
+    id: "github_main_pr_bridge_strategy",
+    requirement: "The project has a dry-run strategy for turning the orphan release branch into a PR-ready main-based branch under apps/joopark-workspace when GitHub reports no common history.",
+    status: prBridgeFiles.every((item) => item.exists) && prBridgeTerms.every((item) => item.missingTerms.length === 0) && bridgePlan.status === "pass" ? "pass" : "fail",
+    evidence: {
+      files: prBridgeFiles,
+      terms: prBridgeTerms,
+      plan: bridgePlan,
+    },
+  });
+
   const tempReleaseTerms = [
-    { file: "scripts/package-release.mjs", terms: ['process["env"].RELEASE_OUT_DIR', 'resolve(root, process["env"].RELEASE_OUT_DIR)'] },
-    { file: "scripts/smoke-release.mjs", terms: ['process["env"].RELEASE_OUT_DIR', "RELEASE_OUT_DIR: releaseDir", "runNodeScript(\"scripts/verify-release.mjs\", [releaseDir]"] },
+    { file: "scripts/package-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "resolve(root, process.env.RELEASE_OUT_DIR)"] },
+    { file: "scripts/smoke-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "RELEASE_OUT_DIR: releaseDir", "runNodeScript(\"scripts/verify-release.mjs\", [releaseDir]"] },
     { file: "scripts/audit-release-readiness.mjs", terms: ["mkdtempSync", "joopark-release-smoke-", "RELEASE_OUT_DIR: releaseOutDir"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
@@ -317,6 +394,83 @@ function buildChecklist() {
     requirement: "The full release smoke can package and verify into a temporary directory, preserving the checked release artifact while still testing a fresh package.",
     status: tempReleaseTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: tempReleaseTerms,
+  });
+
+  const deploySupportTerms = [
+    { file: "scripts/package-release.mjs", terms: ["function writeDeploySupportFiles", "404.html", "_headers", "_redirects", "vercel.json"] },
+    { file: "scripts/verify-release.mjs", terms: ["function verifyDeploySupport", "expectedDeploySupportFiles", "deploySupportFiles"] },
+    { file: "README.md", terms: ["GitHub Pages", "Netlify", "Vercel", "_headers", "vercel.json"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const deploySupportCount = verify.result?.deploySupportFiles || 0;
+  checklist.push({
+    id: "standalone_deploy_support",
+    requirement: "The release package includes static-host deployment support files for GitHub Pages, Netlify, and Vercel, and the verifier checks their contents.",
+    status: deploySupportTerms.every((item) => item.missingTerms.length === 0) && deploySupportCount === 4 ? "pass" : "fail",
+    evidence: {
+      files: deploySupportTerms,
+      verify: {
+        command: verify.command,
+        status: verify.status,
+        deploySupportFiles: deploySupportCount,
+      },
+    },
+  });
+
+  const releaseHeaderSmokeTerms = [
+    { file: "scripts/smoke-release.mjs", terms: ["function smokeReleaseHeaders", "headerChecks", "root_x_content_type_options", "vendor_cache_immutable"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["release_header_smoke", "The packaged release smoke applies release header rules"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const releaseHeaderGateOk = !gateEvidence || gateEvidence.result?.headers?.status === "pass";
+  checklist.push({
+    id: "release_header_smoke",
+    requirement: "The packaged release smoke applies release header rules and verifies security and cache headers over HTTP.",
+    status: releaseHeaderSmokeTerms.every((item) => item.missingTerms.length === 0) && releaseHeaderGateOk ? "pass" : "fail",
+    evidence: {
+      files: releaseHeaderSmokeTerms,
+      gate: gateEvidence ? {
+        command: gateEvidence.command,
+        status: gateEvidence.status,
+        headers: gateEvidence.result?.headers || null,
+      } : {
+        command: "node scripts/audit-release-readiness.mjs --run-gates",
+        status: "not_run",
+      },
+    },
+  });
+
+  const releaseFallbackSmokeTerms = [
+    { file: "scripts/package-release.mjs", terms: ["/* /index.html 200"] },
+    { file: "scripts/verify-release.mjs", terms: ["/* /index.html 200", "rewrite unmatched direct paths to index.html"] },
+    { file: "scripts/smoke-release.mjs", terms: ["function smokeReleaseFallbacks", "fallbackChecks", "direct_path_rewrites_to_index", "custom_404_matches_index"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["release_fallback_smoke", "The packaged release smoke verifies direct-path fallback"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const releaseFallbackGateOk = !gateEvidence || gateEvidence.result?.fallbacks?.status === "pass";
+  checklist.push({
+    id: "release_fallback_smoke",
+    requirement: "The packaged release smoke verifies direct-path fallback rewrites and GitHub Pages 404.html app-shell fallback over HTTP.",
+    status: releaseFallbackSmokeTerms.every((item) => item.missingTerms.length === 0) && releaseFallbackGateOk ? "pass" : "fail",
+    evidence: {
+      files: releaseFallbackSmokeTerms,
+      gate: gateEvidence ? {
+        command: gateEvidence.command,
+        status: gateEvidence.status,
+        fallbacks: gateEvidence.result?.fallbacks || null,
+      } : {
+        command: "node scripts/audit-release-readiness.mjs --run-gates",
+        status: "not_run",
+      },
+    },
+  });
+
+  const pagesWorkflowTerms = [
+    { file: "docs/github-pages-workflow.yml", terms: ["workflow_dispatch:", "codex/joopark-workspace-release", "permissions:", "pages: write", "id-token: write", "actions/configure-pages@v5", "actions/upload-pages-artifact@v3", "actions/deploy-pages@v4", "node scripts/package-release.mjs", "node scripts/verify-release.mjs", "path: dist/release"] },
+    { file: "README.md", terms: ["docs/github-pages-workflow.yml", "Publish JooPark Pages", "workflow_dispatch", "GitHub Pages artifact", "workflow` scope"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "github_pages_publish_workflow_template",
+    requirement: "The project has a GitHub Pages workflow template that packages, verifies, uploads, and deploys the release artifact with the required Pages permissions and documents the workflow-scope requirement.",
+    status: pagesWorkflowTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: pagesWorkflowTerms,
   });
 
   const indexTerms = hasTerms("index.html", viewIds);
@@ -352,19 +506,6 @@ function buildChecklist() {
     evidence: storageTerms,
   });
 
-  const releasePublicationTerms = [
-    { file: "app.js", terms: ["RELEASE_INFO", "data-release-card", "data-release-download", "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"] },
-    { file: "styles.css", terms: [".release-panel", ".release-digest", ".release-link"] },
-    { file: "README.md", terms: ["JooPark Workspace v3.0.0](https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0)", "joopark-workspace-v3.0.0.zip", "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"] },
-    { file: "scripts/smoke-interactions.mjs", terms: ["releaseInfoVisible", "release info panel did not render", "release asset digest did not render"] },
-  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
-  checklist.push({
-    id: "release_publication_surface",
-    requirement: "The settings screen, README, and interaction smoke expose the published GitHub release URL, download asset, checksum, and target commit.",
-    status: releasePublicationTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
-    evidence: releasePublicationTerms,
-  });
-
   const docTerms = hasTerms("README.md", [
     "node scripts/smoke-release.mjs",
     "node scripts/smoke-mobile.mjs",
@@ -392,7 +533,7 @@ function buildChecklist() {
   const autoresearchCandidates = autoresearchCandidateSnapshot("data/adoption-candidates.json");
   checklist.push({
     id: "autoresearch_ecosystem_candidates",
-    requirement: "AutoResearch product launch data includes the original project, the refreshed Veritas source-backed harness, the user mirror, and a useful ecosystem candidate set.",
+    requirement: "AutoResearch product launch data includes the original project, the Veritas source-backed harness, the user mirror, and a useful ecosystem candidate set.",
     status: autoresearchCandidates.status,
     evidence: autoresearchCandidates,
   });
@@ -489,6 +630,30 @@ function buildChecklist() {
     evidence: candidateNextActionTerms,
   });
 
+  const candidateActionFilterTerms = [
+    { file: "app.js", terms: ["CANDIDATE_ACTION_FILTERS", "function setPortfolioActionFilter", "data-candidate-action-filter-panel", "data-action=\"portfolio-action-filter\""] },
+    { file: "styles.css", terms: [".portfolio-action-filter"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateActionFilter", "architecture action filter did not narrow candidate cards", "risk action filter did not keep OpenProject visible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_action_filter",
+    requirement: "The portfolio candidate queue can be narrowed by deterministic next-action recommendations, with browser smoke coverage for architecture and risk-review filters.",
+    status: candidateActionFilterTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateActionFilterTerms,
+  });
+
+  const candidateActionSummaryTerms = [
+    { file: "app.js", terms: ["function candidateActionQueueSummary", "data-candidate-action-summary", "data-candidate-action-summary-top"] },
+    { file: "styles.css", terms: [".portfolio-action-summary"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateActionSummaryVisible", "architecture action summary top candidate did not render", "risk action summary label did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_action_summary",
+    requirement: "The portfolio candidate action queue exposes a summary of the selected action, including count, top candidate, review reason, and risk count, with browser smoke coverage.",
+    status: candidateActionSummaryTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateActionSummaryTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },
@@ -503,7 +668,6 @@ function buildChecklist() {
     evidence: vendorTerms,
   });
 
-  const verify = verifyRelease();
   checklist.push({
     id: "manifest_integrity",
     requirement: "The release manifest matches actual packaged runtime files by path, byte count, and SHA-256.",

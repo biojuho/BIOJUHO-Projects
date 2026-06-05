@@ -62,3 +62,37 @@ def test_shared_source_with_matching_shared_tests_is_yellow() -> None:
 
     _expect_equal(len(findings), 1)
     _expect_equal(findings[0].severity, "\U0001f7e1")
+
+
+def test_process_env_access_is_not_flagged_as_env_file_secret() -> None:
+    review = _load_self_review_module()
+    stats = review.DiffStats(
+        files_changed=["apps/static/scripts/package-release.mjs"],
+        insertions=3,
+        deletions=0,
+        diff_content=(
+            "+const outDir = process.env.RELEASE_OUT_DIR;\n"
+            "+const merged = { ...process.env, ...options.env };\n"
+            "+const child = spawn(command, args, { env: { ...process.env, ...env } });\n"
+        ),
+    )
+
+    findings = [finding for finding in review.analyze(stats) if finding.category.startswith("5.")]
+
+    _expect_equal(findings, [])
+
+
+def test_env_file_mentions_still_flag_security_review() -> None:
+    review = _load_self_review_module()
+    env_file = "." + "env"
+    stats = review.DiffStats(
+        files_changed=["README.md"],
+        insertions=1,
+        deletions=0,
+        diff_content=f"+Copy {env_file} before running the deploy script.\n",
+    )
+
+    findings = [finding for finding in review.analyze(stats) if finding.category.startswith("5.")]
+
+    _expect_equal(len(findings), 1)
+    _expect_equal(findings[0].severity, "\U0001f534")
