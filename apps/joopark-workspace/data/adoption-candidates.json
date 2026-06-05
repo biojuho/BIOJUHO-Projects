@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-05T21:53:09+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh",
+  "generatedAt": "2026-06-05T22:24:40+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -1074,7 +1074,7 @@
       "diskKb": 247835,
       "pushedAt": "2026-06-05T04:17:00Z",
       "createdAt": "2015-01-23T17:52:06Z",
-      "lastCommit": null
+      "lastCommit": "b3a1037bf596d284b53355d23cadf1d9ab56b599"
     },
     {
       "id": "repo-worklenz-worklenz",
