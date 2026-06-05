@@ -10,6 +10,7 @@ const dataPath = join(root, "data/adoption-candidates.json");
 const args = new Set(process.argv.slice(2));
 const write = args.has("--write");
 const snapshotOnly = args.has("--snapshot-only");
+const failOnChange = args.has("--fail-on-change");
 const repoName = "Veritas-7/autoresearch-skill-system";
 const commitPattern = /^[0-9a-f]{40}$/i;
 
@@ -189,6 +190,7 @@ function finish(status, extra = {}) {
     mode: snapshotOnly ? "snapshot-only" : (write ? "write" : "dry-run"),
     repo: repoName,
     willWrite: write && !snapshotOnly,
+    failOnChange: failOnChange && !snapshotOnly,
     ...extra,
   }, null, 2));
   process.exit(status === "pass" ? 0 : 1);
@@ -250,7 +252,7 @@ if (write && changed) {
   writeFileSync(dataPath, formatSnapshotText(snapshot, nextPayload), "utf-8");
 }
 
-finish("pass", {
+finish(failOnChange && changed ? "drift" : "pass", {
   changed,
   wrote: write && changed ? "data/adoption-candidates.json" : "",
   generatedAt: changed ? nextPayload.generatedAt : snapshot.payload.generatedAt || "",

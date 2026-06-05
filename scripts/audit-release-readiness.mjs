@@ -698,8 +698,8 @@ function buildChecklist() {
 
   const veritasSnapshotWriterFiles = veritasSnapshotWriterScripts.map((path) => ({ path, exists: fileExists(path) }));
   const veritasSnapshotWriterTerms = [
-    { file: "scripts/refresh-veritas-candidate-snapshot.mjs", terms: ["--snapshot-only", "--write", "gh api", "graphql", "veritas-focused-drift-refresh", "messageHeadline"] },
-    { file: "README.md", terms: ["refresh-veritas-candidate-snapshot.mjs", "--snapshot-only", "--write", "Veritas-7/autoresearch-skill-system"] },
+    { file: "scripts/refresh-veritas-candidate-snapshot.mjs", terms: ["--snapshot-only", "--write", "--fail-on-change", "gh api", "graphql", "veritas-focused-drift-refresh", "messageHeadline"] },
+    { file: "README.md", terms: ["refresh-veritas-candidate-snapshot.mjs", "--snapshot-only", "--write", "--fail-on-change", "Veritas-7/autoresearch-skill-system"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const veritasSnapshotWriter = run("node", ["scripts/refresh-veritas-candidate-snapshot.mjs", "--snapshot-only"]);
   checklist.push({
@@ -911,6 +911,18 @@ function buildChecklist() {
     requirement: "Taskosaur and Workstream adoption candidates expose UX benchmark focus chips mapped to JooPark PM, Kanban, and Calendar surfaces, with browser smoke coverage.",
     status: taskosaurWorkstreamBenchmarkTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: taskosaurWorkstreamBenchmarkTerms,
+  });
+
+  const taskosaurWorkstreamBenchmarkQueueTerms = [
+    { file: "app.js", terms: ["CANDIDATE_BENCHMARK_FILTERS", "function setPortfolioBenchmarkFilter", "function sortBenchmarkFocusProjects", "function candidateBenchmarkQueueSummary", "data-candidate-benchmark-filter-panel", "data-candidate-benchmark-summary"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-filter", ".portfolio-benchmark-summary"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkQueueVisible", "benchmark focus filter did not narrow candidate cards", "benchmark focus queue did not rank top benchmark first"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_queue",
+    requirement: "Taskosaur and Workstream benchmark focus chips can be promoted into a filtered, sorted benchmark queue with summary and browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkQueueTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkQueueTerms,
   });
 
   const vendorTerms = [
