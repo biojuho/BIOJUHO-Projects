@@ -60,7 +60,7 @@ jobs:
       - name: Bootstrap legacy paths
         working-directory: .
         run: python3 bootstrap_legacy_paths.py
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -85,7 +85,7 @@ jobs:
       - name: Bootstrap legacy paths
         working-directory: .
         run: python3 bootstrap_legacy_paths.py
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm

@@ -57,7 +57,7 @@ jobs:
         with:
           python-version: '3.13'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: matrix.scope == 'workspace' || matrix.scope == 'desci' || matrix.scope == 'agriguard'
         with:
           node-version: "22.12.0"
