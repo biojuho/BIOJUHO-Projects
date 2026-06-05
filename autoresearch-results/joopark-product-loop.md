@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T19:14:04+09:00
+Generated: 2026-06-05T19:18:34+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -143,8 +143,20 @@ Generated: 2026-06-05T19:14:04+09:00
 
 - `data/adoption-candidates.json` now includes the `github-search:local-first-workspace` source marker.
 - `scripts/audit-release-readiness.mjs` now includes `workspace_ecosystem_candidates`.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 16/16 with 8 workspace candidates.
-- Computer Use manual check reloaded `http://127.0.0.1:5178/#pm-portfolio`, confirmed persisted localStorage merged the portfolio from 30 to 38 projects, and filtered `OpenLoaf/OpenLoaf` as a visible candidate card.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 17/17 with 8 workspace candidates.
+
+## Experiment: workspace candidate UI smoke
+
+- Hypothesis: Workspace discovery data should be proven in the actual portfolio UI, not only by JSON seed and static audit checks.
+- Primary metric: interaction-smoke evidence for imported workspace candidate search.
+- Baseline: no automated UI smoke checked that an imported workspace candidate was visible and searchable in the portfolio.
+- Candidate: `scripts/smoke-interactions.mjs` searches `OpenLoaf`, verifies one portfolio card, and reports `persistedChecks.workspaceCandidateVisible: true`; the release audit now includes `workspace_candidate_ui_smoke`.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/audit-release-readiness.mjs --run-gates` passed with `workspace candidate portfolio search`, `workspaceCandidateVisible: true`, and 18 interaction steps.
+- `scripts/audit-release-readiness.mjs` now checks for the workspace candidate UI smoke markers before passing release readiness.
 
 ## Experiment: release smoke isolated output
 
@@ -157,8 +169,8 @@ Generated: 2026-06-05T19:14:04+09:00
 ## Evidence
 
 - `node --check scripts/package-release.mjs`, `node --check scripts/smoke-release.mjs`, and `node --check scripts/audit-release-readiness.mjs` passed.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 16/16, with packaged browser gates served from `RELEASE_OUT_DIR=<temp>`.
-- The final gate still had 15 desktop routes, 15 mobile routes, 17 interaction steps, `markdownSanitized: true`, and 0 console, network, and layout issues.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 17/17, with packaged browser gates served from `RELEASE_OUT_DIR=<temp>`.
+- The final gate still had 15 desktop routes, 15 mobile routes, 18 interaction steps, `markdownSanitized: true`, `workspaceCandidateVisible: true`, and 0 console, network, and layout issues.
 
 ## Next Loop
 

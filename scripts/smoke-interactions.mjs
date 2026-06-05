@@ -342,6 +342,7 @@ const interactionExpression = `
   let backupImportOk = false;
   let backupResetOk = false;
   let markdownSanitizedOk = false;
+  let workspaceCandidateVisibleOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -510,6 +511,21 @@ const interactionExpression = `
     const date = day.dataset.date;
     day.click();
     await waitFor(() => !!dashboard.habits.find((item) => item.id === habit.id).log[date], "habit day toggle did not save");
+  });
+
+  await runStep("workspace candidate portfolio search", async () => {
+    await nav("pm-portfolio");
+    const candidate = dashboard.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
+    assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
+    fill("#globalSearch", "OpenLoaf");
+    await waitFor(() => state.query === "OpenLoaf" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "OpenLoaf search did not filter portfolio");
+    const text = qs("#view-pm-portfolio .portfolio-grid").innerText;
+    assert(text.includes("OpenLoaf/OpenLoaf"), "OpenLoaf candidate card did not render");
+    assert(text.includes("AI/로컬 워크스페이스"), "OpenLoaf candidate category did not render");
+    assert(text.includes("에이전트"), "OpenLoaf candidate description did not render");
+    fill("#globalSearch", "");
+    await waitFor(() => document.querySelectorAll("#view-pm-portfolio .portfolio-card").length > 1, "portfolio did not recover after clearing search");
+    workspaceCandidateVisibleOk = true;
   });
 
   let projectId = "";
@@ -721,6 +737,7 @@ const interactionExpression = `
     settings: preImportPayload.settings.displayName === marker + " user",
     backupExport: backupExportOk,
     markdownSanitized: markdownSanitizedOk,
+    workspaceCandidateVisible: workspaceCandidateVisibleOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);

@@ -368,6 +368,18 @@ function buildChecklist() {
     evidence: workspaceCandidates,
   });
 
+  const workspaceUiTerms = hasTerms("scripts/smoke-interactions.mjs", [
+    "workspace candidate portfolio search",
+    "OpenLoaf/OpenLoaf",
+    "workspaceCandidateVisible",
+  ]);
+  checklist.push({
+    id: "workspace_candidate_ui_smoke",
+    requirement: "The interaction smoke proves at least one imported workspace adoption candidate is searchable and visible in the portfolio UI.",
+    status: workspaceUiTerms.status,
+    evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceUiTerms.missing },
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

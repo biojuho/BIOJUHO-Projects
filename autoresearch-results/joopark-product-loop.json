@@ -1,22 +1,23 @@
 {
-  "generatedAt": "2026-06-05T19:14:04+09:00",
+  "generatedAt": "2026-06-05T19:18:34+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 16,
+      "pass": 17,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 16
+      "total": 17
     },
     "browserEvidence": {
       "routes": 15,
       "mobileRoutes": 15,
-      "interactionSteps": 17,
+      "interactionSteps": 18,
       "markdownSanitized": true,
+      "workspaceCandidateVisible": true,
       "consoleIssues": 0,
       "networkIssues": 0,
       "layoutIssues": 0
@@ -84,6 +85,13 @@
       "primaryMetric": "workspaceCandidates",
       "baseline": 0,
       "candidate": 8,
+      "decision": "keep"
+    },
+    {
+      "id": "workspace-candidate-ui-smoke",
+      "primaryMetric": "browserVisibleWorkspaceCandidateChecks",
+      "baseline": 0,
+      "candidate": 1,
       "decision": "keep"
     },
     {
