@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T22:16:13+09:00
+Generated: 2026-06-05T22:45:28+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -428,6 +428,32 @@ Generated: 2026-06-05T22:16:13+09:00
 - `gh api repos/opf/openproject` returned `pushed_at: 2026-06-05T12:44:52Z`, 15,235 stars, 3,288 forks, 212 open issues, default branch `dev`, Ruby, and repository size 2,705,404 KB.
 - `gh api 'repos/opf/openproject/commits?per_page=1'` returned commit `5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4` dated `2026-06-05T11:55:31Z`.
 - The release interaction smoke now verifies `veritasCandidateFreshnessVisible` and `openProjectCandidateFreshnessVisible` through commit searches and commit badge metadata.
+
+## Experiment: Leantime freshness refresh
+
+- Hypothesis: The release branch should preserve the main branch's next project-management benchmark freshness evidence instead of leaving Leantime with stale `lastCommit` metadata.
+- Primary metric: `leantimeFreshnessChecks`.
+- Baseline: `Leantime/leantime` had `lastCommit: null`, no `github-api:leantime-freshness-refresh` source marker, and no commit-search UI smoke.
+- Candidate: `data/adoption-candidates.json` records Leantime `lastCommit: b3a1037bf596d284b53355d23cadf1d9ab56b599`, `pushedAt: 2026-06-05T04:17:00Z`, the `github-api:leantime-freshness-refresh` source marker, and audit evidence for freshness/source validity.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/Leantime/leantime` returned `pushed_at: 2026-06-05T04:17:00Z`, 9,986 stars, 981 forks, 316 open issues, default branch `master`, and `archived: false`.
+- `gh api repos/Leantime/leantime/commits/master` returned commit `b3a1037bf596d284b53355d23cadf1d9ab56b599` dated `2026-06-04T20:06:21Z` with message `chore(logicmodelcanvas): drop unused snapshot mount div (#3491)`.
+- The release audit now expects 34/34 checks with `workspace_ecosystem_candidates.leantime.fresh: true`.
+
+## Experiment: Leantime freshness UI smoke
+
+- Hypothesis: Leantime freshness is more useful when the release portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
+- Primary metric: `leantimeCandidateFreshnessVisible`.
+- Baseline: portfolio cards could not be searched by Leantime upstream commit because `lastCommit` was absent.
+- Candidate: the packaged interaction smoke searches `b3a1037b` and verifies the Leantime card, commit, pushedAt marker, and safe GitHub link.
+- Decision: keep.
+
+## Evidence
+
+- The release interaction smoke now reports `persistedChecks.leantimeCandidateFreshnessVisible: true` when the packaged UI renders the Leantime freshness badge.
 
 ## Next Loop
 
