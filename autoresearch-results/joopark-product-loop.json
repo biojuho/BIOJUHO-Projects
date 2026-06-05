@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T20:22:20+09:00",
+  "generatedAt": "2026-06-05T20:27:13+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 27,
+      "pass": 29,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 27
+      "total": 29
     },
     "browserEvidence": {
       "routes": 15,
@@ -28,6 +28,7 @@
       "deploySupportFiles": 4,
       "releaseHeaderSmokeChecks": 6,
       "releaseFallbackSmokeChecks": 4,
+      "pagesPublishWorkflowTemplateChecks": 3,
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
@@ -181,6 +182,13 @@
       "baseline": 0,
       "candidate": 4,
       "decision": "keep"
+    },
+    {
+      "id": "github-pages-publish-workflow-template",
+      "primaryMetric": "pagesPublishWorkflowTemplateChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -194,6 +202,6 @@
   "nextCandidates": [
     "no-common-history PR strategy",
     "deeper UI workflow coverage",
-    "release publish workflow artifact"
+    "pages workflow scope handoff"
   ]
 }

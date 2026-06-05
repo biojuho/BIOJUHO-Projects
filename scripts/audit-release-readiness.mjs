@@ -35,6 +35,10 @@ const releaseScripts = [
   "scripts/smoke-release.mjs",
 ];
 
+const workflowFiles = [
+  "docs/github-pages-workflow.yml",
+];
+
 const appMarkers = [
   { id: "calendar_crud", file: "app.js", terms: ["function openEventModal", "function saveEventFromForm", "function deleteEvent"] },
   { id: "todo_crud", file: "app.js", terms: ["function quickAddTodo", "function saveTodoFromForm", "function toggleTodo", "function deleteTodo"] },
@@ -292,6 +296,14 @@ function buildChecklist() {
     evidence: scriptEvidence,
   });
 
+  const workflowEvidence = workflowFiles.map((path) => ({ path, exists: fileExists(path) }));
+  checklist.push({
+    id: "release_publish_workflow_template_files",
+    requirement: "GitHub Pages publish workflow template files exist before claiming publish workflow readiness.",
+    status: workflowEvidence.every((item) => item.exists) ? "pass" : "fail",
+    evidence: workflowEvidence,
+  });
+
   const tempReleaseTerms = [
     { file: "scripts/package-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "resolve(root, process.env.RELEASE_OUT_DIR)"] },
     { file: "scripts/smoke-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "RELEASE_OUT_DIR: releaseDir", "runNodeScript(\"scripts/verify-release.mjs\", [releaseDir]"] },
@@ -368,6 +380,17 @@ function buildChecklist() {
         status: "not_run",
       },
     },
+  });
+
+  const pagesWorkflowTerms = [
+    { file: "docs/github-pages-workflow.yml", terms: ["workflow_dispatch:", "codex/joopark-workspace-release", "permissions:", "pages: write", "id-token: write", "actions/configure-pages@v5", "actions/upload-pages-artifact@v3", "actions/deploy-pages@v4", "node scripts/package-release.mjs", "node scripts/verify-release.mjs", "path: dist/release"] },
+    { file: "README.md", terms: ["docs/github-pages-workflow.yml", "Publish JooPark Pages", "workflow_dispatch", "GitHub Pages artifact", "workflow` scope"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "github_pages_publish_workflow_template",
+    requirement: "The project has a GitHub Pages workflow template that packages, verifies, uploads, and deploys the release artifact with the required Pages permissions and documents the workflow-scope requirement.",
+    status: pagesWorkflowTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: pagesWorkflowTerms,
   });
 
   const indexTerms = hasTerms("index.html", viewIds);
