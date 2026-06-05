@@ -74,7 +74,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `5`
+- Evidence paths: `6`
 
 ### canva_mcp_continuation_guard
 

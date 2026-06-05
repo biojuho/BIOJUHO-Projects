@@ -52,6 +52,8 @@ def test_build_commit_digest_selects_pushed_queue_items_and_windows(tmp_path: Pa
 
     assert report["status"] == "pass"
     assert report["selected_repositories"] == 2
+    assert report["selection_batch"]["candidate_repositories"] == 2
+    assert report["selection_batch"]["overflow_repositories"] == 0
     assert [item["repo"] for item in report["items"]] == [
         "microsoft/agent-framework",
         "mastra-ai/mastra",
@@ -61,6 +63,34 @@ def test_build_commit_digest_selects_pushed_queue_items_and_windows(tmp_path: Pa
         ("mastra-ai/mastra", "2026-06-04T18:53:13Z", "2026-06-04T23:01:11Z", 3, 7),
     ]
     assert report["items"][0]["decision"] == "review_required_before_local_adoption"
+
+
+def test_build_commit_digest_reports_unfetched_overflow_queue(tmp_path: Path) -> None:
+    digest = load_module()
+    queue_path = tmp_path / "queue.json"
+    change_summary_path = tmp_path / "change-summary.json"
+    queue_path.write_text(json.dumps(_queue_payload()), encoding="utf-8")
+    change_summary_path.write_text(json.dumps(_change_summary_payload()), encoding="utf-8")
+
+    report = digest.build_commit_digest(
+        queue_path,
+        change_summary_path,
+        top=1,
+        fetch_commits=lambda repo, since, until, limit, timeout_seconds: [],
+    )
+
+    assert report["selected_repositories"] == 1
+    assert report["selection_batch"]["candidate_repositories"] == 2
+    assert report["selection_batch"]["overflow_repositories"] == 1
+    assert report["selection_batch"]["overflow_policy"] == "defer_to_next_digest_without_fetching"
+    assert report["selection_batch"]["overflow_queue"] == [
+        {
+            "rank": 2,
+            "repo": "mastra-ai/mastra",
+            "priority": "high",
+            "score": 46,
+        }
+    ]
 
 
 def test_build_commit_digest_records_fetch_failures(tmp_path: Path) -> None:
@@ -103,6 +133,9 @@ def test_render_markdown_includes_commit_digest_decisions(tmp_path: Path) -> Non
     markdown = digest.render_markdown(report)
 
     assert "GitHub Source Commit Delta Digest" in markdown
+    assert "Selection Batch" in markdown
+    assert "Overflow repositories: `1`" in markdown
+    assert "mastra-ai/mastra" in markdown
     assert "microsoft/agent-framework" in markdown
     assert "no_local_adoption_commit_window_empty" in markdown
     assert "No commit subjects returned for the pushed_at window." in markdown
@@ -153,6 +186,8 @@ def test_checked_in_commit_digest_matches_renderer() -> None:
     assert payload["status"] == "pass"
     assert payload["selected_repositories"] == 4
     assert payload["failed_repositories"] == 0
+    assert payload["selection_batch"]["candidate_repositories"] >= payload["selected_repositories"]
+    assert payload["selection_batch"]["overflow_policy"] == "defer_to_next_digest_without_fetching"
     assert [item["repo"] for item in payload["items"]] == [
         "microsoft/agent-framework",
         "mastra-ai/mastra",

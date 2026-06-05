@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:24:12+09:00",
+  "generated_at": "2026-06-05T09:30:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -537,6 +537,8 @@
             "api.github.com/repos",
             "commits/main.atom",
             "github_atom_feed",
+            "selection_batch",
+            "overflow_repositories",
             "review_required_before_local_adoption",
             "no_local_adoption_commit_window_empty"
           ]
@@ -545,6 +547,7 @@
           "path": "tests/test_github_source_commit_digest.py",
           "must_contain": [
             "test_build_commit_digest_selects_pushed_queue_items_and_windows",
+            "test_build_commit_digest_reports_unfetched_overflow_queue",
             "test_fetch_commit_delta_falls_back_to_atom_feed_on_rate_limit",
             "test_checked_in_commit_digest_matches_renderer",
             "GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json"
@@ -556,11 +559,15 @@
             "\"status\": \"pass\"",
             "\"selected_repositories\": 4",
             "\"failed_repositories\": 0",
+            "\"selection_batch\"",
+            "\"candidate_repositories\": 13",
+            "\"overflow_repositories\": 9",
+            "\"overflow_policy\": \"defer_to_next_digest_without_fetching\"",
             "\"repo\": \"microsoft/agent-framework\"",
             "\"repo\": \"mastra-ai/mastra\"",
             "\"repo\": \"microsoft/playwright-mcp\"",
             "\"repo\": \"vercel/ai\"",
-            "\"fetch_source\": \"github_atom_feed\"",
+            "\"fetch_source\"",
             "\"no_local_adoption_commit_window_empty\""
           ]
         },
@@ -569,6 +576,9 @@
           "must_contain": [
             "GitHub Source Commit Delta Digest",
             "Selected repositories: `4`",
+            "Selection Batch",
+            "Candidate repositories: `13`",
+            "Overflow repositories: `9`",
             "microsoft/agent-framework",
             "mastra-ai/mastra",
             "microsoft/playwright-mcp",
@@ -583,6 +593,17 @@
             "GitHub Source Commit Digest",
             "4/4",
             "github_atom_feed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_COMMIT_DIGEST_BATCH_GUARD_2026-06-05.md",
+          "must_contain": [
+            "GitHub Source Commit Digest Batch Guard",
+            "mastra-ai/mastra",
+            "opt-in batched delivery",
+            "selection_batch",
+            "overflow_repositories",
             "global_objective_complete=false"
           ]
         }

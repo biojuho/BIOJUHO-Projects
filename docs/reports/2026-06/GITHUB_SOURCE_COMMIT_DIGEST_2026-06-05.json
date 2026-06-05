@@ -3,7 +3,7 @@
   "commit_limit_per_repo": 5,
   "complete": true,
   "failed_repositories": 0,
-  "generated_at": "2026-06-04T23:29:10.059091+00:00",
+  "generated_at": "2026-06-05T00:29:26.591970+00:00",
   "github_api_version": "2022-11-28",
   "items": [
     {
@@ -15,7 +15,7 @@
       "decision": "review_required_before_local_adoption",
       "error": "",
       "failure_type": "",
-      "fetch_source": "github_atom_feed",
+      "fetch_source": "github_api",
       "latest_commits": [
         {
           "author": "giles17",
@@ -23,7 +23,7 @@
           "committed_at": "2026-06-04T22:06:26Z",
           "html_url": "https://github.com/microsoft/agent-framework/commit/f3c3efed4301905cff795794790bd4b4719742a4",
           "sha": "f3c3efed4301",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "Python: Add GitHub Copilot integration tests to CI workflows (#6346)"
         },
         {
@@ -32,7 +32,7 @@
           "committed_at": "2026-06-04T20:51:15Z",
           "html_url": "https://github.com/microsoft/agent-framework/commit/bbccb7c28c86a0c2712d65e367fa8029065294eb",
           "sha": "bbccb7c28c86",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": ".NET: Bump ModelContextProtocol from 1.1.0 to 1.2.0 (#3956) (#6239)"
         },
         {
@@ -41,7 +41,7 @@
           "committed_at": "2026-06-04T20:28:59Z",
           "html_url": "https://github.com/microsoft/agent-framework/commit/dbc312a78a7579170068910599bfff5ca639c0d6",
           "sha": "dbc312a78a75",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "Python: Fix toolbox consent flow in hosted agent (#6249)"
         },
         {
@@ -50,8 +50,8 @@
           "committed_at": "2026-06-04T20:15:29Z",
           "html_url": "https://github.com/microsoft/agent-framework/commit/bb9ed63a347b3e437106b27ff7547bd388fd5bbe",
           "sha": "bb9ed63a347b",
-          "source": "github_atom_feed",
-          "subject": ".NET: Restructure skill script schemas XML and remove resources from ..."
+          "source": "github_api",
+          "subject": ".NET: Restructure skill script schemas XML and remove resources from body (#6343)"
         }
       ],
       "local_evidence": [
@@ -83,7 +83,7 @@
       "decision": "review_required_before_local_adoption",
       "error": "",
       "failure_type": "",
-      "fetch_source": "github_atom_feed",
+      "fetch_source": "github_api",
       "latest_commits": [
         {
           "author": "TylerBarnes",
@@ -91,7 +91,7 @@
           "committed_at": "2026-06-04T23:00:01Z",
           "html_url": "https://github.com/mastra-ai/mastra/commit/b3e9781a93a18e8e492849040016ddf239c00d9c",
           "sha": "b3e9781a93a1",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "fix(client-js): keep client tools for signal continuations (#17593)"
         },
         {
@@ -100,7 +100,7 @@
           "committed_at": "2026-06-04T19:46:16Z",
           "html_url": "https://github.com/mastra-ai/mastra/commit/b756ff19ef26da52c9a0d5e258343c1f53bc8394",
           "sha": "b756ff19ef26",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "docs(reference/pubsub): document opt-in subscriber batching (#17586)"
         },
         {
@@ -109,17 +109,17 @@
           "committed_at": "2026-06-04T19:42:22Z",
           "html_url": "https://github.com/mastra-ai/mastra/commit/3b45ea95015557a6cb9d70dc5252af54ab1b78ac",
           "sha": "3b45ea950155",
-          "source": "github_atom_feed",
-          "subject": "feat(core/events): opt-in batched delivery for PubSub subscribers (#1..."
+          "source": "github_api",
+          "subject": "feat(core/events): opt-in batched delivery for PubSub subscribers (#16482)"
         },
         {
-          "author": "devin-ai-integration",
+          "author": "devin-ai-integration[bot]",
           "authored_at": "2026-06-04T19:40:56Z",
           "committed_at": "2026-06-04T19:40:56Z",
           "html_url": "https://github.com/mastra-ai/mastra/commit/e9be4e747ec3d8b65548bff92f9377db06105376",
           "sha": "e9be4e747ec3",
-          "source": "github_atom_feed",
-          "subject": "feat(core): add SignalProvider abstraction + @mastra/github-signals p..."
+          "source": "github_api",
+          "subject": "feat(core): add SignalProvider abstraction + @mastra/github-signals package (#17577)"
         },
         {
           "author": "daneatmastra",
@@ -127,7 +127,7 @@
           "committed_at": "2026-06-04T19:35:23Z",
           "html_url": "https://github.com/mastra-ai/mastra/commit/151f90efa07649e3dd1b4632a46a43f67363728c",
           "sha": "151f90efa076",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "chore(deps): update opentelemetry (#17519)"
         }
       ],
@@ -191,15 +191,15 @@
       "decision": "review_required_before_local_adoption",
       "error": "",
       "failure_type": "",
-      "fetch_source": "github_atom_feed",
+      "fetch_source": "github_api",
       "latest_commits": [
         {
-          "author": "github-actions",
+          "author": "github-actions[bot]",
           "authored_at": "2026-06-04T23:01:09Z",
           "committed_at": "2026-06-04T23:01:09Z",
           "html_url": "https://github.com/vercel/ai/commit/43ad34c6a665973f9d949e38bf8e34481bd5aef0",
           "sha": "43ad34c6a665",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "Version Packages (canary) (#15836)"
         },
         {
@@ -208,8 +208,8 @@
           "committed_at": "2026-06-04T22:48:42Z",
           "html_url": "https://github.com/vercel/ai/commit/2ce3c65448f36eb3629c50095888a64326167d0d",
           "sha": "2ce3c65448f3",
-          "source": "github_atom_feed",
-          "subject": "feat(provider/google-vertex): add Gemini text-to-speech (speech) mode..."
+          "source": "github_api",
+          "subject": "feat(provider/google-vertex): add Gemini text-to-speech (speech) model support (#15779)"
         },
         {
           "author": "edawerd",
@@ -217,7 +217,7 @@
           "committed_at": "2026-06-04T22:22:30Z",
           "html_url": "https://github.com/vercel/ai/commit/94eba1b0594ec6e34726cf3436bb953e46000106",
           "sha": "94eba1b0594e",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "fix(openai): round-trip namespace on function_call input items (#15193)"
         },
         {
@@ -226,16 +226,16 @@
           "committed_at": "2026-06-04T20:59:14Z",
           "html_url": "https://github.com/vercel/ai/commit/beb6c72357fc970c3985a9b7e5ec346622102f28",
           "sha": "beb6c72357fc",
-          "source": "github_atom_feed",
-          "subject": "docs(contributing): document the Experimental_ prefix seam convention..."
+          "source": "github_api",
+          "subject": "docs(contributing): document the Experimental_ prefix seam convention (#15833)"
         },
         {
-          "author": "github-actions",
+          "author": "github-actions[bot]",
           "authored_at": "2026-06-04T19:13:12Z",
           "committed_at": "2026-06-04T19:13:12Z",
           "html_url": "https://github.com/vercel/ai/commit/480c2fb3913e56808278da8a89bc82665cc403da",
           "sha": "480c2fb3913e",
-          "source": "github_atom_feed",
+          "source": "github_api",
           "subject": "Version Packages (canary) (#15827)"
         }
       ],
@@ -262,7 +262,71 @@
   ],
   "schema_version": 1,
   "selected_repositories": 4,
-  "selection_policy": "Select the highest-ranked queued repositories with pushed_at movement, then review live commit subjects before any local adoption decision.",
+  "selection_batch": {
+    "batch_size": 4,
+    "candidate_repositories": 13,
+    "overflow_policy": "defer_to_next_digest_without_fetching",
+    "overflow_queue": [
+      {
+        "priority": "high",
+        "rank": 5,
+        "repo": "OpenHands/OpenHands",
+        "score": 44
+      },
+      {
+        "priority": "high",
+        "rank": 6,
+        "repo": "pydantic/pydantic-ai",
+        "score": 44
+      },
+      {
+        "priority": "high",
+        "rank": 7,
+        "repo": "Significant-Gravitas/AutoGPT",
+        "score": 44
+      },
+      {
+        "priority": "high",
+        "rank": 8,
+        "repo": "agno-agi/agno",
+        "score": 43
+      },
+      {
+        "priority": "high",
+        "rank": 9,
+        "repo": "crewAIInc/crewAI",
+        "score": 43
+      },
+      {
+        "priority": "high",
+        "rank": 10,
+        "repo": "strands-agents/harness-sdk",
+        "score": 43
+      },
+      {
+        "priority": "high",
+        "rank": 11,
+        "repo": "google/adk-python",
+        "score": 38
+      },
+      {
+        "priority": "medium",
+        "rank": 12,
+        "repo": "evalstate/fast-agent",
+        "score": 29
+      },
+      {
+        "priority": "medium",
+        "rank": 14,
+        "repo": "Uninen/devserver-mcp",
+        "score": 27
+      }
+    ],
+    "overflow_repositories": 9,
+    "selected_repositories": 4,
+    "source_signal": "mastra-ai/mastra opt-in PubSub subscriber batching"
+  },
+  "selection_policy": "Select the highest-ranked queued repositories with pushed_at movement, then review live commit subjects before any local adoption decision. Repositories beyond the configured batch are reported as overflow for the next digest instead of being silently hidden.",
   "source_change_generated_at": "2026-06-04T23:01:51.324669+00:00",
   "source_change_summary": "docs/reports/2026-06/GITHUB_SOURCE_CHANGE_SUMMARY_2026-06-05.json",
   "source_queue": "docs/reports/2026-06/GITHUB_SOURCE_REVIEW_QUEUE_2026-06-05.json",

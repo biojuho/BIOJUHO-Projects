@@ -115,11 +115,8 @@ def build_commit_digest(
         for record in change_summary["change_summary"]["records"]
         if isinstance(record, dict) and isinstance(record.get("repo"), str)
     }
-    selected = [
-        item
-        for item in sorted(queue["items"], key=lambda value: int(value.get("rank", 999_999)))
-        if "pushed_at" in item.get("changed_fields", [])
-    ][:top]
+    pushed_candidates = _pushed_queue_items(queue["items"])
+    selected = pushed_candidates[:top]
 
     items = [
         _build_digest_item(
@@ -147,9 +144,11 @@ def build_commit_digest(
         "selected_repositories": len(items),
         "failed_repositories": len(failed),
         "commit_limit_per_repo": max_commits,
+        "selection_batch": _selection_batch(pushed_candidates, selected, batch_size=top),
         "selection_policy": (
             "Select the highest-ranked queued repositories with pushed_at movement, then review live commit "
-            "subjects before any local adoption decision."
+            "subjects before any local adoption decision. Repositories beyond the configured batch are "
+            "reported as overflow for the next digest instead of being silently hidden."
         ),
         "items": items,
     }
@@ -165,6 +164,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Failed repositories: `{report['failed_repositories']}`",
         f"- Commit limit per repo: `{report['commit_limit_per_repo']}`",
         f"- Token available: `{str(report.get('token_available', False)).lower()}`",
+        f"- Candidate repositories with pushed_at movement: `{report['selection_batch']['candidate_repositories']}`",
+        f"- Overflow repositories: `{report['selection_batch']['overflow_repositories']}`",
         f"- Source queue: `{report['source_queue']}`",
         f"- Source change summary: `{report['source_change_summary']}`",
         f"- Baseline generated at: `{report['baseline_generated_at']}`",
@@ -192,6 +193,32 @@ def render_markdown(report: dict[str, Any]) -> str:
                 ]
             )
         )
+
+    lines.extend(["", "## Selection Batch", ""])
+    selection_batch = report["selection_batch"]
+    lines.extend(
+        [
+            f"- Source signal: `{selection_batch['source_signal']}`",
+            f"- Batch size: `{selection_batch['batch_size']}`",
+            f"- Candidate repositories: `{selection_batch['candidate_repositories']}`",
+            f"- Selected repositories: `{selection_batch['selected_repositories']}`",
+            f"- Overflow repositories: `{selection_batch['overflow_repositories']}`",
+            f"- Overflow policy: `{selection_batch['overflow_policy']}`",
+        ]
+    )
+    if selection_batch["overflow_queue"]:
+        lines.extend(["", "| Rank | Repo | Priority | Score |", "| ---: | --- | --- | ---: |"])
+        for overflow_item in selection_batch["overflow_queue"]:
+            lines.append(
+                " | ".join(
+                    [
+                        f"| {overflow_item['rank']}",
+                        f"`{overflow_item['repo']}`",
+                        overflow_item["priority"],
+                        f"{overflow_item['score']} |",
+                    ]
+                )
+            )
 
     lines.extend(["", "## Repository Details", ""])
     for item in report["items"]:
@@ -326,6 +353,41 @@ def _build_digest_item(
         "decision": _decision(status, commits),
         "adoption_signal": _adoption_signal(item.get("category", ""), commits),
         "local_evidence": item.get("local_evidence", [])[:5],
+    }
+
+
+def _pushed_queue_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in sorted(items, key=lambda value: int(value.get("rank", 999_999)))
+        if "pushed_at" in item.get("changed_fields", [])
+    ]
+
+
+def _selection_batch(
+    pushed_candidates: list[dict[str, Any]],
+    selected: list[dict[str, Any]],
+    *,
+    batch_size: int,
+) -> dict[str, Any]:
+    selected_repos = {item["repo"] for item in selected}
+    overflow = [item for item in pushed_candidates if item["repo"] not in selected_repos]
+    return {
+        "source_signal": "mastra-ai/mastra opt-in PubSub subscriber batching",
+        "batch_size": batch_size,
+        "candidate_repositories": len(pushed_candidates),
+        "selected_repositories": len(selected),
+        "overflow_repositories": len(overflow),
+        "overflow_policy": "defer_to_next_digest_without_fetching",
+        "overflow_queue": [
+            {
+                "rank": item["rank"],
+                "repo": item["repo"],
+                "priority": item.get("priority", ""),
+                "score": item.get("score", 0),
+            }
+            for item in overflow
+        ],
     }
 
 
