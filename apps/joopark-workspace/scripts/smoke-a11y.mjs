@@ -9,6 +9,8 @@ const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/C
 const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-a11y-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
+const defaultCdpTimeoutMs = 10000;
+const defaultEvaluateTimeoutMs = 60000;
 
 class CdpClient {
   constructor(wsUrl) {
@@ -53,16 +55,25 @@ class CdpClient {
     callbacks.forEach((callback) => callback(message.params || {}));
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = defaultCdpTimeoutMs) {
     const id = this.nextId++;
     this.ws.send(JSON.stringify({ id, method, params }));
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (!this.pending.has(id)) return;
         this.pending.delete(id);
-        reject(new Error(`Timed out waiting for ${method}`));
-      }, 10000);
+        reject(new Error(`Timed out waiting for ${method} after ${timeoutMs}ms`));
+      }, timeoutMs);
+      this.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      });
     });
   }
 
@@ -137,12 +148,12 @@ async function pageWebSocketUrl(browserWsUrl) {
   throw new Error(`No page target exposed by Chrome.${cause}`);
 }
 
-async function evaluate(client, expression) {
+async function evaluate(client, expression, timeoutMs = defaultEvaluateTimeoutMs) {
   const result = await client.send("Runtime.evaluate", {
     expression,
     awaitPromise: true,
     returnByValue: true,
-  });
+  }, timeoutMs);
   if (result.exceptionDetails) {
     throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Runtime evaluation failed");
   }
