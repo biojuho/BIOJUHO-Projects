@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-05T20:56:21+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh",
+  "generatedAt": "2026-06-05T21:53:09+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -1007,16 +1007,16 @@
       "deadline": "2026-07-31",
       "burn": [0, 1, 2, 3, 4, 5, 6],
       "risks": 3,
-      "openIssues": 213,
+      "openIssues": 212,
       "openPRs": 0,
       "mergedPRs": 0,
       "closedIssues": 0,
       "stars": 15235,
       "forks": 3288,
-      "diskKb": 2705413,
-      "pushedAt": "2026-06-05T10:35:36Z",
+      "diskKb": 2705404,
+      "pushedAt": "2026-06-05T12:44:52Z",
       "createdAt": "2012-11-28T09:59:11Z",
-      "lastCommit": null
+      "lastCommit": "5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4"
     },
     {
       "id": "repo-parabolinc-parabol",
