@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T02:28:21+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428",
+  "generatedAt": "2026-06-06T02:29:21+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -784,7 +784,12 @@
       "diskKb": 1632,
       "pushedAt": "2026-04-24T09:38:51Z",
       "createdAt": "2026-04-14T13:33:49Z",
-      "lastCommit": "ff358f14d0624529589a4c86df14f6928d0e46a2"
+      "lastCommit": "ff358f14d0624529589a4c86df14f6928d0e46a2",
+      "benchmarkFocus": {
+        "surface": "JooPark PM/Calendar",
+        "flow": "PR + task + calendar command center",
+        "signals": ["PR dashboard", "calendar agenda", "AI review/readiness"]
+      }
     },
     {
       "id": "repo-taskosaur-taskosaur",
@@ -813,7 +818,12 @@
       "diskKb": 9677,
       "pushedAt": "2026-06-02T11:00:39Z",
       "createdAt": "2025-07-30T07:23:19Z",
-      "lastCommit": "3a6e39f662c6fd8b22980c16d4441d8887347c31"
+      "lastCommit": "3a6e39f662c6fd8b22980c16d4441d8887347c31",
+      "benchmarkFocus": {
+        "surface": "JooPark PM/Kanban",
+        "flow": "Conversational AI task execution",
+        "signals": ["natural-language task creation", "Kanban/sprint workflow", "self-hosted PM"]
+      }
     },
     {
       "id": "repo-mattermost-community-focalboard",

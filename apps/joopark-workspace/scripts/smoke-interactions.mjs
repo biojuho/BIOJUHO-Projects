@@ -365,6 +365,7 @@ const interactionExpression = `
   let candidateNextActionVisibleOk = false;
   let candidateActionFilterOk = false;
   let candidateActionSummaryVisibleOk = false;
+  let candidateBenchmarkFocusVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -785,8 +786,21 @@ const interactionExpression = `
       assert(targetCommit.dataset.candidatePushedAt === target.snapshot.pushedAt, target.name + " pushedAt freshness marker did not render");
       const targetHref = qs(".portfolio-candidate-link", targetCard).href;
       assert(targetHref === target.expectedUrl || targetHref === target.expectedUrl + "/", target.name + " GitHub link did not render safely");
+      if (target.key === "workstream") {
+        const benchmark = qs("[data-candidate-benchmark]", targetCard);
+        assert(benchmark.dataset.candidateBenchmark === "JooPark PM/Calendar", "Workstream benchmark focus did not render target surface");
+        assert(benchmark.dataset.benchmarkFlow === "PR + task + calendar command center", "Workstream benchmark flow did not render");
+        assert(benchmark.title.includes("AI review/readiness"), "Workstream benchmark signal did not render");
+      }
+      if (target.key === "taskosaur") {
+        const benchmark = qs("[data-candidate-benchmark]", targetCard);
+        assert(benchmark.dataset.candidateBenchmark === "JooPark PM/Kanban", "Taskosaur benchmark focus did not render target surface");
+        assert(benchmark.dataset.benchmarkFlow === "Conversational AI task execution", "Taskosaur benchmark flow did not render");
+        assert(benchmark.title.includes("Kanban/sprint workflow"), "Taskosaur benchmark signal did not render");
+      }
       remainingWorkspaceFreshnessOk[target.key] = true;
     }
+    candidateBenchmarkFocusVisibleOk = true;
     fill("#globalSearch", shortVeritasCommit);
     await waitFor(() => state.query === shortVeritasCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Veritas commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + veritasCandidate.id + '"]'), "Veritas portfolio card did not render after commit search");
@@ -843,6 +857,7 @@ const interactionExpression = `
     candidateNextActionVisibleOk = true;
     candidateActionFilterOk = true;
     candidateActionSummaryVisibleOk = true;
+    candidateBenchmarkFocusVisibleOk = true;
   });
 
   let projectId = "";
@@ -1075,6 +1090,7 @@ const interactionExpression = `
     candidateNextActionVisible: candidateNextActionVisibleOk,
     candidateActionFilter: candidateActionFilterOk,
     candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
+    candidateBenchmarkFocusVisible: candidateBenchmarkFocusVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
