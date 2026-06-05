@@ -10,6 +10,7 @@ SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "canva_mcp_openapi_contract.py"
 TOOLS_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "tools.ts"
 SERVER_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "server.ts"
 SCHEMAS_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "schemas.ts"
+SEARCH_WIDGET_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "components" / "canva-search-designs.tsx"
 PACKAGE_JSON_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "package.json"
 PACKAGE_LOCK_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "package-lock.json"
 
@@ -179,3 +180,15 @@ def test_canva_continuation_tools_keep_schema_description_and_server_propagation
     assert schemas.count("continuation: z.string().optional()") >= len(continuation_tools)
     assert server.count('params.append("continuation", args.continuation)') >= len(continuation_tools)
     assert "structuredContent: { query: args.query, designs: data.items || [], continuation: data.continuation }" in server
+
+
+def test_canva_search_widget_load_more_preserves_tool_context() -> None:
+    source = SEARCH_WIDGET_PATH.read_text(encoding="utf-8")
+
+    assert "if (!continuation)" in source
+    assert "type: 'canva-load-more'" in source
+    assert "toolName: 'search-designs'" in source
+    assert "arguments: {" in source
+    assert "query," in source
+    assert "continuation" in source
+    assert 'aria-label="Load more Canva designs"' in source

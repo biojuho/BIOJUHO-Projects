@@ -74,10 +74,22 @@ const CanvaSearchDesigns: React.FC = () => {
   };
 
   const handleLoadMore = () => {
+    if (!continuation) {
+      return;
+    }
+
     if (window.parent && window.parent.postMessage) {
       window.parent.postMessage({
         type: 'canva-load-more',
-        data: { continuation }
+        data: {
+          toolName: 'search-designs',
+          arguments: {
+            query,
+            continuation
+          },
+          query,
+          continuation
+        }
       }, '*');
     }
   };
@@ -142,6 +154,27 @@ const CanvaSearchDesigns: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {continuation && (
+        <div className="mt-5 flex justify-center">
+          <button
+            type="button"
+            aria-label="Load more Canva designs"
+            onClick={handleLoadMore}
+            className={cn(
+              "min-h-10 px-4 inline-flex items-center gap-2 rounded-lg",
+              "bg-gray-900 text-white text-sm font-semibold",
+              "hover:bg-gray-800 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+            )}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span>Load more</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

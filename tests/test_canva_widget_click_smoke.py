@@ -55,6 +55,31 @@ def test_format_markdown_lists_actions_messages_and_failures() -> None:
     assert "`0` `canva-create-from-candidate` `candidate_2`" in markdown
 
 
+def test_format_markdown_renders_continuation_message_identity() -> None:
+    smoke = load_click_smoke_module()
+    report = smoke.build_report(
+        "http://127.0.0.1:5176/src/dev/preview.html",
+        [smoke.ActionResult("load-more-click", True, "canva-load-more.continuation=next_page_token_xyz")],
+        [
+            {
+                "type": "canva-load-more",
+                "data": {
+                    "toolName": "search-designs",
+                    "arguments": {"query": "business flyer", "continuation": "next_page_token_xyz"},
+                    "continuation": "next_page_token_xyz",
+                },
+            }
+        ],
+        [],
+        status="pass",
+    )
+
+    markdown = smoke.format_markdown(report)
+
+    assert "`PASS` `load-more-click`" in markdown
+    assert "`0` `canva-load-more` `next_page_token_xyz`" in markdown
+
+
 def test_build_report_preserves_capture_order_over_payload_timestamps() -> None:
     smoke = load_click_smoke_module()
     first_message = {

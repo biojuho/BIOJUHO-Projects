@@ -154,6 +154,19 @@ def run_click_smoke(url: str = DEFAULT_URL, *, timeout_seconds: float = 20.0) ->
                 timeout_ms,
             ),
         )
+        _record_action(
+            actions,
+            failures,
+            "load-more-click",
+            lambda: _click_and_wait_message(
+                page,
+                "Load more Canva designs",
+                "canva-load-more",
+                "continuation",
+                "next_page_token_xyz",
+                timeout_ms,
+            ),
+        )
 
         messages = _captured_messages(page)
         browser.close()
@@ -340,7 +353,7 @@ def format_markdown(report: dict[str, Any]) -> str:
 def _message_id(data: Any) -> str:
     if not isinstance(data, dict):
         return ""
-    return str(data.get("candidateId") or data.get("designId") or "")
+    return str(data.get("candidateId") or data.get("designId") or data.get("continuation") or "")
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
