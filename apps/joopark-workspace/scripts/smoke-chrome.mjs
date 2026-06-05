@@ -10,7 +10,7 @@ const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-chrome-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
-const defaultEvaluateTimeoutMs = 60000;
+const defaultEvaluateTimeoutMs = Number(process.env.SMOKE_RUNTIME_TIMEOUT_MS || 90000);
 
 const routes = [
   ["home", ["오늘 일정", "팀 · 시스템 관리"]],
@@ -63,8 +63,9 @@ class CdpClient {
   handleMessage(data) {
     const message = JSON.parse(String(data));
     if (message.id && this.pending.has(message.id)) {
-      const { resolve, reject } = this.pending.get(message.id);
+      const { resolve, reject, timer } = this.pending.get(message.id);
       this.pending.delete(message.id);
+      clearTimeout(timer);
       if (message.error) reject(new Error(`${message.error.message || "CDP error"} (${message.error.code || "no-code"})`));
       else resolve(message.result || {});
       return;

@@ -6,11 +6,11 @@
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 49,
+      "pass": 50,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 49
+      "total": 50
     },
     "browserEvidence": {
       "routes": 15,
@@ -57,6 +57,8 @@
       "openLoafCandidateFreshnessVisible": true,
       "planeCandidateFreshnessVisible": true,
       "planePmCandidateFreshnessChecks": 6,
+      "appFlowyCandidateFreshnessVisible": true,
+      "appFlowyWorkspaceCandidateFreshnessChecks": 6,
       "workstreamCandidateFreshnessVisible": true,
       "taskosaurCandidateFreshnessVisible": true,
       "markdownTaskManagerCandidateFreshnessVisible": true,
@@ -581,6 +583,13 @@
       "baseline": "v8.493",
       "candidate": "v8.501",
       "decision": "keep"
+    },
+    {
+      "id": "appflowy-workspace-benchmark-candidate",
+      "primaryMetric": "appFlowyWorkspaceCandidateFreshnessChecks",
+      "baseline": 0,
+      "candidate": 6,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -595,7 +604,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "research AppFlowy and AFFiNE as workspace candidates after the Plane PM benchmark candidate lands",
+    "research AFFiNE as a workspace candidate after the AppFlowy benchmark candidate lands",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }
