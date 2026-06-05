@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,6 +15,20 @@ import pytest
 SRC_DIR = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+
+def load_export_module():
+    module_name = "_dailynews_export_to_notebooklm_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(module_name, SCRIPT_DIR / "export_to_notebooklm.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 # ──────────────────────────────────────────────
@@ -348,6 +363,30 @@ def test_weekly_digest_generates_audio_artifact(mock_notebooklm):
     FakeNotebookLMClient.last_client.artifacts.generate_report.assert_not_awaited()
 
 
+def test_weekly_digest_normalizes_speech_alias_to_audio(mock_notebooklm):
+    adapter = mock_notebooklm.NotebookLMAdapter()
+    reports = [
+        {
+            "category": "Tech",
+            "summary_lines": ["test"],
+            "insights": [],
+            "source_links": ["https://ex.com/speech"],
+            "window_name": "m",
+            "window_start": "",
+            "window_end": "",
+        },
+    ]
+
+    result = asyncio.run(adapter.create_weekly_digest(reports, content_types=["speech", "audio", "text_to_speech"]))
+
+    assert result["artifacts"] == {"audio": "art-001"}
+    assert FakeNotebookLMClient.last_client is not None
+    FakeNotebookLMClient.last_client.artifacts.generate_audio.assert_awaited_once_with(
+        "nb-test-123",
+        instructions=mock_notebooklm.WEEKLY_AUDIO_INSTRUCTIONS,
+    )
+
+
 def test_generate_artifact_degrades_without_audio_method(mock_notebooklm):
     adapter = mock_notebooklm.NotebookLMAdapter()
     client = SimpleNamespace(artifacts=SimpleNamespace(generate_report=AsyncMock()))
@@ -367,10 +406,7 @@ def test_generate_artifact_degrades_without_artifacts_api(mock_notebooklm):
 
 
 def test_export_upload_generates_audio_artifact_without_extra_args(mock_notebooklm, monkeypatch, tmp_path):
-    script_path = Path(__file__).resolve().parents[1] / "scripts" / "export_to_notebooklm.py"
-    export_mod = ModuleType("export_to_notebooklm_under_test")
-    export_mod.__file__ = str(script_path)
-    exec(compile(script_path.read_text(encoding="utf-8"), str(script_path), "exec"), export_mod.__dict__)
+    export_mod = load_export_module()
     artifact_calls = []
 
     class UploadAdapter:
@@ -402,6 +438,36 @@ def test_export_upload_generates_audio_artifact_without_extra_args(mock_notebook
 # ──────────────────────────────────────────────
 #  Test: singleton factory
 # ──────────────────────────────────────────────
+
+
+def test_export_upload_normalizes_speech_artifact_alias(mock_notebooklm, monkeypatch, tmp_path):
+    export_mod = load_export_module()
+    artifact_calls = []
+
+    class UploadAdapter:
+        async def check_availability(self):
+            return True
+
+        async def _generate_artifact(self, client, notebook_id, content_type):
+            artifact_calls.append((notebook_id, content_type))
+            return f"{content_type}-001"
+
+    monkeypatch.setattr(mock_notebooklm, "NOTEBOOKLM_AVAILABLE", True)
+    monkeypatch.setattr(mock_notebooklm, "NotebookLMAdapter", UploadAdapter)
+    md_path = tmp_path / "brief.md"
+    md_path.write_text("Daily brief", encoding="utf-8")
+
+    result = asyncio.run(
+        export_mod.upload_to_notebooklm(
+            md_path,
+            [{"url": "https://example.com/source"}],
+            ["speech", "audio", "tts"],
+        )
+    )
+
+    assert result is not None
+    assert result["artifacts"] == {"audio": "audio-001"}
+    assert artifact_calls == [("nb-test-123", "audio")]
 
 
 def test_get_notebooklm_adapter_singleton(mock_notebooklm):

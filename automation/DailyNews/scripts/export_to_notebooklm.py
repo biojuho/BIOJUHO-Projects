@@ -123,7 +123,11 @@ async def upload_to_notebooklm(
 ) -> dict | None:
     """Create a NotebookLM notebook from today's export."""
     try:
-        from antigravity_mcp.integrations.notebooklm_adapter import NOTEBOOKLM_AVAILABLE, NotebookLMAdapter
+        from antigravity_mcp.integrations.notebooklm_adapter import (
+            NOTEBOOKLM_AVAILABLE,
+            NotebookLMAdapter,
+            normalize_weekly_content_types,
+        )
     except ImportError:
         print("[ERROR] notebooklm_adapter not found")
         return None
@@ -140,7 +144,7 @@ async def upload_to_notebooklm(
     from notebooklm import NotebookLMClient  # type: ignore
 
     today_str = date.today().isoformat()
-    content_types = content_types or []
+    content_types = normalize_weekly_content_types(content_types)
 
     async with await NotebookLMClient.from_storage() as client:
         # Create notebook
@@ -236,7 +240,7 @@ def parse_args() -> argparse.Namespace:
         "--content-types",
         nargs="+",
         default=None,
-        help="Artifact types to generate when uploading (e.g., audio report mind-map)",
+        help="Artifact types to generate when uploading (e.g., speech audio report mind-map)",
     )
     return parser.parse_args()
 

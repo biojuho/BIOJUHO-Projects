@@ -180,7 +180,8 @@
         "desci_job_stream_partial_false_guard",
         "workspace_smoke_trace_final_event_guard",
         "github_commit_digest_branch_feed_fallback_guard",
-        "dailynews_notebooklm_audio_artifact_guard"
+        "dailynews_notebooklm_audio_artifact_guard",
+        "dailynews_notebooklm_speech_alias_guard"
       ],
       "evidence": [
         {
@@ -368,6 +369,15 @@
             "vercel/ai",
             "Gemini text-to-speech",
             "19 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_SPEECH_ALIAS_2026-06-05.md",
+          "must_contain": [
+            "vercel/ai",
+            "text-to-speech",
+            "speech",
             "global_objective_complete=false"
           ]
         }
@@ -663,7 +673,8 @@
         "desci_job_stream_partial_false_guard",
         "workspace_smoke_trace_final_event_guard",
         "github_commit_digest_branch_feed_fallback_guard",
-        "dailynews_notebooklm_audio_artifact_guard"
+        "dailynews_notebooklm_audio_artifact_guard",
+        "dailynews_notebooklm_speech_alias_guard"
       ],
       "evidence": [
         {
@@ -889,6 +900,15 @@
             "vercel/ai",
             "Gemini text-to-speech",
             "19 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_SPEECH_ALIAS_2026-06-05.md",
+          "must_contain": [
+            "speech aliases",
+            "canonical `audio` artifact",
+            "Passed: `21`",
             "global_objective_complete=false"
           ]
         }

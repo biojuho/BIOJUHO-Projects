@@ -200,10 +200,13 @@
             "automation/DailyNews/scripts/export_to_notebooklm.py",
             "automation/DailyNews/tests/test_notebooklm_adapter.py",
             "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_AUDIO_ARTIFACT_GUARD_2026-06-05.md",
-            "dailynews_notebooklm_audio_artifact_guard"
+            "dailynews_notebooklm_audio_artifact_guard",
+            "e060340",
+            "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_SPEECH_ALIAS_2026-06-05.md",
+            "dailynews_notebooklm_speech_alias_guard"
           ],
           "git_freshness": {
-            "proof_commit": "0b0515b",
+            "proof_commit": "e060340",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -283,7 +286,8 @@
               "automation/DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py",
               "automation/DailyNews/scripts/export_to_notebooklm.py",
               "automation/DailyNews/tests/test_notebooklm_adapter.py",
-              "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_AUDIO_ARTIFACT_GUARD_2026-06-05.md"
+              "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_AUDIO_ARTIFACT_GUARD_2026-06-05.md",
+              "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_SPEECH_ALIAS_2026-06-05.md"
             ]
           }
         }
@@ -3333,7 +3337,7 @@
           "must_contain": [
             "Objective Coverage Drift Guard",
             "test_checked_in_coverage_artifacts_match_current_requirements",
-            "valid `65` criteria",
+            "valid `67` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -3488,7 +3492,7 @@
           "must_contain": [
             "Completion Audit Summary Drift Guard",
             "test_checked_in_summary_artifacts_match_current_contract",
-            "valid `65` criteria",
+            "valid `67` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -3910,6 +3914,56 @@
             "Gemini text-to-speech",
             "19 passed",
             "237 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dailynews_notebooklm_speech_alias_guard",
+      "requirement": "DailyNews NotebookLM weekly/export artifact requests treat speech/text-to-speech aliases as the canonical audio artifact without duplicate generation.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "automation/DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py",
+          "must_contain": [
+            "CONTENT_TYPE_ALIASES",
+            "\"speech\": \"audio\"",
+            "\"text-to-speech\": \"audio\"",
+            "\"tts\": \"audio\"",
+            "def normalize_weekly_content_types",
+            "selected_types = normalize_weekly_content_types(content_types)",
+            "generate_audio"
+          ]
+        },
+        {
+          "path": "automation/DailyNews/scripts/export_to_notebooklm.py",
+          "must_contain": [
+            "normalize_weekly_content_types",
+            "content_types = normalize_weekly_content_types(content_types)",
+            "speech audio report mind-map"
+          ]
+        },
+        {
+          "path": "automation/DailyNews/tests/test_notebooklm_adapter.py",
+          "must_contain": [
+            "test_weekly_digest_normalizes_speech_alias_to_audio",
+            "test_export_upload_normalizes_speech_artifact_alias",
+            "[\"speech\", \"audio\", \"text_to_speech\"]",
+            "[\"speech\", \"audio\", \"tts\"]",
+            "{\"audio\": \"art-001\"}",
+            "{\"audio\": \"audio-001\"}"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_SPEECH_ALIAS_2026-06-05.md",
+          "must_contain": [
+            "vercel/ai",
+            "text-to-speech",
+            "speech",
+            "generate_audio",
+            "Passed: `21`",
             "global_objective_complete=false"
           ]
         }

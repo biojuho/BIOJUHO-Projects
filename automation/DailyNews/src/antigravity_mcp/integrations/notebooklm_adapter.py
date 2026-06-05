@@ -65,10 +65,39 @@ _DEFAULT_PROMPTS = [
 
 WEEKLY_CONTENT_TYPES = ["report", "mind-map"]
 WEEKLY_AUDIO_INSTRUCTIONS = "Summarize the most important insights from this week in a concise briefing style."
+CONTENT_TYPE_ALIASES = {
+    "audio": "audio",
+    "speech": "audio",
+    "text-to-speech": "audio",
+    "tts": "audio",
+    "report": "report",
+    "mind-map": "mind-map",
+    "mindmap": "mind-map",
+    "slide-deck": "slide-deck",
+    "slides": "slide-deck",
+}
 
 
 def _artifact_identifier(status: Any) -> str:
     return str(getattr(status, "artifact_id", "") or getattr(status, "task_id", "") or "").strip()
+
+
+def normalize_weekly_content_type(content_type: str) -> str:
+    normalized = content_type.strip().lower().replace("_", "-")
+    return CONTENT_TYPE_ALIASES.get(normalized, normalized)
+
+
+def normalize_weekly_content_types(content_types: list[str] | None) -> list[str]:
+    requested_types = content_types or WEEKLY_CONTENT_TYPES
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for content_type in requested_types:
+        canonical = normalize_weekly_content_type(str(content_type))
+        if not canonical or canonical in seen:
+            continue
+        seen.add(canonical)
+        normalized.append(canonical)
+    return normalized
 
 
 class DailyNewsAdapter:
@@ -263,7 +292,7 @@ class DailyNewsAdapter:
         if not self.is_available:
             raise RuntimeError("notebooklm-py is not installed")
 
-        selected_types = content_types or WEEKLY_CONTENT_TYPES
+        selected_types = normalize_weekly_content_types(content_types)
         digest_label = week_label or datetime.now().strftime("%Y-W%V")
         result: dict[str, Any] = {
             "notebook_id": "",
@@ -339,6 +368,7 @@ class DailyNewsAdapter:
         artifacts = getattr(client, "artifacts", None)
         if artifacts is None:
             return None
+        content_type = normalize_weekly_content_type(content_type)
         if content_type == "audio" and hasattr(artifacts, "generate_audio"):
             status = await artifacts.generate_audio(notebook_id, instructions=WEEKLY_AUDIO_INSTRUCTIONS)
             return _artifact_identifier(status)
@@ -378,4 +408,6 @@ __all__ = [
     "NotebookLMClient",
     "get_dailynews_adapter",
     "get_notebooklm_adapter",
+    "normalize_weekly_content_type",
+    "normalize_weekly_content_types",
 ]

@@ -59,6 +59,8 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "github_source_review_queue",
         "github_source_commit_digest",
         "github_commit_digest_branch_feed_fallback_guard",
+        "dailynews_notebooklm_audio_artifact_guard",
+        "dailynews_notebooklm_speech_alias_guard",
         "canva_mcp_continuation_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_openai_namespace_metadata_guard",
