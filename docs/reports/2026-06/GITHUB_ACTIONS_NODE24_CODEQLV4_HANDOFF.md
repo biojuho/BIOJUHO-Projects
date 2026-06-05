@@ -1,21 +1,22 @@
 # GitHub Actions Node 24 / CodeQL v4 Handoff
 
-Generated: 2026-06-05T21:26:12+09:00
+Generated: 2026-06-05T21:55:36+09:00
 
 ## Status
 
 Issue: https://github.com/biojuho/BIOJUHO-Projects/issues/151
 
-The JooPark Workspace main workflows are green on merge commit `faa15eae6f359f9a6fe1a4ea2f826047b4f04b91`, but GitHub Actions still emits runtime deprecation annotations.
+The JooPark Workspace main workflows are green on merge commit `cbf74b07559fdf68bd5944e96a90e0b4782a4429`, but GitHub Actions still emits runtime deprecation annotations.
 
 Observed green main runs:
 
-- Workspace Smoke Test: `27014412131`
-- Security & Quality Gate: `27014412123`
-- Gitleaks Secret Scan: `27014412110`
-- CodeQL Security Scan: `27014412119`
+- Workspace Smoke Test: `27015716896`
+- Security & Quality Gate: `27015716863`
+- Test Coverage Report: `27015716856`
+- Gitleaks Secret Scan: `27015716876`
+- CodeQL Security Scan: `27015716858`
 
-Current blocker: this Codex OAuth session cannot push `.github/workflows/**` changes because GitHub rejects workflow edits without `workflow` scope. Use a GitHub token/session with workflow-edit permission for the actual workflow patch.
+CodeQL Action v4 refs were resolved by Dependabot PR #12. Current blocker: this Codex OAuth session cannot push or merge remaining `.github/workflows/**` changes because GitHub rejects workflow edits without `workflow` scope. Use a GitHub token/session with workflow-edit permission for the actual workflow patch.
 
 ## Deadlines
 
@@ -26,18 +27,19 @@ Current blocker: this Codex OAuth session cannot push `.github/workflows/**` cha
 
 ## Critical Fixes
 
-Update `.github/workflows/codeql.yml`:
+Remaining CodeQL workflow cleanup:
 
-- `.github/workflows/codeql.yml:33`: `github/codeql-action/init@v3` -> `github/codeql-action/init@v4`
 - `.github/workflows/codeql.yml:37`: remove `setup-python-dependencies: true`
-- `.github/workflows/codeql.yml:40`: `github/codeql-action/autobuild@v3` -> `github/codeql-action/autobuild@v4`
-- `.github/workflows/codeql.yml:43`: `github/codeql-action/analyze@v3` -> `github/codeql-action/analyze@v4`
 
 Review Node 20 action annotations in the main critical workflows:
 
 - `.github/workflows/workspace-smoke.yml`: `actions/checkout@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`
 - `.github/workflows/security-quality-gate.yml`: `actions/checkout@v4`, `actions/setup-node@v4`, `actions/setup-python@v5`, `astral-sh/setup-uv@v5`, `gitleaks/gitleaks-action@v2`
 - `.github/workflows/gitleaks-ci.yml`: `actions/checkout@v4`, `gitleaks/gitleaks-action@v2`
+- `.github/workflows/heartbeat-monitor.yml`: `actions/checkout@v4`, `actions/github-script@v7`
+- `.github/workflows/pr-self-review.yml`: `actions/checkout@v4`, `actions/github-script@v7`
+- `.github/workflows/pr-triage.yml`: `actions/checkout@v4`, `actions/github-script@v7`, `actions/upload-artifact@v4`
+- `.github/workflows/tech-debt-audit.yml`: `actions/checkout@v4`, `actions/github-script@v7`, `actions/upload-artifact@v4`
 - `.github/actions/setup-python-uv/action.yml`: `astral-sh/setup-uv@v5`, `actions/setup-python@v5`
 
 Prefer upgrading to action versions that declare Node 24 support. Use `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` only as a validation or temporary compatibility step, not as the long-term replacement for action updates.
@@ -60,7 +62,7 @@ npm run audit:gha-runtime:strict
 Manual grep inventory remains useful for spot-checking exact refs:
 
 ```bash
-rg -n "codeql-action|setup-python-dependencies|actions/checkout@v4|actions/setup-node@v4|actions/setup-python@v5|actions/upload-artifact@v4|astral-sh/setup-uv@v5|gitleaks/gitleaks-action@v2" .github/workflows .github/actions
+rg -n "codeql-action|setup-python-dependencies|actions/checkout@v4|actions/github-script@v7|actions/setup-node@v4|actions/setup-python@v5|actions/upload-artifact@v4|astral-sh/setup-uv@v5|gitleaks/gitleaks-action@v2" .github/workflows .github/actions
 ```
 
 ## Validation
