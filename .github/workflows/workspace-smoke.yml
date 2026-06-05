@@ -64,7 +64,7 @@ jobs:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
         run: |
-          uv run pytest tests/test_github_workflows.py tests/test_autoresearch_ci_regression.py tests/test_autoresearch_objective_coverage.py -q --tb=short
+          uv run pytest tests/test_github_workflows.py tests/test_agent_workflow_manifest.py tests/test_autoresearch_ci_regression.py tests/test_autoresearch_objective_coverage.py -q --tb=short
 
       - name: Append summary
         if: always()

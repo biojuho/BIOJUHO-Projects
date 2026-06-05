@@ -247,7 +247,10 @@
             "ops/scripts/agent_workflow_manifest.py",
             "tests/test_agent_workflow_manifest.py",
             "docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-04.md",
-            "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+            "workspace_smoke_ci_manifest_guard",
+            ".github/workflows/workspace-smoke.yml",
+            "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
             "proof_commit": "3145ea1",
@@ -3848,6 +3851,42 @@
             "Python: Add GitHub Copilot integration tests to CI workflows",
             "A/B Contract",
             "tests/test_autoresearch_ci_regression.py",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workspace_smoke_ci_manifest_guard",
+      "requirement": "The GitHub Actions workspace smoke workflow runs the agent workflow manifest validator tests inside the AutoResearch audit regression step.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".github/workflows/workspace-smoke.yml",
+          "must_contain": [
+            "Run AutoResearch audit regression tests",
+            "tests/test_agent_workflow_manifest.py",
+            "tests/test_autoresearch_ci_regression.py",
+            "tests/test_autoresearch_objective_coverage.py"
+          ]
+        },
+        {
+          "path": "tests/test_github_workflows.py",
+          "must_contain": [
+            "test_workspace_smoke_workflow_runs_autoresearch_audit_regression_tests",
+            "tests/test_agent_workflow_manifest.py",
+            "tests/test_autoresearch_ci_regression.py"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Workspace Smoke CI Manifest Guard",
+            "microsoft/agent-framework",
+            "f3c3efed4301905cff795794790bd4b4719742a4",
+            "A/B Contract",
+            "6 passed",
             "global_objective_complete=false"
           ]
         }

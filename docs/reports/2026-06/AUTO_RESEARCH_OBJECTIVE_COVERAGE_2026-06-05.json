@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T05:47:46.291873+00:00",
+  "generated_at": "2026-06-05T05:57:58.654813+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -30,6 +30,7 @@
         "dashboard_credential_operator_checklist",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
+        "workspace_smoke_ci_manifest_guard",
         "desci_uploaded_file_label_guard",
         "pre_push_regression_gate",
         "dashboard_falsy_credential_metadata_guard",
@@ -84,6 +85,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
           "term_count": 3
         },
         {
@@ -153,6 +158,7 @@
         "pr_analysis_read_only_split_guard",
         "agent_workflow_smoke_scope_route_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
+        "workspace_smoke_ci_manifest_guard",
         "desci_uploaded_file_label_guard",
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
@@ -203,6 +209,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
           "term_count": 5
         },
         {
@@ -381,7 +391,8 @@
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
         "dashboard_release_refresh_workflow_guard",
-        "agent_workflow_role_policy_guard"
+        "agent_workflow_role_policy_guard",
+        "workspace_smoke_ci_manifest_guard"
       ],
       "evidence": [
         {
@@ -438,6 +449,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
           "term_count": 4
         }
       ],

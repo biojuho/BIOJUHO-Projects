@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `81`
-- Status counts: `blocked=1, covered=80`
+- Criteria: `82`
+- Status counts: `blocked=1, covered=81`
 
 ## Missing Required
 
@@ -369,6 +369,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### workspace_smoke_ci_manifest_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### pr_analysis_read_only_split_guard
 

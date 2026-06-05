@@ -26,6 +26,7 @@
         "dashboard_credential_operator_checklist",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
+        "workspace_smoke_ci_manifest_guard",
         "desci_uploaded_file_label_guard",
         "pre_push_regression_gate",
         "dashboard_falsy_credential_metadata_guard",
@@ -120,6 +121,14 @@
           "must_contain": [
             "Workspace Smoke CI AutoResearch Audit Tests",
             "branch-portable AutoResearch audit regression tests",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Workspace Smoke CI Manifest Guard",
+            "tests/test_agent_workflow_manifest.py",
             "global_objective_complete=false"
           ]
         },
@@ -242,6 +251,7 @@
         "pr_analysis_read_only_split_guard",
         "agent_workflow_smoke_scope_route_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
+        "workspace_smoke_ci_manifest_guard",
         "desci_uploaded_file_label_guard",
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
@@ -329,6 +339,16 @@
             "strands-agents/harness-sdk",
             "050ab14955a4ee0adf7b2b21df0124b6c094630a",
             "allowed-roles: 'triage,write,maintain,admin'",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
+          "must_contain": [
+            "microsoft/agent-framework",
+            "f3c3efed4301905cff795794790bd4b4719742a4",
+            "Python: Add GitHub Copilot integration tests to CI workflows",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -677,7 +697,8 @@
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
         "dashboard_release_refresh_workflow_guard",
-        "agent_workflow_role_policy_guard"
+        "agent_workflow_role_policy_guard",
+        "workspace_smoke_ci_manifest_guard"
       ],
       "evidence": [
         {
@@ -808,6 +829,15 @@
             "A/B Contract",
             "Decision: adopted",
             "allowed-roles: 'triage,write,maintain,admin'",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted",
+            "6 passed",
             "global_objective_complete=false"
           ]
         }

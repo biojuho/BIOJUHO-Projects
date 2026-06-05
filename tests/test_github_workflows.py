@@ -15,7 +15,9 @@ def test_workspace_smoke_workflow_runs_autoresearch_audit_regression_tests() -> 
     workflow = WORKSPACE_SMOKE_WORKFLOW.read_text(encoding="utf-8")
 
     assert "Run AutoResearch audit regression tests" in workflow
-    assert "uv run pytest tests/test_github_workflows.py tests/test_autoresearch_ci_regression.py" in workflow
+    assert "uv run pytest tests/test_github_workflows.py" in workflow
+    assert "tests/test_agent_workflow_manifest.py" in workflow
+    assert "tests/test_autoresearch_ci_regression.py" in workflow
     assert "tests/test_autoresearch_objective_coverage.py -q --tb=short" in workflow
     assert "PYTHONIOENCODING: utf-8" in workflow
     assert 'PYTHONUTF8: "1"' in workflow
