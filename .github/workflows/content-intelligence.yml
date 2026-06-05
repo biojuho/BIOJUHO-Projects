@@ -33,7 +33,7 @@ jobs:
     if: ${{ github.event.inputs.skip_calibration != 'true' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -112,7 +112,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_roi != 'true')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
