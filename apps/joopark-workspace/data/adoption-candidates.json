@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T01:43:36+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh",
+  "generatedAt": "2026-06-06T02:14:17+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -441,7 +441,7 @@
     {
       "id": "repo-veritas-autoresearch-skill-system",
       "name": "Veritas-7/autoresearch-skill-system",
-      "description": "v8.414 최신 mixed status fail closed gate를 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
+      "description": "v8.424 최신 session token header redaction을 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
       "category": "Harness/오토리서치",
       "owner": "도입 후보",
       "language": "Python",
@@ -462,10 +462,10 @@
       "closedIssues": 0,
       "stars": 1,
       "forks": 1,
-      "diskKb": 1231,
-      "pushedAt": "2026-06-05T16:42:27Z",
+      "diskKb": 826,
+      "pushedAt": "2026-06-05T17:13:31Z",
       "createdAt": "2026-06-03T04:43:01Z",
-      "lastCommit": "5da25eadef357ad63a9083b0ca45eb5a2d8ebd26"
+      "lastCommit": "6e833346ef5ba9f8d3426ff8287f89c151435bc8"
     },
     {
       "id": "repo-biojuho-autoresearch-skill-system",

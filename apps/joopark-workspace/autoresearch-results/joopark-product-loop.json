@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T02:03:12+09:00",
+  "generatedAt": "2026-06-06T02:14:17+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -66,7 +66,9 @@
       "candidateFreshnessMonitored": 15,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
-      "candidateFreshnessCadencePolicyScoped": true
+      "candidateFreshnessCadencePolicyScoped": true,
+      "veritasFocusedDriftRefreshChecks": 3,
+      "veritasFocusedSnapshotVersion": "v8.424"
     }
   },
   "experiments": [
@@ -419,6 +421,13 @@
       "baseline": 0,
       "candidate": 4,
       "decision": "keep"
+    },
+    {
+      "id": "veritas-focused-drift-refresh-v8424",
+      "primaryMetric": "veritasFocusedDriftRefreshChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -433,7 +442,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces",
-    "refresh Veritas snapshot when the focused live drift check reports a new upstream HEAD",
-    "promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed"
+    "promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed",
+    "add a lightweight Veritas snapshot writer once repeated focused refreshes stabilize"
   ]
 }
