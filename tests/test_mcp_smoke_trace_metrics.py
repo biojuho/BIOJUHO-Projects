@@ -166,9 +166,38 @@ def test_build_metrics_derives_timing_and_path_depth_from_trace_tails(tmp_path: 
     assert metrics["checks"][2]["duration_source"] == "duration_seconds"
 
 
-def test_cli_writes_metrics_json(tmp_path: Path) -> None:
+def test_format_markdown_summarizes_metrics_for_handoff(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    payload = smoke_payload(
+        [
+            result(
+                "canva|build",
+                "npm.cmd run build",
+                cwd="mcp\\canva-mcp",
+                stdout_tail="built in 820ms",
+            ),
+            result("telegram tests", "python -m pytest tests -q"),
+        ]
+    )
+
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+    report = metrics_module.format_markdown(metrics)
+
+    assert report.startswith("# MCP Smoke Trace Metrics")
+    assert "- Checks: 2" in report
+    assert "- Total observed seconds: `0.82`" in report
+    assert "- Slowest check: `canva\\|build` (`0.82`s)" in report
+    assert "| npm | 1 |" in report
+    assert "| pytest | 1 |" in report
+    assert "| canva\\|build | npm | true | mcp\\canva-mcp | 0.82 | 0 |" in report
+    assert "- OK: `true`" in report
+    assert "- Issues: none" in report
+
+
+def test_cli_writes_metrics_json_and_markdown(tmp_path: Path) -> None:
     smoke_path = tmp_path / "smoke.json"
     metrics_path = tmp_path / "metrics.json"
+    markdown_path = tmp_path / "metrics.md"
     smoke_path.write_text(
         json.dumps(
             smoke_payload(
@@ -182,7 +211,15 @@ def test_cli_writes_metrics_json(tmp_path: Path) -> None:
     )
 
     completed = subprocess.run(
-        [sys.executable, str(SCRIPT_PATH), str(smoke_path), "--json-out", str(metrics_path)],
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            str(smoke_path),
+            "--json-out",
+            str(metrics_path),
+            "--markdown-out",
+            str(markdown_path),
+        ],
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
@@ -194,3 +231,6 @@ def test_cli_writes_metrics_json(tmp_path: Path) -> None:
     assert metrics["summary"]["checks"] == 2
     assert metrics["summary"]["runtime_kinds"] == {"pytest": 2}
     assert metrics["trace_integrity"]["ok"] is True
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert "# MCP Smoke Trace Metrics" in markdown
+    assert "| DailyNews unit tests | pytest | true | . |  | 2 |" in markdown

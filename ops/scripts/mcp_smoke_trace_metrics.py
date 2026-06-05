@@ -168,6 +168,88 @@ def write_metrics(metrics: dict[str, Any], out_path: Path | None) -> None:
     out_path.write_text(rendered + "\n", encoding="utf-8")
 
 
+def write_markdown(metrics: dict[str, Any], out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(format_markdown(metrics), encoding="utf-8")
+
+
+def format_markdown(metrics: dict[str, Any]) -> str:
+    summary = metrics["summary"]
+    timing = summary["timing"]
+    path_depth = summary["path_depth"]
+    lines = [
+        "# MCP Smoke Trace Metrics",
+        "",
+        "## Source",
+        "",
+        f"- Smoke report: `{metrics['source_path']}`",
+        f"- Scope: `{metrics['scope']}`",
+        f"- Source status: `{metrics.get('source_status')}`",
+        f"- Source generated at: `{metrics.get('source_generated_at')}`",
+        "",
+        "## Summary",
+        "",
+        f"- Checks: {summary['checks']}",
+        f"- Passed: {summary['passed']}",
+        f"- Failed: {summary['failed']}",
+        f"- Timing observed: {timing['observed_checks']} observed, {timing['missing_checks']} missing",
+        f"- Total observed seconds: {_markdown_value(timing['total_seconds'])}",
+        f"- Slowest check: {_markdown_value(timing['slowest_check'])} ({_markdown_value(timing['max_seconds'])}s)",
+        f"- Max cwd depth: {path_depth['max_cwd_depth']}",
+        f"- Max command path depth: {path_depth['max_command_path_depth']}",
+        f"- Command path tokens: {path_depth['command_path_tokens']}",
+        "",
+        "## Runtime Kinds",
+        "",
+        "| Kind | Count |",
+        "| --- | ---: |",
+    ]
+    runtime_kinds = summary["runtime_kinds"]
+    if runtime_kinds:
+        lines.extend(f"| {_markdown_cell(kind)} | {count} |" for kind, count in runtime_kinds.items())
+    else:
+        lines.append("| none | 0 |")
+
+    lines.extend(
+        [
+            "",
+            "## Checks",
+            "",
+            "| Check | Kind | OK | CWD | Duration seconds | Command path depth |",
+            "| --- | --- | --- | --- | ---: | ---: |",
+        ]
+    )
+    for check in metrics["checks"]:
+        duration = check["duration_seconds"]
+        duration_cell = "" if duration is None else str(duration)
+        lines.append(
+            "| "
+            f"{_markdown_cell(check['name'])} | "
+            f"{_markdown_cell(check['command_kind'])} | "
+            f"{str(check['ok']).lower()} | "
+            f"{_markdown_cell(check['cwd'])} | "
+            f"{duration_cell} | "
+            f"{check['command_path_depth']} |"
+        )
+
+    trace_integrity = metrics["trace_integrity"]
+    lines.extend(
+        [
+            "",
+            "## Trace Integrity",
+            "",
+            f"- OK: `{str(trace_integrity['ok']).lower()}`",
+        ]
+    )
+    issues = trace_integrity["issues"]
+    if issues:
+        lines.extend(f"- Issue: `{_markdown_cell(issue)}`" for issue in issues)
+    else:
+        lines.append("- Issues: none")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def _check_metrics(result: dict[str, Any]) -> dict[str, Any]:
     command = str(result.get("command") or "")
     cwd = str(result.get("cwd") or "")
@@ -281,17 +363,28 @@ def _strip_path_token(value: str) -> str:
     return value.strip().strip("\"'").strip(".,;:()[]{}")
 
 
+def _markdown_value(value: Any) -> str:
+    return "`None`" if value is None else f"`{_markdown_cell(str(value))}`"
+
+
+def _markdown_cell(value: Any) -> str:
+    return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build MCP trace metrics from workspace-smoke JSON.")
     parser.add_argument("smoke_json", help="Path to a schema v1 workspace smoke JSON report.")
     parser.add_argument("--scope", default="mcp", help="Scope to summarize. Defaults to mcp.")
     parser.add_argument("--json-out", help="Optional output path for the metrics JSON.")
+    parser.add_argument("--markdown-out", help="Optional output path for a Markdown metrics report.")
     parser.add_argument("--allow-issues", action="store_true", help="Return success even when trace integrity issues exist.")
     args = parser.parse_args(argv)
 
     source_path = Path(args.smoke_json)
     payload = load_smoke_report(source_path)
     metrics = build_metrics(payload, source_path=source_path, scope=args.scope)
+    if args.markdown_out:
+        write_markdown(metrics, Path(args.markdown_out))
     write_metrics(metrics, Path(args.json_out) if args.json_out else None)
     return 0 if args.allow_issues or metrics["trace_integrity"]["ok"] else 1
 
