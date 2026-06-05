@@ -366,6 +366,7 @@ const interactionExpression = `
   let candidateActionFilterOk = false;
   let candidateActionSummaryVisibleOk = false;
   let candidateBenchmarkFocusVisibleOk = false;
+  let candidateBenchmarkQueueVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -659,6 +660,8 @@ const interactionExpression = `
     assert(qs("[data-candidate-priority]", firstCandidateCard).textContent.includes(String(projectCandidatePriority(rankedCandidates[0]).score)), "top candidate priority score did not render");
     const architectureCount = dashboard.projects.filter((project) => projectCandidateAction(project)?.key === "architecture").length;
     const riskCount = dashboard.projects.filter((project) => projectCandidateAction(project)?.key === "risk").length;
+    const benchmarkFocusQueue = sortBenchmarkFocusProjects(dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate" && projectBenchmarkFocus(project)));
+    const benchmarkFocusCount = benchmarkFocusQueue.length;
     assert(qs("[data-candidate-action-filter-panel]"), "candidate action filter panel did not render");
     click('[data-action="portfolio-action-filter"][data-action-filter="architecture"]');
     await waitFor(() => state.portfolioFilter === "candidates" && state.portfolioActionFilter === "architecture" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === architectureCount, "architecture action filter did not narrow candidate cards");
@@ -676,6 +679,23 @@ const interactionExpression = `
     assert(qs("[data-candidate-action-summary]").innerText.includes("리스크 리뷰"), "risk action summary label did not render");
     click('[data-action="portfolio-action-filter"][data-action-filter="all"]');
     await waitFor(() => state.portfolioActionFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "candidate action filter did not reset");
+    assert(qs("[data-candidate-benchmark-filter-panel]"), "candidate benchmark filter panel did not render");
+    click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="focused"]');
+    await waitFor(() => state.portfolioFilter === "candidates" && state.portfolioBenchmarkFilter === "focused" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === benchmarkFocusCount, "benchmark focus filter did not narrow candidate cards");
+    assert(qs('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="focused"]').getAttribute("aria-pressed") === "true", "benchmark focus filter was not active");
+    const benchmarkSummary = qs("[data-candidate-benchmark-summary]");
+    assert(benchmarkSummary.dataset.benchmarkFilterSummary === "focused", "benchmark summary did not track active filter");
+    assert(benchmarkSummary.innerText.includes("벤치 포커스"), "benchmark summary label did not render");
+    assert(benchmarkSummary.innerText.includes(benchmarkFocusCount + "개"), "benchmark summary count did not render");
+    assert(benchmarkSummary.innerText.includes(benchmarkFocusQueue[0].name), "benchmark summary top candidate did not render");
+    assert(benchmarkSummary.innerText.includes(projectBenchmarkFocus(benchmarkFocusQueue[0]).surface), "benchmark summary surface did not render");
+    assert(benchmarkSummary.innerText.includes(projectBenchmarkFocus(benchmarkFocusQueue[0]).flow), "benchmark summary flow did not render");
+    const firstBenchmarkCard = qs('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]');
+    assert(firstBenchmarkCard.dataset.projectId === benchmarkFocusQueue[0].id, "benchmark focus queue did not rank top benchmark first");
+    assert(qs("[data-candidate-benchmark]", firstBenchmarkCard).dataset.candidateBenchmark === projectBenchmarkFocus(benchmarkFocusQueue[0]).surface, "benchmark focus queue top chip did not render");
+    click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
+    await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
+    candidateBenchmarkQueueVisibleOk = true;
     click('[data-action="portfolio-filter"][data-filter="owned"]');
     await waitFor(() => state.portfolioFilter === "owned" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === 0, "owned portfolio filter still rendered adoption candidates");
     assert(document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === ownedCount, "owned portfolio filter count was wrong");
@@ -858,6 +878,7 @@ const interactionExpression = `
     candidateActionFilterOk = true;
     candidateActionSummaryVisibleOk = true;
     candidateBenchmarkFocusVisibleOk = true;
+    candidateBenchmarkQueueVisibleOk = true;
   });
 
   let projectId = "";
@@ -1091,6 +1112,7 @@ const interactionExpression = `
     candidateActionFilter: candidateActionFilterOk,
     candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
     candidateBenchmarkFocusVisible: candidateBenchmarkFocusVisibleOk,
+    candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

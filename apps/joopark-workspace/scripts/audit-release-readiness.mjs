@@ -913,6 +913,18 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkQueueTerms = [
+    { file: "app.js", terms: ["CANDIDATE_BENCHMARK_FILTERS", "function setPortfolioBenchmarkFilter", "function sortBenchmarkFocusProjects", "function candidateBenchmarkQueueSummary", "data-candidate-benchmark-filter-panel", "data-candidate-benchmark-summary"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-filter", ".portfolio-benchmark-summary"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkQueueVisible", "benchmark focus filter did not narrow candidate cards", "benchmark focus queue did not rank top benchmark first"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_queue",
+    requirement: "Taskosaur and Workstream benchmark focus chips can be promoted into a filtered, sorted benchmark queue with summary and browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkQueueTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkQueueTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

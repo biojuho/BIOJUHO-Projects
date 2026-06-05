@@ -2751,17 +2751,20 @@ textarea:focus:not(:focus-visible) { outline: none; }
   margin-bottom: 4px;
 }
 
-.portfolio-action-filter {
+.portfolio-action-filter,
+.portfolio-benchmark-filter {
   margin: 0 0 10px;
 }
 
-.portfolio-action-filter .seg-chip {
+.portfolio-action-filter .seg-chip,
+.portfolio-benchmark-filter .seg-chip {
   height: 28px;
   padding: 0 11px;
   font-size: 11px;
 }
 
-.portfolio-action-summary {
+.portfolio-action-summary,
+.portfolio-benchmark-summary {
   display: grid;
   grid-template-columns: 1.1fr 0.7fr 1.6fr 1.3fr 0.7fr;
   gap: 8px;
@@ -2772,12 +2775,19 @@ textarea:focus:not(:focus-visible) { outline: none; }
   background: var(--ink-50);
 }
 
-.portfolio-action-summary div {
+.portfolio-benchmark-summary {
+  border-color: rgba(169, 112, 255, 0.28);
+}
+
+.portfolio-action-summary div,
+.portfolio-benchmark-summary div {
   min-width: 0;
 }
 
 .portfolio-action-summary span,
-.portfolio-action-summary small {
+.portfolio-action-summary small,
+.portfolio-benchmark-summary span,
+.portfolio-benchmark-summary small {
   display: block;
   overflow: hidden;
   color: var(--muted);
@@ -2787,7 +2797,8 @@ textarea:focus:not(:focus-visible) { outline: none; }
   white-space: nowrap;
 }
 
-.portfolio-action-summary strong {
+.portfolio-action-summary strong,
+.portfolio-benchmark-summary strong {
   display: block;
   overflow: hidden;
   margin-top: 3px;
