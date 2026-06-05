@@ -12,11 +12,13 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = join(root, "dist", "release");
+const outDir = process.env.RELEASE_OUT_DIR
+  ? resolve(root, process.env.RELEASE_OUT_DIR)
+  : join(root, "dist", "release");
 const sourceEntries = [
   "index.html",
   "app.js",

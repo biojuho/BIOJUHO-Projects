@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -67,6 +68,7 @@ const viewIds = [
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
     cwd: root,
+    env: { ...process.env, ...(options.env || {}) },
     encoding: "utf-8",
     timeout: options.timeout || 15000,
     killSignal: "SIGKILL",
@@ -145,6 +147,50 @@ function autoresearchCandidateSnapshot(relPath) {
   };
 }
 
+function workspaceCandidateSnapshot(relPath) {
+  if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
+  const payload = parseJson(read(relPath));
+  const projects = Array.isArray(payload?.projects) ? payload.projects : [];
+  const workspaceTopics = new Set([
+    "local-first",
+    "workspace",
+    "offline-first",
+    "project-management",
+    "kanban",
+    "calendar",
+    "task-manager",
+    "scheduling",
+    "developer-productivity",
+  ]);
+  const matches = projects.filter((project) => {
+    const topics = Array.isArray(project.topics) ? project.topics : [];
+    const category = String(project.category || "");
+    return category.includes("워크스페이스") ||
+      category.includes("프로젝트관리") ||
+      category.includes("일정관리") ||
+      category.includes("캘린더/일정") ||
+      topics.some((topic) => workspaceTopics.has(topic));
+  });
+  const names = new Set(matches.map((project) => project.name));
+  const required = [
+    "EpicenterHQ/epicenter",
+    "OpenLoaf/OpenLoaf",
+    "happybhati/workstream",
+  ];
+  const missing = required.filter((name) => !names.has(name));
+  const source = payload?.source || "";
+  const sourceMarked = source.includes("github-search:local-first-workspace");
+  return {
+    status: matches.length >= 8 && missing.length === 0 && sourceMarked ? "pass" : "fail",
+    source,
+    generatedAt: payload?.generatedAt || "",
+    candidates: matches.length,
+    sourceMarked,
+    required,
+    missing,
+  };
+}
+
 function releaseManifestProvenance() {
   const relPath = "dist/release/release-manifest.json";
   if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
@@ -199,11 +245,20 @@ function verifyRelease() {
 }
 
 function smokeRelease() {
-  const result = run(process.execPath, ["scripts/smoke-release.mjs"], { timeout: 180000 });
+  const releaseOutDir = mkdtempSync(join(tmpdir(), "joopark-release-smoke-"));
+  let result;
+  try {
+    result = run(process.execPath, ["scripts/smoke-release.mjs"], {
+      timeout: 180000,
+      env: { RELEASE_OUT_DIR: releaseOutDir },
+    });
+  } finally {
+    rmSync(releaseOutDir, { recursive: true, force: true });
+  }
   const payload = parseJson(result.stdout);
   return {
     status: result.ok && payload && payload.status === "pass" ? "pass" : "fail",
-    command: "node scripts/smoke-release.mjs",
+    command: "RELEASE_OUT_DIR=<temp> node scripts/smoke-release.mjs",
     result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
   };
 }
@@ -226,6 +281,18 @@ function buildChecklist() {
     requirement: "Release packaging, manifest verification, route smoke, mobile layout smoke, interaction smoke, accessibility smoke, and full release gate scripts exist.",
     status: scriptEvidence.every((item) => item.exists) ? "pass" : "fail",
     evidence: scriptEvidence,
+  });
+
+  const tempReleaseTerms = [
+    { file: "scripts/package-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "resolve(root, process.env.RELEASE_OUT_DIR)"] },
+    { file: "scripts/smoke-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "RELEASE_OUT_DIR: releaseDir", "runNodeScript(\"scripts/verify-release.mjs\", [releaseDir]"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["mkdtempSync", "joopark-release-smoke-", "RELEASE_OUT_DIR: releaseOutDir"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "release_smoke_temp_output",
+    requirement: "The full release smoke can package and verify into a temporary directory, preserving the checked release artifact while still testing a fresh package.",
+    status: tempReleaseTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: tempReleaseTerms,
   });
 
   const indexTerms = hasTerms("index.html", viewIds);
@@ -291,6 +358,14 @@ function buildChecklist() {
     requirement: "AutoResearch product launch data includes the original project, the Veritas source-backed harness, the user mirror, and a useful ecosystem candidate set.",
     status: autoresearchCandidates.status,
     evidence: autoresearchCandidates,
+  });
+
+  const workspaceCandidates = workspaceCandidateSnapshot("data/adoption-candidates.json");
+  checklist.push({
+    id: "workspace_ecosystem_candidates",
+    requirement: "Local-first workspace discovery data includes current candidates for offline-first apps, AI workspace, developer dashboard, task, project, Kanban, and calendar workflows.",
+    status: workspaceCandidates.status,
+    evidence: workspaceCandidates,
   });
 
   const vendorTerms = [

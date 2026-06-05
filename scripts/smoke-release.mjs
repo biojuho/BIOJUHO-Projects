@@ -18,7 +18,9 @@ import {
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const releaseDir = join(root, "dist", "release");
+const releaseDir = process.env.RELEASE_OUT_DIR
+  ? resolve(root, process.env.RELEASE_OUT_DIR)
+  : join(root, "dist", "release");
 const host = "127.0.0.1";
 const requestedPort = Number(process.env.RELEASE_SMOKE_PORT || process.env.PORT || 0);
 const shouldPackage = process.env.RELEASE_SMOKE_SKIP_PACKAGE !== "1";
@@ -43,8 +45,8 @@ function parseJsonOutput(stdout, fallbackStatus = "unknown") {
   }
 }
 
-function runNodeScript(scriptPath, env = {}, timeoutMs = 90000) {
-  const result = spawnSync(process.execPath, [join(root, scriptPath)], {
+function runNodeScript(scriptPath, scriptArgs = [], env = {}, timeoutMs = 90000) {
+  const result = spawnSync(process.execPath, [join(root, scriptPath), ...scriptArgs], {
     cwd: root,
     env: { ...process.env, ...env },
     encoding: "utf-8",
@@ -208,7 +210,9 @@ function close(server) {
 
 async function main() {
   const packageResult = shouldPackage
-    ? parseJsonOutput(runNodeScript("scripts/package-release.mjs").stdout, "fail")
+    ? parseJsonOutput(runNodeScript("scripts/package-release.mjs", [], {
+      RELEASE_OUT_DIR: releaseDir,
+    }).stdout, "fail")
     : { status: "skipped" };
   if (packageResult.status !== "pass" && packageResult.status !== "skipped") {
     throw Object.assign(new Error("release package generation failed"), {
@@ -218,7 +222,10 @@ async function main() {
     });
   }
 
-  const verifyResult = parseJsonOutput(runNodeScript("scripts/verify-release.mjs").stdout, "fail");
+  const verifyResult = parseJsonOutput(
+    runNodeScript("scripts/verify-release.mjs", [releaseDir], {}, 90000).stdout,
+    "fail",
+  );
   if (verifyResult.status !== "pass") {
     throw Object.assign(new Error("release manifest verification failed"), {
       step: "scripts/verify-release.mjs",

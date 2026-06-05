@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T18:50:00+09:00
+Generated: 2026-06-05T19:14:04+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -130,6 +130,35 @@ Generated: 2026-06-05T18:50:00+09:00
 
 - `scripts/audit-release-readiness.mjs` now includes `publish_branch_sync`.
 - The branch was pushed to `biojuho-projects/codex/joopark-workspace-release`, so the branch sync check can pass after this evidence commit is pushed.
+
+## Experiment: local-first workspace ecosystem candidates
+
+- Hypothesis: Product launch readiness improves when the adoption data covers local-first workspace, AI workspace, developer dashboard, task, Kanban, and calendar projects beyond AutoResearch-only candidates.
+- Primary metric: workspace-related adoption candidates in `data/adoption-candidates.json`.
+- Baseline: 24 total candidates, 0 explicitly source-marked local-first workspace discovery candidates.
+- Candidate: 32 total candidates, 8 local-first workspace discovery candidates, with `EpicenterHQ/epicenter`, `OpenLoaf/OpenLoaf`, and `happybhati/workstream` required by the release audit.
+- Decision: keep.
+
+## Evidence
+
+- `data/adoption-candidates.json` now includes the `github-search:local-first-workspace` source marker.
+- `scripts/audit-release-readiness.mjs` now includes `workspace_ecosystem_candidates`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 16/16 with 8 workspace candidates.
+- Computer Use manual check reloaded `http://127.0.0.1:5178/#pm-portfolio`, confirmed persisted localStorage merged the portfolio from 30 to 38 projects, and filtered `OpenLoaf/OpenLoaf` as a visible candidate card.
+
+## Experiment: release smoke isolated output
+
+- Hypothesis: The release audit should test a fresh package without deleting or rewriting the shared `dist/release` directory.
+- Primary metric: release smoke temp-output audit checks.
+- Baseline: 0 explicit audit checks requiring packaged browser gates to use isolated release output.
+- Candidate: `package-release.mjs` and `smoke-release.mjs` honor `RELEASE_OUT_DIR`, and `audit-release-readiness.mjs --run-gates` runs packaged browser gates in a temporary release directory with an explicit `release_smoke_temp_output` checklist item.
+- Decision: keep.
+
+## Evidence
+
+- `node --check scripts/package-release.mjs`, `node --check scripts/smoke-release.mjs`, and `node --check scripts/audit-release-readiness.mjs` passed.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 16/16, with packaged browser gates served from `RELEASE_OUT_DIR=<temp>`.
+- The final gate still had 15 desktop routes, 15 mobile routes, 17 interaction steps, `markdownSanitized: true`, and 0 console, network, and layout issues.
 
 ## Next Loop
 
