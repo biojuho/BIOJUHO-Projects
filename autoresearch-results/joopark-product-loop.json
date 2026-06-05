@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T00:38:38+09:00",
+  "generatedAt": "2026-06-06T01:12:26+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -51,8 +51,15 @@
       "worklenzCandidateFreshnessVisible": true,
       "anytypeCandidateFreshnessVisible": true,
       "focalboardCandidateFreshnessVisible": true,
-      "workspaceBenchmarkHeadSnapshots": 7,
-      "workspaceBenchmarkFreshnessChecks": 30
+      "workspaceBenchmarkHeadSnapshots": 14,
+      "workspaceBenchmarkFreshnessChecks": 67,
+      "epicenterCandidateFreshnessVisible": true,
+      "openLoafCandidateFreshnessVisible": true,
+      "workstreamCandidateFreshnessVisible": true,
+      "taskosaurCandidateFreshnessVisible": true,
+      "markdownTaskManagerCandidateFreshnessVisible": true,
+      "taskcoachCandidateFreshnessVisible": true,
+      "fluidCalendarCandidateFreshnessVisible": true
     }
   },
   "experiments": [
@@ -349,6 +356,27 @@
       "baseline": 5,
       "candidate": 7,
       "decision": "keep"
+    },
+    {
+      "id": "workspace-benchmark-head-freshness-refresh-2",
+      "primaryMetric": "workspaceBenchmarkHeadSnapshots",
+      "baseline": 7,
+      "candidate": 9,
+      "decision": "keep"
+    },
+    {
+      "id": "remaining-workspace-freshness-refresh",
+      "primaryMetric": "workspaceBenchmarkHeadSnapshots",
+      "baseline": 9,
+      "candidate": 14,
+      "decision": "keep"
+    },
+    {
+      "id": "remaining-workspace-metadata-drift-refresh",
+      "primaryMetric": "remainingWorkspaceOpenIssueDriftCount",
+      "baseline": 5,
+      "candidate": 0,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -362,7 +390,8 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "refresh Epicenter and OpenLoaf benchmark commit snapshots",
-    "candidate freshness metadata drift monitor"
+    "candidate freshness metadata drift monitor",
+    "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces",
+    "refresh high-churn benchmark repo counts after scheduled drift detection lands"
   ]
 }

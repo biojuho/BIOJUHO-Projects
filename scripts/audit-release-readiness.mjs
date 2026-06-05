@@ -221,6 +221,16 @@ function workspaceCandidateSnapshot(relPath) {
   const freshnessCommitPattern = /^[0-9a-f]{40}$/i;
   const workspaceFreshnessExpectations = [
     {
+      key: "epicenter",
+      name: "EpicenterHQ/epicenter",
+      sourceMarker: "github-api:epicenter-freshness-refresh",
+    },
+    {
+      key: "openLoaf",
+      name: "OpenLoaf/OpenLoaf",
+      sourceMarker: "github-api:openloaf-freshness-refresh",
+    },
+    {
       key: "colanode",
       name: "colanode/colanode",
       sourceMarker: "github-api:colanode-freshness-refresh",
@@ -254,6 +264,31 @@ function workspaceCandidateSnapshot(relPath) {
       key: "focalboard",
       name: "mattermost-community/focalboard",
       sourceMarker: "github-api:focalboard-freshness-refresh",
+    },
+    {
+      key: "workstream",
+      name: "happybhati/workstream",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "taskosaur",
+      name: "Taskosaur/Taskosaur",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "markdownTaskManager",
+      name: "ioniks/MarkdownTaskManager",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "taskcoach",
+      name: "taskcoach/taskcoach",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "fluidCalendar",
+      name: "dotnetfactory/fluid-calendar",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
     },
   ];
   const freshness = Object.fromEntries(workspaceFreshnessExpectations.map((item) => {
@@ -670,15 +705,22 @@ function buildChecklist() {
   });
 
   const workspaceBenchmarkFreshnessUiTerms = [
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotEpicenter", "shortEpicenterCommit", "Epicenter freshness commit did not render", "epicenterCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotOpenLoaf", "shortOpenLoafCommit", "OpenLoaf freshness commit did not render", "openLoafCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotColanode", "shortColanodeCommit", "Colanode freshness commit did not render", "colanodeCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotParabol", "shortParabolCommit", "Parabol freshness commit did not render", "parabolCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorklenz", "shortWorklenzCommit", "Worklenz freshness commit did not render", "worklenzCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAnytype", "shortAnytypeCommit", "Anytype freshness commit did not render", "anytypeCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotFocalboard", "shortFocalboardCommit", "Focalboard freshness commit did not render", "focalboardCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "happybhati/workstream", "remainingWorkspaceFreshnessOk.workstream", "workstreamCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "Taskosaur/Taskosaur", "remainingWorkspaceFreshnessOk.taskosaur", "taskosaurCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "ioniks/MarkdownTaskManager", "remainingWorkspaceFreshnessOk.markdownTaskManager", "markdownTaskManagerCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "taskcoach/taskcoach", "remainingWorkspaceFreshnessOk.taskcoach", "taskcoachCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "dotnetfactory/fluid-calendar", "remainingWorkspaceFreshnessOk.fluidCalendar", "fluidCalendarCandidateFreshnessVisible"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "workspace_benchmark_freshness_ui_smoke",
-    requirement: "The portfolio UI exposes refreshed Colanode, Parabol, Worklenz, Anytype, and Focalboard upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
+    requirement: "The portfolio UI exposes refreshed workspace benchmark upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
     status: workspaceBenchmarkFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: workspaceBenchmarkFreshnessUiTerms,
   });
