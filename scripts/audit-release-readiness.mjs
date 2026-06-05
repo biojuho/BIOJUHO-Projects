@@ -176,16 +176,24 @@ function workspaceCandidateSnapshot(relPath) {
     "EpicenterHQ/epicenter",
     "OpenLoaf/OpenLoaf",
     "happybhati/workstream",
+    "colanode/colanode",
+    "anyproto/anytype-ts",
+    "opf/openproject",
+    "ParabolInc/parabol",
+    "Leantime/leantime",
+    "Worklenz/worklenz",
   ];
   const missing = required.filter((name) => !names.has(name));
   const source = payload?.source || "";
   const sourceMarked = source.includes("github-search:local-first-workspace");
+  const apiMarked = source.includes("github-api:workspace-benchmark-refresh");
   return {
-    status: matches.length >= 8 && missing.length === 0 && sourceMarked ? "pass" : "fail",
+    status: matches.length >= 14 && missing.length === 0 && sourceMarked && apiMarked ? "pass" : "fail",
     source,
     generatedAt: payload?.generatedAt || "",
     candidates: matches.length,
     sourceMarked,
+    apiMarked,
     required,
     missing,
   };
@@ -363,7 +371,7 @@ function buildChecklist() {
   const workspaceCandidates = workspaceCandidateSnapshot("data/adoption-candidates.json");
   checklist.push({
     id: "workspace_ecosystem_candidates",
-    requirement: "Local-first workspace discovery data includes current candidates for offline-first apps, AI workspace, developer dashboard, task, project, Kanban, and calendar workflows.",
+    requirement: "Local-first workspace discovery data includes current candidates for offline-first apps, AI workspace, developer dashboard, task, project, Kanban, calendar, and benchmark PM workflows.",
     status: workspaceCandidates.status,
     evidence: workspaceCandidates,
   });
@@ -378,6 +386,19 @@ function buildChecklist() {
     requirement: "The interaction smoke proves at least one imported workspace adoption candidate is searchable and visible in the portfolio UI.",
     status: workspaceUiTerms.status,
     evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceUiTerms.missing },
+  });
+
+  const workspaceCompetitiveTerms = hasTerms("scripts/smoke-interactions.mjs", [
+    "colanode/colanode",
+    "workspaceCompetitiveCandidateVisible",
+    "Colanode star count did not render",
+    "Colanode GitHub link did not render safely",
+  ]);
+  checklist.push({
+    id: "workspace_competitive_candidate_smoke",
+    requirement: "The interaction smoke proves a newly researched workspace benchmark candidate is searchable and renders current GitHub metadata.",
+    status: workspaceCompetitiveTerms.status,
+    evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceCompetitiveTerms.missing },
   });
 
   const candidateTriageTerms = [

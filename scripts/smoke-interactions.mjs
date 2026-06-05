@@ -343,6 +343,7 @@ const interactionExpression = `
   let backupResetOk = false;
   let markdownSanitizedOk = false;
   let workspaceCandidateVisibleOk = false;
+  let workspaceCompetitiveCandidateVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -519,6 +520,8 @@ const interactionExpression = `
     await nav("pm-portfolio");
     const candidate = dashboard.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
     assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
+    const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
+    assert(benchmarkCandidate && benchmarkCandidate.sourceKind === "adoption-candidate", "Colanode workspace benchmark candidate was not loaded");
     const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
     const ownedCount = dashboard.projects.length - candidateCount;
     click('[data-action="portfolio-filter"][data-filter="candidates"]');
@@ -549,6 +552,19 @@ const interactionExpression = `
     assert(qs("[data-candidate-priority]", card).textContent.includes(String(projectCandidatePriority(candidate).score)), "OpenLoaf priority score did not render");
     const href = qs(".portfolio-candidate-link", card).href;
     assert(href === "https://github.com/OpenLoaf/OpenLoaf" || href === "https://github.com/OpenLoaf/OpenLoaf/", "OpenLoaf GitHub link did not render safely");
+    fill("#globalSearch", "colanode");
+    await waitFor(() => state.query === "colanode" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Colanode search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]'), "Colanode portfolio card did not render after search");
+    const benchmarkCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]');
+    const benchmarkText = benchmarkCard.innerText;
+    assert(benchmarkText.includes("colanode/colanode"), "Colanode candidate card did not render");
+    assert(benchmarkText.includes("로컬 퍼스트/워크스페이스"), "Colanode candidate category did not render");
+    assert(benchmarkText.includes("Slack/Notion"), "Colanode candidate description did not render");
+    assert(benchmarkText.includes("4,892"), "Colanode star count did not render");
+    assert(benchmarkText.includes("300"), "Colanode fork count did not render");
+    assert(benchmarkText.includes("TypeScript"), "Colanode language did not render");
+    const benchmarkHref = qs(".portfolio-candidate-link", benchmarkCard).href;
+    assert(benchmarkHref === "https://github.com/colanode/colanode" || benchmarkHref === "https://github.com/colanode/colanode/", "Colanode GitHub link did not render safely");
     fill("#globalSearch", "");
     await waitFor(() => document.querySelectorAll("#view-pm-portfolio .portfolio-card").length > 1, "portfolio did not recover after clearing search");
     click('[data-action="portfolio-filter"][data-filter="all"]');
@@ -556,6 +572,7 @@ const interactionExpression = `
     portfolioCandidateRankedOk = true;
     portfolioCandidateFilterOk = true;
     workspaceCandidateVisibleOk = true;
+    workspaceCompetitiveCandidateVisibleOk = true;
   });
 
   let projectId = "";
@@ -768,6 +785,7 @@ const interactionExpression = `
     backupExport: backupExportOk,
     markdownSanitized: markdownSanitizedOk,
     workspaceCandidateVisible: workspaceCandidateVisibleOk,
+    workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
