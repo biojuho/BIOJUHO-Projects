@@ -286,4 +286,12 @@ class TestHarnessTokenIntegration:
         # Verify audit logged the denial
         denied = [r for r in harness.audit_logger.records if r.verdict == "denied"]
         assert len(denied) >= 1
-        assert "TOKEN_BUDGET" in denied[-1].reason
+        denial = denied[-1]
+        assert "TOKEN_BUDGET" in denial.reason
+        assert denial.metadata["error_type"] == "TokenBudgetExceededError"
+        assert denial.metadata["token_budget_exceeded"] is True
+        assert denial.metadata["used_tokens"] == 4_500
+        assert denial.metadata["requested_tokens"] == 1_000
+        assert denial.metadata["projected_tokens"] == 5_500
+        assert denial.metadata["max_tokens"] == 5_000
+        assert denial.metadata["remaining_tokens"] == 500

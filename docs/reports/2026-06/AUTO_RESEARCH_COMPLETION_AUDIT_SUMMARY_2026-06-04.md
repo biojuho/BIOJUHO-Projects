@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `48`
-- Status counts: `blocked=1, covered=47`
+- Criteria: `49`
+- Status counts: `blocked=1, covered=48`
 
 ## Missing Required
 
@@ -110,7 +110,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `8`
+- Evidence paths: `9`
 
 ### dashboard_next_credential_unblock
 
@@ -293,6 +293,12 @@
 - Evidence paths: `2`
 
 ### getdaytrends_lock_path_override
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
+
+### harness_token_budget_error_surfacing
 
 - Required: `true`
 - Status: `covered`

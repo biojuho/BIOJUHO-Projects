@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T10:17:45+09:00",
+  "generated_at": "2026-06-05T10:22:27+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,7 +141,7 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "0cd7ad0",
+            "c5f76d4",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
@@ -155,10 +155,13 @@
             "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
             "automation/getdaytrends/main.py",
             "automation/getdaytrends/tests/test_main.py",
-            "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md",
+            "packages/shared/harness/core.py",
+            "packages/shared/harness/tests/test_token_tracker.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_HARNESS_TOKEN_BUDGET_ERROR_SURFACING_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "0cd7ad0",
+            "proof_commit": "c5f76d4",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -200,7 +203,9 @@
               "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
               "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md",
               "automation/getdaytrends/main.py",
-              "automation/getdaytrends/tests/test_main.py"
+              "automation/getdaytrends/tests/test_main.py",
+              "packages/shared/harness/core.py",
+              "packages/shared/harness/tests/test_token_tracker.py"
             ]
           }
         }
@@ -974,12 +979,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "0cd7ad0",
+            "c5f76d4",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "0cd7ad0",
+            "proof_commit": "c5f76d4",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -1041,6 +1046,16 @@
             "GetDayTrends Lock Path Override",
             "protected_path_freshness",
             "0cd7ad0",
+            "no changed protected paths after proof",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HARNESS_TOKEN_BUDGET_ERROR_SURFACING_2026-06-05.md",
+          "must_contain": [
+            "Harness Token Budget Error Surfacing",
+            "protected_path_freshness",
+            "c5f76d4",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]
@@ -2801,7 +2816,7 @@
           "must_contain": [
             "Completion Audit Summary Drift Guard",
             "test_checked_in_summary_artifacts_match_current_contract",
-            "valid `48` criteria",
+            "valid `49` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -2840,6 +2855,44 @@
             "11 passed",
             "passed=2",
             "failed=0",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "harness_token_budget_error_surfacing",
+      "requirement": "shared harness token-budget denials expose structured audit metadata while preserving TokenBudgetExceededError behavior.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "packages/shared/harness/core.py",
+          "must_contain": [
+            "TokenBudgetExceededError",
+            "token_budget_exceeded=True",
+            "requested_tokens=token_estimate",
+            "projected_tokens=projected_tokens",
+            "remaining_tokens=max(0, max_tokens - used_tokens)"
+          ]
+        },
+        {
+          "path": "packages/shared/harness/tests/test_token_tracker.py",
+          "must_contain": [
+            "test_execute_token_gate_blocks",
+            "denial.metadata[\"error_type\"] == \"TokenBudgetExceededError\"",
+            "denial.metadata[\"projected_tokens\"] == 5_500",
+            "denial.metadata[\"remaining_tokens\"] == 500"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HARNESS_TOKEN_BUDGET_ERROR_SURFACING_2026-06-05.md",
+          "must_contain": [
+            "strands-agents/harness-sdk",
+            "fix: surface MaxTokensError when max_tokens truncates tool input JSON",
+            "TokenBudgetExceededError",
+            "32 passed",
+            "208 passed",
             "global_objective_complete=false"
           ]
         }

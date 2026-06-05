@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T10:17:45+09:00",
+  "generated_at": "2026-06-05T10:22:27+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 47
+    "covered": 48
   },
-  "criterion_count": 48,
+  "criterion_count": 49,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 17,
+          "term_count": 20,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -660,6 +660,13 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HARNESS_TOKEN_BUDGET_ERROR_SURFACING_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
@@ -1963,6 +1970,34 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md",
           "term_count": 7,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "harness_token_budget_error_surfacing",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "packages/shared/harness/core.py",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "packages/shared/harness/tests/test_token_tracker.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HARNESS_TOKEN_BUDGET_ERROR_SURFACING_2026-06-05.md",
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

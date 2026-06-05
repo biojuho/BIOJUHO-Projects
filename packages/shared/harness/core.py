@@ -41,7 +41,7 @@ from .errors import (
 )
 from .hooks import HookChain
 from .risk import RiskScanner
-from .token_tracker import TokenBudget
+from .token_tracker import TokenBudget, TokenBudgetExceededError
 
 # Type alias for tool executor functions
 ToolExecutor = Callable[[str, Any], Awaitable[Any]]
@@ -222,12 +222,21 @@ class HarnessWrapper:
         if token_estimate > 0 and self._token_budget:
             try:
                 self._token_budget.gate(token_estimate, tool_name=tool_name)
-            except Exception:
+            except TokenBudgetExceededError as exc:
+                used_tokens = exc.used or self._token_budget.used_tokens
+                max_tokens = exc.limit or self._token_budget.max_tokens
+                projected_tokens = used_tokens + token_estimate
                 self._audit.log_denied(
                     tool_name,
-                    f"TOKEN_BUDGET_EXCEEDED: {self._token_budget.used_tokens}+{token_estimate}"
-                    f" > {self._token_budget.max_tokens}",
+                    f"TOKEN_BUDGET_EXCEEDED: {used_tokens}+{token_estimate} > {max_tokens}",
                     tool_input,
+                    error_type=type(exc).__name__,
+                    token_budget_exceeded=True,
+                    used_tokens=used_tokens,
+                    requested_tokens=token_estimate,
+                    projected_tokens=projected_tokens,
+                    max_tokens=max_tokens,
+                    remaining_tokens=max(0, max_tokens - used_tokens),
                 )
                 raise
 
