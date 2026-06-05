@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `73`
-- Status counts: `blocked=1, covered=72`
+- Criteria: `74`
+- Status counts: `blocked=1, covered=73`
 
 ## Missing Required
 
@@ -441,6 +441,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### getdaytrends_tap_alert_batch_coalesce_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### agent_workflow_json_safe_model_serialization_guard
 

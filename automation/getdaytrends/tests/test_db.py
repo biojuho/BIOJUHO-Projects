@@ -490,6 +490,7 @@ class TestTapDealRoomFunnel(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(batch), 1)
         self.assertEqual(batch[0]["keyword"], "AI regulation")
+        self.assertEqual(batch[0]["dedupe_key"], "united-states:airegulation")
 
         updated = await update_tap_alert_delivery_status(
             self.conn,

@@ -120,6 +120,7 @@ def feature_flags_env() -> dict:
         tap_alert_min_viral_score=int(os.getenv("TAP_ALERT_MIN_VIRAL_SCORE", "75")),
         enable_tap_alert_dispatch=os.getenv("ENABLE_TAP_ALERT_DISPATCH", "false").lower() == "true",
         tap_alert_dispatch_batch_size=int(os.getenv("TAP_ALERT_DISPATCH_BATCH_SIZE", "5")),
+        tap_alert_dispatch_coalesce=_env_flag("TAP_ALERT_DISPATCH_COALESCE", default=False),
         tap_alert_cooldown_minutes=int(os.getenv("TAP_ALERT_COOLDOWN_MINUTES", "180")),
         enable_streaming_pipeline=os.getenv("ENABLE_STREAMING_PIPELINE", "false").lower() == "true",
         streaming_generator_concurrency=int(os.getenv("STREAMING_GENERATOR_CONCURRENCY", "3")),

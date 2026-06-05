@@ -68,6 +68,9 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_default_dedupe_hours(self):
         self.assertEqual(self.config.dedupe_window_hours, 6)
 
+    def test_tap_alert_dispatch_coalescing_is_opt_in(self):
+        self.assertFalse(self.config.tap_alert_dispatch_coalesce)
+
     def test_group_quality_threshold_defaults(self):
         self.assertEqual(self.config.get_quality_threshold("tweets"), 50)
         self.assertEqual(self.config.get_quality_threshold("threads_posts"), 65)

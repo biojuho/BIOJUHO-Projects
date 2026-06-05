@@ -366,7 +366,7 @@ async def get_tap_alert_queue_snapshot(
     count_rows = await counts_cursor.fetchall()
 
     items_cursor = await conn.execute(
-        f"""SELECT alert_id, snapshot_id, target_country, keyword, source_country,
+        f"""SELECT alert_id, snapshot_id, dedupe_key, target_country, keyword, source_country,
                   paywall_tier, priority, viral_score, alert_message,
                   metadata_json, lifecycle_status, queued_at, dispatched_at, last_attempt_at
            FROM tap_alert_queue
@@ -420,7 +420,7 @@ async def get_tap_alert_delivery_batch(
         params.append(normalized_country)
 
     cursor = await conn.execute(
-        f"""SELECT alert_id, snapshot_id, target_country, keyword, source_country,
+        f"""SELECT alert_id, snapshot_id, dedupe_key, target_country, keyword, source_country,
                   paywall_tier, priority, viral_score, alert_message,
                   metadata_json, lifecycle_status, queued_at, dispatched_at, last_attempt_at
            FROM tap_alert_queue
@@ -434,6 +434,7 @@ async def get_tap_alert_delivery_batch(
         {
             "alert_id": row["alert_id"],
             "snapshot_id": row["snapshot_id"],
+            "dedupe_key": row["dedupe_key"],
             "target_country": row["target_country"],
             "keyword": row["keyword"],
             "source_country": row["source_country"],

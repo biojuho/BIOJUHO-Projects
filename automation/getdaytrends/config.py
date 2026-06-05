@@ -446,6 +446,7 @@ class AppConfig:
     tap_alert_cooldown_minutes: int = 180
     enable_tap_alert_dispatch: bool = False
     tap_alert_dispatch_batch_size: int = 5
+    tap_alert_dispatch_coalesce: bool = False
     # Runtime options (CLI overrides)
     country: str = "korea"
     countries: list = field(default_factory=list)

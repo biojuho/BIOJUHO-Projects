@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T13:23:04+09:00",
+  "generated_at": "2026-06-05T13:32:38+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -220,7 +220,16 @@
             "tests/test_canva_widget_click_smoke.py",
             "canva_widget_message_capture_order_guard",
             "7aa03a8",
-            "agent_workflow_json_safe_model_serialization_guard"
+            "agent_workflow_json_safe_model_serialization_guard",
+            "automation/getdaytrends/config.py",
+            "automation/getdaytrends/config_env_loaders.py",
+            "automation/getdaytrends/db_layer/tap_repository.py",
+            "automation/getdaytrends/tap/service.py",
+            "automation/getdaytrends/tests/test_config.py",
+            "automation/getdaytrends/tests/test_db.py",
+            "automation/getdaytrends/tests/test_tap_pipeline.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_TAP_ALERT_BATCH_COALESCE_2026-06-05.md",
+            "getdaytrends_tap_alert_batch_coalesce_guard"
           ],
           "git_freshness": {
             "proof_commit": "7aa03a8",
@@ -313,7 +322,15 @@
               "docs/reports/2026-06/TYPESCRIPT_EXPORT_CONVENTION_AUDIT_2026-06-05.md",
               "docs/reports/2026-06/AUTO_RESEARCH_TYPESCRIPT_EXPERIMENTAL_EXPORT_SEAM_GUARD_2026-06-05.md",
               "ops/scripts/canva_widget_click_smoke.py",
-              "tests/test_canva_widget_click_smoke.py"
+              "tests/test_canva_widget_click_smoke.py",
+              "automation/getdaytrends/config.py",
+              "automation/getdaytrends/config_env_loaders.py",
+              "automation/getdaytrends/db_layer/tap_repository.py",
+              "automation/getdaytrends/tap/service.py",
+              "automation/getdaytrends/tests/test_config.py",
+              "automation/getdaytrends/tests/test_db.py",
+              "automation/getdaytrends/tests/test_tap_pipeline.py",
+              "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_TAP_ALERT_BATCH_COALESCE_2026-06-05.md"
             ]
           }
         }
@@ -4277,6 +4294,61 @@
             "A/B Contract",
             "capture_index",
             "5 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "getdaytrends_tap_alert_batch_coalesce_guard",
+      "requirement": "getdaytrends TAP alert dispatch supports opt-in batch coalescing without changing default dispatch behavior.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "automation/getdaytrends/tap/service.py",
+          "must_contain": [
+            "tap_alert_dispatch_coalesce",
+            "_coalesce_tap_alert_dispatch_batch",
+            "_mark_coalesced_tap_alerts_skipped",
+            "coalesced_duplicate",
+            "coalesced"
+          ]
+        },
+        {
+          "path": "automation/getdaytrends/db_layer/tap_repository.py",
+          "must_contain": [
+            "SELECT alert_id, snapshot_id, dedupe_key",
+            "\"dedupe_key\": row[\"dedupe_key\"]"
+          ]
+        },
+        {
+          "path": "automation/getdaytrends/config_env_loaders.py",
+          "must_contain": [
+            "tap_alert_dispatch_coalesce",
+            "TAP_ALERT_DISPATCH_COALESCE"
+          ]
+        },
+        {
+          "path": "automation/getdaytrends/tests/test_tap_pipeline.py",
+          "must_contain": [
+            "test_dispatch_tap_alert_queue_coalesces_duplicate_dedupe_keys_when_enabled",
+            "tap_alert_dispatch_coalesce=True",
+            "coalesced_duplicate",
+            "attempted\"] == 2",
+            "coalesced\"] == 1"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_TAP_ALERT_BATCH_COALESCE_2026-06-05.md",
+          "must_contain": [
+            "AutoResearch getdaytrends TAP Alert Batch Coalesce",
+            "mastra-ai/mastra",
+            "opt-in batched delivery for PubSub subscribers",
+            "28 passed",
+            "2/2 passed",
+            "attempted=2",
+            "coalesced=1",
             "global_objective_complete=false"
           ]
         }

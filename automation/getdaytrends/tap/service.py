@@ -98,6 +98,7 @@ class TapAlertDispatchSummary:
     dispatched: int = 0
     failed: int = 0
     skipped: int = 0
+    coalesced: int = 0
     items: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -109,6 +110,7 @@ class TapAlertDispatchSummary:
             "dispatched": self.dispatched,
             "failed": self.failed,
             "skipped": self.skipped,
+            "coalesced": self.coalesced,
             "items": list(self.items),
         }
 
@@ -272,11 +274,17 @@ async def dispatch_tap_alert_queue(
     if not queued_items:
         return summary
 
+    coalesced_duplicates: list[dict] = []
+    if getattr(config, "tap_alert_dispatch_coalesce", False):
+        queued_items, coalesced_duplicates = _coalesce_tap_alert_dispatch_batch(queued_items)
+        summary.coalesced = len(coalesced_duplicates)
+        summary.skipped += len(coalesced_duplicates)
+
     if dry_run or getattr(config, "no_alerts", False) or not summary.channels:
         reason = "dry_run" if dry_run else "no_channels"
         if getattr(config, "no_alerts", False):
             reason = "alerts_disabled"
-        summary.skipped = len(queued_items)
+        summary.skipped += len(queued_items)
         summary.attempted = len(queued_items) if dry_run else 0
         summary.items = [
             {
@@ -286,9 +294,13 @@ async def dispatch_tap_alert_queue(
             }
             for item in queued_items
         ]
+        summary.items.extend(_coalesced_summary_items(coalesced_duplicates))
         return summary
 
     send_alert = _load_alert_sender()
+    if coalesced_duplicates:
+        await _mark_coalesced_tap_alerts_skipped(conn, coalesced_duplicates, update_status)
+        summary.items.extend(_coalesced_summary_items(coalesced_duplicates))
 
     for item in queued_items:
         summary.attempted += 1
@@ -364,6 +376,57 @@ async def dispatch_tap_alert_queue(
         )
 
     return summary
+
+
+def _coalesce_tap_alert_dispatch_batch(queued_items: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Keep the first queued alert for each dedupe key and return duplicate handles."""
+
+    selected: list[dict] = []
+    duplicates: list[dict] = []
+    seen: dict[str, str] = {}
+    for item in queued_items:
+        dedupe_key = str(item.get("dedupe_key") or item.get("alert_id") or "")
+        if dedupe_key and dedupe_key in seen:
+            duplicate = dict(item)
+            duplicate["coalesced_into_alert_id"] = seen[dedupe_key]
+            duplicates.append(duplicate)
+            continue
+        if dedupe_key:
+            seen[dedupe_key] = str(item.get("alert_id", ""))
+        selected.append(item)
+    return selected, duplicates
+
+
+async def _mark_coalesced_tap_alerts_skipped(conn, duplicates: list[dict], update_status) -> None:
+    attempted_at = datetime.utcnow().isoformat()
+    for item in duplicates:
+        await update_status(
+            conn,
+            alert_id=item["alert_id"],
+            lifecycle_status="skipped",
+            last_attempt_at=attempted_at,
+            metadata_patch={
+                "last_delivery": {
+                    "status": "skipped",
+                    "reason": "coalesced_duplicate",
+                    "attempted_at": attempted_at,
+                    "coalesced_into_alert_id": item.get("coalesced_into_alert_id", ""),
+                    "dedupe_key": item.get("dedupe_key", ""),
+                }
+            },
+        )
+
+
+def _coalesced_summary_items(duplicates: list[dict]) -> list[dict]:
+    return [
+        {
+            "alert_id": item["alert_id"],
+            "keyword": item["keyword"],
+            "status": "coalesced_duplicate",
+            "coalesced_into_alert_id": item.get("coalesced_into_alert_id", ""),
+        }
+        for item in duplicates
+    ]
 
 
 def _resolve_target_country(resolved: TapBoardRequest, config) -> str:
