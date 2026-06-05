@@ -216,6 +216,7 @@ function workspaceCandidateSnapshot(relPath) {
     "OpenLoaf/OpenLoaf",
     "makeplane/plane",
     "AppFlowy-IO/AppFlowy",
+    "toeverything/AFFiNE",
     "happybhati/workstream",
     "colanode/colanode",
     "anyproto/anytype-ts",
@@ -249,6 +250,11 @@ function workspaceCandidateSnapshot(relPath) {
       key: "appFlowy",
       name: "AppFlowy-IO/AppFlowy",
       sourceMarker: "github-api:appflowy-freshness-refresh",
+    },
+    {
+      key: "affine",
+      name: "toeverything/AFFiNE",
+      sourceMarker: "github-api:affine-freshness-refresh",
     },
     {
       key: "colanode",
@@ -793,6 +799,17 @@ function buildChecklist() {
     requirement: "The portfolio includes AppFlowy as a researched workspace benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and risk-review metadata.",
     status: appFlowyFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: appFlowyFreshnessUiTerms,
+  });
+
+  const affineFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["toeverything/AFFiNE", "github-search:affine-workspace-benchmark", "github-api:affine-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAffine", "shortAffineCommit", "AFFiNE freshness commit did not render", "affineCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "affine_workspace_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes AFFiNE as a researched workspace benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and risk-review metadata.",
+    status: affineFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: affineFreshnessUiTerms,
   });
 
   const veritasFreshnessUiTerms = [
