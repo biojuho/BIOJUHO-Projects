@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `58`
-- Status counts: `blocked=1, covered=57`
+- Criteria: `59`
+- Status counts: `blocked=1, covered=58`
 
 ## Missing Required
 
@@ -327,6 +327,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### pr_analysis_read_only_split_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `8`
 
 ### completion_audit_summary_drift_guard
 

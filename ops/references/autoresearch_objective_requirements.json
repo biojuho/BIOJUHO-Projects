@@ -141,6 +141,7 @@
         "browser_smoke_ephemeral_context_guard",
         "mcp_service_expected_tools_guard",
         "dev_server_mcp_in_process_smoke_guard",
+        "pr_analysis_read_only_split_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
@@ -471,6 +472,14 @@
           ]
         },
         {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
+          "must_contain": [
+            "google/adk-python",
+            "PR Analysis Snapshot",
+            "global_objective_complete=false"
+          ]
+        },
+        {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_IN_PROCESS_SMOKE_2026-06-05.md",
           "must_contain": [
             "modelcontextprotocol/python-sdk",
@@ -521,6 +530,7 @@
         "canva_widget_state_continuation_guard",
         "canva_mcp_sdk_floor_guard",
         "mcp_service_expected_tools_guard",
+        "pr_analysis_read_only_split_guard",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
@@ -528,6 +538,14 @@
         "browser_smoke_clear_error_expected_text_guard"
       ],
       "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
+          "must_contain": [
+            "read-only analysis workflow",
+            "No PR comment or mutation is required",
+            "global_objective_complete=false"
+          ]
+        },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_IN_PROCESS_SMOKE_2026-06-05.md",
           "must_contain": [

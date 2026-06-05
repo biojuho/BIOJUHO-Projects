@@ -1,0 +1,56 @@
+name: PR Analysis
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-analysis-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Generate read-only PR analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.13'
+
+      - name: Generate read-only PR analysis
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python ops/scripts/pr_triage.py \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --mode analysis \
+            --output-dir var/pr-analysis
+
+      - name: Append analysis summary
+        run: cat var/pr-analysis/pr-analysis-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload analysis artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: pr-analysis-${{ github.event.pull_request.number }}
+          path: var/pr-analysis/
+          if-no-files-found: error
+          retention-days: 14

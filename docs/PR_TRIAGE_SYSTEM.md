@@ -65,12 +65,30 @@ The workflow uses `ops/scripts/pr_triage.py` to compute:
 - human-attention reasons
 - recommended checks
 
-### 3. Local CLI
+### 3. Read-Only PR Analysis Workflow
+
+`.github/workflows/pr-analysis.yml` runs the same deterministic analysis with
+read-only repository and pull-request permissions. It creates:
+
+- a Markdown step summary
+- a JSON artifact
+- no sticky PR comment
+
+This keeps automated metadata, diff, and risk analysis separate from the
+write-capable triage lane that updates pull-request comments.
+
+### 4. Local CLI
 
 You can run the same triage logic locally:
 
 ```bash
 python ops/scripts/pr_triage.py --base origin/main --head HEAD --output-dir var/pr-triage
+```
+
+For read-only analysis artifacts:
+
+```bash
+python ops/scripts/pr_triage.py --base origin/main --head HEAD --mode analysis --output-dir var/pr-analysis
 ```
 
 This is useful before opening a PR, especially for cross-cutting work.

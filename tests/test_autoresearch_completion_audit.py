@@ -50,6 +50,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "direct_browser_qa_freshness_gate",
         "browser_smoke_clear_error_expected_text_guard",
         "browser_smoke_ephemeral_context_guard",
+        "pr_analysis_read_only_split_guard",
         "github_source_freshness_snapshot",
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",

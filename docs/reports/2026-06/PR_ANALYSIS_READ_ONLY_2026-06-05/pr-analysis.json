@@ -1,0 +1,51 @@
+{
+  "title": "chore(mcp): add in-process dev-server smoke",
+  "url": "",
+  "intent": "chore(mcp): add in-process dev-server smoke",
+  "affected_areas": [
+    "Ops",
+    "Docs"
+  ],
+  "change_kind": "feature",
+  "risk_level": "low",
+  "status": "needs-human-attention",
+  "changed_files": [
+    "docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_2026-06-04.json",
+    "docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_2026-06-04.md",
+    "docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_DRIFT_GUARD_2026-06-05.md",
+    "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_IN_PROCESS_SMOKE_2026-06-05.md",
+    "docs/reports/2026-06/AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.json",
+    "docs/reports/2026-06/AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.md",
+    "docs/reports/2026-06/AUTO_RESEARCH_OBJECTIVE_COVERAGE_DRIFT_GUARD_2026-06-05.md",
+    "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json",
+    "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.md",
+    "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_IN_PROCESS_2026-06-05.json",
+    "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_IN_PROCESS_2026-06-05.md",
+    "next-actions.md",
+    "ops/references/autoresearch_completion_contract.json",
+    "ops/references/autoresearch_objective_requirements.json",
+    "ops/scripts/dev_server_mcp_runtime_smoke.py",
+    "tests/test_autoresearch_completion_audit.py",
+    "tests/test_dev_server_mcp_runtime_smoke.py"
+  ],
+  "diff_stats": {
+    "files_changed": 17,
+    "lines_added": 346,
+    "lines_deleted": 30
+  },
+  "missing_template_sections": [
+    "plain_language_intent",
+    "underlying_problem",
+    "why_this_approach",
+    "human_judgment_needed",
+    "validation_plan"
+  ],
+  "requested_human_decisions": [],
+  "human_attention_reasons": [
+    "PR description is missing intention-first template sections."
+  ],
+  "recommended_checks": [
+    "security-quality-gate",
+    "workspace-smoke"
+  ]
+}

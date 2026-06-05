@@ -4,6 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_SMOKE_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "workspace-smoke.yml"
+PR_ANALYSIS_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "pr-analysis.yml"
 
 
 def test_workspace_smoke_workflow_runs_autoresearch_audit_regression_tests() -> None:
@@ -24,3 +25,15 @@ def test_workspace_smoke_workflow_runs_autoresearch_audits_after_smoke_suite() -
     summary_step = workflow.index("Append summary")
 
     assert smoke_step < audit_step < summary_step
+
+
+def test_pr_analysis_workflow_is_read_only_and_separate_from_triage_comment() -> None:
+    workflow = PR_ANALYSIS_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "name: PR Analysis" in workflow
+    assert "pull-requests: read" in workflow
+    assert "issues: write" not in workflow
+    assert "--mode analysis" in workflow
+    assert "var/pr-analysis/pr-analysis-summary.md" in workflow
+    assert "github-script" not in workflow
+    assert "pr-triage-comment.md" not in workflow

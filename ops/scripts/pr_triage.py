@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 MARKER = "<!-- pr-triage-report -->"
+ANALYSIS_MARKER = "<!-- pr-analysis-report -->"
 ROOT = Path(__file__).resolve().parents[2]
 
 AREA_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -368,6 +369,34 @@ def report_to_markdown(report: TriageReport) -> str:
     return "\n".join(lines) + "\n"
 
 
+def analysis_to_markdown(report: TriageReport) -> str:
+    lines = [
+        ANALYSIS_MARKER,
+        "## PR Analysis Snapshot",
+        "",
+        f"- Intent: {report.intent}",
+        f"- Areas: {', '.join(report.affected_areas) or 'None detected'}",
+        f"- Change kind: {report.change_kind}",
+        f"- Risk: {report.risk_level}",
+        f"- Diff: {report.diff_stats.files_changed} files, +{report.diff_stats.lines_added} / -{report.diff_stats.lines_deleted}",
+        "",
+        "### Read-only analysis",
+        "",
+        "- No PR comment or mutation is required for this artifact.",
+        f"- Human attention reasons: {len(report.human_attention_reasons)}",
+        f"- Missing template sections: {len(report.missing_template_sections)}",
+        f"- Requested human decisions: {len(report.requested_human_decisions)}",
+        "",
+        "### Recommended checks",
+        *[f"- {check}" for check in report.recommended_checks],
+    ]
+    if report.human_attention_reasons:
+        lines.extend(["", "### Human attention reasons", *[f"- {reason}" for reason in report.human_attention_reasons]])
+    if report.url:
+        lines.extend(["", f"Source: {report.url}"])
+    return "\n".join(lines) + "\n"
+
+
 def load_event_context() -> tuple[str, str, str]:
     event_path = os.getenv("GITHUB_EVENT_PATH")
     if not event_path:
@@ -393,6 +422,31 @@ def to_jsonable(report: TriageReport) -> dict:
     return payload
 
 
+def write_outputs(report: TriageReport, output_dir: Path, *, mode: str) -> list[Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+
+    if mode in {"triage", "both"}:
+        json_path = output_dir / "pr-triage.json"
+        summary_path = output_dir / "pr-triage-summary.md"
+        comment_path = output_dir / "pr-triage-comment.md"
+        markdown = report_to_markdown(report)
+        json_path.write_text(json.dumps(to_jsonable(report), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        summary_path.write_text(markdown, encoding="utf-8")
+        comment_path.write_text(markdown, encoding="utf-8")
+        written.extend([json_path, summary_path, comment_path])
+
+    if mode in {"analysis", "both"}:
+        json_path = output_dir / "pr-analysis.json"
+        summary_path = output_dir / "pr-analysis-summary.md"
+        markdown = analysis_to_markdown(report)
+        json_path.write_text(json.dumps(to_jsonable(report), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        summary_path.write_text(markdown, encoding="utf-8")
+        written.extend([json_path, summary_path])
+
+    return written
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate PR triage snapshot")
     parser.add_argument("--base", required=True, help="Base ref or SHA")
@@ -400,6 +454,7 @@ def main() -> int:
     parser.add_argument("--title", default="", help="PR title override")
     parser.add_argument("--body-file", default="", help="Path to a file that contains the PR body")
     parser.add_argument("--output-dir", default="var/pr-triage", help="Directory for JSON and Markdown outputs")
+    parser.add_argument("--mode", choices=["triage", "analysis", "both"], default="triage")
     args = parser.parse_args()
 
     title, body, url = load_event_context()
@@ -411,17 +466,9 @@ def main() -> int:
     report = build_report(args.base, args.head, title=title, body=body, url=url)
 
     output_dir = ROOT / args.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
+    write_outputs(report, output_dir, mode=args.mode)
 
-    json_path = output_dir / "pr-triage.json"
-    summary_path = output_dir / "pr-triage-summary.md"
-    comment_path = output_dir / "pr-triage-comment.md"
-
-    json_path.write_text(json.dumps(to_jsonable(report), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    markdown = report_to_markdown(report)
-    summary_path.write_text(markdown, encoding="utf-8")
-    comment_path.write_text(markdown, encoding="utf-8")
-
+    markdown = analysis_to_markdown(report) if args.mode == "analysis" else report_to_markdown(report)
     print(markdown)
     return 0
 

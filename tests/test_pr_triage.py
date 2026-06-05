@@ -8,6 +8,8 @@ sys.path.insert(0, str(ROOT / "ops" / "scripts"))
 
 from pr_triage import (  # noqa: E402
     DiffStats,
+    TriageReport,
+    analysis_to_markdown,
     calculate_risk,
     classify_areas,
     evaluate_template_status,
@@ -15,6 +17,8 @@ from pr_triage import (  # noqa: E402
     infer_change_kind,
     is_docs_only,
     recommended_checks,
+    report_to_markdown,
+    write_outputs,
 )
 
 
@@ -104,3 +108,48 @@ def test_recommended_checks_include_workspace_smoke_for_shared_changes() -> None
     checks = recommended_checks(["DailyNews", "Shared"], "feature", "medium")
     assert "workspace-smoke" in checks
     assert "automation/DailyNews targeted pytest or regression command" in checks
+
+
+def sample_report() -> TriageReport:
+    return TriageReport(
+        title="ci: split analysis from triage",
+        intent="Separate read-only PR analysis from comment-writing triage.",
+        affected_areas=["GitHub", "Ops"],
+        change_kind="infra",
+        risk_level="medium",
+        status="needs-human-attention",
+        changed_files=[".github/workflows/pr-analysis.yml", "ops/scripts/pr_triage.py"],
+        diff_stats=DiffStats(files_changed=2, lines_added=30, lines_deleted=4),
+        missing_template_sections=["validation_plan"],
+        requested_human_decisions=[],
+        human_attention_reasons=["CI or workflow automation changed."],
+        recommended_checks=["security-quality-gate", "workspace-smoke"],
+    )
+
+
+def test_analysis_markdown_is_read_only_and_not_triage_comment() -> None:
+    markdown = analysis_to_markdown(sample_report())
+
+    assert "PR Analysis Snapshot" in markdown
+    assert "<!-- pr-analysis-report -->" in markdown
+    assert "<!-- pr-triage-report -->" not in markdown
+    assert "No PR comment or mutation is required" in markdown
+    assert "CI or workflow automation changed." in markdown
+
+
+def test_write_outputs_separates_analysis_and_triage_artifacts(tmp_path: Path) -> None:
+    report = sample_report()
+
+    analysis_paths = write_outputs(report, tmp_path / "analysis", mode="analysis")
+    triage_paths = write_outputs(report, tmp_path / "triage", mode="triage")
+
+    assert {path.name for path in analysis_paths} == {"pr-analysis.json", "pr-analysis-summary.md"}
+    assert {path.name for path in triage_paths} == {
+        "pr-triage.json",
+        "pr-triage-summary.md",
+        "pr-triage-comment.md",
+    }
+    assert "PR Analysis Snapshot" in (tmp_path / "analysis" / "pr-analysis-summary.md").read_text(encoding="utf-8")
+    triage_markdown = (tmp_path / "triage" / "pr-triage-comment.md").read_text(encoding="utf-8")
+    assert "PR Triage Snapshot" in triage_markdown
+    assert report_to_markdown(report) == triage_markdown
