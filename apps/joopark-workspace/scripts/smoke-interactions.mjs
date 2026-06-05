@@ -346,6 +346,7 @@ const interactionExpression = `
   let workspaceCompetitiveCandidateVisibleOk = false;
   let veritasCandidateFreshnessVisibleOk = false;
   let openProjectCandidateFreshnessVisibleOk = false;
+  let leantimeCandidateFreshnessVisibleOk = false;
   let candidateNextActionVisibleOk = false;
   let candidateActionFilterOk = false;
   let candidateActionSummaryVisibleOk = false;
@@ -535,6 +536,10 @@ const interactionExpression = `
     assert(veritasCandidate && veritasCandidate.sourceKind === "adoption-candidate", "Veritas AutoResearch candidate was not loaded");
     assert(veritasCandidate.lastCommit === "96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7", "Veritas AutoResearch candidate commit was stale");
     assert(veritasCandidate.pushedAt === "2026-06-05T11:55:44Z", "Veritas AutoResearch candidate pushedAt was stale");
+    const leantimeCandidate = dashboard.projects.find((project) => project.name === "Leantime/leantime");
+    assert(leantimeCandidate && leantimeCandidate.sourceKind === "adoption-candidate", "Leantime candidate was not loaded");
+    assert(leantimeCandidate.lastCommit === "b3a1037bf596d284b53355d23cadf1d9ab56b599", "Leantime candidate commit was stale");
+    assert(leantimeCandidate.pushedAt === "2026-06-05T04:17:00Z", "Leantime candidate pushedAt was stale");
     const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
     const ownedCount = dashboard.projects.length - candidateCount;
     click('[data-action="portfolio-filter"][data-filter="candidates"]');
@@ -623,6 +628,17 @@ const interactionExpression = `
     assert(openProjectCommit.dataset.candidatePushedAt === "2026-06-05T12:44:52Z", "OpenProject pushedAt freshness marker did not render");
     const openProjectHref = qs(".portfolio-candidate-link", openProjectCard).href;
     assert(openProjectHref === "https://github.com/opf/openproject" || openProjectHref === "https://github.com/opf/openproject/", "OpenProject GitHub link did not render safely");
+    fill("#globalSearch", "b3a1037b");
+    await waitFor(() => state.query === "b3a1037b" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Leantime commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + leantimeCandidate.id + '"]'), "Leantime portfolio card did not render after commit search");
+    const leantimeCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + leantimeCandidate.id + '"]');
+    const leantimeText = leantimeCard.innerText;
+    assert(leantimeText.includes("Leantime/leantime"), "Leantime candidate card did not render");
+    const leantimeCommit = qs("[data-candidate-commit]", leantimeCard);
+    assert(leantimeCommit.dataset.candidateCommit === "b3a1037b", "Leantime freshness commit did not render");
+    assert(leantimeCommit.dataset.candidatePushedAt === "2026-06-05T04:17:00Z", "Leantime pushedAt freshness marker did not render");
+    const leantimeHref = qs(".portfolio-candidate-link", leantimeCard).href;
+    assert(leantimeHref === "https://github.com/Leantime/leantime" || leantimeHref === "https://github.com/Leantime/leantime/", "Leantime GitHub link did not render safely");
     fill("#globalSearch", "");
     await waitFor(() => document.querySelectorAll("#view-pm-portfolio .portfolio-card").length > 1, "portfolio did not recover after clearing search");
     click('[data-action="portfolio-filter"][data-filter="all"]');
@@ -633,6 +649,7 @@ const interactionExpression = `
     workspaceCompetitiveCandidateVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
+    leantimeCandidateFreshnessVisibleOk = true;
     candidateNextActionVisibleOk = true;
     candidateActionFilterOk = true;
     candidateActionSummaryVisibleOk = true;
@@ -851,6 +868,7 @@ const interactionExpression = `
     workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
     veritasCandidateFreshnessVisible: veritasCandidateFreshnessVisibleOk,
     openProjectCandidateFreshnessVisible: openProjectCandidateFreshnessVisibleOk,
+    leantimeCandidateFreshnessVisible: leantimeCandidateFreshnessVisibleOk,
     candidateNextActionVisible: candidateNextActionVisibleOk,
     candidateActionFilter: candidateActionFilterOk,
     candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
