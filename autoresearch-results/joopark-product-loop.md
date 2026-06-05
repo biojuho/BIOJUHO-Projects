@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T02:54:19+09:00
+Generated: 2026-06-06T03:09:23+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -772,6 +772,19 @@ Generated: 2026-06-06T02:54:19+09:00
 - `--write` remains separate from fail-on-change, so the gate can detect drift without mutating `data/adoption-candidates.json`.
 - During rebase over the Taskosaur/Workstream benchmark branch, the writer refreshed Veritas to v8.435 (`dc6f03ea6f3317e2b202db736b125e4dac31e700`) with `github-api:veritas-focused-drift-refresh-v8435`.
 - After the writer refresh, `--fail-on-change` can pass until the next Veritas upstream move.
+
+## Experiment: Veritas writer refresh v8.442
+
+- Hypothesis: After the benchmark-focus queue landed on main, the release snapshot should still track the current high-churn Veritas source before promoting the next PR.
+- Primary metric: Veritas snapshot writer write.
+- Baseline: main recorded Veritas v8.435, while `--dry-run --fail-on-change` reported a newer upstream snapshot.
+- Candidate: `data/adoption-candidates.json` records Veritas v8.442 (`e962762d8a2a9c98cb57836d0044bc839786934b`), `pushedAt: 2026-06-05T18:09:19Z`, disk size 845 KB, and `github-api:veritas-focused-drift-refresh-v8442`.
+- Decision: keep; the writer refreshed the high-churn source without changing the queue implementation already merged in main.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` exited non-zero with live drift before the write.
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated the Veritas row plus snapshot metadata to v8.442.
 
 ## Experiment: Taskosaur/Workstream benchmark focus queue
 
