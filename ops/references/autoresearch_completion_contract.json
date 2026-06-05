@@ -252,7 +252,10 @@
             ".github/workflows/workspace-smoke.yml",
             "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
             "github_workflow_fork_remote_flag_guard",
-            "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
+            "schema_transactional_index_guard",
+            "tests/test_schema_snapshot.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_SCHEMA_TRANSACTIONAL_INDEX_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
             "proof_commit": "3145ea1",
@@ -288,6 +291,7 @@
               "ops/scripts/mcp_service_manifest.py",
               "ops/scripts/mcp_service_runtime_smoke.py",
               "ops/scripts/pr_triage.py",
+              "tests/test_schema_snapshot.py",
               "tests/test_workspace_smoke.py",
               "tests/test_autoresearch_objective_coverage.py",
               "tests/test_pre_push_hook.py",
@@ -3918,6 +3922,36 @@
             "gh repo fork google/adk-python --clone=false --remote=false || true",
             "A/B Contract",
             "7 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "schema_transactional_index_guard",
+      "requirement": "Schema and migration files reject concurrent/autocommit index creation patterns so local migrations keep plain transactional CREATE INDEX behavior unless explicitly reviewed.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_schema_snapshot.py",
+          "must_contain": [
+            "test_schema_migrations_use_transactional_index_creation",
+            "SCHEMA_INDEX_GUARD_FILES",
+            "CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+CONCURRENTLY",
+            "postgresql_concurrently",
+            "autocommit_block"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SCHEMA_TRANSACTIONAL_INDEX_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Schema Transactional Index Guard",
+            "OpenHands/OpenHands",
+            "57b0da3df60794ea05e25258ad81a661034293d5",
+            "plain CREATE INDEX",
+            "A/B Contract",
+            "8 passed, 1 skipped",
             "global_objective_complete=false"
           ]
         }

@@ -89,6 +89,30 @@ DN_EXPECTED_TABLES = frozenset(
     }
 )
 
+SCHEMA_INDEX_GUARD_FILES = (
+    PROJECT_ROOT / "automation" / "getdaytrends" / "db_schema.py",
+    PROJECT_ROOT / "automation" / "getdaytrends" / "db_layer" / "migrations.py",
+    PROJECT_ROOT / "automation" / "content-intelligence" / "storage" / "local_db.py",
+    PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "state" / "store.py",
+    PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "pipelines" / "signal_watch.py",
+    PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "integrations" / "subscriber_store.py",
+    PROJECT_ROOT / "automation" / "DailyNews" / "scripts" / "migrate_sqlite_to_supabase.py",
+    PROJECT_ROOT / "automation" / "DailyNews" / "scripts" / "optimize_database.sql",
+    PROJECT_ROOT / "apps" / "desci-platform" / "supabase" / "migrations" / "0001_core_schema.sql",
+    PROJECT_ROOT / "apps" / "desci-platform" / "supabase" / "migrations" / "0002_vc_firms.sql",
+    PROJECT_ROOT / "apps" / "AgriGuard" / "backend" / "alembic" / "versions" / "0001_initial_schema.py",
+    PROJECT_ROOT / "apps" / "AgriGuard" / "backend" / "alembic" / "versions" / "0002_add_qr_scan_events.py",
+    PROJECT_ROOT / "packages" / "shared" / "intelligence" / "code_graph.py",
+    PROJECT_ROOT / "packages" / "shared" / "telemetry" / "workflow_trace.py",
+)
+
+CONCURRENT_INDEX_PATTERNS = (
+    re.compile(r"CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY", re.IGNORECASE),
+    re.compile(r"DROP\s+INDEX\s+CONCURRENTLY", re.IGNORECASE),
+    re.compile(r"postgresql_concurrently\s*=\s*True", re.IGNORECASE),
+    re.compile(r"autocommit_block\s*\(", re.IGNORECASE),
+)
+
 
 def _extract_table_names_from_file(path: Path) -> set[str]:
     """Extract CREATE TABLE names from a Python file using regex."""
@@ -97,6 +121,22 @@ def _extract_table_names_from_file(path: Path) -> set[str]:
     content = path.read_text(encoding="utf-8", errors="replace")
     pattern = r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)"
     return {m.group(1).lower() for m in re.finditer(pattern, content, re.IGNORECASE)}
+
+
+def test_schema_migrations_use_transactional_index_creation():
+    """Keep schema index migrations aligned to plain transactional index creation."""
+    missing_files = [str(path.relative_to(PROJECT_ROOT)) for path in SCHEMA_INDEX_GUARD_FILES if not path.exists()]
+    assert missing_files == []
+
+    offenders = []
+    for path in SCHEMA_INDEX_GUARD_FILES:
+        content = path.read_text(encoding="utf-8", errors="replace")
+        for pattern in CONCURRENT_INDEX_PATTERNS:
+            for match in pattern.finditer(content):
+                line_number = content.count("\n", 0, match.start()) + 1
+                offenders.append(f"{path.relative_to(PROJECT_ROOT)}:{line_number}: {match.group(0).strip()}")
+
+    assert offenders == []
 
 
 class TestGdtSchemaSnapshot:
