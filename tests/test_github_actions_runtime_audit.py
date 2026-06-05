@@ -77,15 +77,17 @@ runs:
   steps:
     - uses: astral-sh/setup-uv@v5
     - uses: actions/setup-python@v5
+    - uses: actions/github-script@v7
 """,
     )
 
     _, findings = audit.scan_root(tmp_path)
 
-    _expect_equal(audit.summarize(findings), {"action_required": 0, "review": 2})
+    _expect_equal(audit.summarize(findings), {"action_required": 0, "review": 3})
     _expect_equal(
         {finding.value for finding in findings},
         {
+            "actions/github-script@v7",
             "astral-sh/setup-uv@v5",
             "actions/setup-python@v5",
         },

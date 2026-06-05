@@ -28,6 +28,7 @@ USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*(?P<ref>[^#\s]+)", re.MULTILINE)
 
 NODE20_ANNOTATION_SURFACES = {
     "actions/checkout@v4",
+    "actions/github-script@v7",
     "actions/setup-node@v4",
     "actions/setup-python@v5",
     "actions/upload-artifact@v4",
