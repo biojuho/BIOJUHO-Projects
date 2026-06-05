@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T03:58:15+09:00
+Generated: 2026-06-06T04:06:25+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -845,6 +845,22 @@ Generated: 2026-06-06T03:58:15+09:00
 - `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkRubricScoreVisible`.
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_rubric_score`.
 - `npm run verify` passed 43/43 with `candidateBenchmarkRubricScoreVisible: true`.
+
+## Experiment: Taskosaur/Workstream benchmark recommendation export
+
+- Hypothesis: The weighted recommendation becomes more operational when the winning candidate, score gap, rationale, and weighted axis scores can be exported as a decision-ready Markdown note.
+- Primary metric: Taskosaur/Workstream benchmark recommendation export checks.
+- Baseline: 0 recommendation export checks.
+- Candidate: the focused benchmark rubric now renders a Markdown export panel with a `joopark-benchmark-recommendation.md` download link, Taskosaur as the 86-point first adoption target, Workstream as the 85-point secondary benchmark, a 1-point score gap, and the top Taskosaur AI-assistance rationale.
+- Decision: keep; packaged release smoke passed with `candidateBenchmarkRecommendationExportVisible: true`.
+
+## Evidence
+
+- A/B baseline was the weighted recommendation card without an exportable decision artifact; B adds the Markdown export while preserving the existing recommendation and rubric cells.
+- `app.js` now includes `candidateBenchmarkRecommendationExport` and `candidateBenchmarkRecommendationMarkdown`.
+- `styles.css` now includes `.portfolio-benchmark-export`, `.portfolio-export-download`, and `.portfolio-export-body`.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkRecommendationExportVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_recommendation_export`.
 
 ## Next Loop
 

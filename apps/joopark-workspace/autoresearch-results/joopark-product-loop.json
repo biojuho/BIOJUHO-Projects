@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T03:58:15+09:00",
+  "generatedAt": "2026-06-06T04:06:25+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 43,
+      "pass": 44,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 43
+      "total": 44
     },
     "browserEvidence": {
       "routes": 15,
@@ -80,7 +80,9 @@
       "candidateBenchmarkRubricVisible": true,
       "taskosaurWorkstreamBenchmarkRubricChecks": 4,
       "candidateBenchmarkRubricScoreVisible": true,
-      "taskosaurWorkstreamBenchmarkRubricScoreChecks": 4
+      "taskosaurWorkstreamBenchmarkRubricScoreChecks": 4,
+      "candidateBenchmarkRecommendationExportVisible": true,
+      "taskosaurWorkstreamBenchmarkRecommendationExportChecks": 4
     }
   },
   "experiments": [
@@ -507,6 +509,13 @@
     {
       "id": "taskosaur-workstream-benchmark-rubric-score",
       "primaryMetric": "taskosaurWorkstreamBenchmarkRubricScoreChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "taskosaur-workstream-benchmark-recommendation-export",
+      "primaryMetric": "taskosaurWorkstreamBenchmarkRecommendationExportChecks",
       "baseline": 0,
       "candidate": 4,
       "decision": "keep"
