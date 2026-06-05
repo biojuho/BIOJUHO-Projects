@@ -900,6 +900,19 @@ function buildChecklist() {
     evidence: candidateActionSummaryTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkTerms = [
+    { file: "data/adoption-candidates.json", terms: ["github-readme:taskosaur-workstream-ux-benchmark", "benchmarkFocus", "JooPark PM/Calendar", "JooPark PM/Kanban", "Conversational AI task execution", "PR + task + calendar command center"] },
+    { file: "app.js", terms: ["function projectBenchmarkFocus", "data-candidate-benchmark", "data-benchmark-flow", "portfolio-benchmark"] },
+    { file: "styles.css", terms: [".portfolio-benchmark"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkFocusVisible", "Workstream benchmark focus did not render", "Taskosaur benchmark focus did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_focus",
+    requirement: "Taskosaur and Workstream adoption candidates expose UX benchmark focus chips mapped to JooPark PM, Kanban, and Calendar surfaces, with browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

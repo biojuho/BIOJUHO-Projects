@@ -192,17 +192,31 @@ function projectCandidateAction(p) {
   return { key: "feature", label: "기능 검토", reason: "적합성 확인", tone: "blue" };
 }
 
+function projectBenchmarkFocus(p) {
+  const focus = p && typeof p.benchmarkFocus === "object" ? p.benchmarkFocus : null;
+  if (!focus) return null;
+  const surface = String(focus.surface || "").trim();
+  const flow = String(focus.flow || "").trim();
+  const signals = Array.isArray(focus.signals)
+    ? focus.signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 4)
+    : [];
+  if (!surface || !flow || signals.length === 0) return null;
+  return { surface, flow, signals };
+}
+
 function projectAdoptionMeta(p) {
   if (!p || p.sourceKind !== "adoption-candidate") return "";
   const stage = ADOPTION_STAGE_LABEL[p.adoptionStage] || p.adoptionStage || "검토";
   const repoUrl = safeGithubUrl(p.url);
   const priority = projectCandidatePriority(p);
   const action = projectCandidateAction(p);
+  const benchmark = projectBenchmarkFocus(p);
   const commit = shortCommit(p.lastCommit);
   const commitTitle = p.pushedAt ? `갱신 ${formatLocalDateTime(p.pushedAt)}` : "최신 커밋";
   return html`
     <div class="portfolio-candidate-meta" data-candidate-meta>
       ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" data-candidate-action-key="${action.key}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
+      ${benchmark ? raw(html`<span class="portfolio-benchmark" data-candidate-benchmark="${benchmark.surface}" data-benchmark-flow="${benchmark.flow}" title="${benchmark.signals.join(" · ")}"><b>벤치</b> ${benchmark.surface}<small>${benchmark.flow}</small></span>`) : ""}
       ${priority ? raw(html`<span class="portfolio-priority" data-candidate-priority="${priority.score}"><b>우선</b> ${priority.label} ${priority.score}</span>`) : ""}
       <span data-candidate-stage="${p.adoptionStage || ""}"><b>단계</b> ${stage}</span>
       <span><b>★</b> ${metricValue(p.stars)}</span>

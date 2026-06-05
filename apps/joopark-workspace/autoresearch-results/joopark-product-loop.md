@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T02:28:21+09:00
+Generated: 2026-06-06T02:29:21+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -744,6 +744,20 @@ Generated: 2026-06-06T02:28:21+09:00
 - `node scripts/refresh-veritas-candidate-snapshot.mjs --write` wrote `data/adoption-candidates.json`, added `github-api:veritas-focused-drift-refresh-v8428`, and updated `pushedAt: 2026-06-05T17:25:20Z`.
 - `--write` remains the only mode that writes the snapshot file.
 
+## Experiment: Taskosaur/Workstream UX benchmark focus
+
+- Hypothesis: Candidate triage improves when Taskosaur and Workstream show explicit benchmark focus chips mapped to JooPark PM, Kanban, and Calendar surfaces instead of only generic metadata.
+- Primary metric: Taskosaur/Workstream benchmark focus checks.
+- Baseline: 0 explicit benchmark-focus checks for Taskosaur and Workstream.
+- Candidate: `data/adoption-candidates.json` records `benchmarkFocus` for both candidates, portfolio cards render `data-candidate-benchmark` chips, and interaction smoke verifies the Workstream PM/Calendar flow plus the Taskosaur PM/Kanban conversational task flow.
+- Decision: keep; the full release gate passed.
+
+## Evidence
+
+- GitHub metadata/readme evidence: Taskosaur describes conversational AI task execution, natural-language task creation, Kanban/sprints, and self-hosted PM; Workstream describes PRs, tasks, calendar, AI review/readiness, and an agents dashboard in one developer command center.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_focus`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 40/40.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces, promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh before enabling fail-on-drift.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn Taskosaur/Workstream benchmark chips into a sortable benchmark-focus queue, promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh before enabling fail-on-drift.
