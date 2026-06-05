@@ -51,6 +51,10 @@ const freshnessDriftScripts = [
   "scripts/check-candidate-freshness-drift.mjs",
 ];
 
+const veritasSnapshotWriterScripts = [
+  "scripts/refresh-veritas-candidate-snapshot.mjs",
+];
+
 const appMarkers = [
   { id: "calendar_crud", file: "app.js", terms: ["function openEventModal", "function saveEventFromForm", "function deleteEvent"] },
   { id: "todo_crud", file: "app.js", terms: ["function quickAddTodo", "function saveTodoFromForm", "function toggleTodo", "function deleteTodo"] },
@@ -688,6 +692,30 @@ function buildChecklist() {
         status: freshnessCadenceSnapshot.ok ? "pass" : "fail",
         cadencePolicy,
         stderr: freshnessCadenceSnapshot.stderr.trim(),
+      },
+    },
+  });
+
+  const veritasSnapshotWriterFiles = veritasSnapshotWriterScripts.map((path) => ({ path, exists: fileExists(path) }));
+  const veritasSnapshotWriterTerms = [
+    { file: "scripts/refresh-veritas-candidate-snapshot.mjs", terms: ["--snapshot-only", "--write", "gh api", "graphql", "veritas-focused-drift-refresh", "messageHeadline"] },
+    { file: "README.md", terms: ["refresh-veritas-candidate-snapshot.mjs", "--snapshot-only", "--write", "Veritas-7/autoresearch-skill-system"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const veritasSnapshotWriter = run("node", ["scripts/refresh-veritas-candidate-snapshot.mjs", "--snapshot-only"]);
+  checklist.push({
+    id: "veritas_snapshot_writer",
+    requirement: "The high-churn Veritas candidate snapshot has an explicit dry-run/write helper with an offline audit mode before repeated manual refreshes are automated.",
+    status: veritasSnapshotWriterFiles.every((item) => item.exists) &&
+      veritasSnapshotWriterTerms.every((item) => item.missingTerms.length === 0) &&
+      veritasSnapshotWriter.ok ? "pass" : "fail",
+    evidence: {
+      files: veritasSnapshotWriterFiles,
+      terms: veritasSnapshotWriterTerms,
+      snapshotOnly: {
+        command: "node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only",
+        status: veritasSnapshotWriter.ok ? "pass" : "fail",
+        result: parseJson(veritasSnapshotWriter.stdout) || veritasSnapshotWriter.stdout.trim(),
+        stderr: veritasSnapshotWriter.stderr.trim(),
       },
     },
   });

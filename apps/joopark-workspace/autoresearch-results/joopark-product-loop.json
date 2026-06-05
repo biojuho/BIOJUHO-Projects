@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T02:14:17+09:00",
+  "generatedAt": "2026-06-06T02:28:21+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 38,
+      "pass": 39,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 38
+      "total": 39
     },
     "browserEvidence": {
       "routes": 15,
@@ -68,7 +68,10 @@
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
       "veritasFocusedDriftRefreshChecks": 3,
-      "veritasFocusedSnapshotVersion": "v8.424"
+      "veritasFocusedSnapshotVersion": "v8.428",
+      "veritasSnapshotWriterChecks": 3,
+      "veritasSnapshotWriterDryRun": true,
+      "veritasSnapshotWriterWrite": true
     }
   },
   "experiments": [
@@ -428,6 +431,20 @@
       "baseline": 0,
       "candidate": 3,
       "decision": "keep"
+    },
+    {
+      "id": "veritas-snapshot-writer",
+      "primaryMetric": "veritasSnapshotWriterChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-writer-refresh-v8428",
+      "primaryMetric": "veritasSnapshotWriterWrite",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -443,6 +460,6 @@
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces",
     "promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed",
-    "add a lightweight Veritas snapshot writer once repeated focused refreshes stabilize"
+    "use the Veritas snapshot writer for the next focused refresh before enabling fail-on-drift"
   ]
 }
