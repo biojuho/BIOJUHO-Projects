@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T05:31:20+09:00",
+  "generatedAt": "2026-06-06T05:35:35+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -70,14 +70,14 @@
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
       "veritasFocusedDriftRefreshChecks": 3,
-      "veritasFocusedSnapshotVersion": "v8.487",
+      "veritasFocusedSnapshotVersion": "v8.493",
       "veritasSnapshotWriterChecks": 7,
       "veritasSnapshotWriterDryRun": true,
       "veritasSnapshotWriterWrite": true,
       "veritasSnapshotWriterFailOnChange": true,
       "veritasSnapshotWriterChanged": true,
-      "veritasSnapshotWriterSourceMarker": "github-api:veritas-focused-drift-refresh-v8487",
-      "veritasSnapshotWriterLastCommit": "00b59fdb4e6ac72baa38bfd50523279e07c0a6bb",
+      "veritasSnapshotWriterSourceMarker": "github-api:veritas-focused-drift-refresh-v8493",
+      "veritasSnapshotWriterLastCommit": "1eabeaf4a8ebd8dbf8ed3f8dac05b5fa0b518fe9",
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -573,6 +573,13 @@
       "primaryMetric": "planePmCandidateFreshnessChecks",
       "baseline": 0,
       "candidate": 6,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-focused-snapshot-writer-v8493",
+      "primaryMetric": "veritasSnapshotWriterChanged",
+      "baseline": "v8.487",
+      "candidate": "v8.493",
       "decision": "keep"
     }
   ],

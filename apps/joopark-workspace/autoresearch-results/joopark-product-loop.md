@@ -956,6 +956,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/audit-release-readiness.mjs` now includes `plane_pm_candidate_freshness_ui_smoke`.
 - AppFlowy and AFFiNE were also checked as high-signal workspace candidates and remain next-loop candidates after Plane lands.
 
+## Experiment: Veritas focused snapshot writer v8.493
+
+- Hypothesis: The high-churn Veritas AutoResearch candidate should keep tracking upstream when the repo-scoped writer reports a new focused drift immediately after the previous release sync.
+- Primary metric: Veritas snapshot writer changed flag.
+- Baseline: the focused Veritas snapshot was v8.487 with commit `00b59fdb4e6ac72baa38bfd50523279e07c0a6bb`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` reported `changed: true`, then `--write` updated the candidate to v8.493 with commit `1eabeaf4a8ebd8dbf8ed3f8dac05b5fa0b518fe9`.
+- Decision: keep; the writer added source marker `github-api:veritas-focused-drift-refresh-v8493`, refreshed pushedAt to `2026-06-05T20:34:30Z`, and preserved the existing repo-scoped audit path.
+
+## Evidence
+
+- `data/adoption-candidates.json` now records `v8.493 최신 slack user token env redaction`.
+- `data/adoption-candidates.json` now records `diskKb: 865`, `openPRs: 1`, and the latest observed Veritas commit `1eabeaf4a8ebd8dbf8ed3f8dac05b5fa0b518fe9`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.493`.
+- Pages workflow installation and scheduled CI wiring remain blocked in this session because `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` reported `workflowScopeAvailable: false`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research AppFlowy and AFFiNE as workspace candidates after the Plane PM benchmark candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
