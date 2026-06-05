@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload metrics artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tweet-metrics-${{ github.run_number }}
           path: automation/getdaytrends/data/tweet_metrics_*.json
