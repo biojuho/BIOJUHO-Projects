@@ -954,21 +954,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `data/adoption-candidates.json` now includes `makeplane/plane` with source markers `github-search:plane-pm-benchmark` and `github-api:plane-freshness-refresh`.
 - `scripts/smoke-interactions.mjs` now reports `planeCandidateFreshnessVisible` and verifies Plane by commit search, star/fork count, language, risk-review action, pushedAt, and safe GitHub link.
 - `scripts/audit-release-readiness.mjs` now includes `plane_pm_candidate_freshness_ui_smoke`.
-- AppFlowy and AFFiNE were also checked as high-signal workspace candidates and remain next-loop candidates after Plane lands.
+- AppFlowy and AFFiNE were also checked as high-signal workspace candidates and were promoted in the next loop.
 
-## Experiment: Veritas focused snapshot writer v8.501
+## Experiment: Veritas focused snapshot writer v8.510
 
 - Hypothesis: The high-churn Veritas AutoResearch candidate should keep tracking upstream when the repo-scoped writer reports a new focused drift immediately after the previous release sync.
 - Primary metric: Veritas snapshot writer changed flag.
-- Baseline: the focused Veritas snapshot was v8.493 with commit `1eabeaf4a8ebd8dbf8ed3f8dac05b5fa0b518fe9`.
-- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` reported `changed: true`, then `--write` updated the candidate to v8.501 with commit `303914c4289aefe0d0b7a23e8faf18d6dd480c20`.
-- Decision: keep; the writer added source marker `github-api:veritas-focused-drift-refresh-v8501`, refreshed pushedAt to `2026-06-05T20:53:58Z`, and preserved the existing repo-scoped audit path.
+- Baseline: the focused Veritas snapshot was v8.509 with commit `7656aa53040b6e331ffba6bcaa71812a023ce3f2`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` reported `changed: true`, then `--write` updated the candidate to v8.510 with commit `5e4b31b0c2b1763f45b2eea4ba7e740dd8209360`.
+- Decision: keep; the writer added source marker `github-api:veritas-focused-drift-refresh-v8510`, refreshed pushedAt to `2026-06-05T21:17:28Z`, and preserved the existing repo-scoped audit path.
 
 ## Evidence
 
-- `data/adoption-candidates.json` now records `v8.501 최신 database url env redaction`.
-- `data/adoption-candidates.json` now records `diskKb: 865`, `openPRs: 1`, and the latest observed Veritas commit `303914c4289aefe0d0b7a23e8faf18d6dd480c20`.
-- `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.501`.
+- `data/adoption-candidates.json` now records `v8.510 최신 rabbitmq url env redaction`.
+- `data/adoption-candidates.json` now records `diskKb: 886`, `openPRs: 1`, and the latest observed Veritas commit `5e4b31b0c2b1763f45b2eea4ba7e740dd8209360`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.510`.
 - Pages workflow installation and scheduled CI wiring remain blocked in this session because `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` reported `workflowScopeAvailable: false`.
 
 ## Experiment: AppFlowy workspace benchmark candidate
@@ -998,8 +998,22 @@ Generated: 2026-06-06T04:34:36+09:00
 - `data/adoption-candidates.json` now includes `toeverything/AFFiNE` with source markers `github-search:affine-workspace-benchmark` and `github-api:affine-freshness-refresh`.
 - `scripts/smoke-interactions.mjs` now reports `affineCandidateFreshnessVisible` and verifies AFFiNE by commit search, star/fork count, language, risk-review action, pushedAt, and safe GitHub link.
 - `scripts/audit-release-readiness.mjs` now includes `affine_workspace_candidate_freshness_ui_smoke`.
-- Outline remains a next high-signal knowledge-base candidate after AFFiNE lands.
+
+## Experiment: AppFlowy and AFFiNE workspace benchmark candidates
+
+- Hypothesis: The GitHub project discovery surface becomes more useful for workspace product direction when the newly landed AppFlowy and AFFiNE candidates are verified as a paired benchmark set.
+- Primary metric: AppFlowy/AFFiNE candidate freshness checks.
+- Baseline: 0 paired AppFlowy/AFFiNE candidate checks; the two individual candidates had separate smoke gates only.
+- Candidate: add paired portfolio interaction smoke for AppFlowy plus AFFiNE, preserving both individual candidate gates while requiring a combined source marker.
+- Decision: keep; AppFlowy has 71,842 stars, 5,402 forks, 936 open issues, 70 open PRs, recent push `2026-06-05T12:00:29Z`, and commit `4af02cdc87468be10ab15dbb4afd27fbf53ce89b`; AFFiNE has 69,107 stars, 4,913 forks, 555 open issues, 74 open PRs, recent push `2026-06-04T22:48:17Z`, and commit `edc87e38df01db79f969e6f61981a10c16f9a0bb`.
+
+## Evidence
+
+- `data/adoption-candidates.json` now keeps `github-search:appflowy-workspace-benchmark`, `github-search:affine-workspace-benchmark`, `github-search:appflowy-affine-benchmark`, `github-api:appflowy-freshness-refresh`, and `github-api:affine-freshness-refresh`.
+- `scripts/smoke-interactions.mjs` now reports `appFlowyCandidateFreshnessVisible` and `affineCandidateFreshnessVisible`, verifying both candidates by commit search, star/fork count, language, risk-review action, pushedAt, and safe GitHub link.
+- `scripts/audit-release-readiness.mjs` now includes `appflowy_affine_candidate_freshness_ui_smoke`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 18 monitored candidates and 32 source markers.
 
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research Outline as a knowledge-base candidate after the AFFiNE benchmark candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research Outline as a knowledge-base candidate, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
