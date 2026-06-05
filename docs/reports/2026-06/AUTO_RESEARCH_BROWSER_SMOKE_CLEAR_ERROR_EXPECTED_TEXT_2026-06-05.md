@@ -45,4 +45,6 @@ Generated at: `2026-06-05T11:13:00+09:00`
 This cycle improves failure evidence for browser automation. It does not change
 the dashboard, Canva, AgriGuard, or DeSci user interfaces.
 
+- Pushed proof commit `2efc817` is the active baseline for
+  `current_tip_freshness_gate` and `direct_browser_qa_freshness_gate`.
 - `global_objective_complete=false`
