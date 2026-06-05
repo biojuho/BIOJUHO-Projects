@@ -109,4 +109,53 @@ describe('useJobProgress', () => {
 
     await expect(promise).resolves.toEqual({ collected: 3 });
   });
+
+  it('falls back to polling when EventSource ends before the terminal snapshot', async () => {
+    client.get.mockResolvedValueOnce({
+      data: {
+        id: 'job-3',
+        status: 'succeeded',
+        progress: 100,
+        result: { matched: 2 },
+      },
+    });
+
+    const onSuccess = vi.fn();
+    const { result } = renderHook(() => useJobProgress({ onSuccess }));
+
+    let promise;
+    await act(async () => {
+      promise = result.current.watchJob({ id: 'job-3', status: 'queued', progress: 0 });
+    });
+
+    await waitFor(() => {
+      expect(FakeEventSource.instances).toHaveLength(1);
+    });
+
+    await act(async () => {
+      FakeEventSource.instances[0].emit({
+        id: 'job-3',
+        status: 'running',
+        progress: 65,
+        message: 'Still working',
+      });
+    });
+
+    expect(result.current.job.progress).toBe(65);
+
+    await act(async () => {
+      FakeEventSource.instances[0].fail();
+    });
+
+    await waitFor(() => {
+      expect(client.get).toHaveBeenCalledWith('/jobs/job-3', { timeout: 10_000 });
+    });
+
+    await expect(promise).resolves.toEqual({ matched: 2 });
+    expect(onSuccess).toHaveBeenCalledWith(
+      { matched: 2 },
+      expect.objectContaining({ id: 'job-3', status: 'succeeded' }),
+    );
+    expect(FakeEventSource.instances[0].close).toHaveBeenCalled();
+  });
 });

@@ -76,6 +76,30 @@ async def test_notice_collection_job_streams_terminal_snapshot(async_client: Asy
 
 
 @pytest.mark.asyncio
+async def test_terminal_job_streams_snapshot_for_late_subscriber(async_client: AsyncClient, monkeypatch):
+    class StubScheduler:
+        async def collect_all_notices(self):
+            return [{"id": "n1", "title": "Notice 1", "source": "KDDF"}]
+
+    monkeypatch.setattr(jobs_router, "get_scheduler", lambda: StubScheduler())
+
+    create_response = await async_client.post("/jobs/notices/collect")
+    job_id = create_response.json()["job"]["id"]
+    terminal = await wait_for_terminal_job(async_client, job_id)
+    assert terminal["status"] == "succeeded"
+
+    events = []
+    async with async_client.stream("GET", f"/jobs/{job_id}/events") as response:
+        assert response.status_code == 200
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                events.append(json.loads(line[6:]))
+
+    assert [event["status"] for event in events] == ["succeeded"]
+    assert events[0]["result"]["collected"] == 1
+
+
+@pytest.mark.asyncio
 async def test_paper_index_job_requires_auth(mock_external_services, monkeypatch):
     class StubAssetManager:
         def has_paper(self, paper_id: str) -> bool:  # noqa: ARG002
