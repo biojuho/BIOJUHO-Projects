@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T06:57:32.095004Z",
+  "status": "complete",
+  "duration_seconds": 222.511,
+  "summary": {
+    "total": 7,
+    "completed": 7,
+    "passed": 7,
+    "failed": 0,
+    "remaining": 0
+  },
+  "scope_summary": {
+    "desci": {
+      "completed": 7,
+      "passed": 7,
+      "failed": 0,
+      "elapsed_seconds": 222.481
+    }
+  },
+  "mcp_trace": {
+    "enabled": false,
+    "completed": 0,
+    "passed": 0,
+    "failed": 0,
+    "elapsed_seconds": 0,
+    "checked_units": [],
+    "command_kinds": {},
+    "checks": []
+  },
+  "results": [
+    {
+      "scope": "desci",
+      "name": "desci frontend lint",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run lint",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> frontend@0.0.0 lint\n> eslint .\n\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 26.997,
+      "started_at_unix_nano": 1780642429583143500,
+      "ended_at_unix_nano": 1780642456579692200
+    },
+    {
+      "scope": "desci",
+      "name": "desci frontend unit tests",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run test:lts -- --fileParallelism false",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> frontend@0.0.0 test:lts\n> npx -y node@24.15.0 node_modules/vitest/vitest.mjs run --pool=threads --maxWorkers=1 --isolate --fileParallelism false\n\n\n RUN  v4.1.6 D:/AI project.browser-loop/apps/desci-platform/frontend\n\n\n Test Files  17 passed (17)\n      Tests  71 passed (71)\n   Start at  15:54:34\n   Duration  97.94s (transform 1.60s, setup 12.50s, import 7.32s, tests 8.99s, environment 59.20s)\n\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 119.173,
+      "started_at_unix_nano": 1780642456584340100,
+      "ended_at_unix_nano": 1780642575756988000
+    },
+    {
+      "scope": "desci",
+      "name": "desci frontend build",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run build:lts",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "dist/assets/PeerReview-BwJVo0GR.js          6.57 kB │ gzip:  2.32 kB\ndist/assets/Notices-Ct_03FJz.js             6.65 kB │ gzip:  2.33 kB\ndist/assets/MyLab-CXQww8Vu.js               7.19 kB │ gzip:  2.52 kB\ndist/assets/UploadPaper-CKBnF3C0.js         7.51 kB │ gzip:  2.65 kB\ndist/assets/Login-BJPiK_nK.js               7.90 kB │ gzip:  2.60 kB\ndist/assets/PricingPage-BnimUQ_x.js         9.04 kB │ gzip:  3.66 kB\ndist/assets/AILab-Kia1ZB44.js               9.31 kB │ gzip:  3.11 kB\ndist/assets/VCDashboard-y7tptLRE.js        14.14 kB │ gzip:  3.42 kB\ndist/assets/ResearchFeed-BL21l9Wy.js       15.16 kB │ gzip:  6.06 kB\ndist/assets/BioLinker-CUyxsbC4.js          15.92 kB │ gzip:  4.26 kB\ndist/assets/LandingPage-CiJLtjdd.js        18.03 kB │ gzip:  6.15 kB\ndist/assets/Dashboard-RRnNFDg6.js          19.76 kB │ gzip:  5.03 kB\ndist/assets/utils-hXKuYRKL.js              27.26 kB │ gzip:  8.69 kB\ndist/assets/index-DRn0yhRc.js             104.43 kB │ gzip: 33.49 kB\ndist/assets/vendor-firebase-B9RXM-5w.js   112.26 kB │ gzip: 33.25 kB\ndist/assets/vendor-markdown-BIgZs-LJ.js   122.83 kB │ gzip: 37.51 kB\ndist/assets/vendor-motion-BKpHYJ1L.js     125.32 kB │ gzip: 40.85 kB\ndist/assets/vendor-react-BJxeNw-7.js      224.03 kB │ gzip: 71.65 kB\n\n\u001b[32m✓ built in 2.59s\u001b[39m",
+      "stderr_tail": "",
+      "elapsed_seconds": 22.245,
+      "started_at_unix_nano": 1780642575761715700,
+      "ended_at_unix_nano": 1780642598006405300
+    },
+    {
+      "scope": "desci",
+      "name": "desci bundle budget",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run check:bundle",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> frontend@0.0.0 check:bundle\n> node scripts/check-bundle-size.mjs\n\n[bundle-check] JS bundle summary (KB):\n- vendor-react-BJxeNw-7.js: 218.78\n- vendor-motion-BKpHYJ1L.js: 122.39\n- vendor-markdown-BIgZs-LJ.js: 119.96\n- vendor-firebase-B9RXM-5w.js: 109.63\n- index-DRn0yhRc.js: 101.98\n- utils-hXKuYRKL.js: 26.62\n- Dashboard-RRnNFDg6.js: 19.3\n- LandingPage-CiJLtjdd.js: 17.62\n- BioLinker-CUyxsbC4.js: 15.55\n- ResearchFeed-BL21l9Wy.js: 14.81\n[bundle-check] OK (max chunk <= 500KB, entry <= 260KB)\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 2.432,
+      "started_at_unix_nano": 1780642598015130700,
+      "ended_at_unix_nano": 1780642600446993200
+    },
+    {
+      "scope": "desci",
+      "name": "desci contracts compile",
+      "cwd": "apps\\desci-platform\\contracts",
+      "command": "npm.cmd run compile",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> desci-contracts@1.0.0 compile\n> hardhat --build-profile default compile\n\nNo contracts to compile\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 5.811,
+      "started_at_unix_nano": 1780642600451070500,
+      "ended_at_unix_nano": 1780642606261692500
+    },
+    {
+      "scope": "desci",
+      "name": "desci contracts tests",
+      "cwd": "apps\\desci-platform\\contracts",
+      "command": "npm.cmd run test",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "      ✔ Should require delegation before votes are active\n      ✔ Should move delegated voting power on transfers\n      ✔ Should preserve historical voting power snapshots\n\n  ResearchPaperNFT\n    ✔ Should set the right owner\n    ✔ Should mint a paper NFT to recipient\n    ✔ Should only allow owner to mint\n    ✔ Should reject an empty token URI\n    ✔ Should configure a default 5% royalty\n    ✔ Should allow the owner to update default royalty\n    ✔ Should allow token-level royalty overrides\n    ✔ Should reject zero-address initial owner\n\n\n  77 passing (5s)\n\n\n77 passing (77 mocha)\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 18.534,
+      "started_at_unix_nano": 1780642606266692500,
+      "ended_at_unix_nano": 1780642624800602700
+    },
+    {
+      "scope": "desci",
+      "name": "desci backend smoke",
+      "cwd": ".",
+      "command": "uv run --isolated --no-project --with pytest>=8.0 --with pytest-asyncio>=0.23.0 --with-editable \"D:\\AI project.browser-loop\" --with fastapi>=0.115.0,<1.0 --with uvicorn>=0.32.0,<1.0 --with python-dotenv>=1.0.0 --with firebase-admin>=6.1.0,<7.0 --with langchain>=0.3.0,<1.0 --with langchain-openai>=0.3.0,<1.0 --with langchain-google-genai>=2.0.0,<3.0 --with qdrant-client>=1.9.1,<2.0 --with pydantic>=2.0.0,<3.0 --with pydantic-settings>=2.0.0,<3.0 --with structlog>=24.0.0,<26.0 --with aiohttp>=3.10.0,<4.0 --with beautifulsoup4>=4.12.0 --with python-multipart>=0.0.9 --with web3>=7.0.0,<8.0 --with pypdf>=4.0.0,<5.0 --with numpy>=1.26.0,<3.0 --with apscheduler>=3.10.0,<4.0 --with duckduckgo-search>=6.0.0,<8.0 --with youtube-transcript-api>=1.0.0,<2.0 --with httpx>=0.27.0 --with slowapi>=0.1.9,<1.0 --with stripe>=9.0.0,<12.0 --with prometheus_client>=0.21.0 --with redis>=5.0.0,<6.0.0 --with pika>=1.3.0,<2.0.0 python -m pytest apps\\desci-platform\\backend/tests/test_smoke_pipeline.py -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-desci-desci-backend-smoke-8775374a\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "........                                                                 [100%]\r\n============================== warnings summary ===============================\r\nvar\\tmp\\workspace-smoke\\.tool-cache\\uv\\archive-v0\\6NSerz2qtAjugpYG6sPXO\\Lib\\site-packages\\fastapi\\testclient.py:1\r\n  D:\\AI project.browser-loop\\var\\tmp\\workspace-smoke\\.tool-cache\\uv\\archive-v0\\6NSerz2qtAjugpYG6sPXO\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\r\n    from starlette.testclient import TestClient as TestClient  # noqa\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n8 passed, 1 warning in 14.35s\r\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 27.289,
+      "started_at_unix_nano": 1780642624805884700,
+      "ended_at_unix_nano": 1780642652094474000
+    }
+  ]
+}

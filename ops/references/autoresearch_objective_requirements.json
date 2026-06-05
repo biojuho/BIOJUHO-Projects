@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T15:42:15+09:00",
+  "generated_at": "2026-06-05T16:00:51+09:00",
   "objective_original": "제품출시할꺼야 제품완성해줘\n\n오토리서치 카파시 개념 스킬로 만들어줘 깃허브 관련 프로젝트도 모두 찾아서 보완하고 절대 명시적 멈추라는 말하기 전까지 끊임없이 A/B테스트 후 더 좋으면 채택하고 커밋푸시하는 자가개선하는 스킬을 만들어줘.\n\n코덱스 컴퓨터유즈 기능 사용해서 직접 앱 하나씩 클릭하며 오류 잡고 최적화해. 내가 생각하지 못한 부분까지 알아서 퀄리티 높여. 외부 조사 a/b 조사도하고 최신 코드 반영해서 내가 멈추라고 하기전까지 무한반복해 $오토리서치 오토리서치 스킬도 적극적으로 활용해.",
   "completion_contract": "ops/references/autoresearch_completion_contract.json",
   "policy": {
@@ -44,7 +44,8 @@
         "github_workflow_fork_remote_flag_guard",
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -260,6 +261,27 @@
             "pass: 9/9 actions",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Name Fallback",
+            "pydantic/pydantic-ai",
+            "UploadedFile",
+            "FileUrl",
+            "A/B Contract",
+            "7/7 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"complete\"",
+            "\"passed\": 7",
+            "\"failed\": 0",
+            "desci backend smoke"
+          ]
         }
       ]
     },
@@ -318,7 +340,8 @@
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
         "autoresearch_skill_body_hygiene_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -720,6 +743,18 @@
             "pass: 9/9 actions",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Name Fallback",
+            "pydantic/pydantic-ai",
+            "UploadedFile",
+            "FileUrl",
+            "A/B Contract",
+            "7/7 passed",
+            "global_objective_complete=false"
+          ]
         }
       ],
       "residual_risk": "The word 'all' is unbounded; the current cycle proves a live tracked source set and recency gate, not an exhaustive internet-wide proof."
@@ -810,7 +845,8 @@
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
         "autoresearch_skill_body_hygiene_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -997,6 +1033,18 @@
             "client tools for signal continuations",
             "A/B Contract",
             "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Name Fallback",
+            "pydantic/pydantic-ai",
+            "UploadedFile",
+            "FileUrl",
+            "A/B Contract",
+            "7/7 passed",
             "global_objective_complete=false"
           ]
         }
@@ -1272,7 +1320,8 @@
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
         "autoresearch_skill_body_hygiene_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -1643,6 +1692,18 @@
             "client tools for signal continuations",
             "A/B Contract",
             "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Name Fallback",
+            "pydantic/pydantic-ai",
+            "UploadedFile",
+            "FileUrl",
+            "A/B Contract",
+            "7/7 passed",
             "global_objective_complete=false"
           ]
         }

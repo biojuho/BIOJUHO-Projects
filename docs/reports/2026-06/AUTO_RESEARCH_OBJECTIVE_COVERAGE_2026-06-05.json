@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T06:42:29.247524+00:00",
+  "generated_at": "2026-06-05T07:01:25.660339+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -48,7 +48,8 @@
         "github_workflow_fork_remote_flag_guard",
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -146,6 +147,14 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "term_count": 7
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.json",
+          "term_count": 4
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -204,7 +213,8 @@
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
         "autoresearch_skill_body_hygiene_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -374,6 +384,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "term_count": 7
         }
       ],
       "id": "github_related_project_research",
@@ -446,7 +460,8 @@
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
         "autoresearch_skill_body_hygiene_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -528,6 +543,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "term_count": 7
         }
       ],
       "id": "continuous_ab_adoption_commit_push",
@@ -709,7 +728,8 @@
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
         "autoresearch_skill_body_hygiene_guard",
-        "canva_search_continuation_action_guard"
+        "canva_search_continuation_action_guard",
+        "desci_upload_name_fallback_guard"
       ],
       "evidence": [
         {
@@ -879,6 +899,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "term_count": 7
         }
       ],
       "id": "beyond_user_expected_quality",

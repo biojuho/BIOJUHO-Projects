@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T15:42:15+09:00",
+  "generated_at": "2026-06-05T16:00:51+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -270,10 +270,17 @@
             "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_LOAD_MORE_2026-06-05.md",
             "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_LOAD_MORE_2026-06-05.json",
             "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
-            "cf229e7"
+            "cf229e7",
+            "desci_upload_name_fallback_guard",
+            "apps/desci-platform/backend/services/upload_security.py",
+            "apps/desci-platform/backend/services/asset_manager.py",
+            "apps/desci-platform/backend/tests/test_asset_manager.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+            "docs/reports/2026-06/WORKSPACE_SMOKE_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.json",
+            "343caeb"
           ],
           "git_freshness": {
-            "proof_commit": "cf229e73c22ce2fa5687448d2040e4a03dd68a09",
+            "proof_commit": "343caeb44834baebebf6525abb3e31749a8fa052",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -1425,12 +1432,14 @@
             "direct_browser_qa_freshness_gate",
             "apps/dashboard/",
             "mcp/canva-mcp/",
-            "cf229e7",
             "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
-            "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_LOAD_MORE_2026-06-05.md"
+            "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_LOAD_MORE_2026-06-05.md",
+            "343caeb",
+            "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+            "docs/reports/2026-06/WORKSPACE_SMOKE_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.json"
           ],
           "protected_path_freshness": {
-            "proof_commit": "cf229e73c22ce2fa5687448d2040e4a03dd68a09",
+            "proof_commit": "343caeb44834baebebf6525abb3e31749a8fa052",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -1550,6 +1559,26 @@
             "protected_path_freshness",
             "cf229e73c22ce2fa5687448d2040e4a03dd68a09",
             "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"complete\"",
+            "\"passed\": 7",
+            "\"failed\": 0",
+            "desci backend smoke",
+            "desci frontend unit tests"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Name Fallback",
+            "protected_path_freshness",
+            "343caeb44834baebebf6525abb3e31749a8fa052",
+            "7/7 passed",
             "global_objective_complete=false"
           ]
         }
@@ -5139,6 +5168,65 @@
             "cf229e73c22ce2fa5687448d2040e4a03dd68a09",
             "15 passed",
             "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desci_upload_name_fallback_guard",
+      "requirement": "DeSci upload handling treats filename-only and name-only uploaded-file adapters consistently while stripping file-URL/path semantics before downstream parsing and indexing.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/desci-platform/backend/services/upload_security.py",
+          "must_contain": [
+            "def upload_filename_candidate(file: Any) -> str | None:",
+            "for attr in (\"filename\", \"name\"):",
+            "normalize_client_upload_filename(upload_filename_candidate(file))",
+            "split.scheme == \"data\""
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/services/asset_manager.py",
+          "must_contain": [
+            "upload_filename_candidate",
+            "normalize_client_upload_filename(upload_filename_candidate(file))",
+            "display_filename"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/tests/test_asset_manager.py",
+          "must_contain": [
+            "class NameOnlyUploadFile",
+            "test_upload_asset_uses_name_fallback_without_preserving_file_url",
+            "https://private.example.org/uploads/research-note.pdf?token=secret",
+            "research-note.pdf"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"complete\"",
+            "\"passed\": 7",
+            "\"failed\": 0",
+            "desci backend smoke",
+            "desci contracts tests"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_NAME_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "AutoResearch DeSci Upload Name Fallback",
+            "pydantic/pydantic-ai",
+            "ed31bdd64e11ce1475916a398ee3312791ed2d38",
+            "UploadedFile",
+            "FileUrl",
+            "A/B Contract",
+            "343caeb44834baebebf6525abb3e31749a8fa052",
+            "5 passed",
+            "7/7 passed",
             "global_objective_complete=false"
           ]
         }

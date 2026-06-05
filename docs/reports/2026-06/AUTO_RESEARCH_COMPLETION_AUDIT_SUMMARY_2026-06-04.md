@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `87`
-- Status counts: `blocked=1, covered=86`
+- Criteria: `88`
+- Status counts: `blocked=1, covered=87`
 
 ## Missing Required
 
@@ -140,7 +140,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `13`
+- Evidence paths: `15`
 
 ### browser_smoke_ephemeral_context_guard
 
@@ -531,6 +531,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `8`
+
+### desci_upload_name_fallback_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### external_credential_boundaries
 
