@@ -46,6 +46,14 @@ python ops\scripts\run_workspace_smoke.py --scope desci --json-out var\workspace
 passed=7, failed=0, total=7
 ```
 
+## Freshness Baseline
+
+- Pushed proof commit: `582695b`.
+- `current_tip_freshness_gate`: `582695b` is the active proof baseline for
+  `origin/feat/observability-gateway-2026-05`.
+- `protected_path_freshness`: no changed protected paths after proof.
+- Audit marker: `global_objective_complete=false`.
+
 ## Next Cycle
 
 - Continue the source-backed loop by either hardening DeSci uploaded-file adapter parity or reviewing OpenHands timestamp/async identity signals against local agent workflow evidence.
