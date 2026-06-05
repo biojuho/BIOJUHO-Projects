@@ -124,8 +124,8 @@ function verifyDeploySupport(failures) {
   }
 
   const redirects = readFileSync(join(releaseDir, "_redirects"), "utf-8");
-  if (!redirects.includes("/* / 302")) {
-    failures.push("_redirects must return unmatched direct paths to the app shell");
+  if (!redirects.includes("/* /index.html 200")) {
+    failures.push("_redirects must rewrite unmatched direct paths to index.html");
   }
 
   const headers = readFileSync(join(releaseDir, "_headers"), "utf-8");

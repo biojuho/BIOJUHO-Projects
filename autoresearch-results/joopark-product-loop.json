@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T20:15:48+09:00",
+  "generatedAt": "2026-06-05T20:22:20+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 26,
+      "pass": 27,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 26
+      "total": 27
     },
     "browserEvidence": {
       "routes": 15,
@@ -27,6 +27,7 @@
       "portfolioCandidateRanked": true,
       "deploySupportFiles": 4,
       "releaseHeaderSmokeChecks": 6,
+      "releaseFallbackSmokeChecks": 4,
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
@@ -173,6 +174,13 @@
       "baseline": 0,
       "candidate": 6,
       "decision": "keep"
+    },
+    {
+      "id": "release-direct-path-fallback-smoke",
+      "primaryMetric": "releaseFallbackSmokeChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -186,6 +194,6 @@
   "nextCandidates": [
     "no-common-history PR strategy",
     "deeper UI workflow coverage",
-    "release 404 fallback smoke"
+    "release publish workflow artifact"
   ]
 }

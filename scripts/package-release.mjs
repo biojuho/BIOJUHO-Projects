@@ -163,9 +163,9 @@ function writeReleaseNotes(manifest) {
 function writeDeploySupportFiles() {
   copyFileSync(join(outDir, "index.html"), join(outDir, "404.html"));
   writeFileSync(join(outDir, "_redirects"), [
-    "# Netlify fallback for hash-route static deployments.",
-    "# Existing files are served normally; unmatched direct paths return to the app shell.",
-    "/* / 302",
+    "# Netlify fallback for static SPA deployments.",
+    "# Existing files are served normally; unmatched direct paths rewrite to the app shell.",
+    "/* /index.html 200",
     "",
   ].join("\n"), "utf-8");
   writeFileSync(join(outDir, "_headers"), [

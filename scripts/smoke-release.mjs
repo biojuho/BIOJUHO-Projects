@@ -168,6 +168,20 @@ function readReleaseHeaderRules() {
   return rules;
 }
 
+function readReleaseRedirectRules() {
+  const path = join(releaseDir, "_redirects");
+  if (!existsSync(path)) return [];
+  const rules = [];
+  for (const line of readFileSync(path, "utf-8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const [from, to, status = "301"] = trimmed.split(/\s+/);
+    if (!from || !to) continue;
+    rules.push({ from, to, status: Number(status) || 301 });
+  }
+  return rules;
+}
+
 function headerRuleMatches(pattern, pathname) {
   if (pattern === "/*") return true;
   if (pattern.endsWith("*")) return pathname.startsWith(pattern.slice(0, -1));
@@ -181,6 +195,16 @@ function headersForPath(pathname, rules) {
     for (const header of rule.headers) headers[header.name] = header.value;
   }
   return headers;
+}
+
+function redirectRuleMatches(pattern, pathname) {
+  if (pattern === "/*") return true;
+  if (pattern.endsWith("*")) return pathname.startsWith(pattern.slice(0, -1));
+  return pathname === pattern;
+}
+
+function redirectForPath(pathname, rules) {
+  return rules.find((rule) => redirectRuleMatches(rule.from, pathname)) || null;
 }
 
 function mergeHeaders(base, custom) {
@@ -197,9 +221,10 @@ function mergeHeaders(base, custom) {
 function createReleaseServer() {
   const sockets = new Set();
   const releaseHeaderRules = readReleaseHeaderRules();
+  const releaseRedirectRules = readReleaseRedirectRules();
   const server = createServer(async (request, response) => {
     const url = new URL(request.url || "/", `http://${request.headers.host || host}`);
-    const target = safeTarget(url.pathname);
+    let target = safeTarget(url.pathname);
 
     if (!target) {
       response.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
@@ -215,6 +240,30 @@ function createReleaseServer() {
       }, headersForPath(url.pathname, releaseHeaderRules)));
       response.end(body);
     } catch {
+      const redirectRule = redirectForPath(url.pathname, releaseRedirectRules);
+      const redirectTarget = redirectRule ? safeTarget(redirectRule.to) : null;
+      if (redirectRule?.status === 200 && redirectTarget) {
+        try {
+          target = redirectTarget;
+          const body = await readFile(target);
+          response.writeHead(200, mergeHeaders({
+            "cache-control": "no-store",
+            "content-type": contentTypes[extname(target)] || "application/octet-stream",
+          }, headersForPath(redirectRule.to, releaseHeaderRules)));
+          response.end(body);
+          return;
+        } catch {
+          // Fall through to the 404 response below.
+        }
+      }
+      if (redirectRule && redirectRule.status >= 300 && redirectRule.status < 400) {
+        response.writeHead(redirectRule.status, {
+          "content-type": "text/plain; charset=utf-8",
+          location: redirectRule.to,
+        });
+        response.end("Redirect");
+        return;
+      }
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       response.end("Not found");
     }
@@ -258,6 +307,36 @@ async function smokeReleaseHeaders(baseUrl) {
       root: root.status,
       app: app.status,
       vendor: vendor.status,
+    },
+  };
+}
+
+async function fetchTextResponse(url) {
+  const response = await fetch(url, { redirect: "manual" });
+  return {
+    status: response.status,
+    headers: Object.fromEntries([...response.headers.entries()].map(([key, value]) => [key.toLowerCase(), value])),
+    body: await response.text(),
+  };
+}
+
+async function smokeReleaseFallbacks(baseUrl) {
+  const root = await fetchTextResponse(`${baseUrl}/`);
+  const direct = await fetchTextResponse(`${baseUrl}/workspace/direct-link-check`);
+  const notFound = await fetchTextResponse(`${baseUrl}/404.html`);
+  const fallbackChecks = {
+    direct_path_rewrites_to_index: direct.status === 200 && direct.body === root.body,
+    direct_path_keeps_url_without_redirect: !direct.headers.location,
+    custom_404_matches_index: notFound.status === 200 && notFound.body === root.body,
+    fallback_html_content_type: String(direct.headers["content-type"] || "").startsWith("text/html"),
+  };
+  return {
+    status: Object.values(fallbackChecks).every(Boolean) ? "pass" : "fail",
+    checks: fallbackChecks,
+    responses: {
+      root: root.status,
+      direct: direct.status,
+      notFound: notFound.status,
     },
   };
 }
@@ -324,8 +403,10 @@ async function main() {
   let interactionResult;
   let accessibilityResult;
   let headerResult;
+  let fallbackResult;
   try {
     headerResult = await smokeReleaseHeaders(baseUrl);
+    fallbackResult = await smokeReleaseFallbacks(baseUrl);
     smokeResult = parseJsonOutput(
       (await runNodeScriptAsync("scripts/smoke-chrome.mjs", {
         BASE_URL: baseUrl,
@@ -365,6 +446,13 @@ async function main() {
       stderr: "",
     });
   }
+  if (fallbackResult.status !== "pass") {
+    throw Object.assign(new Error("release fallback smoke failed"), {
+      step: "scripts/smoke-release.mjs:fallbacks",
+      stdout: JSON.stringify(fallbackResult, null, 2),
+      stderr: "",
+    });
+  }
   if (smokeResult.status !== "pass") {
     throw Object.assign(new Error("release browser smoke failed"), {
       step: "scripts/smoke-chrome.mjs",
@@ -401,6 +489,7 @@ async function main() {
     package: packageResult,
     verify: verifyResult,
     headers: headerResult,
+    fallbacks: fallbackResult,
     smoke: {
       status: smokeResult.status,
       routeCount: smokeResult.routeCount,

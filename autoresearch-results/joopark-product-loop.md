@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T20:15:48+09:00
+Generated: 2026-06-05T20:22:20+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -303,6 +303,22 @@ Generated: 2026-06-05T20:15:48+09:00
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 26/26 with `release_header_smoke`.
 - Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, and `candidateActionSummaryVisible: true`.
 
+## Experiment: release direct-path fallback smoke
+
+- Hypothesis: Static deployment readiness is stronger if the package uses a Netlify `200` rewrite for direct paths and the packaged-release smoke proves both the rewrite and GitHub Pages `404.html` app-shell fallback over HTTP.
+- Primary metric: `releaseFallbackSmokeChecks`.
+- Baseline: `scripts/smoke-release.mjs` had 0 explicit fallback checks, and `_redirects` used a temporary root redirect.
+- Candidate: `_redirects` now uses `/* /index.html 200`; `scripts/smoke-release.mjs` parses redirect rules and verifies 4 fallback checks for direct path rewrite, no redirect `Location`, `404.html` matching the app shell, and HTML content type.
+- Decision: keep.
+
+## Evidence
+
+- External source signals used: Netlify documents `200` status redirects as rewrites that keep the browser URL, and GitHub Pages documents `404.html` as the custom missing-page file.
+- `node scripts/package-release.mjs && node scripts/verify-release.mjs && node scripts/smoke-release.mjs` passed with `fallbacks.status: pass` and all 4 fallback checks true.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 27/27 with `release_fallback_smoke`.
+- Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, `releaseHeaderSmokeChecks: 6`, and `candidateActionSummaryVisible: true`.
+- External sources checked: `https://docs.netlify.com/routing/redirects/rewrites-proxies/`, `https://docs.netlify.com/manage/routing/redirects/redirect-options/`, and `https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: no-common-history PR strategy, deeper UI workflow coverage, or release 404 fallback smoke.
+- Continue with the highest-impact product gap after the next full gate: no-common-history PR strategy, deeper UI workflow coverage, or release publish workflow artifact.

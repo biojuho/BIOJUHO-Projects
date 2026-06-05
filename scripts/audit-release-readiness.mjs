@@ -346,6 +346,30 @@ function buildChecklist() {
     },
   });
 
+  const releaseFallbackSmokeTerms = [
+    { file: "scripts/package-release.mjs", terms: ["/* /index.html 200"] },
+    { file: "scripts/verify-release.mjs", terms: ["/* /index.html 200", "rewrite unmatched direct paths to index.html"] },
+    { file: "scripts/smoke-release.mjs", terms: ["function smokeReleaseFallbacks", "fallbackChecks", "direct_path_rewrites_to_index", "custom_404_matches_index"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["release_fallback_smoke", "The packaged release smoke verifies direct-path fallback"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const releaseFallbackGateOk = !gateEvidence || gateEvidence.result?.fallbacks?.status === "pass";
+  checklist.push({
+    id: "release_fallback_smoke",
+    requirement: "The packaged release smoke verifies direct-path fallback rewrites and GitHub Pages 404.html app-shell fallback over HTTP.",
+    status: releaseFallbackSmokeTerms.every((item) => item.missingTerms.length === 0) && releaseFallbackGateOk ? "pass" : "fail",
+    evidence: {
+      files: releaseFallbackSmokeTerms,
+      gate: gateEvidence ? {
+        command: gateEvidence.command,
+        status: gateEvidence.status,
+        fallbacks: gateEvidence.result?.fallbacks || null,
+      } : {
+        command: "node scripts/audit-release-readiness.mjs --run-gates",
+        status: "not_run",
+      },
+    },
+  });
+
   const indexTerms = hasTerms("index.html", viewIds);
   checklist.push({
     id: "route_surface",
