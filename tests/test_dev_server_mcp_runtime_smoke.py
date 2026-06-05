@@ -29,13 +29,17 @@ def test_runtime_subprocess_smoke_passes(tmp_path: Path) -> None:
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
     assert payload["status"] == "pass"
-    assert payload["request_count"] == 5
+    assert payload["request_count"] == 6
     assert payload["summary"]["tool_count"] == 5
     assert payload["summary"]["policy_runtime_status"] == "local_stdio_runtime"
     assert payload["summary"]["policy_non_local_control"] == "unsupported"
     assert payload["summary"]["policy_process_mutation_default"] == "disabled"
     assert payload["summary"]["mutation_guard_status"] == "process_mutation_disabled"
+    assert payload["summary"]["unknown_tool_error_status"] == "unknown_tool"
+    assert payload["summary"]["post_error_logs_target_id"] == "dashboard-api"
     assert "Dev-Server MCP Runtime Smoke" in markdown
+    assert "Unknown tool error" in markdown
+    assert "Post-error log target" in markdown
     assert "start_server" in markdown
     assert "get_devserver_policy" in markdown
 
@@ -75,6 +79,14 @@ def test_validator_rejects_missing_tool() -> None:
         {
             "jsonrpc": "2.0",
             "id": 5,
+            "result": {
+                "isError": True,
+                "structuredContent": {"status": "unknown_tool"},
+            },
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 6,
             "result": {
                 "isError": False,
                 "structuredContent": {"schema_version": 1, "target_id": "dashboard-api"},

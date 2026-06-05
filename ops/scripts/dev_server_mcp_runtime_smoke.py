@@ -47,6 +47,15 @@ def build_requests() -> list[dict[str, Any]]:
             "id": 5,
             "method": "tools/call",
             "params": {
+                "name": "missing_tool",
+                "arguments": {},
+            },
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
                 "name": "get_devserver_logs",
                 "arguments": {"target_id": "dashboard-api", "lines": 0},
             },
@@ -91,8 +100,8 @@ def validate_responses(responses: list[dict[str, Any]], returncode: int, stderr:
         errors.append(f"runtime exited with return code {returncode}")
     if stderr.strip():
         errors.append("runtime wrote to stderr")
-    if len(responses) != 5:
-        errors.append(f"expected 5 responses, got {len(responses)}")
+    if len(responses) != 6:
+        errors.append(f"expected 6 responses, got {len(responses)}")
         return errors
 
     for expected_id, response in enumerate(responses, start=1):
@@ -133,10 +142,17 @@ def validate_responses(responses: list[dict[str, Any]], returncode: int, stderr:
     if start_payload.get("enable_env") != "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION":
         errors.append("start_server mutation guard env mismatch")
 
-    logs_result = _result(responses[4])
+    unknown_tool_result = _result(responses[4])
+    unknown_tool_payload = unknown_tool_result.get("structuredContent", {})
+    if unknown_tool_result.get("isError") is not True:
+        errors.append("unknown tools/call must return an MCP tool error")
+    if unknown_tool_payload.get("status") != "unknown_tool":
+        errors.append("unknown tools/call status mismatch")
+
+    logs_result = _result(responses[5])
     logs_payload = logs_result.get("structuredContent", {})
     if logs_result.get("isError") is not False:
-        errors.append("get_devserver_logs must succeed without process mutation")
+        errors.append("get_devserver_logs must succeed after a prior MCP tool error")
     if logs_payload.get("schema_version") != 1:
         errors.append("get_devserver_logs payload schema_version must be 1")
     if logs_payload.get("target_id") != "dashboard-api":
@@ -148,7 +164,8 @@ def summarize_responses(responses: list[dict[str, Any]]) -> dict[str, Any]:
     tools = _tools_from_response(responses[1]) if len(responses) > 1 else set()
     policy_payload = _result(responses[2]).get("structuredContent", {}) if len(responses) > 2 else {}
     mutation_payload = _result(responses[3]).get("structuredContent", {}) if len(responses) > 3 else {}
-    logs_payload = _result(responses[4]).get("structuredContent", {}) if len(responses) > 4 else {}
+    unknown_tool_payload = _result(responses[4]).get("structuredContent", {}) if len(responses) > 4 else {}
+    logs_payload = _result(responses[5]).get("structuredContent", {}) if len(responses) > 5 else {}
     return {
         "tool_count": len(tools),
         "tools": sorted(tools),
@@ -157,6 +174,8 @@ def summarize_responses(responses: list[dict[str, Any]]) -> dict[str, Any]:
         "policy_process_mutation_default": policy_payload.get("process_mutation", {}).get("default"),
         "mutation_guard_status": mutation_payload.get("status"),
         "mutation_guard_env": mutation_payload.get("enable_env"),
+        "unknown_tool_error_status": unknown_tool_payload.get("status"),
+        "post_error_logs_target_id": logs_payload.get("target_id"),
         "logs_target_id": logs_payload.get("target_id"),
     }
 
@@ -176,6 +195,8 @@ def render_markdown(summary: dict[str, Any]) -> str:
         f"- Non-local control: `{details.get('policy_non_local_control')}`",
         f"- Policy process mutation default: `{details.get('policy_process_mutation_default')}`",
         f"- Mutation guard: `{details.get('mutation_guard_status')}` via `{details.get('mutation_guard_env')}`",
+        f"- Unknown tool error: `{details.get('unknown_tool_error_status')}`",
+        f"- Post-error log target: `{details.get('post_error_logs_target_id')}`",
         f"- Log target: `{details.get('logs_target_id')}`",
         "",
         "## Tools",

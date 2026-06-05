@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `50`
-- Status counts: `blocked=1, covered=49`
+- Criteria: `51`
+- Status counts: `blocked=1, covered=50`
 
 ## Missing Required
 
@@ -164,7 +164,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `3`
+- Evidence paths: `4`
 
 ### mcp_service_runtime_smoke
 
@@ -309,6 +309,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### dev_server_mcp_tool_error_continuation
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### external_credential_boundaries
 

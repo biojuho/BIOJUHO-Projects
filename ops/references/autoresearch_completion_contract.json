@@ -141,7 +141,7 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "c5f76d4",
+            "d9b72a3",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
@@ -158,10 +158,14 @@
             "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md",
             "packages/shared/harness/core.py",
             "packages/shared/harness/tests/test_token_tracker.py",
-            "docs/reports/2026-06/AUTO_RESEARCH_HARNESS_TOKEN_BUDGET_ERROR_SURFACING_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_HARNESS_TOKEN_BUDGET_ERROR_SURFACING_2026-06-05.md",
+            "ops/scripts/dev_server_mcp_runtime_smoke.py",
+            "tests/test_dev_server_mcp_runtime.py",
+            "tests/test_dev_server_mcp_runtime_smoke.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_TOOL_ERROR_CONTINUATION_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "c5f76d4",
+            "proof_commit": "d9b72a3",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -208,7 +212,10 @@
               "automation/getdaytrends/main.py",
               "automation/getdaytrends/tests/test_main.py",
               "packages/shared/harness/core.py",
-              "packages/shared/harness/tests/test_token_tracker.py"
+              "packages/shared/harness/tests/test_token_tracker.py",
+              "ops/scripts/dev_server_mcp_runtime_smoke.py",
+              "tests/test_dev_server_mcp_runtime.py",
+              "tests/test_dev_server_mcp_runtime_smoke.py"
             ]
           }
         }
@@ -1713,11 +1720,23 @@
           "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json",
           "must_contain": [
             "\"status\": \"pass\"",
-            "\"request_count\": 5",
+            "\"request_count\": 6",
             "\"tool_count\": 5",
             "get_devserver_policy",
             "\"policy_non_local_control\": \"unsupported\"",
-            "process_mutation_disabled"
+            "process_mutation_disabled",
+            "\"unknown_tool_error_status\": \"unknown_tool\"",
+            "\"post_error_logs_target_id\": \"dashboard-api\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.md",
+          "must_contain": [
+            "Requests: `6`",
+            "Unknown tool error: `unknown_tool`",
+            "Post-error log target: `dashboard-api`",
+            "Errors",
+            "none"
           ]
         },
         {
@@ -2865,7 +2884,7 @@
           "must_contain": [
             "Completion Audit Summary Drift Guard",
             "test_checked_in_summary_artifacts_match_current_contract",
-            "valid `50` criteria",
+            "valid `51` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -2942,6 +2961,52 @@
             "TokenBudgetExceededError",
             "32 passed",
             "208 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dev_server_mcp_tool_error_continuation",
+      "requirement": "The dev-server MCP runtime proves an MCP tool error does not drop the stdio session or block later requests.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/dev_server_mcp_runtime_smoke.py",
+          "must_contain": [
+            "missing_tool",
+            "unknown_tool_error_status",
+            "post_error_logs_target_id",
+            "get_devserver_logs must succeed after a prior MCP tool error"
+          ]
+        },
+        {
+          "path": "tests/test_dev_server_mcp_runtime.py",
+          "must_contain": [
+            "test_tool_error_does_not_drop_mcp_session",
+            "missing_tool",
+            "tools/list",
+            "ping"
+          ]
+        },
+        {
+          "path": "tests/test_dev_server_mcp_runtime_smoke.py",
+          "must_contain": [
+            "unknown_tool_error_status",
+            "post_error_logs_target_id",
+            "request_count\"] == 6"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_TOOL_ERROR_CONTINUATION_2026-06-05.md",
+          "must_contain": [
+            "google/adk-python",
+            "tools: Prevent session drop on MCP tool error",
+            "unknown_tool_error_status=unknown_tool",
+            "post_error_logs_target_id=dashboard-api",
+            "10 passed",
+            "6 requests",
             "global_objective_complete=false"
           ]
         }

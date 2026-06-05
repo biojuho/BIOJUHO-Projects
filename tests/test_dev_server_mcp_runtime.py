@@ -92,6 +92,33 @@ def test_mutating_tool_returns_mcp_error_until_env_opt_in() -> None:
     assert payload["enable_env"] == "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION"
 
 
+def test_tool_error_does_not_drop_mcp_session() -> None:
+    runtime = load_runtime_module()
+
+    error_response = runtime.handle_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {"name": "missing_tool", "arguments": {}},
+        }
+    )
+    list_response = runtime.handle_request({"jsonrpc": "2.0", "id": 11, "method": "tools/list"})
+    ping_response = runtime.handle_request({"jsonrpc": "2.0", "id": 12, "method": "ping"})
+
+    error_result = error_response["result"]
+    assert error_result["isError"] is True
+    assert error_result["structuredContent"]["status"] == "unknown_tool"
+    assert {tool["name"] for tool in list_response["result"]["tools"]} == {
+        "get_devserver_statuses",
+        "get_devserver_policy",
+        "start_server",
+        "stop_server",
+        "get_devserver_logs",
+    }
+    assert ping_response == {"jsonrpc": "2.0", "id": 12, "result": {}}
+
+
 def test_stop_tool_uses_control_when_explicitly_enabled(monkeypatch, tmp_path: Path) -> None:
     runtime = load_runtime_module()
     calls: list[dict[str, Any]] = []

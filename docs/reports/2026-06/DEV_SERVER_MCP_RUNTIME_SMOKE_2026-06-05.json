@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T15:14:56.894837+00:00",
+  "generated_at": "2026-06-05T01:28:57.668965+00:00",
   "status": "pass",
   "runtime": "ops/scripts/dev_server_mcp_runtime.py",
-  "request_count": 5,
-  "response_count": 5,
+  "request_count": 6,
+  "response_count": 6,
   "process_returncode": 0,
   "stderr": "",
   "summary": {
@@ -21,6 +21,8 @@
     "policy_process_mutation_default": "disabled",
     "mutation_guard_status": "process_mutation_disabled",
     "mutation_guard_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
+    "unknown_tool_error_status": "unknown_tool",
+    "post_error_logs_target_id": "dashboard-api",
     "logs_target_id": "dashboard-api"
   },
   "errors": []
