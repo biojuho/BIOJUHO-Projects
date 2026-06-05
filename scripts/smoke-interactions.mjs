@@ -345,6 +345,7 @@ const interactionExpression = `
   let workspaceCandidateVisibleOk = false;
   let workspaceCompetitiveCandidateVisibleOk = false;
   let candidateNextActionVisibleOk = false;
+  let candidateActionFilterOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -536,6 +537,18 @@ const interactionExpression = `
     const firstCandidateCard = qs('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]');
     assert(firstCandidateCard.dataset.projectId === rankedCandidates[0].id, "candidate portfolio filter did not rank highest priority first");
     assert(qs("[data-candidate-priority]", firstCandidateCard).textContent.includes(String(projectCandidatePriority(rankedCandidates[0]).score)), "top candidate priority score did not render");
+    const architectureCount = dashboard.projects.filter((project) => projectCandidateAction(project)?.key === "architecture").length;
+    const riskCount = dashboard.projects.filter((project) => projectCandidateAction(project)?.key === "risk").length;
+    assert(qs("[data-candidate-action-filter-panel]"), "candidate action filter panel did not render");
+    click('[data-action="portfolio-action-filter"][data-action-filter="architecture"]');
+    await waitFor(() => state.portfolioFilter === "candidates" && state.portfolioActionFilter === "architecture" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === architectureCount, "architecture action filter did not narrow candidate cards");
+    assert(qs('[data-action="portfolio-action-filter"][data-action-filter="architecture"]').getAttribute("aria-pressed") === "true", "architecture action filter was not active");
+    assert(!!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]'), "architecture action filter did not keep Colanode visible");
+    click('[data-action="portfolio-action-filter"][data-action-filter="risk"]');
+    await waitFor(() => state.portfolioActionFilter === "risk" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === riskCount, "risk action filter did not narrow candidate cards");
+    assert(!!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + riskCandidate.id + '"]'), "risk action filter did not keep OpenProject visible");
+    click('[data-action="portfolio-action-filter"][data-action-filter="all"]');
+    await waitFor(() => state.portfolioActionFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "candidate action filter did not reset");
     click('[data-action="portfolio-filter"][data-filter="owned"]');
     await waitFor(() => state.portfolioFilter === "owned" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === 0, "owned portfolio filter still rendered adoption candidates");
     assert(document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === ownedCount, "owned portfolio filter count was wrong");
@@ -580,6 +593,7 @@ const interactionExpression = `
     workspaceCandidateVisibleOk = true;
     workspaceCompetitiveCandidateVisibleOk = true;
     candidateNextActionVisibleOk = true;
+    candidateActionFilterOk = true;
   });
 
   let projectId = "";
@@ -794,6 +808,7 @@ const interactionExpression = `
     workspaceCandidateVisible: workspaceCandidateVisibleOk,
     workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
     candidateNextActionVisible: candidateNextActionVisibleOk,
+    candidateActionFilter: candidateActionFilterOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

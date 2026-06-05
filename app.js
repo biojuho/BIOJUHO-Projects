@@ -169,20 +169,20 @@ function projectCandidateAction(p) {
   const topics = new Set((Array.isArray(p.topics) ? p.topics : []).map((topic) => String(topic).toLowerCase()));
   const category = String(p.category || "");
   const priority = projectCandidatePriority(p);
-  if (!safeGithubUrl(p.url)) return { label: "소스 보강", reason: "GitHub 링크 확인", tone: "amber" };
-  if (numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200) return { label: "리스크 리뷰", reason: "이슈/복잡도 확인", tone: "amber" };
-  if (p.adoptionStage === "adopt" || (priority && priority.score >= 72)) return { label: "스파이크", reason: "48h 실험", tone: "green" };
+  if (!safeGithubUrl(p.url)) return { key: "source", label: "소스 보강", reason: "GitHub 링크 확인", tone: "amber" };
+  if (numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200) return { key: "risk", label: "리스크 리뷰", reason: "이슈/복잡도 확인", tone: "amber" };
+  if (p.adoptionStage === "adopt" || (priority && priority.score >= 72)) return { key: "spike", label: "스파이크", reason: "48h 실험", tone: "green" };
   if (["local-first", "offline-first", "p2p", "privacy", "sqlite", "yjs", "knowledge-base"].some((topic) => topics.has(topic))) {
-    return { label: "아키텍처 벤치", reason: "로컬 퍼스트 구조", tone: "cyan" };
+    return { key: "architecture", label: "아키텍처 벤치", reason: "로컬 퍼스트 구조", tone: "cyan" };
   }
   if (category.includes("프로젝트관리") || ["project-management", "task-management", "kanban", "gantt", "roadmap", "workflows"].some((topic) => topics.has(topic))) {
-    return { label: "PM 벤치", reason: "워크플로 비교", tone: "blue" };
+    return { key: "pm", label: "PM 벤치", reason: "워크플로 비교", tone: "blue" };
   }
   if (category.includes("캘린더") || ["calendar", "scheduling"].some((topic) => topics.has(topic))) {
-    return { label: "일정 UX 벤치", reason: "캘린더 패턴", tone: "violet" };
+    return { key: "calendar", label: "일정 UX 벤치", reason: "캘린더 패턴", tone: "violet" };
   }
-  if (p.adoptionStage === "watch") return { label: "월간 관찰", reason: "변화 추적", tone: "muted" };
-  return { label: "기능 검토", reason: "적합성 확인", tone: "blue" };
+  if (p.adoptionStage === "watch") return { key: "watch", label: "월간 관찰", reason: "변화 추적", tone: "muted" };
+  return { key: "feature", label: "기능 검토", reason: "적합성 확인", tone: "blue" };
 }
 
 function projectAdoptionMeta(p) {
@@ -193,7 +193,7 @@ function projectAdoptionMeta(p) {
   const action = projectCandidateAction(p);
   return html`
     <div class="portfolio-candidate-meta" data-candidate-meta>
-      ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
+      ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" data-candidate-action-key="${action.key}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
       ${priority ? raw(html`<span class="portfolio-priority" data-candidate-priority="${priority.score}"><b>우선</b> ${priority.label} ${priority.score}</span>`) : ""}
       <span data-candidate-stage="${p.adoptionStage || ""}"><b>단계</b> ${stage}</span>
       <span><b>★</b> ${metricValue(p.stars)}</span>
@@ -253,6 +253,7 @@ const state = {
   modalOnConfirm: null,
   kanbanFilter: null, // priority filter or null
   portfolioFilter: "all",
+  portfolioActionFilter: "all",
   schemaExpanded: new Set(["db-prod-1"]), // expanded instances in schema tree
   schemaSelectedTable: null,
   storageHealth: {
@@ -873,10 +874,28 @@ const PORTFOLIO_FILTERS = [
   { key: "candidates", label: "도입 후보" },
 ];
 
+const CANDIDATE_ACTION_FILTERS = [
+  { key: "all", label: "모든 액션" },
+  { key: "spike", label: "스파이크" },
+  { key: "architecture", label: "아키텍처 벤치" },
+  { key: "pm", label: "PM 벤치" },
+  { key: "risk", label: "리스크 리뷰" },
+  { key: "calendar", label: "일정 UX 벤치" },
+  { key: "watch", label: "월간 관찰" },
+  { key: "feature", label: "기능 검토" },
+  { key: "source", label: "소스 보강" },
+];
+
 function portfolioMatchesFilter(project, filter) {
   if (filter === "owned") return project.sourceKind !== "adoption-candidate";
   if (filter === "candidates") return project.sourceKind === "adoption-candidate";
   return true;
+}
+
+function portfolioMatchesActionFilter(project, filter) {
+  if (!filter || filter === "all") return true;
+  const action = projectCandidateAction(project);
+  return project.sourceKind === "adoption-candidate" && action && action.key === filter;
 }
 
 function sortPortfolioProjects(projects) {
@@ -894,9 +913,11 @@ function renderPortfolio() {
   const view = refs.views["pm-portfolio"];
   if (!view) return;
   if (!state.portfolioFilter) state.portfolioFilter = "all";
+  if (!state.portfolioActionFilter) state.portfolioActionFilter = "all";
   const q = state.query;
   const list = sortPortfolioProjects(dashboard.projects
     .filter((p) => portfolioMatchesFilter(p, state.portfolioFilter))
+    .filter((p) => portfolioMatchesActionFilter(p, state.portfolioActionFilter))
     .filter((p) => matches(projectSearchText(p), q)));
   const candidateCount = dashboard.projects.filter((p) => p.sourceKind === "adoption-candidate").length;
   const ownedCount = dashboard.projects.length - candidateCount;
@@ -904,6 +925,19 @@ function renderPortfolio() {
     const count = filter.key === "owned" ? ownedCount : filter.key === "candidates" ? candidateCount : dashboard.projects.length;
     return html`<button type="button" class="seg-chip ${raw(state.portfolioFilter === filter.key ? "is-active" : "")}" data-action="portfolio-filter" data-filter="${filter.key}" aria-pressed="${raw(state.portfolioFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
   }).join("");
+  const actionCounts = dashboard.projects
+    .filter((p) => p.sourceKind === "adoption-candidate")
+    .reduce((acc, p) => {
+      const key = projectCandidateAction(p)?.key || "feature";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  const actionFilterChips = CANDIDATE_ACTION_FILTERS
+    .filter((filter) => filter.key === "all" || actionCounts[filter.key] || state.portfolioActionFilter === filter.key)
+    .map((filter) => {
+      const count = filter.key === "all" ? candidateCount : actionCounts[filter.key] || 0;
+      return html`<button type="button" class="seg-chip ${raw(state.portfolioActionFilter === filter.key ? "is-active" : "")}" data-action="portfolio-action-filter" data-action-filter="${filter.key}" aria-pressed="${raw(state.portfolioActionFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
+    }).join("");
 
   const stats = {
     total: dashboard.projects.length,
@@ -968,6 +1002,9 @@ function renderPortfolio() {
     <div class="portfolio-toolbar">
       <div class="seg-control" aria-label="포트폴리오 필터">${raw(filterChips)}</div>
       <button type="button" class="primary-btn" data-action="project-add">+ 새 프로젝트</button>
+    </div>
+    <div class="portfolio-action-filter" data-candidate-action-filter-panel>
+      <div class="seg-control" aria-label="후보 액션 필터">${raw(actionFilterChips)}</div>
     </div>
     <section class="portfolio-grid">
       ${list.length === 0 ? raw(html`<article class="empty">일치하는 프로젝트가 없습니다.</article>`) : raw(list.map(card).join(""))}
@@ -2346,6 +2383,13 @@ function setKanbanFilter(priority) {
 
 function setPortfolioFilter(filter) {
   state.portfolioFilter = PORTFOLIO_FILTERS.some((item) => item.key === filter) ? filter : "all";
+  if (state.portfolioFilter !== "candidates") state.portfolioActionFilter = "all";
+  renderPortfolio();
+}
+
+function setPortfolioActionFilter(filter) {
+  state.portfolioActionFilter = CANDIDATE_ACTION_FILTERS.some((item) => item.key === filter) ? filter : "all";
+  if (state.portfolioActionFilter !== "all") state.portfolioFilter = "candidates";
   renderPortfolio();
 }
 
@@ -5257,6 +5301,7 @@ function handleActions(event) {
   if (action === "pick-project") { pickProject(target.dataset.projectId); return; }
   if (action === "open-project") { openProjectSheet(target.dataset.projectId); return; }
   if (action === "portfolio-filter") { setPortfolioFilter(target.dataset.filter); return; }
+  if (action === "portfolio-action-filter") { setPortfolioActionFilter(target.dataset.actionFilter); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }

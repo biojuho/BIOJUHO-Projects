@@ -448,6 +448,18 @@ function buildChecklist() {
     evidence: candidateNextActionTerms,
   });
 
+  const candidateActionFilterTerms = [
+    { file: "app.js", terms: ["CANDIDATE_ACTION_FILTERS", "function setPortfolioActionFilter", "data-candidate-action-filter-panel", "data-action=\"portfolio-action-filter\""] },
+    { file: "styles.css", terms: [".portfolio-action-filter"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateActionFilter", "architecture action filter did not narrow candidate cards", "risk action filter did not keep OpenProject visible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_action_filter",
+    requirement: "The portfolio candidate queue can be narrowed by deterministic next-action recommendations, with browser smoke coverage for architecture and risk-review filters.",
+    status: candidateActionFilterTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateActionFilterTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

@@ -2738,6 +2738,16 @@ textarea:focus:not(:focus-visible) { outline: none; }
   margin-bottom: 4px;
 }
 
+.portfolio-action-filter {
+  margin: 0 0 10px;
+}
+
+.portfolio-action-filter .seg-chip {
+  height: 28px;
+  padding: 0 11px;
+  font-size: 11px;
+}
+
 /* 카드 전체를 article로 변경했으므로 head 조정 */
 .portfolio-head {
   display: flex;

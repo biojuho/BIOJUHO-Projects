@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T19:47:26+09:00
+Generated: 2026-06-05T19:54:24+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -240,6 +240,21 @@ Generated: 2026-06-05T19:47:26+09:00
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 22/22.
 - Packaged interaction smoke reported `candidateNextActionVisible: true`, `workspaceCompetitiveCandidateVisible: true`, and `portfolioCandidateRanked: true`.
 - `scripts/smoke-interactions.mjs` verifies Colanode renders `아키텍처 벤치` with `로컬 퍼스트 구조`, and verifies OpenProject computes `리스크 리뷰`.
+
+## Experiment: portfolio candidate action filter
+
+- Hypothesis: Once candidates have next-action recommendations, the portfolio should let operators narrow the candidate queue by those actions instead of scanning every card.
+- Primary metric: `candidateActionFilter` in packaged interaction smoke.
+- Baseline: candidate cards showed action chips, but the portfolio could not filter by action type.
+- Candidate: a candidate action segmented filter narrows the queue by `스파이크`, `아키텍처 벤치`, `PM 벤치`, `리스크 리뷰`, `일정 UX 벤치`, `월간 관찰`, `기능 검토`, or `소스 보강`; selecting an action also keeps the portfolio in candidate mode.
+- Decision: keep.
+
+## Evidence
+
+- External source signals used: Linear documents filters across nearly every view and a Triage inbox for review/prioritization, while OpenProject documents work package views as filter-based lists and table configurations.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 23/23.
+- Packaged interaction smoke reported `candidateActionFilter: true`, `candidateNextActionVisible: true`, and `portfolioCandidateRanked: true`.
+- `scripts/smoke-interactions.mjs` verifies the architecture filter keeps Colanode visible and the risk filter keeps OpenProject visible.
 
 ## Next Loop
 
