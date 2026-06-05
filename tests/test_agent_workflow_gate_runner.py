@@ -69,6 +69,19 @@ def test_build_gate_steps_selects_single_gate_index() -> None:
     assert steps[0]["safety"]["requires_approval"] is True
 
 
+def test_select_workflows_filters_by_smoke_scope() -> None:
+    runner = load_module()
+    payload = runner.workflow_manifest.load_manifest(MANIFEST_PATH)
+
+    workflows = runner.select_workflows(payload, None, all_workflows=False, smoke_scope="mcp")
+
+    assert [workflow["id"] for workflow in workflows] == [
+        "dailynews-x-ops",
+        "canva-widget-oauth-preview",
+    ]
+    assert {workflow["smoke_scope"] for workflow in workflows} == {"mcp"}
+
+
 def test_dry_run_report_keeps_gates_planned(tmp_path: Path) -> None:
     runner = load_module()
     json_out = tmp_path / "gate-runner.json"
@@ -317,6 +330,34 @@ def test_matrix_dry_run_plans_all_workflows(tmp_path: Path) -> None:
     assert "dailynews-x-ops" in markdown
 
 
+def test_matrix_dry_run_routes_by_smoke_scope(tmp_path: Path) -> None:
+    runner = load_module()
+    json_out = tmp_path / "matrix-mcp.json"
+    markdown_out = tmp_path / "matrix-mcp.md"
+
+    report = runner.run_workflow_matrix(
+        MANIFEST_PATH,
+        execute=False,
+        max_gates=1,
+        timeout_seconds=10,
+        smoke_scope="mcp",
+        json_out=json_out,
+        markdown_out=markdown_out,
+    )
+
+    persisted = json.loads(json_out.read_text(encoding="utf-8"))
+    markdown = markdown_out.read_text(encoding="utf-8")
+    workflow_ids = [workflow["workflow"]["id"] for workflow in report["workflows"]]
+    assert workflow_ids == ["dailynews-x-ops", "canva-widget-oauth-preview"]
+    assert report["summary"]["requested_smoke_scope"] == "mcp"
+    assert report["summary"]["workflow_count"] == 2
+    assert report["summary"]["selected_gates"] == 2
+    assert report["summary"]["planned_gates"] == 2
+    assert persisted["summary"]["requested_smoke_scope"] == "mcp"
+    assert "Smoke scope selector: `mcp`" in markdown
+    assert "workspace-quality-dashboard" not in markdown
+
+
 def test_matrix_execute_runs_safe_gates_and_skips_side_effecting(monkeypatch) -> None:
     runner = load_module()
     seen: list[list[str]] = []
@@ -382,6 +423,8 @@ def test_cli_rejects_ambiguous_or_missing_workflow_selection() -> None:
     assert runner.main([]) == 1
     assert runner.main(["--workflow", "dailynews-x-ops", "--all-workflows"]) == 1
     assert runner.main(["--all-workflows", "--gate-index", "1"]) == 1
+    assert runner.main(["--workflow", "dailynews-x-ops", "--smoke-scope", "mcp"]) == 1
+    assert runner.main(["--smoke-scope", "mcp", "--gate-index", "1"]) == 1
 
 
 def test_cli_writes_dry_run_outputs(tmp_path: Path) -> None:
@@ -405,3 +448,28 @@ def test_cli_writes_dry_run_outputs(tmp_path: Path) -> None:
     assert exit_code == 0
     assert json.loads(json_out.read_text(encoding="utf-8"))["execution_mode"] == "dry_run"
     assert "workspace-quality-dashboard" in markdown_out.read_text(encoding="utf-8")
+
+
+def test_cli_writes_smoke_scope_dry_run_outputs(tmp_path: Path) -> None:
+    runner = load_module()
+    json_out = tmp_path / "scope-mcp.json"
+    markdown_out = tmp_path / "scope-mcp.md"
+
+    exit_code = runner.main(
+        [
+            "--smoke-scope",
+            "mcp",
+            "--max-gates",
+            "1",
+            "--json-out",
+            str(json_out),
+            "--markdown-out",
+            str(markdown_out),
+        ]
+    )
+
+    payload = json.loads(json_out.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert payload["summary"]["requested_smoke_scope"] == "mcp"
+    assert payload["summary"]["workflow_count"] == 2
+    assert "Smoke scope selector: `mcp`" in markdown_out.read_text(encoding="utf-8")

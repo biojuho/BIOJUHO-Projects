@@ -46,6 +46,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "agent_workflow_gate_runner",
         "agent_workflow_gate_safety",
         "agent_workflow_gate_matrix",
+        "agent_workflow_smoke_scope_route_guard",
         "current_tip_freshness_gate",
         "direct_browser_qa_freshness_gate",
         "browser_smoke_clear_error_expected_text_guard",

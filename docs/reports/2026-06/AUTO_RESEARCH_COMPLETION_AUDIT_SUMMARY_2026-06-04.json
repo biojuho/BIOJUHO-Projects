@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 59
+    "covered": 60
   },
-  "criterion_count": 60,
+  "criterion_count": 61,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 45,
+          "term_count": 46,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -1668,6 +1668,48 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "agent_workflow_smoke_scope_route_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/agent_workflow_gate_runner.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_agent_workflow_gate_runner.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_MCP_SCOPE_2026-06-05.json",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_MCP_SCOPE_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,

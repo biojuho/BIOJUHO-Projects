@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T02:44:28.387058+00:00",
+  "generated_at": "2026-06-05T02:53:28.443567+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -105,6 +105,7 @@
         "mcp_service_expected_tools_guard",
         "dev_server_mcp_in_process_smoke_guard",
         "pr_analysis_read_only_split_guard",
+        "agent_workflow_smoke_scope_route_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
         "shared_llm_grok_seed_settings_guard"
@@ -129,6 +130,10 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
+          "term_count": 4
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_COMMIT_DIGEST_BATCH_GUARD_2026-06-05.md",
@@ -352,6 +357,7 @@
         "canva_mcp_sdk_floor_guard",
         "mcp_service_expected_tools_guard",
         "pr_analysis_read_only_split_guard",
+        "agent_workflow_smoke_scope_route_guard",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
@@ -360,6 +366,10 @@
         "shared_llm_grok_seed_settings_guard"
       ],
       "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
+          "term_count": 4
+        },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
           "term_count": 3

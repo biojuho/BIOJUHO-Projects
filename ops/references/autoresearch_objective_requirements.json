@@ -142,6 +142,7 @@
         "mcp_service_expected_tools_guard",
         "dev_server_mcp_in_process_smoke_guard",
         "pr_analysis_read_only_split_guard",
+        "agent_workflow_smoke_scope_route_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
         "shared_llm_grok_seed_settings_guard"
@@ -190,6 +191,15 @@
             "\"repo\": \"microsoft/agent-framework\"",
             "\"repo\": \"mastra-ai/mastra\"",
             "\"review_required_before_local_adoption\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
+          "must_contain": [
+            "crewAIInc/crewAI",
+            "route-aware decorators",
+            "workflows=2, scope=mcp",
+            "global_objective_complete=false"
           ]
         },
         {
@@ -542,6 +552,7 @@
         "canva_mcp_sdk_floor_guard",
         "mcp_service_expected_tools_guard",
         "pr_analysis_read_only_split_guard",
+        "agent_workflow_smoke_scope_route_guard",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
@@ -550,6 +561,15 @@
         "shared_llm_grok_seed_settings_guard"
       ],
       "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
+          "must_contain": [
+            "Smoke-Scope Route Guard",
+            "--smoke-scope",
+            "Selected workflows",
+            "global_objective_complete=false"
+          ]
+        },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
           "must_contain": [

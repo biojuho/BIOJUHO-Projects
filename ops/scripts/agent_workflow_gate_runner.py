@@ -50,12 +50,30 @@ def select_workflow(payload: dict[str, Any], workflow_id: str) -> dict[str, Any]
     raise ValueError(f"unknown workflow id: {workflow_id}")
 
 
-def select_workflows(payload: dict[str, Any], workflow_id: str | None, *, all_workflows: bool) -> list[dict[str, Any]]:
+def select_workflows(
+    payload: dict[str, Any],
+    workflow_id: str | None,
+    *,
+    all_workflows: bool,
+    smoke_scope: str | None = None,
+) -> list[dict[str, Any]]:
+    selectors = sum(1 for selected in (workflow_id, all_workflows, smoke_scope) if selected)
+    if selectors != 1:
+        raise ValueError("provide exactly one of --workflow, --all-workflows, or --smoke-scope")
     if all_workflows:
         return list(payload.get("workflows", []))
     if workflow_id:
         return [select_workflow(payload, workflow_id)]
-    raise ValueError("provide --workflow or --all-workflows")
+    if smoke_scope:
+        workflows = [
+            workflow
+            for workflow in payload.get("workflows", [])
+            if workflow.get("smoke_scope") == smoke_scope
+        ]
+        if not workflows:
+            raise ValueError(f"no workflows found for smoke scope: {smoke_scope}")
+        return workflows
+    raise ValueError("provide exactly one of --workflow, --all-workflows, or --smoke-scope")
 
 
 def build_gate_steps(
@@ -288,6 +306,7 @@ def run_workflow_matrix(
     max_gates: int | None,
     timeout_seconds: float,
     allow_side_effect_gates: bool = False,
+    smoke_scope: str | None = None,
     json_out: Path | None = None,
     markdown_out: Path | None = None,
 ) -> dict[str, Any]:
@@ -297,7 +316,7 @@ def run_workflow_matrix(
         raise ValueError("\n".join(errors))
     workflow_reports: list[dict[str, Any]] = []
     gate_cache: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = {}
-    for workflow in select_workflows(payload, None, all_workflows=True):
+    for workflow in select_workflows(payload, None, all_workflows=smoke_scope is None, smoke_scope=smoke_scope):
         steps = build_gate_steps(workflow, max_gates=max_gates)
         if execute:
             results = []
@@ -337,6 +356,7 @@ def run_workflow_matrix(
         execute=execute,
         allow_side_effect_gates=allow_side_effect_gates,
         max_gates=max_gates,
+        smoke_scope=smoke_scope,
     )
     if json_out:
         write_json_atomic(json_out, report)
@@ -408,6 +428,7 @@ def build_matrix_report(
     execute: bool,
     allow_side_effect_gates: bool,
     max_gates: int | None,
+    smoke_scope: str | None,
 ) -> dict[str, Any]:
     workflow_counts = Counter(report["status"] for report in workflow_reports)
     gate_counts: Counter[str] = Counter()
@@ -436,6 +457,7 @@ def build_matrix_report(
         "source_context": copy.deepcopy(payload.get("source_context")),
         "summary": {
             "requested_max_gates": max_gates,
+            "requested_smoke_scope": smoke_scope,
             "workflow_count": len(workflow_reports),
             "passed_workflows": workflow_counts.get("pass", 0),
             "failed_workflows": workflow_counts.get("fail", 0),
@@ -510,6 +532,7 @@ def render_matrix_markdown(report: dict[str, Any]) -> str:
         f"- Execution mode: `{report['execution_mode']}`",
         f"- Will execute: `{str(report['will_execute']).lower()}`",
         f"- Allow side-effect gates: `{str(report['allow_side_effect_gates']).lower()}`",
+        f"- Smoke scope selector: `{summary.get('requested_smoke_scope') or '-'}`",
         f"- Workflows: `{summary['workflow_count']}`",
         f"- Passed workflows: `{summary['passed_workflows']}`",
         f"- Failed workflows: `{summary['failed_workflows']}`",
@@ -581,6 +604,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--workflow")
     parser.add_argument("--all-workflows", action="store_true", help="Run or plan selected gates for every workflow.")
+    parser.add_argument(
+        "--smoke-scope",
+        choices=sorted(workflow_manifest.ALLOWED_SMOKE_SCOPES),
+        help="Run or plan workflows whose manifest smoke_scope matches this route.",
+    )
     parser.add_argument("--execute", action="store_true", help="Run selected quality gates. Default only plans them.")
     parser.add_argument(
         "--allow-side-effect-gates",
@@ -594,23 +622,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--markdown-out", type=Path)
     args = parser.parse_args(argv)
     try:
-        if args.all_workflows and args.workflow:
-            raise ValueError("--workflow and --all-workflows cannot be combined")
-        if args.all_workflows and args.gate_index is not None:
-            raise ValueError("--gate-index cannot be used with --all-workflows")
-        if args.all_workflows:
+        selector_count = sum(1 for selected in (args.workflow, args.all_workflows, args.smoke_scope) if selected)
+        if selector_count != 1:
+            raise ValueError("provide exactly one of --workflow, --all-workflows, or --smoke-scope")
+        if (args.all_workflows or args.smoke_scope) and args.gate_index is not None:
+            raise ValueError("--gate-index cannot be used with --all-workflows or --smoke-scope")
+        if args.all_workflows or args.smoke_scope:
             report = run_workflow_matrix(
                 args.manifest,
                 execute=args.execute,
                 allow_side_effect_gates=args.allow_side_effect_gates,
                 max_gates=args.max_gates,
                 timeout_seconds=args.timeout,
+                smoke_scope=args.smoke_scope,
                 json_out=args.json_out,
                 markdown_out=args.markdown_out,
             )
         else:
-            if not args.workflow:
-                raise ValueError("provide --workflow or --all-workflows")
             report = run_workflow_gates(
                 args.manifest,
                 args.workflow,
@@ -625,10 +653,11 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"agent workflow gate runner failed: {exc}", file=sys.stderr)
         return 1
-    if args.all_workflows:
+    if args.all_workflows or args.smoke_scope:
         print(
             "agent workflow gate matrix valid: "
             f"workflows={report['summary']['workflow_count']}, "
+            f"scope={report['summary'].get('requested_smoke_scope') or 'all'}, "
             f"mode={report['execution_mode']}, "
             f"selected={report['summary']['selected_gates']}, "
             f"passed={report['summary']['passed_gates']}, "

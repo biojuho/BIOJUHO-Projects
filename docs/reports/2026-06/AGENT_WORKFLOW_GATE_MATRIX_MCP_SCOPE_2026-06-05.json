@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T02:45:03.888865+00:00",
+  "status": "pass",
+  "execution_mode": "dry_run",
+  "will_execute": false,
+  "allow_side_effect_gates": false,
+  "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+  "source_context": {
+    "repo": "evalstate/fast-agent",
+    "url": "https://github.com/evalstate/fast-agent",
+    "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+  },
+  "summary": {
+    "requested_max_gates": 1,
+    "requested_smoke_scope": "mcp",
+    "workflow_count": 2,
+    "passed_workflows": 2,
+    "failed_workflows": 0,
+    "selected_gates": 2,
+    "passed_gates": 0,
+    "failed_gates": 0,
+    "skipped_gates": 0,
+    "reused_gates": 0,
+    "planned_gates": 2,
+    "approval_required_gates": 0,
+    "elapsed_seconds": 0.0
+  },
+  "workflows": [
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T02:45:03.888306+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "dailynews-x-ops",
+        "project": "automation/DailyNews",
+        "goal": "Build ranked X/Twitter conversation packs and operator actions from DailyNews content intelligence.",
+        "smoke_scope": "mcp",
+        "launch_status": "active",
+        "agent_roles": [
+          "content-operator",
+          "conversation-ranker",
+          "x-publisher"
+        ],
+        "mcp_servers": [
+          "notion",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "dailynews-x-ops",
+          "command": [
+            "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "mcp"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope mcp",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T02:45:03.888725+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "canva-widget-oauth-preview",
+        "project": "mcp/canva-mcp",
+        "goal": "Run Canva widget preview, auth boundary checks, and MCP tool surface verification.",
+        "smoke_scope": "mcp",
+        "launch_status": "active",
+        "agent_roles": [
+          "mcp-operator",
+          "widget-qa",
+          "oauth-operator"
+        ],
+        "mcp_servers": [
+          "canva-local",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "canva-widget-oauth-preview",
+          "command": [
+            "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "mcp"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope mcp",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "errors": []
+}
