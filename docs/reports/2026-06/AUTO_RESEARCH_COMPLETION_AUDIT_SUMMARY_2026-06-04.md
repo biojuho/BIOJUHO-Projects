@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `63`
-- Status counts: `blocked=1, covered=62`
+- Criteria: `64`
+- Status counts: `blocked=1, covered=63`
 
 ## Missing Required
 
@@ -387,6 +387,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `5`
+
+### workspace_smoke_trace_final_event_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### external_credential_boundaries
 

@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T03:06:43.560420+00:00",
+  "generated_at": "2026-06-05T03:15:09.611476+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -34,7 +34,8 @@
         "pre_push_regression_gate",
         "dashboard_falsy_credential_metadata_guard",
         "browser_smoke_clear_error_expected_text_guard",
-        "desci_job_stream_partial_false_guard"
+        "desci_job_stream_partial_false_guard",
+        "workspace_smoke_trace_final_event_guard"
       ],
       "evidence": [
         {
@@ -80,6 +81,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_FINAL_EVENT_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -115,7 +120,8 @@
         "desci_uploaded_file_label_guard",
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
-        "desci_job_stream_partial_false_guard"
+        "desci_job_stream_partial_false_guard",
+        "workspace_smoke_trace_final_event_guard"
       ],
       "evidence": [
         {
@@ -189,6 +195,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_FINAL_EVENT_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "github_related_project_research",
@@ -385,7 +395,8 @@
         "browser_smoke_clear_error_expected_text_guard",
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
-        "desci_job_stream_partial_false_guard"
+        "desci_job_stream_partial_false_guard",
+        "workspace_smoke_trace_final_event_guard"
       ],
       "evidence": [
         {
@@ -483,6 +494,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_FINAL_EVENT_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "beyond_user_expected_quality",

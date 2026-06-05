@@ -155,8 +155,10 @@ later check leaves a `partial` report with the finished checks preserved.
 Use `--mcp-trace-out <path>` when a scheduled or manual MCP run needs a
 standalone JSONL event stream for external trace consumers. The JSONL file is
 also refreshed after each completed check and contains one
-`workspace_smoke.mcp_check` event per completed MCP check. Non-MCP scopes write
-an empty trace file when the flag is supplied.
+`workspace_smoke.mcp_check` event per completed MCP check followed by one
+`workspace_smoke.mcp_trace_complete` terminal event with `partial=false`.
+Non-MCP scopes write the terminal event with zero completed MCP checks when the
+flag is supplied.
 Use `--mcp-otel-out <path>` when the same MCP evidence needs an
 OpenTelemetry Protocol file-exporter style JSONL object. The file is opt-in,
 refreshed after each completed check, contains one `resourceSpans` object with
@@ -199,7 +201,7 @@ Each `results` entry contains:
 - `started_at_unix_nano`
 - `ended_at_unix_nano`
 
-Each `--mcp-trace-out` JSONL event contains:
+Each `workspace_smoke.mcp_check` JSONL event contains:
 
 - `schema_version`
 - `event_type` (`workspace_smoke.mcp_check`)
@@ -214,6 +216,20 @@ Each `--mcp-trace-out` JSONL event contains:
 - `elapsed_seconds`
 - `stdout_tail`
 - `stderr_tail`
+
+The final `workspace_smoke.mcp_trace_complete` JSONL event contains:
+
+- `schema_version`
+- `event_type` (`workspace_smoke.mcp_trace_complete`)
+- `generated_at`
+- `scope` (`mcp`)
+- `partial` (`false`)
+- `completed`
+- `passed`
+- `failed`
+- `elapsed_seconds`
+- `checked_units`
+- `command_kinds`
 
 Each `--mcp-otel-out` JSONL line follows the OpenTelemetry Protocol file
 exporter shape:

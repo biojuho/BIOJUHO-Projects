@@ -216,6 +216,34 @@ def test_build_mcp_trace_events_exports_jsonl_ready_rows() -> None:
     assert events[0]["stderr_tail"] == "failed"
 
 
+def test_build_mcp_trace_complete_event_exports_final_partial_false() -> None:
+    smoke = load_smoke_module()
+    results = [
+        smoke.Result("workspace", "workspace regression tests", ".", "python -m pytest tests", 0, True, "ok", ""),
+        smoke.Result(
+            "mcp",
+            "DailyNews unit tests",
+            "automation/DailyNews",
+            "python -m pytest tests/unit",
+            1,
+            False,
+            "",
+            "failed",
+            elapsed_seconds=2.5,
+        ),
+    ]
+
+    event = smoke.build_mcp_trace_complete_event(results)
+
+    assert event["schema_version"] == 1
+    assert event["event_type"] == "workspace_smoke.mcp_trace_complete"
+    assert event["scope"] == "mcp"
+    assert event["partial"] is False
+    assert event["completed"] == 1
+    assert event["passed"] == 0
+    assert event["failed"] == 1
+
+
 def test_drain_mcp_trace_events_drains_after_handler_ignores_stream() -> None:
     smoke = load_smoke_module()
     events = [
@@ -710,12 +738,41 @@ def test_write_mcp_trace_export_replaces_existing_jsonl(tmp_path) -> None:
     smoke.write_mcp_trace_export(trace_path, results, event_stream_handler=lambda stream: None)
 
     lines = trace_path.read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 2
+    assert len(lines) == 3
     event = json.loads(lines[0])
     assert event["event_type"] == "workspace_smoke.mcp_check"
     assert event["name"] == "DailyNews unit tests"
     assert event["command_kind"] == "pytest"
+    final_event = json.loads(lines[-1])
+    assert final_event["event_type"] == "workspace_smoke.mcp_trace_complete"
+    assert final_event["partial"] is False
+    assert final_event["completed"] == 2
     assert (tmp_path / ".mcp-trace.jsonl.tmp").exists() is False
+
+
+def test_write_mcp_trace_export_keeps_final_event_after_handler_reads_prefix(tmp_path) -> None:
+    smoke = load_smoke_module()
+    trace_path = tmp_path / "mcp-trace.jsonl"
+    results = [
+        smoke.Result("mcp", "DailyNews unit tests", "automation/DailyNews", "python -m pytest tests/unit", 0, True, "", ""),
+        smoke.Result("mcp", "Canva MCP tools", "mcp/canva-mcp", "npm run test", 0, True, "", ""),
+    ]
+    consumed = []
+
+    def handler(stream):
+        consumed.append(next(iter(stream))["event_type"])
+
+    smoke.write_mcp_trace_export(trace_path, results, event_stream_handler=handler)
+
+    lines = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()]
+    assert consumed == ["workspace_smoke.mcp_check"]
+    assert [event["event_type"] for event in lines] == [
+        "workspace_smoke.mcp_check",
+        "workspace_smoke.mcp_check",
+        "workspace_smoke.mcp_trace_complete",
+    ]
+    assert lines[-1]["partial"] is False
+    assert lines[-1]["completed"] == 2
 
 
 def test_write_mcp_otel_export_replaces_existing_jsonl(tmp_path) -> None:
@@ -788,8 +845,10 @@ def test_main_writes_mcp_trace_export_for_selected_scope(tmp_path, monkeypatch) 
     events = (tmp_path / "mcp-trace.jsonl").read_text(encoding="utf-8").splitlines()
     otel_lines = (tmp_path / "mcp-otel.jsonl").read_text(encoding="utf-8").splitlines()
     assert report["mcp_trace"]["enabled"] is True
-    assert len(events) == 1
+    assert len(events) == 2
     assert json.loads(events[0])["name"] == "fake mcp check"
+    assert json.loads(events[-1])["event_type"] == "workspace_smoke.mcp_trace_complete"
+    assert json.loads(events[-1])["partial"] is False
     assert len(otel_lines) == 1
     otel_payload = json.loads(otel_lines[0])
     assert otel_payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["name"] == (

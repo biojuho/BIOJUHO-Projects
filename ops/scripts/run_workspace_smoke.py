@@ -806,6 +806,24 @@ def build_mcp_trace_events(results: Sequence[Result]) -> list[dict[str, object]]
     ]
 
 
+def build_mcp_trace_complete_event(results: Sequence[Result]) -> dict[str, object]:
+    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    trace = build_mcp_trace(results)
+    return {
+        "schema_version": 1,
+        "event_type": "workspace_smoke.mcp_trace_complete",
+        "generated_at": generated_at,
+        "scope": "mcp",
+        "partial": False,
+        "completed": trace["completed"],
+        "passed": trace["passed"],
+        "failed": trace["failed"],
+        "elapsed_seconds": trace["elapsed_seconds"],
+        "checked_units": trace["checked_units"],
+        "command_kinds": trace["command_kinds"],
+    }
+
+
 def make_otel_trace_id(seed: str) -> str:
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
@@ -975,7 +993,7 @@ def write_mcp_trace_export(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = out_path.with_name(f".{out_path.name}.tmp")
     events = drain_mcp_trace_events(
-        build_mcp_trace_events(results),
+        [*build_mcp_trace_events(results), build_mcp_trace_complete_event(results)],
         event_stream_handler=event_stream_handler,
     )
     content = "".join(f"{json.dumps(event, ensure_ascii=False)}\n" for event in events)
