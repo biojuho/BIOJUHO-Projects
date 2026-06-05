@@ -141,7 +141,7 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "1191bf6",
+            "0b2ba45",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
@@ -165,10 +165,11 @@
             "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_TOOL_ERROR_CONTINUATION_2026-06-05.md",
             "ops/scripts/agent_workflow_gate_runner.py",
             "tests/test_agent_workflow_gate_runner.py",
-            "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_STATE_SNAPSHOT_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_STATE_SNAPSHOT_GUARD_2026-06-05.md",
+            "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "1191bf6",
+            "proof_commit": "0b2ba45",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -1056,12 +1057,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "c5f76d4",
+            "0b2ba45",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "c5f76d4",
+            "proof_commit": "0b2ba45",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",

@@ -46,6 +46,12 @@ Generated at: `2026-06-05T10:45:00+09:00`
 - `python ops\scripts\dev_server_status.py --target canva-widget-preview --format table`
   - final state: `UNREADY` after stop
 
+## Freshness Baseline
+
+- Pushed proof commit: `0b2ba45`.
+- Post-push completion audit failed against the prior protected-path baseline because `mcp/canva-mcp/package.json` and `mcp/canva-mcp/package-lock.json` changed in the product commit.
+- `current_tip_freshness_gate` and `direct_browser_qa_freshness_gate` now use `0b2ba45`, so the protected-path diff after the proof baseline is empty.
+
 ## Boundaries
 
 - This does not claim live Canva OAuth or OpenAPI tool execution.

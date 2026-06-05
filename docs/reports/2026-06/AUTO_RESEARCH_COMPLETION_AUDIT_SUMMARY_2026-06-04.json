@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 27,
+          "term_count": 28,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
