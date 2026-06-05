@@ -351,6 +351,13 @@ const interactionExpression = `
   let focalboardCandidateFreshnessVisibleOk = false;
   let epicenterCandidateFreshnessVisibleOk = false;
   let openLoafCandidateFreshnessVisibleOk = false;
+  const remainingWorkspaceFreshnessOk = {
+    workstream: false,
+    taskosaur: false,
+    markdownTaskManager: false,
+    taskcoach: false,
+    fluidCalendar: false,
+  };
   let veritasCandidateFreshnessVisibleOk = false;
   let openProjectCandidateFreshnessVisibleOk = false;
   let leantimeCandidateFreshnessVisibleOk = false;
@@ -546,6 +553,17 @@ const interactionExpression = `
     assert(anytypeCandidate && anytypeCandidate.sourceKind === "adoption-candidate", "Anytype workspace benchmark candidate was not loaded");
     const focalboardCandidate = dashboard.projects.find((project) => project.name === "mattermost-community/focalboard");
     assert(focalboardCandidate && focalboardCandidate.sourceKind === "adoption-candidate", "Focalboard workspace benchmark candidate was not loaded");
+    const remainingFreshnessTargets = [
+      { key: "workstream", name: "happybhati/workstream", expectedUrl: "https://github.com/happybhati/workstream" },
+      { key: "taskosaur", name: "Taskosaur/Taskosaur", expectedUrl: "https://github.com/Taskosaur/Taskosaur" },
+      { key: "markdownTaskManager", name: "ioniks/MarkdownTaskManager", expectedUrl: "https://github.com/ioniks/MarkdownTaskManager" },
+      { key: "taskcoach", name: "taskcoach/taskcoach", expectedUrl: "https://github.com/taskcoach/taskcoach" },
+      { key: "fluidCalendar", name: "dotnetfactory/fluid-calendar", expectedUrl: "https://github.com/dotnetfactory/fluid-calendar" },
+    ].map((target) => {
+      const candidate = dashboard.projects.find((project) => project.name === target.name);
+      assert(candidate && candidate.sourceKind === "adoption-candidate", target.name + " workspace benchmark candidate was not loaded");
+      return { ...target, candidate };
+    });
     const riskCandidate = dashboard.projects.find((project) => project.name === "opf/openproject");
     assert(riskCandidate && projectCandidateAction(riskCandidate)?.label === "리스크 리뷰", "OpenProject candidate risk action was not computed");
     const adoptionResponse = await fetch("./data/adoption-candidates.json", { cache: "no-store" });
@@ -582,6 +600,11 @@ const interactionExpression = `
     const snapshotFocalboard = adoptionSnapshot.projects.find((project) => project.name === "mattermost-community/focalboard");
     assert(snapshotFocalboard && /^[0-9a-f]{40}$/i.test(snapshotFocalboard.lastCommit || "") && !Number.isNaN(Date.parse(snapshotFocalboard.pushedAt || "")), "Focalboard snapshot freshness evidence was missing");
     const shortFocalboardCommit = snapshotFocalboard.lastCommit.slice(0, 8);
+    const remainingFreshnessSnapshots = remainingFreshnessTargets.map((target) => {
+      const snapshot = adoptionSnapshot.projects.find((project) => project.name === target.name);
+      assert(snapshot && /^[0-9a-f]{40}$/i.test(snapshot.lastCommit || "") && !Number.isNaN(Date.parse(snapshot.pushedAt || "")), target.name + " snapshot freshness evidence was missing");
+      return { ...target, snapshot, shortCommit: snapshot.lastCommit.slice(0, 8) };
+    });
     assert(epicenterCandidate.lastCommit === snapshotEpicenter.lastCommit, "Epicenter candidate commit was stale");
     assert(epicenterCandidate.pushedAt === snapshotEpicenter.pushedAt, "Epicenter candidate pushedAt was stale");
     assert(candidate.lastCommit === snapshotOpenLoaf.lastCommit, "OpenLoaf candidate commit was stale");
@@ -606,6 +629,10 @@ const interactionExpression = `
     assert(anytypeCandidate.pushedAt === snapshotAnytype.pushedAt, "Anytype candidate pushedAt was stale");
     assert(focalboardCandidate.lastCommit === snapshotFocalboard.lastCommit, "Focalboard candidate commit was stale");
     assert(focalboardCandidate.pushedAt === snapshotFocalboard.pushedAt, "Focalboard candidate pushedAt was stale");
+    remainingFreshnessSnapshots.forEach((target) => {
+      assert(target.candidate.lastCommit === target.snapshot.lastCommit, target.name + " candidate commit was stale");
+      assert(target.candidate.pushedAt === target.snapshot.pushedAt, target.name + " candidate pushedAt was stale");
+    });
     leantimeCandidate.lastCommit = null;
     leantimeCandidate.pushedAt = "2026-01-01T00:00:00Z";
     leantimeCandidate.stars = 1;
@@ -744,6 +771,22 @@ const interactionExpression = `
     assert(focalboardCommit.dataset.candidatePushedAt === snapshotFocalboard.pushedAt, "Focalboard pushedAt freshness marker did not render");
     const focalboardHref = qs(".portfolio-candidate-link", focalboardCard).href;
     assert(focalboardHref === "https://github.com/mattermost-community/focalboard" || focalboardHref === "https://github.com/mattermost-community/focalboard/", "Focalboard GitHub link did not render safely");
+    for (const target of remainingFreshnessSnapshots) {
+      fill("#globalSearch", target.shortCommit);
+      await waitFor(() => state.query === target.shortCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, target.name + " commit search did not filter portfolio");
+      await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + target.candidate.id + '"]'), target.name + " portfolio card did not render after commit search");
+      const targetCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + target.candidate.id + '"]');
+      const targetText = targetCard.innerText;
+      assert(targetText.includes(target.name), target.name + " candidate card did not render");
+      assert(targetText.includes(formatMetric(target.snapshot.stars)), target.name + " star count did not render");
+      assert(targetText.includes(formatMetric(target.snapshot.forks)), target.name + " fork count did not render");
+      const targetCommit = qs("[data-candidate-commit]", targetCard);
+      assert(targetCommit.dataset.candidateCommit === target.shortCommit, target.name + " freshness commit did not render");
+      assert(targetCommit.dataset.candidatePushedAt === target.snapshot.pushedAt, target.name + " pushedAt freshness marker did not render");
+      const targetHref = qs(".portfolio-candidate-link", targetCard).href;
+      assert(targetHref === target.expectedUrl || targetHref === target.expectedUrl + "/", target.name + " GitHub link did not render safely");
+      remainingWorkspaceFreshnessOk[target.key] = true;
+    }
     fill("#globalSearch", shortVeritasCommit);
     await waitFor(() => state.query === shortVeritasCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Veritas commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + veritasCandidate.id + '"]'), "Veritas portfolio card did not render after commit search");
@@ -1020,6 +1063,11 @@ const interactionExpression = `
     focalboardCandidateFreshnessVisible: focalboardCandidateFreshnessVisibleOk,
     epicenterCandidateFreshnessVisible: epicenterCandidateFreshnessVisibleOk,
     openLoafCandidateFreshnessVisible: openLoafCandidateFreshnessVisibleOk,
+    workstreamCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.workstream,
+    taskosaurCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.taskosaur,
+    markdownTaskManagerCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.markdownTaskManager,
+    taskcoachCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.taskcoach,
+    fluidCalendarCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.fluidCalendar,
     veritasCandidateFreshnessVisible: veritasCandidateFreshnessVisibleOk,
     openProjectCandidateFreshnessVisible: openProjectCandidateFreshnessVisibleOk,
     leantimeCandidateFreshnessVisible: leantimeCandidateFreshnessVisibleOk,

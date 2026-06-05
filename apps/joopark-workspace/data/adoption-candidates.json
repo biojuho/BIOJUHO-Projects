@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T00:40:30+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh",
+  "generatedAt": "2026-06-06T00:58:00+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -784,7 +784,7 @@
       "diskKb": 1632,
       "pushedAt": "2026-04-24T09:38:51Z",
       "createdAt": "2026-04-14T13:33:49Z",
-      "lastCommit": null
+      "lastCommit": "ff358f14d0624529589a4c86df14f6928d0e46a2"
     },
     {
       "id": "repo-taskosaur-taskosaur",
@@ -809,11 +809,11 @@
       "mergedPRs": 0,
       "closedIssues": 0,
       "stars": 493,
-      "forks": 95,
+      "forks": 96,
       "diskKb": 9677,
       "pushedAt": "2026-06-02T11:00:39Z",
       "createdAt": "2025-07-30T07:23:19Z",
-      "lastCommit": null
+      "lastCommit": "3a6e39f662c6fd8b22980c16d4441d8887347c31"
     },
     {
       "id": "repo-mattermost-community-focalboard",
@@ -871,7 +871,7 @@
       "diskKb": 812,
       "pushedAt": "2025-11-14T09:14:35Z",
       "createdAt": "2025-11-10T07:33:41Z",
-      "lastCommit": null
+      "lastCommit": "e0551bc7a4367c20ba9239292f10e13707b6b765"
     },
     {
       "id": "repo-taskcoach-taskcoach",
@@ -900,7 +900,7 @@
       "diskKb": 590173,
       "pushedAt": "2026-05-28T16:07:10Z",
       "createdAt": "2024-05-11T07:17:09Z",
-      "lastCommit": null
+      "lastCommit": "dad6168f8771cda4566dedfad1e678ea253c2a7f"
     },
     {
       "id": "repo-dotnetfactory-fluid-calendar",
@@ -929,7 +929,7 @@
       "diskKb": 2279,
       "pushedAt": "2026-05-28T16:42:40Z",
       "createdAt": "2025-02-17T12:34:57Z",
-      "lastCommit": null
+      "lastCommit": "1c6de42da24520d0a917b5e3b5044f53573c023e"
     },
     {
       "id": "repo-colanode-colanode",
