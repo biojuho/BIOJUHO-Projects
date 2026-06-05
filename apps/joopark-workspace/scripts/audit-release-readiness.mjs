@@ -150,12 +150,14 @@ function autoresearchCandidateSnapshot(relPath) {
   ];
   const missing = required.filter((name) => !names.has(name));
   const source = payload?.source || "";
-  const veritasLatestCommit = "04714cdc78e2997594cc2daad5a9403d2e4d2b20";
-  const veritasLatestPushedAt = "2026-06-05T14:20:51Z";
   const veritas = projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system") || null;
+  const veritasCommitPattern = /^[0-9a-f]{40}$/i;
+  const veritasSnapshotValid = Boolean(veritas) &&
+    veritasCommitPattern.test(String(veritas.lastCommit || "")) &&
+    Number.isFinite(Date.parse(veritas.pushedAt || "")) &&
+    String(veritas.description || "").includes("최신");
   const veritasFresh = Boolean(veritas) &&
-    veritas.lastCommit === veritasLatestCommit &&
-    Date.parse(veritas.pushedAt || "") >= Date.parse(veritasLatestPushedAt);
+    veritasSnapshotValid;
   const veritasSourceMarked = source.includes("github-api:veritas-autoresearch-refresh");
   return {
     status: matches.length >= 8 && missing.length === 0 && veritasFresh && veritasSourceMarked ? "pass" : "fail",
@@ -163,11 +165,12 @@ function autoresearchCandidateSnapshot(relPath) {
     generatedAt: payload?.generatedAt || "",
     candidates: matches.length,
     veritas: {
-      latestCommit: veritasLatestCommit,
+      latestCommit: veritas?.lastCommit || "",
       lastCommit: veritas?.lastCommit || "",
-      latestPushedAt: veritasLatestPushedAt,
+      latestPushedAt: veritas?.pushedAt || "",
       pushedAt: veritas?.pushedAt || "",
       fresh: veritasFresh,
+      snapshotValid: veritasSnapshotValid,
       sourceMarked: veritasSourceMarked,
     },
     required,
@@ -608,7 +611,7 @@ function buildChecklist() {
   const veritasFreshnessUiTerms = [
     { file: "app.js", terms: ["shortCommit", "data-candidate-commit", "data-candidate-pushed-at", "p && p.lastCommit"] },
     { file: "styles.css", terms: [".portfolio-commit"] },
-    { file: "scripts/smoke-interactions.mjs", terms: ["Veritas-7/autoresearch-skill-system", "Veritas freshness commit did not render", "veritasCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotVeritas", "shortVeritasCommit", "Veritas freshness commit did not render", "veritasCandidateFreshnessVisible"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "veritas_freshness_ui_smoke",

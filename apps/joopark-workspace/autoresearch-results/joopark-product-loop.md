@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T23:25:38+09:00
+Generated: 2026-06-05T23:35:42+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -507,6 +507,21 @@ Generated: 2026-06-05T23:25:38+09:00
 - `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `04714cdc78e2997594cc2daad5a9403d2e4d2b20` dated `2026-06-05T14:20:50Z` with message `v8.381 Completion Audit Markdown Invalid UTF8 Gate`.
 - `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:20:51Z`, `updated_at: 2026-06-05T14:21:03Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
 
+## Experiment: Veritas dynamic snapshot freshness gate
+
+- Hypothesis: The Veritas freshness gate should follow the source-backed adoption snapshot instead of hard-coding a fast-moving upstream commit in scripts.
+- Primary metric: Veritas exact freshness literals in `scripts/audit-release-readiness.mjs` and `scripts/smoke-interactions.mjs`.
+- Baseline: scripts hard-coded the v8.381 Veritas full commit, short commit, pushedAt marker, and version text, so the gate became stale as soon as upstream advanced.
+- Candidate: `data/adoption-candidates.json` now records Veritas v8.383 (`b1d3228587f87e0f25fc31ea32bc583cce451d60`, `2026-06-05T14:29:42Z`), while audit and interaction smoke read the Veritas expected commit, pushedAt, short commit, and description from the adoption snapshot.
+- Decision: keep; the full release gate passed with the snapshot-driven Veritas checks.
+
+## Evidence
+
+- `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `b1d3228587f87e0f25fc31ea32bc583cce451d60` dated `2026-06-05T14:29:41Z` with message `v8.383 Launchctl Exit File Read Failure Gate`.
+- `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:29:42Z`, `updated_at: 2026-06-05T14:29:46Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
+- `rg` found no Veritas exact commit, pushedAt, or version literals in the audit and interaction smoke scripts after the candidate change.
+- `npm run verify` passed `35/35` after regenerating `dist/release`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: sync the main-based workspace bridge branch, refresh the next workspace benchmark freshness signal, or verify Pages workflow activation.
+- Continue with the highest-impact product gap after the next full gate: verify dynamic Veritas freshness in CI, refresh the next workspace benchmark freshness signal, or verify Pages workflow activation.

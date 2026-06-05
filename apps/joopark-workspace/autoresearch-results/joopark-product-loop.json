@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T23:25:38+09:00",
+  "generatedAt": "2026-06-05T23:35:42+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -36,6 +36,7 @@
       "pagesWorkflowHandoffChecks": 5,
       "mainBridgeStrategyChecks": 5,
       "candidateMetadataRefreshChecks": 1,
+      "veritasHardcodedFreshnessLiterals": 0,
       "veritasFreshnessChecks": 5,
       "openProjectFreshnessChecks": 6,
       "leantimeFreshnessChecks": 6,
@@ -297,6 +298,13 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
+    },
+    {
+      "id": "veritas-dynamic-snapshot-freshness-gate",
+      "primaryMetric": "veritasHardcodedFreshnessLiterals",
+      "baseline": 8,
+      "candidate": 0,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -308,7 +316,7 @@
     "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
   },
   "nextCandidates": [
-    "main-based workspace bridge sync",
+    "verify dynamic Veritas freshness in CI",
     "next workspace benchmark freshness refresh",
     "Pages workflow activation verification"
   ]
