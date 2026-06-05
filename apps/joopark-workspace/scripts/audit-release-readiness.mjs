@@ -336,6 +336,19 @@ function buildChecklist() {
     evidence: storageTerms,
   });
 
+  const releasePublicationTerms = [
+    { file: "app.js", terms: ["RELEASE_INFO", "data-release-card", "data-release-download", "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"] },
+    { file: "styles.css", terms: [".release-panel", ".release-digest", ".release-link"] },
+    { file: "README.md", terms: ["JooPark Workspace v3.0.0](https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0)", "joopark-workspace-v3.0.0.zip", "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["releaseInfoVisible", "release info panel did not render", "release asset digest did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "release_publication_surface",
+    requirement: "The settings screen, README, and interaction smoke expose the published GitHub release URL, download asset, checksum, and target commit.",
+    status: releasePublicationTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: releasePublicationTerms,
+  });
+
   const docTerms = hasTerms("README.md", [
     "node scripts/smoke-release.mjs",
     "node scripts/smoke-mobile.mjs",

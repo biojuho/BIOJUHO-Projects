@@ -347,6 +347,7 @@ const interactionExpression = `
   let candidateNextActionVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
+  let releaseInfoVisibleOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -705,6 +706,14 @@ const interactionExpression = `
     const name = marker + " user";
     await nav("settings");
     await waitFor(() => document.querySelector("[data-storage-health]"), "storage health panel did not render");
+    await waitFor(() => document.querySelector("[data-release-card]"), "release info panel did not render");
+    const releaseText = qs("[data-release-card]").innerText;
+    const releaseDownload = qs("[data-release-download]");
+    const releaseDigest = qs("[data-release-digest]").textContent;
+    assert(releaseText.includes("joopark-workspace-v3.0.0"), "release tag did not render");
+    assert(releaseDownload.href.includes("/releases/download/joopark-workspace-v3.0.0/joopark-workspace-v3.0.0.zip"), "release download link did not render");
+    assert(releaseDigest.includes("704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"), "release asset digest did not render");
+    releaseInfoVisibleOk = true;
     click('[data-action="refresh-storage-health"]');
     await waitFor(() => {
       const status = document.querySelector("#storageHealthStatus");
@@ -796,6 +805,7 @@ const interactionExpression = `
     candidateNextActionVisible: candidateNextActionVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
+    releaseInfoVisible: releaseInfoVisibleOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);
