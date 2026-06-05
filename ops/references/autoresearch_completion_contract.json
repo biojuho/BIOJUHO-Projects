@@ -141,7 +141,7 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "f03c27c",
+            "7ef2d1e",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
@@ -151,10 +151,11 @@
             ".gitattributes",
             "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_TIMESTAMP_IDENTITY_GUARD_2026-06-05.md",
-            "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
+            "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "f03c27c",
+            "proof_commit": "7ef2d1e",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -193,6 +194,7 @@
               "tests/test_github_source_review_queue.py",
               "tests/test_agent_workflow_gate_runner.py",
               "tests/test_mcp_service_runtime_smoke.py",
+              "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
               "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
             ]
           }
@@ -967,12 +969,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "f03c27c",
+            "7ef2d1e",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "f03c27c",
+            "proof_commit": "7ef2d1e",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -1014,6 +1016,16 @@
             "MCP Service Runtime Launch Failure Guard",
             "protected_path_freshness",
             "f03c27c",
+            "no changed protected paths after proof",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "must_contain": [
+            "DeSci Upload Filename Guard",
+            "protected_path_freshness",
+            "7ef2d1e",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]

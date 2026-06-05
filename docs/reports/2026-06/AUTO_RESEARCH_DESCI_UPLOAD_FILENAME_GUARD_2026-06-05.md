@@ -64,9 +64,10 @@
 
 ## Freshness Baseline
 
-- Pushed proof commit: pending product push.
-- `current_tip_freshness_gate`: pending refresh after the product commit is on
+- Pushed proof commit: `7ef2d1e`.
+- `current_tip_freshness_gate`: `7ef2d1e` is the active proof baseline for
   `origin/feat/observability-gateway-2026-05`.
+- `protected_path_freshness`: no changed protected paths after proof.
 - Audit marker: `global_objective_complete=false`.
 
 ## Next Cycle

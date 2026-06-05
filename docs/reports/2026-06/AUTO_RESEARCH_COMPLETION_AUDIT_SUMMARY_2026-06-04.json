@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 13,
+          "term_count": 14,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -646,6 +646,13 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
