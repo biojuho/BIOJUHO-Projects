@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T23:05:50+09:00
+Generated: 2026-06-05T23:25:38+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -493,6 +493,19 @@ Generated: 2026-06-05T23:05:50+09:00
 ## Evidence
 
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 35/35 with `persistedChecks.candidateMetadataRefresh: true`, 18 interaction steps, 15 desktop routes, 15 mobile routes, 0 console/network/layout failures, accessibility pass, release header checks 6/6, and fallback checks 4/4.
+
+## Experiment: Veritas AutoResearch refresh v8.381
+
+- Hypothesis: The product launch data should track the current Veritas upstream head instead of the earlier v8.374 evidence when the source-backed harness advances.
+- Primary metric: `veritasCurrentHeadFresh`.
+- Baseline: GitHub API showed Veritas had advanced from `b0d4177dadce49f78f6978a2a36c777698ca9cb2` / `2026-06-05T13:51:51Z`, while the workspace snapshot and smoke still required that older commit.
+- Candidate: `data/adoption-candidates.json`, release audit, and packaged interaction smoke now require Veritas `lastCommit: 04714cdc78e2997594cc2daad5a9403d2e4d2b20`, `pushedAt: 2026-06-05T14:20:51Z`, and a `04714cdc` portfolio commit search.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `04714cdc78e2997594cc2daad5a9403d2e4d2b20` dated `2026-06-05T14:20:50Z` with message `v8.381 Completion Audit Markdown Invalid UTF8 Gate`.
+- `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:20:51Z`, `updated_at: 2026-06-05T14:21:03Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
 
 ## Next Loop
 

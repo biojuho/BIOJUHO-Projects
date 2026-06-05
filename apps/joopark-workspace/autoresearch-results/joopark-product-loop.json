@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T23:05:50+09:00",
+  "generatedAt": "2026-06-05T23:25:38+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -287,6 +287,13 @@
     {
       "id": "candidate-metadata-refresh-gate-coverage",
       "primaryMetric": "candidateMetadataRefresh",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-autoresearch-refresh-v8381",
+      "primaryMetric": "veritasCurrentHeadFresh",
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
