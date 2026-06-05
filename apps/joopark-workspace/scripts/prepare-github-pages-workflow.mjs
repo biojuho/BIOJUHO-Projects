@@ -16,6 +16,13 @@ const args = new Set(process.argv.slice(2));
 const dryRun = args.has("--dry-run") || !args.has("--write");
 const write = args.has("--write") && !dryRun;
 const force = args.has("--force");
+const checkScope = args.has("--check-scope") || write;
+const workflowScope = checkScope ? inspectWorkflowScope() : {
+  checked: false,
+  available: null,
+  scopes: [],
+  source: "not-requested",
+};
 
 const requiredTerms = [
   "workflow_dispatch:",
@@ -42,6 +49,35 @@ function gitRoot() {
   }
 }
 
+function inspectWorkflowScope() {
+  try {
+    const output = execFileSync("gh", ["api", "-i", "user"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const scopeHeader = output.split(/\r?\n/).find((line) => /^x-oauth-scopes:/i.test(line)) || "";
+    const scopes = scopeHeader
+      .replace(/^x-oauth-scopes:\s*/i, "")
+      .split(",")
+      .map((scope) => scope.trim())
+      .filter(Boolean);
+    return {
+      checked: true,
+      available: scopes.includes("workflow"),
+      scopes,
+      source: "gh-api-header",
+    };
+  } catch (error) {
+    return {
+      checked: true,
+      available: false,
+      scopes: [],
+      source: "gh-api-header",
+      error: String(error?.message || error).slice(0, 240),
+    };
+  }
+}
+
 function result(status, extra = {}) {
   const payload = {
     status,
@@ -53,6 +89,9 @@ function result(status, extra = {}) {
     willWrite: write,
     force,
     workflowScopeRequired: true,
+    workflowScopeChecked: workflowScope.checked,
+    workflowScopeAvailable: workflowScope.available,
+    workflowScope,
     workflowScopeHint: "Commit or push the repository-root workflow only with a GitHub token or UI session that has workflow scope.",
     ...extra,
   };
@@ -79,6 +118,21 @@ if (!write) {
       requiredTerms: true,
       targetPath: true,
       noImplicitWrite: true,
+      workflowScopePreflight: workflowScope.checked ? workflowScope.available : null,
+    },
+  });
+}
+
+if (!workflowScope.available) {
+  result("fail", {
+    reason: "missing workflow scope",
+    targetExists: existsSync(targetPath),
+    checks: {
+      templateExists: true,
+      requiredTerms: true,
+      targetPath: true,
+      explicitWrite: true,
+      workflowScopePreflight: false,
     },
   });
 }

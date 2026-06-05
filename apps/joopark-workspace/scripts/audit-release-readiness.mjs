@@ -389,8 +389,8 @@ function buildChecklist() {
 
   const workflowHandoffDryRun = githubPagesWorkflowHandoffDryRun();
   const workflowHandoffTerms = [
-    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "workflowScopeRequired", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath"] },
-    { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --write", "repository root", "workflow` scope"] },
+    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "--check-scope", "workflowScopeRequired", "workflowScopeAvailable", "missing workflow scope", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath"] },
+    { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope", "node scripts/prepare-github-pages-workflow.mjs --write", "repository root", "workflowScopeAvailable", "workflow` scope"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const workflowHandoffFiles = workflowHandoffScripts.map((path) => ({ path, exists: fileExists(path) }));
   checklist.push({

@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T00:05:33+09:00
+Generated: 2026-06-06T00:12:45+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -552,6 +552,21 @@ Generated: 2026-06-06T00:05:33+09:00
 - `rg` found no OpenProject or Leantime exact commit, pushedAt, or short commit literals in the audit and interaction smoke scripts after the candidate change.
 - `npm run verify` passed `35/35` after regenerating `dist/release`.
 
+## Experiment: GitHub Pages workflow scope preflight
+
+- Hypothesis: Pages workflow activation is safer when the handoff script detects missing `workflow` scope before writing the repository-root workflow file.
+- Primary metric: Pages workflow scope preflight checks.
+- Baseline: `scripts/prepare-github-pages-workflow.mjs --write` validated the template and explicit write mode, but did not inspect the current GitHub token scope before attempting the repository-root workflow write.
+- Candidate: `scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` reports `workflowScopeAvailable`, and `--write` fails before creating `.github/workflows/joopark-pages.yml` when the current token lacks `workflow` scope.
+- Decision: keep; current token lacks `workflow` scope, so activation remains a follow-up for a workflow-scope token or GitHub UI session.
+
+## Evidence
+
+- `gh api -i user` reported `X-Oauth-Scopes: gist, read:org, repo`, with no `workflow` scope.
+- `node scripts/prepare-github-pages-workflow.mjs --dry-run` passed with `workflowScopeChecked: false`, `workflowScopeAvailable: null`, and `willWrite: false`.
+- `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` passed with `workflowScopeChecked: true`, `workflowScopeAvailable: false`, and scopes `gist`, `read:org`, `repo`.
+- `node scripts/prepare-github-pages-workflow.mjs --write` failed before writing with `reason: missing workflow scope`, `workflowScopeAvailable: false`, and no `.github/workflows/joopark-pages.yml` file created.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: verify dynamic PM benchmark freshness in CI, verify Pages workflow activation, or refresh the next workspace benchmark freshness signal.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, or refresh the next workspace benchmark freshness signal.
