@@ -209,6 +209,18 @@ function projectBenchmarkFocus(p) {
   return { surface, flow, signals };
 }
 
+function projectBenchmarkRubric(p) {
+  const focus = p && typeof p.benchmarkFocus === "object" ? p.benchmarkFocus : null;
+  const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
+  return rubric
+    .map((row) => ({
+      axis: String(row && row.axis || "").trim(),
+      value: String(row && row.value || "").trim(),
+    }))
+    .filter((row) => row.axis && row.value)
+    .slice(0, 6);
+}
+
 function projectAdoptionMeta(p) {
   if (!p || p.sourceKind !== "adoption-candidate") return "";
   const stage = ADOPTION_STAGE_LABEL[p.adoptionStage] || p.adoptionStage || "검토";
@@ -1036,6 +1048,34 @@ function candidateBenchmarkQueueSummary(projects, filter) {
   `;
 }
 
+function candidateBenchmarkRubric(projects, filter) {
+  if (filter !== "focused") return "";
+  const focused = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0)).slice(0, 2);
+  if (focused.length < 2) return "";
+  const axes = ["입력 소스", "AI 보조", "PM 표면", "운영 방식"];
+  const valueFor = (project, axis) => projectBenchmarkRubric(project).find((row) => row.axis === axis)?.value || "비교 대기";
+  const header = html`
+    <div class="portfolio-rubric-axis">비교 축</div>
+    ${focused.map((project) => html`<div class="portfolio-rubric-project" data-rubric-project="${project.name}">${project.name}</div>`).join("")}
+  `;
+  const rows = axes.map((axis) => html`
+    <div class="portfolio-rubric-axis" data-benchmark-rubric-axis="${axis}">${axis}</div>
+    ${focused.map((project) => html`<div class="portfolio-rubric-value" data-rubric-project="${project.name}" data-rubric-axis="${axis}">${valueFor(project, axis)}</div>`).join("")}
+  `).join("");
+  return html`
+    <section class="portfolio-benchmark-rubric" data-candidate-benchmark-rubric>
+      <div class="portfolio-rubric-head">
+        <span>벤치 비교표</span>
+        <strong>${focused.map((project) => project.name.split("/").pop()).join(" / ")}</strong>
+      </div>
+      <div class="portfolio-rubric-grid">
+        ${raw(header)}
+        ${raw(rows)}
+      </div>
+    </section>
+  `;
+}
+
 function sortPortfolioProjects(projects) {
   if (state.portfolioFilter !== "candidates") return projects;
   if (state.portfolioBenchmarkFilter === "focused") return sortBenchmarkFocusProjects(projects);
@@ -1086,6 +1126,7 @@ function renderPortfolio() {
   }).join("");
   const actionSummary = candidateActionQueueSummary(dashboard.projects, state.portfolioActionFilter);
   const benchmarkSummary = candidateBenchmarkQueueSummary(dashboard.projects, state.portfolioBenchmarkFilter);
+  const benchmarkRubric = candidateBenchmarkRubric(dashboard.projects, state.portfolioBenchmarkFilter);
 
   const stats = {
     total: dashboard.projects.length,
@@ -1159,6 +1200,7 @@ function renderPortfolio() {
     </div>
     ${raw(actionSummary)}
     ${raw(benchmarkSummary)}
+    ${raw(benchmarkRubric)}
     <section class="portfolio-grid">
       ${list.length === 0 ? raw(html`<article class="empty">일치하는 프로젝트가 없습니다.</article>`) : raw(list.map(card).join(""))}
     </section>
