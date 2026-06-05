@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `86`
-- Status counts: `blocked=1, covered=85`
+- Criteria: `87`
+- Status counts: `blocked=1, covered=86`
 
 ## Missing Required
 
@@ -140,7 +140,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `11`
+- Evidence paths: `13`
 
 ### browser_smoke_ephemeral_context_guard
 
@@ -525,6 +525,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### canva_search_continuation_action_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `8`
 
 ### external_credential_boundaries
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T14:13:03+09:00",
+  "generated_at": "2026-06-05T15:42:15+09:00",
   "objective_original": "제품출시할꺼야 제품완성해줘\n\n오토리서치 카파시 개념 스킬로 만들어줘 깃허브 관련 프로젝트도 모두 찾아서 보완하고 절대 명시적 멈추라는 말하기 전까지 끊임없이 A/B테스트 후 더 좋으면 채택하고 커밋푸시하는 자가개선하는 스킬을 만들어줘.\n\n코덱스 컴퓨터유즈 기능 사용해서 직접 앱 하나씩 클릭하며 오류 잡고 최적화해. 내가 생각하지 못한 부분까지 알아서 퀄리티 높여. 외부 조사 a/b 조사도하고 최신 코드 반영해서 내가 멈추라고 하기전까지 무한반복해 $오토리서치 오토리서치 스킬도 적극적으로 활용해.",
   "completion_contract": "ops/references/autoresearch_completion_contract.json",
   "policy": {
@@ -43,7 +43,8 @@
         "agent_workflow_role_policy_guard",
         "github_workflow_fork_remote_flag_guard",
         "schema_transactional_index_guard",
-        "github_workflow_dynamic_fork_owner_guard"
+        "github_workflow_dynamic_fork_owner_guard",
+        "canva_search_continuation_action_guard"
       ],
       "evidence": [
         {
@@ -248,6 +249,17 @@
             "8 passed",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
+          "must_contain": [
+            "Canva Search Continuation Action",
+            "mastra-ai/mastra",
+            "client tools for signal continuations",
+            "A/B Contract",
+            "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -305,7 +317,8 @@
         "agent_workflow_role_policy_guard",
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
-        "autoresearch_skill_body_hygiene_guard"
+        "autoresearch_skill_body_hygiene_guard",
+        "canva_search_continuation_action_guard"
       ],
       "evidence": [
         {
@@ -696,6 +709,17 @@
             "A/B Contract",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
+          "must_contain": [
+            "Canva Search Continuation Action",
+            "mastra-ai/mastra",
+            "client tools for signal continuations",
+            "A/B Contract",
+            "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
         }
       ],
       "residual_risk": "The word 'all' is unbounded; the current cycle proves a live tracked source set and recency gate, not an exhaustive internet-wide proof."
@@ -785,7 +809,8 @@
         "github_workflow_fork_remote_flag_guard",
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
-        "autoresearch_skill_body_hygiene_guard"
+        "autoresearch_skill_body_hygiene_guard",
+        "canva_search_continuation_action_guard"
       ],
       "evidence": [
         {
@@ -963,6 +988,17 @@
             "5 passed",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
+          "must_contain": [
+            "Canva Search Continuation Action",
+            "mastra-ai/mastra",
+            "client tools for signal continuations",
+            "A/B Contract",
+            "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -989,7 +1025,8 @@
         "browser_smoke_clear_error_expected_text_guard",
         "desci_job_stream_partial_false_guard",
         "canva_widget_message_capture_order_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "canva_search_continuation_action_guard"
       ],
       "evidence": [
         {
@@ -1151,6 +1188,26 @@
             "WebSocket failures: `0`",
             "websocket_failures=`0`"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
+          "must_contain": [
+            "Canva Search Continuation Action",
+            "mastra-ai/mastra",
+            "client tools for signal continuations",
+            "A/B Contract",
+            "pass: 9/9 actions",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_LOAD_MORE_2026-06-05.md",
+          "must_contain": [
+            "Canva Widget Click Smoke",
+            "Actions: `9`",
+            "`PASS` `load-more-click`",
+            "`4` `canva-load-more` `next_page_token_xyz`"
+          ]
         }
       ]
     },
@@ -1214,7 +1271,8 @@
         "getdaytrends_prompt_injection_normalization_guard",
         "schema_transactional_index_guard",
         "github_workflow_dynamic_fork_owner_guard",
-        "autoresearch_skill_body_hygiene_guard"
+        "autoresearch_skill_body_hygiene_guard",
+        "canva_search_continuation_action_guard"
       ],
       "evidence": [
         {
@@ -1574,6 +1632,17 @@
             "body-hygiene validator rule",
             "scripts and resources external",
             "embedded script/resource body content",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_SEARCH_CONTINUATION_ACTION_2026-06-05.md",
+          "must_contain": [
+            "Canva Search Continuation Action",
+            "mastra-ai/mastra",
+            "client tools for signal continuations",
+            "A/B Contract",
+            "pass: 9/9 actions",
             "global_objective_complete=false"
           ]
         }
