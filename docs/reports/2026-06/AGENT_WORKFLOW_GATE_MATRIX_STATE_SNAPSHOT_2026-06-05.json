@@ -1,0 +1,442 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T01:39:25.178147+00:00",
+  "status": "pass",
+  "execution_mode": "dry_run",
+  "will_execute": false,
+  "allow_side_effect_gates": false,
+  "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+  "source_context": {
+    "repo": "evalstate/fast-agent",
+    "url": "https://github.com/evalstate/fast-agent",
+    "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+  },
+  "summary": {
+    "requested_max_gates": 1,
+    "workflow_count": 6,
+    "passed_workflows": 6,
+    "failed_workflows": 0,
+    "selected_gates": 6,
+    "passed_gates": 0,
+    "failed_gates": 0,
+    "skipped_gates": 0,
+    "reused_gates": 0,
+    "planned_gates": 6,
+    "approval_required_gates": 0,
+    "elapsed_seconds": 0.0
+  },
+  "workflows": [
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T01:39:25.175366+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "dailynews-x-ops",
+        "project": "automation/DailyNews",
+        "goal": "Build ranked X/Twitter conversation packs and operator actions from DailyNews content intelligence.",
+        "smoke_scope": "mcp",
+        "launch_status": "active",
+        "agent_roles": [
+          "content-operator",
+          "conversation-ranker",
+          "x-publisher"
+        ],
+        "mcp_servers": [
+          "notion",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "dailynews-x-ops",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "mcp"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope mcp",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T01:39:25.175899+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "getdaytrends-operator-run",
+        "project": "automation/getdaytrends",
+        "goal": "Collect trends, generate platform-ready content, and verify scheduler/operator readiness.",
+        "smoke_scope": "getdaytrends",
+        "launch_status": "active",
+        "agent_roles": [
+          "trend-collector",
+          "content-generator",
+          "operator"
+        ],
+        "mcp_servers": [
+          "notion",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "getdaytrends-operator-run",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "getdaytrends"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope getdaytrends",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T01:39:25.176440+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "desci-launch-readiness",
+        "project": "apps/desci-platform",
+        "goal": "Operate grant discovery, readiness scoring, browser smoke, and managed dev-server proof for DeSci launch paths.",
+        "smoke_scope": "desci",
+        "launch_status": "active",
+        "agent_roles": [
+          "grant-analyst",
+          "browser-qa",
+          "release-operator"
+        ],
+        "mcp_servers": [
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "desci-launch-readiness",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "desci"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope desci",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T01:39:25.176960+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "agriguard-qr-product-verification",
+        "project": "apps/AgriGuard",
+        "goal": "Verify QR visitor safety, product detail read-only mode, scan analytics, and product browser flow.",
+        "smoke_scope": "agriguard",
+        "launch_status": "active",
+        "agent_roles": [
+          "product-qa",
+          "browser-qa",
+          "supply-chain-operator"
+        ],
+        "mcp_servers": [
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "agriguard-qr-product-verification",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "agriguard"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope agriguard",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T01:39:25.177481+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "canva-widget-oauth-preview",
+        "project": "mcp/canva-mcp",
+        "goal": "Run Canva widget preview, auth boundary checks, and MCP tool surface verification.",
+        "smoke_scope": "mcp",
+        "launch_status": "active",
+        "agent_roles": [
+          "mcp-operator",
+          "widget-qa",
+          "oauth-operator"
+        ],
+        "mcp_servers": [
+          "canva-local",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "canva-widget-oauth-preview",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "mcp"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope mcp",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-05T01:39:25.177990+00:00",
+      "status": "pass",
+      "execution_mode": "dry_run",
+      "will_execute": false,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "workspace-quality-dashboard",
+        "project": "apps/dashboard",
+        "goal": "Surface workspace quality, smoke, dev-server readiness, and MCP trace evidence for operators.",
+        "smoke_scope": "workspace",
+        "launch_status": "active",
+        "agent_roles": [
+          "quality-operator",
+          "browser-qa",
+          "release-operator"
+        ],
+        "mcp_servers": [
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 0,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "reused_gates": 0,
+        "planned_gates": 1,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 0.0
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "workspace-quality-dashboard",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "workspace"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope workspace",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "planned",
+          "returncode": null,
+          "elapsed_seconds": 0.0,
+          "stdout_tail": "",
+          "stderr_tail": "",
+          "skip_reason": ""
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "errors": []
+}

@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 50
+    "covered": 51
   },
-  "criterion_count": 51,
+  "criterion_count": 52,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 24,
+          "term_count": 27,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -2075,6 +2075,41 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_TOOL_ERROR_CONTINUATION_2026-06-05.md",
           "term_count": 7,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "agent_workflow_state_snapshot_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/agent_workflow_gate_runner.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_agent_workflow_gate_runner.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_STATE_SNAPSHOT_2026-06-05.json",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_STATE_SNAPSHOT_GUARD_2026-06-05.md",
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

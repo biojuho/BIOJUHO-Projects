@@ -118,6 +118,41 @@ def test_matrix_and_workflow_reports_use_utc_generated_at() -> None:
         assert_utc_timestamp(nested_workflow["generated_at"])
 
 
+def test_report_snapshots_do_not_mutate_manifest_nested_state() -> None:
+    runner = load_module()
+    payload = runner.workflow_manifest.load_manifest(MANIFEST_PATH)
+    workflow = runner.select_workflow(payload, "workspace-quality-dashboard")
+    steps = runner.build_gate_steps(workflow, max_gates=1)
+    result = {
+        **steps[0],
+        "status": "planned",
+        "returncode": None,
+        "elapsed_seconds": 0.0,
+        "stdout_tail": "",
+        "stderr_tail": "",
+        "skip_reason": "",
+    }
+
+    report = runner.build_report(
+        payload,
+        workflow,
+        [result],
+        execute=False,
+        allow_side_effect_gates=False,
+        max_gates=1,
+        gate_index=None,
+    )
+    report["source_context"]["repo"] = "mutated/repo"
+    report["workflow"]["agent_roles"].append("mutated-role")
+    report["workflow"]["mcp_servers"].append("mutated-server")
+    report["gates"][0]["command"].append("--mutated")
+
+    assert payload["source_context"]["repo"] == "evalstate/fast-agent"
+    assert "mutated-role" not in workflow["agent_roles"]
+    assert "mutated-server" not in workflow["mcp_servers"]
+    assert "--mutated" not in result["command"]
+
+
 def test_execute_uses_existing_quality_gate_command(monkeypatch) -> None:
     runner = load_module()
     seen: list[tuple[list[str], Path]] = []

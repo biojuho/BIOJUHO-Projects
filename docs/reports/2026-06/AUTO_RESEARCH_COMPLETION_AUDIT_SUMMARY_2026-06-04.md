@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `51`
-- Status counts: `blocked=1, covered=50`
+- Criteria: `52`
+- Status counts: `blocked=1, covered=51`
 
 ## Missing Required
 
@@ -311,6 +311,12 @@
 - Evidence paths: `3`
 
 ### dev_server_mcp_tool_error_continuation
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
+
+### agent_workflow_state_snapshot_guard
 
 - Required: `true`
 - Status: `covered`

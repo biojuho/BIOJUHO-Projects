@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import subprocess
@@ -370,15 +371,15 @@ def build_report(
         "will_execute": execute,
         "allow_side_effect_gates": allow_side_effect_gates,
         "manifest_generated_at": payload.get("generated_at"),
-        "source_context": payload.get("source_context"),
+        "source_context": copy.deepcopy(payload.get("source_context")),
         "workflow": {
             "id": workflow["id"],
             "project": workflow["project"],
             "goal": workflow["goal"],
             "smoke_scope": workflow["smoke_scope"],
             "launch_status": workflow["launch_status"],
-            "agent_roles": workflow["agent_roles"],
-            "mcp_servers": workflow["mcp_servers"],
+            "agent_roles": copy.deepcopy(workflow["agent_roles"]),
+            "mcp_servers": copy.deepcopy(workflow["mcp_servers"]),
             "quality_gate_count": len(workflow.get("quality_gates", [])),
         },
         "summary": {
@@ -395,7 +396,7 @@ def build_report(
             ),
             "elapsed_seconds": round(sum(result.get("elapsed_seconds", 0.0) for result in results), 3),
         },
-        "gates": results,
+        "gates": copy.deepcopy(results),
         "errors": errors,
     }
 
@@ -432,7 +433,7 @@ def build_matrix_report(
         "will_execute": execute,
         "allow_side_effect_gates": allow_side_effect_gates,
         "manifest_generated_at": payload.get("generated_at"),
-        "source_context": payload.get("source_context"),
+        "source_context": copy.deepcopy(payload.get("source_context")),
         "summary": {
             "requested_max_gates": max_gates,
             "workflow_count": len(workflow_reports),
@@ -447,7 +448,7 @@ def build_matrix_report(
             "approval_required_gates": approval_required,
             "elapsed_seconds": round(elapsed_seconds, 3),
         },
-        "workflows": workflow_reports,
+        "workflows": copy.deepcopy(workflow_reports),
         "errors": errors,
     }
 
