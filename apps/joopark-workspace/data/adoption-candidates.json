@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T00:40:30+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh",
+  "generatedAt": "2026-06-06T00:59:37+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:workstream-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -775,7 +775,7 @@
       "deadline": "2026-07-31",
       "burn": [0, 0, 1, 1, 2, 3, 4],
       "risks": 1,
-      "openIssues": 10,
+      "openIssues": 16,
       "openPRs": 6,
       "mergedPRs": 0,
       "closedIssues": 0,
@@ -784,7 +784,7 @@
       "diskKb": 1632,
       "pushedAt": "2026-04-24T09:38:51Z",
       "createdAt": "2026-04-14T13:33:49Z",
-      "lastCommit": null
+      "lastCommit": "ff358f14d0624529589a4c86df14f6928d0e46a2"
     },
     {
       "id": "repo-taskosaur-taskosaur",

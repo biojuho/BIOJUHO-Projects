@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T00:40:30+09:00
+Generated: 2026-06-06T00:59:37+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -608,6 +608,19 @@ Generated: 2026-06-06T00:40:30+09:00
 - `gh api repos/OpenLoaf/OpenLoaf/commits/main` returned `f7eccf6064317cb2923137079b68d79b8e5c5f3e` dated `2026-05-14T06:51:56Z`; repo metadata returned `pushed_at: 2026-05-14T11:24:18Z`, 65 stars, 7 forks, 1 open issue, and size 201,235 KB.
 - `gh api repos/anyproto/anytype-ts` later returned 516 forks, so the snapshot was adjusted from 517 to 516 during the rebase.
 
+## Experiment: Workspace benchmark HEAD freshness coverage 3
+
+- Hypothesis: Workstream is the next useful developer-workspace benchmark to make comparable with the rest of the local-first queue because it already appears in the candidate set but lacked commit-level freshness evidence.
+- Primary metric: workspace benchmark HEAD snapshots.
+- Baseline: 9 of 14 workspace benchmark candidates had source-backed `lastCommit` snapshots after the Epicenter/OpenLoaf refresh.
+- Candidate: 10 of 14 workspace benchmark candidates now carry source-backed `lastCommit` snapshots, adding `happybhati/workstream`; audit and interaction smoke require its short commit in the packaged portfolio UI.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/happybhati/workstream/commits/main` returned `ff358f14d0624529589a4c86df14f6928d0e46a2` dated `2026-04-23T15:58:54Z` with a product update covering AI cost reporting and supporting modules.
+- `gh api repos/happybhati/workstream` returned `pushed_at: 2026-04-24T09:38:51Z`, `updated_at: 2026-05-19T14:53:49Z`, 4 stars, 1 fork, 16 open issues, size 1,632 KB, default branch `main`, language `Python`, and `archived: false`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, refresh Workstream and remaining local-first benchmark snapshots, or add a drift monitor for candidate freshness metadata.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, refresh Taskosaur and remaining local-first benchmark snapshots, or add a drift monitor for candidate freshness metadata.

@@ -231,6 +231,11 @@ function workspaceCandidateSnapshot(relPath) {
       sourceMarker: "github-api:openloaf-freshness-refresh",
     },
     {
+      key: "workstream",
+      name: "happybhati/workstream",
+      sourceMarker: "github-api:workstream-freshness-refresh",
+    },
+    {
       key: "colanode",
       name: "colanode/colanode",
       sourceMarker: "github-api:colanode-freshness-refresh",
@@ -682,6 +687,7 @@ function buildChecklist() {
   const workspaceBenchmarkFreshnessUiTerms = [
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotEpicenter", "shortEpicenterCommit", "Epicenter freshness commit did not render", "epicenterCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotOpenLoaf", "shortOpenLoafCommit", "OpenLoaf freshness commit did not render", "openLoafCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorkstream", "shortWorkstreamCommit", "Workstream freshness commit did not render", "workstreamCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotColanode", "shortColanodeCommit", "Colanode freshness commit did not render", "colanodeCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotParabol", "shortParabolCommit", "Parabol freshness commit did not render", "parabolCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorklenz", "shortWorklenzCommit", "Worklenz freshness commit did not render", "worklenzCandidateFreshnessVisible"] },
