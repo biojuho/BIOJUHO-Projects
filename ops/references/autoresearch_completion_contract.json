@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T13:45:14+09:00",
+  "generated_at": "2026-06-05T13:51:24+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -1264,10 +1264,10 @@
             "direct_browser_qa_freshness_gate",
             "apps/dashboard/",
             "mcp/canva-mcp/",
-            "c0867a6"
+            "e786c33"
           ],
           "protected_path_freshness": {
-            "proof_commit": "c0867a6",
+            "proof_commit": "e786c33",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
