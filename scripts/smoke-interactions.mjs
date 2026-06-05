@@ -371,6 +371,7 @@ const interactionExpression = `
   let candidateBenchmarkRubricScoreVisibleOk = false;
   let candidateBenchmarkRecommendationExportVisibleOk = false;
   let candidateBenchmarkReviewQueueVisibleOk = false;
+  let candidateBenchmarkReviewHandoffVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -751,9 +752,18 @@ const interactionExpression = `
     assert(reviewDecision.dataset.benchmarkReviewDecision === "도입 검토", "benchmark review queue decision did not render");
     assert(reviewQueue.innerText.includes("리뷰 대기열"), "benchmark review queue heading did not render");
     assert(reviewQueue.innerText.includes("강한 추천 86"), "benchmark review queue score label did not render");
+    const reviewHandoff = qs("[data-benchmark-review-handoff]", reviewQueue);
+    const reviewHandoffDownload = qs("[data-review-handoff-download]", reviewHandoff);
+    const reviewHandoffText = qs("[data-review-handoff-text]", reviewHandoff).innerText;
+    assert(reviewHandoff.dataset.reviewHandoffPrimaryKey === "benchmark-review:repo-taskosaur-taskosaur:86", "benchmark review handoff primary key did not render");
+    assert(reviewHandoff.dataset.reviewHandoffCount === "2", "benchmark review handoff count did not render");
+    assert(reviewHandoffDownload.getAttribute("download") === "joopark-benchmark-review-queue.md", "benchmark review handoff filename did not render");
+    assert(reviewHandoffDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "benchmark review handoff markdown link did not render");
+    assert(reviewHandoffText.includes("Primary decision key: benchmark-review:repo-taskosaur-taskosaur:86") && reviewHandoffText.includes("Taskosaur/Taskosaur - 도입 검토") && reviewHandoffText.includes("happybhati/workstream - 비교 유지"), "benchmark review handoff markdown copy did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
+    candidateBenchmarkReviewHandoffVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -944,6 +954,7 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
+    candidateBenchmarkReviewHandoffVisibleOk = true;
   });
 
   let projectId = "";
@@ -1182,6 +1193,7 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
+    candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

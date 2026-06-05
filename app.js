@@ -1214,8 +1214,57 @@ function candidateBenchmarkReviewQueue(projects, filter) {
           </article>
         `).join(""))}
       </div>
+      ${raw(candidateBenchmarkReviewQueueHandoff(decisions))}
     </section>
   `;
+}
+
+function candidateBenchmarkReviewQueueHandoff(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const markdown = candidateBenchmarkReviewQueueMarkdown(decisions);
+  if (!markdown) return "";
+  const primary = decisions[0];
+  const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+  return html`
+    <section class="portfolio-review-handoff" data-benchmark-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}">
+      <div class="portfolio-export-head">
+        <span>handoff export</span>
+        <a class="portfolio-export-download" data-review-handoff-download href="${href}" download="joopark-benchmark-review-queue.md">MD 저장</a>
+      </div>
+      <div class="portfolio-export-grid">
+        <div>
+          <span>우선 결정</span>
+          <strong>${primary.project.name} ${primary.decision.status}</strong>
+        </div>
+        <div>
+          <span>persist key</span>
+          <strong>${primary.decision.persistKey}</strong>
+        </div>
+        <div>
+          <span>handoff 수</span>
+          <strong>${decisions.length}개</strong>
+        </div>
+      </div>
+      <pre class="portfolio-export-body" data-review-handoff-text>${markdown}</pre>
+    </section>
+  `;
+}
+
+function candidateBenchmarkReviewQueueMarkdown(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const primary = decisions[0];
+  const rows = decisions.map(({ project, decision }) => (
+    `${decision.rank}. ${project.name} - ${decision.status} - ${decision.label} ${decision.score} - ${decision.persistKey} - ${decision.reason}`
+  ));
+  return [
+    "# JooPark Benchmark Review Queue",
+    "",
+    `Primary decision key: ${primary.decision.persistKey}`,
+    `Primary decision: ${primary.project.name} ${primary.decision.status} ${primary.decision.score}`,
+    "",
+    "## Decisions",
+    ...rows,
+  ].join("\n");
 }
 
 function sortPortfolioProjects(projects) {

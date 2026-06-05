@@ -975,6 +975,18 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkReviewQueueTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkReviewHandoffTerms = [
+    { file: "app.js", terms: ["function candidateBenchmarkReviewQueueHandoff", "function candidateBenchmarkReviewQueueMarkdown", "data-benchmark-review-handoff", "joopark-benchmark-review-queue.md"] },
+    { file: "styles.css", terms: [".portfolio-review-handoff"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkReviewHandoffVisible", "benchmark review handoff primary key did not render", "benchmark review handoff markdown copy did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_review_handoff_export",
+    requirement: "Taskosaur and Workstream benchmark review queue decisions can be exported as a Markdown handoff with stable persist keys and browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkReviewHandoffTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkReviewHandoffTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },
