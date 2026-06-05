@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -43,6 +44,8 @@ class FakeArtifactStatus:
 
 class FakeNotebookLMClient:
     """Mock client matching notebooklm-py interface."""
+
+    last_client: FakeNotebookLMClient | None = None
 
     def __init__(self):
         self.notebooks = SimpleNamespace(
@@ -87,7 +90,9 @@ class FakeNotebookLMClient:
 
     @classmethod
     async def from_storage(cls):
-        return cls()
+        client = cls()
+        cls.last_client = client
+        return client
 
     async def __aenter__(self):
         return self
@@ -317,6 +322,79 @@ def test_weekly_digest_generates_artifacts(mock_notebooklm):
     result = asyncio.run(adapter.create_weekly_digest(reports, content_types=["report", "mind-map"]))
     assert "report" in result["artifacts"]
     assert "mind-map" in result["artifacts"]
+
+
+def test_weekly_digest_generates_audio_artifact(mock_notebooklm):
+    adapter = mock_notebooklm.NotebookLMAdapter()
+    reports = [
+        {
+            "category": "Tech",
+            "summary_lines": ["test"],
+            "insights": [],
+            "source_links": ["https://ex.com/audio"],
+            "window_name": "m",
+            "window_start": "",
+            "window_end": "",
+        },
+    ]
+
+    result = asyncio.run(adapter.create_weekly_digest(reports, content_types=["audio"]))
+
+    assert result["artifacts"]["audio"] == "art-001"
+    assert FakeNotebookLMClient.last_client is not None
+    FakeNotebookLMClient.last_client.artifacts.generate_audio.assert_awaited_once_with(
+        "nb-test-123",
+        instructions=mock_notebooklm.WEEKLY_AUDIO_INSTRUCTIONS,
+    )
+    FakeNotebookLMClient.last_client.artifacts.generate_report.assert_not_awaited()
+
+
+def test_generate_artifact_degrades_without_audio_method(mock_notebooklm):
+    adapter = mock_notebooklm.NotebookLMAdapter()
+    client = SimpleNamespace(artifacts=SimpleNamespace(generate_report=AsyncMock()))
+
+    result = asyncio.run(adapter._generate_artifact(client, "nb-test-123", "audio"))
+
+    assert result is None
+    client.artifacts.generate_report.assert_not_awaited()
+
+
+def test_generate_artifact_degrades_without_artifacts_api(mock_notebooklm):
+    adapter = mock_notebooklm.NotebookLMAdapter()
+
+    result = asyncio.run(adapter._generate_artifact(SimpleNamespace(), "nb-test-123", "audio"))
+
+    assert result is None
+
+
+def test_export_upload_generates_audio_artifact_without_extra_args(mock_notebooklm, monkeypatch, tmp_path):
+    export_mod = importlib.import_module("export_to_notebooklm")
+    artifact_calls = []
+
+    class UploadAdapter:
+        async def check_availability(self):
+            return True
+
+        async def _generate_artifact(self, client, notebook_id, content_type):
+            artifact_calls.append((notebook_id, content_type))
+            return f"{content_type}-001"
+
+    monkeypatch.setattr(mock_notebooklm, "NOTEBOOKLM_AVAILABLE", True)
+    monkeypatch.setattr(mock_notebooklm, "NotebookLMAdapter", UploadAdapter)
+    md_path = tmp_path / "brief.md"
+    md_path.write_text("Daily brief", encoding="utf-8")
+
+    result = asyncio.run(
+        export_mod.upload_to_notebooklm(
+            md_path,
+            [{"url": "https://example.com/source"}],
+            ["audio"],
+        )
+    )
+
+    assert result is not None
+    assert result["artifacts"] == {"audio": "audio-001"}
+    assert artifact_calls == [("nb-test-123", "audio")]
 
 
 # ──────────────────────────────────────────────

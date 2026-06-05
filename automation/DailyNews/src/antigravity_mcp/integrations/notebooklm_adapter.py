@@ -67,6 +67,10 @@ WEEKLY_CONTENT_TYPES = ["report", "mind-map"]
 WEEKLY_AUDIO_INSTRUCTIONS = "Summarize the most important insights from this week in a concise briefing style."
 
 
+def _artifact_identifier(status: Any) -> str:
+    return str(getattr(status, "artifact_id", "") or getattr(status, "task_id", "") or "").strip()
+
+
 class DailyNewsAdapter:
     """Async adapter for per-category research and weekly digests."""
 
@@ -332,18 +336,21 @@ class DailyNewsAdapter:
         return result
 
     async def _generate_artifact(self, client: Any, notebook_id: str, content_type: str) -> str | None:
-        if content_type == "audio" and hasattr(client.artifacts, "generate_audio"):
-            status = await client.artifacts.generate_audio(notebook_id, instructions=WEEKLY_AUDIO_INSTRUCTIONS)
-            return str(getattr(status, "artifact_id", "") or getattr(status, "task_id", "") or "")
-        if content_type == "report" and hasattr(client.artifacts, "generate_report"):
-            status = await client.artifacts.generate_report(notebook_id, report_format="briefing-doc")
-            return str(getattr(status, "artifact_id", "") or getattr(status, "task_id", "") or "")
-        if content_type == "mind-map" and hasattr(client.artifacts, "generate_mind_map"):
-            status = await client.artifacts.generate_mind_map(notebook_id)
-            return str(getattr(status, "artifact_id", "") or getattr(status, "task_id", "") or "")
-        if content_type == "slide-deck" and hasattr(client.artifacts, "generate_slide_deck"):
-            status = await client.artifacts.generate_slide_deck(notebook_id)
-            return str(getattr(status, "artifact_id", "") or getattr(status, "task_id", "") or "")
+        artifacts = getattr(client, "artifacts", None)
+        if artifacts is None:
+            return None
+        if content_type == "audio" and hasattr(artifacts, "generate_audio"):
+            status = await artifacts.generate_audio(notebook_id, instructions=WEEKLY_AUDIO_INSTRUCTIONS)
+            return _artifact_identifier(status)
+        if content_type == "report" and hasattr(artifacts, "generate_report"):
+            status = await artifacts.generate_report(notebook_id, report_format="briefing-doc")
+            return _artifact_identifier(status)
+        if content_type == "mind-map" and hasattr(artifacts, "generate_mind_map"):
+            status = await artifacts.generate_mind_map(notebook_id)
+            return _artifact_identifier(status)
+        if content_type == "slide-deck" and hasattr(artifacts, "generate_slide_deck"):
+            status = await artifacts.generate_slide_deck(notebook_id)
+            return _artifact_identifier(status)
         return None
 
 

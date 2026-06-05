@@ -187,7 +187,7 @@ async def upload_to_notebooklm(
         artifacts = {}
         for ctype in content_types:
             try:
-                artifact_id = await adapter._generate_artifact(client, nb.id, ctype, today_str)
+                artifact_id = await adapter._generate_artifact(client, nb.id, ctype)
                 if artifact_id:
                     artifacts[ctype] = artifact_id
                     print(f"[INFO] {ctype} artifact: {artifact_id[:12]}...", flush=True)
