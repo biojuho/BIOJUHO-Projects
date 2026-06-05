@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:45:00+09:00",
+  "generated_at": "2026-06-05T10:05:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -582,15 +582,15 @@
           "json_freshness": false
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAI_NAMESPACE_METADATA_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
-          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_HOSTED_AGENT_APPROVAL_2026-06-05.md",
-          "term_count": 4,
+          "path": "docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md",
+          "term_count": 3,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

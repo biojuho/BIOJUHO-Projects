@@ -38,6 +38,16 @@
 - OpenAPI execution remains disabled with the existing 501 response until
   operator-owned OAuth/proxy authorization is verified.
 
+## Post-Push Freshness
+
+- Pushed proof commit: `d430855`.
+- `current_tip_freshness_gate`: `origin/feat/observability-gateway-2026-05`
+  now uses proof commit `d430855`.
+- `protected_path_freshness`: Canva MCP protected-path changes are covered by
+  the OpenAI namespace metadata contract, typecheck/build, and built-server
+  `/tools` runtime probe at `d430855`.
+- Freshness result after this evidence-only follow-up: no changed protected paths after proof.
+
 ## Changed Paths
 
 - `mcp/canva-mcp/src/server/server.ts`
