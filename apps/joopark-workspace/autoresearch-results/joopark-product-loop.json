@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T19:51:23+09:00",
+  "generatedAt": "2026-06-05T19:53:06+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -146,16 +146,16 @@
       "primaryMetric": "prCompatibleBranch",
       "baseline": 0,
       "candidate": 1,
-      "decision": "keep-after-pr"
+      "decision": "keep"
     }
   ],
   "publish": {
-    "commit": "3b48ed5",
-    "branch": "codex/joopark-workspace-release",
+    "commit": "9f07a71",
+    "branch": "codex/joopark-workspace-release-main",
     "remote": "biojuho-projects",
     "push": "pass",
-    "draftPr": "blocked",
-    "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
+    "draftPr": "pass",
+    "draftPrUrl": "https://github.com/biojuho/BIOJUHO-Projects/pull/149"
   },
   "nextCandidates": [
     "standalone release publication",

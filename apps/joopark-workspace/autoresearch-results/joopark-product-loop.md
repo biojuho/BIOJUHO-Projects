@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T19:51:23+09:00
+Generated: 2026-06-05T19:53:06+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -245,7 +245,7 @@ Generated: 2026-06-05T19:51:23+09:00
 - Primary metric: PR-compatible branch state.
 - Baseline: standalone branch `codex/joopark-workspace-release` was pushed, but PR creation was blocked because it had no common history with `main`.
 - Candidate: branch `codex/joopark-workspace-release-main` is based on `biojuho-projects/main` and carries the latest app, data snapshots, release gates, and AutoResearch evidence under `apps/joopark-workspace/`.
-- Decision: keep after push and PR creation.
+- Decision: keep.
 
 ## Evidence
 
@@ -254,6 +254,8 @@ Generated: 2026-06-05T19:51:23+09:00
 - `npm run verify` passed 22/22 in `apps/joopark-workspace`, including packaged route, mobile, interaction, and accessibility gates.
 - `PYTHONPATH=.:packages:automation:apps/desci-platform:automation/DailyNews/src:automation/DailyNews/scripts uv run --with pytest pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q` passed `20 passed, 2 skipped`.
 - `python3 ops/scripts/run_workspace_smoke.py --scope workspace --json-out var/tmp/joopark-workspace-scope-smoke-rerun.json` passed 6/6 after installing dashboard dependencies with `npm ci --prefix apps/dashboard`.
+- Pushed `9f07a71 Port JooPark release to main branch` to `biojuho-projects/codex/joopark-workspace-release-main`.
+- Created draft PR `#149`: `https://github.com/biojuho/BIOJUHO-Projects/pull/149`.
 
 ## Next Loop
 
