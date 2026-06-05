@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T06:23:48+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510",
+  "generatedAt": "2026-06-06T06:47:41+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510+github-search:outline-knowledge-base-benchmark+github-api:outline-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -843,6 +843,35 @@
       "pushedAt": "2026-06-04T22:48:17Z",
       "createdAt": "2022-07-31T18:45:21Z",
       "lastCommit": "edc87e38df01db79f969e6f61981a10c16f9a0bb"
+    },
+    {
+      "id": "repo-outline-outline",
+      "name": "outline/outline",
+      "description": "팀 지식 베이스와 Markdown wiki 워크스페이스: 문서, 권한, 검색, Slack 연동 UX 벤치 후보",
+      "category": "지식 베이스/워크스페이스",
+      "owner": "도입 후보",
+      "language": "TypeScript",
+      "color": "teal",
+      "url": "https://github.com/outline/outline",
+      "sourceKind": "adoption-candidate",
+      "adoptionStage": "review",
+      "topics": ["knowledge-base", "wiki", "team-collaboration", "markdown", "react", "nodejs", "slack"],
+      "progress": 7,
+      "status": "on-track",
+      "health": "amber",
+      "deadline": "2026-08-21",
+      "burn": [0, 1, 2, 3, 4, 6, 7],
+      "risks": 3,
+      "openIssues": 38,
+      "openPRs": 22,
+      "mergedPRs": 4677,
+      "closedIssues": 4049,
+      "stars": 38776,
+      "forks": 3324,
+      "diskKb": 319307,
+      "pushedAt": "2026-06-05T14:54:48Z",
+      "createdAt": "2016-05-22T21:31:47Z",
+      "lastCommit": "e864684d569c81ca2b03c816d22e0c80e2ff6466"
     },
     {
       "id": "repo-happybhati-workstream",

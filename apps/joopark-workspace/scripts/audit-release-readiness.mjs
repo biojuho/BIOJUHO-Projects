@@ -217,6 +217,7 @@ function workspaceCandidateSnapshot(relPath) {
     "makeplane/plane",
     "AppFlowy-IO/AppFlowy",
     "toeverything/AFFiNE",
+    "outline/outline",
     "happybhati/workstream",
     "colanode/colanode",
     "anyproto/anytype-ts",
@@ -255,6 +256,11 @@ function workspaceCandidateSnapshot(relPath) {
       key: "affine",
       name: "toeverything/AFFiNE",
       sourceMarker: "github-api:affine-freshness-refresh",
+    },
+    {
+      key: "outline",
+      name: "outline/outline",
+      sourceMarker: "github-api:outline-freshness-refresh",
     },
     {
       key: "colanode",
@@ -821,6 +827,17 @@ function buildChecklist() {
     requirement: "The portfolio includes AppFlowy and AFFiNE as researched knowledge-workspace benchmark candidates and interaction smoke can find both by current GitHub commit with popularity and risk-review metadata.",
     status: appflowyAffineFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: appflowyAffineFreshnessUiTerms,
+  });
+
+  const outlineFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["outline/outline", "github-search:outline-knowledge-base-benchmark", "github-api:outline-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotOutline", "shortOutlineCommit", "Outline freshness commit did not render", "outlineCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "outline_knowledge_base_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes Outline as a researched knowledge-base benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and risk-review metadata.",
+    status: outlineFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: outlineFreshnessUiTerms,
   });
 
   const veritasFreshnessUiTerms = [

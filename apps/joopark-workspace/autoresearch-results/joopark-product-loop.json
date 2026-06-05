@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T06:23:48+09:00",
+  "generatedAt": "2026-06-06T06:47:41+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 52,
+      "pass": 53,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 52
+      "total": 53
     },
     "browserEvidence": {
       "routes": 15,
@@ -51,8 +51,8 @@
       "worklenzCandidateFreshnessVisible": true,
       "anytypeCandidateFreshnessVisible": true,
       "focalboardCandidateFreshnessVisible": true,
-      "workspaceBenchmarkHeadSnapshots": 16,
-      "workspaceBenchmarkFreshnessChecks": 77,
+      "workspaceBenchmarkHeadSnapshots": 17,
+      "workspaceBenchmarkFreshnessChecks": 83,
       "epicenterCandidateFreshnessVisible": true,
       "openLoafCandidateFreshnessVisible": true,
       "planeCandidateFreshnessVisible": true,
@@ -62,6 +62,8 @@
       "affineCandidateFreshnessVisible": true,
       "affineWorkspaceCandidateFreshnessChecks": 6,
       "appflowyAffineCandidateFreshnessChecks": 8,
+      "outlineCandidateFreshnessVisible": true,
+      "outlineKnowledgeBaseCandidateFreshnessChecks": 6,
       "workstreamCandidateFreshnessVisible": true,
       "taskosaurCandidateFreshnessVisible": true,
       "markdownTaskManagerCandidateFreshnessVisible": true,
@@ -70,8 +72,8 @@
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 1,
-      "candidateFreshnessMonitored": 18,
-      "candidateFreshnessSourceMarkers": 32,
+      "candidateFreshnessMonitored": 19,
+      "candidateFreshnessSourceMarkers": 33,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -608,6 +610,13 @@
       "baseline": 0,
       "candidate": 8,
       "decision": "keep"
+    },
+    {
+      "id": "outline-knowledge-base-benchmark-candidate",
+      "primaryMetric": "outlineKnowledgeBaseCandidateFreshnessChecks",
+      "baseline": 0,
+      "candidate": 6,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -622,8 +631,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "research Outline as a knowledge-base candidate after the AFFiNE benchmark candidate lands",
-    "turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric",
+    "turn Outline, AppFlowy, and AFFiNE benchmark evidence into a notes/workspace comparison rubric",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }
