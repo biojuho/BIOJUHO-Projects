@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T22:45:28+09:00
+Generated: 2026-06-05T22:52:44+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -454,6 +454,19 @@ Generated: 2026-06-05T22:45:28+09:00
 ## Evidence
 
 - The release interaction smoke now reports `persistedChecks.leantimeCandidateFreshnessVisible: true` when the packaged UI renders the Leantime freshness badge.
+
+## Experiment: Imported candidate metadata refresh
+
+- Hypothesis: Freshness evidence should stay current for users who already have persisted project data; importing only missing candidates leaves existing adoption candidates with stale `lastCommit` metadata.
+- Primary metric: `leantimeCandidateFreshnessVisible`.
+- Baseline: `node scripts/audit-release-readiness.mjs --run-gates` failed 31/34 because the packaged interaction smoke found `Leantime candidate commit was stale`; release header and fallback checks could not pass while interaction smoke failed.
+- Candidate: `mergeImportedProjects` now deduplicates by canonical GitHub repo key and refreshes metadata fields (`lastCommit`, `pushedAt`, stars, forks, issues, language, URL, topics, stage) for existing `sourceKind: "adoption-candidate"` records while preserving user-owned fields and members.
+- Decision: keep.
+
+## Evidence
+
+- `BASE_URL=http://127.0.0.1:5181 node scripts/smoke-interactions.mjs` passed with `leantimeCandidateFreshnessVisible: true` and no console/network issues.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 34/34; packaged release evidence includes route smoke 15/15, mobile 15/15, 18 interaction steps, accessibility pass, release header checks 6/6, and fallback checks 4/4.
 
 ## Next Loop
 

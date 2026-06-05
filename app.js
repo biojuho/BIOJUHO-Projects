@@ -6014,11 +6014,15 @@ function mergeProjectSnapshots(...snapshots) {
   const active = snapshots.filter((snapshot) => snapshot && Array.isArray(snapshot.projects));
   if (active.length === 0) return null;
   const seen = new Set();
+  const seenRepos = new Set();
   const projects = [];
   active.forEach((snapshot) => {
     snapshot.projects.forEach((project) => {
-      if (!project || !project.id || seen.has(project.id)) return;
+      if (!project || !project.id) return;
+      const repoKey = projectRepoKey(project);
+      if (seen.has(project.id) || (repoKey && seenRepos.has(repoKey))) return;
       seen.add(project.id);
+      if (repoKey) seenRepos.add(repoKey);
       projects.push(project);
     });
   });
@@ -6028,6 +6032,14 @@ function mergeProjectSnapshots(...snapshots) {
     importId: active.map((snapshot) => snapshot.importId).filter(Boolean).pop() || ADOPTION_IMPORT_ID,
     projects,
   };
+}
+
+function projectRepoKey(project) {
+  if (!project || typeof project !== "object") return "";
+  const repoUrl = safeGithubUrl(project.url);
+  if (repoUrl) return repoUrl.toLowerCase();
+  const repoName = String(project.name || "").trim().toLowerCase();
+  return /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(repoName) ? `name:${repoName}` : "";
 }
 
 function ensureImportRegistry() {
@@ -6062,12 +6074,20 @@ function mergeImportedProjects(snapshot) {
   const applied = new Set(Array.isArray(registry[importId]) ? registry[importId] : []);
   const existing = new Set(dashboard.projects.map((p) => p.id));
   let added = 0;
+  let updated = 0;
   let registryChanged = false;
 
   snapshot.projects
     .filter((p) => p && p.id && p.sourceKind === "adoption-candidate")
     .forEach((project) => {
-      if (existing.has(project.id)) {
+      const repoKey = projectRepoKey(project);
+      const matches = dashboard.projects.filter((candidate) =>
+        candidate && (candidate.id === project.id || (repoKey && projectRepoKey(candidate) === repoKey))
+      );
+      if (matches.length > 0) {
+        matches.forEach((match) => {
+          if (refreshImportedProjectMetadata(match, project)) updated += 1;
+        });
         if (!applied.has(project.id)) {
           applied.add(project.id);
           registryChanged = true;
@@ -6082,13 +6102,48 @@ function mergeImportedProjects(snapshot) {
       added += 1;
     });
 
-  if (!registryChanged) return false;
+  if (!registryChanged && updated === 0) return false;
   registry[importId] = [...applied].sort();
   normalizeAllData();
   rebuildIndexes();
   persist();
   if (added > 0) console.info(`[workspace] imported ${added} adoption candidate projects`);
-  return added > 0;
+  if (updated > 0) console.info(`[workspace] refreshed ${updated} adoption candidate projects`);
+  return added > 0 || updated > 0;
+}
+
+function refreshImportedProjectMetadata(target, source) {
+  const refreshFields = [
+    "sourceKind",
+    "adoptionStage",
+    "topics",
+    "language",
+    "color",
+    "url",
+    "stars",
+    "forks",
+    "diskKb",
+    "pushedAt",
+    "createdAt",
+    "lastCommit",
+    "openIssues",
+    "openPRs",
+    "mergedPRs",
+    "closedIssues",
+  ];
+  let changed = false;
+  refreshFields.forEach((field) => {
+    if (typeof source[field] === "undefined") return;
+    const next = Array.isArray(source[field]) ? [...source[field]] : source[field];
+    const current = target[field];
+    const same = Array.isArray(next)
+      ? Array.isArray(current) && next.length === current.length && next.every((value, index) => value === current[index])
+      : current === next;
+    if (same) return;
+    target[field] = next;
+    changed = true;
+  });
+  return changed;
 }
 
 function applyGithubSnapshot(snapshot) {
