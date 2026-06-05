@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T00:58:00+09:00
+Generated: 2026-06-06T01:12:26+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -623,6 +623,22 @@ Generated: 2026-06-06T00:58:00+09:00
 - GitHub GraphQL returned `ioniks/MarkdownTaskManager` default branch `master` at `e0551bc7a4367c20ba9239292f10e13707b6b765`, committed `2025-11-14T09:12:43Z`, pushed `2025-11-14T09:14:35Z`, with 406 stars, 55 forks, 2 open issues, 4 open PRs, and size 812 KB.
 - GitHub GraphQL returned `taskcoach/taskcoach` default branch `master` at `dad6168f8771cda4566dedfad1e678ea253c2a7f`, committed `2026-05-19T00:44:53Z`, pushed `2026-05-28T16:07:10Z`, with 31 stars, 6 forks, 92 open issues, 3 open PRs, and size 590,173 KB.
 - GitHub GraphQL returned `dotnetfactory/fluid-calendar` default branch `main` at `1c6de42da24520d0a917b5e3b5044f53573c023e`, committed `2026-05-28T16:42:37Z`, pushed `2026-05-28T16:42:40Z`, with 959 stars, 63 forks, 64 open issues, 1 open PR, and size 2,279 KB.
+
+## Experiment: Remaining workspace metadata drift refresh
+
+- Hypothesis: After the benchmark queue reached 14/14 commit freshness, the next useful cleanup is to remove repo metadata drift in the same high-priority remaining workspace candidates.
+- Primary metric: remaining workspace open issue drift count.
+- Baseline: 5 remaining workspace candidates had stale `openIssues` values compared with current GitHub REST repo metadata.
+- Candidate: `data/adoption-candidates.json` now records current REST `open_issues_count` values for `happybhati/workstream`, `Taskosaur/Taskosaur`, `ioniks/MarkdownTaskManager`, `taskcoach/taskcoach`, and `dotnetfactory/fluid-calendar`, reducing the drift count to 0 while preserving 14/14 `lastCommit` coverage.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/happybhati/workstream` returned `open_issues_count: 16`, with 4 stars, 1 fork, and `pushed_at: 2026-04-24T09:38:51Z`.
+- `gh api repos/Taskosaur/Taskosaur` returned `open_issues_count: 10`, with 493 stars, 96 forks, and `pushed_at: 2026-06-02T11:00:39Z`.
+- `gh api repos/ioniks/MarkdownTaskManager` returned `open_issues_count: 6`, with 406 stars, 55 forks, and `pushed_at: 2025-11-14T09:14:35Z`.
+- `gh api repos/taskcoach/taskcoach` returned `open_issues_count: 95`, with 31 stars, 6 forks, and `pushed_at: 2026-05-28T16:07:10Z`.
+- `gh api repos/dotnetfactory/fluid-calendar` returned `open_issues_count: 65`, with 959 stars, 63 forks, and `pushed_at: 2026-05-28T16:42:40Z`.
 
 ## Next Loop
 
