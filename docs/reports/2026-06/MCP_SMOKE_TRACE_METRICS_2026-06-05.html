@@ -60,6 +60,23 @@
 <tr><td>telegram-mcp tests</td><td>pytest</td><td>true</td><td>mcp\telegram-mcp</td><td>0.4</td><td></td><td></td><td>4</td></tr>
     </tbody>
   </table>
+  <h2>Span Tree</h2>
+  <ul>
+    <li>Root span: mcp:root</li>
+    <li>Child spans: 6</li>
+    <li>Max depth: 1</li>
+  </ul>
+  <table>
+    <thead><tr><th>Span</th><th>Parent</th><th>Previous</th><th>Check</th><th>Status</th></tr></thead>
+    <tbody>
+<tr><td>mcp:check:1</td><td>mcp:root</td><td></td><td>notebooklm compile</td><td>ok</td></tr>
+<tr><td>mcp:check:2</td><td>mcp:root</td><td>mcp:check:1</td><td>github-mcp compile</td><td>ok</td></tr>
+<tr><td>mcp:check:3</td><td>mcp:root</td><td>mcp:check:2</td><td>DailyNews unit tests</td><td>ok</td></tr>
+<tr><td>mcp:check:4</td><td>mcp:root</td><td>mcp:check:3</td><td>canva-mcp build</td><td>ok</td></tr>
+<tr><td>mcp:check:5</td><td>mcp:root</td><td>mcp:check:4</td><td>desci-research-mcp tests</td><td>ok</td></tr>
+<tr><td>mcp:check:6</td><td>mcp:root</td><td>mcp:check:5</td><td>telegram-mcp tests</td><td>ok</td></tr>
+    </tbody>
+  </table>
   <h2>Trace Integrity</h2>
   <p class="ok">OK: true</p>
   <ul>

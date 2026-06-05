@@ -42,6 +42,21 @@
 | desci-research-mcp tests | pytest | true | mcp\desci-research-mcp | 0.38 |  |  | 4 |
 | telegram-mcp tests | pytest | true | mcp\telegram-mcp | 0.4 |  |  | 4 |
 
+## Span Tree
+
+- Root span: `mcp:root`
+- Child spans: 6
+- Max depth: 1
+
+| Span | Parent | Previous | Check | Status |
+| --- | --- | --- | --- | --- |
+| mcp:check:1 | mcp:root |  | notebooklm compile | ok |
+| mcp:check:2 | mcp:root | mcp:check:1 | github-mcp compile | ok |
+| mcp:check:3 | mcp:root | mcp:check:2 | DailyNews unit tests | ok |
+| mcp:check:4 | mcp:root | mcp:check:3 | canva-mcp build | ok |
+| mcp:check:5 | mcp:root | mcp:check:4 | desci-research-mcp tests | ok |
+| mcp:check:6 | mcp:root | mcp:check:5 | telegram-mcp tests | ok |
+
 ## Trace Integrity
 
 - OK: `true`

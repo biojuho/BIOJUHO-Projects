@@ -182,6 +182,7 @@ def build_metrics(payload: dict[str, Any], *, source_path: Path, scope: str = "m
             "path_depth": _path_depth_summary(checks),
         },
         "checks": checks,
+        "span_tree": _span_tree(checks, scope=scope),
         "trace_integrity": {
             "ok": not integrity_issues,
             "issues": integrity_issues,
@@ -280,6 +281,29 @@ def format_markdown(metrics: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "## Span Tree",
+            "",
+            f"- Root span: `{metrics['span_tree']['root']['span_id']}`",
+            f"- Child spans: {metrics['span_tree']['summary']['spans']}",
+            f"- Max depth: {metrics['span_tree']['summary']['max_depth']}",
+            "",
+            "| Span | Parent | Previous | Check | Status |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for span in metrics["span_tree"]["spans"]:
+        lines.append(
+            "| "
+            f"{_markdown_cell(span['span_id'])} | "
+            f"{_markdown_cell(span['parent_id'])} | "
+            f"{_markdown_cell(span['previous_span_id'] or '')} | "
+            f"{_markdown_cell(span['name'])} | "
+            f"{_markdown_cell(span['status'])} |"
+        )
+
+    lines.extend(
+        [
+            "",
             "## Trace Integrity",
             "",
             f"- OK: `{str(trace_integrity['ok']).lower()}`",
@@ -318,6 +342,16 @@ def format_html(metrics: dict[str, Any]) -> str:
     )
     issues = metrics["trace_integrity"]["issues"]
     issue_items = "\n".join(f"<li>{_html_cell(issue)}</li>" for issue in issues) or "<li>none</li>"
+    span_rows = "\n".join(
+        "<tr>"
+        f"<td>{_html_cell(span['span_id'])}</td>"
+        f"<td>{_html_cell(span['parent_id'])}</td>"
+        f"<td>{_html_cell(span['previous_span_id'] or '')}</td>"
+        f"<td>{_html_cell(span['name'])}</td>"
+        f"<td>{_html_cell(span['status'])}</td>"
+        "</tr>"
+        for span in metrics["span_tree"]["spans"]
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -371,6 +405,18 @@ def format_html(metrics: dict[str, Any]) -> str:
     <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Total tokens</th><th>Cost USD</th><th>Command path depth</th></tr></thead>
     <tbody>
 {check_rows}
+    </tbody>
+  </table>
+  <h2>Span Tree</h2>
+  <ul>
+    <li>Root span: {_html_cell(metrics['span_tree']['root']['span_id'])}</li>
+    <li>Child spans: {metrics['span_tree']['summary']['spans']}</li>
+    <li>Max depth: {metrics['span_tree']['summary']['max_depth']}</li>
+  </ul>
+  <table>
+    <thead><tr><th>Span</th><th>Parent</th><th>Previous</th><th>Check</th><th>Status</th></tr></thead>
+    <tbody>
+{span_rows}
     </tbody>
   </table>
   <h2>Trace Integrity</h2>
@@ -453,6 +499,40 @@ def _usage_summary(checks: list[dict[str, Any]]) -> dict[str, Any]:
         "token_heaviest_check": heaviest["name"] if heaviest else None,
         "max_cost_usd": costliest["cost_usd"] if costliest else None,
         "costliest_check": costliest["name"] if costliest else None,
+    }
+
+
+def _span_tree(checks: list[dict[str, Any]], *, scope: str) -> dict[str, Any]:
+    root_span_id = f"{scope}:root"
+    spans: list[dict[str, Any]] = []
+    previous_span_id: str | None = None
+    for index, check in enumerate(checks, start=1):
+        span_id = f"{scope}:check:{index}"
+        span = {
+            "span_id": span_id,
+            "parent_id": root_span_id,
+            "previous_span_id": previous_span_id,
+            "name": check["name"],
+            "status": "ok" if check["ok"] is True else "error",
+            "duration_seconds": check["duration_seconds"],
+            "command_kind": check["command_kind"],
+            "cwd": check["cwd"],
+        }
+        spans.append(span)
+        previous_span_id = span_id
+    return {
+        "root": {
+            "span_id": root_span_id,
+            "parent_id": None,
+            "name": f"{scope} smoke",
+            "status": "ok" if all(check["ok"] is True for check in checks) else "error",
+        },
+        "summary": {
+            "spans": len(spans),
+            "max_depth": 1 if spans else 0,
+            "linked_spans": sum(1 for span in spans if span["previous_span_id"] is not None),
+        },
+        "spans": spans,
     }
 
 

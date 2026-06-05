@@ -110,6 +110,15 @@ def test_build_metrics_summarizes_mcp_runtime_kinds(tmp_path: Path) -> None:
     }
     assert metrics["summary"]["path_depth"]["max_cwd_depth"] == 2
     assert metrics["summary"]["path_depth"]["max_command_path_depth"] == 2
+    assert metrics["span_tree"]["root"] == {
+        "span_id": "mcp:root",
+        "parent_id": None,
+        "name": "mcp smoke",
+        "status": "error",
+    }
+    assert metrics["span_tree"]["summary"] == {"spans": 2, "max_depth": 1, "linked_spans": 1}
+    assert metrics["span_tree"]["spans"][0]["previous_span_id"] is None
+    assert metrics["span_tree"]["spans"][1]["previous_span_id"] == "mcp:check:1"
     assert metrics["trace_integrity"] == {"ok": True, "issues": []}
     assert [check["name"] for check in metrics["checks"]] == ["notebooklm compile", "canva-mcp build"]
     assert metrics["checks"][1]["duration_source"] == "stdout_tail"
@@ -253,6 +262,8 @@ def test_format_markdown_summarizes_metrics_for_handoff(tmp_path: Path) -> None:
     assert "| npm | 1 |" in report
     assert "| pytest | 1 |" in report
     assert "| canva\\|build | npm | true | mcp\\canva-mcp | 0.82 | 88 | 0.0042 | 0 |" in report
+    assert "## Span Tree" in report
+    assert "| mcp:check:2 | mcp:root | mcp:check:1 | telegram tests | ok |" in report
     assert "- OK: `true`" in report
     assert "- Issues: none" in report
 
@@ -283,6 +294,8 @@ def test_format_html_summarizes_metrics_for_ci_report(tmp_path: Path) -> None:
     assert "<li>Total tokens: 88</li>" in report
     assert "<td>npm</td><td>1</td>" in report
     assert "<td>0.0042</td>" in report
+    assert "<h2>Span Tree</h2>" in report
+    assert "<td>mcp:check:1</td><td>mcp:root</td><td></td><td>canva&lt;script&gt;</td><td>ok</td>" in report
     assert '<p class="ok">OK: true</p>' in report
 
 
