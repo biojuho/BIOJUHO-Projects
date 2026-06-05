@@ -214,6 +214,7 @@ function workspaceCandidateSnapshot(relPath) {
   const required = [
     "EpicenterHQ/epicenter",
     "OpenLoaf/OpenLoaf",
+    "makeplane/plane",
     "happybhati/workstream",
     "colanode/colanode",
     "anyproto/anytype-ts",
@@ -237,6 +238,11 @@ function workspaceCandidateSnapshot(relPath) {
       key: "openLoaf",
       name: "OpenLoaf/OpenLoaf",
       sourceMarker: "github-api:openloaf-freshness-refresh",
+    },
+    {
+      key: "plane",
+      name: "makeplane/plane",
+      sourceMarker: "github-api:plane-freshness-refresh",
     },
     {
       key: "colanode",
@@ -759,6 +765,17 @@ function buildChecklist() {
     requirement: "The interaction smoke proves a newly researched workspace benchmark candidate is searchable and renders current GitHub metadata.",
     status: workspaceCompetitiveTerms.status,
     evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceCompetitiveTerms.missing },
+  });
+
+  const planeFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["makeplane/plane", "github-search:plane-pm-benchmark", "github-api:plane-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotPlane", "shortPlaneCommit", "Plane freshness commit did not render", "planeCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "plane_pm_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes Plane as a researched PM benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and risk-review metadata.",
+    status: planeFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: planeFreshnessUiTerms,
   });
 
   const veritasFreshnessUiTerms = [

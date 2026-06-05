@@ -9,6 +9,10 @@ const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/C
 const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-interaction-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
+const defaultCdpTimeoutMs = 10000;
+const defaultEvaluateTimeoutMs = 60000;
+const longScenarioEvaluateTimeoutMs = 120000;
+const resetScenarioEvaluateTimeoutMs = 60000;
 
 class CdpClient {
   constructor(wsUrl) {
@@ -53,16 +57,25 @@ class CdpClient {
     callbacks.forEach((callback) => callback(message.params || {}));
   }
 
-  send(method, params = {}, timeoutMs = 10000) {
+  send(method, params = {}, timeoutMs = defaultCdpTimeoutMs) {
     const id = this.nextId++;
     this.ws.send(JSON.stringify({ id, method, params }));
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (!this.pending.has(id)) return;
         this.pending.delete(id);
-        reject(new Error(`Timed out waiting for ${method}`));
+        reject(new Error(`Timed out waiting for ${method} after ${timeoutMs}ms`));
       }, timeoutMs);
+      this.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      });
     });
   }
 
@@ -137,7 +150,7 @@ async function pageWebSocketUrl(browserWsUrl) {
   throw new Error(`No page target exposed by Chrome.${cause}`);
 }
 
-async function evaluate(client, expression, timeoutMs = 30000) {
+async function evaluate(client, expression, timeoutMs = defaultEvaluateTimeoutMs) {
   const result = await client.send("Runtime.evaluate", {
     expression,
     awaitPromise: true,
@@ -175,7 +188,7 @@ async function verifyResetPersistsAfterReload(client) {
       };
       check();
     })
-  `);
+  `, resetScenarioEvaluateTimeoutMs);
   return await evaluate(client, `
     (() => {
       const storeKey = "joopark.workspace.v3";
@@ -230,7 +243,7 @@ async function verifyResetPersistsAfterReload(client) {
         storageBytes: raw ? raw.length : 0,
       };
     })()
-  `);
+  `, resetScenarioEvaluateTimeoutMs);
 }
 
 async function verifyFirstCreatesAfterReset(client) {
@@ -329,7 +342,7 @@ async function verifyFirstCreatesAfterReset(client) {
         };
       }
     })()
-  `);
+  `, resetScenarioEvaluateTimeoutMs);
 }
 
 const interactionExpression = `
@@ -351,6 +364,7 @@ const interactionExpression = `
   let focalboardCandidateFreshnessVisibleOk = false;
   let epicenterCandidateFreshnessVisibleOk = false;
   let openLoafCandidateFreshnessVisibleOk = false;
+  let planeCandidateFreshnessVisibleOk = false;
   const remainingWorkspaceFreshnessOk = {
     workstream: false,
     taskosaur: false,
@@ -550,6 +564,8 @@ const interactionExpression = `
     await nav("pm-portfolio");
     const candidate = dashboard.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
     assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
+    const planeCandidate = dashboard.projects.find((project) => project.name === "makeplane/plane");
+    assert(planeCandidate && planeCandidate.sourceKind === "adoption-candidate", "Plane PM benchmark candidate was not loaded");
     const epicenterCandidate = dashboard.projects.find((project) => project.name === "EpicenterHQ/epicenter");
     assert(epicenterCandidate && epicenterCandidate.sourceKind === "adoption-candidate", "Epicenter workspace benchmark candidate was not loaded");
     const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
@@ -585,6 +601,9 @@ const interactionExpression = `
     const snapshotOpenLoaf = adoptionSnapshot.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
     assert(snapshotOpenLoaf && /^[0-9a-f]{40}$/i.test(snapshotOpenLoaf.lastCommit || "") && !Number.isNaN(Date.parse(snapshotOpenLoaf.pushedAt || "")), "OpenLoaf snapshot freshness evidence was missing");
     const shortOpenLoafCommit = snapshotOpenLoaf.lastCommit.slice(0, 8);
+    const snapshotPlane = adoptionSnapshot.projects.find((project) => project.name === "makeplane/plane");
+    assert(snapshotPlane && /^[0-9a-f]{40}$/i.test(snapshotPlane.lastCommit || "") && !Number.isNaN(Date.parse(snapshotPlane.pushedAt || "")), "Plane snapshot freshness evidence was missing");
+    const shortPlaneCommit = snapshotPlane.lastCommit.slice(0, 8);
     const snapshotColanode = adoptionSnapshot.projects.find((project) => project.name === "colanode/colanode");
     assert(snapshotColanode && /^[0-9a-f]{40}$/i.test(snapshotColanode.lastCommit || "") && !Number.isNaN(Date.parse(snapshotColanode.pushedAt || "")), "Colanode snapshot freshness evidence was missing");
     const shortColanodeCommit = snapshotColanode.lastCommit.slice(0, 8);
@@ -618,6 +637,8 @@ const interactionExpression = `
     assert(epicenterCandidate.pushedAt === snapshotEpicenter.pushedAt, "Epicenter candidate pushedAt was stale");
     assert(candidate.lastCommit === snapshotOpenLoaf.lastCommit, "OpenLoaf candidate commit was stale");
     assert(candidate.pushedAt === snapshotOpenLoaf.pushedAt, "OpenLoaf candidate pushedAt was stale");
+    assert(planeCandidate.lastCommit === snapshotPlane.lastCommit, "Plane candidate commit was stale");
+    assert(planeCandidate.pushedAt === snapshotPlane.pushedAt, "Plane candidate pushedAt was stale");
     assert(benchmarkCandidate.lastCommit === snapshotColanode.lastCommit, "Colanode candidate commit was stale");
     assert(benchmarkCandidate.pushedAt === snapshotColanode.pushedAt, "Colanode candidate pushedAt was stale");
     assert(riskCandidate.lastCommit === snapshotOpenProject.lastCommit, "OpenProject candidate commit was stale");
@@ -825,6 +846,22 @@ const interactionExpression = `
     assert(openLoafCommit.dataset.candidatePushedAt === snapshotOpenLoaf.pushedAt, "OpenLoaf pushedAt freshness marker did not render");
     const href = qs(".portfolio-candidate-link", card).href;
     assert(href === "https://github.com/OpenLoaf/OpenLoaf" || href === "https://github.com/OpenLoaf/OpenLoaf/", "OpenLoaf GitHub link did not render safely");
+    fill("#globalSearch", shortPlaneCommit);
+    await waitFor(() => state.query === shortPlaneCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Plane commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + planeCandidate.id + '"]'), "Plane portfolio card did not render after commit search");
+    const planeCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + planeCandidate.id + '"]');
+    const planeText = planeCard.innerText;
+    assert(planeText.includes("makeplane/plane"), "Plane candidate card did not render");
+    assert(planeText.includes("Jira, Linear"), "Plane candidate description did not render");
+    assert(planeText.includes(formatMetric(snapshotPlane.stars)), "Plane star count did not render");
+    assert(planeText.includes(formatMetric(snapshotPlane.forks)), "Plane fork count did not render");
+    assert(planeText.includes("TypeScript"), "Plane language did not render");
+    assert(qs("[data-candidate-action]", planeCard).textContent.includes("리스크 리뷰"), "Plane candidate action did not render risk review");
+    const planeCommit = qs("[data-candidate-commit]", planeCard);
+    assert(planeCommit.dataset.candidateCommit === shortPlaneCommit, "Plane freshness commit did not render");
+    assert(planeCommit.dataset.candidatePushedAt === snapshotPlane.pushedAt, "Plane pushedAt freshness marker did not render");
+    const planeHref = qs(".portfolio-candidate-link", planeCard).href;
+    assert(planeHref === "https://github.com/makeplane/plane" || planeHref === "https://github.com/makeplane/plane/", "Plane GitHub link did not render safely");
     fill("#globalSearch", shortEpicenterCommit);
     await waitFor(() => state.query === shortEpicenterCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Epicenter commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + epicenterCandidate.id + '"]'), "Epicenter portfolio card did not render after commit search");
@@ -977,6 +1014,7 @@ const interactionExpression = `
     focalboardCandidateFreshnessVisibleOk = true;
     epicenterCandidateFreshnessVisibleOk = true;
     openLoafCandidateFreshnessVisibleOk = true;
+    planeCandidateFreshnessVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
     leantimeCandidateFreshnessVisibleOk = true;
@@ -1213,6 +1251,7 @@ const interactionExpression = `
     focalboardCandidateFreshnessVisible: focalboardCandidateFreshnessVisibleOk,
     epicenterCandidateFreshnessVisible: epicenterCandidateFreshnessVisibleOk,
     openLoafCandidateFreshnessVisible: openLoafCandidateFreshnessVisibleOk,
+    planeCandidateFreshnessVisible: planeCandidateFreshnessVisibleOk,
     workstreamCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.workstream,
     taskosaurCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.taskosaur,
     markdownTaskManagerCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.markdownTaskManager,
@@ -1427,7 +1466,7 @@ async function main() {
     `);
     progress("app-ready");
 
-    const interactionResult = await evaluate(pageClient, interactionExpression);
+    const interactionResult = await evaluate(pageClient, interactionExpression, longScenarioEvaluateTimeoutMs);
     const postResetReload = await verifyResetPersistsAfterReload(pageClient);
     interactionResult.postResetReload = postResetReload;
     interactionResult.persistedChecks.backupResetReload = postResetReload.status === "pass";
