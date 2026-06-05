@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T01:12:26+09:00",
+  "generatedAt": "2026-06-06T01:25:24+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 36,
+      "pass": 37,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 36
+      "total": 37
     },
     "browserEvidence": {
       "routes": 15,
@@ -59,7 +59,11 @@
       "taskosaurCandidateFreshnessVisible": true,
       "markdownTaskManagerCandidateFreshnessVisible": true,
       "taskcoachCandidateFreshnessVisible": true,
-      "fluidCalendarCandidateFreshnessVisible": true
+      "fluidCalendarCandidateFreshnessVisible": true,
+      "candidateFreshnessDriftMonitorChecks": 4,
+      "candidateFreshnessDriftSnapshotOnly": true,
+      "candidateFreshnessLiveDriftCount": 9,
+      "candidateFreshnessMonitored": 15
     }
   },
   "experiments": [
@@ -377,6 +381,13 @@
       "baseline": 5,
       "candidate": 0,
       "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-drift-monitor",
+      "primaryMetric": "candidateFreshnessDriftMonitorChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -390,8 +401,8 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "candidate freshness metadata drift monitor",
     "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces",
+    "promote live drift monitor into scheduled CI once GitHub token policy is confirmed",
     "refresh high-churn benchmark repo counts after scheduled drift detection lands"
   ]
 }

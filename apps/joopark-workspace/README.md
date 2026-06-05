@@ -109,6 +109,22 @@ node scripts/audit-release-readiness.mjs --run-gates
 
 처음 실행하면 사용법을 보여주는 샘플 데이터가 자동으로 채워집니다(자유롭게 삭제 가능). **설정 → 데이터 백업**에서 JSON 내보내기 / 가져오기 / 전체 초기화가 가능합니다.
 
+### candidate freshness drift
+
+도입 후보 스냅샷의 GitHub HEAD 메타데이터가 오래됐는지 확인하려면 drift monitor를 실행합니다. 기본 감사는 네트워크 없이 로컬 스냅샷의 GitHub URL, `lastCommit`, `pushedAt`, source marker 형태만 확인합니다.
+
+```bash
+node scripts/check-candidate-freshness-drift.mjs --snapshot-only
+```
+
+실제 GitHub 현재값과 비교하려면 `gh` 인증이 있는 환경에서 live 모드를 사용합니다. `--live`는 drift를 JSON으로 보고하고, 자동화에서 drift를 실패로 처리하려면 `--fail-on-drift`를 함께 붙입니다.
+GitHub REST `open_issues_count`는 PR을 포함하지만 GraphQL은 issue와 PR을 분리하므로, monitor는 `openIssues` snapshot을 issue-only 또는 issue+PR total 중 하나와 일치하면 유효한 값으로 봅니다.
+
+```bash
+node scripts/check-candidate-freshness-drift.mjs --live
+node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift
+```
+
 ## 구성
 
 - `index.html` — 사이드바/메인/시트/모달/명령 팔레트 레이아웃, 뷰 컨테이너
@@ -123,6 +139,7 @@ node scripts/audit-release-readiness.mjs --run-gates
 - `scripts/smoke-mobile.mjs` — 500px 폭 Chrome에서 15개 화면의 모바일 레이아웃 overflow·텍스트·콘솔·네트워크 회귀 검증
 - `scripts/smoke-release.mjs` — 출시 패키지를 임시 HTTP 서버로 실제 서빙해 Chrome 라우트 스모크까지 실행하는 전체 출시 게이트
 - `scripts/audit-release-readiness.mjs` — 출시 요구사항을 정적 파일·문서·manifest·브라우저 게이트·Git publish 조건 증거에 매핑하는 감사 리포트
+- `scripts/check-candidate-freshness-drift.mjs` — source-backed 도입 후보의 로컬 snapshot shape를 확인하고, `--live`에서 GitHub GraphQL HEAD/pushedAt/star/fork/issue/PR/disk drift를 보고
 - `data/repos.json` — GitHub 저장소 스냅샷 (포트폴리오 시드) · `data/adoption-candidates.json` — OSS 도입 후보 스냅샷 · `scripts/sync-github.sh` — GitHub 스냅샷 재생성
 - `vendor/` — 로컬 동봉한 오픈소스 라이브러리 (아래 "도입한 오픈소스" 참고) · `vendor/LICENSES.md`
 

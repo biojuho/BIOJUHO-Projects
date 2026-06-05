@@ -47,6 +47,10 @@ const prBridgeScripts = [
   "scripts/plan-main-bridge.mjs",
 ];
 
+const freshnessDriftScripts = [
+  "scripts/check-candidate-freshness-drift.mjs",
+];
+
 const appMarkers = [
   { id: "calendar_crud", file: "app.js", terms: ["function openEventModal", "function saveEventFromForm", "function deleteEvent"] },
   { id: "todo_crud", file: "app.js", terms: ["function quickAddTodo", "function saveTodoFromForm", "function toggleTodo", "function deleteTodo"] },
@@ -625,6 +629,30 @@ function buildChecklist() {
     requirement: "GitHub and adoption-candidate project snapshots are valid local JSON seed data.",
     status: snapshots.every((item) => item.status === "pass") ? "pass" : "fail",
     evidence: snapshots,
+  });
+
+  const freshnessDriftFiles = freshnessDriftScripts.map((path) => ({ path, exists: fileExists(path) }));
+  const freshnessDriftTerms = [
+    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--snapshot-only", "--live", "--fail-on-drift", "driftCount", "lastCommit", "pushedAt"] },
+    { file: "README.md", terms: ["check-candidate-freshness-drift.mjs", "--snapshot-only", "--live", "--fail-on-drift", "candidate freshness drift"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const freshnessDriftSnapshot = run("node", ["scripts/check-candidate-freshness-drift.mjs", "--snapshot-only"]);
+  checklist.push({
+    id: "candidate_freshness_drift_monitor",
+    requirement: "Source-backed adoption candidates have an operator drift monitor that can validate local snapshot shape offline and compare live GitHub HEAD metadata on demand.",
+    status: freshnessDriftFiles.every((item) => item.exists) &&
+      freshnessDriftTerms.every((item) => item.missingTerms.length === 0) &&
+      freshnessDriftSnapshot.ok ? "pass" : "fail",
+    evidence: {
+      files: freshnessDriftFiles,
+      terms: freshnessDriftTerms,
+      snapshotOnly: {
+        command: "node scripts/check-candidate-freshness-drift.mjs --snapshot-only",
+        status: freshnessDriftSnapshot.ok ? "pass" : "fail",
+        result: parseJson(freshnessDriftSnapshot.stdout) || freshnessDriftSnapshot.stdout.trim(),
+        stderr: freshnessDriftSnapshot.stderr.trim(),
+      },
+    },
   });
 
   const autoresearchCandidates = autoresearchCandidateSnapshot("data/adoption-candidates.json");
