@@ -790,10 +790,10 @@
         "flow": "PR + task + calendar command center",
         "signals": ["PR dashboard", "calendar agenda", "AI review/readiness"],
         "rubric": [
-          { "axis": "입력 소스", "value": "GitHub/GitLab PR + Jira task + Google Calendar", "score": 30 },
-          { "axis": "AI 보조", "value": "AI code review + readiness scanner", "score": 24 },
-          { "axis": "PM 표면", "value": "dashboard + sprint/task status", "score": 18 },
-          { "axis": "운영 방식", "value": "local FastAPI + SQLite + agents dashboard", "score": 16 }
+          { "axis": "입력 소스", "value": "GitHub/GitLab PR + Jira task + Google Calendar", "weight": 0.25, "score": 92 },
+          { "axis": "AI 보조", "value": "AI code review + readiness scanner", "weight": 0.3, "score": 86 },
+          { "axis": "PM 표면", "value": "dashboard + sprint/task status", "weight": 0.3, "score": 82 },
+          { "axis": "운영 방식", "value": "local FastAPI + SQLite + agents dashboard", "weight": 0.15, "score": 78 }
         ]
       }
     },
@@ -830,10 +830,10 @@
         "flow": "Conversational AI task execution",
         "signals": ["natural-language task creation", "Kanban/sprint workflow", "self-hosted PM"],
         "rubric": [
-          { "axis": "입력 소스", "value": "natural-language task commands", "score": 18 },
-          { "axis": "AI 보조", "value": "in-app conversational execution + browser task execution", "score": 28 },
-          { "axis": "PM 표면", "value": "Kanban boards + sprints + task dependencies", "score": 24 },
-          { "axis": "운영 방식", "value": "self-hosted PM + modular architecture", "score": 16 }
+          { "axis": "입력 소스", "value": "natural-language task commands", "weight": 0.25, "score": 78 },
+          { "axis": "AI 보조", "value": "in-app conversational execution + browser task execution", "weight": 0.3, "score": 92 },
+          { "axis": "PM 표면", "value": "Kanban boards + sprints + task dependencies", "weight": 0.3, "score": 88 },
+          { "axis": "운영 방식", "value": "self-hosted PM + modular architecture", "weight": 0.15, "score": 86 }
         ]
       }
     },

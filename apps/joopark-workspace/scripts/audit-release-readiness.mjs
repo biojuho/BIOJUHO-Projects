@@ -938,17 +938,17 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkRubricTerms,
   });
 
-  const taskosaurWorkstreamBenchmarkScoredRubricTerms = [
-    { file: "data/adoption-candidates.json", terms: ["\"score\": 30", "\"score\": 28", "\"score\": 24", "\"score\": 16"] },
-    { file: "app.js", terms: ["function projectBenchmarkRubricScore", "data-rubric-total", "data-rubric-score", "portfolio-rubric-score"] },
-    { file: "styles.css", terms: [".portfolio-rubric-score", ".portfolio-rubric-project-score"] },
-    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkScoredRubricVisible", "Workstream rubric total did not render", "Taskosaur AI rubric score did not render"] },
+  const taskosaurWorkstreamBenchmarkRubricScoreTerms = [
+    { file: "data/adoption-candidates.json", terms: ["weight", "score", "0.25", "92", "86"] },
+    { file: "app.js", terms: ["function projectBenchmarkRubricScore", "data-benchmark-rubric-recommendation", "data-rubric-total-score", "data-rubric-weight", "data-rubric-score"] },
+    { file: "styles.css", terms: [".portfolio-rubric-score"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkRubricScoreVisible", "benchmark rubric recommendation did not pick Taskosaur", "benchmark rubric AI score did not render"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
-    id: "taskosaur_workstream_benchmark_scored_rubric",
-    requirement: "Taskosaur and Workstream benchmark comparison rubric includes scored recommendation weights and browser smoke coverage for project totals plus key axis scores.",
-    status: taskosaurWorkstreamBenchmarkScoredRubricTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
-    evidence: taskosaurWorkstreamBenchmarkScoredRubricTerms,
+    id: "taskosaur_workstream_benchmark_rubric_score",
+    requirement: "Taskosaur and Workstream benchmark rubric rows carry scored recommendation weights, render a top recommendation, and have browser smoke coverage for the weighted outcome.",
+    status: taskosaurWorkstreamBenchmarkRubricScoreTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkRubricScoreTerms,
   });
 
   const vendorTerms = [
