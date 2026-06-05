@@ -98,7 +98,26 @@ Generated: 2026-06-05T18:50:00+09:00
 - Computer Use manual check opened `http://127.0.0.1:5178/#settings`, confirmed the settings screen rendered, and clicked storage status refresh successfully.
 - `python3 -m unittest discover -s tests` in `autoresearch-skill-system` passed 263 tests.
 
+## Experiment: explicit note Markdown sanitizer smoke
+
+- Hypothesis: After updating marked/DOMPurify, the browser smoke should prove both Markdown rendering and unsafe HTML sanitization, not only note persistence.
+- Primary metric: explicit Markdown security checks in interaction smoke output.
+- Baseline: 0 explicit security result fields; note persistence was checked but sanitizer behavior was only implied by implementation markers.
+- Candidate: interaction smoke injects strong Markdown plus unsafe `script`, `onclick`, and `javascript:` link payloads, then reports `persistedChecks.markdownSanitized: true`.
+- Decision: keep.
+
+## Evidence
+
+- `node --check scripts/smoke-interactions.mjs` and `node --check scripts/audit-release-readiness.mjs` passed.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 13/13.
+- Packaged interaction evidence included `markdownSanitized: true`, with 0 console and network issues.
+
+## Publish Result
+
+- Committed the accepted product launch hardening changes as `3b48ed5 Harden JooPark launch readiness`.
+- Pushed `3b48ed5` to `biojuho-projects/codex/joopark-workspace-release`.
+- Draft PR creation was blocked because `codex/joopark-workspace-release` has no common history with repository `main`.
+
 ## Next Loop
 
-- Add a small machine-readable AutoResearch result summary so the next run can compare baseline/candidate metrics without scraping Markdown.
-- Continue with the highest-impact product gap after the next full gate: publish/remote state, direct launch packaging, or deeper UI workflow coverage.
+- Continue with the highest-impact product gap after the next full gate: standalone release publication, no-common-history PR strategy, or deeper UI workflow coverage.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T18:58:40+09:00",
+  "generatedAt": "2026-06-05T19:03:20+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -16,6 +16,7 @@
       "routes": 15,
       "mobileRoutes": 15,
       "interactionSteps": 17,
+      "markdownSanitized": true,
       "consoleIssues": 0,
       "networkIssues": 0,
       "layoutIssues": 0
@@ -63,11 +64,26 @@
       "baseline": 0,
       "candidate": 4,
       "decision": "keep"
+    },
+    {
+      "id": "note-markdown-sanitizer-smoke",
+      "primaryMetric": "explicitMarkdownSecurityChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
+  "publish": {
+    "commit": "3b48ed5",
+    "branch": "codex/joopark-workspace-release",
+    "remote": "biojuho-projects",
+    "push": "pass",
+    "draftPr": "blocked",
+    "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
+  },
   "nextCandidates": [
-    "publish or remote-state hardening",
-    "direct launch packaging evidence",
+    "standalone release publication",
+    "no-common-history PR strategy",
     "deeper UI workflow coverage"
   ]
 }
