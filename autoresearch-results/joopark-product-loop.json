@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T06:33:33+09:00",
+  "generatedAt": "2026-06-06T06:50:06+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 53,
+      "pass": 54,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 53
+      "total": 54
     },
     "browserEvidence": {
       "routes": 15,
@@ -51,8 +51,8 @@
       "worklenzCandidateFreshnessVisible": true,
       "anytypeCandidateFreshnessVisible": true,
       "focalboardCandidateFreshnessVisible": true,
-      "workspaceBenchmarkHeadSnapshots": 17,
-      "workspaceBenchmarkFreshnessChecks": 83,
+      "workspaceBenchmarkHeadSnapshots": 18,
+      "workspaceBenchmarkFreshnessChecks": 89,
       "epicenterCandidateFreshnessVisible": true,
       "openLoafCandidateFreshnessVisible": true,
       "planeCandidateFreshnessVisible": true,
@@ -64,6 +64,8 @@
       "appflowyAffineCandidateFreshnessChecks": 8,
       "outlineCandidateFreshnessVisible": true,
       "outlineKnowledgeBaseCandidateFreshnessChecks": 6,
+      "bookStackCandidateFreshnessVisible": true,
+      "bookStackDocumentationCandidateFreshnessChecks": 6,
       "workstreamCandidateFreshnessVisible": true,
       "taskosaurCandidateFreshnessVisible": true,
       "markdownTaskManagerCandidateFreshnessVisible": true,
@@ -72,8 +74,8 @@
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 1,
-      "candidateFreshnessMonitored": 19,
-      "candidateFreshnessSourceMarkers": 33,
+      "candidateFreshnessMonitored": 20,
+      "candidateFreshnessSourceMarkers": 34,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -617,6 +619,13 @@
       "baseline": 0,
       "candidate": 6,
       "decision": "keep"
+    },
+    {
+      "id": "bookstack-documentation-benchmark-candidate",
+      "primaryMetric": "bookStackDocumentationCandidateFreshnessChecks",
+      "baseline": 0,
+      "candidate": 6,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -632,7 +641,7 @@
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric",
-    "research BookStack as a self-hosted documentation benchmark after the Outline candidate lands",
+    "research Wiki.js as a self-hosted wiki benchmark after the BookStack candidate lands",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }

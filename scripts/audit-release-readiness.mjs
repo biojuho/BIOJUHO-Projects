@@ -218,6 +218,7 @@ function workspaceCandidateSnapshot(relPath) {
     "AppFlowy-IO/AppFlowy",
     "toeverything/AFFiNE",
     "outline/outline",
+    "BookStackApp/BookStack",
     "happybhati/workstream",
     "colanode/colanode",
     "anyproto/anytype-ts",
@@ -261,6 +262,11 @@ function workspaceCandidateSnapshot(relPath) {
       key: "outline",
       name: "outline/outline",
       sourceMarker: "github-api:outline-freshness-refresh",
+    },
+    {
+      key: "bookStack",
+      name: "BookStackApp/BookStack",
+      sourceMarker: "github-api:bookstack-freshness-refresh",
     },
     {
       key: "colanode",
@@ -838,6 +844,17 @@ function buildChecklist() {
     requirement: "The portfolio includes Outline as a researched knowledge-base benchmark candidate and interaction smoke can find it by current GitHub commit with popularity and spike recommendation metadata.",
     status: outlineFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: outlineFreshnessUiTerms,
+  });
+
+  const bookStackFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["BookStackApp/BookStack", "github-search:bookstack-documentation-benchmark", "github-api:bookstack-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotBookStack", "shortBookStackCommit", "BookStack freshness commit did not render", "bookStackCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "bookstack_documentation_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes BookStack as a researched self-hosted documentation benchmark candidate and interaction smoke can find it by current GitHub commit with popularity, source-migration, and architecture-benchmark metadata.",
+    status: bookStackFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: bookStackFreshnessUiTerms,
   });
 
   const veritasFreshnessUiTerms = [

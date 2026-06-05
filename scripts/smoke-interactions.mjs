@@ -369,6 +369,7 @@ const interactionExpression = `
   let appFlowyCandidateFreshnessVisibleOk = false;
   let affineCandidateFreshnessVisibleOk = false;
   let outlineCandidateFreshnessVisibleOk = false;
+  let bookStackCandidateFreshnessVisibleOk = false;
   const remainingWorkspaceFreshnessOk = {
     workstream: false,
     taskosaur: false,
@@ -576,6 +577,8 @@ const interactionExpression = `
     assert(affineCandidate && affineCandidate.sourceKind === "adoption-candidate", "AFFiNE workspace benchmark candidate was not loaded");
     const outlineCandidate = dashboard.projects.find((project) => project.name === "outline/outline");
     assert(outlineCandidate && outlineCandidate.sourceKind === "adoption-candidate", "Outline knowledge-base benchmark candidate was not loaded");
+    const bookStackCandidate = dashboard.projects.find((project) => project.name === "BookStackApp/BookStack");
+    assert(bookStackCandidate && bookStackCandidate.sourceKind === "adoption-candidate", "BookStack documentation benchmark candidate was not loaded");
     const epicenterCandidate = dashboard.projects.find((project) => project.name === "EpicenterHQ/epicenter");
     assert(epicenterCandidate && epicenterCandidate.sourceKind === "adoption-candidate", "Epicenter workspace benchmark candidate was not loaded");
     const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
@@ -623,6 +626,9 @@ const interactionExpression = `
     const snapshotOutline = adoptionSnapshot.projects.find((project) => project.name === "outline/outline");
     assert(snapshotOutline && /^[0-9a-f]{40}$/i.test(snapshotOutline.lastCommit || "") && !Number.isNaN(Date.parse(snapshotOutline.pushedAt || "")), "Outline snapshot freshness evidence was missing");
     const shortOutlineCommit = snapshotOutline.lastCommit.slice(0, 8);
+    const snapshotBookStack = adoptionSnapshot.projects.find((project) => project.name === "BookStackApp/BookStack");
+    assert(snapshotBookStack && /^[0-9a-f]{40}$/i.test(snapshotBookStack.lastCommit || "") && !Number.isNaN(Date.parse(snapshotBookStack.pushedAt || "")), "BookStack snapshot freshness evidence was missing");
+    const shortBookStackCommit = snapshotBookStack.lastCommit.slice(0, 8);
     const snapshotColanode = adoptionSnapshot.projects.find((project) => project.name === "colanode/colanode");
     assert(snapshotColanode && /^[0-9a-f]{40}$/i.test(snapshotColanode.lastCommit || "") && !Number.isNaN(Date.parse(snapshotColanode.pushedAt || "")), "Colanode snapshot freshness evidence was missing");
     const shortColanodeCommit = snapshotColanode.lastCommit.slice(0, 8);
@@ -664,6 +670,8 @@ const interactionExpression = `
     assert(affineCandidate.pushedAt === snapshotAffine.pushedAt, "AFFiNE candidate pushedAt was stale");
     assert(outlineCandidate.lastCommit === snapshotOutline.lastCommit, "Outline candidate commit was stale");
     assert(outlineCandidate.pushedAt === snapshotOutline.pushedAt, "Outline candidate pushedAt was stale");
+    assert(bookStackCandidate.lastCommit === snapshotBookStack.lastCommit, "BookStack candidate commit was stale");
+    assert(bookStackCandidate.pushedAt === snapshotBookStack.pushedAt, "BookStack candidate pushedAt was stale");
     assert(benchmarkCandidate.lastCommit === snapshotColanode.lastCommit, "Colanode candidate commit was stale");
     assert(benchmarkCandidate.pushedAt === snapshotColanode.pushedAt, "Colanode candidate pushedAt was stale");
     assert(riskCandidate.lastCommit === snapshotOpenProject.lastCommit, "OpenProject candidate commit was stale");
@@ -935,6 +943,22 @@ const interactionExpression = `
     assert(outlineCommit.dataset.candidatePushedAt === snapshotOutline.pushedAt, "Outline pushedAt freshness marker did not render");
     const outlineHref = qs(".portfolio-candidate-link", outlineCard).href;
     assert(outlineHref === "https://github.com/outline/outline" || outlineHref === "https://github.com/outline/outline/", "Outline GitHub link did not render safely");
+    fill("#globalSearch", shortBookStackCommit);
+    await waitFor(() => state.query === shortBookStackCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "BookStack commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + bookStackCandidate.id + '"]'), "BookStack portfolio card did not render after commit search");
+    const bookStackCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + bookStackCandidate.id + '"]');
+    const bookStackText = bookStackCard.innerText;
+    assert(bookStackText.includes("BookStackApp/BookStack"), "BookStack candidate card did not render");
+    assert(bookStackText.includes("Codeberg") && bookStackText.includes("문서"), "BookStack candidate description did not render");
+    assert(bookStackText.includes(formatMetric(snapshotBookStack.stars)), "BookStack star count did not render");
+    assert(bookStackText.includes(formatMetric(snapshotBookStack.forks)), "BookStack fork count did not render");
+    assert(bookStackText.includes("PHP"), "BookStack language did not render");
+    assert(qs("[data-candidate-action]", bookStackCard).textContent.includes("아키텍처 벤치"), "BookStack candidate action did not render architecture benchmark");
+    const bookStackCommit = qs("[data-candidate-commit]", bookStackCard);
+    assert(bookStackCommit.dataset.candidateCommit === shortBookStackCommit, "BookStack freshness commit did not render");
+    assert(bookStackCommit.dataset.candidatePushedAt === snapshotBookStack.pushedAt, "BookStack pushedAt freshness marker did not render");
+    const bookStackHref = qs(".portfolio-candidate-link", bookStackCard).href;
+    assert(bookStackHref === "https://github.com/BookStackApp/BookStack" || bookStackHref === "https://github.com/BookStackApp/BookStack/", "BookStack GitHub link did not render safely");
     fill("#globalSearch", shortEpicenterCommit);
     await waitFor(() => state.query === shortEpicenterCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Epicenter commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + epicenterCandidate.id + '"]'), "Epicenter portfolio card did not render after commit search");
@@ -1091,6 +1115,7 @@ const interactionExpression = `
     appFlowyCandidateFreshnessVisibleOk = true;
     affineCandidateFreshnessVisibleOk = true;
     outlineCandidateFreshnessVisibleOk = true;
+    bookStackCandidateFreshnessVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
     leantimeCandidateFreshnessVisibleOk = true;
@@ -1331,6 +1356,7 @@ const interactionExpression = `
     appFlowyCandidateFreshnessVisible: appFlowyCandidateFreshnessVisibleOk,
     affineCandidateFreshnessVisible: affineCandidateFreshnessVisibleOk,
     outlineCandidateFreshnessVisible: outlineCandidateFreshnessVisibleOk,
+    bookStackCandidateFreshnessVisible: bookStackCandidateFreshnessVisibleOk,
     workstreamCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.workstream,
     taskosaurCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.taskosaur,
     markdownTaskManagerCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.markdownTaskManager,
