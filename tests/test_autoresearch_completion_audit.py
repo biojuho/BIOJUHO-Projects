@@ -56,6 +56,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "canva_widget_message_capture_order_guard",
         "agent_workflow_json_safe_model_serialization_guard",
         "mcp_long_running_task_capability_guard",
+        "browser_smoke_websocket_failure_evidence_guard",
         "github_source_freshness_snapshot",
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",

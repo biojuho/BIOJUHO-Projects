@@ -240,6 +240,56 @@ def test_route_result_records_expected_text_matches() -> None:
     assert result.missing_expected_text == []
 
 
+def test_route_result_fails_on_websocket_socket_error() -> None:
+    smoke = load_browser_smoke_module()
+
+    class Response:
+        status = 200
+
+    class Locator:
+        def inner_text(self, timeout: int) -> str:
+            return "AI Projects Dashboard"
+
+    class WebSocket:
+        url = "ws://127.0.0.1:5173/api/realtime"
+
+        def on(self, event: str, callback) -> None:
+            if event == "socketerror":
+                callback("connection refused")
+
+    class Page:
+        url = "http://127.0.0.1:5173/"
+
+        def __init__(self) -> None:
+            self.listeners = {}
+
+        def on(self, event: str, callback) -> None:
+            self.listeners[event] = callback
+
+        def remove_listener(self, event: str, callback) -> None:
+            return None
+
+        def goto(self, url: str, wait_until: str, timeout: int):
+            self.url = url
+            self.listeners["websocket"](WebSocket())
+            return Response()
+
+        def locator(self, selector: str) -> Locator:
+            return Locator()
+
+    result = smoke.run_route(
+        Page(),
+        {"id": "dashboard-frontend", "url": "http://127.0.0.1:5173/"},
+        {"name": "home", "path": "/", "expected_text": ["AI Projects Dashboard"]},
+        1000,
+    )
+
+    assert result.ok is False
+    assert result.websocket_count == 1
+    assert result.websocket_failures == ["ws://127.0.0.1:5173/api/realtime: connection refused"]
+    assert any("websocket failed" in failure for failure in result.failures)
+
+
 def test_route_result_records_missing_expected_text() -> None:
     smoke = load_browser_smoke_module()
 
@@ -329,6 +379,8 @@ def test_markdown_lists_expected_text_evidence() -> None:
         ok=False,
         failures=["dashboard-frontend/home: missing expected text 'Queue #2'"],
         expected_text_count=2,
+        websocket_count=1,
+        websocket_failures=["ws://127.0.0.1:5173/api/realtime: connection refused"],
         matched_expected_text=["AI Projects Dashboard"],
         missing_expected_text=["Queue #2"],
         status_code=200,
@@ -343,6 +395,9 @@ def test_markdown_lists_expected_text_evidence() -> None:
     markdown = smoke.format_markdown(report)
 
     assert "## Expected Text Evidence" in markdown
+    assert "WebSockets observed: `1`" in markdown
+    assert "WebSocket failures: `1`" in markdown
     assert "- `dashboard-frontend` `home` matched=`1/2`" in markdown
+    assert "websocket_failures=`1`" in markdown
     assert "  - matched: `AI Projects Dashboard`" in markdown
     assert "  - missing: `Queue #2`" in markdown

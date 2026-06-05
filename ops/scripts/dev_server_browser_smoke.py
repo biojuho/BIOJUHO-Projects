@@ -38,6 +38,8 @@ class RouteResult:
     path: str
     ok: bool
     failures: list[str]
+    websocket_count: int = 0
+    websocket_failures: list[str] | None = None
     expected_text_count: int = 0
     matched_expected_text: list[str] | None = None
     missing_expected_text: list[str] | None = None
@@ -172,6 +174,8 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
     console_errors: list[str] = []
     page_errors: list[str] = []
     request_failures: list[str] = []
+    websocket_count = 0
+    websocket_failures: list[str] = []
     status_code: int | None = None
     final_path: str | None = None
     expected_text = [str(item) for item in route.get("expected_text", [])]
@@ -195,9 +199,19 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
         error_text = failure.get("errorText") if isinstance(failure, dict) else str(failure)
         request_failures.append(f"{request.url}: {error_text}")
 
+    def collect_websocket(websocket) -> None:
+        nonlocal websocket_count
+        websocket_count += 1
+
+        def collect_socket_error(error) -> None:
+            websocket_failures.append(f"{websocket.url}: {error}")
+
+        websocket.on("socketerror", collect_socket_error)
+
     page.on("console", collect_console)
     page.on("pageerror", collect_page_error)
     page.on("requestfailed", collect_request_failed)
+    page.on("websocket", collect_websocket)
     try:
         response = page.goto(route_url(target["url"], route["path"]), wait_until="networkidle", timeout=timeout_ms)
         status_code = response.status if response is not None else 0
@@ -224,6 +238,7 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
         page.remove_listener("console", collect_console)
         page.remove_listener("pageerror", collect_page_error)
         page.remove_listener("requestfailed", collect_request_failed)
+        page.remove_listener("websocket", collect_websocket)
 
     for message in console_errors[:5]:
         failures.append(f"{target_id}/{route_name}: console error: {message[:300]}")
@@ -231,6 +246,8 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
         failures.append(f"{target_id}/{route_name}: page error: {message[:300]}")
     for message in request_failures[:5]:
         failures.append(f"{target_id}/{route_name}: request failed: {message[:300]}")
+    for message in websocket_failures[:5]:
+        failures.append(f"{target_id}/{route_name}: websocket failed: {message[:300]}")
 
     return RouteResult(
         target_id=target_id,
@@ -238,6 +255,8 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
         path=route["path"],
         ok=not failures,
         failures=failures,
+        websocket_count=websocket_count,
+        websocket_failures=websocket_failures,
         expected_text_count=len(expected_text),
         matched_expected_text=matched_expected_text,
         missing_expected_text=missing_expected_text,
@@ -275,6 +294,11 @@ def build_report(
     if blocker:
         failures.insert(0, blocker)
     route_count = sum(len(check["routes"]) for check in checks)
+    websocket_failures = [
+        failure
+        for result in results
+        for failure in (result.websocket_failures or [])
+    ]
     return {
         "schema_version": 1,
         "tool": "dev_server_browser_smoke",
@@ -287,6 +311,8 @@ def build_report(
             "passed": sum(1 for result in results if result.ok),
             "failed": sum(1 for result in results if not result.ok),
             "blocked": 1 if blocker else 0,
+            "websockets": sum(result.websocket_count for result in results),
+            "websocket_failures": len(websocket_failures),
         },
         "browser_isolation": browser_isolation_policy(),
         "results": [asdict(result) for result in results],
@@ -305,6 +331,8 @@ def format_markdown(report: dict[str, Any]) -> str:
         f"- Passed: `{summary['passed']}`",
         f"- Failed: `{summary['failed']}`",
         f"- Blocked: `{summary['blocked']}`",
+        f"- WebSockets observed: `{summary.get('websockets', 0)}`",
+        f"- WebSocket failures: `{summary.get('websocket_failures', 0)}`",
         f"- Browser isolation: `{report['browser_isolation']['mode']}`",
         f"- Persistent profile: `{str(report['browser_isolation']['persistent_profile']).lower()}`",
         "",
@@ -319,7 +347,8 @@ def format_markdown(report: dict[str, Any]) -> str:
         expected_count = int(result.get("expected_text_count") or 0)
         lines.append(
             f"- `{state}` `{result['target_id']}` `{result['name']}` `{result['path']}` "
-            f"expected=`{matched_count}/{expected_count}`"
+            f"expected=`{matched_count}/{expected_count}` "
+            f"websocket_failures=`{len(result.get('websocket_failures') or [])}`"
         )
     expected_results = [
         result for result in report["results"] if int(result.get("expected_text_count") or 0) > 0

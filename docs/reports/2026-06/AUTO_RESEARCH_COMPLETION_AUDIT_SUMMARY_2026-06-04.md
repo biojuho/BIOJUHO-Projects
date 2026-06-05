@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `75`
-- Status counts: `blocked=1, covered=74`
+- Criteria: `76`
+- Status counts: `blocked=1, covered=75`
 
 ## Missing Required
 
@@ -459,6 +459,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### browser_smoke_websocket_failure_evidence_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### external_credential_boundaries
 
