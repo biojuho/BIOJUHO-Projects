@@ -149,11 +149,27 @@ function autoresearchCandidateSnapshot(relPath) {
     "biojuho/autoresearch-skill-system",
   ];
   const missing = required.filter((name) => !names.has(name));
+  const source = payload?.source || "";
+  const veritasLatestCommit = "96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7";
+  const veritasLatestPushedAt = "2026-06-05T11:55:44Z";
+  const veritas = projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system") || null;
+  const veritasFresh = Boolean(veritas) &&
+    veritas.lastCommit === veritasLatestCommit &&
+    Date.parse(veritas.pushedAt || "") >= Date.parse(veritasLatestPushedAt);
+  const veritasSourceMarked = source.includes("github-api:veritas-autoresearch-refresh");
   return {
-    status: matches.length >= 8 && missing.length === 0 ? "pass" : "fail",
-    source: payload?.source || "",
+    status: matches.length >= 8 && missing.length === 0 && veritasFresh && veritasSourceMarked ? "pass" : "fail",
+    source,
     generatedAt: payload?.generatedAt || "",
     candidates: matches.length,
+    veritas: {
+      latestCommit: veritasLatestCommit,
+      lastCommit: veritas?.lastCommit || "",
+      latestPushedAt: veritasLatestPushedAt,
+      pushedAt: veritas?.pushedAt || "",
+      fresh: veritasFresh,
+      sourceMarked: veritasSourceMarked,
+    },
     required,
     missing,
   };

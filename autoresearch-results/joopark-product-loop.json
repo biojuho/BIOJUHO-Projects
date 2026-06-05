@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T20:53:26+09:00",
+  "generatedAt": "2026-06-05T20:56:21+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -31,6 +31,7 @@
       "pagesPublishWorkflowTemplateChecks": 3,
       "pagesWorkflowHandoffChecks": 5,
       "mainBridgeStrategyChecks": 5,
+      "veritasFreshnessChecks": 5,
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
@@ -217,6 +218,13 @@
       "id": "pr-ready-main-bridge-plan-state",
       "primaryMetric": "mainBridgeStrategyChecks",
       "baseline": 4,
+      "candidate": 5,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-autoresearch-refresh-v8344",
+      "primaryMetric": "veritasFreshnessChecks",
+      "baseline": 0,
       "candidate": 5,
       "decision": "keep"
     }

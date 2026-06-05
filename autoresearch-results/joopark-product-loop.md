@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T20:53:26+09:00
+Generated: 2026-06-05T20:56:21+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -392,6 +392,20 @@ Generated: 2026-06-05T20:53:26+09:00
 - The bridge worktree surfaced the issue: once based on `biojuho-projects/main`, the branch correctly has a merge base and should be PR-ready rather than failing the bridge audit.
 - `node scripts/plan-main-bridge.mjs` still passes on the orphan release branch with `strategy: main-subdirectory-bridge`.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 after accepting both bridge states.
+
+## Experiment: Veritas AutoResearch refresh v8.344
+
+- Hypothesis: The release branch should preserve and advance the main branch Veritas freshness evidence instead of overwriting it during the PR bridge sync.
+- Primary metric: `veritasFreshnessChecks`.
+- Baseline: release data had stale Veritas metadata with `lastCommit: null`, `pushedAt: 2026-06-05T09:43:59Z`, and no `github-api:veritas-autoresearch-refresh` source marker.
+- Candidate: `data/adoption-candidates.json` records Veritas `lastCommit: 96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7`, `pushedAt: 2026-06-05T11:55:44Z`, the source marker, and a release audit freshness gate for that exact evidence.
+- Decision: keep.
+
+## Evidence
+
+- `git ls-remote https://github.com/Veritas-7/autoresearch-skill-system.git refs/heads/main` returned `96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7`.
+- `gh repo view Veritas-7/autoresearch-skill-system --json pushedAt,updatedAt,description,stargazerCount,forkCount,defaultBranchRef,latestRelease` returned pushedAt `2026-06-05T11:55:44Z`, updatedAt `2026-06-05T11:55:49Z`, default branch `main`, 1 star, 1 fork, and no latest release.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 with refreshed `autoresearch_ecosystem_candidates.veritas.fresh: true`.
 
 ## Next Loop
 
