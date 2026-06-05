@@ -698,8 +698,8 @@ function buildChecklist() {
 
   const veritasSnapshotWriterFiles = veritasSnapshotWriterScripts.map((path) => ({ path, exists: fileExists(path) }));
   const veritasSnapshotWriterTerms = [
-    { file: "scripts/refresh-veritas-candidate-snapshot.mjs", terms: ["--snapshot-only", "--write", "gh api", "graphql", "veritas-focused-drift-refresh", "messageHeadline"] },
-    { file: "README.md", terms: ["refresh-veritas-candidate-snapshot.mjs", "--snapshot-only", "--write", "Veritas-7/autoresearch-skill-system"] },
+    { file: "scripts/refresh-veritas-candidate-snapshot.mjs", terms: ["--snapshot-only", "--write", "--fail-on-change", "gh api", "graphql", "veritas-focused-drift-refresh", "messageHeadline"] },
+    { file: "README.md", terms: ["refresh-veritas-candidate-snapshot.mjs", "--snapshot-only", "--write", "--fail-on-change", "Veritas-7/autoresearch-skill-system"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const veritasSnapshotWriter = run("node", ["scripts/refresh-veritas-candidate-snapshot.mjs", "--snapshot-only"]);
   checklist.push({

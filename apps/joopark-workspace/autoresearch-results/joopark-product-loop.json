@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T02:29:21+09:00",
+  "generatedAt": "2026-06-06T02:48:46+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -68,10 +68,11 @@
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
       "veritasFocusedDriftRefreshChecks": 3,
-      "veritasFocusedSnapshotVersion": "v8.428",
-      "veritasSnapshotWriterChecks": 3,
+      "veritasFocusedSnapshotVersion": "v8.435",
+      "veritasSnapshotWriterChecks": 5,
       "veritasSnapshotWriterDryRun": true,
       "veritasSnapshotWriterWrite": true,
+      "veritasSnapshotWriterFailOnChange": true,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2
     }
@@ -454,6 +455,20 @@
       "baseline": 0,
       "candidate": 2,
       "decision": "keep"
+    },
+    {
+      "id": "veritas-writer-refresh-v8435",
+      "primaryMetric": "veritasSnapshotWriterWrite",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-writer-fail-on-change",
+      "primaryMetric": "veritasSnapshotWriterFailOnChange",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -468,7 +483,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "turn Taskosaur/Workstream benchmark chips into a sortable benchmark-focus queue",
-    "promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed",
-    "use the Veritas snapshot writer for the next focused refresh before enabling fail-on-drift"
+    "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
+    "use the Veritas snapshot writer for the next focused refresh when dry-run reports changed true"
   ]
 }

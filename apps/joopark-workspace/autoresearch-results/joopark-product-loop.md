@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T02:29:21+09:00
+Generated: 2026-06-06T02:48:46+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -758,6 +758,21 @@ Generated: 2026-06-06T02:29:21+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_focus`.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 40/40.
 
+## Experiment: Veritas writer fail-on-change gate
+
+- Hypothesis: The Veritas writer should be usable as a repo-scoped automation gate before workflow scheduling is enabled.
+- Primary metric: Veritas snapshot writer fail-on-change support.
+- Baseline: dry-run reported `changed`, but it always exited 0, so automation had to parse JSON to block stale snapshots.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` exits non-zero with `status: drift` only when live metadata would change the snapshot, while still never writing files.
+- Decision: keep; this gives future scheduled CI a single repo-scoped command once token policy is confirmed.
+
+## Evidence
+
+- `--fail-on-change` is documented in the README and required by release audit static terms.
+- `--write` remains separate from fail-on-change, so the gate can detect drift without mutating `data/adoption-candidates.json`.
+- During rebase over the Taskosaur/Workstream benchmark branch, the writer refreshed Veritas to v8.435 (`dc6f03ea6f3317e2b202db736b125e4dac31e700`) with `github-api:veritas-focused-drift-refresh-v8435`.
+- After the writer refresh, `--fail-on-change` can pass until the next Veritas upstream move.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn Taskosaur/Workstream benchmark chips into a sortable benchmark-focus queue, promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh before enabling fail-on-drift.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn Taskosaur/Workstream benchmark chips into a sortable benchmark-focus queue, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
