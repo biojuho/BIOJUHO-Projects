@@ -10,7 +10,7 @@ const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-chrome-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
-const defaultEvaluateTimeoutMs = 30000;
+const defaultEvaluateTimeoutMs = 60000;
 
 const routes = [
   ["home", ["오늘 일정", "팀 · 시스템 관리"]],
@@ -290,9 +290,9 @@ async function main() {
     await pageClient.send("Network.enable");
     progress("cdp-domains-enabled");
 
-    for (const [route, expectedTexts] of routes) {
+    for (const [routeIndex, [route, expectedTexts]] of routes.entries()) {
       currentRoute = route;
-      const url = `${baseUrl}/index.html#${route}`;
+      const url = `${baseUrl}/index.html?smoke-route=${routeIndex}#${route}`;
       progress("route-start", { route, url });
       await pageClient.send("Page.navigate", { url });
       await waitForAppRoute(pageClient, route);

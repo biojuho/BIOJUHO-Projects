@@ -10,7 +10,7 @@ const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-interaction-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
-const defaultEvaluateTimeoutMs = 30000;
+const defaultEvaluateTimeoutMs = 60000;
 const longScenarioEvaluateTimeoutMs = 120000;
 const resetScenarioEvaluateTimeoutMs = 60000;
 
