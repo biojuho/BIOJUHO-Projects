@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `77`
-- Status counts: `blocked=1, covered=76`
+- Criteria: `78`
+- Status counts: `blocked=1, covered=77`
 
 ## Missing Required
 
@@ -311,6 +311,12 @@
 - Evidence paths: `9`
 
 ### external_credential_consent_items_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `12`
+
+### hosted_agent_trace_provider_registry_guard
 
 - Required: `true`
 - Status: `covered`

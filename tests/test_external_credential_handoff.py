@@ -52,6 +52,12 @@ def test_handoff_lists_required_env_without_secret_values() -> None:
         "hosted_agent_toolbox_mcp",
         "hosted_agent_tracing_runtime",
     ]
+    assert [item["name"] for item in hosted["trace_processor_providers"]] == [
+        "openai_traces",
+        "langsmith",
+        "pydantic_logfire",
+        "latitude",
+    ]
     assert "client-id-secret-value" not in serialized
     assert "client-secret-value" not in serialized
     assert "telegram-token-value" not in serialized
@@ -70,8 +76,11 @@ def test_markdown_and_env_template_are_operator_actionable() -> None:
     assert "cd mcp/canva-mcp && npm run doctor:canva" in markdown
     assert "mcp_otel_collector_handoff.py" in markdown
     assert "Consent items: `2`" in markdown
+    assert "Trace processor provider choices" in markdown
+    assert "latitude" in markdown
     assert "hosted_agent_toolbox_mcp" in markdown
     assert "CANVA_CLIENT_SECRET=" in env_template
+    assert "LATITUDE_API_KEY=" in env_template
     assert "TELEGRAM_CHAT_ID=" in env_template
 
 
@@ -95,6 +104,7 @@ def test_unblock_queue_prioritizes_operator_actions() -> None:
         "hosted_agent_toolbox_mcp",
         "hosted_agent_tracing_runtime",
     ]
+    assert hosted["trace_processor_providers"][-1]["name"] == "latitude"
 
 
 def test_env_template_follows_unblock_queue_order() -> None:
@@ -108,6 +118,7 @@ def test_env_template_follows_unblock_queue_order() -> None:
     assert env_template.index("TELEGRAM_CHAT_ID=") < env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=")
     assert env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=") < env_template.index("HOSTED_AGENT_RUNTIME_APPROVED=")
     assert env_template.index("HOSTED_AGENT_RUNTIME_APPROVED=") < env_template.index("OPENAI_API_KEY=")
+    assert env_template.index("LOGFIRE_TOKEN=") < env_template.index("LATITUDE_API_KEY=")
 
 
 def test_operator_checklist_matches_live_readiness_without_secret_values() -> None:
@@ -136,12 +147,17 @@ def test_operator_checklist_matches_live_readiness_without_secret_values() -> No
     assert by_id["hosted_agent_runtime_credentials"]["operator_consent_items"][0]["name"] == (
         "hosted_agent_toolbox_mcp"
     )
+    assert by_id["hosted_agent_runtime_credentials"]["trace_processor_providers"][-1]["name"] == "latitude"
     assert any(
         step["id"] == "operator_approval_marker"
         for step in by_id["hosted_agent_runtime_credentials"]["checklist"]
     )
     assert any(
         step["id"] == "operator_consent_items" and step["state"] == "blocked"
+        for step in by_id["hosted_agent_runtime_credentials"]["checklist"]
+    )
+    assert any(
+        step["id"] == "trace_processor_provider_choice" and step["state"] == "blocked"
         for step in by_id["hosted_agent_runtime_credentials"]["checklist"]
     )
     assert "ready_to_execute" in serialized
@@ -165,6 +181,7 @@ def test_operator_checklist_markdown_is_actionable() -> None:
     assert "blocked_operator_approval" in markdown
     assert "HOSTED_AGENT_RUNTIME_APPROVED" in markdown
     assert "Operator consent items: hosted_agent_toolbox_mcp, hosted_agent_tracing_runtime" in markdown
+    assert "Trace processor providers: OpenAI Traces (OPENAI_API_KEY), LangSmith (LANGCHAIN_API_KEY), Pydantic Logfire (LOGFIRE_TOKEN), Latitude (LATITUDE_API_KEY)" in markdown
     assert "cd mcp/canva-mcp && npm run doctor:canva" in markdown
 
 

@@ -7,13 +7,13 @@
 
 ## Boundaries
 
-| Boundary | Status | Required env missing | Optional env available | Consent items | Evidence paths | Verification commands |
-| --- | --- | ---: | --- | ---: | ---: | ---: |
-| `canva_oauth_and_openapi_tool_execution` | `external_auth_blocked` | `2` | `false` | `0` | `2` | `2` |
-| `otel_collector_endpoint_and_credentials` | `future_scoped` | `1` | `false` | `0` | `1` | `2` |
-| `hosted_agent_runtime_credentials` | `future_scoped` | `0` | `false` | `2` | `1` | `2` |
-| `github_source_refresh_rate_limit_token` | `optional_token_absent` | `0` | `false` | `0` | `1` | `1` |
-| `telegram_notification_mcp_credentials` | `credential_gated` | `2` | `false` | `0` | `2` | `2` |
+| Boundary | Status | Required env missing | Optional env available | Consent items | Trace providers | Evidence paths | Verification commands |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| `canva_oauth_and_openapi_tool_execution` | `external_auth_blocked` | `2` | `false` | `0` | `0` | `2` | `2` |
+| `otel_collector_endpoint_and_credentials` | `future_scoped` | `1` | `false` | `0` | `0` | `1` | `2` |
+| `hosted_agent_runtime_credentials` | `future_scoped` | `0` | `false` | `2` | `4` | `1` | `2` |
+| `github_source_refresh_rate_limit_token` | `optional_token_absent` | `0` | `false` | `0` | `0` | `1` | `1` |
+| `telegram_notification_mcp_credentials` | `credential_gated` | `2` | `false` | `0` | `0` | `2` | `2` |
 
 ## Missing Required Env
 
@@ -31,6 +31,7 @@
 - Policy: do not claim complete without real Canva user credentials, login/consent redirect evidence, and proxy authentication approval
 - Blocked until: A real Canva user completes login and consent through http://localhost:8001/auth/callback.; Proxy authentication and tool-call authorization behavior are selected and verified.
 - Consent items: `0`
+- Trace processor providers: `0`
 
 ### otel_collector_endpoint_and_credentials
 
@@ -38,6 +39,7 @@
 - Policy: do not claim live collector shipping complete without an operator-owned OTLP endpoint and credential policy
 - Blocked until: The operator selects the collector distribution, endpoint, authentication, retention, sampling, and retry policy.
 - Consent items: `0`
+- Trace processor providers: `0`
 
 ### hosted_agent_runtime_credentials
 
@@ -45,6 +47,13 @@
 - Policy: do not claim hosted autonomous agent runtime complete without operator-owned runtime, tracing, approval credentials, and HOSTED_AGENT_RUNTIME_APPROVED=true
 - Blocked until: A concrete hosted agent runtime, tracing backend, approval UI, and credential owner are selected.; HOSTED_AGENT_RUNTIME_APPROVED=true is set only after the operator confirms the hosted runtime consent and approval policy.
 - Consent items: `2`
+- Trace processor providers: `4`
+
+Trace processor providers:
+- `openai_traces` (`OPENAI_API_KEY`): OpenAI Traces
+- `langsmith` (`LANGCHAIN_API_KEY`): LangSmith
+- `pydantic_logfire` (`LOGFIRE_TOKEN`): Pydantic Logfire
+- `latitude` (`LATITUDE_API_KEY`): Latitude
 
 ### github_source_refresh_rate_limit_token
 
@@ -52,6 +61,7 @@
 - Policy: do not claim a live source refresh complete by replacing the last complete source snapshot with a rate-limited partial artifact
 - Blocked until: A GitHub token is supplied when live source-refresh volume exceeds unauthenticated API limits.
 - Consent items: `0`
+- Trace processor providers: `0`
 
 ### telegram_notification_mcp_credentials
 
@@ -59,6 +69,7 @@
 - Policy: do not claim notification delivery complete from tools/list smoke alone
 - Blocked until: Notification bot token and chat target are provided for real delivery checks.
 - Consent items: `0`
+- Trace processor providers: `0`
 
 ## Errors
 

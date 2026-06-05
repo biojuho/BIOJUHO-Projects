@@ -192,8 +192,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Boundaries",
         "",
-        "| Rank | Boundary | Live status | Missing required env | Consent items | Commands |",
-        "| ---: | --- | --- | ---: | ---: | ---: |",
+        "| Rank | Boundary | Live status | Missing required env | Consent items | Trace providers | Commands |",
+        "| ---: | --- | --- | ---: | ---: | ---: | ---: |",
     ]
     for boundary in report["boundaries"]:
         lines.append(
@@ -204,6 +204,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                     f"`{boundary['live_status']}`",
                     f"`{len(boundary['missing_required_env'])}`",
                     f"`{boundary['consent_item_count']}`",
+                    f"`{boundary['trace_processor_provider_count']}`",
                     f"`{len(boundary['verification_commands'])}` |",
                 ]
             )
@@ -217,6 +218,17 @@ def render_markdown(report: dict[str, Any]) -> str:
             lines.extend(
                 f"- `{item['name']}` (`{item['type']}`): {item['reason']}"
                 for item in boundary["operator_consent_items"]
+            )
+            lines.append("")
+    trace_provider_boundaries = [boundary for boundary in report["boundaries"] if boundary["trace_processor_providers"]]
+    if trace_provider_boundaries:
+        lines.extend(["", "## Trace Processor Providers", ""])
+        for boundary in trace_provider_boundaries:
+            lines.append(f"### {boundary['title']}")
+            lines.append("")
+            lines.extend(
+                f"- `{item['name']}` (`{item['credential_env']}`): {item['label']}"
+                for item in boundary["trace_processor_providers"]
             )
             lines.append("")
     lines.extend(["", "## Commands", ""])
@@ -311,6 +323,8 @@ def _planned_boundary(boundary: dict[str, Any], *, plan_rank: int) -> dict[str, 
         "operator_approval_available": boundary["operator_approval_available"],
         "operator_consent_items": boundary["operator_consent_items"],
         "consent_item_count": boundary["consent_item_count"],
+        "trace_processor_providers": boundary["trace_processor_providers"],
+        "trace_processor_provider_count": boundary["trace_processor_provider_count"],
         "verification_commands": boundary["verification_commands"],
         "claim_policy": boundary["claim_policy"],
     }

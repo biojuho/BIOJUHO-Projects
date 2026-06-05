@@ -15,7 +15,7 @@
 | `2` | `github_source_refresh_rate_limit_token` | `blocked_missing_optional_env` | `false` | missing optional env: GITHUB_TOKEN, GH_TOKEN | `GITHUB_TOKEN`, `GH_TOKEN` | `1` |
 | `3` | `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `false` | missing required env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `2` |
 | `4` | `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `false` | missing required env: OTEL_EXPORTER_OTLP_ENDPOINT | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE`, `OTEL_EXPORTER_OTLP_CLIENT_KEY` | `2` |
-| `5` | `hosted_agent_runtime_credentials` | `blocked_operator_approval` | `false` | missing operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED | `OPENAI_API_KEY`, `LANGCHAIN_API_KEY`, `LOGFIRE_TOKEN`, `HOSTED_AGENT_RUNTIME_APPROVED` | `2` |
+| `5` | `hosted_agent_runtime_credentials` | `blocked_operator_approval` | `false` | missing operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED | `OPENAI_API_KEY`, `LANGCHAIN_API_KEY`, `LOGFIRE_TOKEN`, `LATITUDE_API_KEY`, `HOSTED_AGENT_RUNTIME_APPROVED` | `2` |
 
 ## Boundary Steps
 
@@ -27,6 +27,7 @@
 - Ready to execute: `false`
 - Operator action: Set required env and complete operator approval: A real Canva user completes login and consent through http://localhost:8001/auth/callback; Proxy authentication and tool-call authorization behavior are selected and verified
 - Claim policy: do not claim complete without real Canva user credentials, login/consent redirect evidence, and proxy authentication approval
+- Trace processor providers: none
 
 Checklist:
 - `missing` Required env: CANVA_CLIENT_ID, CANVA_CLIENT_SECRET
@@ -34,6 +35,7 @@ Checklist:
 - `not_blocking` Operator approval: A real Canva user completes login and consent through http://localhost:8001/auth/callback; Proxy authentication and tool-call authorization behavior are selected and verified
 - `ready` Operator approval marker: none required
 - `ready` Operator consent items: none
+- `ready` Trace processor provider choice: none
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:
@@ -48,6 +50,7 @@ Verify after unblock:
 - Ready to execute: `false`
 - Operator action: Set one optional token/env value, then rerun verification: GITHUB_TOKEN, GH_TOKEN
 - Claim policy: do not claim a live source refresh complete by replacing the last complete source snapshot with a rate-limited partial artifact
+- Trace processor providers: none
 
 Checklist:
 - `ready` Required env: none required
@@ -55,6 +58,7 @@ Checklist:
 - `not_blocking` Operator approval: A GitHub token is supplied when live source-refresh volume exceeds unauthenticated API limits
 - `ready` Operator approval marker: none required
 - `ready` Operator consent items: none
+- `ready` Trace processor provider choice: none
 - `blocked` Verification commands: 1 command(s)
 
 Verify after unblock:
@@ -68,6 +72,7 @@ Verify after unblock:
 - Ready to execute: `false`
 - Operator action: Set required env and complete operator approval: Notification bot token and chat target are provided for real delivery checks
 - Claim policy: do not claim notification delivery complete from tools/list smoke alone
+- Trace processor providers: none
 
 Checklist:
 - `missing` Required env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
@@ -75,6 +80,7 @@ Checklist:
 - `not_blocking` Operator approval: Notification bot token and chat target are provided for real delivery checks
 - `ready` Operator approval marker: none required
 - `ready` Operator consent items: none
+- `ready` Trace processor provider choice: none
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:
@@ -89,6 +95,7 @@ Verify after unblock:
 - Ready to execute: `false`
 - Operator action: Set required env and complete operator approval: The operator selects the collector distribution, endpoint, authentication, retention, sampling, and retry policy
 - Claim policy: do not claim live collector shipping complete without an operator-owned OTLP endpoint and credential policy
+- Trace processor providers: none
 
 Checklist:
 - `missing` Required env: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -96,6 +103,7 @@ Checklist:
 - `not_blocking` Operator approval: The operator selects the collector distribution, endpoint, authentication, retention, sampling, and retry policy
 - `ready` Operator approval marker: none required
 - `ready` Operator consent items: none
+- `ready` Trace processor provider choice: none
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:
@@ -110,13 +118,15 @@ Verify after unblock:
 - Ready to execute: `false`
 - Operator action: Set operator approval marker after runtime/policy decision: HOSTED_AGENT_RUNTIME_APPROVED
 - Claim policy: do not claim hosted autonomous agent runtime complete without operator-owned runtime, tracing, approval credentials, and HOSTED_AGENT_RUNTIME_APPROVED=true
+- Trace processor providers: OpenAI Traces (OPENAI_API_KEY), LangSmith (LANGCHAIN_API_KEY), Pydantic Logfire (LOGFIRE_TOKEN), Latitude (LATITUDE_API_KEY)
 
 Checklist:
 - `ready` Required env: none required
-- `not_blocking` Optional env: OPENAI_API_KEY, LANGCHAIN_API_KEY, LOGFIRE_TOKEN
+- `not_blocking` Optional env: OPENAI_API_KEY, LANGCHAIN_API_KEY, LOGFIRE_TOKEN, LATITUDE_API_KEY
 - `blocked` Operator approval: A concrete hosted agent runtime, tracing backend, approval UI, and credential owner are selected; HOSTED_AGENT_RUNTIME_APPROVED=true is set only after the operator confirms the hosted runtime consent and approval policy
 - `blocked` Operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED
 - `blocked` Operator consent items: hosted_agent_toolbox_mcp, hosted_agent_tracing_runtime
+- `blocked` Trace processor provider choice: OpenAI Traces (OPENAI_API_KEY), LangSmith (LANGCHAIN_API_KEY), Pydantic Logfire (LOGFIRE_TOKEN), Latitude (LATITUDE_API_KEY)
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:

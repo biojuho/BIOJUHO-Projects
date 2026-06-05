@@ -70,6 +70,7 @@ def build_handoff(
                 "operator_approval_env": item["operator_approval_env"],
                 "operator_approval_available": item["operator_approval_available"],
                 "operator_consent_items": item["operator_consent_items"],
+                "trace_processor_providers": item["trace_processor_providers"],
                 "blocked_until": item["blocked_until"],
                 "verification_commands": item["verification_commands"],
                 "claim_policy": item["claim_policy"],
@@ -151,6 +152,7 @@ def format_markdown(handoff: dict[str, Any]) -> str:
                 f"- Optional env: {_format_env_names(item['optional_env_any_of'])}",
                 f"- Missing required env: {_format_env_names(item['missing_required_env'])}",
                 f"- Consent items: `{len(item['operator_consent_items'])}`",
+                f"- Trace processor providers: `{len(item['trace_processor_providers'])}`",
                 f"- Claim policy: {item['claim_policy']}",
                 "",
                 "Blocked until:",
@@ -162,6 +164,12 @@ def format_markdown(handoff: dict[str, Any]) -> str:
             lines.extend(
                 f"- `{consent['name']}` (`{consent['type']}`): {consent['reason']}"
                 for consent in item["operator_consent_items"]
+            )
+        if item["trace_processor_providers"]:
+            lines.extend(["", "Trace processor provider choices:"])
+            lines.extend(
+                f"- `{provider['name']}` (`{provider['credential_env']}`): {provider['label']}"
+                for provider in item["trace_processor_providers"]
             )
         lines.extend(["", "Commands:"])
         lines.extend(f"- `{command}`" for command in item["verification_commands"])
@@ -275,6 +283,7 @@ def format_operator_checklist_markdown(checklist: dict[str, Any]) -> str:
                 f"- Ready to execute: `{str(item['ready_to_execute']).lower()}`",
                 f"- Operator action: {item['operator_action']}",
                 f"- Claim policy: {item['claim_policy']}",
+                f"- Trace processor providers: {_plain_trace_processor_provider_names(item['trace_processor_providers'])}",
                 "",
                 "Checklist:",
             ]
@@ -468,6 +477,7 @@ def _build_unblock_queue(boundaries: list[dict[str, Any]]) -> list[dict[str, Any
             "operator_action": _operator_action(item),
             "env_names": _queue_env_names(item),
             "operator_consent_items": item["operator_consent_items"],
+            "trace_processor_providers": item["trace_processor_providers"],
             "verify_after_unblock": item["verification_commands"],
             "claim_policy": item["claim_policy"],
         }
@@ -531,6 +541,7 @@ def _operator_checklist_item(boundary: dict[str, Any], queue_item: dict[str, Any
         "operator_approval_env": boundary["operator_approval_env"],
         "operator_approval_available": boundary["operator_approval_available"],
         "operator_consent_items": boundary["operator_consent_items"],
+        "trace_processor_providers": boundary["trace_processor_providers"],
         "env_names": queue_item["env_names"],
         "verify_after_unblock": queue_item["verify_after_unblock"],
         "claim_policy": boundary["claim_policy"],
@@ -609,6 +620,16 @@ def _operator_checklist_steps(boundary: dict[str, Any], live_status: str) -> lis
             "detail": _plain_consent_item_names(boundary["operator_consent_items"]),
         },
         {
+            "id": "trace_processor_provider_choice",
+            "state": (
+                "blocked"
+                if boundary["trace_processor_providers"] and not boundary["operator_approval_available"]
+                else "ready"
+            ),
+            "label": "Trace processor provider choice",
+            "detail": _plain_trace_processor_provider_names(boundary["trace_processor_providers"]),
+        },
+        {
             "id": "verify_commands",
             "state": "ready" if live_status == "ready_for_execution" else "blocked",
             "label": "Verification commands",
@@ -629,6 +650,10 @@ def _plain_env_names(names: list[str]) -> str:
 
 def _plain_consent_item_names(items: list[dict[str, str]]) -> str:
     return ", ".join(item["name"] for item in items) if items else "none"
+
+
+def _plain_trace_processor_provider_names(items: list[dict[str, str]]) -> str:
+    return ", ".join(f"{item['label']} ({item['credential_env']})" for item in items) if items else "none"
 
 
 def _repo_relative(path: Path) -> str:

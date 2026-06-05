@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T05:03:08.768953+00:00",
+  "generated_at": "2026-06-05T05:15:27.384381+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -38,6 +38,7 @@
         "workspace_smoke_trace_final_event_guard",
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
+        "hosted_agent_trace_provider_registry_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard"
@@ -151,6 +152,7 @@
         "github_commit_digest_naive_utc_timestamp_guard",
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
+        "hosted_agent_trace_provider_registry_guard",
         "dailynews_notebooklm_speech_alias_guard",
         "pr_analysis_comment_trigger_guard",
         "typescript_experimental_export_seam_guard",
@@ -339,6 +341,7 @@
         "remaining_gap_tracking",
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
+        "hosted_agent_trace_provider_registry_guard",
         "github_commit_digest_naive_utc_timestamp_guard",
         "canva_widget_message_capture_order_guard",
         "agent_workflow_json_safe_model_serialization_guard",
@@ -549,6 +552,7 @@
         "github_commit_digest_branch_feed_fallback_guard",
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
+        "hosted_agent_trace_provider_registry_guard",
         "github_commit_digest_naive_utc_timestamp_guard",
         "dailynews_notebooklm_speech_alias_guard",
         "pr_analysis_comment_trigger_guard",
@@ -744,6 +748,7 @@
         "dashboard_credential_operator_checklist",
         "hosted_agent_approval_boundary",
         "external_credential_consent_items_guard",
+        "hosted_agent_trace_provider_registry_guard",
         "dashboard_falsy_credential_metadata_guard"
       ],
       "evidence": [

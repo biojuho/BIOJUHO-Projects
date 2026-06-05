@@ -58,6 +58,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
+        "hosted_agent_trace_provider_registry_guard",
         "github_source_freshness_snapshot",
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",

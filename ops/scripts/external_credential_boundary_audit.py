@@ -77,8 +77,8 @@ def format_markdown(report: dict[str, Any]) -> str:
         "",
         "## Boundaries",
         "",
-        "| Boundary | Status | Required env missing | Optional env available | Consent items | Evidence paths | Verification commands |",
-        "| --- | --- | ---: | --- | ---: | ---: | ---: |",
+        "| Boundary | Status | Required env missing | Optional env available | Consent items | Trace providers | Evidence paths | Verification commands |",
+        "| --- | --- | ---: | --- | ---: | ---: | ---: | ---: |",
     ]
     for boundary in report["boundaries"]:
         lines.append(
@@ -89,6 +89,7 @@ def format_markdown(report: dict[str, Any]) -> str:
                     f"`{len(boundary['missing_required_env'])}`",
                     f"`{str(boundary['optional_env_available']).lower()}`",
                     f"`{boundary['consent_item_count']}`",
+                    f"`{boundary['trace_processor_provider_count']}`",
                     f"`{boundary['evidence_count']}`",
                     f"`{boundary['verification_command_count']}` |",
                 ]
@@ -111,9 +112,17 @@ def format_markdown(report: dict[str, Any]) -> str:
                 f"- Policy: {boundary['claim_policy']}",
                 f"- Blocked until: {'; '.join(boundary['blocked_until'])}",
                 f"- Consent items: `{boundary['consent_item_count']}`",
+                f"- Trace processor providers: `{boundary['trace_processor_provider_count']}`",
                 "",
             ]
         )
+        if boundary["trace_processor_providers"]:
+            lines.append("Trace processor providers:")
+            lines.extend(
+                f"- `{provider['name']}` (`{provider['credential_env']}`): {provider['label']}"
+                for provider in boundary["trace_processor_providers"]
+            )
+            lines.append("")
 
     lines.extend(["## Errors", ""])
     if report["errors"]:
@@ -224,6 +233,19 @@ def _validate_boundaries(
             f"{prefix}.operator_consent_items",
             errors,
         )
+        trace_processor_providers = _validate_trace_processor_providers(
+            item.get("trace_processor_providers", []),
+            f"{prefix}.trace_processor_providers",
+            errors,
+        )
+        env_names = {*required_env, *optional_env_any_of}
+        for provider in trace_processor_providers:
+            credential_env = provider["credential_env"]
+            if credential_env and credential_env not in env_names:
+                errors.append(
+                    f"{prefix}.trace_processor_providers credential_env must appear in "
+                    f"required_env or optional_env_any_of: {credential_env}"
+                )
         evidence = _validate_evidence(item.get("evidence"), f"{prefix}.evidence", workspace_root, errors)
         missing_required_env = [name for name in required_env if not env.get(name)]
         optional_env_available = any(env.get(name) for name in optional_env_any_of)
@@ -249,6 +271,8 @@ def _validate_boundaries(
                 "operator_approval_available": operator_approval_available,
                 "operator_consent_items": consent_items,
                 "consent_item_count": len(consent_items),
+                "trace_processor_providers": trace_processor_providers,
+                "trace_processor_provider_count": len(trace_processor_providers),
                 "evidence_count": len(evidence),
                 "verification_commands": verification_commands,
                 "verification_command_count": len(verification_commands),
@@ -284,6 +308,42 @@ def _validate_consent_items(value: Any, field: str, errors: list[str]) -> list[d
                 "type": consent_type,
                 "reason": reason,
                 "approval_env": approval_env,
+            }
+        )
+    return normalized
+
+
+def _validate_trace_processor_providers(value: Any, field: str, errors: list[str]) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        errors.append(f"{field} must be an array")
+        return []
+    normalized: list[dict[str, str]] = []
+    seen_names: set[str] = set()
+    for index, item in enumerate(value):
+        prefix = f"{field}[{index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        name = _require_string(item.get("name"), f"{prefix}.name", errors)
+        label = _require_string(item.get("label"), f"{prefix}.label", errors)
+        credential_env = _require_string(item.get("credential_env"), f"{prefix}.credential_env", errors)
+        source_url = _require_string(item.get("source_url"), f"{prefix}.source_url", errors)
+        reason = _require_string(item.get("reason"), f"{prefix}.reason", errors)
+        if credential_env and not credential_env.replace("_", "").isalnum():
+            errors.append(f"{prefix}.credential_env must be an env-var-like string")
+        if source_url and not source_url.startswith(("https://", "http://")):
+            errors.append(f"{prefix}.source_url must be an HTTP(S) URL")
+        if name:
+            if name in seen_names:
+                errors.append(f"{prefix}.name must be unique")
+            seen_names.add(name)
+        normalized.append(
+            {
+                "name": name,
+                "label": label,
+                "credential_env": credential_env,
+                "source_url": source_url,
+                "reason": reason,
             }
         )
     return normalized

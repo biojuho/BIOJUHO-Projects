@@ -42,6 +42,12 @@ def test_default_registry_validates_boundaries_without_secret_values() -> None:
     assert {item["approval_env"] for item in hosted["operator_consent_items"]} == {
         "HOSTED_AGENT_RUNTIME_APPROVED"
     }
+    provider_names = {item["name"] for item in hosted["trace_processor_providers"]}
+    provider_envs = {item["credential_env"] for item in hosted["trace_processor_providers"]}
+    assert hosted["trace_processor_provider_count"] == 4
+    assert "latitude" in provider_names
+    assert "LATITUDE_API_KEY" in provider_envs
+    assert provider_envs <= set(hosted["optional_env_any_of"])
 
 
 def test_registry_rejects_missing_evidence_terms() -> None:
@@ -83,6 +89,46 @@ def test_registry_rejects_malformed_operator_consent_items() -> None:
     assert any("operator_consent_items[1].name must be unique" in error for error in summary["errors"])
     assert any("operator_consent_items[1].reason must be a non-empty string" in error for error in summary["errors"])
     assert any("operator_consent_items[1].approval_env" in error for error in summary["errors"])
+
+
+def test_registry_rejects_malformed_trace_processor_providers() -> None:
+    audit = load_module()
+    payload = audit.load_registry(REGISTRY_PATH)
+    hosted = next(
+        boundary for boundary in payload["boundaries"] if boundary["id"] == "hosted_agent_runtime_credentials"
+    )
+    hosted["trace_processor_providers"] = [
+        {
+            "name": "duplicate",
+            "label": "First",
+            "credential_env": "OPENAI_API_KEY",
+            "source_url": "https://openai.github.io/openai-agents-python/tracing/",
+            "reason": "first provider",
+        },
+        {
+            "name": "duplicate",
+            "label": "",
+            "credential_env": "not-valid-env!",
+            "source_url": "not-a-url",
+            "reason": "",
+        },
+        {
+            "name": "missing_env_mapping",
+            "label": "Missing env mapping",
+            "credential_env": "MISSING_PROVIDER_TOKEN",
+            "source_url": "https://openai.github.io/openai-agents-python/tracing/",
+            "reason": "provider env must be listed by the boundary",
+        },
+    ]
+
+    summary = audit.audit_registry(payload, workspace_root=PROJECT_ROOT, env={})
+
+    assert summary["status"] == "fail"
+    assert any("trace_processor_providers[1].name must be unique" in error for error in summary["errors"])
+    assert any("trace_processor_providers[1].label must be a non-empty string" in error for error in summary["errors"])
+    assert any("trace_processor_providers[1].credential_env must be an env-var-like string" in error for error in summary["errors"])
+    assert any("trace_processor_providers[1].source_url must be an HTTP(S) URL" in error for error in summary["errors"])
+    assert any("MISSING_PROVIDER_TOKEN" in error for error in summary["errors"])
 
 
 def test_required_env_reports_names_without_values(tmp_path: Path) -> None:
@@ -150,3 +196,4 @@ def test_cli_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert report["status"] == "pass"
     assert "External Credential Boundary Audit" in markdown
     assert "do not claim" in markdown
+    assert "Trace processor providers" in markdown

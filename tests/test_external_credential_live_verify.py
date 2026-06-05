@@ -149,10 +149,13 @@ def test_hosted_agent_runtime_requires_operator_approval_marker() -> None:
     assert hosted["operator_approval_env"] == "HOSTED_AGENT_RUNTIME_APPROVED"
     assert hosted["operator_approval_available"] is False
     assert hosted["consent_item_count"] == 2
+    assert hosted["trace_processor_provider_count"] == 4
     assert [item["name"] for item in hosted["operator_consent_items"]] == [
         "hosted_agent_toolbox_mcp",
         "hosted_agent_tracing_runtime",
     ]
+    assert hosted["trace_processor_providers"][-1]["name"] == "latitude"
+    assert hosted["trace_processor_providers"][-1]["credential_env"] == "LATITUDE_API_KEY"
 
 
 def test_ready_only_execute_ignores_blocked_boundary(tmp_path: Path) -> None:
@@ -215,7 +218,9 @@ def test_cli_writes_dry_run_markdown(tmp_path: Path) -> None:
     assert "External Credential Live Verifier" in markdown
     assert "blocked_missing_required_env" in markdown
     assert "Operator Consent Items" in markdown
+    assert "Trace Processor Providers" in markdown
     assert "hosted_agent_toolbox_mcp" in markdown
+    assert "latitude" in markdown
 
 
 def test_checked_in_dry_run_artifacts_match_current_plan() -> None:
@@ -315,6 +320,7 @@ def _env_without_external_tokens() -> dict[str, str]:
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID",
         "HOSTED_AGENT_RUNTIME_APPROVED",
+        "LATITUDE_API_KEY",
     ]:
         env.pop(name, None)
     return env
