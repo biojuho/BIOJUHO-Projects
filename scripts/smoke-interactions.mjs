@@ -343,6 +343,7 @@ const interactionExpression = `
   let backupResetOk = false;
   let markdownSanitizedOk = false;
   let workspaceCandidateVisibleOk = false;
+  let portfolioCandidateFilterOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -517,14 +518,34 @@ const interactionExpression = `
     await nav("pm-portfolio");
     const candidate = dashboard.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
     assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
+    const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
+    const ownedCount = dashboard.projects.length - candidateCount;
+    click('[data-action="portfolio-filter"][data-filter="candidates"]');
+    await waitFor(() => state.portfolioFilter === "candidates" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "candidate portfolio filter did not render adoption candidates");
+    assert(qs('[data-action="portfolio-filter"][data-filter="candidates"]').getAttribute("aria-pressed") === "true", "candidate portfolio filter was not active");
+    click('[data-action="portfolio-filter"][data-filter="owned"]');
+    await waitFor(() => state.portfolioFilter === "owned" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === 0, "owned portfolio filter still rendered adoption candidates");
+    assert(document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === ownedCount, "owned portfolio filter count was wrong");
+    click('[data-action="portfolio-filter"][data-filter="candidates"]');
     fill("#globalSearch", "OpenLoaf");
     await waitFor(() => state.query === "OpenLoaf" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "OpenLoaf search did not filter portfolio");
-    const text = qs("#view-pm-portfolio .portfolio-grid").innerText;
+    const card = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + candidate.id + '"]');
+    const text = card.innerText;
+    const meta = qs("[data-candidate-meta]", card);
     assert(text.includes("OpenLoaf/OpenLoaf"), "OpenLoaf candidate card did not render");
     assert(text.includes("AI/로컬 워크스페이스"), "OpenLoaf candidate category did not render");
     assert(text.includes("에이전트"), "OpenLoaf candidate description did not render");
+    assert(meta.innerText.includes("단계") && meta.innerText.includes("검토"), "OpenLoaf adoption stage did not render");
+    assert(meta.innerText.includes("★") && meta.innerText.includes("65"), "OpenLoaf star count did not render");
+    assert(meta.innerText.includes("Fork") && meta.innerText.includes("7"), "OpenLoaf fork count did not render");
+    assert(meta.innerText.includes("TypeScript"), "OpenLoaf language did not render");
+    const href = qs(".portfolio-candidate-link", card).href;
+    assert(href === "https://github.com/OpenLoaf/OpenLoaf" || href === "https://github.com/OpenLoaf/OpenLoaf/", "OpenLoaf GitHub link did not render safely");
     fill("#globalSearch", "");
     await waitFor(() => document.querySelectorAll("#view-pm-portfolio .portfolio-card").length > 1, "portfolio did not recover after clearing search");
+    click('[data-action="portfolio-filter"][data-filter="all"]');
+    await waitFor(() => state.portfolioFilter === "all" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === dashboard.projects.length, "portfolio all filter did not recover");
+    portfolioCandidateFilterOk = true;
     workspaceCandidateVisibleOk = true;
   });
 
@@ -738,6 +759,7 @@ const interactionExpression = `
     backupExport: backupExportOk,
     markdownSanitized: markdownSanitizedOk,
     workspaceCandidateVisible: workspaceCandidateVisibleOk,
+    portfolioCandidateFilter: portfolioCandidateFilterOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);

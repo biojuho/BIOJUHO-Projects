@@ -731,6 +731,45 @@ button.bell:hover { background: var(--cyan-22); }
   -webkit-line-clamp: 2;
 }
 
+.portfolio-candidate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -3px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.portfolio-candidate-meta span,
+.portfolio-candidate-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid rgba(74, 109, 154, 0.42);
+  border-radius: 6px;
+  background: rgba(20, 32, 52, 0.62);
+  color: var(--muted);
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.portfolio-candidate-meta b {
+  margin-right: 4px;
+  color: #8aa0bf;
+}
+
+.portfolio-candidate-link {
+  color: var(--cyan);
+  font-weight: 800;
+}
+
+.portfolio-candidate-link:hover {
+  border-color: var(--cyan-60);
+  background: var(--cyan-08);
+  color: var(--text);
+}
+
 .portfolio-health {
   padding: 3px 10px;
   border-radius: 999px;
@@ -2636,7 +2675,10 @@ textarea:focus:not(:focus-visible) { outline: none; }
 
 .portfolio-toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 4px;
 }
 

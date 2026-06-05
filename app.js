@@ -120,6 +120,36 @@ function projectSearchText(p) {
   ].filter(Boolean).join(" ");
 }
 
+const ADOPTION_STAGE_LABEL = {
+  adopt: "도입",
+  review: "검토",
+  watch: "관찰",
+};
+
+function safeGithubUrl(url) {
+  const value = String(url || "").trim().replace(/\/+$/, "");
+  return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value) ? value : "";
+}
+
+function metricValue(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("en-US") : "-";
+}
+
+function projectAdoptionMeta(p) {
+  if (!p || p.sourceKind !== "adoption-candidate") return "";
+  const stage = ADOPTION_STAGE_LABEL[p.adoptionStage] || p.adoptionStage || "검토";
+  const repoUrl = safeGithubUrl(p.url);
+  return html`
+    <div class="portfolio-candidate-meta" data-candidate-meta>
+      <span data-candidate-stage="${p.adoptionStage || ""}"><b>단계</b> ${stage}</span>
+      <span><b>★</b> ${metricValue(p.stars)}</span>
+      <span><b>Fork</b> ${metricValue(p.forks)}</span>
+      ${p.language ? raw(html`<span><b>언어</b> ${p.language}</span>`) : ""}
+      ${repoUrl ? raw(html`<a class="portfolio-candidate-link" href="${repoUrl}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>`) : ""}
+    </div>
+  `;
+}
+
 function spark(points, color) {
   if (!Array.isArray(points) || points.length === 0) return "";
   const max = Math.max(...points);
@@ -168,6 +198,7 @@ const state = {
   previousFocus: null,
   modalOnConfirm: null,
   kanbanFilter: null, // priority filter or null
+  portfolioFilter: "all",
   schemaExpanded: new Set(["db-prod-1"]), // expanded instances in schema tree
   schemaSelectedTable: null,
   storageHealth: {
@@ -782,11 +813,32 @@ function renderHome() {
  * View: Portfolio
  * ============================================================ */
 
+const PORTFOLIO_FILTERS = [
+  { key: "all", label: "전체" },
+  { key: "owned", label: "운영 프로젝트" },
+  { key: "candidates", label: "도입 후보" },
+];
+
+function portfolioMatchesFilter(project, filter) {
+  if (filter === "owned") return project.sourceKind !== "adoption-candidate";
+  if (filter === "candidates") return project.sourceKind === "adoption-candidate";
+  return true;
+}
+
 function renderPortfolio() {
   const view = refs.views["pm-portfolio"];
   if (!view) return;
+  if (!state.portfolioFilter) state.portfolioFilter = "all";
   const q = state.query;
-  const list = dashboard.projects.filter((p) => matches(projectSearchText(p), q));
+  const list = dashboard.projects
+    .filter((p) => portfolioMatchesFilter(p, state.portfolioFilter))
+    .filter((p) => matches(projectSearchText(p), q));
+  const candidateCount = dashboard.projects.filter((p) => p.sourceKind === "adoption-candidate").length;
+  const ownedCount = dashboard.projects.length - candidateCount;
+  const filterChips = PORTFOLIO_FILTERS.map((filter) => {
+    const count = filter.key === "owned" ? ownedCount : filter.key === "candidates" ? candidateCount : dashboard.projects.length;
+    return html`<button type="button" class="seg-chip ${raw(state.portfolioFilter === filter.key ? "is-active" : "")}" data-action="portfolio-filter" data-filter="${filter.key}" aria-pressed="${raw(state.portfolioFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
+  }).join("");
 
   const stats = {
     total: dashboard.projects.length,
@@ -807,7 +859,7 @@ function renderPortfolio() {
     const category = p.category || "";
     const description = p.description || "";
     return html`
-      <article class="portfolio-card panel">
+      <article class="portfolio-card panel" data-project-id="${p.id}" data-source-kind="${p.sourceKind || "owned"}">
         <div class="portfolio-head">
           <button type="button" class="portfolio-name-btn" data-action="open-project" data-project-id="${p.id}">
             <strong class="portfolio-name">${p.name}</strong>
@@ -827,6 +879,7 @@ function renderPortfolio() {
             ${description ? raw(html`<p>${description}</p>`) : ""}
           </div>
         `) : ""}
+        ${raw(projectAdoptionMeta(p))}
         <div class="portfolio-body">
           <div class="donut portfolio-donut" style="--value:${raw(p.progress)}">
             <span>진행률</span>
@@ -848,6 +901,7 @@ function renderPortfolio() {
   setHTML(view, html`
     <section class="kpis">${raw(kpis.map((k) => kpiCard(k)).join(""))}</section>
     <div class="portfolio-toolbar">
+      <div class="seg-control" aria-label="포트폴리오 필터">${raw(filterChips)}</div>
       <button type="button" class="primary-btn" data-action="project-add">+ 새 프로젝트</button>
     </div>
     <section class="portfolio-grid">
@@ -2223,6 +2277,11 @@ function pickInstance(id) {
 function setKanbanFilter(priority) {
   state.kanbanFilter = priority || null;
   renderKanban();
+}
+
+function setPortfolioFilter(filter) {
+  state.portfolioFilter = PORTFOLIO_FILTERS.some((item) => item.key === filter) ? filter : "all";
+  renderPortfolio();
 }
 
 function openNewProjectModal() {
@@ -5132,6 +5191,7 @@ function handleActions(event) {
   if (action === "toggle-project-picker") { toggleProjectPicker(); return; }
   if (action === "pick-project") { pickProject(target.dataset.projectId); return; }
   if (action === "open-project") { openProjectSheet(target.dataset.projectId); return; }
+  if (action === "portfolio-filter") { setPortfolioFilter(target.dataset.filter); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }

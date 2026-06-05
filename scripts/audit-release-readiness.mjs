@@ -380,6 +380,29 @@ function buildChecklist() {
     evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceUiTerms.missing },
   });
 
+  const candidateTriageTerms = [
+    { file: "app.js", terms: ["function projectAdoptionMeta", "safeGithubUrl", "data-candidate-meta", "portfolio-candidate-link"] },
+    { file: "styles.css", terms: [".portfolio-candidate-meta", ".portfolio-candidate-link"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["OpenLoaf adoption stage did not render", "OpenLoaf star count did not render", "OpenLoaf GitHub link did not render safely"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "workspace_candidate_triage_meta",
+    requirement: "Portfolio adoption candidates expose stage, GitHub popularity, language, and safe repository links, with interaction smoke coverage.",
+    status: candidateTriageTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateTriageTerms,
+  });
+
+  const candidateFilterTerms = [
+    { file: "app.js", terms: ["PORTFOLIO_FILTERS", "function setPortfolioFilter", "data-action=\"portfolio-filter\""] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["portfolioCandidateFilter", "candidate portfolio filter did not render adoption candidates", "owned portfolio filter still rendered adoption candidates"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_filter",
+    requirement: "The portfolio has an explicit segmented filter for all projects, owned projects, and adoption candidates, with browser smoke coverage.",
+    status: candidateFilterTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateFilterTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T19:18:34+09:00
+Generated: 2026-06-05T19:29:20+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -143,7 +143,7 @@ Generated: 2026-06-05T19:18:34+09:00
 
 - `data/adoption-candidates.json` now includes the `github-search:local-first-workspace` source marker.
 - `scripts/audit-release-readiness.mjs` now includes `workspace_ecosystem_candidates`.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 17/17 with 8 workspace candidates.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 19/19 with 8 workspace candidates.
 
 ## Experiment: workspace candidate UI smoke
 
@@ -158,6 +158,32 @@ Generated: 2026-06-05T19:18:34+09:00
 - `node scripts/audit-release-readiness.mjs --run-gates` passed with `workspace candidate portfolio search`, `workspaceCandidateVisible: true`, and 18 interaction steps.
 - `scripts/audit-release-readiness.mjs` now checks for the workspace candidate UI smoke markers before passing release readiness.
 
+## Experiment: workspace candidate triage meta
+
+- Hypothesis: Imported adoption candidates are easier to evaluate when portfolio cards expose adoption stage, stars, forks, language, and a safe repository link directly in the card.
+- Primary metric: candidate triage metadata audit coverage.
+- Baseline: workspace candidate cards were searchable but did not show triage metadata or safe GitHub links.
+- Candidate: adoption-candidate cards render stage, stars, forks, language, and sanitized GitHub links; interaction smoke asserts the `OpenLoaf/OpenLoaf` values.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/audit-release-readiness.mjs --run-gates` passed after checking `OpenLoaf` stage, stars, forks, language, and safe GitHub link in the packaged interaction smoke.
+- `scripts/audit-release-readiness.mjs` now includes `workspace_candidate_triage_meta`.
+
+## Experiment: portfolio candidate filter
+
+- Hypothesis: Once adoption candidates are added, operators need to separate owned projects from candidate projects without relying only on search.
+- Primary metric: portfolio candidate-filter smoke coverage.
+- Baseline: the portfolio listed owned and adoption-candidate projects together with no explicit segmented filter.
+- Candidate: the portfolio adds `전체`, `운영 프로젝트`, and `도입 후보` segmented filters; interaction smoke verifies candidate-only, owned-only, and all-project recovery states.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/audit-release-readiness.mjs --run-gates` passed with `persistedChecks.portfolioCandidateFilter: true`.
+- `scripts/audit-release-readiness.mjs` now includes `portfolio_candidate_filter`.
+
 ## Experiment: release smoke isolated output
 
 - Hypothesis: The release audit should test a fresh package without deleting or rewriting the shared `dist/release` directory.
@@ -169,8 +195,8 @@ Generated: 2026-06-05T19:18:34+09:00
 ## Evidence
 
 - `node --check scripts/package-release.mjs`, `node --check scripts/smoke-release.mjs`, and `node --check scripts/audit-release-readiness.mjs` passed.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 17/17, with packaged browser gates served from `RELEASE_OUT_DIR=<temp>`.
-- The final gate still had 15 desktop routes, 15 mobile routes, 18 interaction steps, `markdownSanitized: true`, `workspaceCandidateVisible: true`, and 0 console, network, and layout issues.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 19/19, with packaged browser gates served from `RELEASE_OUT_DIR=<temp>`.
+- The final gate still had 15 desktop routes, 15 mobile routes, 18 interaction steps, `markdownSanitized: true`, `workspaceCandidateVisible: true`, `portfolioCandidateFilter: true`, candidate triage metadata checks, and 0 console, network, and layout issues.
 
 ## Next Loop
 
