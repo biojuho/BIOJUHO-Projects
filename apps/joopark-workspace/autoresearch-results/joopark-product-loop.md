@@ -328,6 +328,22 @@ Generated: 2026-06-05T19:53:06+09:00
 - Packaged interaction smoke reported `releaseInfoVisible: true`, along with `candidateNextActionVisible: true`, `portfolioCandidateRanked: true`, and 0 console/network/layout issues.
 - Computer Use app attachment was attempted for Chrome and Safari at `http://127.0.0.1:5181/#settings`, but the local Computer Use server returned `cgWindowNotFound` for both native app windows; deterministic Chrome/CDP smoke remains the verified browser evidence.
 
+## Experiment: Veritas AutoResearch source refresh
+
+- Hypothesis: AutoResearch launch data is safer when the Veritas source-backed harness entry records the latest upstream commit and the release audit fails on stale source metadata.
+- Primary metric: Veritas freshness gate.
+- Baseline: `Veritas-7/autoresearch-skill-system` had `pushedAt: 2026-06-05T09:43:59Z`, `lastCommit: null`, and no source marker proving the v8.340 refresh.
+- Candidate: the adoption snapshot records `f1015055ea304ee286831fc9ebbbff971efadac9`, `pushedAt: 2026-06-05T11:42:50Z`, a `github-api:veritas-autoresearch-refresh` source marker, and an audit requirement for that exact freshness evidence.
+- Decision: keep.
+
+## Evidence
+
+- `gh repo view Veritas-7/autoresearch-skill-system --json pushedAt,updatedAt,description,stargazerCount,forkCount,defaultBranchRef,latestRelease` returned pushedAt `2026-06-05T11:42:50Z`, default branch `main`, 1 star, 1 fork, and no latest release.
+- `git ls-remote https://github.com/Veritas-7/autoresearch-skill-system.git refs/heads/main` returned `f1015055ea304ee286831fc9ebbbff971efadac9`.
+- `npm run lint` passed in `apps/joopark-workspace`.
+- `npm run build` and `node scripts/verify-release.mjs` passed after the data refresh; manifest provenance correctly showed dirty source files before commit.
+- `npm run verify` passed 23/23, including the refreshed `autoresearch_ecosystem_candidates` evidence with `fresh: true`, 15 desktop routes, 15 mobile routes, 18 interaction steps, and 0 console/network/layout issues.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: merge-ready release-surface PR, post-release workflow deprecation cleanup, or deeper UI workflow coverage.
+- Continue with the highest-impact product gap after the next full gate: merge Veritas freshness PR, post-release workflow deprecation cleanup, or deeper UI workflow coverage.
