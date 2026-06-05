@@ -50,6 +50,7 @@ def write_fixture(tmp_path: Path, *, stale_contract: bool = False, api_key_secur
     security_schemes = {}
     if api_key_security:
         security_schemes["ApiKeyAuth"] = {"type": "apiKey", "in": "header", "name": "X-API-Key"}
+        security_schemes["BearerAuth"] = {"type": "http", "scheme": "bearer"}
     paths = {"/auth-status": {"post": {}}, "/generate-design": {"post": {}}}
     if stale_contract:
         paths = {"/auth-status": {"post": {}}, "/stale-tool": {"post": {}}}
@@ -82,7 +83,7 @@ def test_build_readiness_accepts_matching_contract_and_api_key(tmp_path: Path, m
     assert readiness["tool_count"] == 2
     assert readiness["openapi_path_count"] == 2
     assert readiness["commands"]["proxy"] == (
-        "uvx mcpo --port 8910 --api-key <CANVA_MCP_PROXY_API_KEY> -- node dist/server/stdio.js"
+        "uvx mcpo --port 8910 --api-key <CANVA_MCP_PROXY_API_KEY> --strict-auth -- node dist/server/stdio.js"
     )
     assert {check["name"]: check["ok"] for check in readiness["readiness"]["checks"]} == {
         "tools-source": True,
@@ -90,7 +91,7 @@ def test_build_readiness_accepts_matching_contract_and_api_key(tmp_path: Path, m
         "dist-stdio": True,
         "openapi-contract": True,
         "api-key-env": True,
-        "contract-api-key-security": True,
+        "contract-auth-security": True,
         "contract-tool-sync": True,
     }
 
@@ -110,7 +111,7 @@ def test_build_readiness_reports_stale_contract_and_missing_api_key(tmp_path: Pa
     checks = {check["name"]: check for check in readiness["readiness"]["checks"]}
     assert readiness["readiness"]["ok"] is False
     assert checks["api-key-env"]["ok"] is False
-    assert checks["contract-api-key-security"]["ok"] is False
+    assert checks["contract-auth-security"]["ok"] is False
     assert checks["contract-tool-sync"]["ok"] is False
     assert "missing: /generate-design" in checks["contract-tool-sync"]["detail"]
     assert "extra: /stale-tool" in checks["contract-tool-sync"]["detail"]
@@ -155,4 +156,4 @@ def test_cli_writes_json_and_markdown(tmp_path: Path) -> None:
     report = markdown_out.read_text(encoding="utf-8")
     assert "# Canva MCP Proxy Readiness" in report
     assert "- Ready: `true`" in report
-    assert "uvx mcpo --port 8910 --api-key <CANVA_MCP_PROXY_API_KEY> -- node dist/server/stdio.js" in report
+    assert "uvx mcpo --port 8910 --api-key <CANVA_MCP_PROXY_API_KEY> --strict-auth -- node dist/server/stdio.js" in report

@@ -55,9 +55,9 @@ def build_readiness(
             "detail": f"{api_key_env} is configured" if os.environ.get(api_key_env) else f"{api_key_env} is not set",
         },
         {
-            "name": "contract-api-key-security",
-            "ok": _has_api_key_security(contract_payload),
-            "detail": "OpenAPI contract defines X-API-Key security",
+            "name": "contract-auth-security",
+            "ok": _has_proxy_auth_security(contract_payload),
+            "detail": "OpenAPI contract defines BearerAuth and X-API-Key security",
         },
         {
             "name": "contract-tool-sync",
@@ -70,7 +70,7 @@ def build_readiness(
         "schema_version": 1,
         "generated_at": generated_at,
         "service": "canva-mcp",
-        "source_pattern": "open-webui/mcpo MCP-to-OpenAPI proxy with API-key protected docs.",
+        "source_pattern": "open-webui/mcpo MCP-to-OpenAPI proxy with strict Bearer/API-key protected docs.",
         "readiness": {
             "ok": ok,
             "checks": checks,
@@ -79,7 +79,7 @@ def build_readiness(
             "build_cwd": "mcp/canva-mcp",
             "build": "npm run build:server",
             "proxy_cwd": "mcp/canva-mcp",
-            "proxy": f"uvx mcpo --port {port} --api-key <{api_key_env}> -- node dist/server/stdio.js",
+            "proxy": f"uvx mcpo --port {port} --api-key <{api_key_env}> --strict-auth -- node dist/server/stdio.js",
             "docs_url": f"http://localhost:{port}/docs",
             "openapi_url": f"http://localhost:{port}/openapi.json",
         },
@@ -163,14 +163,18 @@ def _file_check(name: str, path: Path, *, extra_detail: str | None = None) -> di
     return {"name": name, "ok": exists and not extra_detail, "detail": detail}
 
 
-def _has_api_key_security(contract_payload: dict[str, Any]) -> bool:
+def _has_proxy_auth_security(contract_payload: dict[str, Any]) -> bool:
     schemes = contract_payload.get("components", {}).get("securitySchemes", {})
     api_key = schemes.get("ApiKeyAuth")
+    bearer = schemes.get("BearerAuth")
     return (
         isinstance(api_key, dict)
         and api_key.get("type") == "apiKey"
         and api_key.get("in") == "header"
         and api_key.get("name") == "X-API-Key"
+        and isinstance(bearer, dict)
+        and bearer.get("type") == "http"
+        and bearer.get("scheme") == "bearer"
     )
 
 

@@ -112,6 +112,10 @@
         "in": "header",
         "name": "X-API-Key",
         "type": "apiKey"
+      },
+      "BearerAuth": {
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -119,7 +123,7 @@
     "description": "Static OpenAPI contract derived from the tracked Canva MCP tool registry.",
     "title": "Canva MCP OpenAPI Contract",
     "version": "2026-06-05",
-    "x-generated-at": "2026-06-05T07:46:49.275788+00:00"
+    "x-generated-at": "2026-06-05T08:18:12.292641+00:00"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -151,13 +155,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -200,13 +207,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -247,13 +257,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -294,13 +307,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -341,13 +357,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -388,13 +407,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -435,13 +457,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -482,13 +507,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -529,13 +557,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -576,13 +607,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -623,13 +657,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -670,13 +707,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -717,13 +757,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -764,13 +807,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -811,13 +857,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -858,13 +907,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -905,13 +957,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -952,13 +1007,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -999,13 +1057,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -1046,13 +1107,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -1093,13 +1157,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -1140,13 +1207,16 @@
             "description": "MCP tool call result"
           },
           "401": {
-            "description": "Missing or invalid API key"
+            "description": "Missing or invalid authorization"
           },
           "500": {
             "description": "MCP tool execution failed"
           }
         },
         "security": [
+          {
+            "BearerAuth": []
+          },
           {
             "ApiKeyAuth": []
           }
@@ -1163,6 +1233,9 @@
     }
   },
   "security": [
+    {
+      "BearerAuth": []
+    },
     {
       "ApiKeyAuth": []
     }

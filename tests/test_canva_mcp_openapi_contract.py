@@ -59,9 +59,13 @@ def test_fixture_tools_generate_api_key_protected_openapi_paths() -> None:
     assert summary["tool_count"] == 2
     assert summary["read_only_count"] == 2
     assert summary["destructive_count"] == 0
+    assert summary["security_schemes"] == ["ApiKeyAuth", "BearerAuth"]
     assert contract["components"]["securitySchemes"]["ApiKeyAuth"]["name"] == "X-API-Key"
+    assert contract["components"]["securitySchemes"]["BearerAuth"] == {"type": "http", "scheme": "bearer"}
+    assert contract["security"] == [{"BearerAuth": []}, {"ApiKeyAuth": []}]
     assert sorted(contract["paths"]) == ["/authenticate", "/search-designs"]
     assert contract["paths"]["/search-designs"]["post"]["operationId"] == "call_search_designs"
+    assert contract["paths"]["/search-designs"]["post"]["security"] == [{"BearerAuth": []}, {"ApiKeyAuth": []}]
     assert contract["paths"]["/search-designs"]["post"]["requestBody"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/searchDesignsSchema"
     }
@@ -109,5 +113,7 @@ def test_cli_writes_contract_json_and_markdown(tmp_path: Path) -> None:
     contract = json.loads(json_out.read_text(encoding="utf-8"))
     markdown = markdown_out.read_text(encoding="utf-8")
     assert contract["openapi"] == "3.1.0"
+    assert "BearerAuth" in contract["components"]["securitySchemes"]
     assert "/generate-design" in contract["paths"]
     assert "Canva MCP OpenAPI Contract" in markdown
+    assert "Authorization: Bearer <token>" in markdown

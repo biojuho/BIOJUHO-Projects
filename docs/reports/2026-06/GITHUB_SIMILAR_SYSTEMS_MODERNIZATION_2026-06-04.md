@@ -135,6 +135,7 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_PROXY_READINESS_2026-06-05.md`
   - `docs/reports/2026-06/CANVA_MCP_PROXY_LIVE_SMOKE_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_PROXY_LIVE_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_AUTH_SCHEME_ALIGNMENT_2026-06-05.md`
   - `mcp/canva-mcp/assets/preview.js`
   - `ops/references/mcp_services.json`
 - Gap: No remaining structural gap for local Canva MCP OpenAPI interop: static contract, readiness gate, live strict-auth proxy smoke, docs probe, and unauthenticated rejection are tracked; future work can add scheduled smoke coverage or production hosting.

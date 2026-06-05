@@ -49,10 +49,14 @@ def build_openapi_contract(
     *,
     generated_at: str | None = None,
     server_url: str = "http://localhost:8000",
+    auth_mode: str = "both",
 ) -> dict[str, Any]:
+    if auth_mode not in {"api-key", "bearer", "both"}:
+        raise ValueError("auth_mode must be one of: api-key, bearer, both")
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
     paths: dict[str, Any] = {}
     schema_refs: set[str] = set()
+    security_requirements = _security_requirements(auth_mode)
 
     for tool in tools:
         schema = tool["input_schema"]
@@ -65,7 +69,7 @@ def build_openapi_contract(
                 "operationId": f"call_{_operation_id(tool['name'])}",
                 "summary": f"Call {tool['name']}",
                 "description": tool["description"],
-                "security": [{"ApiKeyAuth": []}],
+                "security": security_requirements,
                 "x-mcp-tool-name": tool["name"],
                 "x-mcp-input-schema-source": tool["input_schema_source"],
                 "x-mcp-annotations": tool["annotations"],
@@ -86,7 +90,7 @@ def build_openapi_contract(
                             }
                         },
                     },
-                    "401": {"description": "Missing or invalid API key"},
+                    "401": {"description": "Missing or invalid authorization"},
                     "500": {"description": "MCP tool execution failed"},
                 },
             }
@@ -120,16 +124,10 @@ def build_openapi_contract(
                 "description": "mcpo-compatible proxy base URL for Canva MCP tools.",
             }
         ],
-        "security": [{"ApiKeyAuth": []}],
+        "security": security_requirements,
         "paths": dict(sorted(paths.items())),
         "components": {
-            "securitySchemes": {
-                "ApiKeyAuth": {
-                    "type": "apiKey",
-                    "in": "header",
-                    "name": "X-API-Key",
-                }
-            },
+            "securitySchemes": _security_schemes(auth_mode),
             "schemas": schemas,
         },
     }
@@ -155,6 +153,7 @@ def summarize_contract(contract: dict[str, Any]) -> dict[str, Any]:
         "openapi": contract["openapi"],
         "title": contract["info"]["title"],
         "generated_at": contract["info"]["x-generated-at"],
+        "security_schemes": sorted(contract["components"]["securitySchemes"]),
         "tool_count": len(operations),
         "read_only_count": read_only,
         "destructive_count": destructive,
@@ -181,7 +180,12 @@ def format_markdown(contract: dict[str, Any], summary: dict[str, Any]) -> str:
         "",
     ]
     lines.extend(f"- `{path}`" for path in summary["paths"])
-    lines.extend(["", "## Security", "", "- API key header: `X-API-Key`", ""])
+    lines.extend(["", "## Security", ""])
+    if "BearerAuth" in summary["security_schemes"]:
+        lines.append("- Bearer auth header: `Authorization: Bearer <token>`")
+    if "ApiKeyAuth" in summary["security_schemes"]:
+        lines.append("- API key header: `X-API-Key`")
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -191,9 +195,10 @@ def run(
     json_out: Path | None = None,
     markdown_out: Path | None = None,
     server_url: str = "http://localhost:8000",
+    auth_mode: str = "both",
 ) -> dict[str, Any]:
     tools = extract_tools(load_tools_source(tools_source))
-    contract = build_openapi_contract(tools, server_url=server_url)
+    contract = build_openapi_contract(tools, server_url=server_url, auth_mode=auth_mode)
     summary = summarize_contract(contract)
     if json_out is not None:
         _write_text_atomic(json_out, json.dumps(contract, indent=2, sort_keys=True) + "\n")
@@ -208,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
     parser.add_argument("--server-url", default="http://localhost:8000")
+    parser.add_argument("--auth-mode", choices=["api-key", "bearer", "both"], default="both")
     args = parser.parse_args(argv)
     try:
         summary = run(
@@ -215,12 +221,38 @@ def main(argv: list[str] | None = None) -> int:
             json_out=args.json_out,
             markdown_out=args.markdown_out,
             server_url=args.server_url,
+            auth_mode=args.auth_mode,
         )
     except (OSError, ValueError) as exc:
         print(f"canva mcp openapi contract failed: {exc}", file=sys.stderr)
         return 1
     print(f"canva mcp openapi contract valid: {summary['tool_count']} tools")
     return 0
+
+
+def _security_requirements(auth_mode: str) -> list[dict[str, list[Any]]]:
+    requirements: list[dict[str, list[Any]]] = []
+    if auth_mode in {"bearer", "both"}:
+        requirements.append({"BearerAuth": []})
+    if auth_mode in {"api-key", "both"}:
+        requirements.append({"ApiKeyAuth": []})
+    return requirements
+
+
+def _security_schemes(auth_mode: str) -> dict[str, dict[str, Any]]:
+    schemes: dict[str, dict[str, Any]] = {}
+    if auth_mode in {"bearer", "both"}:
+        schemes["BearerAuth"] = {
+            "type": "http",
+            "scheme": "bearer",
+        }
+    if auth_mode in {"api-key", "both"}:
+        schemes["ApiKeyAuth"] = {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+        }
+    return schemes
 
 
 def _extract_tools_array_body(source_text: str) -> str:

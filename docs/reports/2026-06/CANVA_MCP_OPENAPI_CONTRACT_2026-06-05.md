@@ -7,7 +7,7 @@
 - Read-only tools: 11
 - Destructive tools: 1
 - Schema refs: 20
-- Generated at: `2026-06-05T07:46:49.275788+00:00`
+- Generated at: `2026-06-05T08:18:12.292641+00:00`
 
 ## Paths
 
@@ -36,4 +36,5 @@
 
 ## Security
 
+- Bearer auth header: `Authorization: Bearer <token>`
 - API key header: `X-API-Key`
