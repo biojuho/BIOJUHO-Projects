@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T05:18:34+09:00",
+  "generatedAt": "2026-06-06T05:31:20+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 48,
+      "pass": 49,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 48
+      "total": 49
     },
     "browserEvidence": {
       "routes": 15,
@@ -55,6 +55,8 @@
       "workspaceBenchmarkFreshnessChecks": 67,
       "epicenterCandidateFreshnessVisible": true,
       "openLoafCandidateFreshnessVisible": true,
+      "planeCandidateFreshnessVisible": true,
+      "planePmCandidateFreshnessChecks": 6,
       "workstreamCandidateFreshnessVisible": true,
       "taskosaurCandidateFreshnessVisible": true,
       "markdownTaskManagerCandidateFreshnessVisible": true,
@@ -565,6 +567,13 @@
       "baseline": "v8.452",
       "candidate": "v8.487",
       "decision": "keep"
+    },
+    {
+      "id": "plane-pm-benchmark-candidate",
+      "primaryMetric": "planePmCandidateFreshnessChecks",
+      "baseline": 0,
+      "candidate": 6,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -579,6 +588,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
+    "research AppFlowy and AFFiNE as workspace candidates after the Plane PM benchmark candidate lands",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }
