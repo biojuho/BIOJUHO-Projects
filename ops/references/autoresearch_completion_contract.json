@@ -255,7 +255,10 @@
             "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
             "schema_transactional_index_guard",
             "tests/test_schema_snapshot.py",
-            "docs/reports/2026-06/AUTO_RESEARCH_SCHEMA_TRANSACTIONAL_INDEX_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_SCHEMA_TRANSACTIONAL_INDEX_GUARD_2026-06-05.md",
+            "github_workflow_dynamic_fork_owner_guard",
+            "test_github_workflows_avoid_static_fork_owner_push_targets",
+            "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
             "proof_commit": "3145ea1",
@@ -3922,6 +3925,37 @@
             "gh repo fork google/adk-python --clone=false --remote=false || true",
             "A/B Contract",
             "7 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_workflow_dynamic_fork_owner_guard",
+      "requirement": "GitHub Actions workflow tests reject hard-coded fork owners in fork push remotes and pull-request head targets.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_github_workflows.py",
+          "must_contain": [
+            "test_github_workflows_avoid_static_fork_owner_push_targets",
+            "static_fork_remote",
+            "static_fork_head",
+            "git remote add fork",
+            "--head\\s+"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md",
+          "must_contain": [
+            "GitHub Workflow Dynamic Fork Owner Guard",
+            "google/adk-python",
+            "faa5db63c5761d87093e27e1969a221ea3d4997a",
+            "gh api user --jq .login",
+            "github.com/${BOT_USER}/adk-python.git",
+            "A/B Contract",
+            "8 passed",
             "global_objective_complete=false"
           ]
         }

@@ -42,7 +42,8 @@
         "dashboard_release_refresh_workflow_guard",
         "agent_workflow_role_policy_guard",
         "github_workflow_fork_remote_flag_guard",
-        "schema_transactional_index_guard"
+        "schema_transactional_index_guard",
+        "github_workflow_dynamic_fork_owner_guard"
       ],
       "evidence": [
         {
@@ -238,6 +239,15 @@
             "8 passed, 1 skipped",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md",
+          "must_contain": [
+            "GitHub Workflow Dynamic Fork Owner Guard",
+            "static fork push targets",
+            "8 passed",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -293,7 +303,8 @@
         "getdaytrends_prompt_injection_normalization_guard",
         "dashboard_release_refresh_workflow_guard",
         "agent_workflow_role_policy_guard",
-        "schema_transactional_index_guard"
+        "schema_transactional_index_guard",
+        "github_workflow_dynamic_fork_owner_guard"
       ],
       "evidence": [
         {
@@ -389,6 +400,16 @@
             "OpenHands/OpenHands",
             "57b0da3df60794ea05e25258ad81a661034293d5",
             "PLTF-2895: event_callback index",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md",
+          "must_contain": [
+            "google/adk-python",
+            "faa5db63c5761d87093e27e1969a221ea3d4997a",
+            "Dynamically resolve bot fork repo",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -740,7 +761,8 @@
         "agent_workflow_role_policy_guard",
         "workspace_smoke_ci_manifest_guard",
         "github_workflow_fork_remote_flag_guard",
-        "schema_transactional_index_guard"
+        "schema_transactional_index_guard",
+        "github_workflow_dynamic_fork_owner_guard"
       ],
       "evidence": [
         {
@@ -898,6 +920,15 @@
             "A/B Contract",
             "Adopted B",
             "8 passed, 1 skipped",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted B",
+            "8 passed",
             "global_objective_complete=false"
           ]
         }
@@ -1149,7 +1180,8 @@
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
-        "schema_transactional_index_guard"
+        "schema_transactional_index_guard",
+        "github_workflow_dynamic_fork_owner_guard"
       ],
       "evidence": [
         {
@@ -1491,6 +1523,15 @@
             "Schema Transactional Index Guard",
             "SCHEMA_INDEX_GUARD_FILES",
             "CONCURRENT_INDEX_PATTERNS",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md",
+          "must_contain": [
+            "hard-coded fork owners",
+            "static `--head owner:branch`",
+            "test_github_workflows_avoid_static_fork_owner_push_targets",
             "global_objective_complete=false"
           ]
         }

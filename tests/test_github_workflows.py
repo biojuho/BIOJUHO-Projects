@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +40,21 @@ def test_github_workflows_avoid_unsupported_repo_fork_remote_flag() -> None:
     for workflow_path in sorted(WORKFLOW_DIR.glob("*.yml")):
         for line_number, line in enumerate(workflow_path.read_text(encoding="utf-8").splitlines(), start=1):
             if "gh repo fork " in line and "--remote" in line:
+                offenders.append(f"{workflow_path.relative_to(PROJECT_ROOT)}:{line_number}: {line.strip()}")
+
+    assert offenders == []
+
+
+def test_github_workflows_avoid_static_fork_owner_push_targets() -> None:
+    offenders: list[str] = []
+    static_fork_head = re.compile(r"--head\s+[\"']?[A-Za-z0-9_.-]+:")
+    static_fork_remote = re.compile(r"github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git")
+
+    for workflow_path in sorted(WORKFLOW_DIR.glob("*.yml")):
+        for line_number, line in enumerate(workflow_path.read_text(encoding="utf-8").splitlines(), start=1):
+            if "git remote add fork" in line and static_fork_remote.search(line):
+                offenders.append(f"{workflow_path.relative_to(PROJECT_ROOT)}:{line_number}: {line.strip()}")
+            if static_fork_head.search(line):
                 offenders.append(f"{workflow_path.relative_to(PROJECT_ROOT)}:{line_number}: {line.strip()}")
 
     assert offenders == []
