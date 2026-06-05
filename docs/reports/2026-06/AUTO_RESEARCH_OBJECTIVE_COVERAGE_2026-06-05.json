@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T05:15:27.384381+00:00",
+  "generated_at": "2026-06-05T05:31:06.112743+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -41,7 +41,8 @@
         "hosted_agent_trace_provider_registry_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "browser_smoke_websocket_failure_evidence_guard",
-        "getdaytrends_prompt_injection_normalization_guard"
+        "getdaytrends_prompt_injection_normalization_guard",
+        "dashboard_release_refresh_workflow_guard"
       ],
       "evidence": [
         {
@@ -111,6 +112,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
           "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+          "term_count": 5
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -161,7 +166,8 @@
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
-        "getdaytrends_prompt_injection_normalization_guard"
+        "getdaytrends_prompt_injection_normalization_guard",
+        "dashboard_release_refresh_workflow_guard"
       ],
       "evidence": [
         {
@@ -295,6 +301,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.md",
           "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+          "term_count": 5
         }
       ],
       "id": "github_related_project_research",
@@ -348,7 +358,8 @@
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
-        "getdaytrends_prompt_injection_normalization_guard"
+        "getdaytrends_prompt_injection_normalization_guard",
+        "dashboard_release_refresh_workflow_guard"
       ],
       "evidence": [
         {
@@ -393,6 +404,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
           "term_count": 4
         }
       ],

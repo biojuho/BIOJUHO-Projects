@@ -235,7 +235,11 @@
             "f251dc5",
             "browser_smoke_websocket_failure_evidence_guard",
             "3145ea1",
-            "getdaytrends_prompt_injection_normalization_guard"
+            "getdaytrends_prompt_injection_normalization_guard",
+            "dashboard_release_refresh_workflow_guard",
+            ".github/workflows/dashboard-release-refresh.yml",
+            ".github/workflows/deploy-dashboard.yml",
+            "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md"
           ],
           "git_freshness": {
             "proof_commit": "3145ea1",
@@ -245,6 +249,8 @@
               ".gitignore",
               ".github/workflows/workspace-smoke.yml",
               ".github/workflows/pr-analysis.yml",
+              ".github/workflows/deploy-dashboard.yml",
+              ".github/workflows/dashboard-release-refresh.yml",
               "docs/reports/2026-06/",
               "docs/PR_TRIAGE_SYSTEM.md",
               "next-actions.md",
@@ -345,7 +351,8 @@
               "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.md",
               "automation/getdaytrends/utils.py",
               "automation/getdaytrends/tests/test_utils.py",
-              "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md"
+              "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
+              "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md"
             ]
           }
         }
@@ -4635,6 +4642,62 @@
             "NFKC",
             "22 passed",
             "2/2 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dashboard_release_refresh_workflow_guard",
+      "requirement": "Dashboard release refresh has a manual, credential-free GitHub workflow that rebuilds the web bundle from source, verifies it, and uploads the dist artifact before production deployment credentials are used.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".github/workflows/dashboard-release-refresh.yml",
+          "must_contain": [
+            "name: Dashboard Release Refresh",
+            "workflow_dispatch:",
+            "contents: read",
+            "persist-credentials: false",
+            "npm ci",
+            "npm test -- --run",
+            "npm run build",
+            "npm run check:bundle",
+            "actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4",
+            "apps/dashboard/dist",
+            "if-no-files-found: error"
+          ]
+        },
+        {
+          "path": ".github/workflows/deploy-dashboard.yml",
+          "must_contain": [
+            "Build React Frontend",
+            "Check dashboard bundle budget",
+            "npm run check:bundle",
+            "!apps/dashboard/dist/",
+            "gcloud builds submit"
+          ]
+        },
+        {
+          "path": "tests/test_github_workflows.py",
+          "must_contain": [
+            "test_dashboard_release_refresh_workflow_builds_and_uploads_dist_artifact",
+            "test_dashboard_deploy_workflow_checks_bundle_before_cloud_build",
+            "dashboard-release-refresh.yml",
+            "deploy-dashboard.yml",
+            "npm run check:bundle"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+          "must_contain": [
+            "google/adk-python",
+            "chore: add automatic adk web updates in release process",
+            "928017d3919401a6225a9a51b3f762a6ceb7836c",
+            "A/B Contract",
+            "workflow_dispatch",
+            "npm run check:bundle",
             "global_objective_complete=false"
           ]
         }

@@ -5,6 +5,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_SMOKE_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "workspace-smoke.yml"
 PR_ANALYSIS_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "pr-analysis.yml"
+DASHBOARD_DEPLOY_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "deploy-dashboard.yml"
+DASHBOARD_RELEASE_REFRESH_WORKFLOW = (
+    PROJECT_ROOT / ".github" / "workflows" / "dashboard-release-refresh.yml"
+)
 
 
 def test_workspace_smoke_workflow_runs_autoresearch_audit_regression_tests() -> None:
@@ -58,3 +62,36 @@ def test_pr_analysis_workflow_supports_read_only_comment_trigger() -> None:
     assert "--body-file var/pr-analysis/pr-body.md" in workflow
     assert "github-script" not in workflow
     assert "issues: write" not in workflow
+
+
+def test_dashboard_release_refresh_workflow_builds_and_uploads_dist_artifact() -> None:
+    workflow = DASHBOARD_RELEASE_REFRESH_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "name: Dashboard Release Refresh" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "contents: read" in workflow
+    assert "pull-requests: write" not in workflow
+    assert "persist-credentials: false" in workflow
+    assert "actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e" in workflow
+    assert "github.event.inputs['node-version']" in workflow
+    assert "cache-dependency-path: apps/dashboard/package-lock.json" in workflow
+    assert "npm ci" in workflow
+    assert "npm test -- --run" in workflow
+    assert "npm run build" in workflow
+    assert "npm run check:bundle" in workflow
+    assert "actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4" in workflow
+    assert "github.event.inputs['artifact-name']" in workflow
+    assert "apps/dashboard/dist" in workflow
+    assert "if-no-files-found: error" in workflow
+
+
+def test_dashboard_deploy_workflow_checks_bundle_before_cloud_build() -> None:
+    workflow = DASHBOARD_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+
+    build_step = workflow.index("Build React Frontend")
+    bundle_step = workflow.index("Check dashboard bundle budget")
+    cloud_build_context_step = workflow.index("!apps/dashboard/dist/")
+    cloud_build_step = workflow.index("gcloud builds submit")
+
+    assert "npm run check:bundle" in workflow
+    assert build_step < bundle_step < cloud_build_context_step < cloud_build_step

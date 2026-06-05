@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `78`
-- Status counts: `blocked=1, covered=77`
+- Criteria: `79`
+- Status counts: `blocked=1, covered=78`
 
 ## Missing Required
 
@@ -477,6 +477,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### dashboard_release_refresh_workflow_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### external_credential_boundaries
 

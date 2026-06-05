@@ -37,7 +37,8 @@
         "hosted_agent_trace_provider_registry_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "browser_smoke_websocket_failure_evidence_guard",
-        "getdaytrends_prompt_injection_normalization_guard"
+        "getdaytrends_prompt_injection_normalization_guard",
+        "dashboard_release_refresh_workflow_guard"
       ],
       "evidence": [
         {
@@ -189,6 +190,16 @@
             "2/2 passed",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Release Refresh Workflow",
+            "google/adk-python",
+            "workflow_dispatch",
+            "npm run check:bundle",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -239,7 +250,8 @@
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
-        "getdaytrends_prompt_injection_normalization_guard"
+        "getdaytrends_prompt_injection_normalization_guard",
+        "dashboard_release_refresh_workflow_guard"
       ],
       "evidence": [
         {
@@ -548,6 +560,16 @@
             "A/B Contract",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+          "must_contain": [
+            "google/adk-python",
+            "928017d3919401a6225a9a51b3f762a6ceb7836c",
+            "automatic adk web updates",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
         }
       ],
       "residual_risk": "The word 'all' is unbounded; the current cycle proves a live tracked source set and recency gate, not an exhaustive internet-wide proof."
@@ -608,7 +630,8 @@
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
-        "getdaytrends_prompt_injection_normalization_guard"
+        "getdaytrends_prompt_injection_normalization_guard",
+        "dashboard_release_refresh_workflow_guard"
       ],
       "evidence": [
         {
@@ -712,6 +735,15 @@
             "A/B Contract",
             "Decision: adopted",
             "11 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted",
+            "workflow_dispatch",
             "global_objective_complete=false"
           ]
         }
