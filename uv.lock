@@ -1208,7 +1208,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0,<1.0" },
     { name = "anthropic", specifier = ">=0.40.0,<1.0" },
     { name = "fastapi", specifier = ">=0.110.0,<1.0" },
-    { name = "feedparser", specifier = ">=6.0.0,<7.0" },
+    { name = "feedparser", specifier = ">=6.0.12,<7.0" },
     { name = "google-genai", specifier = ">=1.0.0,<2.0" },
     { name = "httpx", specifier = ">=0.27.0,<1.0" },
     { name = "jinja2", marker = "extra == 'newsletter'", specifier = ">=3.1.0" },
