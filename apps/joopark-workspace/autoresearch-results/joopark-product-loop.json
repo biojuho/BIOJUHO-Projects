@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T04:24:30+09:00",
+  "generatedAt": "2026-06-06T04:34:36+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 45,
+      "pass": 46,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 45
+      "total": 46
     },
     "browserEvidence": {
       "routes": 15,
@@ -84,7 +84,9 @@
       "candidateBenchmarkRecommendationExportVisible": true,
       "taskosaurWorkstreamBenchmarkRecommendationExportChecks": 4,
       "candidateBenchmarkReviewQueueVisible": true,
-      "taskosaurWorkstreamBenchmarkReviewQueueChecks": 4
+      "taskosaurWorkstreamBenchmarkReviewQueueChecks": 4,
+      "candidateBenchmarkReviewHandoffVisible": true,
+      "taskosaurWorkstreamBenchmarkReviewHandoffChecks": 5
     }
   },
   "experiments": [
@@ -528,6 +530,13 @@
       "baseline": 0,
       "candidate": 4,
       "decision": "keep"
+    },
+    {
+      "id": "taskosaur-workstream-benchmark-review-handoff-export",
+      "primaryMetric": "taskosaurWorkstreamBenchmarkReviewHandoffChecks",
+      "baseline": 0,
+      "candidate": 5,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -541,7 +550,7 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "export benchmark review queue decisions for handoff",
+    "add clipboard copy for benchmark review handoff export",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "use the Veritas snapshot writer for the next focused refresh when dry-run reports changed true"
   ]

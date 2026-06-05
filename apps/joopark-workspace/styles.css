@@ -3009,7 +3009,8 @@ textarea:focus:not(:focus-visible) { outline: none; }
   color: var(--cyan);
 }
 
-.portfolio-benchmark-export {
+.portfolio-benchmark-export,
+.portfolio-review-handoff {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
