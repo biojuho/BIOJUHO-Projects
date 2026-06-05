@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T12:06:00+09:00",
+  "generated_at": "2026-06-05T12:10:30+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -183,13 +183,13 @@
             "tests/test_pr_triage.py",
             "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
-            "3cfd183",
+            "39cc4a6",
             "packages/shared/llm/reasoning/vibe_tools.py",
             "tests/test_vibe_tools_validation.py",
             "docs/reports/2026-06/AUTO_RESEARCH_VIBE_TOOLS_WORKSPACE_PATH_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "3cfd183",
+            "proof_commit": "39cc4a6",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -1097,10 +1097,10 @@
             "direct_browser_qa_freshness_gate",
             "apps/dashboard/",
             "mcp/canva-mcp/",
-            "6570360"
+            "39cc4a6"
           ],
           "protected_path_freshness": {
-            "proof_commit": "6570360",
+            "proof_commit": "39cc4a6",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",

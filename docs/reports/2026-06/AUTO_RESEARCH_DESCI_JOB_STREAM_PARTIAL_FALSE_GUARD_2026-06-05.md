@@ -1,6 +1,6 @@
 # DeSci Job Stream Partial False Guard
 
-Generated at: `2026-06-05T12:06:00+09:00`
+Generated at: `2026-06-05T12:10:30+09:00`
 
 ## Source Signal
 
@@ -57,5 +57,5 @@ Generated at: `2026-06-05T12:06:00+09:00`
 This cycle hardens the local DeSci job stream contract. It does not add a new
 streaming runtime, change job storage, or require live user credentials.
 
-- Product proof baseline for this commit: `3cfd183`.
+- Product proof baseline for this commit: `39cc4a6`.
 - `global_objective_complete=false`
