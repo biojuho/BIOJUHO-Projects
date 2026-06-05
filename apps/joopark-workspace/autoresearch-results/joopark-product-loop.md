@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T01:32:36+09:00
+Generated: 2026-06-06T01:43:36+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -672,6 +672,21 @@ Generated: 2026-06-06T01:32:36+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 15 monitored candidates and 14 GitHub API source markers.
 - `node scripts/check-candidate-freshness-drift.mjs --live` reported `driftCount: 8`, with no Veritas drift remaining.
 
+## Experiment: Remaining live drift refresh
+
+- Hypothesis: Once the drift monitor exists, closing the remaining live drift rows makes the adoption benchmark snapshot ready for scheduled drift enforcement rather than ad hoc metadata cleanup.
+- Primary metric: candidate freshness live drift count.
+- Baseline: live drift monitor reported 9 drifted source-backed candidates after Veritas advanced again and the remaining workspace rows still had disk/star/PR/pushedAt drift.
+- Candidate: `data/adoption-candidates.json` now refreshes Veritas to v8.414 (`5da25eadef357ad63a9083b0ca45eb5a2d8ebd26`), updates Epicenter disk size, Focalboard stars, Colanode/Anytype/OpenProject/Parabol/Leantime/Worklenz open PR counts, OpenProject pushedAt/disk size, and Leantime stars/open issue aggregate.
+- Decision: keep; the live drift monitor reported `driftCount: 0` immediately after the refresh.
+
+## Evidence
+
+- GitHub GraphQL returned current values for all 9 drifted rows; Veritas default branch `main` was at `5da25eadef357ad63a9083b0ca45eb5a2d8ebd26`, committed `2026-06-05T16:42:24Z`, with message `v8.414 mixed status fail closed`.
+- The same GraphQL run returned Epicenter `diskUsage: 59907`, Focalboard `stargazerCount: 26211`, Colanode `openPRs: 7`, Anytype `openPRs: 7`, OpenProject `pushedAt: 2026-06-05T15:36:21Z`, `openPRs: 211`, `diskUsage: 2705667`, Parabol `openPRs: 4`, Leantime `stargazerCount: 9988`, issue+PR aggregate 318, `openPRs: 2`, and Worklenz `openPRs: 9`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 15 monitored candidates and 15 GitHub API source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 0`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces, promote the live drift monitor into scheduled CI once GitHub token policy is confirmed, or refresh remaining live drift rows led by OpenProject PR split and Leantime metadata drift.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces, promote the live drift monitor into scheduled CI once GitHub token policy is confirmed, or add a high-churn Veritas refresh cadence before enabling fail-on-drift automation.
