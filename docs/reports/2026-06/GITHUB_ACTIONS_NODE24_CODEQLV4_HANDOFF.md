@@ -1,19 +1,19 @@
 # GitHub Actions Node 24 / CodeQL v4 Handoff
 
-Generated: 2026-06-05T21:10:00+09:00
+Generated: 2026-06-05T21:26:12+09:00
 
 ## Status
 
 Issue: https://github.com/biojuho/BIOJUHO-Projects/issues/151
 
-The JooPark Workspace main workflows are green on merge commit `21dc9a9b90cf8e6c748111ca1179849ab5015110`, but GitHub Actions still emits runtime deprecation annotations.
+The JooPark Workspace main workflows are green on merge commit `faa15eae6f359f9a6fe1a4ea2f826047b4f04b91`, but GitHub Actions still emits runtime deprecation annotations.
 
 Observed green main runs:
 
-- Workspace Smoke Test: `27013981034`
-- Security & Quality Gate: `27013981038`
-- Gitleaks Secret Scan: `27013981032`
-- CodeQL Security Scan: `27013981066`
+- Workspace Smoke Test: `27014412131`
+- Security & Quality Gate: `27014412123`
+- Gitleaks Secret Scan: `27014412110`
+- CodeQL Security Scan: `27014412119`
 
 Current blocker: this Codex OAuth session cannot push `.github/workflows/**` changes because GitHub rejects workflow edits without `workflow` scope. Use a GitHub token/session with workflow-edit permission for the actual workflow patch.
 
@@ -44,7 +44,20 @@ Prefer upgrading to action versions that declare Node 24 support. Use `FORCE_JAV
 
 ## Repo-Wide Inventory Command
 
-Run this before editing to catch adjacent workflows:
+Run this deterministic audit before editing to catch adjacent workflows and composite actions:
+
+```bash
+npm run audit:gha-runtime
+python3 ops/scripts/audit_github_actions_runtime.py --format json
+```
+
+After the workflow patch, strict mode should pass:
+
+```bash
+npm run audit:gha-runtime:strict
+```
+
+Manual grep inventory remains useful for spot-checking exact refs:
 
 ```bash
 rg -n "codeql-action|setup-python-dependencies|actions/checkout@v4|actions/setup-node@v4|actions/setup-python@v5|actions/upload-artifact@v4|astral-sh/setup-uv@v5|gitleaks/gitleaks-action@v2" .github/workflows .github/actions
@@ -62,6 +75,7 @@ gh run list --repo biojuho/BIOJUHO-Projects --branch main --limit 8
 Acceptance criteria:
 
 - Workspace Smoke Test, Security & Quality Gate, Gitleaks Secret Scan, and CodeQL Security Scan pass.
+- `npm run audit:gha-runtime:strict` passes.
 - CodeQL runs use v4 actions and no longer include `setup-python-dependencies`.
 - Workflow annotations no longer mention Node.js 20 action runtime deprecation for the critical main workflows.
 - No unrelated workflow changes or secret-bearing output are introduced.

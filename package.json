@@ -8,6 +8,8 @@
   },
   "scripts": {
     "bootstrap:legacy-paths": "python bootstrap_legacy_paths.py",
+    "audit:gha-runtime": "python3 ops/scripts/audit_github_actions_runtime.py",
+    "audit:gha-runtime:strict": "python3 ops/scripts/audit_github_actions_runtime.py --strict",
     "build:all": "node ops/scripts/run_workspace_package_script.mjs build",
     "test:all": "node ops/scripts/run_workspace_package_script.mjs test",
     "lint:all": "node ops/scripts/run_workspace_package_script.mjs lint",
