@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T19:43:59+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510+github-search:outline-knowledge-base-benchmark+github-api:outline-freshness-refresh+github-search:bookstack-documentation-benchmark+github-api:bookstack-freshness-refresh+github-search:wikijs-self-hosted-wiki-benchmark+github-api:wikijs-freshness-refresh+github-api:veritas-focused-drift-refresh-v8648+github-api:veritas-focused-drift-refresh-v8649+github-api:veritas-focused-drift-refresh-v8651+github-api:outline-outline-candidate-refresh+github-api:toeverything-affine-candidate-refresh",
+  "generatedAt": "2026-06-06T19:59:22+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510+github-search:outline-knowledge-base-benchmark+github-api:outline-freshness-refresh+github-search:bookstack-documentation-benchmark+github-api:bookstack-freshness-refresh+github-search:wikijs-self-hosted-wiki-benchmark+github-api:wikijs-freshness-refresh+github-api:veritas-focused-drift-refresh-v8648+github-api:veritas-focused-drift-refresh-v8649+github-api:veritas-focused-drift-refresh-v8651+github-api:outline-outline-candidate-refresh+github-api:toeverything-affine-candidate-refresh+github-api:taskosaur-taskosaur-candidate-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -1044,16 +1044,16 @@
       "deadline": "2026-07-31",
       "burn": [0, 1, 1, 2, 3, 4, 5],
       "risks": 1,
-      "openIssues": 10,
+      "openIssues": 9,
       "openPRs": 2,
       "mergedPRs": 0,
       "closedIssues": 0,
       "stars": 493,
       "forks": 96,
-      "diskKb": 9677,
-      "pushedAt": "2026-06-02T11:00:39Z",
+      "diskKb": 9710,
+      "pushedAt": "2026-06-06T07:15:54Z",
       "createdAt": "2025-07-30T07:23:19Z",
-      "lastCommit": "3a6e39f662c6fd8b22980c16d4441d8887347c31",
+      "lastCommit": "b7a5463ddd1fc018d8b2dc877ccc434a38eb710b",
       "benchmarkFocus": {
         "surface": "JooPark PM/Kanban",
         "flow": "Conversational AI task execution",
