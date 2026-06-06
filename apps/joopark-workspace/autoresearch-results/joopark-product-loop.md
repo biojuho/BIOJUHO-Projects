@@ -1074,6 +1074,20 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/smoke-interactions.mjs` now reports `knowledgeBaseBenchmarkRubricVisible` and verifies all three projects, four axes, the Outline tie-break recommendation, and Wiki.js Git-backed portability scoring.
 - `scripts/audit-release-readiness.mjs` now includes `knowledge_base_information_architecture_rubric`.
 
+## Experiment: Knowledge-base information architecture export
+
+- Hypothesis: The KB/IA comparison becomes operationally useful when the weighted recommendation can be exported as a Markdown handoff instead of remaining only a dashboard view.
+- Primary metric: knowledge-base information architecture export checks.
+- Baseline: 0 KB/IA export checks; the KB/IA rubric rendered in the portfolio but had no dedicated Markdown output.
+- Candidate: add `joopark-kb-ia-recommendation.md` export for the Outline/BookStack/Wiki.js rubric with winner, score gap, weighted rationale, and per-project score breakdown.
+- Decision: keep; the export preserves the existing PM benchmark export while adding a dedicated KB/IA recommendation that picks Outline on tie-break, keeps Wiki.js as the portability counterweight, and records a 0-point score gap.
+
+## Evidence
+
+- `app.js` now includes `knowledgeBaseBenchmarkRecommendationMarkdown` and `candidateKnowledgeBaseRecommendationExport` with `data-knowledge-base-benchmark-export`.
+- `scripts/smoke-interactions.mjs` now reports `knowledgeBaseBenchmarkExportVisible` and verifies winner, gap, `joopark-kb-ia-recommendation.md`, data URL, and rationale copy.
+- `scripts/audit-release-readiness.mjs` now includes `knowledge_base_information_architecture_export`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, add KB/IA rubric export or review-handoff support, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, add KB/IA review-handoff or issue-draft support, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
