@@ -1604,6 +1604,20 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 0`, `blockingDriftCount: 0`, `advisoryDriftCount: 0`, `cadenceAdvisoryDriftCount: 0`, and `metadataAdvisoryDriftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessLiveDriftBatchSweep3Repos: 6`.
 
+## Experiment: AFFiNE blocking drift follow-up
+
+- Hypothesis: A targeted source-backed refresh should clear the release-sync blocking issue-count drift without sweeping advisory popularity churn into the same change.
+- Primary metric: `candidateFreshnessAffineBlockingDriftCount`.
+- Baseline: Release verification after #242 saw `toeverything/AFFiNE` openIssues drift from `554` to `555`, with full live drift at `driftCount: 4`, `blockingDriftCount: 1`, `advisoryDriftCount: 2`, and `cadenceAdvisoryDriftCount: 1`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --from-live-drift --repo toeverything/AFFiNE` refreshed only the AFFiNE row and updated `data/adoption-candidates.json` to generatedAt `2026-06-07T01:13:30+09:00`.
+- Decision: keep; the repo-scoped live drift check now reports `driftCount: 0` and full live drift reports `blockingDriftCount: 0`.
+
+## Evidence
+
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo toeverything/AFFiNE --fail-on-drift` passed with `driftCount: 0`, `blockingDriftCount: 0`, and `advisoryDriftCount: 0`.
+- `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 4`, `blockingDriftCount: 0`, `advisoryDriftCount: 3`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessAffineBlockingDriftCount: 0`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
