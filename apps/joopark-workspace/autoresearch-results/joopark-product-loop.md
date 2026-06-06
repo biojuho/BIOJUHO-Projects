@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T19:59:22+09:00
+Generated: 2026-06-06T20:13:34+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -1287,6 +1287,22 @@ Generated: 2026-06-06T19:59:22+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo Taskosaur/Taskosaur --fail-on-drift` passed with `driftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `taskosaurGenericSnapshotWriterChanged: true`.
 
+## Experiment: OpenProject generic snapshot refresh
+
+- Hypothesis: The PM benchmark snapshot should treat OpenProject's GitHub issue count as issue-only metadata and keep its large source-backed repository state current before portfolio priority decisions use it.
+- Primary metric: `openProjectGenericSnapshotWriterChanged`.
+- Baseline: OpenProject snapshot commit `6885ca695dd38384c651704675143be63f9a514d`, `pushedAt: 2026-06-05T15:36:21Z`, 211 open issues, 211 open PRs, 15,235 stars, and `diskKb: 2705667`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo opf/openproject` updated OpenProject to commit `79d810d2e74f94bda4e3bcf652f2d848863e5a3e`, `pushedAt: 2026-06-06T10:48:39Z`, 0 issue-only open issues, 212 open PRs, 15,243 stars, and source marker `github-api:opf-openproject-candidate-refresh`.
+- Decision: keep; the OpenProject PM benchmark row now uses the generic refresh path and passes a repo-scoped live drift check with drift count 0 while preserving open PR volume separately from issue-only issue count.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the OpenProject row and source marker.
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo opf/openproject` passed with 42 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo opf/openproject --fail-on-drift` passed with `driftCount: 0`.
+- Full live drift was observed at 15 after the write because other monitored sources moved during this loop; OpenProject was no longer in the drift list.
+- `autoresearch-results/joopark-product-loop.json` now reports `openProjectGenericSnapshotWriterChanged: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for OpenProject, Veritas, or Leantime.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, Leantime, AFFiNE, or Outline.
