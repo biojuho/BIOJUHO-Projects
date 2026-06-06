@@ -1527,6 +1527,22 @@ Generated: 2026-06-06T21:23:20+09:00
 - `data/adoption-candidates.json` now reports 50 GitHub API source markers and generatedAt `2026-06-06T23:40:35+09:00`.
 - `autoresearch-results/joopark-product-loop.json` now reports `remainingIssueCountRefreshFullBlockingDriftAfter: 0`.
 
+## Experiment: Veritas cadence refresh 5
+
+- Hypothesis: Refreshing the high-churn Veritas source snapshot should eliminate the remaining cadence advisory drift without weakening the freshness policy.
+- Primary metric: `candidateFreshnessCadenceAdvisoryDriftCount`.
+- Baseline: Veritas scoped live drift had `driftCount: 1`, `blockingDriftCount: 0`, and `cadenceAdvisoryDriftCount: 1`; the snapshot was v8.674 at commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --write` refreshed Veritas to v8.694 at commit `af983bfa7e0e0861ad8592705dbf780721da765a`, pushed `2026-06-06T15:04:07Z`, and `diskKb: 2550`.
+- Decision: keep; the repo-scoped live drift check now reports `driftCount: 0`, and full live drift reports `blockingDriftCount: 0` with `cadenceAdvisoryDriftCount: 0`.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only` passed before the write with the stored v8.674 snapshot.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with no drift after the write.
+- `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 11`, `blockingDriftCount: 0`, `advisoryDriftCount: 10`, `cadenceAdvisoryDriftCount: 0`, and `metadataAdvisoryDriftCount: 5`.
+- `data/adoption-candidates.json` now reports 51 GitHub API source markers and generatedAt `2026-06-07T00:04:44+09:00`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterRefresh5FullCadenceAdvisoryDriftAfter: 0`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
