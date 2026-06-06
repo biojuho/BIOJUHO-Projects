@@ -389,6 +389,7 @@ const interactionExpression = `
   let candidateBenchmarkQueueVisibleOk = false;
   let candidateBenchmarkRubricVisibleOk = false;
   let candidateBenchmarkRubricScoreVisibleOk = false;
+  let knowledgeBaseBenchmarkRubricVisibleOk = false;
   let candidateBenchmarkRecommendationExportVisibleOk = false;
   let candidateBenchmarkReviewQueueVisibleOk = false;
   let candidateBenchmarkReviewHandoffVisibleOk = false;
@@ -804,8 +805,38 @@ const interactionExpression = `
     assert(exportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "benchmark recommendation export markdown link did not render");
     assert(exportText.includes("Recommendation: adopt Taskosaur/Taskosaur first") && exportText.includes("happybhati/workstream as the secondary benchmark"), "benchmark recommendation export copy did not render");
     assert(exportText.includes("Score gap: 1 point") && exportText.includes("Primary reason: AI 보조 scored 92 at 30% weight"), "benchmark recommendation export rationale did not render");
+    const knowledgeBaseRubric = qs("[data-knowledge-base-benchmark-rubric]");
+    assert(knowledgeBaseRubric.innerText.includes("KB/IA 비교표"), "knowledge-base IA rubric did not render heading");
+    assert(knowledgeBaseRubric.innerText.includes("outline/outline"), "Outline knowledge-base rubric did not render");
+    assert(knowledgeBaseRubric.innerText.includes("BookStackApp/BookStack"), "BookStack knowledge-base rubric did not render");
+    assert(knowledgeBaseRubric.innerText.includes("requarks/wiki"), "Wiki.js knowledge-base rubric did not render");
+    ["정보 구조", "편집/협업", "권한/운영", "이식성"].forEach((axis) => {
+      assert(!!document.querySelector('[data-kb-rubric-axis="' + axis + '"]'), "knowledge-base rubric axis did not render: " + axis);
+    });
+    [
+      "collections + nested documents",
+      "book + chapter + page hierarchy",
+      "Git-backed Markdown workflows",
+    ].forEach((term) => {
+      assert(knowledgeBaseRubric.innerText.includes(term), "knowledge-base rubric value did not render: " + term);
+    });
+    const wikiJsKbScore = projectKnowledgeBaseRubricScore(wikiJsCandidate);
+    const outlineKbScore = projectKnowledgeBaseRubricScore(outlineCandidate);
+    const bookStackKbScore = projectKnowledgeBaseRubricScore(bookStackCandidate);
+    assert(wikiJsKbScore && wikiJsKbScore.score === 87, "Wiki.js knowledge-base rubric score was wrong");
+    assert(outlineKbScore && outlineKbScore.score === 87, "Outline knowledge-base rubric score was wrong");
+    assert(bookStackKbScore && bookStackKbScore.score === 83, "BookStack knowledge-base rubric score was wrong");
+    const kbRecommendation = qs("[data-knowledge-base-rubric-recommendation]", knowledgeBaseRubric);
+    assert(kbRecommendation.dataset.knowledgeBaseRubricRecommendation === "outline/outline", "knowledge-base rubric recommendation did not pick Outline tie-breaker");
+    assert(kbRecommendation.dataset.kbRubricScore === String(outlineKbScore.score), "knowledge-base rubric recommendation score did not render");
+    const kbCells = Array.from(knowledgeBaseRubric.querySelectorAll("[data-kb-rubric-project][data-kb-rubric-axis]"));
+    const wikiJsPortability = kbCells.find((cell) => cell.dataset.kbRubricProject === "requarks/wiki" && cell.dataset.kbRubricAxis === "이식성");
+    assert(wikiJsPortability, "Wiki.js knowledge-base rubric portability cell did not render");
+    assert(wikiJsPortability.dataset.kbRubricWeight === "0.2", "Wiki.js knowledge-base rubric portability weight did not render");
+    assert(wikiJsPortability.dataset.kbRubricScore === "93", "Wiki.js knowledge-base rubric portability score did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    knowledgeBaseBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     const reviewQueue = qs("[data-benchmark-review-queue]");
     const reviewDecision = qs("[data-benchmark-review-decision]", reviewQueue);
@@ -858,6 +889,7 @@ const interactionExpression = `
     }, "benchmark review issue draft created state did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    knowledgeBaseBenchmarkRubricVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
     candidateBenchmarkReviewHandoffCopyVisibleOk = true;
@@ -1152,6 +1184,7 @@ const interactionExpression = `
     candidateBenchmarkQueueVisibleOk = true;
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    knowledgeBaseBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
@@ -1399,6 +1432,7 @@ const interactionExpression = `
     candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
+    knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,

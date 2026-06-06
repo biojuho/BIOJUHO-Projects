@@ -1064,6 +1064,19 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkRubricScoreTerms,
   });
 
+  const knowledgeBaseInformationArchitectureRubricTerms = [
+    { file: "data/adoption-candidates.json", terms: ["knowledgeBaseBenchmark", "JooPark Knowledge/IA", "collections + nested documents", "book + chapter + page hierarchy", "Git-backed Markdown workflows"] },
+    { file: "app.js", terms: ["function projectKnowledgeBaseBenchmark", "function projectKnowledgeBaseRubric", "function candidateKnowledgeBaseRubric", "data-knowledge-base-benchmark-rubric", "data-kb-rubric-project"] },
+    { file: "styles.css", terms: ["--rubric-project-count"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["knowledgeBaseBenchmarkRubricVisible", "knowledge-base IA rubric did not render heading", "Wiki.js knowledge-base rubric portability score did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "knowledge_base_information_architecture_rubric",
+    requirement: "Outline, BookStack, and Wiki.js expose a dedicated information-architecture comparison rubric with current source-backed candidate context and browser smoke coverage.",
+    status: knowledgeBaseInformationArchitectureRubricTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: knowledgeBaseInformationArchitectureRubricTerms,
+  });
+
   const taskosaurWorkstreamBenchmarkRecommendationExportTerms = [
     { file: "app.js", terms: ["function candidateBenchmarkRecommendationExport", "function candidateBenchmarkRecommendationMarkdown", "data-candidate-benchmark-export", "joopark-benchmark-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
