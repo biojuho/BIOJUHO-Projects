@@ -1059,6 +1059,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/audit-release-readiness.mjs` now includes `wikijs_self_hosted_wiki_candidate_freshness_ui_smoke`.
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 21 monitored candidates and 35 source markers.
 
+## Experiment: Knowledge-base information architecture rubric
+
+- Hypothesis: The portfolio benchmark surface becomes more useful for JooPark notes/workspace planning when Outline, BookStack, and Wiki.js are compared on information architecture instead of only tracked as separate freshness candidates.
+- Primary metric: knowledge-base information architecture rubric checks.
+- Baseline: 0 dedicated KB/IA rubric checks; the focused benchmark rubric only compared the top PM/Calendar candidates.
+- Candidate: add a dedicated `knowledgeBaseBenchmark` rubric for `outline/outline`, `BookStackApp/BookStack`, and `requarks/wiki` across information structure, editing/collaboration, permissions/operations, and portability.
+- Decision: keep; the rubric keeps the existing Taskosaur/Workstream PM comparison intact while adding a 3-column KB/IA comparison where Outline and Wiki.js score 87 and BookStack scores 83.
+
+## Evidence
+
+- `data/adoption-candidates.json` now stores `knowledgeBaseBenchmark` rows for Outline, BookStack, and Wiki.js with shared `JooPark Knowledge/IA` axes.
+- `app.js` now renders a dedicated `data-knowledge-base-benchmark-rubric` section when the candidate benchmark filter is focused, without changing the existing PM benchmark queue.
+- `scripts/smoke-interactions.mjs` now reports `knowledgeBaseBenchmarkRubricVisible` and verifies all three projects, four axes, the Outline tie-break recommendation, and Wiki.js Git-backed portability scoring.
+- `scripts/audit-release-readiness.mjs` now includes `knowledge_base_information_architecture_rubric`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, turn Outline/BookStack/Wiki.js evidence into an information-architecture comparison rubric, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, add KB/IA rubric export or review-handoff support, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.

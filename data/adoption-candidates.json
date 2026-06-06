@@ -871,7 +871,18 @@
       "diskKb": 319307,
       "pushedAt": "2026-06-05T14:54:48Z",
       "createdAt": "2016-05-22T21:31:47Z",
-      "lastCommit": "e864684d569c81ca2b03c816d22e0c80e2ff6466"
+      "lastCommit": "e864684d569c81ca2b03c816d22e0c80e2ff6466",
+      "knowledgeBaseBenchmark": {
+        "surface": "JooPark Knowledge/IA",
+        "flow": "Realtime team document hierarchy",
+        "signals": ["collections/documents", "realtime collaboration", "Slack/Docker operations"],
+        "rubric": [
+          { "axis": "정보 구조", "value": "collections + nested documents + fast team navigation", "weight": 0.35, "score": 86 },
+          { "axis": "편집/협업", "value": "Markdown editor + realtime collaboration + comments", "weight": 0.25, "score": 92 },
+          { "axis": "권한/운영", "value": "team roles + Slack integrations + Docker admin workflow", "weight": 0.2, "score": 88 },
+          { "axis": "이식성", "value": "Markdown-friendly content with heavier workspace assumptions", "weight": 0.2, "score": 82 }
+        ]
+      }
     },
     {
       "id": "repo-bookstackapp-bookstack",
@@ -900,7 +911,18 @@
       "diskKb": 52384,
       "pushedAt": "2026-06-05T04:31:28Z",
       "createdAt": "2015-08-29T10:26:44Z",
-      "lastCommit": "f01bb749ab3f11fc465bf5f247dc84e297e4f98a"
+      "lastCommit": "f01bb749ab3f11fc465bf5f247dc84e297e4f98a",
+      "knowledgeBaseBenchmark": {
+        "surface": "JooPark Knowledge/IA",
+        "flow": "Book-chapter-page documentation map",
+        "signals": ["book/chapter/page hierarchy", "self-hosted documentation", "Laravel permissions"],
+        "rubric": [
+          { "axis": "정보 구조", "value": "book + chapter + page hierarchy with explicit documentation map", "weight": 0.35, "score": 94 },
+          { "axis": "편집/협업", "value": "structured page editing with slower realtime collaboration fit", "weight": 0.25, "score": 78 },
+          { "axis": "권한/운영", "value": "Laravel roles + self-hosted admin workflows", "weight": 0.2, "score": 84 },
+          { "axis": "이식성", "value": "strong docs model but source-migration risk needs review", "weight": 0.2, "score": 70 }
+        ]
+      }
     },
     {
       "id": "repo-requarks-wiki",
@@ -929,7 +951,18 @@
       "diskKb": 41457,
       "pushedAt": "2026-05-01T10:34:55Z",
       "createdAt": "2016-08-16T19:35:26Z",
-      "lastCommit": "6f042e97cc2d3acda6b6ff611de8e0faacce91c1"
+      "lastCommit": "6f042e97cc2d3acda6b6ff611de8e0faacce91c1",
+      "knowledgeBaseBenchmark": {
+        "surface": "JooPark Knowledge/IA",
+        "flow": "Git-backed Markdown wiki operations",
+        "signals": ["Markdown pages", "Git storage", "Node/Vue self-hosting"],
+        "rubric": [
+          { "axis": "정보 구조", "value": "wiki pages + navigation tree + searchable documentation", "weight": 0.35, "score": 88 },
+          { "axis": "편집/협업", "value": "Markdown editing with collaboration depth behind Outline", "weight": 0.25, "score": 82 },
+          { "axis": "권한/운영", "value": "Node/Vue self-hosted admin and extensible auth model", "weight": 0.2, "score": 86 },
+          { "axis": "이식성", "value": "Git-backed Markdown workflows map cleanly to local-first notes", "weight": 0.2, "score": 93 }
+        ]
+      }
     },
     {
       "id": "repo-happybhati-workstream",
