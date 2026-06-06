@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T20:44:49+09:00",
+  "generatedAt": "2026-06-06T20:58:48+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -91,7 +91,7 @@
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 14,
       "candidateFreshnessMonitored": 21,
-      "candidateFreshnessSourceMarkers": 43,
+      "candidateFreshnessSourceMarkers": 44,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -133,6 +133,12 @@
       "leantimeGenericSnapshotWriterLiveDriftCount": 0,
       "leantimeGenericSnapshotWriterOpenIssues": 317,
       "leantimeGenericSnapshotWriterOpenPRs": 3,
+      "taskcoachGenericSnapshotWriterChanged": true,
+      "taskcoachGenericSnapshotWriterSourceMarker": "github-api:taskcoach-taskcoach-candidate-refresh",
+      "taskcoachGenericSnapshotWriterLastCommit": "f3fbd73cc84ff545ceed58ef46f999bda3b954da",
+      "taskcoachGenericSnapshotWriterLiveDriftCount": 0,
+      "taskcoachGenericSnapshotWriterOpenIssues": 91,
+      "taskcoachGenericSnapshotWriterOpenPRs": 3,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -825,6 +831,13 @@
       "baseline": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
       "candidate": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
       "decision": "keep"
+    },
+    {
+      "id": "taskcoach-generic-snapshot-refresh",
+      "primaryMetric": "taskcoachGenericSnapshotWriterChanged",
+      "baseline": "dad6168f8771cda4566dedfad1e678ea253c2a7f",
+      "candidate": "f3fbd73cc84ff545ceed58ef46f999bda3b954da",
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -839,6 +852,6 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, AFFiNE, BookStack, or Taskcoach"
+    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, Plane, AppFlowy, AFFiNE, or BookStack"
   ]
 }
