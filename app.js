@@ -1574,17 +1574,20 @@ function candidateKnowledgeBaseReviewHandoff(scored) {
   const markdown = knowledgeBaseReviewHandoffMarkdown(decisions);
   if (!markdown) return "";
   const primary = decisions[0];
+  const existingNote = dashboard.notes.find((note) => note.sourceKey === primary.decision.persistKey);
   const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
   return html`
-    <section class="portfolio-review-handoff" data-knowledge-base-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-kb-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}" data-kb-review-handoff-primary-key="${primary.decision.persistKey}">
+    <section class="portfolio-review-handoff" data-knowledge-base-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-kb-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}" data-kb-review-handoff-primary-key="${primary.decision.persistKey}" data-kb-review-note-created="${existingNote ? "true" : "false"}" data-kb-review-note-id="${existingNote ? existingNote.id : ""}">
       <div class="portfolio-export-head">
         <span>KB/IA handoff</span>
         <div class="portfolio-export-actions">
           <a class="portfolio-export-download" data-kb-review-handoff-download href="${href}" download="joopark-kb-ia-review-handoff.md">MD 저장</a>
           <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-review-handoff" data-review-handoff-copy data-kb-review-handoff-copy data-review-handoff-copy-key="${primary.decision.persistKey}" data-kb-review-handoff-copy-key="${primary.decision.persistKey}">복사</button>
+          <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="publish-review-note" data-review-note-publish data-kb-review-note-publish data-review-note-key="${primary.decision.persistKey}" data-kb-review-note-key="${primary.decision.persistKey}" data-review-note-kind="knowledge-base-review-note" data-review-note-title-prefix="[KB/IA Review]" data-review-note-color="#84cc16" data-review-note-created="${existingNote ? "true" : "false"}" data-review-note-id="${existingNote ? existingNote.id : ""}" ${raw(existingNote ? "disabled" : "")}>${existingNote ? "노트 발행됨" : "노트 발행"}</button>
         </div>
       </div>
       <small class="portfolio-export-status" data-review-handoff-copy-status data-kb-review-handoff-copy-status aria-live="polite"></small>
+      <small class="portfolio-export-status" data-kb-review-note-publish-status aria-live="polite">${existingNote ? "노트 발행됨" : ""}</small>
       <div class="portfolio-export-grid">
         <div>
           <span>우선 결정</span>
@@ -1957,7 +1960,7 @@ function createBenchmarkReviewIssue(target) {
 }
 
 function publishReviewHandoffNote(target) {
-  const handoff = target.closest("[data-workspace-review-handoff]");
+  const handoff = target.closest("[data-workspace-review-handoff], [data-knowledge-base-review-handoff]");
   const key = target.dataset.reviewNoteKey || "";
   if (!handoff || !key) {
     showToast("발행할 review note를 찾을 수 없습니다", "warn");
@@ -1969,6 +1972,10 @@ function publishReviewHandoffNote(target) {
     renderCurrentView();
     return;
   }
+  const isKnowledgeBase = !!handoff.closest("[data-knowledge-base-review-handoff]");
+  const titlePrefix = target.dataset.reviewNoteTitlePrefix || (isKnowledgeBase ? "[KB/IA Review]" : "[Workspace Review]");
+  const sourceKind = target.dataset.reviewNoteKind || (isKnowledgeBase ? "knowledge-base-review-note" : "workspace-review-note");
+  const color = target.dataset.reviewNoteColor || (isKnowledgeBase ? "#84cc16" : "#22d3ee");
   const handoffText = handoff.querySelector("[data-review-handoff-text]")?.textContent || "";
   const draftNode = handoff.querySelector("[data-review-issue-draft]");
   const projectName = draftNode ? draftNode.dataset.issueDraftProject || "" : "";
@@ -1979,17 +1986,17 @@ function publishReviewHandoffNote(target) {
   }
   const note = {
     id: uid("nt"),
-    title: `[Workspace Review] ${projectName}`,
+    title: `${titlePrefix} ${projectName}`,
     body: [
       handoffText.trim(),
       issueBody.trim() ? "\n## Issue Draft" : "",
       issueBody.trim(),
     ].filter(Boolean).join("\n"),
-    color: "#22d3ee",
+    color,
     pinned: true,
     updatedAt: nowISO(),
     sourceKey: key,
-    sourceKind: "workspace-review-note",
+    sourceKind,
   };
   dashboard.notes.push(note);
   commit();

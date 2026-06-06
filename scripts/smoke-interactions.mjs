@@ -400,6 +400,7 @@ const interactionExpression = `
   let knowledgeBaseBenchmarkReviewHandoffVisibleOk = false;
   let knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = false;
   let knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = false;
+  let knowledgeBaseBenchmarkReviewNotePublishVisibleOk = false;
   let candidateBenchmarkRecommendationExportVisibleOk = false;
   let candidateBenchmarkReviewQueueVisibleOk = false;
   let candidateBenchmarkReviewHandoffVisibleOk = false;
@@ -985,6 +986,21 @@ const interactionExpression = `
       const nextDraft = document.querySelector("[data-kb-review-issue-draft]");
       return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdKbIssue.id;
     }, "knowledge-base review issue draft created state did not render");
+    const nextKbReviewHandoff = qs("[data-knowledge-base-review-handoff]");
+    const beforeKbNoteCount = dashboard.notes.length;
+    click("[data-kb-review-note-publish]", nextKbReviewHandoff);
+    await waitFor(() => dashboard.notes.length === beforeKbNoteCount + 1, "knowledge-base review note publish did not create a note");
+    const createdKbNote = dashboard.notes.find((note) => note.sourceKey === "kb-ia-review:repo-outline-outline:87");
+    assert(createdKbNote, "knowledge-base review note publish did not persist source key");
+    assert(createdKbNote.title === "[KB/IA Review] outline/outline", "knowledge-base review note publish title was not saved");
+    assert(createdKbNote.pinned === true, "knowledge-base review note publish did not pin note");
+    assert(createdKbNote.sourceKind === "knowledge-base-review-note", "knowledge-base review note publish source kind was not saved");
+    assert(createdKbNote.body.includes("Primary decision key: kb-ia-review:repo-outline-outline:87") && createdKbNote.body.includes("## Issue Draft") && createdKbNote.body.includes("Compare with: requarks/wiki"), "knowledge-base review note publish body did not render");
+    await waitFor(() => {
+      const nextHandoff = document.querySelector("[data-knowledge-base-review-handoff]");
+      const nextPublish = document.querySelector("[data-kb-review-note-publish]");
+      return nextHandoff && nextPublish && nextHandoff.dataset.kbReviewNoteCreated === "true" && nextPublish.dataset.reviewNoteCreated === "true" && nextPublish.dataset.reviewNoteId === createdKbNote.id;
+    }, "knowledge-base review note publish state did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     workspaceBenchmarkRubricVisibleOk = true;
@@ -998,6 +1014,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
     knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
+    knowledgeBaseBenchmarkReviewNotePublishVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     const reviewQueue = qs("[data-benchmark-review-queue]");
     const reviewDecision = qs("[data-benchmark-review-decision]", reviewQueue);
@@ -1061,6 +1078,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
     knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
+    knowledgeBaseBenchmarkReviewNotePublishVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
     candidateBenchmarkReviewHandoffCopyVisibleOk = true;
@@ -1366,6 +1384,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
     knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
+    knowledgeBaseBenchmarkReviewNotePublishVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
@@ -1624,6 +1643,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffVisible: knowledgeBaseBenchmarkReviewHandoffVisibleOk,
     knowledgeBaseBenchmarkReviewHandoffCopyVisible: knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk,
     knowledgeBaseBenchmarkReviewIssueDraftVisible: knowledgeBaseBenchmarkReviewIssueDraftVisibleOk,
+    knowledgeBaseBenchmarkReviewNotePublishVisible: knowledgeBaseBenchmarkReviewNotePublishVisibleOk,
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,

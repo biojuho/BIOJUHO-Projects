@@ -1159,6 +1159,20 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/smoke-interactions.mjs` now reports `workspaceBenchmarkReviewNotePublishVisible` and verifies note creation, source key, pinned state, and body content.
 - `scripts/audit-release-readiness.mjs` now includes `appflowy_affine_workspace_review_note_publish`.
 
+## Experiment: Knowledge-base information architecture review note publish
+
+- Hypothesis: The KB/IA handoff becomes easier to preserve when the selected Outline review decision can be published into the local Notes surface as a pinned review note.
+- Primary metric: knowledge-base information architecture review note publish checks.
+- Baseline: 0 KB/IA review note publish checks; the handoff could be copied or converted into a PM issue but did not persist a notes-review artifact.
+- Candidate: add a `노트 발행` action to the KB/IA handoff that creates a pinned `[KB/IA Review] outline/outline` note with source key `kb-ia-review:repo-outline-outline:87`, handoff Markdown, and issue draft context.
+- Decision: keep; the note publish path gives the Outline-over-BookStack/Wiki.js decision a local review artifact without requiring GitHub comment permissions.
+
+## Evidence
+
+- `app.js` now includes `data-kb-review-note-publish`, `data-kb-review-note-publish-status`, and `knowledge-base-review-note`.
+- `scripts/smoke-interactions.mjs` now reports `knowledgeBaseBenchmarkReviewNotePublishVisible` and verifies note creation, source key, pinned state, source kind, body content, and re-rendered publish state.
+- `scripts/audit-release-readiness.mjs` now includes `knowledge_base_information_architecture_review_note_publish`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, add KB/IA GitHub comment or notes-review publish support, add AppFlowy/AFFiNE GitHub comment publish handoff, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, add AppFlowy/AFFiNE GitHub comment publish handoff, add KB/IA GitHub comment publish handoff, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
