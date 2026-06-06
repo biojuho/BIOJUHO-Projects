@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T19:43:59+09:00
+Generated: 2026-06-06T19:59:22+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -1272,6 +1272,21 @@ Generated: 2026-06-06T19:43:59+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo toeverything/AFFiNE --fail-on-drift` passed with `driftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `affineGenericSnapshotWriterChanged: true`.
 
+## Experiment: Taskosaur generic snapshot refresh
+
+- Hypothesis: The Taskosaur workstream benchmark should keep source-backed metadata fresh before benchmark review decisions depend on stale PM/Kanban signals.
+- Primary metric: `taskosaurGenericSnapshotWriterChanged`.
+- Baseline: Taskosaur snapshot commit `3a6e39f662c6fd8b22980c16d4441d8887347c31`, `pushedAt: 2026-06-02T11:00:39Z`, 10 open issues, and `diskKb: 9677`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo Taskosaur/Taskosaur` updated Taskosaur to commit `b7a5463ddd1fc018d8b2dc877ccc434a38eb710b`, `pushedAt: 2026-06-06T07:15:54Z`, 9 open issues, `diskKb: 9710`, and source marker `github-api:taskosaur-taskosaur-candidate-refresh`.
+- Decision: keep; the Taskosaur/Workstream benchmark candidate now uses the generic refresh path, passes a repo-scoped live drift check with drift count 0, and reduces full live drift count from 14 to 13.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the Taskosaur row and source marker.
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo Taskosaur/Taskosaur` passed with 41 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Taskosaur/Taskosaur --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `taskosaurGenericSnapshotWriterChanged: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Taskosaur, OpenProject, or Veritas.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for OpenProject, Veritas, or Leantime.
