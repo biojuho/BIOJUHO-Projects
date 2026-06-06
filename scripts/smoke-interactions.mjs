@@ -410,6 +410,7 @@ const interactionExpression = `
   let candidateBenchmarkReviewIssueDraftVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
+  let homeQuickLinksNavigateOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -508,6 +509,30 @@ const interactionExpression = `
   await waitFor(() => document.readyState === "complete" && typeof dashboard !== "undefined", "app did not expose dashboard state");
   await sleep(900);
   assert(document.body.dataset.view === "home", "expected home view at boot");
+
+  await runStep("home quick links expose and navigate routes", async () => {
+    const quickLinks = [
+      "pm-portfolio",
+      "pm-kanban",
+      "pm-gantt",
+      "pm-team",
+      "dbm-instances",
+      "dbm-schema",
+      "dbm-queries",
+      "dbm-backups",
+    ];
+    await nav("home");
+    for (const viewName of quickLinks) {
+      const selector = '#view-home a[data-action="nav-to"][data-view="' + viewName + '"]';
+      const link = qs(selector);
+      assert(link.getAttribute("href") === "#" + viewName, "home quick link href did not expose route: " + viewName);
+      assert(new URL(link.href).hash === "#" + viewName, "home quick link absolute href did not resolve route: " + viewName);
+      click(selector);
+      await waitFor(() => document.body.dataset.view === viewName && !document.getElementById("view-" + viewName).hidden, "home quick link did not navigate: " + viewName);
+      await nav("home");
+    }
+    homeQuickLinksNavigateOk = true;
+  });
 
   await runStep("calendar event modal save", async () => {
     const title = marker + " event";
@@ -1693,6 +1718,7 @@ const interactionExpression = `
     candidateBenchmarkReviewIssueDraftVisible: candidateBenchmarkReviewIssueDraftVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
+    homeQuickLinksNavigate: homeQuickLinksNavigateOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);

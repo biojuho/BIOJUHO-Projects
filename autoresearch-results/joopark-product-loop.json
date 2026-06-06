@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-07T01:27:49+09:00",
+  "generatedAt": "2026-06-07T01:41:56+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -1145,6 +1145,27 @@
       "id": "candidate-freshness-actionable-drift-filter",
       "primaryMetric": "candidateFreshnessNonblockingRefreshReposSelected",
       "baseline": 6,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-source-gap-quick-link-routes",
+      "primaryMetric": "sourceBackedAdoptionCandidateCount",
+      "baseline": 21,
+      "candidate": 35,
+      "decision": "keep"
+    },
+    {
+      "id": "runtime-asset-versioned-bootstrap",
+      "primaryMetric": "releaseAuditVersionedRuntimeAssetBootstrapFailures",
+      "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "system-status-route",
+      "primaryMetric": "systemStatusRouteSmokeFailures",
+      "baseline": 1,
       "candidate": 0,
       "decision": "keep"
     }

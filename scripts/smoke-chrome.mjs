@@ -28,6 +28,7 @@ const routes = [
   ["dbm-queries", ["저장 쿼리", "실행 시간 분포"]],
   ["dbm-backups", ["백업 캘린더", "마이그레이션 이력"]],
   ["settings", ["프로필", "데이터 백업"]],
+  ["system", ["시스템 상태", "저장소", "운영 표면"]],
 ];
 
 class CdpClient {
@@ -239,6 +240,7 @@ async function main() {
 
   const failures = [];
   const routeReports = [];
+  const layoutIssues = [];
   const consoleIssues = [];
   const networkIssues = [];
   let currentRoute = "boot";
@@ -301,11 +303,19 @@ async function main() {
       const report = await evaluate(pageClient, `(() => {
         const route = "${route}";
         const view = document.getElementById("view-" + route);
+        const shell = document.querySelector(".shell");
+        const main = document.querySelector(".main");
         const text = document.body.innerText || "";
         const formText = Array.from(document.querySelectorAll("input, textarea, select"))
           .map((node) => [node.placeholder, node.getAttribute("aria-label"), node.value].filter(Boolean).join(" "))
           .join("\\n");
         const searchableText = text + "\\n" + formText;
+        const rect = (node) => {
+          if (!node) return null;
+          const r = node.getBoundingClientRect();
+          return { left: r.left, right: r.right, width: r.width, height: r.height };
+        };
+        const docScrollWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
         const visibleViews = Array.from(document.querySelectorAll(".view"))
           .filter((node) => node.hidden === false)
           .map((node) => node.id);
@@ -313,6 +323,12 @@ async function main() {
           route,
           title: document.title,
           bodyView: document.body.dataset.view || "",
+          innerWidth,
+          innerHeight,
+          docScrollWidth,
+          overflowX: docScrollWidth > innerWidth + 1,
+          shell: rect(shell),
+          main: rect(main),
           visibleViews,
           textLength: text.trim().length,
           projectCount: Number(document.getElementById("navCountProjects")?.textContent || 0),
@@ -327,11 +343,16 @@ async function main() {
       if (!report.visibleViews.includes(`view-${route}`)) failures.push(`${route}: visible view missing view-${route}`);
       if (report.textLength < 80) failures.push(`${route}: rendered text too short (${report.textLength})`);
       if (report.missingText.length > 0) failures.push(`${route}: missing text ${report.missingText.join(", ")}`);
+      if (report.overflowX) layoutIssues.push(`${route}: horizontal overflow ${report.docScrollWidth}px > ${report.innerWidth}px`);
+      if (report.shell?.width > report.innerWidth + 1) layoutIssues.push(`${route}: shell width ${Math.round(report.shell.width)}px > viewport ${report.innerWidth}px`);
+      if (report.main?.right > report.innerWidth + 1) layoutIssues.push(`${route}: main right edge ${Math.round(report.main.right)}px > viewport ${report.innerWidth}px`);
       routeReports.push(report);
       progress("route-end", {
         route,
         textLength: report.textLength,
         missingText: report.missingText,
+        docScrollWidth: report.docScrollWidth,
+        overflowX: report.overflowX,
       });
     }
   } finally {
@@ -346,20 +367,29 @@ async function main() {
   const appNetworkIssues = networkIssues.filter((issue) => !String(issue.text || "").includes("net::ERR_ABORTED"));
   if (appConsoleIssues.length > 0) failures.push(`console issues: ${appConsoleIssues.length}`);
   if (appNetworkIssues.length > 0) failures.push(`network issues: ${appNetworkIssues.length}`);
+  if (layoutIssues.length > 0) failures.push(`desktop layout issues: ${layoutIssues.length}`);
 
   const summary = {
     baseUrl,
+    viewport: routeReports[0] ? {
+      width: routeReports[0].innerWidth,
+      height: routeReports[0].innerHeight,
+    } : null,
     routeCount: routeReports.length,
     routes: routeReports.map((r) => ({
       route: r.route,
       bodyView: r.bodyView,
       visibleViews: r.visibleViews,
       textLength: r.textLength,
+      innerWidth: r.innerWidth,
+      docScrollWidth: r.docScrollWidth,
+      overflowX: r.overflowX,
       projectCount: r.projectCount,
       issueCount: r.issueCount,
       tableCount: r.tableCount,
       missingText: r.missingText,
     })),
+    layoutIssues,
     consoleIssues: appConsoleIssues,
     networkIssues: appNetworkIssues,
     status: failures.length === 0 ? "pass" : "fail",

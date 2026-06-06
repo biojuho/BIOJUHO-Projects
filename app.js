@@ -306,6 +306,13 @@ function projectWorkspaceRubricScore(p) {
   return weightedRubricScore(projectWorkspaceRubric(p));
 }
 
+function projectBenchmarkContext(p) {
+  const pm = !!projectBenchmarkFocus(p);
+  const workspace = projectWorkspaceRubric(p).length > 0;
+  const knowledgeBase = projectKnowledgeBaseRubric(p).length > 0;
+  return { pm, workspace, knowledgeBase, any: pm || workspace || knowledgeBase };
+}
+
 function candidateBenchmarkRubricRanking(projects) {
   return (Array.isArray(projects) ? projects : [])
     .map((project) => ({ project, rubricScore: projectBenchmarkRubricScore(project) }))
@@ -742,6 +749,7 @@ const refs = {
     "dbm-queries":  document.querySelector("#view-dbm-queries"),
     "dbm-backups":  document.querySelector("#view-dbm-backups"),
     settings:       document.querySelector("#view-settings"),
+    system:         document.querySelector("#view-system"),
   },
   query: document.querySelector("#globalSearch"),
   searchCount: document.querySelector("#searchCount"),
@@ -813,10 +821,14 @@ function currentInstance() {
 
 /* ---------- Panel head helper ---------- */
 
+function viewHref(viewName) {
+  return viewName ? `#${viewName}` : "#";
+}
+
 function panelHead(title, link, controls) {
   return html`
     <div class="panel-head">
-      <div><h2>${title}</h2>${link ? raw(html`<a href="#" data-action="${link.action}" data-view="${link.view || ""}">${link.label}</a>`) : ""}</div>
+      <div><h2>${title}</h2>${link ? raw(html`<a href="${viewHref(link.view)}" data-action="${link.action}" data-view="${link.view || ""}">${link.label}</a>`) : ""}</div>
       ${controls ? raw(controls) : ""}
     </div>
   `;
@@ -906,7 +918,7 @@ function renderHome() {
   const tile = (title, subtitle, viewName, body) => html`
     <article class="panel home-tile">
       <div class="panel-head">
-        <div><h2>${title}</h2><a href="#" data-action="nav-to" data-view="${viewName}">전체 보기 ›</a></div>
+        <div><h2>${title}</h2><a href="${viewHref(viewName)}" data-action="nav-to" data-view="${viewName}">전체 보기 ›</a></div>
         <small class="home-tile-sub">${subtitle}</small>
       </div>
       ${raw(body)}
@@ -3079,6 +3091,80 @@ function renderSettings() {
   if (fileInput) fileInput.addEventListener("change", handleImportFile);
 }
 
+function renderSystemStatus() {
+  const view = refs.views.system;
+  if (!view) return;
+  const health = state.storageHealth || {};
+  const localBytes = Number.isFinite(health.localBytes) ? health.localBytes : storedPayloadBytes();
+  const usageBytes = Number.isFinite(health.usageBytes) ? health.usageBytes : localBytes;
+  const quotaBytes = Number.isFinite(health.quotaBytes) ? health.quotaBytes : null;
+  const usagePct = storagePercent(usageBytes, quotaBytes);
+  const usagePctLabel = usagePct === null ? "추정치 없음" : `${usagePct.toFixed(1)}%`;
+  const meterWidth = usagePct === null ? 3 : Math.max(3, Math.min(100, usagePct));
+  const tone = storageTone(health);
+  const statusLabel = storageStatusLabel(health);
+  const quotaLabel = quotaBytes ? formatBytes(quotaBytes) : "추정치 없음";
+  const lastChecked = health.checkedAt ? formatLocalDateTime(health.checkedAt) : "대기 중";
+  const persistedLabel = storagePersistentLabel(health);
+  const adoptionCandidates = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate");
+  const sourceBacked = adoptionCandidates.filter((project) => safeGithubUrl(project.url) && shortCommit(project.lastCommit));
+  const benchmarkContexts = adoptionCandidates.map((project) => projectBenchmarkContext(project));
+  const benchmarkFocused = benchmarkContexts.filter((context) => context.any);
+  const pmBenchmarkCount = benchmarkContexts.filter((context) => context.pm).length;
+  const workspaceBenchmarkCount = benchmarkContexts.filter((context) => context.workspace).length;
+  const knowledgeBaseBenchmarkCount = benchmarkContexts.filter((context) => context.knowledgeBase).length;
+  const pendingMigrations = dashboard.migrations.filter((migration) => migration.status === "pending");
+  const slowQueries = dashboard.queries.filter((query) => Number(query.p95Ms || query.avgMs || 0) >= 300);
+  const alerts = computeAlerts();
+  const alertCount = urgentAlertCount();
+  const healthyDbCount = dashboard.dbInstances.filter((instance) => instance.health === "green").length;
+  const totalTables = dashboard.schemas.reduce((sum, schema) => {
+    return sum + schema.databases.reduce((dbSum, db) => dbSum + db.tables.length, 0);
+  }, 0);
+
+  setHTML(view, html`
+    <section class="kpis kpis-4" data-system-status data-system-route-count="${VIEWS.length}" data-system-source-backed-candidates="${sourceBacked.length}" data-system-benchmark-count="${benchmarkFocused.length}">
+      ${raw(kpiCard({ title: "라우트", value: "#system", unit: "", color: "#2387ff", badge: "#", delta: `${VIEWS.length}개 화면` }))}
+      ${raw(kpiCard({ title: "저장소", value: statusLabel, unit: "", color: tone === "error" ? "#ff4d5e" : tone === "warn" ? "#f7a928" : "#17d983", badge: tone === "error" ? "!" : tone === "warn" ? "!" : "OK", delta: formatBytes(localBytes) }))}
+      ${raw(kpiCard({ title: "후보 스냅샷", value: `${sourceBacked.length}/${adoptionCandidates.length}`, unit: "개", color: "#22d3ee", badge: "SRC", delta: `벤치 ${benchmarkFocused.length}개` }))}
+      ${raw(kpiCard({ title: "알림", value: String(alertCount), unit: "건", color: alertCount > 0 ? "#f7a928" : "#17d983", badge: "OPS", delta: `전체 ${alerts.length}건` }))}
+    </section>
+
+    <section class="panel storage-health" data-system-storage data-storage-tone="${tone}">
+      ${raw(panelHead("시스템 상태", null, html`<small>${formatLocalDateTime(nowISO())}</small>`))}
+      <div class="storage-meter" aria-label="브라우저 저장소 사용률">
+        <span style="width:${raw(meterWidth.toFixed(1))}%"></span>
+      </div>
+      <dl class="storage-grid">
+        <div><dt>저장소</dt><dd>${statusLabel}</dd></div>
+        <div><dt>저장 데이터</dt><dd>${formatBytes(localBytes)}</dd></div>
+        <div><dt>브라우저 사용량</dt><dd>${formatBytes(usageBytes)}</dd></div>
+        <div><dt>추정 한도</dt><dd>${quotaLabel}</dd></div>
+        <div><dt>사용률</dt><dd>${usagePctLabel}</dd></div>
+        <div><dt>영속 저장</dt><dd>${persistedLabel}</dd></div>
+        <div><dt>확인 시각</dt><dd>${lastChecked}</dd></div>
+        <div><dt>localStorage</dt><dd>${STORE_KEY_V3}</dd></div>
+      </dl>
+      ${health.lastError ? raw(html`<p class="settings-note storage-error">최근 오류: ${health.lastError}</p>`) : ""}
+    </section>
+
+    <section class="panel" data-system-operational-surface>
+      <div class="panel-head"><div><h2>운영 표면</h2></div></div>
+      <dl class="storage-grid">
+        <div><dt>프로젝트</dt><dd>${dashboard.projects.length}개</dd></div>
+        <div><dt>소스 근거</dt><dd>${sourceBacked.length}개</dd></div>
+        <div><dt>벤치 포커스</dt><dd>${benchmarkFocused.length}개</dd></div>
+        <div><dt>벤치 분포</dt><dd>PM ${pmBenchmarkCount} · Workspace ${workspaceBenchmarkCount} · KB/IA ${knowledgeBaseBenchmarkCount}</dd></div>
+        <div><dt>이슈</dt><dd>${dashboard.issues.length}개</dd></div>
+        <div><dt>DB 정상</dt><dd>${healthyDbCount}/${dashboard.dbInstances.length}</dd></div>
+        <div><dt>테이블</dt><dd>${totalTables}개</dd></div>
+        <div><dt>질의 경고</dt><dd>${slowQueries.length}건</dd></div>
+        <div><dt>대기 마이그</dt><dd>${pendingMigrations.length}건</dd></div>
+      </dl>
+    </section>
+  `);
+}
+
 /* ============================================================
  * Sheet / Modal
  * ============================================================ */
@@ -3114,14 +3200,15 @@ function openSheet(title, body, meta) {
   if (closeBtn) closeBtn.focus();
 }
 
-function closeSheet() {
+function closeSheet(options = {}) {
   if (!refs.sheets.root.classList.contains("open")) return;
+  const restoreFocus = options.restoreFocus !== false;
   refs.sheets.root.classList.remove("open");
   refs.sheets.root.setAttribute("aria-hidden", "true");
-  if (state.previousFocus && typeof state.previousFocus.focus === "function") {
+  if (restoreFocus && state.previousFocus && typeof state.previousFocus.focus === "function") {
     state.previousFocus.focus();
-    state.previousFocus = null;
   }
+  state.previousFocus = null;
 }
 
 function openModal(title, bodyHTML, onConfirm) {
@@ -5412,7 +5499,7 @@ function saveSettingsFromForm(form) {
  * ============================================================ */
 
 const VIEWS = ["home", "cal", "todo", "notes", "habits", "stats", "pm-portfolio", "pm-kanban", "pm-gantt", "pm-team",
-               "dbm-instances", "dbm-schema", "dbm-queries", "dbm-backups", "settings"];
+               "dbm-instances", "dbm-schema", "dbm-queries", "dbm-backups", "settings", "system"];
 
 const navItemsByView = new Map();
 let activeNavEls = [];
@@ -5458,6 +5545,7 @@ function renderCurrentView() {
     case "dbm-queries":    return renderDbQueries();
     case "dbm-backups":    return renderDbBackups();
     case "settings":       return renderSettings();
+    case "system":         return renderSystemStatus();
     default:               return renderHome();
   }
 }
@@ -5466,6 +5554,7 @@ let activeViewEl = null;
 function setView(name) {
   if (!VIEWS.includes(name)) name = "home";
   const previous = dashboard.currentView;
+  if (previous !== name) closeSheet({ restoreFocus: false });
   dashboard.currentView = name;
   document.body.dataset.view = name; // 상단바 맥락화(프로젝트 선택기 노출)·뷰별 CSS 훅
 
@@ -5490,7 +5579,7 @@ function setView(name) {
   if (refs.query) refs.query.value = "";
   if (refs.searchCount) refs.searchCount.textContent = "";
   renderCurrentView();
-  if (name === "settings") refreshStorageHealth({ render: true });
+  if (name === "settings" || name === "system") refreshStorageHealth({ render: true });
   document.querySelector(".main").scrollTo({ top: 0, behavior: "instant" });
 }
 
@@ -7002,7 +7091,7 @@ function openShortcutHelp() {
  * Setup
  * ============================================================ */
 
-const SEARCH_INERT_VIEWS = new Set(["home", "settings"]);
+const SEARCH_INERT_VIEWS = new Set(["home", "settings", "system"]);
 const onSearchInput = debounce(() => {
   const inert = SEARCH_INERT_VIEWS.has(dashboard.currentView);
   if (!inert) renderCurrentView();

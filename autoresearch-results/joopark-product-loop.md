@@ -1632,6 +1632,48 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift --actionable-only` passed with `changed: false`, `driftCount: 6`, `actionableDriftCount: 0`, and `refreshedRepos: []`.
 - `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift` still selected 6 repos, proving the new filter is opt-in and does not hide advisory drift evidence.
 
+## Experiment: Source gap coverage and quick link routes
+
+- Hypothesis: Filling unresolved GitHub source gaps and making home dashboard quick links expose real hash routes should improve candidate triage reliability and browser navigation without changing core storage behavior.
+- Primary metric: `sourceBackedAdoptionCandidateCount`.
+- Baseline: Adoption candidates had 21 source-backed rows and 23 rows with missing `url` or `lastCommit`; home dashboard quick links used `href="#"`, so smoke coverage could verify clicks but not route-bearing links.
+- Candidate: Enrich source-gap candidates with safe GitHub URLs and commit-backed metadata, add the `github-api:source-gap-candidate-refresh` marker, expose `#view` hrefs through `viewHref`, and extend interaction smoke plus release audit coverage.
+- Decision: keep; source-backed adoption candidates rise to 35 while missing source rows fall to 9, and the new smoke step verifies route hrefs and navigation across PM and DB surfaces.
+
+## Evidence
+
+- `jq '[.projects[] | select(.sourceKind == "adoption-candidate") | select(.url != null and .lastCommit != null)] | length' data/adoption-candidates.json` returned `35`.
+- The baseline `git show HEAD:data/adoption-candidates.json` count for the same query was `21`.
+- `scripts/smoke-interactions.mjs` now reports `homeQuickLinksNavigate`, and `scripts/audit-release-readiness.mjs` adds `home_dashboard_quick_link_routes` plus `candidate_source_backing_coverage`.
+
+## Experiment: Runtime asset versioned bootstrap
+
+- Hypothesis: The release packager should rewrite the static `?v=3.0.0` CSS/JS bootstrap refs to content-hash query strings so deploy caches cannot serve mismatched runtime assets.
+- Primary metric: `releaseAuditVersionedRuntimeAssetBootstrapFailures`.
+- Baseline: Main-aligned release audit reported `72/73` with `versioned_runtime_asset_bootstrap` failing because `package-release.mjs` did not provide the runtime asset rewrite evidence.
+- Candidate: Add `versionRuntimeAssetRefs()` to `package-release.mjs`, hash `styles.css` and `app.js`, and rewrite `index.html` before creating the mirrored `404.html` fallback.
+- Decision: keep; the packager now supplies the content-hash bootstrap behavior that `verify-release.mjs` already checks for both `index.html` and `404.html`.
+
+## Evidence
+
+- Baseline `node scripts/audit-release-readiness.mjs --run-gates` on the main-aligned release state reported `pass: 72`, `fail: 1`, `total: 73`.
+- `scripts/package-release.mjs` now contains `versionRuntimeAssetRefs`, `Runtime asset version ref missing`, and `sha256(join(outDir, asset.path)).slice(0, 12)` evidence required by the release audit.
+
+## Experiment: System status route
+
+- Hypothesis: The operations sidebar should expose a real `#system` route instead of sending users back to settings, so release smoke can prove storage, source-backed candidate, benchmark, and DB operations context from one status surface.
+- Primary metric: `systemStatusRouteSmokeFailures`.
+- Baseline: The sidebar linked to `#system` but used `data-view="settings"`, and the SPA had no `view-system`, router case, or desktop/mobile route smoke coverage.
+- Candidate: Add an independent `view-system`, render system status KPIs and storage/operations panels, route `#system` through the SPA router, and extend release audit plus Chrome/mobile smoke route coverage.
+- Decision: keep; the intended failure count drops from one missing route surface to zero when desktop/mobile smoke and release readiness gates include the system route.
+
+## Evidence
+
+- `scripts/audit-release-readiness.mjs` now expects 16 views and adds `system_status_route` evidence across `index.html`, `app.js`, `scripts/smoke-chrome.mjs`, and `scripts/smoke-mobile.mjs`.
+- `autoresearch-results/joopark-product-loop.json` records `systemStatusRouteSmokeFailures` from baseline `1` to candidate `0`.
+- `BASE_URL=http://127.0.0.1:5183 node scripts/smoke-chrome.mjs` and `BASE_URL=http://127.0.0.1:5183 node scripts/smoke-mobile.mjs` passed with `routeCount: 16` and no missing text, layout, console, or network failures.
+- `BASE_URL=http://127.0.0.1:5183 node scripts/audit-release-readiness.mjs --run-gates` passed with `73/73` checks, including `route_surface` and `system_status_route`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
