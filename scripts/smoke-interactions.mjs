@@ -391,6 +391,9 @@ const interactionExpression = `
   let candidateBenchmarkRubricScoreVisibleOk = false;
   let workspaceBenchmarkRubricVisibleOk = false;
   let workspaceBenchmarkExportVisibleOk = false;
+  let workspaceBenchmarkReviewHandoffVisibleOk = false;
+  let workspaceBenchmarkReviewHandoffCopyVisibleOk = false;
+  let workspaceBenchmarkReviewIssueDraftVisibleOk = false;
   let knowledgeBaseBenchmarkRubricVisibleOk = false;
   let knowledgeBaseBenchmarkExportVisibleOk = false;
   let knowledgeBaseBenchmarkReviewHandoffVisibleOk = false;
@@ -851,6 +854,45 @@ const interactionExpression = `
     assert(workspaceExportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "workspace recommendation export markdown link did not render");
     assert(workspaceExportText.includes("Recommendation: use toeverything/AFFiNE as the primary Workspace benchmark") && workspaceExportText.includes("AppFlowy-IO/AppFlowy as the PM/task contrast"), "workspace recommendation export copy did not render");
     assert(workspaceExportText.includes("Score gap: 3 points") && workspaceExportText.includes("Primary reason: Notes/Wiki IA scored 90 at 30% weight"), "workspace recommendation export rationale did not render");
+    const workspaceReviewHandoff = qs("[data-workspace-review-handoff]", workspaceRubric);
+    const workspaceReviewHandoffDownload = qs("[data-workspace-review-handoff-download]", workspaceReviewHandoff);
+    const workspaceReviewHandoffCopy = qs("[data-workspace-review-handoff-copy]", workspaceReviewHandoff);
+    const workspaceReviewHandoffText = qs("[data-workspace-review-handoff-text]", workspaceReviewHandoff).innerText;
+    assert(workspaceReviewHandoff.dataset.workspaceReviewHandoffPrimaryKey === "workspace-review:repo-toeverything-affine:86", "workspace review handoff primary key did not render");
+    assert(workspaceReviewHandoff.dataset.workspaceReviewHandoffCount === "2", "workspace review handoff count did not render");
+    assert(workspaceReviewHandoffDownload.getAttribute("download") === "joopark-workspace-review-handoff.md", "workspace review handoff filename did not render");
+    assert(workspaceReviewHandoffDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "workspace review handoff markdown link did not render");
+    assert(workspaceReviewHandoffText.includes("Primary decision key: workspace-review:repo-toeverything-affine:86") && workspaceReviewHandoffText.includes("toeverything/AFFiNE - Workspace 도입 검토") && workspaceReviewHandoffText.includes("AppFlowy-IO/AppFlowy - 비교 유지"), "workspace review handoff markdown copy did not render");
+    assert(workspaceReviewHandoffCopy.dataset.workspaceReviewHandoffCopyKey === "workspace-review:repo-toeverything-affine:86", "workspace review handoff copy key did not render");
+    window.__smokeClipboardText = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (text) => { window.__smokeClipboardText = text; } },
+    });
+    click("[data-workspace-review-handoff-copy]");
+    await waitFor(() => window.__smokeClipboardText.includes("Primary decision key: workspace-review:repo-toeverything-affine:86"), "workspace review handoff copy text did not reach clipboard");
+    await waitFor(() => workspaceReviewHandoff.dataset.reviewHandoffCopied === "true", "workspace review handoff copy state did not update");
+    assert(qs("[data-workspace-review-handoff-copy-status]", workspaceReviewHandoff).textContent.includes("복사됨"), "workspace review handoff copy status did not render");
+    const workspaceReviewIssueDraft = qs("[data-workspace-review-issue-draft]", workspaceReviewHandoff);
+    const workspaceReviewIssueBody = qs("[data-issue-draft-body]", workspaceReviewIssueDraft).innerText;
+    assert(workspaceReviewIssueDraft.dataset.issueDraftTitle === "[Workspace] toeverything/AFFiNE Workspace 도입 검토", "workspace review issue draft title did not render");
+    assert(workspaceReviewIssueDraft.dataset.issueDraftProject === "toeverything/AFFiNE", "workspace review issue draft project did not render");
+    assert(workspaceReviewIssueDraft.dataset.issueDraftPriority === "high", "workspace review issue draft priority did not render");
+    assert(workspaceReviewIssueDraft.dataset.issueDraftKey === "workspace-review:repo-toeverything-affine:86", "workspace review issue draft key did not render");
+    assert(workspaceReviewIssueBody.includes("Persist key: workspace-review:repo-toeverything-affine:86") && workspaceReviewIssueBody.includes("Compare with: AppFlowy-IO/AppFlowy"), "workspace review issue draft body did not render");
+    const beforeWorkspaceIssueCount = dashboard.issues.length;
+    click("[data-workspace-review-issue-create]", workspaceReviewIssueDraft);
+    await waitFor(() => dashboard.issues.length === beforeWorkspaceIssueCount + 1, "workspace review issue draft did not create an issue");
+    const createdWorkspaceIssue = dashboard.issues.find((issue) => issue.sourceKey === "workspace-review:repo-toeverything-affine:86");
+    assert(createdWorkspaceIssue, "workspace review issue draft did not persist source key");
+    assert(createdWorkspaceIssue.title === "[Workspace] toeverything/AFFiNE Workspace 도입 검토", "workspace review issue draft title was not saved");
+    assert(createdWorkspaceIssue.project === "repo-toeverything-affine", "workspace review issue draft project was not saved");
+    assert(createdWorkspaceIssue.priority === "high", "workspace review issue draft priority was not saved");
+    assert(createdWorkspaceIssue.labels.includes("workspace") && createdWorkspaceIssue.labels.includes("benchmark") && createdWorkspaceIssue.labels.includes("handoff"), "workspace review issue draft labels were not saved");
+    await waitFor(() => {
+      const nextDraft = document.querySelector("[data-workspace-review-issue-draft]");
+      return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdWorkspaceIssue.id;
+    }, "workspace review issue draft created state did not render");
     const knowledgeBaseRubric = qs("[data-knowledge-base-benchmark-rubric]");
     assert(knowledgeBaseRubric.innerText.includes("KB/IA 비교표"), "knowledge-base IA rubric did not render heading");
     assert(knowledgeBaseRubric.innerText.includes("outline/outline"), "Outline knowledge-base rubric did not render");
@@ -932,6 +974,9 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisibleOk = true;
     workspaceBenchmarkRubricVisibleOk = true;
     workspaceBenchmarkExportVisibleOk = true;
+    workspaceBenchmarkReviewHandoffVisibleOk = true;
+    workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
+    workspaceBenchmarkReviewIssueDraftVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -991,6 +1036,9 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisibleOk = true;
     workspaceBenchmarkRubricVisibleOk = true;
     workspaceBenchmarkExportVisibleOk = true;
+    workspaceBenchmarkReviewHandoffVisibleOk = true;
+    workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
+    workspaceBenchmarkReviewIssueDraftVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1292,6 +1340,9 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisibleOk = true;
     workspaceBenchmarkRubricVisibleOk = true;
     workspaceBenchmarkExportVisibleOk = true;
+    workspaceBenchmarkReviewHandoffVisibleOk = true;
+    workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
+    workspaceBenchmarkReviewIssueDraftVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1546,6 +1597,9 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
     workspaceBenchmarkRubricVisible: workspaceBenchmarkRubricVisibleOk,
     workspaceBenchmarkExportVisible: workspaceBenchmarkExportVisibleOk,
+    workspaceBenchmarkReviewHandoffVisible: workspaceBenchmarkReviewHandoffVisibleOk,
+    workspaceBenchmarkReviewHandoffCopyVisible: workspaceBenchmarkReviewHandoffCopyVisibleOk,
+    workspaceBenchmarkReviewIssueDraftVisible: workspaceBenchmarkReviewIssueDraftVisibleOk,
     knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
     knowledgeBaseBenchmarkExportVisible: knowledgeBaseBenchmarkExportVisibleOk,
     knowledgeBaseBenchmarkReviewHandoffVisible: knowledgeBaseBenchmarkReviewHandoffVisibleOk,
