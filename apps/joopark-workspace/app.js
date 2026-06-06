@@ -813,10 +813,14 @@ function currentInstance() {
 
 /* ---------- Panel head helper ---------- */
 
+function viewHref(viewName) {
+  return viewName ? `#${viewName}` : "#";
+}
+
 function panelHead(title, link, controls) {
   return html`
     <div class="panel-head">
-      <div><h2>${title}</h2>${link ? raw(html`<a href="#" data-action="${link.action}" data-view="${link.view || ""}">${link.label}</a>`) : ""}</div>
+      <div><h2>${title}</h2>${link ? raw(html`<a href="${viewHref(link.view)}" data-action="${link.action}" data-view="${link.view || ""}">${link.label}</a>`) : ""}</div>
       ${controls ? raw(controls) : ""}
     </div>
   `;
@@ -906,7 +910,7 @@ function renderHome() {
   const tile = (title, subtitle, viewName, body) => html`
     <article class="panel home-tile">
       <div class="panel-head">
-        <div><h2>${title}</h2><a href="#" data-action="nav-to" data-view="${viewName}">전체 보기 ›</a></div>
+        <div><h2>${title}</h2><a href="${viewHref(viewName)}" data-action="nav-to" data-view="${viewName}">전체 보기 ›</a></div>
         <small class="home-tile-sub">${subtitle}</small>
       </div>
       ${raw(body)}
