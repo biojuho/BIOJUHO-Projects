@@ -1378,6 +1378,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` passed with `driftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `planeGenericSnapshotWriterRefresh2Changed: true`.
 
+## Experiment: Candidate freshness advisory popularity drift
+
+- Hypothesis: Release gates should still fail on source freshness drift, but should not repeatedly block on popularity-only `stars/forks` movement from high-traffic GitHub repositories.
+- Primary metric: `planePopularityBlockingDriftCount`.
+- Baseline: The Plane release sync failed again after PR #227 because only stars and forks moved from 50,403/4,438 to 50,404/4,439.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now marks `stars/forks` drift as advisory while keeping `lastCommit`, `pushedAt`, issue/PR, and disk drift blocking; README and release audit terms document `blockingDriftCount` and `advisoryDriftCount`.
+- Decision: keep; `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` exits 0 with `driftCount: 1`, `advisoryDriftCount: 1`, and `blockingDriftCount: 0`.
+
+## Evidence
+
+- `npm run lint` passed after the checker, audit, and README update.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 45 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` reported only advisory Plane popularity drift and did not fail the command.
+- `autoresearch-results/joopark-product-loop.json` now reports `planePopularityAdvisoryDriftPolicyChanged: true`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.

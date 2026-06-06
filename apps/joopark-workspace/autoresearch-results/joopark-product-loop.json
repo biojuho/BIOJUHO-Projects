@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T21:23:20+09:00",
+  "generatedAt": "2026-06-06T21:36:35+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -151,6 +151,10 @@
       "planeGenericSnapshotWriterRefresh2LiveDriftCount": 0,
       "planeGenericSnapshotWriterRefresh2Stars": 50403,
       "planeGenericSnapshotWriterRefresh2Forks": 4438,
+      "planePopularityAdvisoryDriftPolicyChanged": true,
+      "planePopularityAdvisoryDriftCount": 1,
+      "planePopularityBlockingDriftCount": 0,
+      "planePopularityFailOnDriftExitZero": true,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -863,6 +867,13 @@
       "primaryMetric": "planeGenericSnapshotWriterRefresh2Changed",
       "baseline": "0bbfe95cc74c9c958d66b156df2783fdbc180f8e",
       "candidate": "0bbfe95cc74c9c958d66b156df2783fdbc180f8e",
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-advisory-popularity-drift",
+      "primaryMetric": "planePopularityBlockingDriftCount",
+      "baseline": 1,
+      "candidate": 0,
       "decision": "keep"
     }
   ],
