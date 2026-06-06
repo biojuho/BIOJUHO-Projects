@@ -117,7 +117,7 @@ node scripts/audit-release-readiness.mjs --run-gates
 node scripts/check-candidate-freshness-drift.mjs --snapshot-only
 ```
 
-실제 GitHub 현재값과 비교하려면 `gh` 인증이 있는 환경에서 live 모드를 사용합니다. `--live`는 drift를 JSON으로 보고하고, 자동화에서 drift를 실패로 처리하려면 `--fail-on-drift`를 함께 붙입니다.
+실제 GitHub 현재값과 비교하려면 `gh` 인증이 있는 환경에서 live 모드를 사용합니다. `--live`는 drift를 JSON으로 보고하고, 자동화에서 drift를 실패로 처리하려면 `--fail-on-drift`를 함께 붙입니다. `lastCommit`, `pushedAt`, issue/PR, disk drift는 `blockingDriftCount`에 포함되어 실패 조건이지만, 고빈도 popularity 값인 `stars/forks`는 `advisoryDriftCount`로만 보고합니다.
 GitHub REST `open_issues_count`는 PR을 포함하지만 GraphQL은 issue와 PR을 분리하므로, monitor는 `openIssues` snapshot을 issue-only 또는 issue+PR total 중 하나와 일치하면 유효한 값으로 봅니다.
 
 ```bash
@@ -171,7 +171,7 @@ node scripts/refresh-candidate-snapshot.mjs --write --repo outline/outline
 - `scripts/smoke-mobile.mjs` — 500px 폭 Chrome에서 15개 화면의 모바일 레이아웃 overflow·텍스트·콘솔·네트워크 회귀 검증
 - `scripts/smoke-release.mjs` — 출시 패키지를 임시 HTTP 서버로 실제 서빙해 Chrome 라우트 스모크까지 실행하는 전체 출시 게이트
 - `scripts/audit-release-readiness.mjs` — 출시 요구사항을 정적 파일·문서·manifest·브라우저 게이트·Git publish 조건 증거에 매핑하는 감사 리포트
-- `scripts/check-candidate-freshness-drift.mjs` — source-backed 도입 후보의 로컬 snapshot shape를 확인하고, `--live`에서 GitHub GraphQL HEAD/pushedAt/star/fork/issue/PR/disk drift를 보고
+- `scripts/check-candidate-freshness-drift.mjs` — source-backed 도입 후보의 로컬 snapshot shape를 확인하고, `--live`에서 GitHub GraphQL HEAD/pushedAt/star/fork/issue/PR/disk drift를 blocking/advisory로 보고
 - `scripts/refresh-candidate-snapshot.mjs` — `--repo owner/name` source-backed 도입 후보를 dry-run/write 방식으로 GitHub GraphQL 최신 HEAD 스냅샷에 맞춰 갱신
 - `scripts/refresh-veritas-candidate-snapshot.mjs` — high-churn Veritas 도입 후보를 dry-run/write 방식으로 GitHub GraphQL 최신 HEAD 스냅샷에 맞춰 갱신
 - `data/repos.json` — GitHub 저장소 스냅샷 (포트폴리오 시드) · `data/adoption-candidates.json` — OSS 도입 후보 스냅샷 · `scripts/sync-github.sh` — GitHub 스냅샷 재생성

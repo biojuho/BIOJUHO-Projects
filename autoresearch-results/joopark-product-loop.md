@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T20:58:48+09:00
+Generated: 2026-06-06T21:23:20+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -1348,6 +1348,51 @@ Generated: 2026-06-06T20:58:48+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo taskcoach/taskcoach --fail-on-drift` passed with `driftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `taskcoachGenericSnapshotWriterChanged: true`.
 
+## Experiment: Plane generic snapshot refresh
+
+- Hypothesis: The PM benchmark snapshot should refresh Plane's fast-moving popularity and issue metadata before planning comparisons reuse stale source signals.
+- Primary metric: `planeGenericSnapshotWriterChanged`.
+- Baseline: Plane snapshot commit `0bbfe95cc74c9c958d66b156df2783fdbc180f8e`, 756 open issues, 128 open PRs, 50,363 stars, and 4,431 forks.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo makeplane/plane` kept the same commit while updating Plane to 757 open issues, 128 open PRs, 50,402 stars, 4,437 forks, and source marker `github-api:makeplane-plane-candidate-refresh`.
+- Decision: keep; the Plane PM benchmark row now uses the generic refresh path, passes a repo-scoped live drift check with drift count 0, and lowers full live drift from 14 to 13.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the Plane row and source marker.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 45 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `planeGenericSnapshotWriterChanged: true`.
+
+## Experiment: Plane generic snapshot refresh 2
+
+- Hypothesis: Plane's popularity metadata should be refreshed again when stars and forks move during release sync so the PM benchmark row remains source-current.
+- Primary metric: `planeGenericSnapshotWriterRefresh2Changed`.
+- Baseline: Plane snapshot commit `0bbfe95cc74c9c958d66b156df2783fdbc180f8e`, 50,402 stars, and 4,437 forks.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo makeplane/plane` kept the same commit while updating Plane to 50,403 stars, 4,438 forks, and the existing source marker `github-api:makeplane-plane-candidate-refresh`.
+- Decision: keep; the Plane PM benchmark row passes a repo-scoped live drift check with drift count 0 after the release-sync drift.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the Plane row.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 45 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `planeGenericSnapshotWriterRefresh2Changed: true`.
+
+## Experiment: Candidate freshness advisory popularity drift
+
+- Hypothesis: Release gates should still fail on source freshness drift, but should not repeatedly block on popularity-only `stars/forks` movement from high-traffic GitHub repositories.
+- Primary metric: `planePopularityBlockingDriftCount`.
+- Baseline: The Plane release sync failed again after PR #227 because only stars and forks moved from 50,403/4,438 to 50,404/4,439.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now marks `stars/forks` drift as advisory while keeping `lastCommit`, `pushedAt`, issue/PR, and disk drift blocking; README and release audit terms document `blockingDriftCount` and `advisoryDriftCount`.
+- Decision: keep; `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` exits 0 with `driftCount: 1`, `advisoryDriftCount: 1`, and `blockingDriftCount: 0`.
+
+## Evidence
+
+- `npm run lint` passed after the checker, audit, and README update.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 45 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` reported only advisory Plane popularity drift and did not fail the command.
+- `autoresearch-results/joopark-product-loop.json` now reports `planePopularityAdvisoryDriftPolicyChanged: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, Plane, AppFlowy, AFFiNE, or BookStack.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
