@@ -1294,6 +1294,58 @@ function candidateWorkspaceRubric(projects, filter) {
         ${raw(header)}
         ${raw(rows)}
       </div>
+      ${raw(candidateWorkspaceRecommendationExport(scored))}
+    </section>
+  `;
+}
+
+function workspaceBenchmarkRecommendationMarkdown(scored) {
+  if (!Array.isArray(scored) || scored.length < 2) return "";
+  const [top, runnerUp] = scored;
+  const gap = top.rubricScore.score - runnerUp.rubricScore.score;
+  const topAxis = projectWorkspaceRubric(top.project)
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
+  const lines = [
+    "# JooPark Workspace Benchmark Recommendation",
+    "",
+    `Recommendation: use ${top.project.name} as the primary Workspace benchmark (${top.rubricScore.label} ${top.rubricScore.score}), and keep ${runnerUp.project.name} as the PM/task contrast (${runnerUp.rubricScore.label} ${runnerUp.rubricScore.score}).`,
+    `Score gap: ${gap} point${gap === 1 ? "" : "s"}.`,
+    topAxis ? `Primary reason: ${topAxis.axis} scored ${topAxis.score} at ${Math.round(topAxis.weight * 100)}% weight because ${topAxis.value}.` : "",
+    "",
+    "## Weighted Scores",
+  ].filter(Boolean);
+  scored.forEach(({ project, rubricScore }) => {
+    lines.push("", `### ${project.name}: ${rubricScore.label} ${rubricScore.score}`);
+    projectWorkspaceRubric(project).forEach((row) => {
+      lines.push(`- ${row.axis}: weight ${Math.round(row.weight * 100)}%, score ${row.score} - ${row.value}`);
+    });
+  });
+  return lines.join("\n");
+}
+
+function candidateWorkspaceRecommendationExport(scored) {
+  if (!Array.isArray(scored) || scored.length < 2) return "";
+  const [top, runnerUp] = scored;
+  const markdown = workspaceBenchmarkRecommendationMarkdown(scored);
+  if (!markdown) return "";
+  const gap = top.rubricScore.score - runnerUp.rubricScore.score;
+  const topAxis = projectWorkspaceRubric(top.project)
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
+  const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+  return html`
+    <section class="portfolio-benchmark-export" data-workspace-benchmark-export data-workspace-benchmark-export-winner="${top.project.name}" data-workspace-benchmark-export-gap="${gap}" data-workspace-benchmark-export-format="markdown">
+      <div class="portfolio-export-head">
+        <span>Workspace export</span>
+        <a class="portfolio-export-download" data-workspace-benchmark-export-download href="${href}" download="joopark-workspace-benchmark-recommendation.md">MD 저장</a>
+      </div>
+      <div class="portfolio-export-grid">
+        <div><span>추천</span><strong>${top.project.name}</strong><small>${top.rubricScore.label} ${top.rubricScore.score}</small></div>
+        <div><span>비교</span><strong>${runnerUp.project.name}</strong><small>${gap}점 차이</small></div>
+        <div><span>근거</span><strong>${topAxis ? topAxis.axis : "가중 점수"}</strong><small>${topAxis ? `${topAxis.score}점 · ${Math.round(topAxis.weight * 100)}%` : "루브릭 합산"}</small></div>
+      </div>
+      <pre class="portfolio-export-body" data-workspace-benchmark-export-text>${markdown}</pre>
     </section>
   `;
 }
