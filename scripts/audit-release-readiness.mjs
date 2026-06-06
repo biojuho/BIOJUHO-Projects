@@ -764,8 +764,8 @@ function buildChecklist() {
 
   const candidateSnapshotWriterFiles = candidateSnapshotWriterScripts.map((path) => ({ path, exists: fileExists(path) }));
   const candidateSnapshotWriterTerms = [
-    { file: "scripts/refresh-candidate-snapshot.mjs", terms: ["--repo", "--snapshot-only", "--write", "--fail-on-change", "gh api", "graphql", "sourceMarkerForRepo", "messageHeadline"] },
-    { file: "README.md", terms: ["refresh-candidate-snapshot.mjs", "--repo owner/name", "--snapshot-only", "--write", "--fail-on-change"] },
+    { file: "scripts/refresh-candidate-snapshot.mjs", terms: ["--repo", "--from-live-drift", "--snapshot-only", "--write", "--fail-on-change", "gh api", "graphql", "sourceMarkerForRepo", "messageHeadline"] },
+    { file: "README.md", terms: ["refresh-candidate-snapshot.mjs", "--repo owner/name", "--from-live-drift", "--snapshot-only", "--write", "--fail-on-change"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const candidateSnapshotWriter = run("node", [
     "scripts/refresh-candidate-snapshot.mjs",
@@ -775,7 +775,7 @@ function buildChecklist() {
   ]);
   checklist.push({
     id: "candidate_snapshot_writer",
-    requirement: "Source-backed adoption candidate snapshots have a generic repo-scoped dry-run/write helper so focused drift refreshes are not limited to one hard-coded repository.",
+    requirement: "Source-backed adoption candidate snapshots have generic repo-scoped and live-drift batch dry-run/write helpers so focused drift refreshes are not limited to one hard-coded repository or manual repo loops.",
     status: candidateSnapshotWriterFiles.every((item) => item.exists) &&
       candidateSnapshotWriterTerms.every((item) => item.missingTerms.length === 0) &&
       candidateSnapshotWriter.ok ? "pass" : "fail",

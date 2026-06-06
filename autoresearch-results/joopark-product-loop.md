@@ -1559,6 +1559,22 @@ Generated: 2026-06-06T21:23:20+09:00
 - `data/adoption-candidates.json` now reports 58 GitHub API source markers and generatedAt `2026-06-07T00:19:53+09:00`.
 - `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessAdvisoryBatchRefreshFullDriftAfter: 0`.
 
+## Experiment: Live drift batch refresh helper
+
+- Hypothesis: The generic candidate snapshot writer should consume the live drift monitor directly so recurring advisory/cadence refreshes do not require manual repo loops.
+- Primary metric: `candidateFreshnessLiveDriftBatchRefreshFullDriftAfter`.
+- Baseline: After the release sync, full live drift had `driftCount: 5`, `blockingDriftCount: 0`, `advisoryDriftCount: 4`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 0`.
+- Candidate: Add `--from-live-drift` to `scripts/refresh-candidate-snapshot.mjs`; the helper runs `check-candidate-freshness-drift.mjs --live`, extracts drifted source-backed repos, and refreshes only those rows. The first write refreshed Veritas, Plane, AppFlowy, Outline, and Wiki.js; a follow-up sweep handled a new Veritas cadence drift.
+- Decision: keep; after the write, full live drift reports zero drift and a second batch dry-run reports `changed: false`.
+
+## Evidence
+
+- `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift` found 5 drifted repos without writing.
+- `node scripts/refresh-candidate-snapshot.mjs --write --from-live-drift` updated `data/adoption-candidates.json`; the final follow-up write set generatedAt `2026-06-07T00:37:11+09:00`.
+- `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 0`, `blockingDriftCount: 0`, `advisoryDriftCount: 0`, `cadenceAdvisoryDriftCount: 0`, and `metadataAdvisoryDriftCount: 0`.
+- `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift --repo outline/outline` passed with `changed: false`, proving repo-filtered batch mode.
+- `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessLiveDriftBatchRefreshRepos: 5`, `candidateFreshnessLiveDriftBatchRefreshFollowupRepos: 1`, and `candidateFreshnessLiveDriftBatchRefreshIdempotent: true`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
