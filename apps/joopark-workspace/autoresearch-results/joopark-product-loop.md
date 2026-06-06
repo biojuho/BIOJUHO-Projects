@@ -1131,6 +1131,20 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/smoke-interactions.mjs` now reports `workspaceBenchmarkExportVisible` and verifies winner, gap, `joopark-workspace-benchmark-recommendation.md`, data URL, and rationale copy.
 - `scripts/audit-release-readiness.mjs` now includes `appflowy_affine_workspace_benchmark_export`.
 
+## Experiment: AppFlowy and AFFiNE workspace review handoff
+
+- Hypothesis: The AppFlowy/AFFiNE workspace recommendation becomes actionable when the selected benchmark decision can be copied or converted into a PM issue without leaving the focused portfolio queue.
+- Primary metric: AppFlowy/AFFiNE workspace review handoff checks.
+- Baseline: 0 workspace review handoff checks; the export produced Markdown but no stable decision key, clipboard state, or PM issue draft.
+- Candidate: add a Workspace review handoff under the AppFlowy/AFFiNE rubric with `workspace-review:repo-toeverything-affine:86`, `joopark-workspace-review-handoff.md`, one-click copy, and an AFFiNE PM issue draft labeled `workspace`, `benchmark`, and `handoff`.
+- Decision: keep; it preserves the dedicated workspace export while turning the AFFiNE-over-AppFlowy recommendation into a review-ready PM issue path.
+
+## Evidence
+
+- `app.js` now includes `projectWorkspaceReviewDecision`, `candidateWorkspaceReviewHandoff`, `workspaceReviewHandoffMarkdown`, and `candidateWorkspaceReviewIssueDraft`.
+- `scripts/smoke-interactions.mjs` now reports `workspaceBenchmarkReviewHandoffVisible`, `workspaceBenchmarkReviewHandoffCopyVisible`, and `workspaceBenchmarkReviewIssueDraftVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `appflowy_affine_workspace_review_handoff`, `appflowy_affine_workspace_review_handoff_copy`, and `appflowy_affine_workspace_review_issue_draft`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, add AppFlowy/AFFiNE issue draft support, add KB/IA GitHub comment or notes-review publish support, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, add AppFlowy/AFFiNE GitHub comment or notes-review publish support, add KB/IA GitHub comment or notes-review publish support, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.

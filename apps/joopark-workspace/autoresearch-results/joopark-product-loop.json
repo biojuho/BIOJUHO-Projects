@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T17:20:44+09:00",
+  "generatedAt": "2026-06-06T17:38:17+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 62,
+      "pass": 65,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 62
+      "total": 65
     },
     "browserEvidence": {
       "routes": 15,
@@ -66,6 +66,12 @@
       "appflowyAffineWorkspaceBenchmarkRubricChecks": 4,
       "workspaceBenchmarkExportVisible": true,
       "appflowyAffineWorkspaceBenchmarkExportChecks": 3,
+      "workspaceBenchmarkReviewHandoffVisible": true,
+      "appflowyAffineWorkspaceReviewHandoffChecks": 5,
+      "workspaceBenchmarkReviewHandoffCopyVisible": true,
+      "appflowyAffineWorkspaceReviewHandoffCopyChecks": 4,
+      "workspaceBenchmarkReviewIssueDraftVisible": true,
+      "appflowyAffineWorkspaceReviewIssueDraftChecks": 5,
       "outlineCandidateFreshnessVisible": true,
       "outlineKnowledgeBaseCandidateFreshnessChecks": 6,
       "bookStackCandidateFreshnessVisible": true,
@@ -644,6 +650,13 @@
       "decision": "keep"
     },
     {
+      "id": "appflowy-affine-workspace-review-handoff",
+      "primaryMetric": "appflowyAffineWorkspaceReviewHandoffChecks",
+      "baseline": 0,
+      "candidate": 5,
+      "decision": "keep"
+    },
+    {
       "id": "outline-knowledge-base-benchmark-candidate",
       "primaryMetric": "outlineKnowledgeBaseCandidateFreshnessChecks",
       "baseline": 0,
@@ -698,7 +711,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "add AppFlowy/AFFiNE issue draft support",
+    "add AppFlowy/AFFiNE GitHub comment or notes-review publish support",
     "add KB/IA GitHub comment or notes-review publish support",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]

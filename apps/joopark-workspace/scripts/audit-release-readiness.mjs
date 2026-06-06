@@ -1102,6 +1102,42 @@ function buildChecklist() {
     evidence: appflowyAffineWorkspaceExportTerms,
   });
 
+  const appflowyAffineWorkspaceReviewHandoffTerms = [
+    { file: "app.js", terms: ["function candidateWorkspaceReviewHandoff", "function workspaceReviewHandoffMarkdown", "data-workspace-review-handoff", "joopark-workspace-review-handoff.md"] },
+    { file: "styles.css", terms: [".portfolio-review-handoff"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["workspaceBenchmarkReviewHandoffVisible", "workspace review handoff primary key did not render", "workspace review handoff markdown copy did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_workspace_review_handoff",
+    requirement: "The AppFlowy and AFFiNE workspace recommendation can be turned into a Markdown review handoff with stable persist keys and browser smoke coverage.",
+    status: appflowyAffineWorkspaceReviewHandoffTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineWorkspaceReviewHandoffTerms,
+  });
+
+  const appflowyAffineWorkspaceReviewHandoffCopyTerms = [
+    { file: "app.js", terms: ["data-workspace-review-handoff-copy", "data-workspace-review-handoff-copy-status", "[data-benchmark-review-handoff], [data-knowledge-base-review-handoff], [data-workspace-review-handoff]"] },
+    { file: "styles.css", terms: [".portfolio-export-actions", ".portfolio-export-status", ".portfolio-export-copy"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["workspaceBenchmarkReviewHandoffCopyVisible", "workspace review handoff copy text did not reach clipboard", "workspace review handoff copy status did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_workspace_review_handoff_copy",
+    requirement: "The AppFlowy and AFFiNE workspace review handoff Markdown can be copied to the clipboard with visible state and browser smoke coverage.",
+    status: appflowyAffineWorkspaceReviewHandoffCopyTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineWorkspaceReviewHandoffCopyTerms,
+  });
+
+  const appflowyAffineWorkspaceReviewIssueDraftTerms = [
+    { file: "app.js", terms: ["function workspaceReviewIssueDraft", "function candidateWorkspaceReviewIssueDraft", "data-workspace-review-issue-draft", "data-workspace-review-issue-create", "data-issue-draft-labels"] },
+    { file: "styles.css", terms: [".portfolio-review-issue-draft", ".portfolio-issue-draft-grid", ".portfolio-issue-draft-body"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["workspaceBenchmarkReviewIssueDraftVisible", "workspace review issue draft did not create an issue", "workspace review issue draft did not persist source key"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_workspace_review_issue_draft",
+    requirement: "The AppFlowy and AFFiNE workspace review handoff can be converted into a PM issue draft with stable source key, labels, and browser smoke coverage.",
+    status: appflowyAffineWorkspaceReviewIssueDraftTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineWorkspaceReviewIssueDraftTerms,
+  });
+
   const knowledgeBaseInformationArchitectureExportTerms = [
     { file: "app.js", terms: ["function knowledgeBaseBenchmarkRecommendationMarkdown", "function candidateKnowledgeBaseRecommendationExport", "data-knowledge-base-benchmark-export", "joopark-kb-ia-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },

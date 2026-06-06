@@ -1295,6 +1295,7 @@ function candidateWorkspaceRubric(projects, filter) {
         ${raw(rows)}
       </div>
       ${raw(candidateWorkspaceRecommendationExport(scored))}
+      ${raw(candidateWorkspaceReviewHandoff(scored))}
     </section>
   `;
 }
@@ -1346,6 +1347,142 @@ function candidateWorkspaceRecommendationExport(scored) {
         <div><span>근거</span><strong>${topAxis ? topAxis.axis : "가중 점수"}</strong><small>${topAxis ? `${topAxis.score}점 · ${Math.round(topAxis.weight * 100)}%` : "루브릭 합산"}</small></div>
       </div>
       <pre class="portfolio-export-body" data-workspace-benchmark-export-text>${markdown}</pre>
+    </section>
+  `;
+}
+
+function projectWorkspaceReviewDecision(project, rank = 0) {
+  const rubricScore = projectWorkspaceRubricScore(project);
+  if (!project || !rubricScore) return null;
+  const focus = projectWorkspaceBenchmark(project);
+  const topAxis = projectWorkspaceRubric(project)
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
+  const status = rubricScore.score >= 86 ? "Workspace 도입 검토" : rubricScore.score >= 80 ? "비교 유지" : "관찰";
+  return {
+    rank: rank + 1,
+    status,
+    score: rubricScore.score,
+    label: rubricScore.label,
+    surface: focus ? focus.surface : "JooPark Workspace",
+    reason: topAxis ? `${topAxis.axis}: ${topAxis.value}` : focus ? focus.flow : "Workspace 검토",
+    persistKey: `workspace-review:${project.id}:${rubricScore.score}`,
+  };
+}
+
+function workspaceReviewDecisions(scored) {
+  return (Array.isArray(scored) ? scored : [])
+    .map(({ project }, index) => ({ project, decision: projectWorkspaceReviewDecision(project, index) }))
+    .filter((item) => item.decision)
+    .slice(0, 2)
+    .map((item, index) => ({ ...item, decision: { ...item.decision, rank: index + 1 } }));
+}
+
+function candidateWorkspaceReviewHandoff(scored) {
+  const decisions = workspaceReviewDecisions(scored);
+  if (decisions.length === 0) return "";
+  const markdown = workspaceReviewHandoffMarkdown(decisions);
+  if (!markdown) return "";
+  const primary = decisions[0];
+  const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+  return html`
+    <section class="portfolio-review-handoff" data-workspace-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-workspace-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}" data-workspace-review-handoff-primary-key="${primary.decision.persistKey}">
+      <div class="portfolio-export-head">
+        <span>Workspace handoff</span>
+        <div class="portfolio-export-actions">
+          <a class="portfolio-export-download" data-workspace-review-handoff-download href="${href}" download="joopark-workspace-review-handoff.md">MD 저장</a>
+          <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-review-handoff" data-review-handoff-copy data-workspace-review-handoff-copy data-review-handoff-copy-key="${primary.decision.persistKey}" data-workspace-review-handoff-copy-key="${primary.decision.persistKey}">복사</button>
+        </div>
+      </div>
+      <small class="portfolio-export-status" data-review-handoff-copy-status data-workspace-review-handoff-copy-status aria-live="polite"></small>
+      <div class="portfolio-export-grid">
+        <div>
+          <span>우선 결정</span>
+          <strong>${primary.project.name} ${primary.decision.status}</strong>
+        </div>
+        <div>
+          <span>persist key</span>
+          <strong>${primary.decision.persistKey}</strong>
+        </div>
+        <div>
+          <span>handoff 수</span>
+          <strong>${decisions.length}개</strong>
+        </div>
+      </div>
+      ${raw(candidateWorkspaceReviewIssueDraft(decisions))}
+      <pre class="portfolio-export-body" data-review-handoff-text data-workspace-review-handoff-text>${markdown}</pre>
+    </section>
+  `;
+}
+
+function workspaceReviewHandoffMarkdown(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const primary = decisions[0];
+  const rows = decisions.map(({ project, decision }) => (
+    `${decision.rank}. ${project.name} - ${decision.status} - ${decision.label} ${decision.score} - ${decision.persistKey} - ${decision.reason}`
+  ));
+  return [
+    "# JooPark Workspace Review Handoff",
+    "",
+    `Primary decision key: ${primary.decision.persistKey}`,
+    `Primary decision: ${primary.project.name} ${primary.decision.status} ${primary.decision.score}`,
+    `Primary surface: ${primary.decision.surface}`,
+    "",
+    "## Decisions",
+    ...rows,
+  ].join("\n");
+}
+
+function workspaceReviewIssueDraft(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return null;
+  const primary = decisions[0];
+  if (!primary || !primary.project || !primary.decision) return null;
+  const secondary = decisions.find((item) => item.decision.rank > 1);
+  const labels = ["workspace", "benchmark", "handoff", "adoption"];
+  return {
+    title: `[Workspace] ${primary.project.name} ${primary.decision.status}`,
+    projectId: primary.project.id,
+    projectName: primary.project.name,
+    priority: primary.decision.score >= 86 ? "high" : "med",
+    status: "todo",
+    estimate: 4,
+    labels,
+    persistKey: primary.decision.persistKey,
+    body: [
+      `Decision: ${primary.project.name} ${primary.decision.status} (${primary.decision.label} ${primary.decision.score})`,
+      `Persist key: ${primary.decision.persistKey}`,
+      `Surface: ${primary.decision.surface}`,
+      `Reason: ${primary.decision.reason}`,
+      secondary ? `Compare with: ${secondary.project.name} ${secondary.decision.status} (${secondary.decision.label} ${secondary.decision.score})` : "",
+    ].filter(Boolean).join("\n"),
+  };
+}
+
+function candidateWorkspaceReviewIssueDraft(decisions) {
+  const draft = workspaceReviewIssueDraft(decisions);
+  if (!draft) return "";
+  const existing = dashboard.issues.find((issue) => issue.sourceKey === draft.persistKey);
+  return html`
+    <section class="portfolio-review-issue-draft" data-review-issue-draft data-workspace-review-issue-draft data-issue-draft-title="${draft.title}" data-issue-draft-project="${draft.projectName}" data-issue-draft-priority="${draft.priority}" data-issue-draft-key="${draft.persistKey}" data-issue-draft-labels="${draft.labels.join(",")}" data-issue-draft-estimate="${draft.estimate}" data-issue-draft-created="${existing ? "true" : "false"}" data-issue-draft-id="${existing ? existing.id : ""}">
+      <div class="portfolio-issue-draft-head">
+        <span>Workspace issue draft</span>
+        <button type="button" class="portfolio-export-download portfolio-issue-draft-create" data-action="create-review-issue" data-review-issue-create data-workspace-review-issue-create data-review-issue-key="${draft.persistKey}" ${raw(existing ? "disabled" : "")}>${existing ? "생성됨" : "이슈 생성"}</button>
+      </div>
+      <div class="portfolio-issue-draft-grid">
+        <div>
+          <span>제목</span>
+          <strong>${draft.title}</strong>
+        </div>
+        <div>
+          <span>프로젝트</span>
+          <strong>${draft.projectName}</strong>
+        </div>
+        <div>
+          <span>우선순위</span>
+          <strong>${ISSUE_PRIORITY_MAP[draft.priority]}</strong>
+        </div>
+      </div>
+      <pre class="portfolio-issue-draft-body" data-issue-draft-body>${draft.body}</pre>
     </section>
   `;
 }
@@ -1759,7 +1896,7 @@ async function writeClipboardText(text) {
 }
 
 function copyBenchmarkReviewHandoff(target) {
-  const handoff = target.closest("[data-benchmark-review-handoff], [data-knowledge-base-review-handoff]");
+  const handoff = target.closest("[data-benchmark-review-handoff], [data-knowledge-base-review-handoff], [data-workspace-review-handoff]");
   const text = handoff ? handoff.querySelector("[data-review-handoff-text]")?.textContent || "" : "";
   const status = handoff ? handoff.querySelector("[data-review-handoff-copy-status]") : null;
   writeClipboardText(text).then((copied) => {
@@ -1771,7 +1908,7 @@ function copyBenchmarkReviewHandoff(target) {
 }
 
 function createBenchmarkReviewIssue(target) {
-  const handoff = target.closest("[data-benchmark-review-handoff], [data-knowledge-base-review-handoff]");
+  const handoff = target.closest("[data-benchmark-review-handoff], [data-knowledge-base-review-handoff], [data-workspace-review-handoff]");
   const key = target.dataset.reviewIssueKey || "";
   if (!handoff || !key) {
     showToast("이슈 초안을 찾을 수 없습니다", "warn");
