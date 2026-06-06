@@ -1632,6 +1632,20 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift --actionable-only` passed with `changed: false`, `driftCount: 6`, `actionableDriftCount: 0`, and `refreshedRepos: []`.
 - `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift` still selected 6 repos, proving the new filter is opt-in and does not hide advisory drift evidence.
 
+## Experiment: Source gap coverage and quick link routes
+
+- Hypothesis: Filling unresolved GitHub source gaps and making home dashboard quick links expose real hash routes should improve candidate triage reliability and browser navigation without changing core storage behavior.
+- Primary metric: `sourceBackedAdoptionCandidateCount`.
+- Baseline: Adoption candidates had 21 source-backed rows and 23 rows with missing `url` or `lastCommit`; home dashboard quick links used `href="#"`, so smoke coverage could verify clicks but not route-bearing links.
+- Candidate: Enrich source-gap candidates with safe GitHub URLs and commit-backed metadata, add the `github-api:source-gap-candidate-refresh` marker, expose `#view` hrefs through `viewHref`, and extend interaction smoke plus release audit coverage.
+- Decision: keep; source-backed adoption candidates rise to 35 while missing source rows fall to 9, and the new smoke step verifies route hrefs and navigation across PM and DB surfaces.
+
+## Evidence
+
+- `jq '[.projects[] | select(.sourceKind == "adoption-candidate") | select(.url != null and .lastCommit != null)] | length' data/adoption-candidates.json` returned `35`.
+- The baseline `git show HEAD:data/adoption-candidates.json` count for the same query was `21`.
+- `scripts/smoke-interactions.mjs` now reports `homeQuickLinksNavigate`, and `scripts/audit-release-readiness.mjs` adds `home_dashboard_quick_link_routes` plus `candidate_source_backing_coverage`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.

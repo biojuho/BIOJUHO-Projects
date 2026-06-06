@@ -144,6 +144,28 @@ function dataSnapshot(relPath) {
   };
 }
 
+function adoptionCandidateSourceCoverage(relPath) {
+  if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
+  const payload = parseJson(read(relPath));
+  const projects = Array.isArray(payload?.projects) ? payload.projects : [];
+  const candidates = projects.filter((project) => project?.sourceKind === "adoption-candidate");
+  const source = String(payload?.source || "");
+  const safeGithubPattern = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/;
+  const missingGithubUrl = candidates
+    .filter((project) => !safeGithubPattern.test(String(project.url || "")))
+    .map((project) => project.name || project.id || "unknown");
+  const commitBacked = candidates.filter((project) => /^[0-9a-f]{40}$/i.test(String(project.lastCommit || "")));
+  const sourceMarked = source.includes("github-api:source-gap-candidate-refresh");
+  return {
+    status: candidates.length > 0 && missingGithubUrl.length === 0 && sourceMarked && commitBacked.length >= 35 ? "pass" : "fail",
+    candidates: candidates.length,
+    missingGithubUrl,
+    commitBacked: commitBacked.length,
+    sourceMarked,
+    generatedAt: payload?.generatedAt || "",
+  };
+}
+
 function autoresearchCandidateSnapshot(relPath) {
   if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
   const payload = parseJson(read(relPath));
@@ -626,6 +648,17 @@ function buildChecklist() {
     evidence: { file: "index.html", expectedViews: viewIds.length, missingViews: indexTerms.missing },
   });
 
+  const homeQuickLinkTerms = [
+    { file: "app.js", terms: ["function viewHref", "href=\"${viewHref(viewName)}\"", "data-view=\"${viewName}\""] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["homeQuickLinksNavigate", "home quick link href did not expose route", "home quick link did not navigate"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "home_dashboard_quick_link_routes",
+    requirement: "Home dashboard quick links expose real route hrefs and navigate to each PM and DB surface in browser interaction smoke.",
+    status: homeQuickLinkTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: homeQuickLinkTerms,
+  });
+
   const markerEvidence = appMarkers.map((marker) => ({
     id: marker.id,
     file: marker.file,
@@ -673,6 +706,14 @@ function buildChecklist() {
     requirement: "GitHub and adoption-candidate project snapshots are valid local JSON seed data.",
     status: snapshots.every((item) => item.status === "pass") ? "pass" : "fail",
     evidence: snapshots,
+  });
+
+  const candidateSourceCoverage = adoptionCandidateSourceCoverage("data/adoption-candidates.json");
+  checklist.push({
+    id: "candidate_source_backing_coverage",
+    requirement: "Adoption candidates have safe GitHub source URLs, the source-gap refresh marker, and enough commit-backed metadata to keep triage out of source-enrichment mode.",
+    status: candidateSourceCoverage.status,
+    evidence: candidateSourceCoverage,
   });
 
   const freshnessDriftFiles = freshnessDriftScripts.map((path) => ({ path, exists: fileExists(path) }));
