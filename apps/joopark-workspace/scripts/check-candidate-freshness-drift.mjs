@@ -16,11 +16,11 @@ const dataPath = join(root, "data/adoption-candidates.json");
 const commitPattern = /^[0-9a-f]{40}$/i;
 const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
 const cadencePolicyId = "candidate-freshness-drift-cadence-v1";
-const metadataPolicyId = "candidate-freshness-commit-stable-metadata-v1";
+const metadataPolicyId = "candidate-freshness-commit-stable-repo-metadata-v2";
 const advisoryFields = new Set(["stars", "forks"]);
 const blockingFields = ["lastCommit", "pushedAt", "openIssues", "openPRs", "diskKb"];
 const highChurnCadenceFields = new Set(["lastCommit", "pushedAt", "diskKb"]);
-const commitStableMetadataFields = new Set(["diskKb"]);
+const commitStableMetadataFields = new Set(["pushedAt", "diskKb"]);
 const highChurnRepoPolicies = [
   {
     repo: "Veritas-7/autoresearch-skill-system",
@@ -207,12 +207,12 @@ function cadenceAdvisoryFor(project, current, blockingDrift) {
 function commitStableMetadataAdvisoryFor(project, current, drift) {
   const metadataDrift = drift.filter((item) => commitStableMetadataFields.has(item.field));
   if (metadataDrift.length === 0) return null;
-  if (project.lastCommit !== current.lastCommit || project.pushedAt !== current.pushedAt) return null;
+  if (project.lastCommit !== current.lastCommit) return null;
   return {
     id: metadataPolicyId,
     fields: Array.from(commitStableMetadataFields),
     condition: "commit-stable-metadata",
-    reason: "GitHub repository metadata can be recalculated while the source HEAD and pushedAt marker remain unchanged.",
+    reason: "GitHub repository metadata can move while the default-branch source HEAD remains unchanged.",
   };
 }
 
@@ -307,8 +307,8 @@ function buildCadencePolicy(snapshot) {
     commitStableMetadataPolicy: {
       id: metadataPolicyId,
       fields: Array.from(commitStableMetadataFields),
-      condition: "Treat diskKb-only metadata drift as metadata-advisory when lastCommit and pushedAt are unchanged.",
-      reason: "GitHub diskUsage can be recalculated independently from source HEAD freshness.",
+      condition: "Treat pushedAt and diskKb metadata drift as metadata-advisory when lastCommit is unchanged.",
+      reason: "GitHub pushedAt and diskUsage can move independently from default-branch source HEAD freshness.",
     },
     standardRepos: {
       monitored: Math.max(0, snapshot.monitored.length - monitoredHighChurn),
