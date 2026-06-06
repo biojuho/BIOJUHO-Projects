@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T17:55:39+09:00",
+  "generatedAt": "2026-06-06T18:11:26+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 66,
+      "pass": 67,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 66
+      "total": 67
     },
     "browserEvidence": {
       "routes": 15,
@@ -120,6 +120,8 @@
       "knowledgeBaseInformationArchitectureReviewHandoffCopyChecks": 4,
       "knowledgeBaseBenchmarkReviewIssueDraftVisible": true,
       "knowledgeBaseInformationArchitectureReviewIssueDraftChecks": 5,
+      "knowledgeBaseBenchmarkReviewNotePublishVisible": true,
+      "knowledgeBaseInformationArchitectureReviewNotePublishChecks": 3,
       "candidateBenchmarkRecommendationExportVisible": true,
       "taskosaurWorkstreamBenchmarkRecommendationExportChecks": 4,
       "candidateBenchmarkReviewQueueVisible": true,
@@ -706,6 +708,13 @@
       "baseline": 0,
       "candidate": 5,
       "decision": "keep"
+    },
+    {
+      "id": "knowledge-base-information-architecture-review-note-publish",
+      "primaryMetric": "knowledgeBaseInformationArchitectureReviewNotePublishChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -720,8 +729,8 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "add KB/IA GitHub comment or notes-review publish support",
     "add AppFlowy/AFFiNE GitHub comment publish handoff",
+    "add KB/IA GitHub comment publish handoff",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }

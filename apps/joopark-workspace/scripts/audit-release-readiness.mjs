@@ -1198,6 +1198,18 @@ function buildChecklist() {
     evidence: knowledgeBaseInformationArchitectureReviewIssueDraftTerms,
   });
 
+  const knowledgeBaseInformationArchitectureReviewNotePublishTerms = [
+    { file: "app.js", terms: ["data-kb-review-note-publish", "data-kb-review-note-publish-status", "knowledge-base-review-note"] },
+    { file: "styles.css", terms: [".portfolio-export-actions", ".portfolio-export-status"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["knowledgeBaseBenchmarkReviewNotePublishVisible", "knowledge-base review note publish did not create a note", "knowledge-base review note publish did not persist source key"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "knowledge_base_information_architecture_review_note_publish",
+    requirement: "The dedicated knowledge-base information-architecture review handoff can be published into a pinned notes-review entry with stable source key and browser smoke coverage.",
+    status: knowledgeBaseInformationArchitectureReviewNotePublishTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: knowledgeBaseInformationArchitectureReviewNotePublishTerms,
+  });
+
   const taskosaurWorkstreamBenchmarkRecommendationExportTerms = [
     { file: "app.js", terms: ["function candidateBenchmarkRecommendationExport", "function candidateBenchmarkRecommendationMarkdown", "data-candidate-benchmark-export", "joopark-benchmark-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
