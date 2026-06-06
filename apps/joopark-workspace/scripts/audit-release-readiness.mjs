@@ -677,8 +677,8 @@ function buildChecklist() {
 
   const freshnessDriftFiles = freshnessDriftScripts.map((path) => ({ path, exists: fileExists(path) }));
   const freshnessDriftTerms = [
-    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--snapshot-only", "--live", "--fail-on-drift", "--repo", "repoFilters", "driftCount", "blockingDriftCount", "advisoryDriftCount", "advisoryFields", "lastCommit", "pushedAt"] },
-    { file: "README.md", terms: ["check-candidate-freshness-drift.mjs", "--snapshot-only", "--live", "--fail-on-drift", "--repo", "candidate freshness drift", "blockingDriftCount", "advisoryDriftCount", "stars/forks"] },
+    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--snapshot-only", "--live", "--fail-on-drift", "--repo", "repoFilters", "driftCount", "blockingDriftCount", "actionableDriftCount", "actionableDrifted", "advisoryDriftCount", "advisoryFields", "lastCommit", "pushedAt"] },
+    { file: "README.md", terms: ["check-candidate-freshness-drift.mjs", "--snapshot-only", "--live", "--fail-on-drift", "--repo", "candidate freshness drift", "blockingDriftCount", "actionableDriftCount", "advisoryDriftCount", "stars/forks"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const freshnessDriftSnapshot = run("node", ["scripts/check-candidate-freshness-drift.mjs", "--snapshot-only"]);
   checklist.push({
@@ -764,8 +764,8 @@ function buildChecklist() {
 
   const candidateSnapshotWriterFiles = candidateSnapshotWriterScripts.map((path) => ({ path, exists: fileExists(path) }));
   const candidateSnapshotWriterTerms = [
-    { file: "scripts/refresh-candidate-snapshot.mjs", terms: ["--repo", "--from-live-drift", "--snapshot-only", "--write", "--fail-on-change", "gh api", "graphql", "sourceMarkerForRepo", "messageHeadline"] },
-    { file: "README.md", terms: ["refresh-candidate-snapshot.mjs", "--repo owner/name", "--from-live-drift", "--snapshot-only", "--write", "--fail-on-change"] },
+    { file: "scripts/refresh-candidate-snapshot.mjs", terms: ["--repo", "--from-live-drift", "--actionable-only", "--snapshot-only", "--write", "--fail-on-change", "gh api", "graphql", "sourceMarkerForRepo", "messageHeadline"] },
+    { file: "README.md", terms: ["refresh-candidate-snapshot.mjs", "--repo owner/name", "--from-live-drift", "--actionable-only", "--snapshot-only", "--write", "--fail-on-change"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const candidateSnapshotWriter = run("node", [
     "scripts/refresh-candidate-snapshot.mjs",

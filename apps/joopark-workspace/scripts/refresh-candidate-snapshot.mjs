@@ -13,6 +13,7 @@ const write = args.has("--write");
 const snapshotOnly = args.has("--snapshot-only");
 const failOnChange = args.has("--fail-on-change");
 const fromLiveDrift = args.has("--from-live-drift");
+const actionableOnly = args.has("--actionable-only");
 const commitPattern = /^[0-9a-f]{40}$/i;
 const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
 const repoFilter = repoFilters[0] || "";
@@ -272,9 +273,12 @@ function projectRefForRepo(snapshot, repo) {
   return snapshot.enriched.find((item) => item.repo && item.repo.filter === filter) || null;
 }
 
-function reposFromLiveDrift(snapshot, driftPayload) {
+function reposFromLiveDrift(snapshot, driftPayload, options = {}) {
+  const sourceRows = options.actionableOnly
+    ? (Array.isArray(driftPayload?.actionableDrifted) ? driftPayload.actionableDrifted : (Array.isArray(driftPayload?.blockingDrifted) ? driftPayload.blockingDrifted : []))
+    : (Array.isArray(driftPayload?.drifted) ? driftPayload.drifted : []);
   const driftFilters = new Set(
-    (Array.isArray(driftPayload?.drifted) ? driftPayload.drifted : [])
+    sourceRows
       .map((item) => githubRepo(item.url))
       .filter(Boolean)
       .map((repo) => repo.filter),
@@ -354,6 +358,7 @@ function finish(status, extra = {}) {
     status,
     mode: snapshotOnly ? "snapshot-only" : (fromLiveDrift ? "from-live-drift" : (write ? "write" : "dry-run")),
     repo: fromLiveDrift ? repoFilters : repoFilter,
+    actionableOnly: fromLiveDrift ? actionableOnly : false,
     willWrite: write && !snapshotOnly,
     failOnChange: failOnChange && !snapshotOnly,
     ...extra,
@@ -376,7 +381,7 @@ if (fromLiveDrift) {
       stderr: driftSnapshot.stderr || "",
     });
   }
-  const targetRepos = reposFromLiveDrift(snapshot, driftSnapshot.payload);
+  const targetRepos = reposFromLiveDrift(snapshot, driftSnapshot.payload, { actionableOnly });
   if (targetRepos.length === 0) {
     finish("pass", {
       changed: false,
@@ -384,6 +389,7 @@ if (fromLiveDrift) {
       generatedAt: snapshot.payload.generatedAt || "",
       driftCount: driftSnapshot.payload?.driftCount || 0,
       blockingDriftCount: driftSnapshot.payload?.blockingDriftCount || 0,
+      actionableDriftCount: driftSnapshot.payload?.actionableDriftCount || driftSnapshot.payload?.blockingDriftCount || 0,
       advisoryDriftCount: driftSnapshot.payload?.advisoryDriftCount || 0,
       cadenceAdvisoryDriftCount: driftSnapshot.payload?.cadenceAdvisoryDriftCount || 0,
       metadataAdvisoryDriftCount: driftSnapshot.payload?.metadataAdvisoryDriftCount || 0,
@@ -408,11 +414,18 @@ if (fromLiveDrift) {
     generatedAt: batch.changed ? batch.nextPayload.generatedAt : snapshot.payload.generatedAt || "",
     driftCount: driftSnapshot.payload?.driftCount || 0,
     blockingDriftCount: driftSnapshot.payload?.blockingDriftCount || 0,
+    actionableDriftCount: driftSnapshot.payload?.actionableDriftCount || driftSnapshot.payload?.blockingDriftCount || 0,
     advisoryDriftCount: driftSnapshot.payload?.advisoryDriftCount || 0,
     cadenceAdvisoryDriftCount: driftSnapshot.payload?.cadenceAdvisoryDriftCount || 0,
     metadataAdvisoryDriftCount: driftSnapshot.payload?.metadataAdvisoryDriftCount || 0,
     refreshedRepos: batch.refreshed.map((item) => item.repo),
     refreshed: batch.refreshed,
+  });
+}
+
+if (actionableOnly) {
+  finish("fail", {
+    reason: "--actionable-only requires --from-live-drift",
   });
 }
 

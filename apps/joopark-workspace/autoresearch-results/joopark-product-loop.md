@@ -1618,6 +1618,20 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 4`, `blockingDriftCount: 0`, `advisoryDriftCount: 3`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessAffineBlockingDriftCount: 0`.
 
+## Experiment: Actionable drift filter
+
+- Hypothesis: Separating actionable blocking drift from advisory/cadence drift should stop the batch refresh helper from creating data-only sweeps when release gates are already unblocked.
+- Primary metric: `candidateFreshnessNonblockingRefreshReposSelected`.
+- Baseline: Full live drift reported `driftCount: 6`, `blockingDriftCount: 0`, `actionableDriftCount: 0`, `advisoryDriftCount: 4`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 1`; the existing `--from-live-drift` dry-run selected all 6 drifted repos.
+- Candidate: Add `actionableDriftCount` and `actionableDrifted` to the drift monitor, then add `--actionable-only` to `refresh-candidate-snapshot.mjs --from-live-drift` so it refreshes only rows that can block release gates.
+- Decision: keep; `--from-live-drift --actionable-only` selected 0 repos while preserving the full drift payload for advisory review.
+
+## Evidence
+
+- `node scripts/check-candidate-freshness-drift.mjs --live` passed with `actionableDriftCount: 0` and an empty `actionableDrifted` list.
+- `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift --actionable-only` passed with `changed: false`, `driftCount: 6`, `actionableDriftCount: 0`, and `refreshedRepos: []`.
+- `node scripts/refresh-candidate-snapshot.mjs --dry-run --from-live-drift` still selected 6 repos, proving the new filter is opt-in and does not hide advisory drift evidence.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.

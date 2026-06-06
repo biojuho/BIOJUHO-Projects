@@ -386,6 +386,7 @@ if (!liveResult.ok) {
 const comparisons = compare(snapshot.monitored, liveResult.data);
 const drifted = comparisons.filter((item) => item.drift.length > 0);
 const blockingDrifted = comparisons.filter((item) => item.blockingDrift.length > 0);
+const actionableDrifted = blockingDrifted;
 const cadenceAdvisoryDrifted = comparisons.filter((item) => item.cadenceAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
 const metadataAdvisoryDrifted = comparisons.filter((item) => item.metadataAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
 const advisoryDrifted = comparisons.filter((item) => item.advisoryDrift.length > 0 && item.blockingDrift.length === 0);
@@ -397,12 +398,14 @@ finish(withCadencePolicy({
   monitored: snapshot.monitored.length,
   driftCount: drifted.length,
   blockingDriftCount: blockingDrifted.length,
+  actionableDriftCount: actionableDrifted.length,
   advisoryDriftCount: advisoryDrifted.length,
   cadenceAdvisoryDriftCount: cadenceAdvisoryDrifted.length,
   metadataAdvisoryDriftCount: metadataAdvisoryDrifted.length,
   failOnDrift,
   driftPolicy: {
     blockingFields,
+    actionableFields: blockingFields,
     advisoryFields: Array.from(advisoryFields),
     cadenceAdvisoryFields: Array.from(highChurnCadenceFields),
     metadataAdvisoryFields: Array.from(commitStableMetadataFields),
@@ -411,6 +414,7 @@ finish(withCadencePolicy({
   },
   drifted,
   blockingDrifted,
+  actionableDrifted,
   advisoryDrifted,
   cadenceAdvisoryDrifted,
   metadataAdvisoryDrifted,
