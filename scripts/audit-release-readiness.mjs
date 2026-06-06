@@ -449,11 +449,11 @@ function verifyRelease() {
 }
 
 function githubPagesWorkflowHandoffDryRun() {
-  const result = run(process.execPath, ["scripts/prepare-github-pages-workflow.mjs", "--dry-run"], { timeout: 15000 });
+  const result = run(process.execPath, ["scripts/prepare-github-pages-workflow.mjs", "--dry-run", "--check-scope"], { timeout: 15000 });
   const payload = parseJson(result.stdout);
   return {
-    status: result.ok && payload && payload.status === "pass" && payload.mode === "dry-run" && payload.willWrite === false && payload.targetRepositoryPath === ".github/workflows/joopark-pages.yml" ? "pass" : "fail",
-    command: "node scripts/prepare-github-pages-workflow.mjs --dry-run",
+    status: result.ok && payload && payload.status === "pass" && payload.mode === "dry-run" && payload.willWrite === false && payload.targetRepositoryPath === ".github/workflows/joopark-pages.yml" && payload.workflowScopeChecked === true && typeof payload.workflowScopeAvailable === "boolean" ? "pass" : "fail",
+    command: "node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope",
     result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
   };
 }
@@ -631,7 +631,7 @@ function buildChecklist() {
   });
 
   const pagesWorkflowTerms = [
-    { file: "docs/github-pages-workflow.yml", terms: ["workflow_dispatch:", "codex/joopark-workspace-release", "permissions:", "pages: write", "id-token: write", "actions/configure-pages@v5", "actions/upload-pages-artifact@v3", "actions/deploy-pages@v4", "node scripts/package-release.mjs", "node scripts/verify-release.mjs", "path: dist/release"] },
+    { file: "docs/github-pages-workflow.yml", terms: ["workflow_dispatch:", "codex/joopark-workspace-release", "permissions:", "pages: write", "id-token: write", "actions/configure-pages@v6", "actions/upload-pages-artifact@v5", "actions/deploy-pages@v5", "node scripts/package-release.mjs", "node scripts/verify-release.mjs", "path: dist/release"] },
     { file: "README.md", terms: ["docs/github-pages-workflow.yml", "Publish JooPark Pages", "workflow_dispatch", "GitHub Pages artifact", "workflow` scope"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({

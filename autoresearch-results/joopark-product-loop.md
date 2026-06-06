@@ -1674,6 +1674,20 @@ Generated: 2026-06-06T21:23:20+09:00
 - `BASE_URL=http://127.0.0.1:5183 node scripts/smoke-chrome.mjs` and `BASE_URL=http://127.0.0.1:5183 node scripts/smoke-mobile.mjs` passed with `routeCount: 16` and no missing text, layout, console, or network failures.
 - `BASE_URL=http://127.0.0.1:5183 node scripts/audit-release-readiness.mjs --run-gates` passed with `73/73` checks, including `route_surface` and `system_status_route`.
 
+## Experiment: Workflow scope-aware release audit
+
+- Hypothesis: The Pages workflow handoff should verify the current GitHub token's `workflow` scope during dry-run audits, so operators know whether the template can be installed through CLI or must be installed through a scoped token/UI session.
+- Primary metric: `workflowScopeChecked`.
+- Baseline: The release audit called `node scripts/prepare-github-pages-workflow.mjs --dry-run`, which validated paths but did not require boolean workflow-scope evidence in the handoff result.
+- Candidate: Call `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope`, require `workflowScopeChecked: true`, and update the Pages workflow template action versions to current major versions.
+- Decision: keep; the handoff audit now carries explicit scope evidence without writing the repository-root workflow file.
+
+## Evidence
+
+- `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` reports `workflowScopeChecked: true` and a boolean `workflowScopeAvailable` value.
+- `scripts/audit-release-readiness.mjs` now records command `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` for `github_pages_workflow_scope_handoff`.
+- `docs/github-pages-workflow.yml` now uses `actions/configure-pages@v6`, `actions/upload-pages-artifact@v5`, and `actions/deploy-pages@v5`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
