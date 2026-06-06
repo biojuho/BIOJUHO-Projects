@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T21:36:35+09:00",
+  "generatedAt": "2026-06-06T21:50:59+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -89,9 +89,11 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 13,
+      "candidateFreshnessLiveDriftCount": 14,
+      "candidateFreshnessBlockingDriftCount": 9,
+      "candidateFreshnessAdvisoryDriftCount": 5,
       "candidateFreshnessMonitored": 21,
-      "candidateFreshnessSourceMarkers": 45,
+      "candidateFreshnessSourceMarkers": 46,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -104,6 +106,12 @@
       "veritasSnapshotWriterChanged": true,
       "veritasSnapshotWriterSourceMarker": "github-api:veritas-focused-drift-refresh-v8651",
       "veritasSnapshotWriterLastCommit": "cd49f78e2f9bbcd782aad185726ad3d60242f998",
+      "veritasSnapshotWriterRefresh3Changed": true,
+      "veritasSnapshotWriterRefresh3SourceMarker": "github-api:veritas-focused-drift-refresh-v8672",
+      "veritasSnapshotWriterRefresh3LastCommit": "b1023c98cd262e992466c6a8c7f78fda2d42aa93",
+      "veritasSnapshotWriterRefresh3LiveDriftCount": 0,
+      "veritasSnapshotWriterRefresh3Version": "v8.672",
+      "veritasSnapshotWriterRefresh3FullBlockingDriftAfter": 9,
       "candidateSnapshotWriterChecks": 5,
       "candidateSnapshotWriterSnapshotOnly": true,
       "outlineGenericSnapshotWriterChanged": true,
@@ -797,6 +805,13 @@
       "primaryMetric": "veritasSnapshotWriterChanged",
       "baseline": "v8.649",
       "candidate": "v8.651",
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-focused-snapshot-writer-v8672",
+      "primaryMetric": "veritasSnapshotWriterRefresh3Changed",
+      "baseline": "v8.651",
+      "candidate": "v8.672",
       "decision": "keep"
     },
     {
