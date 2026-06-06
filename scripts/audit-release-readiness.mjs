@@ -700,8 +700,8 @@ function buildChecklist() {
   });
 
   const freshnessCadenceTerms = [
-    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--cadence-policy", "candidate-freshness-drift-cadence-v1", "highChurnRepos", "repoScopedHighChurn", "headOnlyDriftCadenceAdvisory", "--fail-on-drift"] },
-    { file: "README.md", terms: ["--cadence-policy", "high-churn", "Veritas-7/autoresearch-skill-system", "cadence-advisory", "--fail-on-drift"] },
+    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--cadence-policy", "candidate-freshness-drift-cadence-v1", "candidate-freshness-commit-stable-repo-metadata-v2", "highChurnRepos", "repoScopedHighChurn", "highChurnSourceMetadataCadenceAdvisory", "commitStableMetadataAdvisory", "--fail-on-drift"] },
+    { file: "README.md", terms: ["--cadence-policy", "high-churn", "Veritas-7/autoresearch-skill-system", "cadence-advisory", "metadata-advisory", "--fail-on-drift"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const freshnessCadenceSnapshot = run("node", [
     "scripts/check-candidate-freshness-drift.mjs",
@@ -717,12 +717,13 @@ function buildChecklist() {
     cadencePolicy?.id === "candidate-freshness-drift-cadence-v1" &&
     cadencePolicy?.checks?.repoScopedHighChurn &&
     cadencePolicy?.checks?.failOnDriftCommandScoped &&
-    cadencePolicy?.checks?.headOnlyDriftCadenceAdvisory &&
+    cadencePolicy?.checks?.highChurnSourceMetadataCadenceAdvisory &&
+    cadencePolicy?.checks?.commitStableMetadataAdvisory &&
     cadenceHighChurnRepos.some((item) => item.repo === "Veritas-7/autoresearch-skill-system" && item.monitored && item.inScope),
   );
   checklist.push({
     id: "candidate_freshness_drift_cadence_policy",
-    requirement: "High-churn adoption-candidate sources have a repo-scoped refresh cadence and a bounded cadence-advisory policy before fail-on-drift automation is enabled.",
+    requirement: "High-churn adoption-candidate sources have bounded nonblocking drift policies before fail-on-drift automation is enabled.",
     status: freshnessCadenceTerms.every((item) => item.missingTerms.length === 0) &&
       freshnessCadenceSnapshot.ok &&
       cadencePolicyReady ? "pass" : "fail",

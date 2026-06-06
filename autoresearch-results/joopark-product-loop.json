@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T22:19:17+09:00",
+  "generatedAt": "2026-06-06T23:26:54+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -89,18 +89,25 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 14,
-      "candidateFreshnessBlockingDriftCount": 9,
-      "candidateFreshnessAdvisoryDriftCount": 5,
+      "candidateFreshnessLiveDriftCount": 15,
+      "candidateFreshnessBlockingDriftCount": 4,
+      "candidateFreshnessAdvisoryDriftCount": 9,
       "candidateFreshnessMonitored": 21,
       "candidateFreshnessSourceMarkers": 47,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
-      "candidateFreshnessHeadOnlyCadenceAdvisory": true,
+      "candidateFreshnessSourceMetadataCadenceAdvisory": true,
       "candidateFreshnessCadenceAdvisoryDriftCount": 1,
-      "veritasHeadOnlyCadenceAdvisoryMinutes": 17.6,
-      "veritasHeadOnlyCadenceBlockingDriftCount": 0,
+      "candidateFreshnessCommitStableMetadataAdvisory": true,
+      "candidateFreshnessMetadataAdvisoryDriftCount": 5,
+      "veritasSourceMetadataCadenceAdvisoryMinutes": 88.8,
+      "veritasSourceMetadataCadenceBlockingDriftCount": 0,
+      "veritasSourceMetadataCadenceFields": [
+        "lastCommit",
+        "pushedAt",
+        "diskKb"
+      ],
       "veritasFocusedDriftRefreshChecks": 3,
       "veritasFocusedSnapshotVersion": "v8.651",
       "veritasSnapshotWriterChecks": 7,
@@ -145,6 +152,24 @@
       "outlineGenericSnapshotWriterRefresh2SourceMarker": "github-api:outline-outline-candidate-refresh",
       "outlineGenericSnapshotWriterRefresh2LastCommit": "f329b56d0edbbd687728c7436713f2c99e8ec722",
       "outlineGenericSnapshotWriterRefresh2LiveDriftCount": 0,
+      "outlineGenericSnapshotWriterRefresh3Changed": true,
+      "outlineGenericSnapshotWriterRefresh3SourceMarker": "github-api:outline-outline-candidate-refresh",
+      "outlineGenericSnapshotWriterRefresh3LastCommit": "58f0613b5f87f94c92a3c00aa6dab2c59749636b",
+      "outlineGenericSnapshotWriterRefresh3LiveDriftCount": 0,
+      "outlineGenericSnapshotWriterRefresh3FullBlockingDriftAfter": 8,
+      "outlineGenericSnapshotWriterRefresh3OpenPRs": 20,
+      "outlineGenericSnapshotWriterRefresh3DiskKb": 319385,
+      "outlineGenericSnapshotWriterRefresh4Changed": true,
+      "outlineGenericSnapshotWriterRefresh4SourceMarker": "github-api:outline-outline-candidate-refresh",
+      "outlineGenericSnapshotWriterRefresh4LastCommit": "f4b80d5301d3213dbacd1ba654f5d94f045c1fc4",
+      "outlineGenericSnapshotWriterRefresh4LiveDriftCount": 0,
+      "outlineGenericSnapshotWriterRefresh4FullBlockingDriftAfter": 7,
+      "outlineGenericSnapshotWriterRefresh4OpenPRs": 20,
+      "outlineGenericSnapshotWriterRefresh4DiskKb": 317197,
+      "outlineCommitStableDiskBlockingDriftCount": 0,
+      "outlineCommitStableDiskMetadataAdvisory": true,
+      "outlineCommitStablePushedAtBlockingDriftCount": 0,
+      "outlineCommitStablePushedAtMetadataAdvisory": true,
       "leantimeGenericSnapshotWriterChanged": true,
       "leantimeGenericSnapshotWriterSourceMarker": "github-api:leantime-leantime-candidate-refresh",
       "leantimeGenericSnapshotWriterLastCommit": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
@@ -833,7 +858,7 @@
     },
     {
       "id": "candidate-freshness-high-churn-cadence-advisory",
-      "primaryMetric": "veritasHeadOnlyCadenceBlockingDriftCount",
+      "primaryMetric": "veritasHighChurnCadenceBlockingDriftCount",
       "baseline": 1,
       "candidate": 0,
       "decision": "keep"
@@ -881,6 +906,20 @@
       "decision": "keep"
     },
     {
+      "id": "outline-generic-snapshot-refresh-3",
+      "primaryMetric": "outlineGenericSnapshotWriterRefresh3Changed",
+      "baseline": "f329b56d0edbbd687728c7436713f2c99e8ec722",
+      "candidate": "58f0613b5f87f94c92a3c00aa6dab2c59749636b",
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-commit-stable-metadata-advisory",
+      "primaryMetric": "outlineCommitStableDiskBlockingDriftCount",
+      "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
       "id": "leantime-generic-snapshot-refresh",
       "primaryMetric": "leantimeGenericSnapshotWriterChanged",
       "baseline": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
@@ -911,6 +950,27 @@
     {
       "id": "candidate-freshness-advisory-popularity-drift",
       "primaryMetric": "planePopularityBlockingDriftCount",
+      "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-high-churn-source-metadata-advisory",
+      "primaryMetric": "veritasSourceMetadataCadenceBlockingDriftCount",
+      "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "outline-generic-snapshot-refresh-4",
+      "primaryMetric": "outlineGenericSnapshotWriterRefresh4Changed",
+      "baseline": "58f0613b5f87f94c92a3c00aa6dab2c59749636b",
+      "candidate": "f4b80d5301d3213dbacd1ba654f5d94f045c1fc4",
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-commit-stable-repo-metadata-advisory",
+      "primaryMetric": "outlineCommitStablePushedAtBlockingDriftCount",
       "baseline": 1,
       "candidate": 0,
       "decision": "keep"

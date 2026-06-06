@@ -1424,18 +1424,93 @@ Generated: 2026-06-06T21:23:20+09:00
 
 ## Experiment: High-churn cadence advisory drift
 
-- Hypothesis: A high-churn launch-candidate source should not deadlock release sync when only `lastCommit/pushedAt` advance within the documented freshness cadence and material metadata stays unchanged.
-- Primary metric: `veritasHeadOnlyCadenceBlockingDriftCount`.
-- Baseline: The v8.674 release sync failed because Veritas moved from commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e` to `4678612db1924cc46cd923f0edff26aa230033ca`, with blocking drift only in `lastCommit` and `pushedAt`.
-- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies high-churn `lastCommit/pushedAt`-only drift as `cadence-advisory` for `Veritas-7/autoresearch-skill-system` when the live push is within the 4-hour cadence and issue/PR/disk metadata is unchanged.
+- Hypothesis: A high-churn launch-candidate source should not deadlock release sync when only source-head metadata advances within the documented freshness cadence and repository triage metadata stays unchanged.
+- Primary metric: `veritasHighChurnCadenceBlockingDriftCount`.
+- Baseline: The v8.674 release sync failed because Veritas moved from commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e` to `4678612db1924cc46cd923f0edff26aa230033ca`, with blocking drift confined to `lastCommit` and `pushedAt`.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` classifies high-churn source-head drift as `cadence-advisory` for `Veritas-7/autoresearch-skill-system` when the live push is within the 4-hour cadence and issue/PR metadata is unchanged.
 - Decision: keep; repo-scoped `--fail-on-drift` now passes with `blockingDriftCount: 0`, `cadenceAdvisoryDriftCount: 1`, and `driftMinutes: 17.6`, while material metadata drift remains blocking.
 
 ## Evidence
 
 - `npm run lint` passed after the checker, audit, README, and AutoResearch log updates.
-- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `headOnlyDriftCadenceAdvisory: true`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with the high-churn cadence advisory check enabled.
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 1`, `blockingDriftCount: 0`, and `cadenceAdvisoryDriftCount: 1`.
-- `autoresearch-results/joopark-product-loop.json` now reports `veritasHeadOnlyCadenceBlockingDriftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports the high-churn cadence blocking drift count at 0.
+
+## Experiment: Outline generic snapshot refresh 3
+
+- Hypothesis: The KB/IA benchmark winner should be refreshed again when upstream commit, pushedAt, PR count, and repository size drift together after the cadence-advisory release sync.
+- Primary metric: `outlineGenericSnapshotWriterRefresh3Changed`.
+- Baseline: Outline snapshot commit `f329b56d0edbbd687728c7436713f2c99e8ec722`, pushed `2026-06-06T11:24:17Z`, 21 open PRs, and `diskKb: 319346`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo outline/outline` updated Outline to commit `58f0613b5f87f94c92a3c00aa6dab2c59749636b`, pushed `2026-06-06T13:30:51Z`, 20 open PRs, and `diskKb: 319385`.
+- Decision: keep; the repo-scoped live drift check reports `driftCount: 0`, and full live blocking drift drops from 9 to 8.
+
+## Evidence
+
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo outline/outline` passed with source marker `github-api:outline-outline-candidate-refresh`.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` passed with `driftCount: 0`.
+- Full live drift now reports `driftCount: 14`, `blockingDriftCount: 8`, `advisoryDriftCount: 5`, and `cadenceAdvisoryDriftCount: 1`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterRefresh3Changed: true`.
+
+## Experiment: Commit-stable metadata advisory drift
+
+- Hypothesis: Release gates should fail on source freshness drift, but should not block when GitHub recalculates repository `diskKb` while `lastCommit` and `pushedAt` remain unchanged.
+- Primary metric: `outlineCommitStableDiskBlockingDriftCount`.
+- Baseline: The Outline release sync failed after PR #232 because only `diskKb` moved from 319385 to 317197 while commit `58f0613b5f87f94c92a3c00aa6dab2c59749636b` and pushedAt `2026-06-06T13:30:51Z` stayed current; stars also moved as an existing advisory field.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` classifies commit-stable `diskKb` drift as `metadata-advisory`; audit and README require the policy term.
+- Decision: keep; `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` exits 0 with `blockingDriftCount: 0` and `metadataAdvisoryDriftCount: 1`.
+
+## Evidence
+
+- `npm run lint` passed after the checker, audit, README, and AutoResearch log updates.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `commitStableMetadataAdvisory: true`.
+- Full live drift now reports `driftCount: 15`, `blockingDriftCount: 7`, `advisoryDriftCount: 7`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 2`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineCommitStableDiskBlockingDriftCount: 0`.
+
+## Experiment: High-churn source metadata cadence advisory drift
+
+- Hypothesis: A high-churn launch-candidate source should not deadlock release sync when `lastCommit`, `pushedAt`, and `diskKb` move together inside the documented freshness cadence while issue and PR metadata stay unchanged.
+- Primary metric: `veritasSourceMetadataCadenceBlockingDriftCount`.
+- Baseline: The post-PR #233 release sync failed because Veritas moved from commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e` to `36926dfcc7f77c03b8dea583b4831d8572b7e098`, with blocking drift in `lastCommit`, `pushedAt`, and `diskKb`.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies that high-churn source metadata set as `cadence-advisory` for `Veritas-7/autoresearch-skill-system` when the live push is within the 4-hour cadence and issue/PR metadata is unchanged; audit and README require the new policy term.
+- Decision: keep; repo-scoped `--fail-on-drift` now exits 0 with `blockingDriftCount: 0`, `cadenceAdvisoryDriftCount: 1`, and `driftMinutes: 61.2`.
+
+## Evidence
+
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `highChurnSourceMetadataCadenceAdvisory: true`.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 1`, `blockingDriftCount: 0`, and `cadenceAdvisoryDriftCount: 1`.
+- Full live drift now reports `driftCount: 15`, `blockingDriftCount: 7`, `advisoryDriftCount: 6`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 2`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSourceMetadataCadenceBlockingDriftCount: 0`.
+
+## Experiment: Outline generic snapshot refresh 4
+
+- Hypothesis: The KB/IA benchmark winner should be refreshed again when GitHub source metadata moves during release sync, preserving repo-scoped freshness proof without weakening drift policy.
+- Primary metric: `outlineGenericSnapshotWriterRefresh4Changed`.
+- Baseline: Outline snapshot commit `58f0613b5f87f94c92a3c00aa6dab2c59749636b`, pushed `2026-06-06T13:30:51Z`, 20 open PRs, and `diskKb: 319385`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo outline/outline` updated Outline to commit `f4b80d5301d3213dbacd1ba654f5d94f045c1fc4`, pushed `2026-06-06T14:14:37Z`, 20 open PRs, and `diskKb: 317197`.
+- Decision: keep; the repo-scoped live drift check reports `driftCount: 0`, while full live drift is now `driftCount: 14`, `blockingDriftCount: 7`, `advisoryDriftCount: 6`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 1`.
+
+## Evidence
+
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo outline/outline` passed with source marker `github-api:outline-outline-candidate-refresh`.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` passed with `driftCount: 0`.
+- `node scripts/check-candidate-freshness-drift.mjs --live` reported no `outline/outline` entry in `drifted`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterRefresh4Changed: true`.
+
+## Experiment: Commit-stable repository metadata advisory drift
+
+- Hypothesis: Release gates should fail on default-branch source freshness drift, but should not block when GitHub `pushedAt` or `diskKb` moves while `lastCommit` remains unchanged.
+- Primary metric: `outlineCommitStablePushedAtBlockingDriftCount`.
+- Baseline: The post-PR #235 release sync failed because Outline kept commit `f4b80d5301d3213dbacd1ba654f5d94f045c1fc4` but GitHub moved `pushedAt` from `2026-06-06T14:14:37Z` to `2026-06-06T14:23:46Z`; stars also moved as an existing advisory field.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies commit-stable `pushedAt` and `diskKb` drift as `metadata-advisory` with policy id `candidate-freshness-commit-stable-repo-metadata-v2`; audit and README require the v2 policy term.
+- Decision: keep; `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` exits 0 with `blockingDriftCount: 0` and `metadataAdvisoryDriftCount: 1`.
+
+## Evidence
+
+- `npm run lint` passed after the checker, audit, README, and AutoResearch log updates.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with metadata policy `candidate-freshness-commit-stable-repo-metadata-v2`.
+- Full live drift now reports `driftCount: 15`, `blockingDriftCount: 4`, `advisoryDriftCount: 9`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 5`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineCommitStablePushedAtBlockingDriftCount: 0`.
 
 ## Next Loop
 
