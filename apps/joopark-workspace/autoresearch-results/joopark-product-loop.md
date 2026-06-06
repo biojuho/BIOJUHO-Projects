@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T21:11:36+09:00
+Generated: 2026-06-06T21:23:20+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -1362,6 +1362,21 @@ Generated: 2026-06-06T21:11:36+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 45 source markers.
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` passed with `driftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `planeGenericSnapshotWriterChanged: true`.
+
+## Experiment: Plane generic snapshot refresh 2
+
+- Hypothesis: Plane's popularity metadata should be refreshed again when stars and forks move during release sync so the PM benchmark row remains source-current.
+- Primary metric: `planeGenericSnapshotWriterRefresh2Changed`.
+- Baseline: Plane snapshot commit `0bbfe95cc74c9c958d66b156df2783fdbc180f8e`, 50,402 stars, and 4,437 forks.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo makeplane/plane` kept the same commit while updating Plane to 50,403 stars, 4,438 forks, and the existing source marker `github-api:makeplane-plane-candidate-refresh`.
+- Decision: keep; the Plane PM benchmark row passes a repo-scoped live drift check with drift count 0 after the release-sync drift.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the Plane row.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 45 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `planeGenericSnapshotWriterRefresh2Changed: true`.
 
 ## Next Loop
 
