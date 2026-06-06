@@ -1229,6 +1229,34 @@ Generated: 2026-06-06T04:34:36+09:00
 - The writer updated `data/adoption-candidates.json` only, changing the Veritas description to `v8.651 최신 guard managed source commits...`.
 - `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.651` and the v8.651 source marker.
 
+## Experiment: generic candidate snapshot writer
+
+- Hypothesis: Source-backed candidate drift refreshes should not require a one-off script per repository.
+- Primary metric: `candidateSnapshotWriterChecks`.
+- Baseline: 0 generic writer checks; only the high-churn Veritas row had a dedicated dry-run/write helper.
+- Candidate: add `scripts/refresh-candidate-snapshot.mjs` with `--repo owner/name`, `--snapshot-only`, `--dry-run`, `--fail-on-change`, and `--write`, plus README and release-audit coverage.
+- Decision: keep; the generic writer passed snapshot-only against `Veritas-7/autoresearch-skill-system` and dry-run detected live drift for `outline/outline`.
+
+## Evidence
+
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system` passed with source marker compatibility for existing Veritas-focused markers.
+- `node scripts/refresh-candidate-snapshot.mjs --dry-run --repo outline/outline` reported `changed: true` without writing.
+- `scripts/audit-release-readiness.mjs` now includes `candidate_snapshot_writer`.
+
+## Experiment: Outline generic snapshot refresh
+
+- Hypothesis: The new generic writer is ready for non-Veritas source-backed candidates when it can refresh a KB/IA benchmark repo without custom code.
+- Primary metric: `outlineGenericSnapshotWriterChanged`.
+- Baseline: Outline snapshot commit `e864684d569c81ca2b03c816d22e0c80e2ff6466`, `pushedAt: 2026-06-05T14:54:48Z`, and 38 open issues.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo outline/outline` updated Outline to commit `be3f28afeaaa8b92137685376fe17fff94e62255`, `pushedAt: 2026-06-06T03:42:42Z`, 37 open issues, 38,779 stars, and source marker `github-api:outline-outline-candidate-refresh`.
+- Decision: keep; the KB/IA benchmark winner now uses the generic refresh path and current source-backed metadata.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the Outline row and source marker.
+- Existing dynamic smoke/audit paths read the refreshed Outline commit and pushedAt from the snapshot rather than hard-coded literals.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterChanged: true`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.

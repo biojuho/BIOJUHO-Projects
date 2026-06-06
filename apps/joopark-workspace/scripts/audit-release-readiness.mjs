@@ -55,6 +55,10 @@ const veritasSnapshotWriterScripts = [
   "scripts/refresh-veritas-candidate-snapshot.mjs",
 ];
 
+const candidateSnapshotWriterScripts = [
+  "scripts/refresh-candidate-snapshot.mjs",
+];
+
 const appMarkers = [
   { id: "calendar_crud", file: "app.js", terms: ["function openEventModal", "function saveEventFromForm", "function deleteEvent"] },
   { id: "todo_crud", file: "app.js", terms: ["function quickAddTodo", "function saveTodoFromForm", "function toggleTodo", "function deleteTodo"] },
@@ -752,6 +756,35 @@ function buildChecklist() {
         status: veritasSnapshotWriter.ok ? "pass" : "fail",
         result: parseJson(veritasSnapshotWriter.stdout) || veritasSnapshotWriter.stdout.trim(),
         stderr: veritasSnapshotWriter.stderr.trim(),
+      },
+    },
+  });
+
+  const candidateSnapshotWriterFiles = candidateSnapshotWriterScripts.map((path) => ({ path, exists: fileExists(path) }));
+  const candidateSnapshotWriterTerms = [
+    { file: "scripts/refresh-candidate-snapshot.mjs", terms: ["--repo", "--snapshot-only", "--write", "--fail-on-change", "gh api", "graphql", "sourceMarkerForRepo", "messageHeadline"] },
+    { file: "README.md", terms: ["refresh-candidate-snapshot.mjs", "--repo owner/name", "--snapshot-only", "--write", "--fail-on-change"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const candidateSnapshotWriter = run("node", [
+    "scripts/refresh-candidate-snapshot.mjs",
+    "--snapshot-only",
+    "--repo",
+    "Veritas-7/autoresearch-skill-system",
+  ]);
+  checklist.push({
+    id: "candidate_snapshot_writer",
+    requirement: "Source-backed adoption candidate snapshots have a generic repo-scoped dry-run/write helper so focused drift refreshes are not limited to one hard-coded repository.",
+    status: candidateSnapshotWriterFiles.every((item) => item.exists) &&
+      candidateSnapshotWriterTerms.every((item) => item.missingTerms.length === 0) &&
+      candidateSnapshotWriter.ok ? "pass" : "fail",
+    evidence: {
+      files: candidateSnapshotWriterFiles,
+      terms: candidateSnapshotWriterTerms,
+      snapshotOnly: {
+        command: "node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system",
+        status: candidateSnapshotWriter.ok ? "pass" : "fail",
+        result: parseJson(candidateSnapshotWriter.stdout) || candidateSnapshotWriter.stdout.trim(),
+        stderr: candidateSnapshotWriter.stderr.trim(),
       },
     },
   });

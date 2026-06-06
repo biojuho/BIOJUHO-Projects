@@ -148,6 +148,15 @@ node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change
 node scripts/refresh-veritas-candidate-snapshot.mjs --write
 ```
 
+다른 source-backed 도입 후보는 generic writer로 같은 절차를 사용합니다. `--repo owner/name`으로 대상 row를 지정하고, dry-run으로 변경 범위를 본 뒤 `--write`로만 `data/adoption-candidates.json`을 갱신합니다.
+
+```bash
+node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system
+node scripts/refresh-candidate-snapshot.mjs --dry-run --repo outline/outline
+node scripts/refresh-candidate-snapshot.mjs --dry-run --repo outline/outline --fail-on-change
+node scripts/refresh-candidate-snapshot.mjs --write --repo outline/outline
+```
+
 ## 구성
 
 - `index.html` — 사이드바/메인/시트/모달/명령 팔레트 레이아웃, 뷰 컨테이너
@@ -163,6 +172,7 @@ node scripts/refresh-veritas-candidate-snapshot.mjs --write
 - `scripts/smoke-release.mjs` — 출시 패키지를 임시 HTTP 서버로 실제 서빙해 Chrome 라우트 스모크까지 실행하는 전체 출시 게이트
 - `scripts/audit-release-readiness.mjs` — 출시 요구사항을 정적 파일·문서·manifest·브라우저 게이트·Git publish 조건 증거에 매핑하는 감사 리포트
 - `scripts/check-candidate-freshness-drift.mjs` — source-backed 도입 후보의 로컬 snapshot shape를 확인하고, `--live`에서 GitHub GraphQL HEAD/pushedAt/star/fork/issue/PR/disk drift를 보고
+- `scripts/refresh-candidate-snapshot.mjs` — `--repo owner/name` source-backed 도입 후보를 dry-run/write 방식으로 GitHub GraphQL 최신 HEAD 스냅샷에 맞춰 갱신
 - `scripts/refresh-veritas-candidate-snapshot.mjs` — high-churn Veritas 도입 후보를 dry-run/write 방식으로 GitHub GraphQL 최신 HEAD 스냅샷에 맞춰 갱신
 - `data/repos.json` — GitHub 저장소 스냅샷 (포트폴리오 시드) · `data/adoption-candidates.json` — OSS 도입 후보 스냅샷 · `scripts/sync-github.sh` — GitHub 스냅샷 재생성
 - `vendor/` — 로컬 동봉한 오픈소스 라이브러리 (아래 "도입한 오픈소스" 참고) · `vendor/LICENSES.md`
