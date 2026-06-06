@@ -1102,6 +1102,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/smoke-interactions.mjs` now reports `knowledgeBaseBenchmarkReviewHandoffVisible`, `knowledgeBaseBenchmarkReviewHandoffCopyVisible`, and `knowledgeBaseBenchmarkReviewIssueDraftVisible`.
 - `scripts/audit-release-readiness.mjs` now includes `knowledge_base_information_architecture_review_handoff`, `knowledge_base_information_architecture_review_handoff_copy`, and `knowledge_base_information_architecture_review_issue_draft`.
 
+## Experiment: AppFlowy and AFFiNE workspace benchmark rubric
+
+- Hypothesis: The paired AppFlowy/AFFiNE benchmark evidence becomes product-useful when it is converted into a PM, notes, and workspace comparison rubric instead of staying as freshness-only metadata.
+- Primary metric: AppFlowy/AFFiNE workspace benchmark rubric checks.
+- Baseline: 0 workspace rubric checks; AppFlowy and AFFiNE were searchable freshness candidates but had no weighted PM/notes/workspace recommendation.
+- Candidate: add a `workspaceBenchmark` rubric comparing AppFlowy and AFFiNE across `PM/Task 흐름`, `Notes/Wiki IA`, `Collaboration/Data control`, and `Implementation transfer`; AFFiNE scores 86 and AppFlowy scores 83.
+- Decision: keep; AFFiNE becomes the primary workspace benchmark because its Notion/Miro knowledge-base + whiteboard model, CRDT collaboration signal, and TypeScript stack transfer better fit the JooPark web workspace direction, while AppFlowy remains the stronger PM/task contrast.
+
+## Evidence
+
+- `data/adoption-candidates.json` now includes `workspaceBenchmark` rows for `AppFlowy-IO/AppFlowy` and `toeverything/AFFiNE`.
+- `app.js` now includes `projectWorkspaceBenchmark`, `projectWorkspaceRubric`, `projectWorkspaceRubricScore`, `workspaceBenchmarkRubricRanking`, and `candidateWorkspaceRubric`.
+- `scripts/smoke-interactions.mjs` now reports `workspaceBenchmarkRubricVisible` and verifies the AFFiNE recommendation, score 86, AppFlowy score 83, weighted axes, and representative cells.
+- `scripts/audit-release-readiness.mjs` now includes `appflowy_affine_workspace_benchmark_rubric`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, add KB/IA GitHub comment or notes-review publish support, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, add AppFlowy/AFFiNE recommendation export or issue draft support, add KB/IA GitHub comment or notes-review publish support, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
