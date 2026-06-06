@@ -630,6 +630,37 @@ function buildChecklist() {
     },
   });
 
+  const desktopOverflowSmokeTerms = [
+    { file: "scripts/smoke-chrome.mjs", terms: ["layoutIssues", "overflowX", "docScrollWidth", "desktop layout issues"] },
+    { file: "scripts/smoke-release.mjs", terms: ["layoutIssues: smokeResult.layoutIssues", "viewport: smokeResult.viewport"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["desktop_route_overflow_smoke", "The desktop route smoke fails on horizontal overflow"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const desktopOverflowGateOk = !gateEvidence || (
+    gateEvidence.result?.smoke?.status === "pass" &&
+    Array.isArray(gateEvidence.result?.smoke?.layoutIssues) &&
+    gateEvidence.result.smoke.layoutIssues.length === 0
+  );
+  checklist.push({
+    id: "desktop_route_overflow_smoke",
+    requirement: "The desktop route smoke fails on horizontal overflow and release smoke reports desktop layout evidence.",
+    status: desktopOverflowSmokeTerms.every((item) => item.missingTerms.length === 0) && desktopOverflowGateOk ? "pass" : "fail",
+    evidence: {
+      files: desktopOverflowSmokeTerms,
+      gate: gateEvidence ? {
+        command: gateEvidence.command,
+        status: gateEvidence.status,
+        smoke: {
+          status: gateEvidence.result?.smoke?.status || "unknown",
+          viewport: gateEvidence.result?.smoke?.viewport || null,
+          layoutIssues: gateEvidence.result?.smoke?.layoutIssues || null,
+        },
+      } : {
+        command: "node scripts/audit-release-readiness.mjs --run-gates",
+        status: "not_run",
+      },
+    },
+  });
+
   const pagesWorkflowTerms = [
     { file: "docs/github-pages-workflow.yml", terms: ["workflow_dispatch:", "codex/joopark-workspace-release", "permissions:", "pages: write", "id-token: write", "actions/configure-pages@v6", "actions/upload-pages-artifact@v5", "actions/deploy-pages@v5", "node scripts/package-release.mjs", "node scripts/verify-release.mjs", "path: dist/release"] },
     { file: "README.md", terms: ["docs/github-pages-workflow.yml", "Publish JooPark Pages", "workflow_dispatch", "GitHub Pages artifact", "workflow` scope"] },

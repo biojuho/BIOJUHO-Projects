@@ -523,6 +523,8 @@ async function main() {
       status: smokeResult.status,
       routeCount: smokeResult.routeCount,
       retryAttempts: smokeResult.retryAttempts || [],
+      viewport: smokeResult.viewport,
+      layoutIssues: smokeResult.layoutIssues,
       consoleIssues: smokeResult.consoleIssues,
       networkIssues: smokeResult.networkIssues,
       failures: smokeResult.failures,

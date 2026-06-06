@@ -1,21 +1,21 @@
 {
-  "generatedAt": "2026-06-07T01:41:56+09:00",
+  "generatedAt": "2026-06-07T03:25:46+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 70,
+      "pass": 74,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 70
+      "total": 74
     },
     "browserEvidence": {
-      "routes": 15,
-      "mobileRoutes": 15,
-      "interactionSteps": 18,
+      "routes": 16,
+      "mobileRoutes": 16,
+      "interactionSteps": 19,
       "markdownSanitized": true,
       "workspaceCandidateVisible": true,
       "workspaceCompetitiveCandidateVisible": true,
@@ -346,7 +346,14 @@
       "candidateBenchmarkReviewHandoffCopyVisible": true,
       "taskosaurWorkstreamBenchmarkReviewHandoffCopyChecks": 4,
       "candidateBenchmarkReviewIssueDraftVisible": true,
-      "taskosaurWorkstreamBenchmarkReviewIssueDraftChecks": 5
+      "taskosaurWorkstreamBenchmarkReviewIssueDraftChecks": 5,
+      "homeQuickLinksNavigate": true,
+      "desktopViewport": {
+        "width": 756,
+        "height": 469
+      },
+      "desktopLayoutIssues": 0,
+      "desktopRouteOverflowSmokeChecks": 1
     }
   },
   "experiments": [
@@ -1172,6 +1179,13 @@
     {
       "id": "workflow-scope-aware-release-audit",
       "primaryMetric": "workflowScopeChecked",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "desktop-route-overflow-smoke",
+      "primaryMetric": "desktopRouteOverflowSmokeCoverage",
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"

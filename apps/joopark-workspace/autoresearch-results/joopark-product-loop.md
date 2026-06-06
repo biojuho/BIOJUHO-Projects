@@ -1688,6 +1688,20 @@ Generated: 2026-06-06T21:23:20+09:00
 - `scripts/audit-release-readiness.mjs` now records command `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` for `github_pages_workflow_scope_handoff`.
 - `docs/github-pages-workflow.yml` now uses `actions/configure-pages@v6`, `actions/upload-pages-artifact@v5`, and `actions/deploy-pages@v5`.
 
+## Experiment: Desktop route overflow smoke
+
+- Hypothesis: Desktop route smoke should fail on horizontal overflow, not only on missing route text, so release checks catch wide-layout regressions before packaging.
+- Primary metric: `desktopRouteOverflowSmokeCoverage`.
+- Baseline: `scripts/smoke-chrome.mjs` had no `layoutIssues`, `overflowX`, or `docScrollWidth` desktop overflow hard-gate markers.
+- Candidate: Restore desktop route layout measurement, report viewport and per-route overflow evidence through `smoke-chrome` and `smoke-release`, and add the `desktop_route_overflow_smoke` release-audit checklist item.
+- Decision: keep; the marker coverage rises from 0 to 1 and the current desktop route smoke reports no overflow issues.
+
+## Evidence
+
+- `BASE_URL=http://127.0.0.1:5183 node scripts/smoke-chrome.mjs` passed with `routeCount: 16`, `viewport: 756x469`, `layoutIssues: []`, and no overflow routes.
+- `npm run lint` passed after the smoke and audit script changes.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed `74/74` checks, including `desktop_route_overflow_smoke` with release-smoke desktop `layoutIssues: []`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
