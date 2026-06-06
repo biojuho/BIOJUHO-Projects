@@ -131,7 +131,7 @@ node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift
 node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system
 ```
 
-high-churn 후보인 `Veritas-7/autoresearch-skill-system`은 출시 게이트 전, upstream 이동 감지 후, `--fail-on-drift` 자동화를 켜기 전에 repo-scoped cadence로 먼저 확인합니다. 이 후보는 material metadata(issue/PR/disk)가 그대로이고 drift가 `lastCommit/pushedAt`에만 한정되며 live `pushedAt`이 snapshot `pushedAt`보다 4시간 이내일 때 `cadence-advisory`로 보고되어 release deadlock을 만들지 않습니다. 정책 증거는 네트워크 없는 snapshot-only 모드에서 확인할 수 있습니다.
+high-churn 후보인 `Veritas-7/autoresearch-skill-system`은 출시 게이트 전, upstream 이동 감지 후, `--fail-on-drift` 자동화를 켜기 전에 repo-scoped cadence로 먼저 확인합니다. 이 후보는 issue/PR 메타데이터가 그대로이고 drift가 `lastCommit`, `pushedAt`, `diskKb`에만 한정되며 live `pushedAt`이 snapshot `pushedAt`보다 4시간 이내일 때 `cadence-advisory`로 보고되어 release deadlock을 만들지 않습니다. 정책 증거는 네트워크 없는 snapshot-only 모드에서 확인할 수 있습니다.
 
 ```bash
 node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy

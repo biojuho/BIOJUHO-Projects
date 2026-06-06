@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T22:48:27+09:00",
+  "generatedAt": "2026-06-06T23:02:14+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -91,18 +91,23 @@
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 15,
       "candidateFreshnessBlockingDriftCount": 7,
-      "candidateFreshnessAdvisoryDriftCount": 7,
+      "candidateFreshnessAdvisoryDriftCount": 6,
       "candidateFreshnessMonitored": 21,
       "candidateFreshnessSourceMarkers": 47,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
-      "candidateFreshnessHeadOnlyCadenceAdvisory": true,
+      "candidateFreshnessSourceMetadataCadenceAdvisory": true,
       "candidateFreshnessCadenceAdvisoryDriftCount": 1,
       "candidateFreshnessCommitStableMetadataAdvisory": true,
       "candidateFreshnessMetadataAdvisoryDriftCount": 2,
-      "veritasHeadOnlyCadenceAdvisoryMinutes": 33.3,
-      "veritasHeadOnlyCadenceBlockingDriftCount": 0,
+      "veritasSourceMetadataCadenceAdvisoryMinutes": 61.2,
+      "veritasSourceMetadataCadenceBlockingDriftCount": 0,
+      "veritasSourceMetadataCadenceFields": [
+        "lastCommit",
+        "pushedAt",
+        "diskKb"
+      ],
       "veritasFocusedDriftRefreshChecks": 3,
       "veritasFocusedSnapshotVersion": "v8.651",
       "veritasSnapshotWriterChecks": 7,
@@ -844,7 +849,7 @@
     },
     {
       "id": "candidate-freshness-high-churn-cadence-advisory",
-      "primaryMetric": "veritasHeadOnlyCadenceBlockingDriftCount",
+      "primaryMetric": "veritasHighChurnCadenceBlockingDriftCount",
       "baseline": 1,
       "candidate": 0,
       "decision": "keep"
@@ -936,6 +941,13 @@
     {
       "id": "candidate-freshness-advisory-popularity-drift",
       "primaryMetric": "planePopularityBlockingDriftCount",
+      "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-high-churn-source-metadata-advisory",
+      "primaryMetric": "veritasSourceMetadataCadenceBlockingDriftCount",
       "baseline": 1,
       "candidate": 0,
       "decision": "keep"
