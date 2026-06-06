@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T22:19:17+09:00",
+  "generatedAt": "2026-06-06T22:34:21+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -90,7 +90,7 @@
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 14,
-      "candidateFreshnessBlockingDriftCount": 9,
+      "candidateFreshnessBlockingDriftCount": 8,
       "candidateFreshnessAdvisoryDriftCount": 5,
       "candidateFreshnessMonitored": 21,
       "candidateFreshnessSourceMarkers": 47,
@@ -99,7 +99,7 @@
       "candidateFreshnessCadencePolicyScoped": true,
       "candidateFreshnessHeadOnlyCadenceAdvisory": true,
       "candidateFreshnessCadenceAdvisoryDriftCount": 1,
-      "veritasHeadOnlyCadenceAdvisoryMinutes": 17.6,
+      "veritasHeadOnlyCadenceAdvisoryMinutes": 33.3,
       "veritasHeadOnlyCadenceBlockingDriftCount": 0,
       "veritasFocusedDriftRefreshChecks": 3,
       "veritasFocusedSnapshotVersion": "v8.651",
@@ -145,6 +145,13 @@
       "outlineGenericSnapshotWriterRefresh2SourceMarker": "github-api:outline-outline-candidate-refresh",
       "outlineGenericSnapshotWriterRefresh2LastCommit": "f329b56d0edbbd687728c7436713f2c99e8ec722",
       "outlineGenericSnapshotWriterRefresh2LiveDriftCount": 0,
+      "outlineGenericSnapshotWriterRefresh3Changed": true,
+      "outlineGenericSnapshotWriterRefresh3SourceMarker": "github-api:outline-outline-candidate-refresh",
+      "outlineGenericSnapshotWriterRefresh3LastCommit": "58f0613b5f87f94c92a3c00aa6dab2c59749636b",
+      "outlineGenericSnapshotWriterRefresh3LiveDriftCount": 0,
+      "outlineGenericSnapshotWriterRefresh3FullBlockingDriftAfter": 8,
+      "outlineGenericSnapshotWriterRefresh3OpenPRs": 20,
+      "outlineGenericSnapshotWriterRefresh3DiskKb": 319385,
       "leantimeGenericSnapshotWriterChanged": true,
       "leantimeGenericSnapshotWriterSourceMarker": "github-api:leantime-leantime-candidate-refresh",
       "leantimeGenericSnapshotWriterLastCommit": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
@@ -878,6 +885,13 @@
       "primaryMetric": "outlineGenericSnapshotWriterRefresh2Changed",
       "baseline": "be3f28afeaaa8b92137685376fe17fff94e62255",
       "candidate": "f329b56d0edbbd687728c7436713f2c99e8ec722",
+      "decision": "keep"
+    },
+    {
+      "id": "outline-generic-snapshot-refresh-3",
+      "primaryMetric": "outlineGenericSnapshotWriterRefresh3Changed",
+      "baseline": "f329b56d0edbbd687728c7436713f2c99e8ec722",
+      "candidate": "58f0613b5f87f94c92a3c00aa6dab2c59749636b",
       "decision": "keep"
     },
     {
