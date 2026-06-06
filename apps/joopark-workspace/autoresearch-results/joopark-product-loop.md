@@ -1437,6 +1437,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 1`, `blockingDriftCount: 0`, and `cadenceAdvisoryDriftCount: 1`.
 - `autoresearch-results/joopark-product-loop.json` now reports `veritasHeadOnlyCadenceBlockingDriftCount: 0`.
 
+## Experiment: Outline generic snapshot refresh 3
+
+- Hypothesis: The KB/IA benchmark winner should be refreshed again when upstream commit, pushedAt, PR count, and repository size drift together after the cadence-advisory release sync.
+- Primary metric: `outlineGenericSnapshotWriterRefresh3Changed`.
+- Baseline: Outline snapshot commit `f329b56d0edbbd687728c7436713f2c99e8ec722`, pushed `2026-06-06T11:24:17Z`, 21 open PRs, and `diskKb: 319346`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo outline/outline` updated Outline to commit `58f0613b5f87f94c92a3c00aa6dab2c59749636b`, pushed `2026-06-06T13:30:51Z`, 20 open PRs, and `diskKb: 319385`.
+- Decision: keep; the repo-scoped live drift check reports `driftCount: 0`, and full live blocking drift drops from 9 to 8.
+
+## Evidence
+
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo outline/outline` passed with source marker `github-api:outline-outline-candidate-refresh`.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` passed with `driftCount: 0`.
+- Full live drift now reports `driftCount: 14`, `blockingDriftCount: 8`, `advisoryDriftCount: 5`, and `cadenceAdvisoryDriftCount: 1`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterRefresh3Changed: true`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
