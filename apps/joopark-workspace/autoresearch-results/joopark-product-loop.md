@@ -1215,6 +1215,20 @@ Generated: 2026-06-06T04:34:36+09:00
 - The writer updated `data/adoption-candidates.json` only, changing the Veritas description to `v8.649 최신 guard shell session targets...`.
 - `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.649` and the v8.649 source marker.
 
+## Experiment: Veritas focused snapshot writer v8.651
+
+- Hypothesis: The high-churn Veritas AutoResearch source should be refreshed as soon as a focused repo-scoped live check reports upstream movement.
+- Primary metric: `veritasSnapshotWriterChanged`.
+- Baseline: Veritas snapshot writer evidence pointed at v8.649 (`a5254d0881a9d9e6c21086df3b685c6fc9d1d68d`) with `pushedAt: 2026-06-06T09:57:46Z`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` reported drift, then `--write` updated the candidate to v8.651 with commit `cd49f78e2f9bbcd782aad185726ad3d60242f998`.
+- Decision: keep; the writer added source marker `github-api:veritas-focused-drift-refresh-v8651`, refreshed pushedAt to `2026-06-06T10:08:33Z`, and preserved the repo-scoped dynamic snapshot path.
+
+## Evidence
+
+- Live drift before the write reported Veritas `lastCommit` and `pushedAt` drift against the v8.649 source-backed snapshot.
+- The writer updated `data/adoption-candidates.json` only, changing the Veritas description to `v8.651 최신 guard managed source commits...`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.651` and the v8.651 source marker.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
