@@ -700,7 +700,7 @@ function buildChecklist() {
   });
 
   const freshnessCadenceTerms = [
-    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--cadence-policy", "candidate-freshness-drift-cadence-v1", "candidate-freshness-commit-stable-metadata-v1", "highChurnRepos", "repoScopedHighChurn", "highChurnSourceMetadataCadenceAdvisory", "commitStableMetadataAdvisory", "--fail-on-drift"] },
+    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--cadence-policy", "candidate-freshness-drift-cadence-v1", "candidate-freshness-commit-stable-repo-metadata-v2", "highChurnRepos", "repoScopedHighChurn", "highChurnSourceMetadataCadenceAdvisory", "commitStableMetadataAdvisory", "--fail-on-drift"] },
     { file: "README.md", terms: ["--cadence-policy", "high-churn", "Veritas-7/autoresearch-skill-system", "cadence-advisory", "metadata-advisory", "--fail-on-drift"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const freshnessCadenceSnapshot = run("node", [

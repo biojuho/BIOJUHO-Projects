@@ -1457,7 +1457,7 @@ Generated: 2026-06-06T21:23:20+09:00
 - Hypothesis: Release gates should fail on source freshness drift, but should not block when GitHub recalculates repository `diskKb` while `lastCommit` and `pushedAt` remain unchanged.
 - Primary metric: `outlineCommitStableDiskBlockingDriftCount`.
 - Baseline: The Outline release sync failed after PR #232 because only `diskKb` moved from 319385 to 317197 while commit `58f0613b5f87f94c92a3c00aa6dab2c59749636b` and pushedAt `2026-06-06T13:30:51Z` stayed current; stars also moved as an existing advisory field.
-- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies commit-stable `diskKb` drift as `metadata-advisory` with policy id `candidate-freshness-commit-stable-metadata-v1`; audit and README require the policy term.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` classifies commit-stable `diskKb` drift as `metadata-advisory`; audit and README require the policy term.
 - Decision: keep; `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` exits 0 with `blockingDriftCount: 0` and `metadataAdvisoryDriftCount: 1`.
 
 ## Evidence
@@ -1496,6 +1496,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` passed with `driftCount: 0`.
 - `node scripts/check-candidate-freshness-drift.mjs --live` reported no `outline/outline` entry in `drifted`.
 - `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterRefresh4Changed: true`.
+
+## Experiment: Commit-stable repository metadata advisory drift
+
+- Hypothesis: Release gates should fail on default-branch source freshness drift, but should not block when GitHub `pushedAt` or `diskKb` moves while `lastCommit` remains unchanged.
+- Primary metric: `outlineCommitStablePushedAtBlockingDriftCount`.
+- Baseline: The post-PR #235 release sync failed because Outline kept commit `f4b80d5301d3213dbacd1ba654f5d94f045c1fc4` but GitHub moved `pushedAt` from `2026-06-06T14:14:37Z` to `2026-06-06T14:23:46Z`; stars also moved as an existing advisory field.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies commit-stable `pushedAt` and `diskKb` drift as `metadata-advisory` with policy id `candidate-freshness-commit-stable-repo-metadata-v2`; audit and README require the v2 policy term.
+- Decision: keep; `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` exits 0 with `blockingDriftCount: 0` and `metadataAdvisoryDriftCount: 1`.
+
+## Evidence
+
+- `npm run lint` passed after the checker, audit, README, and AutoResearch log updates.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with metadata policy `candidate-freshness-commit-stable-repo-metadata-v2`.
+- Full live drift now reports `driftCount: 15`, `blockingDriftCount: 4`, `advisoryDriftCount: 9`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 5`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineCommitStablePushedAtBlockingDriftCount: 0`.
 
 ## Next Loop
 
