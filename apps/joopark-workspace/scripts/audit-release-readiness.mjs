@@ -1077,6 +1077,18 @@ function buildChecklist() {
     evidence: knowledgeBaseInformationArchitectureRubricTerms,
   });
 
+  const knowledgeBaseInformationArchitectureExportTerms = [
+    { file: "app.js", terms: ["function knowledgeBaseBenchmarkRecommendationMarkdown", "function candidateKnowledgeBaseRecommendationExport", "data-knowledge-base-benchmark-export", "joopark-kb-ia-recommendation.md"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["knowledgeBaseBenchmarkExportVisible", "knowledge-base recommendation export winner did not render", "knowledge-base recommendation export markdown link did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "knowledge_base_information_architecture_export",
+    requirement: "The dedicated knowledge-base information-architecture rubric can export a Markdown recommendation with winner, score gap, filename, and rationale browser smoke coverage.",
+    status: knowledgeBaseInformationArchitectureExportTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: knowledgeBaseInformationArchitectureExportTerms,
+  });
+
   const taskosaurWorkstreamBenchmarkRecommendationExportTerms = [
     { file: "app.js", terms: ["function candidateBenchmarkRecommendationExport", "function candidateBenchmarkRecommendationMarkdown", "data-candidate-benchmark-export", "joopark-benchmark-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },

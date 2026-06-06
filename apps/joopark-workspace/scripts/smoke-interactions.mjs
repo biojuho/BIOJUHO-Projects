@@ -390,6 +390,7 @@ const interactionExpression = `
   let candidateBenchmarkRubricVisibleOk = false;
   let candidateBenchmarkRubricScoreVisibleOk = false;
   let knowledgeBaseBenchmarkRubricVisibleOk = false;
+  let knowledgeBaseBenchmarkExportVisibleOk = false;
   let candidateBenchmarkRecommendationExportVisibleOk = false;
   let candidateBenchmarkReviewQueueVisibleOk = false;
   let candidateBenchmarkReviewHandoffVisibleOk = false;
@@ -834,9 +835,19 @@ const interactionExpression = `
     assert(wikiJsPortability, "Wiki.js knowledge-base rubric portability cell did not render");
     assert(wikiJsPortability.dataset.kbRubricWeight === "0.2", "Wiki.js knowledge-base rubric portability weight did not render");
     assert(wikiJsPortability.dataset.kbRubricScore === "93", "Wiki.js knowledge-base rubric portability score did not render");
+    const kbExport = qs("[data-knowledge-base-benchmark-export]", knowledgeBaseRubric);
+    const kbExportDownload = qs("[data-kb-benchmark-export-download]", kbExport);
+    const kbExportText = qs("[data-kb-benchmark-export-text]", kbExport).innerText;
+    assert(kbExport.dataset.kbBenchmarkExportWinner === "outline/outline", "knowledge-base recommendation export winner did not render");
+    assert(kbExport.dataset.kbBenchmarkExportGap === "0", "knowledge-base recommendation export gap did not render");
+    assert(kbExportDownload.getAttribute("download") === "joopark-kb-ia-recommendation.md", "knowledge-base recommendation export filename did not render");
+    assert(kbExportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "knowledge-base recommendation export markdown link did not render");
+    assert(kbExportText.includes("Recommendation: use outline/outline as the primary Knowledge/IA benchmark") && kbExportText.includes("requarks/wiki as the portability counterweight"), "knowledge-base recommendation export copy did not render");
+    assert(kbExportText.includes("Score gap: 0 points") && kbExportText.includes("Primary reason: 정보 구조 scored 86 at 35% weight"), "knowledge-base recommendation export rationale did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
+    knowledgeBaseBenchmarkExportVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     const reviewQueue = qs("[data-benchmark-review-queue]");
     const reviewDecision = qs("[data-benchmark-review-decision]", reviewQueue);
@@ -890,6 +901,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
+    knowledgeBaseBenchmarkExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
     candidateBenchmarkReviewHandoffCopyVisibleOk = true;
@@ -1185,6 +1197,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
+    knowledgeBaseBenchmarkExportVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
@@ -1433,6 +1446,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
     knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
+    knowledgeBaseBenchmarkExportVisible: knowledgeBaseBenchmarkExportVisibleOk,
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,
