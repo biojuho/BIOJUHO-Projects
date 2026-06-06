@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T19:43:59+09:00",
+  "generatedAt": "2026-06-06T19:59:22+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -89,9 +89,9 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 16,
+      "candidateFreshnessLiveDriftCount": 13,
       "candidateFreshnessMonitored": 21,
-      "candidateFreshnessSourceMarkers": 40,
+      "candidateFreshnessSourceMarkers": 41,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -113,6 +113,10 @@
       "affineGenericSnapshotWriterSourceMarker": "github-api:toeverything-affine-candidate-refresh",
       "affineGenericSnapshotWriterLastCommit": "d10dd12663e3e2e94dd40abb41920d26686cfefd",
       "affineGenericSnapshotWriterLiveDriftCount": 0,
+      "taskosaurGenericSnapshotWriterChanged": true,
+      "taskosaurGenericSnapshotWriterSourceMarker": "github-api:taskosaur-taskosaur-candidate-refresh",
+      "taskosaurGenericSnapshotWriterLastCommit": "b7a5463ddd1fc018d8b2dc877ccc434a38eb710b",
+      "taskosaurGenericSnapshotWriterLiveDriftCount": 0,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -777,6 +781,13 @@
       "baseline": "edc87e38df01db79f969e6f61981a10c16f9a0bb",
       "candidate": "d10dd12663e3e2e94dd40abb41920d26686cfefd",
       "decision": "keep"
+    },
+    {
+      "id": "taskosaur-generic-snapshot-refresh",
+      "primaryMetric": "taskosaurGenericSnapshotWriterChanged",
+      "baseline": "3a6e39f662c6fd8b22980c16d4441d8887347c31",
+      "candidate": "b7a5463ddd1fc018d8b2dc877ccc434a38eb710b",
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -791,6 +802,6 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "continue source-backed drift refreshes for the next high-impact candidate, starting with Taskosaur, OpenProject, or Veritas"
+    "continue source-backed drift refreshes for the next high-impact candidate, starting with OpenProject, Veritas, or Leantime"
   ]
 }
