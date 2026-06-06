@@ -1543,6 +1543,22 @@ Generated: 2026-06-06T21:23:20+09:00
 - `data/adoption-candidates.json` now reports 51 GitHub API source markers and generatedAt `2026-06-07T00:04:44+09:00`.
 - `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterRefresh5FullCadenceAdvisoryDriftAfter: 0`.
 
+## Experiment: Advisory and metadata batch refresh
+
+- Hypothesis: Refreshing the currently drifted advisory/metadata candidates in one batch should return the freshness dashboard to zero live drift without changing drift policy.
+- Primary metric: `candidateFreshnessLiveDriftCount`.
+- Baseline: Full live drift had `driftCount: 13`, `blockingDriftCount: 0`, `advisoryDriftCount: 11`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 5`.
+- Candidate: Refresh Veritas with the focused writer, then refresh Plane, AppFlowy, AFFiNE, Outline, BookStack, Wiki.js, Taskosaur, Focalboard, Colanode, Anytype, OpenProject, and Worklenz with the generic GitHub snapshot writer.
+- Decision: keep; full live drift now reports zero drift across blocking, advisory, cadence advisory, and metadata advisory classes.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --write` refreshed Veritas to v8.695 at commit `086539746d3aed07404b8cd692c4744db7030b80`.
+- `node scripts/refresh-candidate-snapshot.mjs --write --repo ...` refreshed 12 additional drifted candidates.
+- `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 0`, `blockingDriftCount: 0`, `advisoryDriftCount: 0`, `cadenceAdvisoryDriftCount: 0`, and `metadataAdvisoryDriftCount: 0`.
+- `data/adoption-candidates.json` now reports 58 GitHub API source markers and generatedAt `2026-06-07T00:19:53+09:00`.
+- `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessAdvisoryBatchRefreshFullDriftAfter: 0`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
