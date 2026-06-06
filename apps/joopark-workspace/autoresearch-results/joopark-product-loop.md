@@ -1452,6 +1452,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - Full live drift now reports `driftCount: 14`, `blockingDriftCount: 8`, `advisoryDriftCount: 5`, and `cadenceAdvisoryDriftCount: 1`.
 - `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterRefresh3Changed: true`.
 
+## Experiment: Commit-stable metadata advisory drift
+
+- Hypothesis: Release gates should fail on source freshness drift, but should not block when GitHub recalculates repository `diskKb` while `lastCommit` and `pushedAt` remain unchanged.
+- Primary metric: `outlineCommitStableDiskBlockingDriftCount`.
+- Baseline: The Outline release sync failed after PR #232 because only `diskKb` moved from 319385 to 317197 while commit `58f0613b5f87f94c92a3c00aa6dab2c59749636b` and pushedAt `2026-06-06T13:30:51Z` stayed current; stars also moved as an existing advisory field.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies commit-stable `diskKb` drift as `metadata-advisory` with policy id `candidate-freshness-commit-stable-metadata-v1`; audit and README require the policy term.
+- Decision: keep; `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` exits 0 with `blockingDriftCount: 0` and `metadataAdvisoryDriftCount: 1`.
+
+## Evidence
+
+- `npm run lint` passed after the checker, audit, README, and AutoResearch log updates.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `commitStableMetadataAdvisory: true`.
+- Full live drift now reports `driftCount: 15`, `blockingDriftCount: 7`, `advisoryDriftCount: 7`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 2`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineCommitStableDiskBlockingDriftCount: 0`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.

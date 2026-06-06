@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T22:34:21+09:00",
+  "generatedAt": "2026-06-06T22:48:27+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -89,9 +89,9 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 14,
-      "candidateFreshnessBlockingDriftCount": 8,
-      "candidateFreshnessAdvisoryDriftCount": 5,
+      "candidateFreshnessLiveDriftCount": 15,
+      "candidateFreshnessBlockingDriftCount": 7,
+      "candidateFreshnessAdvisoryDriftCount": 7,
       "candidateFreshnessMonitored": 21,
       "candidateFreshnessSourceMarkers": 47,
       "candidateFreshnessRepoFilterChecks": 3,
@@ -99,6 +99,8 @@
       "candidateFreshnessCadencePolicyScoped": true,
       "candidateFreshnessHeadOnlyCadenceAdvisory": true,
       "candidateFreshnessCadenceAdvisoryDriftCount": 1,
+      "candidateFreshnessCommitStableMetadataAdvisory": true,
+      "candidateFreshnessMetadataAdvisoryDriftCount": 2,
       "veritasHeadOnlyCadenceAdvisoryMinutes": 33.3,
       "veritasHeadOnlyCadenceBlockingDriftCount": 0,
       "veritasFocusedDriftRefreshChecks": 3,
@@ -152,6 +154,8 @@
       "outlineGenericSnapshotWriterRefresh3FullBlockingDriftAfter": 8,
       "outlineGenericSnapshotWriterRefresh3OpenPRs": 20,
       "outlineGenericSnapshotWriterRefresh3DiskKb": 319385,
+      "outlineCommitStableDiskBlockingDriftCount": 0,
+      "outlineCommitStableDiskMetadataAdvisory": true,
       "leantimeGenericSnapshotWriterChanged": true,
       "leantimeGenericSnapshotWriterSourceMarker": "github-api:leantime-leantime-candidate-refresh",
       "leantimeGenericSnapshotWriterLastCommit": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
@@ -892,6 +896,13 @@
       "primaryMetric": "outlineGenericSnapshotWriterRefresh3Changed",
       "baseline": "f329b56d0edbbd687728c7436713f2c99e8ec722",
       "candidate": "58f0613b5f87f94c92a3c00aa6dab2c59749636b",
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-commit-stable-metadata-advisory",
+      "primaryMetric": "outlineCommitStableDiskBlockingDriftCount",
+      "baseline": 1,
+      "candidate": 0,
       "decision": "keep"
     },
     {

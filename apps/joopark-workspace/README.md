@@ -117,7 +117,7 @@ node scripts/audit-release-readiness.mjs --run-gates
 node scripts/check-candidate-freshness-drift.mjs --snapshot-only
 ```
 
-실제 GitHub 현재값과 비교하려면 `gh` 인증이 있는 환경에서 live 모드를 사용합니다. `--live`는 drift를 JSON으로 보고하고, 자동화에서 drift를 실패로 처리하려면 `--fail-on-drift`를 함께 붙입니다. `lastCommit`, `pushedAt`, issue/PR, disk drift는 기본적으로 `blockingDriftCount`에 포함되어 실패 조건이지만, 고빈도 popularity 값인 `stars/forks`는 `advisoryDriftCount`로만 보고합니다.
+실제 GitHub 현재값과 비교하려면 `gh` 인증이 있는 환경에서 live 모드를 사용합니다. `--live`는 drift를 JSON으로 보고하고, 자동화에서 drift를 실패로 처리하려면 `--fail-on-drift`를 함께 붙입니다. `lastCommit`, `pushedAt`, issue/PR, disk drift는 기본적으로 `blockingDriftCount`에 포함되어 실패 조건이지만, 고빈도 popularity 값인 `stars/forks`는 `advisoryDriftCount`로만 보고합니다. `lastCommit`과 `pushedAt`이 둘 다 그대로인 `diskKb` 재계산은 source freshness 변화가 아니므로 `metadata-advisory`로 보고합니다.
 GitHub REST `open_issues_count`는 PR을 포함하지만 GraphQL은 issue와 PR을 분리하므로, monitor는 `openIssues` snapshot을 issue-only 또는 issue+PR total 중 하나와 일치하면 유효한 값으로 봅니다.
 
 ```bash
