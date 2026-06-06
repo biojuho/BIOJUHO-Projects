@@ -1590,6 +1590,20 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 0`, `blockingDriftCount: 0`, `advisoryDriftCount: 0`, `cadenceAdvisoryDriftCount: 0`, and `metadataAdvisoryDriftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessLiveDriftBatchSweep2Repos: 7`.
 
+## Experiment: Live drift batch sweep 3
+
+- Hypothesis: The batch helper should continue to remove new advisory/cadence drift after release sync without changing drift policy.
+- Primary metric: `candidateFreshnessLiveDriftBatchSweep3FullDriftAfter`.
+- Baseline: Post-release live drift had `driftCount: 6`, `blockingDriftCount: 0`, `advisoryDriftCount: 5`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 0`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --from-live-drift` refreshed Veritas, Plane, AppFlowy, AFFiNE, Focalboard, and Colanode.
+- Decision: keep; the follow-up live drift check reports zero drift across all freshness classes.
+
+## Evidence
+
+- `node scripts/refresh-candidate-snapshot.mjs --write --from-live-drift` updated `data/adoption-candidates.json` to generatedAt `2026-06-07T01:03:10+09:00`.
+- `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 0`, `blockingDriftCount: 0`, `advisoryDriftCount: 0`, `cadenceAdvisoryDriftCount: 0`, and `metadataAdvisoryDriftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `candidateFreshnessLiveDriftBatchSweep3Repos: 6`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
