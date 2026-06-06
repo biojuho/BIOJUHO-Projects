@@ -1161,6 +1161,13 @@
       "baseline": 1,
       "candidate": 0,
       "decision": "keep"
+    },
+    {
+      "id": "system-status-route",
+      "primaryMetric": "systemStatusRouteSmokeFailures",
+      "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
     }
   ],
   "publish": {

@@ -28,6 +28,7 @@ const routes = [
   ["dbm-queries", ["저장 쿼리", "실행 시간 분포"]],
   ["dbm-backups", ["백업 캘린더", "마이그레이션 이력"]],
   ["settings", ["프로필", "데이터 백업"]],
+  ["system", ["시스템 상태", "저장소", "운영 표면"]],
 ];
 
 class CdpClient {
