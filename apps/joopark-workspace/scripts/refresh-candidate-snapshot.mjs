@@ -12,16 +12,23 @@ const args = new Set(rawArgs);
 const write = args.has("--write");
 const snapshotOnly = args.has("--snapshot-only");
 const failOnChange = args.has("--fail-on-change");
+const fromLiveDrift = args.has("--from-live-drift");
 const commitPattern = /^[0-9a-f]{40}$/i;
-const repoFilter = normalizeRepoFilter(optionValue("--repo") || "");
+const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
+const repoFilter = repoFilters[0] || "";
 
-function optionValue(flag) {
+function collectOptionValues(flag) {
+  const values = [];
   for (let index = 0; index < rawArgs.length; index += 1) {
     const item = rawArgs[index];
-    if (item === flag && rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--")) return rawArgs[index + 1];
-    if (item.startsWith(`${flag}=`)) return item.slice(flag.length + 1);
+    if (item === flag && rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--")) {
+      values.push(rawArgs[index + 1]);
+      index += 1;
+    } else if (item.startsWith(`${flag}=`)) {
+      values.push(item.slice(flag.length + 1));
+    }
   }
-  return "";
+  return values;
 }
 
 function normalizeRepoFilter(value) {
@@ -60,11 +67,12 @@ function readSnapshot() {
   const payload = JSON.parse(text);
   const projects = Array.isArray(payload.projects) ? payload.projects : [];
   const enriched = projects.map((project, index) => ({ project, index, repo: githubRepo(project.url) }));
-  const match = enriched.find((item) => item.repo && item.repo.filter === repoFilter);
+  const match = repoFilter ? enriched.find((item) => item.repo && item.repo.filter === repoFilter) : null;
   return {
     text,
     payload,
     projects,
+    enriched,
     projectIndex: match ? match.index : -1,
     project: match ? match.project : null,
     repo: match ? match.repo : null,
@@ -126,6 +134,38 @@ function fetchLiveSnapshot(repo) {
     ok: true,
     repo: payload.data?.repository || null,
   };
+}
+
+function fetchLiveDriftSnapshot(filters) {
+  const commandArgs = ["scripts/check-candidate-freshness-drift.mjs", "--live"];
+  for (const filter of filters) commandArgs.push("--repo", filter);
+  const result = spawnSync("node", commandArgs, {
+    cwd: root,
+    encoding: "utf-8",
+    timeout: 60000,
+    killSignal: "SIGKILL",
+  });
+  if (result.status !== 0 || result.error) {
+    return {
+      ok: false,
+      error: result.error ? result.error.message : result.stderr.trim() || "live drift check failed",
+      stdout: result.stdout.trim(),
+      stderr: result.stderr.trim(),
+    };
+  }
+  try {
+    return {
+      ok: true,
+      payload: JSON.parse(result.stdout),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error.message,
+      stdout: result.stdout.trim(),
+      stderr: result.stderr.trim(),
+    };
+  }
 }
 
 function liveFields(repo) {
@@ -217,16 +257,163 @@ function formatSnapshotText(snapshot, nextPayload) {
   return text.endsWith("\n") ? text : `${text}\n`;
 }
 
+function formatBatchSnapshotText(snapshot, nextPayload, targetIndexes) {
+  let text = snapshot.text;
+  text = replaceStringField(text, "generatedAt", nextPayload.generatedAt);
+  text = replaceStringField(text, "source", nextPayload.source);
+  for (const index of targetIndexes) {
+    text = replaceProjectFields(text, snapshot.projects[index], nextPayload.projects[index]);
+  }
+  return text.endsWith("\n") ? text : `${text}\n`;
+}
+
+function projectRefForRepo(snapshot, repo) {
+  const filter = normalizeRepoFilter(repo?.nameWithOwner || "");
+  return snapshot.enriched.find((item) => item.repo && item.repo.filter === filter) || null;
+}
+
+function reposFromLiveDrift(snapshot, driftPayload) {
+  const driftFilters = new Set(
+    (Array.isArray(driftPayload?.drifted) ? driftPayload.drifted : [])
+      .map((item) => githubRepo(item.url))
+      .filter(Boolean)
+      .map((repo) => repo.filter),
+  );
+  return snapshot.enriched
+    .filter((item) => item.repo && driftFilters.has(item.repo.filter))
+    .map((item) => item.repo);
+}
+
+function refreshProjects(snapshot, targetRepos) {
+  const nextPayload = JSON.parse(JSON.stringify(snapshot.payload));
+  const targetIndexes = [];
+  const refreshed = [];
+  const failures = [];
+
+  for (const targetRepo of targetRepos) {
+    const target = projectRefForRepo(snapshot, targetRepo);
+    if (!target) {
+      failures.push({
+        repo: targetRepo.nameWithOwner,
+        reason: "missing source-backed adoption candidate",
+      });
+      continue;
+    }
+
+    const live = fetchLiveSnapshot(target.repo);
+    if (!live.ok || !live.repo) {
+      failures.push({
+        repo: target.repo.nameWithOwner,
+        reason: live.error || "missing live repository",
+        stderr: live.stderr || "",
+      });
+      continue;
+    }
+
+    const fields = liveFields(live.repo);
+    if (!commitPattern.test(fields.lastCommit)) {
+      failures.push({
+        repo: target.repo.nameWithOwner,
+        reason: "live default branch commit is invalid",
+        live: fields,
+      });
+      continue;
+    }
+
+    const nextProject = nextPayload.projects[target.index];
+    for (const field of ["openIssues", "openPRs", "stars", "forks", "diskKb", "pushedAt", "createdAt", "lastCommit"]) {
+      nextProject[field] = fields[field];
+    }
+    nextPayload.source = addSourceMarker(nextPayload.source, sourceMarkerForRepo(target.repo));
+    targetIndexes.push(target.index);
+    refreshed.push({
+      repo: target.repo.nameWithOwner,
+      sourceMarker: sourceMarkerForRepo(target.repo),
+      defaultBranch: fields.defaultBranch,
+      committedAt: fields.committedAt,
+      messageHeadline: fields.messageHeadline,
+      before: projectSummary(snapshot.projects[target.index]),
+      after: projectSummary(nextProject),
+    });
+  }
+
+  const changedBeforeTimestamp = JSON.stringify(nextPayload) !== JSON.stringify(snapshot.payload);
+  if (changedBeforeTimestamp) nextPayload.generatedAt = toKstTimestamp();
+  const changed = JSON.stringify(nextPayload) !== JSON.stringify(snapshot.payload);
+  return {
+    changed,
+    nextPayload,
+    targetIndexes,
+    refreshed,
+    failures,
+  };
+}
+
 function finish(status, extra = {}) {
   console.log(JSON.stringify({
     status,
-    mode: snapshotOnly ? "snapshot-only" : (write ? "write" : "dry-run"),
-    repo: repoFilter,
+    mode: snapshotOnly ? "snapshot-only" : (fromLiveDrift ? "from-live-drift" : (write ? "write" : "dry-run")),
+    repo: fromLiveDrift ? repoFilters : repoFilter,
     willWrite: write && !snapshotOnly,
     failOnChange: failOnChange && !snapshotOnly,
     ...extra,
   }, null, 2));
   process.exit(status === "pass" ? 0 : 1);
+}
+
+const snapshot = readSnapshot();
+if (fromLiveDrift) {
+  if (snapshotOnly) {
+    finish("fail", {
+      reason: "--from-live-drift requires live mode; omit --snapshot-only",
+    });
+  }
+  const driftSnapshot = fetchLiveDriftSnapshot(repoFilters);
+  if (!driftSnapshot.ok) {
+    finish("blocked", {
+      reason: driftSnapshot.error,
+      stdout: driftSnapshot.stdout || "",
+      stderr: driftSnapshot.stderr || "",
+    });
+  }
+  const targetRepos = reposFromLiveDrift(snapshot, driftSnapshot.payload);
+  if (targetRepos.length === 0) {
+    finish("pass", {
+      changed: false,
+      wrote: "",
+      generatedAt: snapshot.payload.generatedAt || "",
+      driftCount: driftSnapshot.payload?.driftCount || 0,
+      blockingDriftCount: driftSnapshot.payload?.blockingDriftCount || 0,
+      advisoryDriftCount: driftSnapshot.payload?.advisoryDriftCount || 0,
+      cadenceAdvisoryDriftCount: driftSnapshot.payload?.cadenceAdvisoryDriftCount || 0,
+      metadataAdvisoryDriftCount: driftSnapshot.payload?.metadataAdvisoryDriftCount || 0,
+      refreshedRepos: [],
+    });
+  }
+
+  const batch = refreshProjects(snapshot, targetRepos);
+  if (batch.failures.length > 0) {
+    finish("blocked", {
+      reason: "one or more live snapshot refreshes failed",
+      failures: batch.failures,
+    });
+  }
+  if (write && batch.changed) {
+    writeFileSync(dataPath, formatBatchSnapshotText(snapshot, batch.nextPayload, batch.targetIndexes), "utf-8");
+  }
+
+  finish(failOnChange && batch.changed ? "drift" : "pass", {
+    changed: batch.changed,
+    wrote: write && batch.changed ? "data/adoption-candidates.json" : "",
+    generatedAt: batch.changed ? batch.nextPayload.generatedAt : snapshot.payload.generatedAt || "",
+    driftCount: driftSnapshot.payload?.driftCount || 0,
+    blockingDriftCount: driftSnapshot.payload?.blockingDriftCount || 0,
+    advisoryDriftCount: driftSnapshot.payload?.advisoryDriftCount || 0,
+    cadenceAdvisoryDriftCount: driftSnapshot.payload?.cadenceAdvisoryDriftCount || 0,
+    metadataAdvisoryDriftCount: driftSnapshot.payload?.metadataAdvisoryDriftCount || 0,
+    refreshedRepos: batch.refreshed.map((item) => item.repo),
+    refreshed: batch.refreshed,
+  });
 }
 
 if (!repoFilter) {
@@ -235,7 +422,6 @@ if (!repoFilter) {
   });
 }
 
-const snapshot = readSnapshot();
 if (!snapshot.project || !snapshot.repo) {
   finish("fail", {
     reason: "missing source-backed adoption candidate",
