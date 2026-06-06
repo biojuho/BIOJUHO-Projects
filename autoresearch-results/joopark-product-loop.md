@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T04:34:36+09:00
+Generated: 2026-06-06T19:43:59+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -1257,6 +1257,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - Existing dynamic smoke/audit paths read the refreshed Outline commit and pushedAt from the snapshot rather than hard-coded literals.
 - `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterChanged: true`.
 
+## Experiment: AFFiNE generic snapshot refresh
+
+- Hypothesis: The current workspace benchmark winner should keep source-backed metadata fresh through the generic writer before its live drift reaches product-facing review notes.
+- Primary metric: `affineGenericSnapshotWriterChanged`.
+- Baseline: AFFiNE snapshot commit `edc87e38df01db79f969e6f61981a10c16f9a0bb`, `pushedAt: 2026-06-04T22:48:17Z`, 555 open issues, and 69,107 stars.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo toeverything/AFFiNE` updated AFFiNE to commit `d10dd12663e3e2e94dd40abb41920d26686cfefd`, `pushedAt: 2026-06-06T10:36:57Z`, 554 open issues, 69,123 stars, and source marker `github-api:toeverything-affine-candidate-refresh`.
+- Decision: keep; the AppFlowy/AFFiNE workspace benchmark winner now uses the generic refresh path and passes a repo-scoped live drift check with drift count 0.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the AFFiNE row and source marker.
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo toeverything/AFFiNE` passed with 40 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo toeverything/AFFiNE --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `affineGenericSnapshotWriterChanged: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Taskosaur, OpenProject, or Veritas.
