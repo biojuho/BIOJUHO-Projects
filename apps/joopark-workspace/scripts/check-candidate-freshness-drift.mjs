@@ -16,9 +16,11 @@ const dataPath = join(root, "data/adoption-candidates.json");
 const commitPattern = /^[0-9a-f]{40}$/i;
 const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
 const cadencePolicyId = "candidate-freshness-drift-cadence-v1";
+const metadataPolicyId = "candidate-freshness-commit-stable-metadata-v1";
 const advisoryFields = new Set(["stars", "forks"]);
 const blockingFields = ["lastCommit", "pushedAt", "openIssues", "openPRs", "diskKb"];
 const headOnlyCadenceFields = new Set(["lastCommit", "pushedAt"]);
+const commitStableMetadataFields = new Set(["diskKb"]);
 const highChurnRepoPolicies = [
   {
     repo: "Veritas-7/autoresearch-skill-system",
@@ -202,6 +204,18 @@ function cadenceAdvisoryFor(project, current, blockingDrift) {
   };
 }
 
+function commitStableMetadataAdvisoryFor(project, current, drift) {
+  const metadataDrift = drift.filter((item) => commitStableMetadataFields.has(item.field));
+  if (metadataDrift.length === 0) return null;
+  if (project.lastCommit !== current.lastCommit || project.pushedAt !== current.pushedAt) return null;
+  return {
+    id: metadataPolicyId,
+    fields: Array.from(commitStableMetadataFields),
+    condition: "commit-stable-metadata",
+    reason: "GitHub repository metadata can be recalculated while the source HEAD and pushedAt marker remain unchanged.",
+  };
+}
+
 function compare(monitored, liveData) {
   return monitored.map((project, index) => {
     const repo = liveData[`repo${index}`];
@@ -210,10 +224,21 @@ function compare(monitored, liveData) {
     const rawDrift = fields
       .map((field) => fieldDrift(project, current, field))
       .filter(Boolean);
-    const rawBlockingDrift = rawDrift.filter((item) => item.severity === "blocking");
+    const metadataAdvisory = commitStableMetadataAdvisoryFor(project, current, rawDrift);
+    const metadataAdvisoryFields = new Set(metadataAdvisory ? rawDrift.filter((item) => commitStableMetadataFields.has(item.field)).map((item) => item.field) : []);
+    const metadataAdjustedDrift = rawDrift.map((item) => {
+      if (!metadataAdvisoryFields.has(item.field)) return item;
+      return {
+        ...item,
+        severity: "metadata-advisory",
+        originalSeverity: item.severity,
+        metadataAdvisory,
+      };
+    });
+    const rawBlockingDrift = metadataAdjustedDrift.filter((item) => item.severity === "blocking");
     const cadenceAdvisory = cadenceAdvisoryFor(project, current, rawBlockingDrift);
     const cadenceAdvisoryFields = new Set(cadenceAdvisory ? rawBlockingDrift.map((item) => item.field) : []);
-    const drift = rawDrift.map((item) => {
+    const drift = metadataAdjustedDrift.map((item) => {
       if (!cadenceAdvisoryFields.has(item.field)) return item;
       return {
         ...item,
@@ -225,6 +250,7 @@ function compare(monitored, liveData) {
     const blockingDrift = drift.filter((item) => item.severity === "blocking");
     const advisoryDrift = drift.filter((item) => item.severity === "advisory");
     const cadenceAdvisoryDrift = drift.filter((item) => item.severity === "cadence-advisory");
+    const metadataAdvisoryDrift = drift.filter((item) => item.severity === "metadata-advisory");
     return {
       name: project.name,
       url: project.url,
@@ -234,6 +260,7 @@ function compare(monitored, liveData) {
       blockingDrift,
       advisoryDrift,
       cadenceAdvisoryDrift,
+      metadataAdvisoryDrift,
       ok: blockingDrift.length === 0,
     };
   });
@@ -277,6 +304,12 @@ function buildCadencePolicy(snapshot) {
     liveCadence: "before release gates and after high-churn upstream movement",
     automationRule: "Run the repo-scoped live check, refresh the snapshot, then use repo-scoped --fail-on-drift for that source.",
     highChurnRepos,
+    commitStableMetadataPolicy: {
+      id: metadataPolicyId,
+      fields: Array.from(commitStableMetadataFields),
+      condition: "Treat diskKb-only metadata drift as metadata-advisory when lastCommit and pushedAt are unchanged.",
+      reason: "GitHub diskUsage can be recalculated independently from source HEAD freshness.",
+    },
     standardRepos: {
       monitored: Math.max(0, snapshot.monitored.length - monitoredHighChurn),
       liveCadence: "weekly, before release gates, or after planned benchmark refresh work",
@@ -287,6 +320,7 @@ function buildCadencePolicy(snapshot) {
       repoScopedHighChurn: scopedHighChurn > 0,
       failOnDriftCommandScoped: highChurnRepos.every((item) => item.blockingCommand.includes("--repo")),
       headOnlyDriftCadenceAdvisory: highChurnRepos.some((item) => item.monitored && item.inScope && item.headOnlyDriftPolicy !== "disabled"),
+      commitStableMetadataAdvisory: commitStableMetadataFields.size > 0,
     },
   };
 }
@@ -353,6 +387,7 @@ const comparisons = compare(snapshot.monitored, liveResult.data);
 const drifted = comparisons.filter((item) => item.drift.length > 0);
 const blockingDrifted = comparisons.filter((item) => item.blockingDrift.length > 0);
 const cadenceAdvisoryDrifted = comparisons.filter((item) => item.cadenceAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
+const metadataAdvisoryDrifted = comparisons.filter((item) => item.metadataAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
 const advisoryDrifted = comparisons.filter((item) => item.advisoryDrift.length > 0 && item.blockingDrift.length === 0);
 finish(withCadencePolicy({
   status: blockingDrifted.length === 0 ? "pass" : "drift",
@@ -364,15 +399,19 @@ finish(withCadencePolicy({
   blockingDriftCount: blockingDrifted.length,
   advisoryDriftCount: advisoryDrifted.length,
   cadenceAdvisoryDriftCount: cadenceAdvisoryDrifted.length,
+  metadataAdvisoryDriftCount: metadataAdvisoryDrifted.length,
   failOnDrift,
   driftPolicy: {
     blockingFields,
     advisoryFields: Array.from(advisoryFields),
     cadenceAdvisoryFields: Array.from(headOnlyCadenceFields),
+    metadataAdvisoryFields: Array.from(commitStableMetadataFields),
+    metadataPolicyId,
     highChurnRepoPolicies,
   },
   drifted,
   blockingDrifted,
   advisoryDrifted,
   cadenceAdvisoryDrifted,
+  metadataAdvisoryDrifted,
 }, snapshot));
