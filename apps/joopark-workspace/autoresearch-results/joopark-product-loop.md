@@ -1512,6 +1512,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - Full live drift now reports `driftCount: 15`, `blockingDriftCount: 4`, `advisoryDriftCount: 9`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 5`.
 - `autoresearch-results/joopark-product-loop.json` now reports `outlineCommitStablePushedAtBlockingDriftCount: 0`.
 
+## Experiment: Remaining issue-count snapshot refresh
+
+- Hypothesis: The release drift monitor should return to zero blocking drift after refreshing source-backed issue-count snapshots for the remaining stale candidates instead of weakening issue/PR drift policy.
+- Primary metric: `candidateFreshnessBlockingDriftCount`.
+- Baseline: Full live drift still had four blocking candidates: Epicenter open issues 170 to 168, AppFlowy 936 to 935, Taskcoach 91 to 89, and Parabol 68 to 65.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write` refreshed `EpicenterHQ/epicenter`, `AppFlowy-IO/AppFlowy`, `taskcoach/taskcoach`, and `ParabolInc/parabol`, preserving their default-branch commits while updating issue and popularity metadata.
+- Decision: keep; full live drift now exits `pass` with `driftCount: 11`, `blockingDriftCount: 0`, `advisoryDriftCount: 9`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 5`.
+
+## Evidence
+
+- Dry-runs for all four repos reported `changed: true` before the write.
+- `node scripts/check-candidate-freshness-drift.mjs --live` exits 0 with no entries in `blockingDrifted`.
+- `data/adoption-candidates.json` now reports 50 GitHub API source markers and generatedAt `2026-06-06T23:40:35+09:00`.
+- `autoresearch-results/joopark-product-loop.json` now reports `remainingIssueCountRefreshFullBlockingDriftAfter: 0`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
