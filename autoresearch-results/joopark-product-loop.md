@@ -1393,6 +1393,50 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` reported only advisory Plane popularity drift and did not fail the command.
 - `autoresearch-results/joopark-product-loop.json` now reports `planePopularityAdvisoryDriftPolicyChanged: true`.
 
+## Experiment: Veritas focused snapshot writer v8.672
+
+- Hypothesis: The launch-candidate AutoResearch row should track the latest Veritas source proof snapshot before high-churn upstream movement makes release evidence stale.
+- Primary metric: `veritasSnapshotWriterRefresh3Changed`.
+- Baseline: Veritas snapshot was at v8.651 commit `cd49f78e2f9bbcd782aad185726ad3d60242f998`, pushed `2026-06-06T10:08:33Z`, with `diskKb: 1753`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated Veritas to v8.672 commit `b1023c98cd262e992466c6a8c7f78fda2d42aa93`, pushed `2026-06-06T12:47:52Z`, with `diskKb: 2018` and source marker `github-api:veritas-focused-drift-refresh-v8672`.
+- Decision: keep; the repo-scoped live drift check reports `driftCount: 0`, and full live blocking drift drops from 10 to 9.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only` passed with 46 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 0`.
+- Full live drift now reports `driftCount: 14`, `blockingDriftCount: 9`, and `advisoryDriftCount: 5`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterRefresh3Changed: true`.
+
+## Experiment: Veritas focused snapshot writer v8.674
+
+- Hypothesis: The high-churn Veritas launch-candidate row should be refreshed again when upstream advances during release sync, preserving source-current proof without committing stale release evidence.
+- Primary metric: `veritasSnapshotWriterRefresh4Changed`.
+- Baseline: Veritas snapshot was at v8.672 commit `b1023c98cd262e992466c6a8c7f78fda2d42aa93`, pushed `2026-06-06T12:47:52Z`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated Veritas to v8.674 commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e`, pushed `2026-06-06T12:56:48Z`, with source marker `github-api:veritas-focused-drift-refresh-v8674`.
+- Decision: keep; the repo-scoped live drift check again reports `driftCount: 0`, while full live drift remains `driftCount: 14`, `blockingDriftCount: 9`, and `advisoryDriftCount: 5`.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only` passed with 47 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterRefresh4Changed: true`.
+
+## Experiment: High-churn cadence advisory drift
+
+- Hypothesis: A high-churn launch-candidate source should not deadlock release sync when only `lastCommit/pushedAt` advance within the documented freshness cadence and material metadata stays unchanged.
+- Primary metric: `veritasHeadOnlyCadenceBlockingDriftCount`.
+- Baseline: The v8.674 release sync failed because Veritas moved from commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e` to `4678612db1924cc46cd923f0edff26aa230033ca`, with blocking drift only in `lastCommit` and `pushedAt`.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies high-churn `lastCommit/pushedAt`-only drift as `cadence-advisory` for `Veritas-7/autoresearch-skill-system` when the live push is within the 4-hour cadence and issue/PR/disk metadata is unchanged.
+- Decision: keep; repo-scoped `--fail-on-drift` now passes with `blockingDriftCount: 0`, `cadenceAdvisoryDriftCount: 1`, and `driftMinutes: 17.6`, while material metadata drift remains blocking.
+
+## Evidence
+
+- `npm run lint` passed after the checker, audit, README, and AutoResearch log updates.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `headOnlyDriftCadenceAdvisory: true`.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 1`, `blockingDriftCount: 0`, and `cadenceAdvisoryDriftCount: 1`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasHeadOnlyCadenceBlockingDriftCount: 0`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
