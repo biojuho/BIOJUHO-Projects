@@ -1424,18 +1424,18 @@ Generated: 2026-06-06T21:23:20+09:00
 
 ## Experiment: High-churn cadence advisory drift
 
-- Hypothesis: A high-churn launch-candidate source should not deadlock release sync when only `lastCommit/pushedAt` advance within the documented freshness cadence and material metadata stays unchanged.
-- Primary metric: `veritasHeadOnlyCadenceBlockingDriftCount`.
-- Baseline: The v8.674 release sync failed because Veritas moved from commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e` to `4678612db1924cc46cd923f0edff26aa230033ca`, with blocking drift only in `lastCommit` and `pushedAt`.
-- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies high-churn `lastCommit/pushedAt`-only drift as `cadence-advisory` for `Veritas-7/autoresearch-skill-system` when the live push is within the 4-hour cadence and issue/PR/disk metadata is unchanged.
+- Hypothesis: A high-churn launch-candidate source should not deadlock release sync when only source-head metadata advances within the documented freshness cadence and repository triage metadata stays unchanged.
+- Primary metric: `veritasHighChurnCadenceBlockingDriftCount`.
+- Baseline: The v8.674 release sync failed because Veritas moved from commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e` to `4678612db1924cc46cd923f0edff26aa230033ca`, with blocking drift confined to `lastCommit` and `pushedAt`.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` classifies high-churn source-head drift as `cadence-advisory` for `Veritas-7/autoresearch-skill-system` when the live push is within the 4-hour cadence and issue/PR metadata is unchanged.
 - Decision: keep; repo-scoped `--fail-on-drift` now passes with `blockingDriftCount: 0`, `cadenceAdvisoryDriftCount: 1`, and `driftMinutes: 17.6`, while material metadata drift remains blocking.
 
 ## Evidence
 
 - `npm run lint` passed after the checker, audit, README, and AutoResearch log updates.
-- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `headOnlyDriftCadenceAdvisory: true`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with the high-churn cadence advisory check enabled.
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 1`, `blockingDriftCount: 0`, and `cadenceAdvisoryDriftCount: 1`.
-- `autoresearch-results/joopark-product-loop.json` now reports `veritasHeadOnlyCadenceBlockingDriftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports the high-churn cadence blocking drift count at 0.
 
 ## Experiment: Outline generic snapshot refresh 3
 
@@ -1466,6 +1466,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `commitStableMetadataAdvisory: true`.
 - Full live drift now reports `driftCount: 15`, `blockingDriftCount: 7`, `advisoryDriftCount: 7`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 2`.
 - `autoresearch-results/joopark-product-loop.json` now reports `outlineCommitStableDiskBlockingDriftCount: 0`.
+
+## Experiment: High-churn source metadata cadence advisory drift
+
+- Hypothesis: A high-churn launch-candidate source should not deadlock release sync when `lastCommit`, `pushedAt`, and `diskKb` move together inside the documented freshness cadence while issue and PR metadata stay unchanged.
+- Primary metric: `veritasSourceMetadataCadenceBlockingDriftCount`.
+- Baseline: The post-PR #233 release sync failed because Veritas moved from commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e` to `36926dfcc7f77c03b8dea583b4831d8572b7e098`, with blocking drift in `lastCommit`, `pushedAt`, and `diskKb`.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now classifies that high-churn source metadata set as `cadence-advisory` for `Veritas-7/autoresearch-skill-system` when the live push is within the 4-hour cadence and issue/PR metadata is unchanged; audit and README require the new policy term.
+- Decision: keep; repo-scoped `--fail-on-drift` now exits 0 with `blockingDriftCount: 0`, `cadenceAdvisoryDriftCount: 1`, and `driftMinutes: 61.2`.
+
+## Evidence
+
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy` passed with `highChurnSourceMetadataCadenceAdvisory: true`.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 1`, `blockingDriftCount: 0`, and `cadenceAdvisoryDriftCount: 1`.
+- Full live drift now reports `driftCount: 15`, `blockingDriftCount: 7`, `advisoryDriftCount: 6`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 2`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSourceMetadataCadenceBlockingDriftCount: 0`.
 
 ## Next Loop
 

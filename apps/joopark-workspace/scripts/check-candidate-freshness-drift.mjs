@@ -19,13 +19,13 @@ const cadencePolicyId = "candidate-freshness-drift-cadence-v1";
 const metadataPolicyId = "candidate-freshness-commit-stable-metadata-v1";
 const advisoryFields = new Set(["stars", "forks"]);
 const blockingFields = ["lastCommit", "pushedAt", "openIssues", "openPRs", "diskKb"];
-const headOnlyCadenceFields = new Set(["lastCommit", "pushedAt"]);
+const highChurnCadenceFields = new Set(["lastCommit", "pushedAt", "diskKb"]);
 const commitStableMetadataFields = new Set(["diskKb"]);
 const highChurnRepoPolicies = [
   {
     repo: "Veritas-7/autoresearch-skill-system",
     cadenceHours: 4,
-    headOnlyDriftAdvisory: true,
+    sourceMetadataDriftAdvisory: true,
     reason: "Fast-moving AutoResearch source used directly by the launch candidate snapshot.",
   },
 ];
@@ -186,8 +186,8 @@ function minutesBetween(start, end) {
 
 function cadenceAdvisoryFor(project, current, blockingDrift) {
   const policy = highChurnPolicyFor(project);
-  if (!policy?.headOnlyDriftAdvisory || blockingDrift.length === 0) return null;
-  if (!blockingDrift.every((item) => headOnlyCadenceFields.has(item.field))) return null;
+  if (!policy?.sourceMetadataDriftAdvisory || blockingDrift.length === 0) return null;
+  if (!blockingDrift.every((item) => highChurnCadenceFields.has(item.field))) return null;
 
   const driftMinutes = minutesBetween(project.pushedAt, current.pushedAt);
   const maxDriftMinutes = policy.cadenceHours * 60;
@@ -199,7 +199,7 @@ function cadenceAdvisoryFor(project, current, blockingDrift) {
     cadenceHours: policy.cadenceHours,
     driftMinutes: Math.round(driftMinutes * 10) / 10,
     maxDriftMinutes,
-    condition: "high-churn-head-only",
+    condition: "high-churn-source-metadata",
     reason: policy.reason,
   };
 }
@@ -284,8 +284,8 @@ function buildCadencePolicy(snapshot) {
       monitored: monitoredRepos.has(normalizedRepo),
       inScope,
       cadenceHours: policy.cadenceHours,
-      headOnlyDriftPolicy: policy.headOnlyDriftAdvisory
-        ? `Treat lastCommit/pushedAt-only drift as cadence-advisory for ${policy.cadenceHours} hours when material metadata is unchanged.`
+      sourceMetadataDriftPolicy: policy.sourceMetadataDriftAdvisory
+        ? `Treat drift confined to lastCommit, pushedAt, and diskKb as cadence-advisory for ${policy.cadenceHours} hours when issue and PR metadata is unchanged.`
         : "disabled",
       trigger: "Before release gates, after upstream movement, and before enabling fail-on-drift automation.",
       reason: policy.reason,
@@ -319,7 +319,7 @@ function buildCadencePolicy(snapshot) {
       snapshotOnlyRequired: true,
       repoScopedHighChurn: scopedHighChurn > 0,
       failOnDriftCommandScoped: highChurnRepos.every((item) => item.blockingCommand.includes("--repo")),
-      headOnlyDriftCadenceAdvisory: highChurnRepos.some((item) => item.monitored && item.inScope && item.headOnlyDriftPolicy !== "disabled"),
+      highChurnSourceMetadataCadenceAdvisory: highChurnRepos.some((item) => item.monitored && item.inScope && item.sourceMetadataDriftPolicy !== "disabled"),
       commitStableMetadataAdvisory: commitStableMetadataFields.size > 0,
     },
   };
@@ -404,7 +404,7 @@ finish(withCadencePolicy({
   driftPolicy: {
     blockingFields,
     advisoryFields: Array.from(advisoryFields),
-    cadenceAdvisoryFields: Array.from(headOnlyCadenceFields),
+    cadenceAdvisoryFields: Array.from(highChurnCadenceFields),
     metadataAdvisoryFields: Array.from(commitStableMetadataFields),
     metadataPolicyId,
     highChurnRepoPolicies,
