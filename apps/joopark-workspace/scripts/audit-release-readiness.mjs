@@ -1138,6 +1138,18 @@ function buildChecklist() {
     evidence: appflowyAffineWorkspaceReviewIssueDraftTerms,
   });
 
+  const appflowyAffineWorkspaceReviewNotePublishTerms = [
+    { file: "app.js", terms: ["function publishReviewHandoffNote", "data-workspace-review-note-publish", "data-workspace-review-note-publish-status", "workspace-review-note"] },
+    { file: "styles.css", terms: [".portfolio-export-actions", ".portfolio-export-status"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["workspaceBenchmarkReviewNotePublishVisible", "workspace review note publish did not create a note", "workspace review note publish did not persist source key"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_workspace_review_note_publish",
+    requirement: "The AppFlowy and AFFiNE workspace review handoff can be published into a pinned notes-review entry with stable source key and browser smoke coverage.",
+    status: appflowyAffineWorkspaceReviewNotePublishTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineWorkspaceReviewNotePublishTerms,
+  });
+
   const knowledgeBaseInformationArchitectureExportTerms = [
     { file: "app.js", terms: ["function knowledgeBaseBenchmarkRecommendationMarkdown", "function candidateKnowledgeBaseRecommendationExport", "data-knowledge-base-benchmark-export", "joopark-kb-ia-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },

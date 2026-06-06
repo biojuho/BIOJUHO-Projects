@@ -1384,17 +1384,20 @@ function candidateWorkspaceReviewHandoff(scored) {
   const markdown = workspaceReviewHandoffMarkdown(decisions);
   if (!markdown) return "";
   const primary = decisions[0];
+  const existingNote = dashboard.notes.find((note) => note.sourceKey === primary.decision.persistKey);
   const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
   return html`
-    <section class="portfolio-review-handoff" data-workspace-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-workspace-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}" data-workspace-review-handoff-primary-key="${primary.decision.persistKey}">
+    <section class="portfolio-review-handoff" data-workspace-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-workspace-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}" data-workspace-review-handoff-primary-key="${primary.decision.persistKey}" data-workspace-review-note-created="${existingNote ? "true" : "false"}" data-workspace-review-note-id="${existingNote ? existingNote.id : ""}">
       <div class="portfolio-export-head">
         <span>Workspace handoff</span>
         <div class="portfolio-export-actions">
           <a class="portfolio-export-download" data-workspace-review-handoff-download href="${href}" download="joopark-workspace-review-handoff.md">MD 저장</a>
           <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-review-handoff" data-review-handoff-copy data-workspace-review-handoff-copy data-review-handoff-copy-key="${primary.decision.persistKey}" data-workspace-review-handoff-copy-key="${primary.decision.persistKey}">복사</button>
+          <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="publish-review-note" data-review-note-publish data-workspace-review-note-publish data-review-note-key="${primary.decision.persistKey}" data-workspace-review-note-key="${primary.decision.persistKey}" data-review-note-created="${existingNote ? "true" : "false"}" data-review-note-id="${existingNote ? existingNote.id : ""}" ${raw(existingNote ? "disabled" : "")}>${existingNote ? "노트 발행됨" : "노트 발행"}</button>
         </div>
       </div>
       <small class="portfolio-export-status" data-review-handoff-copy-status data-workspace-review-handoff-copy-status aria-live="polite"></small>
+      <small class="portfolio-export-status" data-workspace-review-note-publish-status aria-live="polite">${existingNote ? "노트 발행됨" : ""}</small>
       <div class="portfolio-export-grid">
         <div>
           <span>우선 결정</span>
@@ -1951,6 +1954,46 @@ function createBenchmarkReviewIssue(target) {
   rebuildIndexes();
   commit();
   showToast(`이슈 초안을 생성했습니다: ${newIssue.id}`, "info");
+}
+
+function publishReviewHandoffNote(target) {
+  const handoff = target.closest("[data-workspace-review-handoff]");
+  const key = target.dataset.reviewNoteKey || "";
+  if (!handoff || !key) {
+    showToast("발행할 review note를 찾을 수 없습니다", "warn");
+    return;
+  }
+  const existing = dashboard.notes.find((note) => note.sourceKey === key);
+  if (existing) {
+    showToast(`이미 발행된 노트입니다: ${existing.title}`, "info");
+    renderCurrentView();
+    return;
+  }
+  const handoffText = handoff.querySelector("[data-review-handoff-text]")?.textContent || "";
+  const draftNode = handoff.querySelector("[data-review-issue-draft]");
+  const projectName = draftNode ? draftNode.dataset.issueDraftProject || "" : "";
+  const issueBody = draftNode ? draftNode.querySelector("[data-issue-draft-body]")?.textContent || "" : "";
+  if (!handoffText.trim() || !projectName) {
+    showToast("review note 본문을 찾을 수 없습니다", "warn");
+    return;
+  }
+  const note = {
+    id: uid("nt"),
+    title: `[Workspace Review] ${projectName}`,
+    body: [
+      handoffText.trim(),
+      issueBody.trim() ? "\n## Issue Draft" : "",
+      issueBody.trim(),
+    ].filter(Boolean).join("\n"),
+    color: "#22d3ee",
+    pinned: true,
+    updatedAt: nowISO(),
+    sourceKey: key,
+    sourceKind: "workspace-review-note",
+  };
+  dashboard.notes.push(note);
+  commit();
+  showToast(`review note를 발행했습니다: ${note.title}`, "info");
 }
 
 function sortPortfolioProjects(projects) {
@@ -6398,6 +6441,7 @@ function handleActions(event) {
   if (action === "portfolio-benchmark-filter") { setPortfolioBenchmarkFilter(target.dataset.benchmarkFilter); return; }
   if (action === "copy-review-handoff") { copyBenchmarkReviewHandoff(target); return; }
   if (action === "create-review-issue") { createBenchmarkReviewIssue(target); return; }
+  if (action === "publish-review-note") { publishReviewHandoffNote(target); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }
