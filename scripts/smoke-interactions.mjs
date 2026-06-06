@@ -394,6 +394,7 @@ const interactionExpression = `
   let workspaceBenchmarkReviewHandoffVisibleOk = false;
   let workspaceBenchmarkReviewHandoffCopyVisibleOk = false;
   let workspaceBenchmarkReviewIssueDraftVisibleOk = false;
+  let workspaceBenchmarkReviewNotePublishVisibleOk = false;
   let knowledgeBaseBenchmarkRubricVisibleOk = false;
   let knowledgeBaseBenchmarkExportVisibleOk = false;
   let knowledgeBaseBenchmarkReviewHandoffVisibleOk = false;
@@ -893,6 +894,20 @@ const interactionExpression = `
       const nextDraft = document.querySelector("[data-workspace-review-issue-draft]");
       return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdWorkspaceIssue.id;
     }, "workspace review issue draft created state did not render");
+    const nextWorkspaceReviewHandoff = qs("[data-workspace-review-handoff]");
+    const beforeWorkspaceNoteCount = dashboard.notes.length;
+    click("[data-workspace-review-note-publish]", nextWorkspaceReviewHandoff);
+    await waitFor(() => dashboard.notes.length === beforeWorkspaceNoteCount + 1, "workspace review note publish did not create a note");
+    const createdWorkspaceNote = dashboard.notes.find((note) => note.sourceKey === "workspace-review:repo-toeverything-affine:86");
+    assert(createdWorkspaceNote, "workspace review note publish did not persist source key");
+    assert(createdWorkspaceNote.title === "[Workspace Review] toeverything/AFFiNE", "workspace review note publish title was not saved");
+    assert(createdWorkspaceNote.pinned === true, "workspace review note publish did not pin note");
+    assert(createdWorkspaceNote.body.includes("Primary decision key: workspace-review:repo-toeverything-affine:86") && createdWorkspaceNote.body.includes("## Issue Draft") && createdWorkspaceNote.body.includes("Compare with: AppFlowy-IO/AppFlowy"), "workspace review note publish body did not render");
+    await waitFor(() => {
+      const nextHandoff = document.querySelector("[data-workspace-review-handoff]");
+      const nextPublish = document.querySelector("[data-workspace-review-note-publish]");
+      return nextHandoff && nextPublish && nextHandoff.dataset.workspaceReviewNoteCreated === "true" && nextPublish.dataset.reviewNoteCreated === "true" && nextPublish.dataset.reviewNoteId === createdWorkspaceNote.id;
+    }, "workspace review note publish state did not render");
     const knowledgeBaseRubric = qs("[data-knowledge-base-benchmark-rubric]");
     assert(knowledgeBaseRubric.innerText.includes("KB/IA 비교표"), "knowledge-base IA rubric did not render heading");
     assert(knowledgeBaseRubric.innerText.includes("outline/outline"), "Outline knowledge-base rubric did not render");
@@ -977,6 +992,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffVisibleOk = true;
     workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
     workspaceBenchmarkReviewIssueDraftVisibleOk = true;
+    workspaceBenchmarkReviewNotePublishVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1039,6 +1055,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffVisibleOk = true;
     workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
     workspaceBenchmarkReviewIssueDraftVisibleOk = true;
+    workspaceBenchmarkReviewNotePublishVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1343,6 +1360,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffVisibleOk = true;
     workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
     workspaceBenchmarkReviewIssueDraftVisibleOk = true;
+    workspaceBenchmarkReviewNotePublishVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1600,6 +1618,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffVisible: workspaceBenchmarkReviewHandoffVisibleOk,
     workspaceBenchmarkReviewHandoffCopyVisible: workspaceBenchmarkReviewHandoffCopyVisibleOk,
     workspaceBenchmarkReviewIssueDraftVisible: workspaceBenchmarkReviewIssueDraftVisibleOk,
+    workspaceBenchmarkReviewNotePublishVisible: workspaceBenchmarkReviewNotePublishVisibleOk,
     knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
     knowledgeBaseBenchmarkExportVisible: knowledgeBaseBenchmarkExportVisibleOk,
     knowledgeBaseBenchmarkReviewHandoffVisible: knowledgeBaseBenchmarkReviewHandoffVisibleOk,
