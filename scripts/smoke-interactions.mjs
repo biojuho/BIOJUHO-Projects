@@ -389,6 +389,7 @@ const interactionExpression = `
   let candidateBenchmarkQueueVisibleOk = false;
   let candidateBenchmarkRubricVisibleOk = false;
   let candidateBenchmarkRubricScoreVisibleOk = false;
+  let workspaceBenchmarkRubricVisibleOk = false;
   let knowledgeBaseBenchmarkRubricVisibleOk = false;
   let knowledgeBaseBenchmarkExportVisibleOk = false;
   let knowledgeBaseBenchmarkReviewHandoffVisibleOk = false;
@@ -809,6 +810,37 @@ const interactionExpression = `
     assert(exportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "benchmark recommendation export markdown link did not render");
     assert(exportText.includes("Recommendation: adopt Taskosaur/Taskosaur first") && exportText.includes("happybhati/workstream as the secondary benchmark"), "benchmark recommendation export copy did not render");
     assert(exportText.includes("Score gap: 1 point") && exportText.includes("Primary reason: AI 보조 scored 92 at 30% weight"), "benchmark recommendation export rationale did not render");
+    const workspaceRubric = qs("[data-workspace-benchmark-rubric]");
+    assert(workspaceRubric.innerText.includes("Workspace 비교표"), "workspace benchmark rubric did not render heading");
+    assert(workspaceRubric.innerText.includes("AppFlowy-IO/AppFlowy"), "AppFlowy workspace rubric did not render");
+    assert(workspaceRubric.innerText.includes("toeverything/AFFiNE"), "AFFiNE workspace rubric did not render");
+    ["PM/Task 흐름", "Notes/Wiki IA", "Collaboration/Data control", "Implementation transfer"].forEach((axis) => {
+      assert(!!document.querySelector('[data-workspace-rubric-axis="' + axis + '"]'), "workspace rubric axis did not render: " + axis);
+    });
+    [
+      "project + task surfaces",
+      "Notion/Miro knowledge-base + whiteboard",
+      "CRDT workspace",
+      "Flutter/Dart desktop stack",
+    ].forEach((term) => {
+      assert(workspaceRubric.innerText.includes(term), "workspace rubric value did not render: " + term);
+    });
+    const appFlowyWorkspaceScore = projectWorkspaceRubricScore(appFlowyCandidate);
+    const affineWorkspaceScore = projectWorkspaceRubricScore(affineCandidate);
+    assert(appFlowyWorkspaceScore && appFlowyWorkspaceScore.score === 83, "AppFlowy workspace rubric score was wrong");
+    assert(affineWorkspaceScore && affineWorkspaceScore.score === 86, "AFFiNE workspace rubric score was wrong");
+    const workspaceRecommendation = qs("[data-workspace-rubric-recommendation]", workspaceRubric);
+    assert(workspaceRecommendation.dataset.workspaceRubricRecommendation === "toeverything/AFFiNE", "workspace rubric recommendation did not pick AFFiNE");
+    assert(workspaceRecommendation.dataset.workspaceRubricScore === String(affineWorkspaceScore.score), "workspace rubric recommendation score did not render");
+    const workspaceCells = Array.from(workspaceRubric.querySelectorAll("[data-workspace-rubric-project][data-workspace-rubric-axis]"));
+    const affineNotesCell = workspaceCells.find((cell) => cell.dataset.workspaceRubricProject === "toeverything/AFFiNE" && cell.dataset.workspaceRubricAxis === "Notes/Wiki IA");
+    assert(affineNotesCell, "AFFiNE workspace rubric notes cell did not render");
+    assert(affineNotesCell.dataset.workspaceRubricWeight === "0.3", "AFFiNE workspace rubric notes weight did not render");
+    assert(affineNotesCell.dataset.workspaceRubricScore === "90", "AFFiNE workspace rubric notes score did not render");
+    const appFlowyTransferCell = workspaceCells.find((cell) => cell.dataset.workspaceRubricProject === "AppFlowy-IO/AppFlowy" && cell.dataset.workspaceRubricAxis === "Implementation transfer");
+    assert(appFlowyTransferCell, "AppFlowy workspace rubric transfer cell did not render");
+    assert(appFlowyTransferCell.dataset.workspaceRubricWeight === "0.15", "AppFlowy workspace rubric transfer weight did not render");
+    assert(appFlowyTransferCell.dataset.workspaceRubricScore === "76", "AppFlowy workspace rubric transfer score did not render");
     const knowledgeBaseRubric = qs("[data-knowledge-base-benchmark-rubric]");
     assert(knowledgeBaseRubric.innerText.includes("KB/IA 비교표"), "knowledge-base IA rubric did not render heading");
     assert(knowledgeBaseRubric.innerText.includes("outline/outline"), "Outline knowledge-base rubric did not render");
@@ -888,6 +920,7 @@ const interactionExpression = `
     }, "knowledge-base review issue draft created state did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    workspaceBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -945,6 +978,7 @@ const interactionExpression = `
     }, "benchmark review issue draft created state did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    workspaceBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1244,6 +1278,7 @@ const interactionExpression = `
     candidateBenchmarkQueueVisibleOk = true;
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    workspaceBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1496,6 +1531,7 @@ const interactionExpression = `
     candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
+    workspaceBenchmarkRubricVisible: workspaceBenchmarkRubricVisibleOk,
     knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
     knowledgeBaseBenchmarkExportVisible: knowledgeBaseBenchmarkExportVisibleOk,
     knowledgeBaseBenchmarkReviewHandoffVisible: knowledgeBaseBenchmarkReviewHandoffVisibleOk,

@@ -249,6 +249,32 @@ function projectKnowledgeBaseRubric(p) {
     .slice(0, 6);
 }
 
+function projectWorkspaceBenchmark(p) {
+  const focus = p && typeof p.workspaceBenchmark === "object" ? p.workspaceBenchmark : null;
+  if (!focus) return null;
+  const surface = String(focus.surface || "").trim();
+  const flow = String(focus.flow || "").trim();
+  const signals = Array.isArray(focus.signals)
+    ? focus.signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 4)
+    : [];
+  if (!surface || !flow || signals.length === 0) return null;
+  return { surface, flow, signals };
+}
+
+function projectWorkspaceRubric(p) {
+  const focus = p && typeof p.workspaceBenchmark === "object" ? p.workspaceBenchmark : null;
+  const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
+  return rubric
+    .map((row) => ({
+      axis: String(row && row.axis || "").trim(),
+      value: String(row && row.value || "").trim(),
+      weight: Math.max(0, Math.min(1, Number(row && row.weight) || 0)),
+      score: Math.max(0, Math.min(100, Number(row && row.score) || 0)),
+    }))
+    .filter((row) => row.axis && row.value)
+    .slice(0, 6);
+}
+
 function weightedRubricScore(rubric) {
   const scored = (Array.isArray(rubric) ? rubric : []).filter((row) => row.weight > 0 && row.score > 0);
   const totalWeight = scored.reduce((sum, row) => sum + row.weight, 0);
@@ -266,6 +292,10 @@ function projectKnowledgeBaseRubricScore(p) {
   return weightedRubricScore(projectKnowledgeBaseRubric(p));
 }
 
+function projectWorkspaceRubricScore(p) {
+  return weightedRubricScore(projectWorkspaceRubric(p));
+}
+
 function candidateBenchmarkRubricRanking(projects) {
   return (Array.isArray(projects) ? projects : [])
     .map((project) => ({ project, rubricScore: projectBenchmarkRubricScore(project) }))
@@ -276,6 +306,13 @@ function candidateBenchmarkRubricRanking(projects) {
 function knowledgeBaseBenchmarkRubricRanking(projects) {
   return (Array.isArray(projects) ? projects : [])
     .map((project) => ({ project, rubricScore: projectKnowledgeBaseRubricScore(project) }))
+    .filter((item) => item.rubricScore)
+    .sort((a, b) => b.rubricScore.score - a.rubricScore.score || String(a.project.name || "").localeCompare(String(b.project.name || "")));
+}
+
+function workspaceBenchmarkRubricRanking(projects) {
+  return (Array.isArray(projects) ? projects : [])
+    .map((project) => ({ project, rubricScore: projectWorkspaceRubricScore(project) }))
     .filter((item) => item.rubricScore)
     .sort((a, b) => b.rubricScore.score - a.rubricScore.score || String(a.project.name || "").localeCompare(String(b.project.name || "")));
 }
@@ -1218,6 +1255,49 @@ function candidateKnowledgeBaseRubric(projects, filter) {
   `;
 }
 
+function candidateWorkspaceRubric(projects, filter) {
+  if (filter !== "focused") return "";
+  const focused = workspaceBenchmarkRubricRanking((Array.isArray(projects) ? projects : [])
+    .filter((p) => p.sourceKind === "adoption-candidate" && projectWorkspaceRubric(p).length > 0))
+    .map((item) => item.project)
+    .slice(0, 2);
+  if (focused.length < 2) return "";
+  const axes = Array.from(new Set(focused.flatMap((project) => projectWorkspaceRubric(project).map((row) => row.axis))));
+  const rowFor = (project, axis) => projectWorkspaceRubric(project).find((row) => row.axis === axis) || null;
+  const scored = workspaceBenchmarkRubricRanking(focused);
+  const topRecommendation = scored[0] || null;
+  const topFocus = topRecommendation ? projectWorkspaceBenchmark(topRecommendation.project) : null;
+  const header = html`
+    <div class="portfolio-rubric-axis">비교 축</div>
+    ${raw(focused.map((project) => {
+      const score = projectWorkspaceRubricScore(project);
+      return html`<div class="portfolio-rubric-project" data-workspace-rubric-project="${project.name}">${project.name}${score ? raw(html`<small data-workspace-rubric-total-score="${score.score}">${score.label} ${score.score}</small>`) : ""}</div>`;
+    }).join(""))}
+  `;
+  const rows = axes.map((axis) => html`
+    <div class="portfolio-rubric-axis" data-workspace-rubric-axis="${axis}">${axis}</div>
+    ${raw(focused.map((project) => {
+      const row = rowFor(project, axis);
+      const weight = row && row.weight ? `${Math.round(row.weight * 100)}%` : "가중 없음";
+      const score = row && row.score ? `${row.score}점` : "점수 없음";
+      return html`<div class="portfolio-rubric-value" data-workspace-rubric-project="${project.name}" data-workspace-rubric-axis="${axis}" data-workspace-rubric-weight="${row ? row.weight : 0}" data-workspace-rubric-score="${row ? row.score : 0}"><span>${row ? row.value : "비교 대기"}</span><small>${weight} · ${score}</small></div>`;
+    }).join(""))}
+  `).join("");
+  return html`
+    <section class="portfolio-benchmark-rubric" data-workspace-benchmark-rubric data-workspace-benchmark-surface="${topFocus ? topFocus.surface : "JooPark Workspace"}" data-workspace-benchmark-flow="${topFocus ? topFocus.flow : "PM/task + notes/wiki collaboration transfer"}">
+      <div class="portfolio-rubric-head">
+        <span>Workspace 비교표</span>
+        <strong>${focused.map((project) => project.name.split("/").pop()).join(" / ")}</strong>
+      </div>
+      ${topRecommendation ? raw(html`<div class="portfolio-rubric-score" data-workspace-rubric-recommendation="${topRecommendation.project.name}" data-workspace-rubric-score="${topRecommendation.rubricScore.score}"><span>추천 후보</span><strong>${topRecommendation.project.name}</strong><small>${topRecommendation.rubricScore.label} ${topRecommendation.rubricScore.score}</small></div>`) : ""}
+      <div class="portfolio-rubric-grid" style="--rubric-project-count:${focused.length}">
+        ${raw(header)}
+        ${raw(rows)}
+      </div>
+    </section>
+  `;
+}
+
 function knowledgeBaseBenchmarkRecommendationMarkdown(scored) {
   if (!Array.isArray(scored) || scored.length < 2) return "";
   const [top, runnerUp] = scored;
@@ -1735,6 +1815,7 @@ function renderPortfolio() {
   const actionSummary = candidateActionQueueSummary(dashboard.projects, state.portfolioActionFilter);
   const benchmarkSummary = candidateBenchmarkQueueSummary(dashboard.projects, state.portfolioBenchmarkFilter);
   const benchmarkRubric = candidateBenchmarkRubric(dashboard.projects, state.portfolioBenchmarkFilter);
+  const workspaceRubric = candidateWorkspaceRubric(dashboard.projects, state.portfolioBenchmarkFilter);
   const knowledgeBaseRubric = candidateKnowledgeBaseRubric(dashboard.projects, state.portfolioBenchmarkFilter);
   const benchmarkReviewQueue = candidateBenchmarkReviewQueue(dashboard.projects, state.portfolioBenchmarkFilter);
 
@@ -1811,6 +1892,7 @@ function renderPortfolio() {
     ${raw(actionSummary)}
     ${raw(benchmarkSummary)}
     ${raw(benchmarkRubric)}
+    ${raw(workspaceRubric)}
     ${raw(knowledgeBaseRubric)}
     ${raw(benchmarkReviewQueue)}
     <section class="portfolio-grid">
