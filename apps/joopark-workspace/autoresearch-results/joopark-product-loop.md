@@ -1659,6 +1659,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - Baseline `node scripts/audit-release-readiness.mjs --run-gates` on the main-aligned release state reported `pass: 72`, `fail: 1`, `total: 73`.
 - `scripts/package-release.mjs` now contains `versionRuntimeAssetRefs`, `Runtime asset version ref missing`, and `sha256(join(outDir, asset.path)).slice(0, 12)` evidence required by the release audit.
 
+## Experiment: System status route
+
+- Hypothesis: The operations sidebar should expose a real `#system` route instead of sending users back to settings, so release smoke can prove storage, source-backed candidate, benchmark, and DB operations context from one status surface.
+- Primary metric: `systemStatusRouteSmokeFailures`.
+- Baseline: The sidebar linked to `#system` but used `data-view="settings"`, and the SPA had no `view-system`, router case, or desktop/mobile route smoke coverage.
+- Candidate: Add an independent `view-system`, render system status KPIs and storage/operations panels, route `#system` through the SPA router, and extend release audit plus Chrome/mobile smoke route coverage.
+- Decision: keep; the intended failure count drops from one missing route surface to zero when desktop/mobile smoke and release readiness gates include the system route.
+
+## Evidence
+
+- `scripts/audit-release-readiness.mjs` now expects 16 views and adds `system_status_route` evidence across `index.html`, `app.js`, `scripts/smoke-chrome.mjs`, and `scripts/smoke-mobile.mjs`.
+- `autoresearch-results/joopark-product-loop.json` records `systemStatusRouteSmokeFailures` from baseline `1` to candidate `0`.
+- `BASE_URL=http://127.0.0.1:5183 node scripts/smoke-chrome.mjs` and `BASE_URL=http://127.0.0.1:5183 node scripts/smoke-mobile.mjs` passed with `routeCount: 16` and no missing text, layout, console, or network failures.
+- `BASE_URL=http://127.0.0.1:5183 node scripts/audit-release-readiness.mjs --run-gates` passed with `73/73` checks, including `route_surface` and `system_status_route`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.

@@ -87,6 +87,7 @@ const viewIds = [
   "view-dbm-queries",
   "view-dbm-backups",
   "view-settings",
+  "view-system",
 ];
 
 function run(command, commandArgs, options = {}) {
@@ -643,9 +644,22 @@ function buildChecklist() {
   const indexTerms = hasTerms("index.html", viewIds);
   checklist.push({
     id: "route_surface",
-    requirement: "The SPA exposes the 15 expected workspace, PM, DB, and settings views.",
+    requirement: "The SPA exposes the 16 expected workspace, PM, DB, settings, and system views.",
     status: indexTerms.status,
     evidence: { file: "index.html", expectedViews: viewIds.length, missingViews: indexTerms.missing },
+  });
+
+  const systemStatusRouteTerms = [
+    { file: "index.html", terms: ["href=\"#system\"", "data-view=\"system\"", "view-system"] },
+    { file: "app.js", terms: ["function renderSystemStatus", "data-system-status", "data-system-operational-surface", "projectBenchmarkContext", "case \"system\""] },
+    { file: "scripts/smoke-chrome.mjs", terms: ["[\"system\"", "시스템 상태", "운영 표면"] },
+    { file: "scripts/smoke-mobile.mjs", terms: ["[\"system\"", "시스템 상태", "운영 표면"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "system_status_route",
+    requirement: "The sidebar #system route opens an independent system status surface with storage, source-backed candidate, benchmark, and operations coverage in desktop and mobile smoke.",
+    status: systemStatusRouteTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: systemStatusRouteTerms,
   });
 
   const homeQuickLinkTerms = [
