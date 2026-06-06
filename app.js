@@ -138,6 +138,16 @@ function safeGithubUrl(url) {
   return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value) ? value : "";
 }
 
+function githubNewIssueUrl(project, title, body) {
+  const base = safeGithubUrl(project && project.url);
+  if (!base) return "";
+  const params = new URLSearchParams();
+  if (title) params.set("title", title);
+  if (body) params.set("body", body);
+  const query = params.toString();
+  return query ? `${base}/issues/new?${query}` : `${base}/issues/new`;
+}
+
 function metricValue(value) {
   return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("en-US") : "-";
 }
@@ -1413,6 +1423,7 @@ function candidateWorkspaceReviewHandoff(scored) {
         </div>
       </div>
       ${raw(candidateWorkspaceReviewIssueDraft(decisions))}
+      ${raw(candidateWorkspaceReviewGithubComment(decisions))}
       <pre class="portfolio-export-body" data-review-handoff-text data-workspace-review-handoff-text>${markdown}</pre>
     </section>
   `;
@@ -1486,6 +1497,53 @@ function candidateWorkspaceReviewIssueDraft(decisions) {
         </div>
       </div>
       <pre class="portfolio-issue-draft-body" data-issue-draft-body>${draft.body}</pre>
+    </section>
+  `;
+}
+
+function workspaceReviewGithubCommentMarkdown(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const primary = decisions[0];
+  const draft = workspaceReviewIssueDraft(decisions);
+  if (!primary || !primary.project || !primary.decision || !draft) return "";
+  const secondary = decisions.find((item) => item.decision.rank > 1);
+  return [
+    "## JooPark Workspace Review",
+    "",
+    `Primary decision key: ${primary.decision.persistKey}`,
+    `Recommendation: ${primary.project.name} ${primary.decision.status} (${primary.decision.label} ${primary.decision.score})`,
+    `Surface: ${primary.decision.surface}`,
+    `Reason: ${primary.decision.reason}`,
+    secondary ? `Compare with: ${secondary.project.name} ${secondary.decision.status} (${secondary.decision.label} ${secondary.decision.score})` : "",
+    "",
+    "## Issue Draft",
+    `Title: ${draft.title}`,
+    `Priority: ${draft.priority}`,
+    `Labels: ${draft.labels.join(", ")}`,
+    `Estimate: ${draft.estimate}`,
+    "",
+    draft.body,
+  ].filter(Boolean).join("\n");
+}
+
+function candidateWorkspaceReviewGithubComment(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const primary = decisions[0];
+  const draft = workspaceReviewIssueDraft(decisions);
+  const comment = workspaceReviewGithubCommentMarkdown(decisions);
+  if (!primary || !draft || !comment) return "";
+  const issueUrl = githubNewIssueUrl(primary.project, draft.title, comment);
+  return html`
+    <section class="portfolio-review-issue-draft portfolio-review-github-comment" data-workspace-review-github-comment data-review-github-comment-key="${draft.persistKey}" data-review-github-comment-target="${primary.project.name}" data-review-github-comment-format="markdown">
+      <div class="portfolio-issue-draft-head">
+        <span>GitHub comment draft</span>
+        <div class="portfolio-export-actions">
+          ${issueUrl ? raw(html`<a class="portfolio-export-download" data-workspace-review-github-comment-open href="${issueUrl}" target="_blank" rel="noopener">이슈 열기</a>`) : ""}
+          <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-review-github-comment" data-review-github-comment-copy data-workspace-review-github-comment-copy data-review-github-comment-copy-key="${draft.persistKey}">댓글 복사</button>
+        </div>
+      </div>
+      <small class="portfolio-export-status" data-review-github-comment-copy-status data-workspace-review-github-comment-copy-status aria-live="polite"></small>
+      <pre class="portfolio-issue-draft-body" data-review-github-comment-text data-workspace-review-github-comment-text>${comment}</pre>
     </section>
   `;
 }
@@ -1910,6 +1968,18 @@ function copyBenchmarkReviewHandoff(target) {
     if (handoff) handoff.dataset.reviewHandoffCopied = copied ? "true" : "false";
     if (status) status.textContent = copied ? "복사됨" : "복사 실패";
     showToast(copied ? "handoff를 복사했습니다" : "복사 실패", copied ? "info" : "error");
+  });
+}
+
+function copyReviewGithubComment(target) {
+  const comment = target.closest("[data-workspace-review-github-comment], [data-kb-review-github-comment]");
+  const text = comment ? comment.querySelector("[data-review-github-comment-text]")?.textContent || "" : "";
+  const status = comment ? comment.querySelector("[data-review-github-comment-copy-status]") : null;
+  writeClipboardText(text).then((copied) => {
+    target.dataset.reviewGithubCommentCopied = copied ? "true" : "false";
+    if (comment) comment.dataset.reviewGithubCommentCopied = copied ? "true" : "false";
+    if (status) status.textContent = copied ? "댓글 복사됨" : "댓글 복사 실패";
+    showToast(copied ? "GitHub comment draft를 복사했습니다" : "댓글 복사 실패", copied ? "info" : "error");
   });
 }
 
@@ -6447,6 +6517,7 @@ function handleActions(event) {
   if (action === "portfolio-action-filter") { setPortfolioActionFilter(target.dataset.actionFilter); return; }
   if (action === "portfolio-benchmark-filter") { setPortfolioBenchmarkFilter(target.dataset.benchmarkFilter); return; }
   if (action === "copy-review-handoff") { copyBenchmarkReviewHandoff(target); return; }
+  if (action === "copy-review-github-comment") { copyReviewGithubComment(target); return; }
   if (action === "create-review-issue") { createBenchmarkReviewIssue(target); return; }
   if (action === "publish-review-note") { publishReviewHandoffNote(target); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }

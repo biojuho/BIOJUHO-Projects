@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T18:11:26+09:00",
+  "generatedAt": "2026-06-06T18:27:55+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 67,
+      "pass": 68,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 67
+      "total": 68
     },
     "browserEvidence": {
       "routes": 15,
@@ -74,6 +74,8 @@
       "appflowyAffineWorkspaceReviewIssueDraftChecks": 5,
       "workspaceBenchmarkReviewNotePublishVisible": true,
       "appflowyAffineWorkspaceReviewNotePublishChecks": 3,
+      "workspaceBenchmarkReviewGithubCommentVisible": true,
+      "appflowyAffineWorkspaceReviewGithubCommentChecks": 3,
       "outlineCandidateFreshnessVisible": true,
       "outlineKnowledgeBaseCandidateFreshnessChecks": 6,
       "bookStackCandidateFreshnessVisible": true,
@@ -715,6 +717,13 @@
       "baseline": 0,
       "candidate": 3,
       "decision": "keep"
+    },
+    {
+      "id": "appflowy-affine-workspace-review-github-comment-handoff",
+      "primaryMetric": "appflowyAffineWorkspaceReviewGithubCommentChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -729,7 +738,6 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "add AppFlowy/AFFiNE GitHub comment publish handoff",
     "add KB/IA GitHub comment publish handoff",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]

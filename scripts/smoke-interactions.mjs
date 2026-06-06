@@ -395,6 +395,7 @@ const interactionExpression = `
   let workspaceBenchmarkReviewHandoffCopyVisibleOk = false;
   let workspaceBenchmarkReviewIssueDraftVisibleOk = false;
   let workspaceBenchmarkReviewNotePublishVisibleOk = false;
+  let workspaceBenchmarkReviewGithubCommentVisibleOk = false;
   let knowledgeBaseBenchmarkRubricVisibleOk = false;
   let knowledgeBaseBenchmarkExportVisibleOk = false;
   let knowledgeBaseBenchmarkReviewHandoffVisibleOk = false;
@@ -896,6 +897,22 @@ const interactionExpression = `
       return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdWorkspaceIssue.id;
     }, "workspace review issue draft created state did not render");
     const nextWorkspaceReviewHandoff = qs("[data-workspace-review-handoff]");
+    const workspaceGithubComment = qs("[data-workspace-review-github-comment]", nextWorkspaceReviewHandoff);
+    const workspaceGithubCommentOpen = qs("[data-workspace-review-github-comment-open]", workspaceGithubComment);
+    const workspaceGithubCommentCopy = qs("[data-workspace-review-github-comment-copy]", workspaceGithubComment);
+    const workspaceGithubCommentText = qs("[data-workspace-review-github-comment-text]", workspaceGithubComment).innerText;
+    assert(workspaceGithubComment.dataset.reviewGithubCommentKey === "workspace-review:repo-toeverything-affine:86", "workspace review GitHub comment key did not render");
+    assert(workspaceGithubComment.dataset.reviewGithubCommentTarget === "toeverything/AFFiNE", "workspace review GitHub comment target did not render");
+    assert(workspaceGithubComment.dataset.reviewGithubCommentFormat === "markdown", "workspace review GitHub comment format did not render");
+    assert(workspaceGithubCommentOpen.getAttribute("href").startsWith("https://github.com/toeverything/AFFiNE/issues/new?"), "workspace review GitHub comment issue link did not render");
+    assert(workspaceGithubCommentOpen.getAttribute("href").includes("workspace-review%3Arepo-toeverything-affine%3A86"), "workspace review GitHub comment issue link did not include source key");
+    assert(workspaceGithubCommentCopy.dataset.reviewGithubCommentCopyKey === "workspace-review:repo-toeverything-affine:86", "workspace review GitHub comment copy key did not render");
+    assert(workspaceGithubCommentText.includes("## JooPark Workspace Review") && workspaceGithubCommentText.includes("Primary decision key: workspace-review:repo-toeverything-affine:86") && workspaceGithubCommentText.includes("## Issue Draft") && workspaceGithubCommentText.includes("Compare with: AppFlowy-IO/AppFlowy"), "workspace review GitHub comment body did not render");
+    window.__smokeClipboardText = "";
+    click("[data-workspace-review-github-comment-copy]", workspaceGithubComment);
+    await waitFor(() => window.__smokeClipboardText.includes("Primary decision key: workspace-review:repo-toeverything-affine:86"), "workspace review GitHub comment copy text did not reach clipboard");
+    await waitFor(() => workspaceGithubComment.dataset.reviewGithubCommentCopied === "true", "workspace review GitHub comment copy state did not update");
+    assert(qs("[data-workspace-review-github-comment-copy-status]", workspaceGithubComment).textContent.includes("댓글 복사됨"), "workspace review GitHub comment copy status did not render");
     const beforeWorkspaceNoteCount = dashboard.notes.length;
     click("[data-workspace-review-note-publish]", nextWorkspaceReviewHandoff);
     await waitFor(() => dashboard.notes.length === beforeWorkspaceNoteCount + 1, "workspace review note publish did not create a note");
@@ -1009,6 +1026,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
     workspaceBenchmarkReviewIssueDraftVisibleOk = true;
     workspaceBenchmarkReviewNotePublishVisibleOk = true;
+    workspaceBenchmarkReviewGithubCommentVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1073,6 +1091,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
     workspaceBenchmarkReviewIssueDraftVisibleOk = true;
     workspaceBenchmarkReviewNotePublishVisibleOk = true;
+    workspaceBenchmarkReviewGithubCommentVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1379,6 +1398,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffCopyVisibleOk = true;
     workspaceBenchmarkReviewIssueDraftVisibleOk = true;
     workspaceBenchmarkReviewNotePublishVisibleOk = true;
+    workspaceBenchmarkReviewGithubCommentVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1638,6 +1658,7 @@ const interactionExpression = `
     workspaceBenchmarkReviewHandoffCopyVisible: workspaceBenchmarkReviewHandoffCopyVisibleOk,
     workspaceBenchmarkReviewIssueDraftVisible: workspaceBenchmarkReviewIssueDraftVisibleOk,
     workspaceBenchmarkReviewNotePublishVisible: workspaceBenchmarkReviewNotePublishVisibleOk,
+    workspaceBenchmarkReviewGithubCommentVisible: workspaceBenchmarkReviewGithubCommentVisibleOk,
     knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
     knowledgeBaseBenchmarkExportVisible: knowledgeBaseBenchmarkExportVisibleOk,
     knowledgeBaseBenchmarkReviewHandoffVisible: knowledgeBaseBenchmarkReviewHandoffVisibleOk,
