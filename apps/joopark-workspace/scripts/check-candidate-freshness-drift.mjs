@@ -18,10 +18,12 @@ const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filte
 const cadencePolicyId = "candidate-freshness-drift-cadence-v1";
 const advisoryFields = new Set(["stars", "forks"]);
 const blockingFields = ["lastCommit", "pushedAt", "openIssues", "openPRs", "diskKb"];
+const headOnlyCadenceFields = new Set(["lastCommit", "pushedAt"]);
 const highChurnRepoPolicies = [
   {
     repo: "Veritas-7/autoresearch-skill-system",
     cadenceHours: 4,
+    headOnlyDriftAdvisory: true,
     reason: "Fast-moving AutoResearch source used directly by the launch candidate snapshot.",
   },
 ];
@@ -168,16 +170,61 @@ function fieldDrift(project, current, field) {
   return drift;
 }
 
+function highChurnPolicyFor(project) {
+  const repo = String(project.repo?.nameWithOwner || "").toLowerCase();
+  return highChurnRepoPolicies.find((policy) => normalizeRepoFilter(policy.repo) === repo) || null;
+}
+
+function minutesBetween(start, end) {
+  const startMs = Date.parse(start || "");
+  const endMs = Date.parse(end || "");
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  return (endMs - startMs) / 60000;
+}
+
+function cadenceAdvisoryFor(project, current, blockingDrift) {
+  const policy = highChurnPolicyFor(project);
+  if (!policy?.headOnlyDriftAdvisory || blockingDrift.length === 0) return null;
+  if (!blockingDrift.every((item) => headOnlyCadenceFields.has(item.field))) return null;
+
+  const driftMinutes = minutesBetween(project.pushedAt, current.pushedAt);
+  const maxDriftMinutes = policy.cadenceHours * 60;
+  if (driftMinutes == null || driftMinutes < 0 || driftMinutes > maxDriftMinutes) return null;
+
+  return {
+    id: cadencePolicyId,
+    repo: policy.repo,
+    cadenceHours: policy.cadenceHours,
+    driftMinutes: Math.round(driftMinutes * 10) / 10,
+    maxDriftMinutes,
+    condition: "high-churn-head-only",
+    reason: policy.reason,
+  };
+}
+
 function compare(monitored, liveData) {
   return monitored.map((project, index) => {
     const repo = liveData[`repo${index}`];
     const current = liveValue(repo);
     const fields = ["lastCommit", "pushedAt", "stars", "forks", "openIssues", "openPRs", "diskKb"];
-    const drift = fields
+    const rawDrift = fields
       .map((field) => fieldDrift(project, current, field))
       .filter(Boolean);
+    const rawBlockingDrift = rawDrift.filter((item) => item.severity === "blocking");
+    const cadenceAdvisory = cadenceAdvisoryFor(project, current, rawBlockingDrift);
+    const cadenceAdvisoryFields = new Set(cadenceAdvisory ? rawBlockingDrift.map((item) => item.field) : []);
+    const drift = rawDrift.map((item) => {
+      if (!cadenceAdvisoryFields.has(item.field)) return item;
+      return {
+        ...item,
+        severity: "cadence-advisory",
+        originalSeverity: item.severity,
+        cadenceAdvisory,
+      };
+    });
     const blockingDrift = drift.filter((item) => item.severity === "blocking");
     const advisoryDrift = drift.filter((item) => item.severity === "advisory");
+    const cadenceAdvisoryDrift = drift.filter((item) => item.severity === "cadence-advisory");
     return {
       name: project.name,
       url: project.url,
@@ -186,6 +233,7 @@ function compare(monitored, liveData) {
       drift,
       blockingDrift,
       advisoryDrift,
+      cadenceAdvisoryDrift,
       ok: blockingDrift.length === 0,
     };
   });
@@ -209,6 +257,9 @@ function buildCadencePolicy(snapshot) {
       monitored: monitoredRepos.has(normalizedRepo),
       inScope,
       cadenceHours: policy.cadenceHours,
+      headOnlyDriftPolicy: policy.headOnlyDriftAdvisory
+        ? `Treat lastCommit/pushedAt-only drift as cadence-advisory for ${policy.cadenceHours} hours when material metadata is unchanged.`
+        : "disabled",
       trigger: "Before release gates, after upstream movement, and before enabling fail-on-drift automation.",
       reason: policy.reason,
       snapshotCommand: cadenceCommand(policy.repo, "--snapshot-only"),
@@ -235,6 +286,7 @@ function buildCadencePolicy(snapshot) {
       snapshotOnlyRequired: true,
       repoScopedHighChurn: scopedHighChurn > 0,
       failOnDriftCommandScoped: highChurnRepos.every((item) => item.blockingCommand.includes("--repo")),
+      headOnlyDriftCadenceAdvisory: highChurnRepos.some((item) => item.monitored && item.inScope && item.headOnlyDriftPolicy !== "disabled"),
     },
   };
 }
@@ -300,7 +352,8 @@ if (!liveResult.ok) {
 const comparisons = compare(snapshot.monitored, liveResult.data);
 const drifted = comparisons.filter((item) => item.drift.length > 0);
 const blockingDrifted = comparisons.filter((item) => item.blockingDrift.length > 0);
-const advisoryDrifted = comparisons.filter((item) => item.drift.length > 0 && item.blockingDrift.length === 0);
+const cadenceAdvisoryDrifted = comparisons.filter((item) => item.cadenceAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
+const advisoryDrifted = comparisons.filter((item) => item.advisoryDrift.length > 0 && item.blockingDrift.length === 0);
 finish(withCadencePolicy({
   status: blockingDrifted.length === 0 ? "pass" : "drift",
   mode: "live",
@@ -310,12 +363,16 @@ finish(withCadencePolicy({
   driftCount: drifted.length,
   blockingDriftCount: blockingDrifted.length,
   advisoryDriftCount: advisoryDrifted.length,
+  cadenceAdvisoryDriftCount: cadenceAdvisoryDrifted.length,
   failOnDrift,
   driftPolicy: {
     blockingFields,
     advisoryFields: Array.from(advisoryFields),
+    cadenceAdvisoryFields: Array.from(headOnlyCadenceFields),
+    highChurnRepoPolicies,
   },
   drifted,
   blockingDrifted,
   advisoryDrifted,
+  cadenceAdvisoryDrifted,
 }, snapshot));

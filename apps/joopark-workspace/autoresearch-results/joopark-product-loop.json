@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T22:03:24+09:00",
+  "generatedAt": "2026-06-06T22:19:17+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -97,6 +97,10 @@
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
+      "candidateFreshnessHeadOnlyCadenceAdvisory": true,
+      "candidateFreshnessCadenceAdvisoryDriftCount": 1,
+      "veritasHeadOnlyCadenceAdvisoryMinutes": 17.6,
+      "veritasHeadOnlyCadenceBlockingDriftCount": 0,
       "veritasFocusedDriftRefreshChecks": 3,
       "veritasFocusedSnapshotVersion": "v8.651",
       "veritasSnapshotWriterChecks": 7,
@@ -825,6 +829,13 @@
       "primaryMetric": "veritasSnapshotWriterRefresh4Changed",
       "baseline": "v8.672",
       "candidate": "v8.674",
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-high-churn-cadence-advisory",
+      "primaryMetric": "veritasHeadOnlyCadenceBlockingDriftCount",
+      "baseline": 1,
+      "candidate": 0,
       "decision": "keep"
     },
     {
