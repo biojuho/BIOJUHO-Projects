@@ -1090,6 +1090,18 @@ function buildChecklist() {
     evidence: knowledgeBaseInformationArchitectureRubricTerms,
   });
 
+  const appflowyAffineWorkspaceExportTerms = [
+    { file: "app.js", terms: ["function workspaceBenchmarkRecommendationMarkdown", "function candidateWorkspaceRecommendationExport", "data-workspace-benchmark-export", "joopark-workspace-benchmark-recommendation.md"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["workspaceBenchmarkExportVisible", "workspace recommendation export winner did not render", "workspace recommendation export markdown link did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_workspace_benchmark_export",
+    requirement: "The AppFlowy and AFFiNE workspace benchmark rubric can export a Markdown recommendation with winner, score gap, filename, and rationale browser smoke coverage.",
+    status: appflowyAffineWorkspaceExportTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineWorkspaceExportTerms,
+  });
+
   const knowledgeBaseInformationArchitectureExportTerms = [
     { file: "app.js", terms: ["function knowledgeBaseBenchmarkRecommendationMarkdown", "function candidateKnowledgeBaseRecommendationExport", "data-knowledge-base-benchmark-export", "joopark-kb-ia-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
