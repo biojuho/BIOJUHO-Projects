@@ -1661,6 +1661,7 @@ function candidateKnowledgeBaseReviewHandoff(scored) {
         </div>
       </div>
       ${raw(candidateKnowledgeBaseReviewIssueDraft(decisions))}
+      ${raw(candidateKnowledgeBaseReviewGithubComment(decisions))}
       <pre class="portfolio-export-body" data-review-handoff-text data-kb-review-handoff-text>${markdown}</pre>
     </section>
   `;
@@ -1734,6 +1735,53 @@ function candidateKnowledgeBaseReviewIssueDraft(decisions) {
         </div>
       </div>
       <pre class="portfolio-issue-draft-body" data-issue-draft-body>${draft.body}</pre>
+    </section>
+  `;
+}
+
+function knowledgeBaseReviewGithubCommentMarkdown(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const primary = decisions[0];
+  const draft = knowledgeBaseReviewIssueDraft(decisions);
+  if (!primary || !primary.project || !primary.decision || !draft) return "";
+  const secondary = decisions.find((item) => item.decision.rank > 1);
+  return [
+    "## JooPark Knowledge/IA Review",
+    "",
+    `Primary decision key: ${primary.decision.persistKey}`,
+    `Recommendation: ${primary.project.name} ${primary.decision.status} (${primary.decision.label} ${primary.decision.score})`,
+    `Surface: ${primary.decision.surface}`,
+    `Reason: ${primary.decision.reason}`,
+    secondary ? `Compare with: ${secondary.project.name} ${secondary.decision.status} (${secondary.decision.label} ${secondary.decision.score})` : "",
+    "",
+    "## Issue Draft",
+    `Title: ${draft.title}`,
+    `Priority: ${draft.priority}`,
+    `Labels: ${draft.labels.join(", ")}`,
+    `Estimate: ${draft.estimate}`,
+    "",
+    draft.body,
+  ].filter(Boolean).join("\n");
+}
+
+function candidateKnowledgeBaseReviewGithubComment(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const primary = decisions[0];
+  const draft = knowledgeBaseReviewIssueDraft(decisions);
+  const comment = knowledgeBaseReviewGithubCommentMarkdown(decisions);
+  if (!primary || !draft || !comment) return "";
+  const issueUrl = githubNewIssueUrl(primary.project, draft.title, comment);
+  return html`
+    <section class="portfolio-review-issue-draft portfolio-review-github-comment" data-kb-review-github-comment data-review-github-comment-key="${draft.persistKey}" data-review-github-comment-target="${primary.project.name}" data-review-github-comment-format="markdown">
+      <div class="portfolio-issue-draft-head">
+        <span>GitHub comment draft</span>
+        <div class="portfolio-export-actions">
+          ${issueUrl ? raw(html`<a class="portfolio-export-download" data-kb-review-github-comment-open href="${issueUrl}" target="_blank" rel="noopener">이슈 열기</a>`) : ""}
+          <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-review-github-comment" data-review-github-comment-copy data-kb-review-github-comment-copy data-review-github-comment-copy-key="${draft.persistKey}">댓글 복사</button>
+        </div>
+      </div>
+      <small class="portfolio-export-status" data-review-github-comment-copy-status data-kb-review-github-comment-copy-status aria-live="polite"></small>
+      <pre class="portfolio-issue-draft-body" data-review-github-comment-text data-kb-review-github-comment-text>${comment}</pre>
     </section>
   `;
 }

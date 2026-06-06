@@ -1222,6 +1222,18 @@ function buildChecklist() {
     evidence: knowledgeBaseInformationArchitectureReviewNotePublishTerms,
   });
 
+  const knowledgeBaseInformationArchitectureReviewGithubCommentTerms = [
+    { file: "app.js", terms: ["function knowledgeBaseReviewGithubCommentMarkdown", "function candidateKnowledgeBaseReviewGithubComment", "data-kb-review-github-comment", "copyReviewGithubComment"] },
+    { file: "styles.css", terms: [".portfolio-review-github-comment"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["knowledgeBaseBenchmarkReviewGithubCommentVisible", "knowledge-base review GitHub comment copy text did not reach clipboard", "knowledge-base review GitHub comment issue link did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "knowledge_base_information_architecture_review_github_comment_handoff",
+    requirement: "The dedicated knowledge-base information-architecture review handoff can produce a copy-ready GitHub comment draft with a prefilled issue URL and browser smoke coverage.",
+    status: knowledgeBaseInformationArchitectureReviewGithubCommentTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: knowledgeBaseInformationArchitectureReviewGithubCommentTerms,
+  });
+
   const taskosaurWorkstreamBenchmarkRecommendationExportTerms = [
     { file: "app.js", terms: ["function candidateBenchmarkRecommendationExport", "function candidateBenchmarkRecommendationMarkdown", "data-candidate-benchmark-export", "joopark-benchmark-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
