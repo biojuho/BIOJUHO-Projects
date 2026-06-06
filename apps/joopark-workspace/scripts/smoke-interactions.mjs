@@ -390,6 +390,7 @@ const interactionExpression = `
   let candidateBenchmarkRubricVisibleOk = false;
   let candidateBenchmarkRubricScoreVisibleOk = false;
   let workspaceBenchmarkRubricVisibleOk = false;
+  let workspaceBenchmarkExportVisibleOk = false;
   let knowledgeBaseBenchmarkRubricVisibleOk = false;
   let knowledgeBaseBenchmarkExportVisibleOk = false;
   let knowledgeBaseBenchmarkReviewHandoffVisibleOk = false;
@@ -841,6 +842,15 @@ const interactionExpression = `
     assert(appFlowyTransferCell, "AppFlowy workspace rubric transfer cell did not render");
     assert(appFlowyTransferCell.dataset.workspaceRubricWeight === "0.15", "AppFlowy workspace rubric transfer weight did not render");
     assert(appFlowyTransferCell.dataset.workspaceRubricScore === "76", "AppFlowy workspace rubric transfer score did not render");
+    const workspaceExport = qs("[data-workspace-benchmark-export]", workspaceRubric);
+    const workspaceExportDownload = qs("[data-workspace-benchmark-export-download]", workspaceExport);
+    const workspaceExportText = qs("[data-workspace-benchmark-export-text]", workspaceExport).innerText;
+    assert(workspaceExport.dataset.workspaceBenchmarkExportWinner === "toeverything/AFFiNE", "workspace recommendation export winner did not render");
+    assert(workspaceExport.dataset.workspaceBenchmarkExportGap === "3", "workspace recommendation export gap did not render");
+    assert(workspaceExportDownload.getAttribute("download") === "joopark-workspace-benchmark-recommendation.md", "workspace recommendation export filename did not render");
+    assert(workspaceExportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "workspace recommendation export markdown link did not render");
+    assert(workspaceExportText.includes("Recommendation: use toeverything/AFFiNE as the primary Workspace benchmark") && workspaceExportText.includes("AppFlowy-IO/AppFlowy as the PM/task contrast"), "workspace recommendation export copy did not render");
+    assert(workspaceExportText.includes("Score gap: 3 points") && workspaceExportText.includes("Primary reason: Notes/Wiki IA scored 90 at 30% weight"), "workspace recommendation export rationale did not render");
     const knowledgeBaseRubric = qs("[data-knowledge-base-benchmark-rubric]");
     assert(knowledgeBaseRubric.innerText.includes("KB/IA 비교표"), "knowledge-base IA rubric did not render heading");
     assert(knowledgeBaseRubric.innerText.includes("outline/outline"), "Outline knowledge-base rubric did not render");
@@ -921,6 +931,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     workspaceBenchmarkRubricVisibleOk = true;
+    workspaceBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -979,6 +990,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     workspaceBenchmarkRubricVisibleOk = true;
+    workspaceBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1279,6 +1291,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     workspaceBenchmarkRubricVisibleOk = true;
+    workspaceBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
     knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
@@ -1532,6 +1545,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
     workspaceBenchmarkRubricVisible: workspaceBenchmarkRubricVisibleOk,
+    workspaceBenchmarkExportVisible: workspaceBenchmarkExportVisibleOk,
     knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
     knowledgeBaseBenchmarkExportVisible: knowledgeBaseBenchmarkExportVisibleOk,
     knowledgeBaseBenchmarkReviewHandoffVisible: knowledgeBaseBenchmarkReviewHandoffVisibleOk,
