@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T19:11:35+09:00",
+  "generatedAt": "2026-06-06T19:28:00+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 69,
+      "pass": 70,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 69
+      "total": 70
     },
     "browserEvidence": {
       "routes": 15,
@@ -104,6 +104,11 @@
       "veritasSnapshotWriterChanged": true,
       "veritasSnapshotWriterSourceMarker": "github-api:veritas-focused-drift-refresh-v8651",
       "veritasSnapshotWriterLastCommit": "cd49f78e2f9bbcd782aad185726ad3d60242f998",
+      "candidateSnapshotWriterChecks": 5,
+      "candidateSnapshotWriterSnapshotOnly": true,
+      "outlineGenericSnapshotWriterChanged": true,
+      "outlineGenericSnapshotWriterSourceMarker": "github-api:outline-outline-candidate-refresh",
+      "outlineGenericSnapshotWriterLastCommit": "be3f28afeaaa8b92137685376fe17fff94e62255",
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -746,6 +751,20 @@
       "primaryMetric": "veritasSnapshotWriterChanged",
       "baseline": "v8.649",
       "candidate": "v8.651",
+      "decision": "keep"
+    },
+    {
+      "id": "generic-candidate-snapshot-writer",
+      "primaryMetric": "candidateSnapshotWriterChecks",
+      "baseline": 0,
+      "candidate": 5,
+      "decision": "keep"
+    },
+    {
+      "id": "outline-generic-snapshot-refresh",
+      "primaryMetric": "outlineGenericSnapshotWriterChanged",
+      "baseline": "e864684d569c81ca2b03c816d22e0c80e2ff6466",
+      "candidate": "be3f28afeaaa8b92137685376fe17fff94e62255",
       "decision": "keep"
     }
   ],
