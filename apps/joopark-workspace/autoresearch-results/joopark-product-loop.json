@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T20:13:34+09:00",
+  "generatedAt": "2026-06-06T20:30:29+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -89,7 +89,7 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 15,
+      "candidateFreshnessLiveDriftCount": 14,
       "candidateFreshnessMonitored": 21,
       "candidateFreshnessSourceMarkers": 42,
       "candidateFreshnessRepoFilterChecks": 3,
@@ -123,6 +123,10 @@
       "openProjectGenericSnapshotWriterLiveDriftCount": 0,
       "openProjectGenericSnapshotWriterOpenIssues": 0,
       "openProjectGenericSnapshotWriterOpenPRs": 212,
+      "outlineGenericSnapshotWriterRefresh2Changed": true,
+      "outlineGenericSnapshotWriterRefresh2SourceMarker": "github-api:outline-outline-candidate-refresh",
+      "outlineGenericSnapshotWriterRefresh2LastCommit": "f329b56d0edbbd687728c7436713f2c99e8ec722",
+      "outlineGenericSnapshotWriterRefresh2LiveDriftCount": 0,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -801,6 +805,13 @@
       "baseline": "6885ca695dd38384c651704675143be63f9a514d",
       "candidate": "79d810d2e74f94bda4e3bcf652f2d848863e5a3e",
       "decision": "keep"
+    },
+    {
+      "id": "outline-generic-snapshot-refresh-2",
+      "primaryMetric": "outlineGenericSnapshotWriterRefresh2Changed",
+      "baseline": "be3f28afeaaa8b92137685376fe17fff94e62255",
+      "candidate": "f329b56d0edbbd687728c7436713f2c99e8ec722",
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -815,6 +826,6 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, Leantime, AFFiNE, or Outline"
+    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, Leantime, AFFiNE, or BookStack"
   ]
 }
