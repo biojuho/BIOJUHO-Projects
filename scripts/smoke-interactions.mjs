@@ -391,6 +391,9 @@ const interactionExpression = `
   let candidateBenchmarkRubricScoreVisibleOk = false;
   let knowledgeBaseBenchmarkRubricVisibleOk = false;
   let knowledgeBaseBenchmarkExportVisibleOk = false;
+  let knowledgeBaseBenchmarkReviewHandoffVisibleOk = false;
+  let knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = false;
+  let knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = false;
   let candidateBenchmarkRecommendationExportVisibleOk = false;
   let candidateBenchmarkReviewQueueVisibleOk = false;
   let candidateBenchmarkReviewHandoffVisibleOk = false;
@@ -844,10 +847,52 @@ const interactionExpression = `
     assert(kbExportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "knowledge-base recommendation export markdown link did not render");
     assert(kbExportText.includes("Recommendation: use outline/outline as the primary Knowledge/IA benchmark") && kbExportText.includes("requarks/wiki as the portability counterweight"), "knowledge-base recommendation export copy did not render");
     assert(kbExportText.includes("Score gap: 0 points") && kbExportText.includes("Primary reason: 정보 구조 scored 86 at 35% weight"), "knowledge-base recommendation export rationale did not render");
+    const kbReviewHandoff = qs("[data-knowledge-base-review-handoff]", knowledgeBaseRubric);
+    const kbReviewHandoffDownload = qs("[data-kb-review-handoff-download]", kbReviewHandoff);
+    const kbReviewHandoffCopy = qs("[data-kb-review-handoff-copy]", kbReviewHandoff);
+    const kbReviewHandoffText = qs("[data-kb-review-handoff-text]", kbReviewHandoff).innerText;
+    assert(kbReviewHandoff.dataset.kbReviewHandoffPrimaryKey === "kb-ia-review:repo-outline-outline:87", "knowledge-base review handoff primary key did not render");
+    assert(kbReviewHandoff.dataset.kbReviewHandoffCount === "3", "knowledge-base review handoff count did not render");
+    assert(kbReviewHandoffDownload.getAttribute("download") === "joopark-kb-ia-review-handoff.md", "knowledge-base review handoff filename did not render");
+    assert(kbReviewHandoffDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "knowledge-base review handoff markdown link did not render");
+    assert(kbReviewHandoffText.includes("Primary decision key: kb-ia-review:repo-outline-outline:87") && kbReviewHandoffText.includes("outline/outline - IA 도입 검토") && kbReviewHandoffText.includes("requarks/wiki - IA 도입 검토"), "knowledge-base review handoff markdown copy did not render");
+    assert(kbReviewHandoffCopy.dataset.kbReviewHandoffCopyKey === "kb-ia-review:repo-outline-outline:87", "knowledge-base review handoff copy key did not render");
+    window.__smokeClipboardText = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (text) => { window.__smokeClipboardText = text; } },
+    });
+    click("[data-kb-review-handoff-copy]");
+    await waitFor(() => window.__smokeClipboardText.includes("Primary decision key: kb-ia-review:repo-outline-outline:87"), "knowledge-base review handoff copy text did not reach clipboard");
+    await waitFor(() => kbReviewHandoff.dataset.reviewHandoffCopied === "true", "knowledge-base review handoff copy state did not update");
+    assert(qs("[data-kb-review-handoff-copy-status]", kbReviewHandoff).textContent.includes("복사됨"), "knowledge-base review handoff copy status did not render");
+    const kbReviewIssueDraft = qs("[data-kb-review-issue-draft]", kbReviewHandoff);
+    const kbReviewIssueBody = qs("[data-issue-draft-body]", kbReviewIssueDraft).innerText;
+    assert(kbReviewIssueDraft.dataset.issueDraftTitle === "[KB/IA] outline/outline IA 도입 검토", "knowledge-base review issue draft title did not render");
+    assert(kbReviewIssueDraft.dataset.issueDraftProject === "outline/outline", "knowledge-base review issue draft project did not render");
+    assert(kbReviewIssueDraft.dataset.issueDraftPriority === "high", "knowledge-base review issue draft priority did not render");
+    assert(kbReviewIssueDraft.dataset.issueDraftKey === "kb-ia-review:repo-outline-outline:87", "knowledge-base review issue draft key did not render");
+    assert(kbReviewIssueBody.includes("Persist key: kb-ia-review:repo-outline-outline:87") && kbReviewIssueBody.includes("Compare with: requarks/wiki"), "knowledge-base review issue draft body did not render");
+    const beforeKbIssueCount = dashboard.issues.length;
+    click("[data-kb-review-issue-create]", kbReviewIssueDraft);
+    await waitFor(() => dashboard.issues.length === beforeKbIssueCount + 1, "knowledge-base review issue draft did not create an issue");
+    const createdKbIssue = dashboard.issues.find((issue) => issue.sourceKey === "kb-ia-review:repo-outline-outline:87");
+    assert(createdKbIssue, "knowledge-base review issue draft did not persist source key");
+    assert(createdKbIssue.title === "[KB/IA] outline/outline IA 도입 검토", "knowledge-base review issue draft title was not saved");
+    assert(createdKbIssue.project === "repo-outline-outline", "knowledge-base review issue draft project was not saved");
+    assert(createdKbIssue.priority === "high", "knowledge-base review issue draft priority was not saved");
+    assert(createdKbIssue.labels.includes("knowledge-base") && createdKbIssue.labels.includes("ia") && createdKbIssue.labels.includes("handoff"), "knowledge-base review issue draft labels were not saved");
+    await waitFor(() => {
+      const nextDraft = document.querySelector("[data-kb-review-issue-draft]");
+      return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdKbIssue.id;
+    }, "knowledge-base review issue draft created state did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
+    knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
+    knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
+    knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     const reviewQueue = qs("[data-benchmark-review-queue]");
     const reviewDecision = qs("[data-benchmark-review-decision]", reviewQueue);
@@ -873,7 +918,7 @@ const interactionExpression = `
       configurable: true,
       value: { writeText: async (text) => { window.__smokeClipboardText = text; } },
     });
-    click("[data-review-handoff-copy]");
+    click("[data-review-handoff-copy]", reviewHandoff);
     await waitFor(() => window.__smokeClipboardText.includes("Primary decision key: benchmark-review:repo-taskosaur-taskosaur:86"), "benchmark review handoff copy text did not reach clipboard");
     await waitFor(() => reviewHandoff.dataset.reviewHandoffCopied === "true", "benchmark review handoff copy state did not update");
     assert(qs("[data-review-handoff-copy-status]", reviewHandoff).textContent.includes("복사됨"), "benchmark review handoff copy status did not render");
@@ -895,13 +940,16 @@ const interactionExpression = `
     assert(createdIssue.priority === "high", "benchmark review issue draft priority was not saved");
     assert(createdIssue.labels.includes("benchmark") && createdIssue.labels.includes("handoff"), "benchmark review issue draft labels were not saved");
     await waitFor(() => {
-      const nextDraft = document.querySelector("[data-review-issue-draft]");
+      const nextDraft = document.querySelector("[data-benchmark-review-handoff] [data-review-issue-draft]");
       return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdIssue.id;
     }, "benchmark review issue draft created state did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
+    knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
+    knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
+    knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
     candidateBenchmarkReviewHandoffCopyVisibleOk = true;
@@ -1198,6 +1246,9 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisibleOk = true;
     knowledgeBaseBenchmarkRubricVisibleOk = true;
     knowledgeBaseBenchmarkExportVisibleOk = true;
+    knowledgeBaseBenchmarkReviewHandoffVisibleOk = true;
+    knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
+    knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
@@ -1447,6 +1498,9 @@ const interactionExpression = `
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
     knowledgeBaseBenchmarkRubricVisible: knowledgeBaseBenchmarkRubricVisibleOk,
     knowledgeBaseBenchmarkExportVisible: knowledgeBaseBenchmarkExportVisibleOk,
+    knowledgeBaseBenchmarkReviewHandoffVisible: knowledgeBaseBenchmarkReviewHandoffVisibleOk,
+    knowledgeBaseBenchmarkReviewHandoffCopyVisible: knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk,
+    knowledgeBaseBenchmarkReviewIssueDraftVisible: knowledgeBaseBenchmarkReviewIssueDraftVisibleOk,
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,
