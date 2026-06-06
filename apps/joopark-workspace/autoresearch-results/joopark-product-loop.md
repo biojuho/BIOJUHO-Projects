@@ -1201,6 +1201,20 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/smoke-interactions.mjs` now reports `knowledgeBaseBenchmarkReviewGithubCommentVisible` and verifies the target repo, issue URL, source key, Markdown body, clipboard copy, and copy status.
 - `scripts/audit-release-readiness.mjs` now includes `knowledge_base_information_architecture_review_github_comment_handoff`.
 
+## Experiment: Veritas focused snapshot writer v8.649
+
+- Hypothesis: The high-churn AutoResearch source should keep its source-backed snapshot current without hard-coding the expected upstream commit into smoke or audit checks.
+- Primary metric: `veritasSnapshotWriterChanged`.
+- Baseline: Veritas snapshot writer evidence pointed at v8.510 (`5e4b31b0c2b1763f45b2eea4ba7e740dd8209360`) with `pushedAt: 2026-06-05T21:17:28Z`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` reported drift, then `--write` updated the candidate to v8.649 with commit `a5254d0881a9d9e6c21086df3b685c6fc9d1d68d`.
+- Decision: keep; the writer added source marker `github-api:veritas-focused-drift-refresh-v8649`, refreshed pushedAt to `2026-06-06T09:57:46Z`, and preserved the repo-scoped dynamic snapshot path.
+
+## Evidence
+
+- Live drift before the write reported Veritas `lastCommit`, `pushedAt`, and `diskKb` drift against the source-backed snapshot.
+- The writer updated `data/adoption-candidates.json` only, changing the Veritas description to `v8.649 최신 guard shell session targets...`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.649` and the v8.649 source marker.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
