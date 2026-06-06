@@ -1150,6 +1150,18 @@ function buildChecklist() {
     evidence: appflowyAffineWorkspaceReviewNotePublishTerms,
   });
 
+  const appflowyAffineWorkspaceReviewGithubCommentTerms = [
+    { file: "app.js", terms: ["function workspaceReviewGithubCommentMarkdown", "function candidateWorkspaceReviewGithubComment", "data-workspace-review-github-comment", "copyReviewGithubComment"] },
+    { file: "styles.css", terms: [".portfolio-review-github-comment"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["workspaceBenchmarkReviewGithubCommentVisible", "workspace review GitHub comment copy text did not reach clipboard", "workspace review GitHub comment issue link did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_workspace_review_github_comment_handoff",
+    requirement: "The AppFlowy and AFFiNE workspace review handoff can produce a copy-ready GitHub comment draft with a prefilled issue URL and browser smoke coverage.",
+    status: appflowyAffineWorkspaceReviewGithubCommentTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineWorkspaceReviewGithubCommentTerms,
+  });
+
   const knowledgeBaseInformationArchitectureExportTerms = [
     { file: "app.js", terms: ["function knowledgeBaseBenchmarkRecommendationMarkdown", "function candidateKnowledgeBaseRecommendationExport", "data-knowledge-base-benchmark-export", "joopark-kb-ia-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },

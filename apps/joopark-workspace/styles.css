@@ -3072,6 +3072,15 @@ textarea:focus:not(:focus-visible) { outline: none; }
   background: rgba(23, 217, 131, 0.05);
 }
 
+.portfolio-review-github-comment {
+  border-color: rgba(35, 135, 255, 0.24);
+  background: rgba(35, 135, 255, 0.06);
+}
+
+.portfolio-review-github-comment .portfolio-issue-draft-head span {
+  color: var(--cyan);
+}
+
 .portfolio-issue-draft-head {
   display: flex;
   align-items: center;

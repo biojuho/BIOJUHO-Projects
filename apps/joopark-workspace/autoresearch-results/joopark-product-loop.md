@@ -1173,6 +1173,20 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/smoke-interactions.mjs` now reports `knowledgeBaseBenchmarkReviewNotePublishVisible` and verifies note creation, source key, pinned state, source kind, body content, and re-rendered publish state.
 - `scripts/audit-release-readiness.mjs` now includes `knowledge_base_information_architecture_review_note_publish`.
 
+## Experiment: AppFlowy and AFFiNE workspace review GitHub comment handoff
+
+- Hypothesis: The AppFlowy/AFFiNE workspace handoff becomes easier to publish externally when the selected AFFiNE review decision can be converted into a copy-ready GitHub comment draft without requiring API write permissions.
+- Primary metric: AppFlowy/AFFiNE workspace review GitHub comment checks.
+- Baseline: 0 workspace review GitHub comment checks; the handoff could be copied, converted into a local issue, and published as a local note, but did not provide a GitHub-ready comment body or prefilled issue URL.
+- Candidate: add a GitHub comment draft under the Workspace handoff with source key `workspace-review:repo-toeverything-affine:86`, a prefilled `toeverything/AFFiNE` issue URL, and one-click comment copy.
+- Decision: keep; the comment handoff gives the AFFiNE-over-AppFlowy decision a GitHub-ready publish path while avoiding live write permissions.
+
+## Evidence
+
+- `app.js` now includes `workspaceReviewGithubCommentMarkdown`, `candidateWorkspaceReviewGithubComment`, `data-workspace-review-github-comment`, and `copyReviewGithubComment`.
+- `scripts/smoke-interactions.mjs` now reports `workspaceBenchmarkReviewGithubCommentVisible` and verifies the target repo, issue URL, source key, Markdown body, clipboard copy, and copy status.
+- `scripts/audit-release-readiness.mjs` now includes `appflowy_affine_workspace_review_github_comment_handoff`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, add AppFlowy/AFFiNE GitHub comment publish handoff, add KB/IA GitHub comment publish handoff, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, add KB/IA GitHub comment publish handoff, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
