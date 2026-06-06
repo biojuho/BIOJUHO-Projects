@@ -1393,6 +1393,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` reported only advisory Plane popularity drift and did not fail the command.
 - `autoresearch-results/joopark-product-loop.json` now reports `planePopularityAdvisoryDriftPolicyChanged: true`.
 
+## Experiment: Veritas focused snapshot writer v8.672
+
+- Hypothesis: The launch-candidate AutoResearch row should track the latest Veritas source proof snapshot before high-churn upstream movement makes release evidence stale.
+- Primary metric: `veritasSnapshotWriterRefresh3Changed`.
+- Baseline: Veritas snapshot was at v8.651 commit `cd49f78e2f9bbcd782aad185726ad3d60242f998`, pushed `2026-06-06T10:08:33Z`, with `diskKb: 1753`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated Veritas to v8.672 commit `b1023c98cd262e992466c6a8c7f78fda2d42aa93`, pushed `2026-06-06T12:47:52Z`, with `diskKb: 2018` and source marker `github-api:veritas-focused-drift-refresh-v8672`.
+- Decision: keep; the repo-scoped live drift check reports `driftCount: 0`, and full live blocking drift drops from 10 to 9.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only` passed with 46 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 0`.
+- Full live drift now reports `driftCount: 14`, `blockingDriftCount: 9`, and `advisoryDriftCount: 5`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterRefresh3Changed: true`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T21:23:20+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510+github-search:outline-knowledge-base-benchmark+github-api:outline-freshness-refresh+github-search:bookstack-documentation-benchmark+github-api:bookstack-freshness-refresh+github-search:wikijs-self-hosted-wiki-benchmark+github-api:wikijs-freshness-refresh+github-api:veritas-focused-drift-refresh-v8648+github-api:veritas-focused-drift-refresh-v8649+github-api:veritas-focused-drift-refresh-v8651+github-api:outline-outline-candidate-refresh+github-api:toeverything-affine-candidate-refresh+github-api:taskosaur-taskosaur-candidate-refresh+github-api:opf-openproject-candidate-refresh+github-api:leantime-leantime-candidate-refresh+github-api:taskcoach-taskcoach-candidate-refresh+github-api:makeplane-plane-candidate-refresh",
+  "generatedAt": "2026-06-06T21:50:41+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510+github-search:outline-knowledge-base-benchmark+github-api:outline-freshness-refresh+github-search:bookstack-documentation-benchmark+github-api:bookstack-freshness-refresh+github-search:wikijs-self-hosted-wiki-benchmark+github-api:wikijs-freshness-refresh+github-api:veritas-focused-drift-refresh-v8648+github-api:veritas-focused-drift-refresh-v8649+github-api:veritas-focused-drift-refresh-v8651+github-api:outline-outline-candidate-refresh+github-api:toeverything-affine-candidate-refresh+github-api:taskosaur-taskosaur-candidate-refresh+github-api:opf-openproject-candidate-refresh+github-api:leantime-leantime-candidate-refresh+github-api:taskcoach-taskcoach-candidate-refresh+github-api:makeplane-plane-candidate-refresh+github-api:veritas-focused-drift-refresh-v8672",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -441,7 +441,7 @@
     {
       "id": "repo-veritas-autoresearch-skill-system",
       "name": "Veritas-7/autoresearch-skill-system",
-      "description": "v8.651 최신 guard managed source commits을 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
+      "description": "v8.672 최신 persist source proof for restart을 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
       "category": "Harness/오토리서치",
       "owner": "도입 후보",
       "language": "Python",
@@ -462,10 +462,10 @@
       "closedIssues": 0,
       "stars": 1,
       "forks": 1,
-      "diskKb": 1753,
-      "pushedAt": "2026-06-06T10:08:33Z",
+      "diskKb": 2018,
+      "pushedAt": "2026-06-06T12:47:52Z",
       "createdAt": "2026-06-03T04:43:01Z",
-      "lastCommit": "cd49f78e2f9bbcd782aad185726ad3d60242f998"
+      "lastCommit": "b1023c98cd262e992466c6a8c7f78fda2d42aa93"
     },
     {
       "id": "repo-biojuho-autoresearch-skill-system",
