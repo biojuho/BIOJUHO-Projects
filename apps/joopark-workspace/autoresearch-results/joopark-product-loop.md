@@ -1482,6 +1482,21 @@ Generated: 2026-06-06T21:23:20+09:00
 - Full live drift now reports `driftCount: 15`, `blockingDriftCount: 7`, `advisoryDriftCount: 6`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 2`.
 - `autoresearch-results/joopark-product-loop.json` now reports `veritasSourceMetadataCadenceBlockingDriftCount: 0`.
 
+## Experiment: Outline generic snapshot refresh 4
+
+- Hypothesis: The KB/IA benchmark winner should be refreshed again when GitHub source metadata moves during release sync, preserving repo-scoped freshness proof without weakening drift policy.
+- Primary metric: `outlineGenericSnapshotWriterRefresh4Changed`.
+- Baseline: Outline snapshot commit `58f0613b5f87f94c92a3c00aa6dab2c59749636b`, pushed `2026-06-06T13:30:51Z`, 20 open PRs, and `diskKb: 319385`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo outline/outline` updated Outline to commit `f4b80d5301d3213dbacd1ba654f5d94f045c1fc4`, pushed `2026-06-06T14:14:37Z`, 20 open PRs, and `diskKb: 317197`.
+- Decision: keep; the repo-scoped live drift check reports `driftCount: 0`, while full live drift is now `driftCount: 14`, `blockingDriftCount: 7`, `advisoryDriftCount: 6`, `cadenceAdvisoryDriftCount: 1`, and `metadataAdvisoryDriftCount: 1`.
+
+## Evidence
+
+- `node scripts/refresh-candidate-snapshot.mjs --snapshot-only --repo outline/outline` passed with source marker `github-api:outline-outline-candidate-refresh`.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` passed with `driftCount: 0`.
+- `node scripts/check-candidate-freshness-drift.mjs --live` reported no `outline/outline` entry in `drifted`.
+- `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterRefresh4Changed: true`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
