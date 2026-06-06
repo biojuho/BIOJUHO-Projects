@@ -402,6 +402,7 @@ const interactionExpression = `
   let knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = false;
   let knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = false;
   let knowledgeBaseBenchmarkReviewNotePublishVisibleOk = false;
+  let knowledgeBaseBenchmarkReviewGithubCommentVisibleOk = false;
   let candidateBenchmarkRecommendationExportVisibleOk = false;
   let candidateBenchmarkReviewQueueVisibleOk = false;
   let candidateBenchmarkReviewHandoffVisibleOk = false;
@@ -1004,6 +1005,22 @@ const interactionExpression = `
       return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdKbIssue.id;
     }, "knowledge-base review issue draft created state did not render");
     const nextKbReviewHandoff = qs("[data-knowledge-base-review-handoff]");
+    const kbGithubComment = qs("[data-kb-review-github-comment]", nextKbReviewHandoff);
+    const kbGithubCommentOpen = qs("[data-kb-review-github-comment-open]", kbGithubComment);
+    const kbGithubCommentCopy = qs("[data-kb-review-github-comment-copy]", kbGithubComment);
+    const kbGithubCommentText = qs("[data-kb-review-github-comment-text]", kbGithubComment).innerText;
+    assert(kbGithubComment.dataset.reviewGithubCommentKey === "kb-ia-review:repo-outline-outline:87", "knowledge-base review GitHub comment key did not render");
+    assert(kbGithubComment.dataset.reviewGithubCommentTarget === "outline/outline", "knowledge-base review GitHub comment target did not render");
+    assert(kbGithubComment.dataset.reviewGithubCommentFormat === "markdown", "knowledge-base review GitHub comment format did not render");
+    assert(kbGithubCommentOpen.getAttribute("href").startsWith("https://github.com/outline/outline/issues/new?"), "knowledge-base review GitHub comment issue link did not render");
+    assert(kbGithubCommentOpen.getAttribute("href").includes("kb-ia-review%3Arepo-outline-outline%3A87"), "knowledge-base review GitHub comment issue link did not include source key");
+    assert(kbGithubCommentCopy.dataset.reviewGithubCommentCopyKey === "kb-ia-review:repo-outline-outline:87", "knowledge-base review GitHub comment copy key did not render");
+    assert(kbGithubCommentText.includes("## JooPark Knowledge/IA Review") && kbGithubCommentText.includes("Primary decision key: kb-ia-review:repo-outline-outline:87") && kbGithubCommentText.includes("## Issue Draft") && kbGithubCommentText.includes("Compare with: requarks/wiki"), "knowledge-base review GitHub comment body did not render");
+    window.__smokeClipboardText = "";
+    click("[data-kb-review-github-comment-copy]", kbGithubComment);
+    await waitFor(() => window.__smokeClipboardText.includes("Primary decision key: kb-ia-review:repo-outline-outline:87"), "knowledge-base review GitHub comment copy text did not reach clipboard");
+    await waitFor(() => kbGithubComment.dataset.reviewGithubCommentCopied === "true", "knowledge-base review GitHub comment copy state did not update");
+    assert(qs("[data-kb-review-github-comment-copy-status]", kbGithubComment).textContent.includes("댓글 복사됨"), "knowledge-base review GitHub comment copy status did not render");
     const beforeKbNoteCount = dashboard.notes.length;
     click("[data-kb-review-note-publish]", nextKbReviewHandoff);
     await waitFor(() => dashboard.notes.length === beforeKbNoteCount + 1, "knowledge-base review note publish did not create a note");
@@ -1033,6 +1050,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
     knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
     knowledgeBaseBenchmarkReviewNotePublishVisibleOk = true;
+    knowledgeBaseBenchmarkReviewGithubCommentVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     const reviewQueue = qs("[data-benchmark-review-queue]");
     const reviewDecision = qs("[data-benchmark-review-decision]", reviewQueue);
@@ -1098,6 +1116,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
     knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
     knowledgeBaseBenchmarkReviewNotePublishVisibleOk = true;
+    knowledgeBaseBenchmarkReviewGithubCommentVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
     candidateBenchmarkReviewHandoffCopyVisibleOk = true;
@@ -1405,6 +1424,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk = true;
     knowledgeBaseBenchmarkReviewIssueDraftVisibleOk = true;
     knowledgeBaseBenchmarkReviewNotePublishVisibleOk = true;
+    knowledgeBaseBenchmarkReviewGithubCommentVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
@@ -1665,6 +1685,7 @@ const interactionExpression = `
     knowledgeBaseBenchmarkReviewHandoffCopyVisible: knowledgeBaseBenchmarkReviewHandoffCopyVisibleOk,
     knowledgeBaseBenchmarkReviewIssueDraftVisible: knowledgeBaseBenchmarkReviewIssueDraftVisibleOk,
     knowledgeBaseBenchmarkReviewNotePublishVisible: knowledgeBaseBenchmarkReviewNotePublishVisibleOk,
+    knowledgeBaseBenchmarkReviewGithubCommentVisible: knowledgeBaseBenchmarkReviewGithubCommentVisibleOk,
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,
