@@ -841,6 +841,19 @@ function buildChecklist() {
     evidence: appflowyAffineFreshnessUiTerms,
   });
 
+  const appflowyAffineWorkspaceRubricTerms = [
+    { file: "data/adoption-candidates.json", terms: ["workspaceBenchmark", "JooPark Workspace", "project + task surfaces", "Notion/Miro knowledge-base + whiteboard"] },
+    { file: "app.js", terms: ["function projectWorkspaceBenchmark", "function projectWorkspaceRubric", "function candidateWorkspaceRubric", "data-workspace-benchmark-rubric", "data-workspace-rubric-project"] },
+    { file: "styles.css", terms: ["--rubric-project-count"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["workspaceBenchmarkRubricVisible", "workspace benchmark rubric did not render heading", "AFFiNE workspace rubric notes score did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_workspace_benchmark_rubric",
+    requirement: "AppFlowy and AFFiNE expose a dedicated PM, notes, and workspace comparison rubric with browser smoke coverage for weighted recommendation cells.",
+    status: appflowyAffineWorkspaceRubricTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineWorkspaceRubricTerms,
+  });
+
   const outlineFreshnessUiTerms = [
     { file: "data/adoption-candidates.json", terms: ["outline/outline", "github-search:outline-knowledge-base-benchmark", "github-api:outline-freshness-refresh"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotOutline", "shortOutlineCommit", "Outline freshness commit did not render", "outlineCandidateFreshnessVisible"] },
