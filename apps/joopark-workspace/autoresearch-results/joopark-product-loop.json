@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T19:28:00+09:00",
+  "generatedAt": "2026-06-06T19:43:59+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -91,7 +91,7 @@
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 16,
       "candidateFreshnessMonitored": 21,
-      "candidateFreshnessSourceMarkers": 35,
+      "candidateFreshnessSourceMarkers": 40,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -109,6 +109,10 @@
       "outlineGenericSnapshotWriterChanged": true,
       "outlineGenericSnapshotWriterSourceMarker": "github-api:outline-outline-candidate-refresh",
       "outlineGenericSnapshotWriterLastCommit": "be3f28afeaaa8b92137685376fe17fff94e62255",
+      "affineGenericSnapshotWriterChanged": true,
+      "affineGenericSnapshotWriterSourceMarker": "github-api:toeverything-affine-candidate-refresh",
+      "affineGenericSnapshotWriterLastCommit": "d10dd12663e3e2e94dd40abb41920d26686cfefd",
+      "affineGenericSnapshotWriterLiveDriftCount": 0,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -766,6 +770,13 @@
       "baseline": "e864684d569c81ca2b03c816d22e0c80e2ff6466",
       "candidate": "be3f28afeaaa8b92137685376fe17fff94e62255",
       "decision": "keep"
+    },
+    {
+      "id": "affine-generic-snapshot-refresh",
+      "primaryMetric": "affineGenericSnapshotWriterChanged",
+      "baseline": "edc87e38df01db79f969e6f61981a10c16f9a0bb",
+      "candidate": "d10dd12663e3e2e94dd40abb41920d26686cfefd",
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -780,6 +791,6 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
+    "continue source-backed drift refreshes for the next high-impact candidate, starting with Taskosaur, OpenProject, or Veritas"
   ]
 }
