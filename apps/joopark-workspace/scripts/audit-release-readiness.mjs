@@ -1089,6 +1089,42 @@ function buildChecklist() {
     evidence: knowledgeBaseInformationArchitectureExportTerms,
   });
 
+  const knowledgeBaseInformationArchitectureReviewHandoffTerms = [
+    { file: "app.js", terms: ["function candidateKnowledgeBaseReviewHandoff", "function knowledgeBaseReviewHandoffMarkdown", "data-knowledge-base-review-handoff", "joopark-kb-ia-review-handoff.md"] },
+    { file: "styles.css", terms: [".portfolio-review-handoff"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["knowledgeBaseBenchmarkReviewHandoffVisible", "knowledge-base review handoff primary key did not render", "knowledge-base review handoff markdown copy did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "knowledge_base_information_architecture_review_handoff",
+    requirement: "The dedicated knowledge-base information-architecture recommendation can be turned into a Markdown review handoff with stable persist keys and browser smoke coverage.",
+    status: knowledgeBaseInformationArchitectureReviewHandoffTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: knowledgeBaseInformationArchitectureReviewHandoffTerms,
+  });
+
+  const knowledgeBaseInformationArchitectureReviewHandoffCopyTerms = [
+    { file: "app.js", terms: ["data-kb-review-handoff-copy", "data-kb-review-handoff-copy-status", "[data-benchmark-review-handoff], [data-knowledge-base-review-handoff]"] },
+    { file: "styles.css", terms: [".portfolio-export-actions", ".portfolio-export-status", ".portfolio-export-copy"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["knowledgeBaseBenchmarkReviewHandoffCopyVisible", "knowledge-base review handoff copy text did not reach clipboard", "knowledge-base review handoff copy status did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "knowledge_base_information_architecture_review_handoff_copy",
+    requirement: "The dedicated knowledge-base information-architecture review handoff Markdown can be copied to the clipboard with visible state and browser smoke coverage.",
+    status: knowledgeBaseInformationArchitectureReviewHandoffCopyTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: knowledgeBaseInformationArchitectureReviewHandoffCopyTerms,
+  });
+
+  const knowledgeBaseInformationArchitectureReviewIssueDraftTerms = [
+    { file: "app.js", terms: ["function knowledgeBaseReviewIssueDraft", "function candidateKnowledgeBaseReviewIssueDraft", "data-kb-review-issue-draft", "data-kb-review-issue-create", "data-issue-draft-labels"] },
+    { file: "styles.css", terms: [".portfolio-review-issue-draft", ".portfolio-issue-draft-grid", ".portfolio-issue-draft-body"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["knowledgeBaseBenchmarkReviewIssueDraftVisible", "knowledge-base review issue draft did not create an issue", "knowledge-base review issue draft did not persist source key"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "knowledge_base_information_architecture_review_issue_draft",
+    requirement: "The dedicated knowledge-base information-architecture review handoff can be converted into a PM issue draft with stable source key, labels, and browser smoke coverage.",
+    status: knowledgeBaseInformationArchitectureReviewIssueDraftTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: knowledgeBaseInformationArchitectureReviewIssueDraftTerms,
+  });
+
   const taskosaurWorkstreamBenchmarkRecommendationExportTerms = [
     { file: "app.js", terms: ["function candidateBenchmarkRecommendationExport", "function candidateBenchmarkRecommendationMarkdown", "data-candidate-benchmark-export", "joopark-benchmark-recommendation.md"] },
     { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
