@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T20:58:48+09:00",
+  "generatedAt": "2026-06-06T21:11:36+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -89,9 +89,9 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 14,
+      "candidateFreshnessLiveDriftCount": 13,
       "candidateFreshnessMonitored": 21,
-      "candidateFreshnessSourceMarkers": 44,
+      "candidateFreshnessSourceMarkers": 45,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -139,6 +139,12 @@
       "taskcoachGenericSnapshotWriterLiveDriftCount": 0,
       "taskcoachGenericSnapshotWriterOpenIssues": 91,
       "taskcoachGenericSnapshotWriterOpenPRs": 3,
+      "planeGenericSnapshotWriterChanged": true,
+      "planeGenericSnapshotWriterSourceMarker": "github-api:makeplane-plane-candidate-refresh",
+      "planeGenericSnapshotWriterLastCommit": "0bbfe95cc74c9c958d66b156df2783fdbc180f8e",
+      "planeGenericSnapshotWriterLiveDriftCount": 0,
+      "planeGenericSnapshotWriterOpenIssues": 757,
+      "planeGenericSnapshotWriterOpenPRs": 128,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -838,6 +844,13 @@
       "baseline": "dad6168f8771cda4566dedfad1e678ea253c2a7f",
       "candidate": "f3fbd73cc84ff545ceed58ef46f999bda3b954da",
       "decision": "keep"
+    },
+    {
+      "id": "plane-generic-snapshot-refresh",
+      "primaryMetric": "planeGenericSnapshotWriterChanged",
+      "baseline": "0bbfe95cc74c9c958d66b156df2783fdbc180f8e",
+      "candidate": "0bbfe95cc74c9c958d66b156df2783fdbc180f8e",
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -852,6 +865,6 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, Plane, AppFlowy, AFFiNE, or BookStack"
+    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, AppFlowy, Anytype, AFFiNE, or BookStack"
   ]
 }

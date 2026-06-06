@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T20:58:48+09:00
+Generated: 2026-06-06T21:11:36+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -1348,6 +1348,21 @@ Generated: 2026-06-06T20:58:48+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo taskcoach/taskcoach --fail-on-drift` passed with `driftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `taskcoachGenericSnapshotWriterChanged: true`.
 
+## Experiment: Plane generic snapshot refresh
+
+- Hypothesis: The PM benchmark snapshot should refresh Plane's fast-moving popularity and issue metadata before planning comparisons reuse stale source signals.
+- Primary metric: `planeGenericSnapshotWriterChanged`.
+- Baseline: Plane snapshot commit `0bbfe95cc74c9c958d66b156df2783fdbc180f8e`, 756 open issues, 128 open PRs, 50,363 stars, and 4,431 forks.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo makeplane/plane` kept the same commit while updating Plane to 757 open issues, 128 open PRs, 50,402 stars, 4,437 forks, and source marker `github-api:makeplane-plane-candidate-refresh`.
+- Decision: keep; the Plane PM benchmark row now uses the generic refresh path, passes a repo-scoped live drift check with drift count 0, and lowers full live drift from 14 to 13.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the Plane row and source marker.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 45 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo makeplane/plane --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `planeGenericSnapshotWriterChanged: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, Plane, AppFlowy, AFFiNE, or BookStack.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
