@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T21:50:59+09:00",
+  "generatedAt": "2026-06-06T22:03:24+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -93,7 +93,7 @@
       "candidateFreshnessBlockingDriftCount": 9,
       "candidateFreshnessAdvisoryDriftCount": 5,
       "candidateFreshnessMonitored": 21,
-      "candidateFreshnessSourceMarkers": 46,
+      "candidateFreshnessSourceMarkers": 47,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -112,6 +112,12 @@
       "veritasSnapshotWriterRefresh3LiveDriftCount": 0,
       "veritasSnapshotWriterRefresh3Version": "v8.672",
       "veritasSnapshotWriterRefresh3FullBlockingDriftAfter": 9,
+      "veritasSnapshotWriterRefresh4Changed": true,
+      "veritasSnapshotWriterRefresh4SourceMarker": "github-api:veritas-focused-drift-refresh-v8674",
+      "veritasSnapshotWriterRefresh4LastCommit": "53ee86db23a90b67f081a8dbb5f05a239d25e17e",
+      "veritasSnapshotWriterRefresh4LiveDriftCount": 0,
+      "veritasSnapshotWriterRefresh4Version": "v8.674",
+      "veritasSnapshotWriterRefresh4FullBlockingDriftAfter": 9,
       "candidateSnapshotWriterChecks": 5,
       "candidateSnapshotWriterSnapshotOnly": true,
       "outlineGenericSnapshotWriterChanged": true,
@@ -812,6 +818,13 @@
       "primaryMetric": "veritasSnapshotWriterRefresh3Changed",
       "baseline": "v8.651",
       "candidate": "v8.672",
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-focused-snapshot-writer-v8674",
+      "primaryMetric": "veritasSnapshotWriterRefresh4Changed",
+      "baseline": "v8.672",
+      "candidate": "v8.674",
       "decision": "keep"
     },
     {

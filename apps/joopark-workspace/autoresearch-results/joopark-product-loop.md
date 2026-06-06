@@ -1408,6 +1408,20 @@ Generated: 2026-06-06T21:23:20+09:00
 - Full live drift now reports `driftCount: 14`, `blockingDriftCount: 9`, and `advisoryDriftCount: 5`.
 - `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterRefresh3Changed: true`.
 
+## Experiment: Veritas focused snapshot writer v8.674
+
+- Hypothesis: The high-churn Veritas launch-candidate row should be refreshed again when upstream advances during release sync, preserving source-current proof without committing stale release evidence.
+- Primary metric: `veritasSnapshotWriterRefresh4Changed`.
+- Baseline: Veritas snapshot was at v8.672 commit `b1023c98cd262e992466c6a8c7f78fda2d42aa93`, pushed `2026-06-06T12:47:52Z`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated Veritas to v8.674 commit `53ee86db23a90b67f081a8dbb5f05a239d25e17e`, pushed `2026-06-06T12:56:48Z`, with source marker `github-api:veritas-focused-drift-refresh-v8674`.
+- Decision: keep; the repo-scoped live drift check again reports `driftCount: 0`, while full live drift remains `driftCount: 14`, `blockingDriftCount: 9`, and `advisoryDriftCount: 5`.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only` passed with 47 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterRefresh4Changed: true`.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
