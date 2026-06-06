@@ -178,6 +178,27 @@
         "anyproto/anytype-ts",
         "opf/openproject"
       ],
+      "candidateFreshnessLiveDriftBatchSweep3Changed": true,
+      "candidateFreshnessLiveDriftBatchSweep3Repos": 6,
+      "candidateFreshnessLiveDriftBatchSweep3FullDriftBefore": 6,
+      "candidateFreshnessLiveDriftBatchSweep3FullDriftAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep3AdvisoryBefore": 5,
+      "candidateFreshnessLiveDriftBatchSweep3AdvisoryAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep3CadenceBefore": 1,
+      "candidateFreshnessLiveDriftBatchSweep3CadenceAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep3MetadataBefore": 0,
+      "candidateFreshnessLiveDriftBatchSweep3MetadataAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep3BlockingBefore": 0,
+      "candidateFreshnessLiveDriftBatchSweep3BlockingAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep3GeneratedAt": "2026-06-07T01:03:10+09:00",
+      "candidateFreshnessLiveDriftBatchSweep3ReposList": [
+        "Veritas-7/autoresearch-skill-system",
+        "makeplane/plane",
+        "AppFlowy-IO/AppFlowy",
+        "toeverything/AFFiNE",
+        "mattermost-community/focalboard",
+        "colanode/colanode"
+      ],
       "veritasSourceMetadataCadenceAdvisoryMinutes": 99.8,
       "veritasSourceMetadataCadenceBlockingDriftCount": 0,
       "veritasSourceMetadataCadenceFields": [
@@ -1103,6 +1124,13 @@
       "id": "candidate-freshness-live-drift-batch-sweep-2",
       "primaryMetric": "candidateFreshnessLiveDriftBatchSweep2FullDriftAfter",
       "baseline": 7,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-live-drift-batch-sweep-3",
+      "primaryMetric": "candidateFreshnessLiveDriftBatchSweep3FullDriftAfter",
+      "baseline": 6,
       "candidate": 0,
       "decision": "keep"
     }
