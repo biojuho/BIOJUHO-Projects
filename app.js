@@ -1212,6 +1212,58 @@ function candidateKnowledgeBaseRubric(projects, filter) {
         ${raw(header)}
         ${raw(rows)}
       </div>
+      ${raw(candidateKnowledgeBaseRecommendationExport(scored))}
+    </section>
+  `;
+}
+
+function knowledgeBaseBenchmarkRecommendationMarkdown(scored) {
+  if (!Array.isArray(scored) || scored.length < 2) return "";
+  const [top, runnerUp] = scored;
+  const gap = top.rubricScore.score - runnerUp.rubricScore.score;
+  const topAxis = projectKnowledgeBaseRubric(top.project)
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
+  const lines = [
+    "# JooPark Knowledge/IA Benchmark Recommendation",
+    "",
+    `Recommendation: use ${top.project.name} as the primary Knowledge/IA benchmark (${top.rubricScore.label} ${top.rubricScore.score}), and keep ${runnerUp.project.name} as the portability counterweight (${runnerUp.rubricScore.label} ${runnerUp.rubricScore.score}).`,
+    `Score gap: ${gap} point${gap === 1 ? "" : "s"}.`,
+    topAxis ? `Primary reason: ${topAxis.axis} scored ${topAxis.score} at ${Math.round(topAxis.weight * 100)}% weight because ${topAxis.value}.` : "",
+    "",
+    "## Weighted Scores",
+  ].filter(Boolean);
+  scored.forEach(({ project, rubricScore }) => {
+    lines.push("", `### ${project.name}: ${rubricScore.label} ${rubricScore.score}`);
+    projectKnowledgeBaseRubric(project).forEach((row) => {
+      lines.push(`- ${row.axis}: weight ${Math.round(row.weight * 100)}%, score ${row.score} - ${row.value}`);
+    });
+  });
+  return lines.join("\n");
+}
+
+function candidateKnowledgeBaseRecommendationExport(scored) {
+  if (!Array.isArray(scored) || scored.length < 2) return "";
+  const [top, runnerUp] = scored;
+  const markdown = knowledgeBaseBenchmarkRecommendationMarkdown(scored);
+  if (!markdown) return "";
+  const gap = top.rubricScore.score - runnerUp.rubricScore.score;
+  const topAxis = projectKnowledgeBaseRubric(top.project)
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
+  const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+  return html`
+    <section class="portfolio-benchmark-export" data-knowledge-base-benchmark-export data-kb-benchmark-export-winner="${top.project.name}" data-kb-benchmark-export-gap="${gap}" data-kb-benchmark-export-format="markdown">
+      <div class="portfolio-export-head">
+        <span>KB/IA export</span>
+        <a class="portfolio-export-download" data-kb-benchmark-export-download href="${href}" download="joopark-kb-ia-recommendation.md">MD 저장</a>
+      </div>
+      <div class="portfolio-export-grid">
+        <div><span>추천</span><strong>${top.project.name}</strong><small>${top.rubricScore.label} ${top.rubricScore.score}</small></div>
+        <div><span>비교</span><strong>${runnerUp.project.name}</strong><small>${gap}점 차이</small></div>
+        <div><span>근거</span><strong>${topAxis ? topAxis.axis : "가중 점수"}</strong><small>${topAxis ? `${topAxis.score}점 · ${Math.round(topAxis.weight * 100)}%` : "루브릭 합산"}</small></div>
+      </div>
+      <pre class="portfolio-export-body" data-kb-benchmark-export-text>${markdown}</pre>
     </section>
   `;
 }
