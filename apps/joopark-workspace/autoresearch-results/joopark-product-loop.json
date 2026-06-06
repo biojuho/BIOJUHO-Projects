@@ -156,6 +156,28 @@
       ],
       "candidateFreshnessLiveDriftBatchRefreshIdempotent": true,
       "candidateFreshnessLiveDriftBatchRefreshRepoFilterChecks": 1,
+      "candidateFreshnessLiveDriftBatchSweep2Changed": true,
+      "candidateFreshnessLiveDriftBatchSweep2Repos": 7,
+      "candidateFreshnessLiveDriftBatchSweep2FullDriftBefore": 7,
+      "candidateFreshnessLiveDriftBatchSweep2FullDriftAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep2AdvisoryBefore": 5,
+      "candidateFreshnessLiveDriftBatchSweep2AdvisoryAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep2CadenceBefore": 1,
+      "candidateFreshnessLiveDriftBatchSweep2CadenceAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep2MetadataBefore": 1,
+      "candidateFreshnessLiveDriftBatchSweep2MetadataAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep2BlockingBefore": 0,
+      "candidateFreshnessLiveDriftBatchSweep2BlockingAfter": 0,
+      "candidateFreshnessLiveDriftBatchSweep2GeneratedAt": "2026-06-07T00:49:55+09:00",
+      "candidateFreshnessLiveDriftBatchSweep2ReposList": [
+        "Veritas-7/autoresearch-skill-system",
+        "makeplane/plane",
+        "AppFlowy-IO/AppFlowy",
+        "toeverything/AFFiNE",
+        "requarks/wiki",
+        "anyproto/anytype-ts",
+        "opf/openproject"
+      ],
       "veritasSourceMetadataCadenceAdvisoryMinutes": 99.8,
       "veritasSourceMetadataCadenceBlockingDriftCount": 0,
       "veritasSourceMetadataCadenceFields": [
@@ -1074,6 +1096,13 @@
       "id": "candidate-freshness-live-drift-batch-refresh-helper",
       "primaryMetric": "candidateFreshnessLiveDriftBatchRefreshFullDriftAfter",
       "baseline": 5,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-live-drift-batch-sweep-2",
+      "primaryMetric": "candidateFreshnessLiveDriftBatchSweep2FullDriftAfter",
+      "baseline": 7,
       "candidate": 0,
       "decision": "keep"
     }
