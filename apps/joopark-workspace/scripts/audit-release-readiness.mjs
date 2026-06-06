@@ -219,6 +219,7 @@ function workspaceCandidateSnapshot(relPath) {
     "toeverything/AFFiNE",
     "outline/outline",
     "BookStackApp/BookStack",
+    "requarks/wiki",
     "happybhati/workstream",
     "colanode/colanode",
     "anyproto/anytype-ts",
@@ -267,6 +268,11 @@ function workspaceCandidateSnapshot(relPath) {
       key: "bookStack",
       name: "BookStackApp/BookStack",
       sourceMarker: "github-api:bookstack-freshness-refresh",
+    },
+    {
+      key: "wikiJs",
+      name: "requarks/wiki",
+      sourceMarker: "github-api:wikijs-freshness-refresh",
     },
     {
       key: "colanode",
@@ -855,6 +861,17 @@ function buildChecklist() {
     requirement: "The portfolio includes BookStack as a researched self-hosted documentation benchmark candidate and interaction smoke can find it by current GitHub commit with popularity, source-migration, and architecture-benchmark metadata.",
     status: bookStackFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: bookStackFreshnessUiTerms,
+  });
+
+  const wikiJsFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["requarks/wiki", "github-search:wikijs-self-hosted-wiki-benchmark", "github-api:wikijs-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWikiJs", "shortWikiJsCommit", "Wiki.js freshness commit did not render", "wikiJsCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "wikijs_self_hosted_wiki_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes Wiki.js as a researched self-hosted wiki benchmark candidate and interaction smoke can find it by current GitHub commit with popularity, Git-backed documentation, and architecture-benchmark metadata.",
+    status: wikiJsFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: wikiJsFreshnessUiTerms,
   });
 
   const veritasFreshnessUiTerms = [

@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T06:50:06+09:00",
+  "generatedAt": "2026-06-06T07:08:21+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 54,
+      "pass": 55,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 54
+      "total": 55
     },
     "browserEvidence": {
       "routes": 15,
@@ -51,8 +51,8 @@
       "worklenzCandidateFreshnessVisible": true,
       "anytypeCandidateFreshnessVisible": true,
       "focalboardCandidateFreshnessVisible": true,
-      "workspaceBenchmarkHeadSnapshots": 18,
-      "workspaceBenchmarkFreshnessChecks": 89,
+      "workspaceBenchmarkHeadSnapshots": 19,
+      "workspaceBenchmarkFreshnessChecks": 95,
       "epicenterCandidateFreshnessVisible": true,
       "openLoafCandidateFreshnessVisible": true,
       "planeCandidateFreshnessVisible": true,
@@ -66,6 +66,8 @@
       "outlineKnowledgeBaseCandidateFreshnessChecks": 6,
       "bookStackCandidateFreshnessVisible": true,
       "bookStackDocumentationCandidateFreshnessChecks": 6,
+      "wikiJsCandidateFreshnessVisible": true,
+      "wikiJsSelfHostedWikiCandidateFreshnessChecks": 6,
       "workstreamCandidateFreshnessVisible": true,
       "taskosaurCandidateFreshnessVisible": true,
       "markdownTaskManagerCandidateFreshnessVisible": true,
@@ -74,8 +76,8 @@
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 1,
-      "candidateFreshnessMonitored": 20,
-      "candidateFreshnessSourceMarkers": 34,
+      "candidateFreshnessMonitored": 21,
+      "candidateFreshnessSourceMarkers": 35,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -626,6 +628,13 @@
       "baseline": 0,
       "candidate": 6,
       "decision": "keep"
+    },
+    {
+      "id": "wikijs-self-hosted-wiki-benchmark-candidate",
+      "primaryMetric": "wikiJsSelfHostedWikiCandidateFreshnessChecks",
+      "baseline": 0,
+      "candidate": 6,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -641,7 +650,7 @@
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric",
-    "research Wiki.js as a self-hosted wiki benchmark after the BookStack candidate lands",
+    "turn Outline/BookStack/Wiki.js evidence into an information-architecture comparison rubric",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }

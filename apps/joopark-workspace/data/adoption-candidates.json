@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T06:50:06+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510+github-search:outline-knowledge-base-benchmark+github-api:outline-freshness-refresh+github-search:bookstack-documentation-benchmark+github-api:bookstack-freshness-refresh",
+  "generatedAt": "2026-06-06T07:08:21+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-search:appflowy-affine-benchmark+github-api:affine-freshness-refresh+github-api:veritas-focused-drift-refresh-v8509+github-api:veritas-focused-drift-refresh-v8510+github-search:outline-knowledge-base-benchmark+github-api:outline-freshness-refresh+github-search:bookstack-documentation-benchmark+github-api:bookstack-freshness-refresh+github-search:wikijs-self-hosted-wiki-benchmark+github-api:wikijs-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -901,6 +901,35 @@
       "pushedAt": "2026-06-05T04:31:28Z",
       "createdAt": "2015-08-29T10:26:44Z",
       "lastCommit": "f01bb749ab3f11fc465bf5f247dc84e297e4f98a"
+    },
+    {
+      "id": "repo-requarks-wiki",
+      "name": "requarks/wiki",
+      "description": "Node.js/Vue 기반 self-hosted Wiki.js: Markdown, Git 저장소 연동, 문서 운영 권한 UX 벤치 후보",
+      "category": "문서화/지식베이스 워크스페이스",
+      "owner": "도입 후보",
+      "language": "Vue",
+      "color": "cyan",
+      "url": "https://github.com/requarks/wiki",
+      "sourceKind": "adoption-candidate",
+      "adoptionStage": "watch",
+      "topics": ["knowledge-base", "wiki", "selfhosted", "documentation", "markdown", "git", "nodejs", "vue"],
+      "progress": 7,
+      "status": "on-track",
+      "health": "amber",
+      "deadline": "2026-09-04",
+      "burn": [0, 1, 2, 3, 4, 6, 7],
+      "risks": 2,
+      "openIssues": 58,
+      "openPRs": 129,
+      "mergedPRs": 393,
+      "closedIssues": 2422,
+      "stars": 28414,
+      "forks": 3238,
+      "diskKb": 41457,
+      "pushedAt": "2026-05-01T10:34:55Z",
+      "createdAt": "2016-08-16T19:35:26Z",
+      "lastCommit": "6f042e97cc2d3acda6b6ff611de8e0faacce91c1"
     },
     {
       "id": "repo-happybhati-workstream",

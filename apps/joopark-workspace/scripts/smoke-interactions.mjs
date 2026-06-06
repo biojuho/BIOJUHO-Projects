@@ -370,6 +370,7 @@ const interactionExpression = `
   let affineCandidateFreshnessVisibleOk = false;
   let outlineCandidateFreshnessVisibleOk = false;
   let bookStackCandidateFreshnessVisibleOk = false;
+  let wikiJsCandidateFreshnessVisibleOk = false;
   const remainingWorkspaceFreshnessOk = {
     workstream: false,
     taskosaur: false,
@@ -579,6 +580,8 @@ const interactionExpression = `
     assert(outlineCandidate && outlineCandidate.sourceKind === "adoption-candidate", "Outline knowledge-base benchmark candidate was not loaded");
     const bookStackCandidate = dashboard.projects.find((project) => project.name === "BookStackApp/BookStack");
     assert(bookStackCandidate && bookStackCandidate.sourceKind === "adoption-candidate", "BookStack documentation benchmark candidate was not loaded");
+    const wikiJsCandidate = dashboard.projects.find((project) => project.name === "requarks/wiki");
+    assert(wikiJsCandidate && wikiJsCandidate.sourceKind === "adoption-candidate", "Wiki.js self-hosted wiki benchmark candidate was not loaded");
     const epicenterCandidate = dashboard.projects.find((project) => project.name === "EpicenterHQ/epicenter");
     assert(epicenterCandidate && epicenterCandidate.sourceKind === "adoption-candidate", "Epicenter workspace benchmark candidate was not loaded");
     const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
@@ -629,6 +632,9 @@ const interactionExpression = `
     const snapshotBookStack = adoptionSnapshot.projects.find((project) => project.name === "BookStackApp/BookStack");
     assert(snapshotBookStack && /^[0-9a-f]{40}$/i.test(snapshotBookStack.lastCommit || "") && !Number.isNaN(Date.parse(snapshotBookStack.pushedAt || "")), "BookStack snapshot freshness evidence was missing");
     const shortBookStackCommit = snapshotBookStack.lastCommit.slice(0, 8);
+    const snapshotWikiJs = adoptionSnapshot.projects.find((project) => project.name === "requarks/wiki");
+    assert(snapshotWikiJs && /^[0-9a-f]{40}$/i.test(snapshotWikiJs.lastCommit || "") && !Number.isNaN(Date.parse(snapshotWikiJs.pushedAt || "")), "Wiki.js snapshot freshness evidence was missing");
+    const shortWikiJsCommit = snapshotWikiJs.lastCommit.slice(0, 8);
     const snapshotColanode = adoptionSnapshot.projects.find((project) => project.name === "colanode/colanode");
     assert(snapshotColanode && /^[0-9a-f]{40}$/i.test(snapshotColanode.lastCommit || "") && !Number.isNaN(Date.parse(snapshotColanode.pushedAt || "")), "Colanode snapshot freshness evidence was missing");
     const shortColanodeCommit = snapshotColanode.lastCommit.slice(0, 8);
@@ -672,6 +678,8 @@ const interactionExpression = `
     assert(outlineCandidate.pushedAt === snapshotOutline.pushedAt, "Outline candidate pushedAt was stale");
     assert(bookStackCandidate.lastCommit === snapshotBookStack.lastCommit, "BookStack candidate commit was stale");
     assert(bookStackCandidate.pushedAt === snapshotBookStack.pushedAt, "BookStack candidate pushedAt was stale");
+    assert(wikiJsCandidate.lastCommit === snapshotWikiJs.lastCommit, "Wiki.js candidate commit was stale");
+    assert(wikiJsCandidate.pushedAt === snapshotWikiJs.pushedAt, "Wiki.js candidate pushedAt was stale");
     assert(benchmarkCandidate.lastCommit === snapshotColanode.lastCommit, "Colanode candidate commit was stale");
     assert(benchmarkCandidate.pushedAt === snapshotColanode.pushedAt, "Colanode candidate pushedAt was stale");
     assert(riskCandidate.lastCommit === snapshotOpenProject.lastCommit, "OpenProject candidate commit was stale");
@@ -959,6 +967,22 @@ const interactionExpression = `
     assert(bookStackCommit.dataset.candidatePushedAt === snapshotBookStack.pushedAt, "BookStack pushedAt freshness marker did not render");
     const bookStackHref = qs(".portfolio-candidate-link", bookStackCard).href;
     assert(bookStackHref === "https://github.com/BookStackApp/BookStack" || bookStackHref === "https://github.com/BookStackApp/BookStack/", "BookStack GitHub link did not render safely");
+    fill("#globalSearch", shortWikiJsCommit);
+    await waitFor(() => state.query === shortWikiJsCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Wiki.js commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + wikiJsCandidate.id + '"]'), "Wiki.js portfolio card did not render after commit search");
+    const wikiJsCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + wikiJsCandidate.id + '"]');
+    const wikiJsText = wikiJsCard.innerText;
+    assert(wikiJsText.includes("requarks/wiki"), "Wiki.js candidate card did not render");
+    assert(wikiJsText.includes("Wiki.js") && wikiJsText.includes("Git"), "Wiki.js candidate description did not render");
+    assert(wikiJsText.includes(formatMetric(snapshotWikiJs.stars)), "Wiki.js star count did not render");
+    assert(wikiJsText.includes(formatMetric(snapshotWikiJs.forks)), "Wiki.js fork count did not render");
+    assert(wikiJsText.includes("Vue"), "Wiki.js language did not render");
+    assert(qs("[data-candidate-action]", wikiJsCard).textContent.includes("아키텍처 벤치"), "Wiki.js candidate action did not render architecture benchmark");
+    const wikiJsCommit = qs("[data-candidate-commit]", wikiJsCard);
+    assert(wikiJsCommit.dataset.candidateCommit === shortWikiJsCommit, "Wiki.js freshness commit did not render");
+    assert(wikiJsCommit.dataset.candidatePushedAt === snapshotWikiJs.pushedAt, "Wiki.js pushedAt freshness marker did not render");
+    const wikiJsHref = qs(".portfolio-candidate-link", wikiJsCard).href;
+    assert(wikiJsHref === "https://github.com/requarks/wiki" || wikiJsHref === "https://github.com/requarks/wiki/", "Wiki.js GitHub link did not render safely");
     fill("#globalSearch", shortEpicenterCommit);
     await waitFor(() => state.query === shortEpicenterCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Epicenter commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + epicenterCandidate.id + '"]'), "Epicenter portfolio card did not render after commit search");
@@ -1116,6 +1140,7 @@ const interactionExpression = `
     affineCandidateFreshnessVisibleOk = true;
     outlineCandidateFreshnessVisibleOk = true;
     bookStackCandidateFreshnessVisibleOk = true;
+    wikiJsCandidateFreshnessVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
     leantimeCandidateFreshnessVisibleOk = true;
@@ -1357,6 +1382,7 @@ const interactionExpression = `
     affineCandidateFreshnessVisible: affineCandidateFreshnessVisibleOk,
     outlineCandidateFreshnessVisible: outlineCandidateFreshnessVisibleOk,
     bookStackCandidateFreshnessVisible: bookStackCandidateFreshnessVisibleOk,
+    wikiJsCandidateFreshnessVisible: wikiJsCandidateFreshnessVisibleOk,
     workstreamCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.workstream,
     taskosaurCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.taskosaur,
     markdownTaskManagerCandidateFreshnessVisible: remainingWorkspaceFreshnessOk.markdownTaskManager,
