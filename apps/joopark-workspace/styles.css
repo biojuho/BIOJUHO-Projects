@@ -2956,7 +2956,7 @@ textarea:focus:not(:focus-visible) { outline: none; }
 
 .portfolio-rubric-grid {
   display: grid;
-  grid-template-columns: minmax(82px, 0.7fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(82px, 0.7fr) repeat(var(--rubric-project-count, 2), minmax(0, 1fr));
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--line);

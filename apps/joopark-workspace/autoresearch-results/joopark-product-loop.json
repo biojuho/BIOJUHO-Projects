@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T07:08:21+09:00",
+  "generatedAt": "2026-06-06T16:12:10+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 55,
+      "pass": 56,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 55
+      "total": 56
     },
     "browserEvidence": {
       "routes": 15,
@@ -98,6 +98,8 @@
       "taskosaurWorkstreamBenchmarkRubricChecks": 4,
       "candidateBenchmarkRubricScoreVisible": true,
       "taskosaurWorkstreamBenchmarkRubricScoreChecks": 4,
+      "knowledgeBaseBenchmarkRubricVisible": true,
+      "knowledgeBaseInformationArchitectureRubricChecks": 4,
       "candidateBenchmarkRecommendationExportVisible": true,
       "taskosaurWorkstreamBenchmarkRecommendationExportChecks": 4,
       "candidateBenchmarkReviewQueueVisible": true,
@@ -635,6 +637,13 @@
       "baseline": 0,
       "candidate": 6,
       "decision": "keep"
+    },
+    {
+      "id": "knowledge-base-information-architecture-rubric",
+      "primaryMetric": "knowledgeBaseInformationArchitectureRubricChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -650,7 +659,7 @@
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric",
-    "turn Outline/BookStack/Wiki.js evidence into an information-architecture comparison rubric",
+    "add KB/IA rubric export or review-handoff support",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }
