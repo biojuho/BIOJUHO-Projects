@@ -16,6 +16,8 @@ const dataPath = join(root, "data/adoption-candidates.json");
 const commitPattern = /^[0-9a-f]{40}$/i;
 const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
 const cadencePolicyId = "candidate-freshness-drift-cadence-v1";
+const advisoryFields = new Set(["stars", "forks"]);
+const blockingFields = ["lastCommit", "pushedAt", "openIssues", "openPRs", "diskKb"];
 const highChurnRepoPolicies = [
   {
     repo: "Veritas-7/autoresearch-skill-system",
@@ -158,6 +160,7 @@ function fieldDrift(project, current, field) {
   if (project[field] === current[field]) return null;
   const drift = {
     field,
+    severity: advisoryFields.has(field) ? "advisory" : "blocking",
     snapshot: project[field],
     live: current[field],
   };
@@ -173,13 +176,17 @@ function compare(monitored, liveData) {
     const drift = fields
       .map((field) => fieldDrift(project, current, field))
       .filter(Boolean);
+    const blockingDrift = drift.filter((item) => item.severity === "blocking");
+    const advisoryDrift = drift.filter((item) => item.severity === "advisory");
     return {
       name: project.name,
       url: project.url,
       defaultBranch: current.defaultBranch,
       committedAt: current.committedAt,
       drift,
-      ok: drift.length === 0,
+      blockingDrift,
+      advisoryDrift,
+      ok: blockingDrift.length === 0,
     };
   });
 }
@@ -292,13 +299,23 @@ if (!liveResult.ok) {
 
 const comparisons = compare(snapshot.monitored, liveResult.data);
 const drifted = comparisons.filter((item) => item.drift.length > 0);
+const blockingDrifted = comparisons.filter((item) => item.blockingDrift.length > 0);
+const advisoryDrifted = comparisons.filter((item) => item.drift.length > 0 && item.blockingDrift.length === 0);
 finish(withCadencePolicy({
-  status: drifted.length === 0 ? "pass" : "drift",
+  status: blockingDrifted.length === 0 ? "pass" : "drift",
   mode: "live",
   generatedAt: snapshot.payload.generatedAt || "",
   repoFilters,
   monitored: snapshot.monitored.length,
   driftCount: drifted.length,
+  blockingDriftCount: blockingDrifted.length,
+  advisoryDriftCount: advisoryDrifted.length,
   failOnDrift,
+  driftPolicy: {
+    blockingFields,
+    advisoryFields: Array.from(advisoryFields),
+  },
   drifted,
+  blockingDrifted,
+  advisoryDrifted,
 }, snapshot));
