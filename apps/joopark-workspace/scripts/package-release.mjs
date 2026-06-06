@@ -28,6 +28,10 @@ const sourceEntries = [
   "data",
   "vendor",
 ];
+const runtimeAssets = [
+  { path: "styles.css", attr: "href" },
+  { path: "app.js", attr: "src" },
+];
 
 function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -63,6 +67,25 @@ function copyEntry(entry) {
   }
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(source, target);
+}
+
+function versionRuntimeAssetRefs() {
+  const indexPath = join(outDir, "index.html");
+  let html = readFileSync(indexPath, "utf-8");
+  for (const asset of runtimeAssets) {
+    const assetPath = join(outDir, asset.path);
+    if (!existsSync(assetPath)) throw new Error(`Missing runtime asset for versioning: ${asset.path}`);
+    const assetHash = sha256(join(outDir, asset.path)).slice(0, 12);
+    const escapedPath = asset.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`(${asset.attr}=["'])\\./${escapedPath}(?:\\?v=[^"']*)?(["'])`, "g");
+    let replacements = 0;
+    html = html.replace(pattern, (_match, prefix, quote) => {
+      replacements += 1;
+      return `${prefix}./${asset.path}?v=${assetHash}${quote}`;
+    });
+    if (replacements === 0) throw new Error(`Runtime asset version ref missing in index.html: ${asset.path}`);
+  }
+  writeFileSync(indexPath, html, "utf-8");
 }
 
 function buildManifest() {
@@ -219,6 +242,7 @@ function writeDeploySupportFiles() {
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 for (const entry of sourceEntries) copyEntry(entry);
+versionRuntimeAssetRefs();
 writeDeploySupportFiles();
 const manifest = buildManifest();
 writeReleaseNotes(manifest);

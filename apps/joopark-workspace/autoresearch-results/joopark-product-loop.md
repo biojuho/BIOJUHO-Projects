@@ -1646,6 +1646,19 @@ Generated: 2026-06-06T21:23:20+09:00
 - The baseline `git show HEAD:data/adoption-candidates.json` count for the same query was `21`.
 - `scripts/smoke-interactions.mjs` now reports `homeQuickLinksNavigate`, and `scripts/audit-release-readiness.mjs` adds `home_dashboard_quick_link_routes` plus `candidate_source_backing_coverage`.
 
+## Experiment: Runtime asset versioned bootstrap
+
+- Hypothesis: The release packager should rewrite the static `?v=3.0.0` CSS/JS bootstrap refs to content-hash query strings so deploy caches cannot serve mismatched runtime assets.
+- Primary metric: `releaseAuditVersionedRuntimeAssetBootstrapFailures`.
+- Baseline: Main-aligned release audit reported `72/73` with `versioned_runtime_asset_bootstrap` failing because `package-release.mjs` did not provide the runtime asset rewrite evidence.
+- Candidate: Add `versionRuntimeAssetRefs()` to `package-release.mjs`, hash `styles.css` and `app.js`, and rewrite `index.html` before creating the mirrored `404.html` fallback.
+- Decision: keep; the packager now supplies the content-hash bootstrap behavior that `verify-release.mjs` already checks for both `index.html` and `404.html`.
+
+## Evidence
+
+- Baseline `node scripts/audit-release-readiness.mjs --run-gates` on the main-aligned release state reported `pass: 72`, `fail: 1`, `total: 73`.
+- `scripts/package-release.mjs` now contains `versionRuntimeAssetRefs`, `Runtime asset version ref missing`, and `sha256(join(outDir, asset.path)).slice(0, 12)` evidence required by the release audit.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AppFlowy, Anytype, AFFiNE, or BookStack.
