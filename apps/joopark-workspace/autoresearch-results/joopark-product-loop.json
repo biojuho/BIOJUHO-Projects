@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T20:30:29+09:00",
+  "generatedAt": "2026-06-06T20:44:49+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -91,7 +91,7 @@
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 14,
       "candidateFreshnessMonitored": 21,
-      "candidateFreshnessSourceMarkers": 42,
+      "candidateFreshnessSourceMarkers": 43,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
@@ -127,6 +127,12 @@
       "outlineGenericSnapshotWriterRefresh2SourceMarker": "github-api:outline-outline-candidate-refresh",
       "outlineGenericSnapshotWriterRefresh2LastCommit": "f329b56d0edbbd687728c7436713f2c99e8ec722",
       "outlineGenericSnapshotWriterRefresh2LiveDriftCount": 0,
+      "leantimeGenericSnapshotWriterChanged": true,
+      "leantimeGenericSnapshotWriterSourceMarker": "github-api:leantime-leantime-candidate-refresh",
+      "leantimeGenericSnapshotWriterLastCommit": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
+      "leantimeGenericSnapshotWriterLiveDriftCount": 0,
+      "leantimeGenericSnapshotWriterOpenIssues": 317,
+      "leantimeGenericSnapshotWriterOpenPRs": 3,
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -812,6 +818,13 @@
       "baseline": "be3f28afeaaa8b92137685376fe17fff94e62255",
       "candidate": "f329b56d0edbbd687728c7436713f2c99e8ec722",
       "decision": "keep"
+    },
+    {
+      "id": "leantime-generic-snapshot-refresh",
+      "primaryMetric": "leantimeGenericSnapshotWriterChanged",
+      "baseline": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
+      "candidate": "b3a1037bf596d284b53355d23cadf1d9ab56b599",
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -826,6 +839,6 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
-    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, Leantime, AFFiNE, or BookStack"
+    "continue source-backed drift refreshes for the next high-impact candidate, starting with Veritas, AFFiNE, BookStack, or Taskcoach"
   ]
 }

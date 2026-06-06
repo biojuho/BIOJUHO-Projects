@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T20:30:29+09:00
+Generated: 2026-06-06T20:44:49+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -1318,6 +1318,21 @@ Generated: 2026-06-06T20:30:29+09:00
 - `node scripts/check-candidate-freshness-drift.mjs --live --repo outline/outline --fail-on-drift` passed with `driftCount: 0`.
 - `autoresearch-results/joopark-product-loop.json` now reports `outlineGenericSnapshotWriterRefresh2Changed: true`.
 
+## Experiment: Leantime generic snapshot refresh
+
+- Hypothesis: The PM benchmark snapshot should refresh Leantime's fast-moving GitHub popularity and issue metadata before project-management comparisons reuse stale source signals.
+- Primary metric: `leantimeGenericSnapshotWriterChanged`.
+- Baseline: Leantime snapshot commit `b3a1037bf596d284b53355d23cadf1d9ab56b599`, `pushedAt: 2026-06-05T04:17:00Z`, 318 open issues, 2 open PRs, 9,988 stars, 983 forks, and `diskKb: 247835`.
+- Candidate: `node scripts/refresh-candidate-snapshot.mjs --write --repo Leantime/leantime` kept the same commit while updating `pushedAt: 2026-06-05T18:11:39Z`, 317 open issues, 3 open PRs, 9,992 stars, 986 forks, `diskKb: 247860`, and source marker `github-api:leantime-leantime-candidate-refresh`.
+- Decision: keep; the Leantime PM benchmark row now uses the generic refresh path, passes a repo-scoped live drift check with drift count 0, and lowers full live drift from 15 to 14.
+
+## Evidence
+
+- The generic writer changed only `data/adoption-candidates.json` for the Leantime row and source marker.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 43 source markers.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Leantime/leantime --fail-on-drift` passed with `driftCount: 0`.
+- `autoresearch-results/joopark-product-loop.json` now reports `leantimeGenericSnapshotWriterChanged: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, Leantime, AFFiNE, or BookStack.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or continue source-backed drift refreshes for Veritas, AFFiNE, BookStack, or Taskcoach.
