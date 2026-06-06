@@ -1154,6 +1154,13 @@
       "baseline": 21,
       "candidate": 35,
       "decision": "keep"
+    },
+    {
+      "id": "runtime-asset-versioned-bootstrap",
+      "primaryMetric": "releaseAuditVersionedRuntimeAssetBootstrapFailures",
+      "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
     }
   ],
   "publish": {
