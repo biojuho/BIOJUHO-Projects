@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-07T01:13:30+09:00",
+  "generatedAt": "2026-06-07T01:27:49+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -1138,6 +1138,13 @@
       "id": "candidate-freshness-affine-blocking-followup",
       "primaryMetric": "candidateFreshnessAffineBlockingDriftCount",
       "baseline": 1,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-actionable-drift-filter",
+      "primaryMetric": "candidateFreshnessNonblockingRefreshReposSelected",
+      "baseline": 6,
       "candidate": 0,
       "decision": "keep"
     }
