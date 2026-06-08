@@ -3,6 +3,11 @@ name: Watch JooPark Candidate Drift
 on:
   workflow_dispatch:
     inputs:
+      ref:
+        description: "Branch or ref that contains the JooPark workspace app."
+        required: true
+        default: codex/joopark-workspace-release
+        type: string
       mode:
         description: "Run advisory report or fail when blocking drift is found."
         required: true
@@ -34,6 +39,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || 'codex/joopark-workspace-release' }}
 
       - name: Use Node.js
         uses: actions/setup-node@v4
