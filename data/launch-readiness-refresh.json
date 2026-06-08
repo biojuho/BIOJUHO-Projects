@@ -1,0 +1,236 @@
+{
+  "status": "pass",
+  "mode": "write",
+  "generatedAt": "2026-06-08T22:51:55.789Z",
+  "decision": "keep_b",
+  "sourceArtifactCount": 6,
+  "evidenceFreshnessStatus": "fresh",
+  "evidenceMaxAgeHours": 24,
+  "evidenceExpiresAt": "2026-06-09T22:51:55.789Z",
+  "evidenceFreshness": {
+    "status": "fresh",
+    "generatedAt": "2026-06-08T22:51:55.789Z",
+    "expiresAt": "2026-06-09T22:51:55.789Z",
+    "maxAgeHours": 24,
+    "refreshRequired": false,
+    "sourceArtifactCount": 6,
+    "sourceArtifacts": [
+      {
+        "key": "workflow_ui_install_plan",
+        "path": "data/workflow-ui-install-plan.json",
+        "command": "node scripts/plan-workflow-ui-install.mjs --dry-run --write",
+        "status": "pass",
+        "refreshedAt": "2026-06-08T22:51:55.789Z"
+      },
+      {
+        "key": "remote_workflow_file_check",
+        "path": "data/remote-workflow-file-check.json",
+        "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+        "status": "pass",
+        "refreshedAt": "2026-06-08T22:51:55.789Z"
+      },
+      {
+        "key": "publish_dispatch_plan",
+        "path": "data/publish-dispatch-plan.json",
+        "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+        "status": "pass",
+        "refreshedAt": "2026-06-08T22:51:55.789Z"
+      },
+      {
+        "key": "launch_execution_packet",
+        "path": "data/launch-execution-packet.json",
+        "command": "node scripts/capture-launch-execution-packet.mjs --write",
+        "status": "pass",
+        "refreshedAt": "2026-06-08T22:51:55.789Z"
+      },
+      {
+        "key": "launch_handoff_verification",
+        "path": "data/launch-handoff-verification.json",
+        "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write",
+        "status": "pass",
+        "refreshedAt": "2026-06-08T22:51:55.789Z"
+      },
+      {
+        "key": "output_quality_audit",
+        "path": "data/output-quality-audit.json",
+        "command": "node scripts/capture-output-quality-audit.mjs --write",
+        "status": "pass",
+        "refreshedAt": "2026-06-08T22:51:55.789Z"
+      }
+    ],
+    "policy": "Rerun npm run refresh:launch-readiness before workflow dispatch, live publish proof capture, or external completion claim when this artifact is stale."
+  },
+  "repo": "biojuho/BIOJUHO-Projects",
+  "source": "data/launch-readiness-refresh.json",
+  "write": true,
+  "dispatchExecuted": false,
+  "launchProofCaptured": false,
+  "commandCoverage": 6,
+  "commandRuns": [
+    {
+      "command": "node scripts/plan-workflow-ui-install.mjs --dry-run --write",
+      "status": "pass",
+      "code": 0,
+      "error": ""
+    },
+    {
+      "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+      "status": "pass",
+      "code": 0,
+      "error": ""
+    },
+    {
+      "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+      "status": "pass",
+      "code": 0,
+      "error": ""
+    },
+    {
+      "command": "node scripts/capture-launch-execution-packet.mjs --write",
+      "status": "pass",
+      "code": 0,
+      "error": ""
+    },
+    {
+      "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write",
+      "status": "pass",
+      "code": 0,
+      "error": ""
+    },
+    {
+      "command": "node scripts/capture-output-quality-audit.mjs --write",
+      "status": "pass",
+      "code": 0,
+      "error": ""
+    }
+  ],
+  "outputQualityGeneratedAt": "2026-06-08T22:51:55.748Z",
+  "outputQualitySourceInputCount": 11,
+  "latestGate": {
+    "command": "npm run verify",
+    "status": "pass",
+    "checks": {
+      "pass": 282,
+      "fail": 0,
+      "notRun": 0,
+      "blocked": 0,
+      "total": 282
+    },
+    "generatedAt": "2026-06-08T22:51:55.748Z",
+    "source": "data/output-quality-audit.json",
+    "sourceInputCount": 11
+  },
+  "latestGateSummary": "282 pass, 0 fail, 0 not_run, 0 blocked",
+  "outputQualityGateTraceability": {
+    "ready": true,
+    "status": "pass",
+    "primaryMetric": "launchReadinessOutputQualityGateTraceability",
+    "baseline": 0,
+    "candidate": 1,
+    "decision": "keep",
+    "source": "data/output-quality-audit.json",
+    "evidence": "npm run verify -> 282 pass, 0 fail, 0 not_run, 0 blocked; sourceInputCount=11; generatedAt=2026-06-08T22:51:55.748Z",
+    "externalComparison": "GitHub Actions job summaries surface important run results on the workflow summary page so readers do not need to inspect raw logs; this receipt mirrors that pattern by carrying the latest gate summary in the operator handoff."
+  },
+  "abComparison": {
+    "status": "pass",
+    "baseline": "manual_multi_command_refresh",
+    "candidate": "single_launch_readiness_refresh_runner",
+    "decision": "keep_b",
+    "primaryMetric": "operator_refresh_command_count",
+    "baselineCommandCount": 6,
+    "candidateCommandCount": 1
+  },
+  "workflowScopeAvailable": false,
+  "workflowScopeInstallBlocked": true,
+  "remoteWorkflowFilesReady": false,
+  "remoteWorkflowVisibilityReady": false,
+  "allDispatchReady": false,
+  "safeToDispatch": false,
+  "releaseQualityReady": true,
+  "publicLaunchProofReady": false,
+  "readyForExternalClaim": false,
+  "withheldDispatchCommandCount": 2,
+  "suggestedDispatchCommandCount": 0,
+  "suggestedDispatchCommands": [],
+  "withheldDispatchCommands": [
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
+  ],
+  "nextAction": {
+    "key": "refresh_workflow_scope_or_use_github_ui",
+    "status": "action_required",
+    "command": "gh auth refresh -h github.com -s workflow",
+    "detail": "Do not run gh workflow run until every action_required refresh checklist item has passed and verify-launch-handoff reports safeToDispatch=true."
+  },
+  "refreshChecklist": [
+    {
+      "key": "workflow_ui_install_plan",
+      "label": "Workflow UI install plan",
+      "status": "pass",
+      "evidence": "workflowUiInstallReady=true; localTargetParityReady=true",
+      "command": "node scripts/plan-workflow-ui-install.mjs --dry-run --write"
+    },
+    {
+      "key": "remote_workflow_files",
+      "label": "Remote workflow files",
+      "status": "action_required",
+      "evidence": "remoteWorkflowFilesReady=false",
+      "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
+    },
+    {
+      "key": "workflow_visibility",
+      "label": "Workflow visibility and dispatch plan",
+      "status": "action_required",
+      "evidence": "remoteWorkflowVisibilityReady=false; allDispatchReady=false",
+      "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write"
+    },
+    {
+      "key": "handoff_verifier",
+      "label": "Launch handoff verifier",
+      "status": "pass",
+      "evidence": "safeToDispatch=false; artifactCoverage=2",
+      "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write"
+    },
+    {
+      "key": "output_quality",
+      "label": "Output quality audit",
+      "status": "pass",
+      "evidence": "releaseQualityReady=true; publicLaunchProofReady=false",
+      "command": "node scripts/capture-output-quality-audit.mjs --write"
+    },
+    {
+      "key": "external_claim",
+      "label": "External completion claim",
+      "status": "action_required",
+      "evidence": "readyForExternalClaim=false",
+      "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"
+    }
+  ],
+  "blockers": [
+    "Remote workflow file check: pages: remote workflow file is not installed on main",
+    "Remote workflow file check: drift-watch: remote workflow file is not installed on main",
+    "Publish dispatch: pages: workflow is not visible in GitHub Actions",
+    "Publish dispatch: drift-watch: workflow is not visible in GitHub Actions",
+    "Publish dispatch: workflow scope: current GitHub CLI token cannot create or update workflow files; run gh auth refresh -h github.com -s workflow and rerun node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects, or use GitHub UI for default-branch installation",
+    "workflowScopeInstallBlocked=true; run gh auth refresh -h github.com -s workflow and rerun node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "remoteWorkflowFilesReady=false",
+    "remoteWorkflowVisibilityReady=false",
+    "allDispatchReady=false",
+    "workflowScopeInstallBlocked=true; run gh auth refresh -h github.com -s workflow",
+    "postPublishEvidenceReady=false",
+    "readyForExternalClaim=false"
+  ],
+  "guard": "Do not run gh workflow run, archive proof, or claim readyForExternalClaim until every action_required refresh checklist item has passed, verify-launch-handoff reports safeToDispatch=true, postPublishEvidenceReady=true, and readyForExternalClaim=true.",
+  "artifacts": {
+    "workflowUiInstallPlan": "data/workflow-ui-install-plan.json",
+    "remoteWorkflowFileCheck": "data/remote-workflow-file-check.json",
+    "publishDispatchPlan": "data/publish-dispatch-plan.json",
+    "launchExecutionPacket": "data/launch-execution-packet.json",
+    "launchHandoffVerification": "data/launch-handoff-verification.json",
+    "launchHandoffMarkdown": "data/launch-handoff-verification.md",
+    "outputQualityAudit": "data/output-quality-audit.json",
+    "refreshJson": "data/launch-readiness-refresh.json",
+    "refreshMarkdown": "data/launch-readiness-refresh.md"
+  }
+}

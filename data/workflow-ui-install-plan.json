@@ -1,0 +1,343 @@
+{
+  "status": "pass",
+  "mode": "dry-run",
+  "generatedAt": "2026-06-08T22:51:50.115Z",
+  "repositoryRoot": "/Users/ju-hopark/Desktop/JooPark Project",
+  "remoteName": "biojuho-projects",
+  "repositoryUrl": "https://github.com/biojuho/BIOJUHO-Projects",
+  "suggestedRepo": "biojuho/BIOJUHO-Projects",
+  "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
+  "defaultBranch": "main",
+  "defaultBranchSource": "local refs/remotes/biojuho-projects/main",
+  "actionsUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions",
+  "workflowScopeRequired": true,
+  "workflowUiInstallReady": true,
+  "localTargetParityReady": true,
+  "installReceipt": {
+    "key": "github_ui_workflow_install_receipt",
+    "label": "GitHub UI workflow paste packet",
+    "status": "ready_to_use",
+    "ready": true,
+    "repo": "biojuho/BIOJUHO-Projects",
+    "defaultBranch": "main",
+    "commandCount": 8,
+    "checklistCount": 6,
+    "evidenceFieldCount": 6,
+    "evidenceFieldCoverage": 1,
+    "templateIntegrityRows": [
+      {
+        "key": "pages",
+        "template": "docs/github-pages-workflow.yml",
+        "target": ".github/workflows/joopark-pages.yml",
+        "expectedSha256": "7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471",
+        "localTemplateHashCommand": "shasum -a 256 'docs/github-pages-workflow.yml'",
+        "postCommitRemoteCheck": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+        "expectedRemoteSignals": [
+          "pages remoteExists=true",
+          "pages remoteMatchesTemplate=true",
+          "remoteSha256 equals templateSha256 7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471"
+        ]
+      },
+      {
+        "key": "drift-watch",
+        "template": "docs/github-drift-watch-workflow.yml",
+        "target": ".github/workflows/joopark-drift-watch.yml",
+        "expectedSha256": "c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+        "localTemplateHashCommand": "shasum -a 256 'docs/github-drift-watch-workflow.yml'",
+        "postCommitRemoteCheck": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+        "expectedRemoteSignals": [
+          "drift-watch remoteExists=true",
+          "drift-watch remoteMatchesTemplate=true",
+          "remoteSha256 equals templateSha256 c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae"
+        ]
+      }
+    ],
+    "templateIntegrityCoverage": 1,
+    "templateIntegrityReady": true,
+    "parserReadyProofFields": [
+      {
+        "key": "pages_workflow_commit",
+        "placeholder": "[paste actual commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]"
+      },
+      {
+        "key": "drift_workflow_commit",
+        "placeholder": "[paste actual commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]"
+      },
+      {
+        "key": "remote_parity_proof",
+        "placeholder": "[paste actual generatedAt plus remoteWorkflowFilesReady=true, remoteExists=true, and remoteMatchesTemplate=true]"
+      },
+      {
+        "key": "actions_visibility_proof",
+        "placeholder": "[paste actual gh workflow list proof or remoteWorkflowVisibilityReady=true]"
+      },
+      {
+        "key": "dispatch_readiness_proof",
+        "placeholder": "[paste actual dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true proof]"
+      },
+      {
+        "key": "handoff_verifier_proof",
+        "placeholder": "[paste actual verify-launch-handoff output showing safeToDispatch=true before gh workflow run]"
+      }
+    ],
+    "parserReadyProofFieldCount": 6,
+    "parserReadyProofFieldCoverage": 1,
+    "parserReadyProofTemplate": "Parser-ready proof block:\npages_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\ndrift_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\nremote_parity_proof: [paste actual generatedAt plus remoteWorkflowFilesReady=true, remoteExists=true, and remoteMatchesTemplate=true]\nactions_visibility_proof: [paste actual gh workflow list proof or remoteWorkflowVisibilityReady=true]\ndispatch_readiness_proof: [paste actual dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true proof]\nhandoff_verifier_proof: [paste actual verify-launch-handoff output showing safeToDispatch=true before gh workflow run]\n\nParser guard:\nThe parser ignores bracketed [paste ...] placeholders and does not turn this template into dispatch approval.",
+    "parserReadyProofBlockReady": true,
+    "expectedSignalCount": 8,
+    "formFieldCoverage": 1,
+    "formFieldChecks": [
+      {
+        "key": "pages",
+        "target": ".github/workflows/joopark-pages.yml",
+        "githubFileNameFieldValue": ".github/workflows/joopark-pages.yml",
+        "suggestedCommitMessage": "Add JooPark Pages publish workflow",
+        "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml"
+      },
+      {
+        "key": "drift-watch",
+        "target": ".github/workflows/joopark-drift-watch.yml",
+        "githubFileNameFieldValue": ".github/workflows/joopark-drift-watch.yml",
+        "suggestedCommitMessage": "Add JooPark candidate drift watch workflow",
+        "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml"
+      }
+    ],
+    "installCommands": [
+      "pbcopy < 'docs/github-pages-workflow.yml'",
+      "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'",
+      "pbcopy < 'docs/github-drift-watch-workflow.yml'",
+      "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'"
+    ],
+    "verificationCommands": [
+      "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+      "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
+      "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+      "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"
+    ],
+    "evidenceFields": [
+      {
+        "label": "Pages workflow commit",
+        "placeholder": "[paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]"
+      },
+      {
+        "label": "Drift Watch workflow commit",
+        "placeholder": "[paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]"
+      },
+      {
+        "label": "Remote parity proof",
+        "placeholder": "[paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]"
+      },
+      {
+        "label": "Actions visibility proof",
+        "placeholder": "[paste gh workflow list output showing both workflow paths visible]"
+      },
+      {
+        "label": "Dispatch readiness proof",
+        "placeholder": "[paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]"
+      },
+      {
+        "label": "Handoff verifier proof",
+        "placeholder": "[paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]"
+      }
+    ],
+    "expectedSignals": [
+      "remoteWorkflowFilesReady=true",
+      "pages remoteExists=true and remoteMatchesTemplate=true",
+      "drift-watch remoteExists=true and remoteMatchesTemplate=true",
+      "remoteWorkflowVisibilityReady=true",
+      "dispatchReady=true",
+      "driftDispatchReady=true",
+      "allDispatchReady=true",
+      "safeToDispatch=true before gh workflow run"
+    ],
+    "checklist": [
+      "Commit both workflow files to the repository default branch using the GitHub UI new-file pages.",
+      "Confirm each committed file matches the local template SHA-256.",
+      "Run the remote workflow file check until remoteWorkflowFilesReady=true.",
+      "Open GitHub Actions and confirm both workflow files are visible.",
+      "Run the publish dispatch plan until remoteWorkflowVisibilityReady=true and allDispatchReady=true.",
+      "Run verify-launch-handoff and keep dispatch withheld until every post-install evidence field is filled and verify-launch-handoff reports safeToDispatch=true."
+    ],
+    "remoteFileCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+    "dispatchPlanCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+    "workflowListCommand": "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
+    "handoffVerifyCommand": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
+    "dispatchGuard": "Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.",
+    "postInstallStopCondition": "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.",
+    "text": "# JooPark GitHub UI Workflow Install Receipt\nJooPark GitHub UI Workflow Paste Packet\n\nStatus: ready for GitHub UI install; not remote installation proof\nGenerated: 2026-06-08T22:51:50.115Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nWorkflow UI install ready: true\nworkflowUiInstallReady=true\nLocal target parity ready: true\nlocalTargetParityReady=true\nPlan count: 2\nSuggested repo: biojuho/BIOJUHO-Projects\nRepo replacement hint: Replace OWNER/REPO with biojuho/BIOJUHO-Projects\n\nPaste packet:\nPaste exact template content into each GitHub new-file page, commit to the default branch, then rerun the verification sequence before dispatch.\n\nInstall commands:\n1. pbcopy < 'docs/github-pages-workflow.yml'\n2. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'\n3. pbcopy < 'docs/github-drift-watch-workflow.yml'\n4. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'\n\nTargets:\n- pages: .github/workflows/joopark-pages.yml from docs/github-pages-workflow.yml; templateSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: .github/workflows/joopark-drift-watch.yml from docs/github-drift-watch-workflow.yml; templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nTemplate integrity ledger:\n- pages: template=docs/github-pages-workflow.yml; target=.github/workflows/joopark-pages.yml; expectedSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; localTemplateHashCommand=shasum -a 256 'docs/github-pages-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=pages remoteExists=true | pages remoteMatchesTemplate=true | remoteSha256 equals templateSha256 7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471\n- drift-watch: template=docs/github-drift-watch-workflow.yml; target=.github/workflows/joopark-drift-watch.yml; expectedSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; localTemplateHashCommand=shasum -a 256 'docs/github-drift-watch-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=drift-watch remoteExists=true | drift-watch remoteMatchesTemplate=true | remoteSha256 equals templateSha256 c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae\n\nChecksum guard:\nRun each localTemplateHashCommand before paste and compare the first shasum field with expectedSha256; after commit, run postCommitRemoteCheck and require remoteExists=true, remoteMatchesTemplate=true, and remoteSha256 equals templateSha256 before dispatch.\n\nGitHub new-file form values:\n- pages: githubFileNameFieldValue=.github/workflows/joopark-pages.yml; suggestedCommitMessage=Add JooPark Pages publish workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: githubFileNameFieldValue=.github/workflows/joopark-drift-watch.yml; suggestedCommitMessage=Add JooPark candidate drift watch workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nPost-install verification commands:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install proof checklist:\n- Commit both workflow files to the repository default branch using the GitHub UI new-file pages.\n- Confirm each committed file matches the local template SHA-256.\n- Run the remote workflow file check until remoteWorkflowFilesReady=true.\n- Open GitHub Actions and confirm both workflow files are visible.\n- Run the publish dispatch plan until remoteWorkflowVisibilityReady=true and allDispatchReady=true.\n- Run verify-launch-handoff and keep dispatch withheld until every post-install evidence field is filled and verify-launch-handoff reports safeToDispatch=true.\n\nPost-install evidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nParser-ready proof block:\npages_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\ndrift_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\nremote_parity_proof: [paste actual generatedAt plus remoteWorkflowFilesReady=true, remoteExists=true, and remoteMatchesTemplate=true]\nactions_visibility_proof: [paste actual gh workflow list proof or remoteWorkflowVisibilityReady=true]\ndispatch_readiness_proof: [paste actual dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true proof]\nhandoff_verifier_proof: [paste actual verify-launch-handoff output showing safeToDispatch=true before gh workflow run]\n\nParser guard:\nThe parser ignores bracketed [paste ...] placeholders and does not turn this template into dispatch approval.\n\nExpected success signals:\n- remoteWorkflowFilesReady=true\n- pages remoteExists=true and remoteMatchesTemplate=true\n- drift-watch remoteExists=true and remoteMatchesTemplate=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- safeToDispatch=true before gh workflow run\n\nDispatch guard:\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until remoteWorkflowFilesReady: true, remoteWorkflowVisibilityReady: true, dispatchReady: true, driftDispatchReady: true, and allDispatchReady: true.\nExternal benchmark: GitHub UI file creation still requires committing the workflow file to the default branch, and GitHub manual workflow dispatch only appears after a workflow_dispatch workflow exists on the default branch."
+  },
+  "installReceiptReady": true,
+  "installReceiptCommandCount": 8,
+  "installReceiptChecklistCount": 6,
+  "workflowUiTemplateIntegrityCoverage": 1,
+  "workflowUiTemplateIntegrityReady": true,
+  "workflowUiInstallFormFieldCoverage": 1,
+  "workflowUiInstallPastePacket": "# JooPark GitHub UI Workflow Install Receipt\nJooPark GitHub UI Workflow Paste Packet\n\nStatus: ready for GitHub UI install; not remote installation proof\nGenerated: 2026-06-08T22:51:50.115Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nWorkflow UI install ready: true\nworkflowUiInstallReady=true\nLocal target parity ready: true\nlocalTargetParityReady=true\nPlan count: 2\nSuggested repo: biojuho/BIOJUHO-Projects\nRepo replacement hint: Replace OWNER/REPO with biojuho/BIOJUHO-Projects\n\nPaste packet:\nPaste exact template content into each GitHub new-file page, commit to the default branch, then rerun the verification sequence before dispatch.\n\nInstall commands:\n1. pbcopy < 'docs/github-pages-workflow.yml'\n2. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'\n3. pbcopy < 'docs/github-drift-watch-workflow.yml'\n4. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'\n\nTargets:\n- pages: .github/workflows/joopark-pages.yml from docs/github-pages-workflow.yml; templateSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: .github/workflows/joopark-drift-watch.yml from docs/github-drift-watch-workflow.yml; templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nTemplate integrity ledger:\n- pages: template=docs/github-pages-workflow.yml; target=.github/workflows/joopark-pages.yml; expectedSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; localTemplateHashCommand=shasum -a 256 'docs/github-pages-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=pages remoteExists=true | pages remoteMatchesTemplate=true | remoteSha256 equals templateSha256 7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471\n- drift-watch: template=docs/github-drift-watch-workflow.yml; target=.github/workflows/joopark-drift-watch.yml; expectedSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; localTemplateHashCommand=shasum -a 256 'docs/github-drift-watch-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=drift-watch remoteExists=true | drift-watch remoteMatchesTemplate=true | remoteSha256 equals templateSha256 c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae\n\nChecksum guard:\nRun each localTemplateHashCommand before paste and compare the first shasum field with expectedSha256; after commit, run postCommitRemoteCheck and require remoteExists=true, remoteMatchesTemplate=true, and remoteSha256 equals templateSha256 before dispatch.\n\nGitHub new-file form values:\n- pages: githubFileNameFieldValue=.github/workflows/joopark-pages.yml; suggestedCommitMessage=Add JooPark Pages publish workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: githubFileNameFieldValue=.github/workflows/joopark-drift-watch.yml; suggestedCommitMessage=Add JooPark candidate drift watch workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nPost-install verification commands:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install proof checklist:\n- Commit both workflow files to the repository default branch using the GitHub UI new-file pages.\n- Confirm each committed file matches the local template SHA-256.\n- Run the remote workflow file check until remoteWorkflowFilesReady=true.\n- Open GitHub Actions and confirm both workflow files are visible.\n- Run the publish dispatch plan until remoteWorkflowVisibilityReady=true and allDispatchReady=true.\n- Run verify-launch-handoff and keep dispatch withheld until every post-install evidence field is filled and verify-launch-handoff reports safeToDispatch=true.\n\nPost-install evidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nParser-ready proof block:\npages_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\ndrift_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\nremote_parity_proof: [paste actual generatedAt plus remoteWorkflowFilesReady=true, remoteExists=true, and remoteMatchesTemplate=true]\nactions_visibility_proof: [paste actual gh workflow list proof or remoteWorkflowVisibilityReady=true]\ndispatch_readiness_proof: [paste actual dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true proof]\nhandoff_verifier_proof: [paste actual verify-launch-handoff output showing safeToDispatch=true before gh workflow run]\n\nParser guard:\nThe parser ignores bracketed [paste ...] placeholders and does not turn this template into dispatch approval.\n\nExpected success signals:\n- remoteWorkflowFilesReady=true\n- pages remoteExists=true and remoteMatchesTemplate=true\n- drift-watch remoteExists=true and remoteMatchesTemplate=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- safeToDispatch=true before gh workflow run\n\nDispatch guard:\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until remoteWorkflowFilesReady: true, remoteWorkflowVisibilityReady: true, dispatchReady: true, driftDispatchReady: true, and allDispatchReady: true.\nExternal benchmark: GitHub UI file creation still requires committing the workflow file to the default branch, and GitHub manual workflow dispatch only appears after a workflow_dispatch workflow exists on the default branch.",
+  "uiPastePacket": "# JooPark GitHub UI Workflow Install Receipt\nJooPark GitHub UI Workflow Paste Packet\n\nStatus: ready for GitHub UI install; not remote installation proof\nGenerated: 2026-06-08T22:51:50.115Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nWorkflow UI install ready: true\nworkflowUiInstallReady=true\nLocal target parity ready: true\nlocalTargetParityReady=true\nPlan count: 2\nSuggested repo: biojuho/BIOJUHO-Projects\nRepo replacement hint: Replace OWNER/REPO with biojuho/BIOJUHO-Projects\n\nPaste packet:\nPaste exact template content into each GitHub new-file page, commit to the default branch, then rerun the verification sequence before dispatch.\n\nInstall commands:\n1. pbcopy < 'docs/github-pages-workflow.yml'\n2. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'\n3. pbcopy < 'docs/github-drift-watch-workflow.yml'\n4. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'\n\nTargets:\n- pages: .github/workflows/joopark-pages.yml from docs/github-pages-workflow.yml; templateSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: .github/workflows/joopark-drift-watch.yml from docs/github-drift-watch-workflow.yml; templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nTemplate integrity ledger:\n- pages: template=docs/github-pages-workflow.yml; target=.github/workflows/joopark-pages.yml; expectedSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; localTemplateHashCommand=shasum -a 256 'docs/github-pages-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=pages remoteExists=true | pages remoteMatchesTemplate=true | remoteSha256 equals templateSha256 7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471\n- drift-watch: template=docs/github-drift-watch-workflow.yml; target=.github/workflows/joopark-drift-watch.yml; expectedSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; localTemplateHashCommand=shasum -a 256 'docs/github-drift-watch-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=drift-watch remoteExists=true | drift-watch remoteMatchesTemplate=true | remoteSha256 equals templateSha256 c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae\n\nChecksum guard:\nRun each localTemplateHashCommand before paste and compare the first shasum field with expectedSha256; after commit, run postCommitRemoteCheck and require remoteExists=true, remoteMatchesTemplate=true, and remoteSha256 equals templateSha256 before dispatch.\n\nGitHub new-file form values:\n- pages: githubFileNameFieldValue=.github/workflows/joopark-pages.yml; suggestedCommitMessage=Add JooPark Pages publish workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: githubFileNameFieldValue=.github/workflows/joopark-drift-watch.yml; suggestedCommitMessage=Add JooPark candidate drift watch workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nPost-install verification commands:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install proof checklist:\n- Commit both workflow files to the repository default branch using the GitHub UI new-file pages.\n- Confirm each committed file matches the local template SHA-256.\n- Run the remote workflow file check until remoteWorkflowFilesReady=true.\n- Open GitHub Actions and confirm both workflow files are visible.\n- Run the publish dispatch plan until remoteWorkflowVisibilityReady=true and allDispatchReady=true.\n- Run verify-launch-handoff and keep dispatch withheld until every post-install evidence field is filled and verify-launch-handoff reports safeToDispatch=true.\n\nPost-install evidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nParser-ready proof block:\npages_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\ndrift_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\nremote_parity_proof: [paste actual generatedAt plus remoteWorkflowFilesReady=true, remoteExists=true, and remoteMatchesTemplate=true]\nactions_visibility_proof: [paste actual gh workflow list proof or remoteWorkflowVisibilityReady=true]\ndispatch_readiness_proof: [paste actual dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true proof]\nhandoff_verifier_proof: [paste actual verify-launch-handoff output showing safeToDispatch=true before gh workflow run]\n\nParser guard:\nThe parser ignores bracketed [paste ...] placeholders and does not turn this template into dispatch approval.\n\nExpected success signals:\n- remoteWorkflowFilesReady=true\n- pages remoteExists=true and remoteMatchesTemplate=true\n- drift-watch remoteExists=true and remoteMatchesTemplate=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- safeToDispatch=true before gh workflow run\n\nDispatch guard:\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until remoteWorkflowFilesReady: true, remoteWorkflowVisibilityReady: true, dispatchReady: true, driftDispatchReady: true, and allDispatchReady: true.\nExternal benchmark: GitHub UI file creation still requires committing the workflow file to the default branch, and GitHub manual workflow dispatch only appears after a workflow_dispatch workflow exists on the default branch.",
+  "packet": "# JooPark GitHub UI Workflow Install Receipt\nJooPark GitHub UI Workflow Paste Packet\n\nStatus: ready for GitHub UI install; not remote installation proof\nGenerated: 2026-06-08T22:51:50.115Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nWorkflow UI install ready: true\nworkflowUiInstallReady=true\nLocal target parity ready: true\nlocalTargetParityReady=true\nPlan count: 2\nSuggested repo: biojuho/BIOJUHO-Projects\nRepo replacement hint: Replace OWNER/REPO with biojuho/BIOJUHO-Projects\n\nPaste packet:\nPaste exact template content into each GitHub new-file page, commit to the default branch, then rerun the verification sequence before dispatch.\n\nInstall commands:\n1. pbcopy < 'docs/github-pages-workflow.yml'\n2. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'\n3. pbcopy < 'docs/github-drift-watch-workflow.yml'\n4. open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'\n\nTargets:\n- pages: .github/workflows/joopark-pages.yml from docs/github-pages-workflow.yml; templateSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: .github/workflows/joopark-drift-watch.yml from docs/github-drift-watch-workflow.yml; templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; targetMatchesTemplate=true; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nTemplate integrity ledger:\n- pages: template=docs/github-pages-workflow.yml; target=.github/workflows/joopark-pages.yml; expectedSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471; localTemplateHashCommand=shasum -a 256 'docs/github-pages-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=pages remoteExists=true | pages remoteMatchesTemplate=true | remoteSha256 equals templateSha256 7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471\n- drift-watch: template=docs/github-drift-watch-workflow.yml; target=.github/workflows/joopark-drift-watch.yml; expectedSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; localTemplateHashCommand=shasum -a 256 'docs/github-drift-watch-workflow.yml'; postCommitRemoteCheck=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedRemoteSignals=drift-watch remoteExists=true | drift-watch remoteMatchesTemplate=true | remoteSha256 equals templateSha256 c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae\n\nChecksum guard:\nRun each localTemplateHashCommand before paste and compare the first shasum field with expectedSha256; after commit, run postCommitRemoteCheck and require remoteExists=true, remoteMatchesTemplate=true, and remoteSha256 equals templateSha256 before dispatch.\n\nGitHub new-file form values:\n- pages: githubFileNameFieldValue=.github/workflows/joopark-pages.yml; suggestedCommitMessage=Add JooPark Pages publish workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml\n- drift-watch: githubFileNameFieldValue=.github/workflows/joopark-drift-watch.yml; suggestedCommitMessage=Add JooPark candidate drift watch workflow; newFile=https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml\n\nPost-install verification commands:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install proof checklist:\n- Commit both workflow files to the repository default branch using the GitHub UI new-file pages.\n- Confirm each committed file matches the local template SHA-256.\n- Run the remote workflow file check until remoteWorkflowFilesReady=true.\n- Open GitHub Actions and confirm both workflow files are visible.\n- Run the publish dispatch plan until remoteWorkflowVisibilityReady=true and allDispatchReady=true.\n- Run verify-launch-handoff and keep dispatch withheld until every post-install evidence field is filled and verify-launch-handoff reports safeToDispatch=true.\n\nPost-install evidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nParser-ready proof block:\npages_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\ndrift_workflow_commit: [paste actual commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\nremote_parity_proof: [paste actual generatedAt plus remoteWorkflowFilesReady=true, remoteExists=true, and remoteMatchesTemplate=true]\nactions_visibility_proof: [paste actual gh workflow list proof or remoteWorkflowVisibilityReady=true]\ndispatch_readiness_proof: [paste actual dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true proof]\nhandoff_verifier_proof: [paste actual verify-launch-handoff output showing safeToDispatch=true before gh workflow run]\n\nParser guard:\nThe parser ignores bracketed [paste ...] placeholders and does not turn this template into dispatch approval.\n\nExpected success signals:\n- remoteWorkflowFilesReady=true\n- pages remoteExists=true and remoteMatchesTemplate=true\n- drift-watch remoteExists=true and remoteMatchesTemplate=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- safeToDispatch=true before gh workflow run\n\nDispatch guard:\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\nDo not run gh workflow run until remoteWorkflowFilesReady: true, remoteWorkflowVisibilityReady: true, dispatchReady: true, driftDispatchReady: true, and allDispatchReady: true.\nExternal benchmark: GitHub UI file creation still requires committing the workflow file to the default branch, and GitHub manual workflow dispatch only appears after a workflow_dispatch workflow exists on the default branch.",
+  "workflowUiInstallPastePacketReady": true,
+  "uiPastePacketReady": true,
+  "packetReady": true,
+  "workflowUiInstallPastePacketCoverage": 1,
+  "plans": [
+    {
+      "key": "pages",
+      "name": "Publish JooPark Pages",
+      "template": "docs/github-pages-workflow.yml",
+      "target": ".github/workflows/joopark-pages.yml",
+      "targetRepositoryPath": ".github/workflows/joopark-pages.yml",
+      "defaultBranchRequired": true,
+      "defaultBranch": "main",
+      "defaultBranchSource": "local refs/remotes/biojuho-projects/main",
+      "repositoryUrl": "https://github.com/biojuho/BIOJUHO-Projects",
+      "suggestedRepo": "biojuho/BIOJUHO-Projects",
+      "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
+      "actionsUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions",
+      "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml",
+      "githubBlobUrl": "https://github.com/biojuho/BIOJUHO-Projects/blob/main/.github/workflows/joopark-pages.yml",
+      "githubWorkflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml",
+      "templateCopyCommand": "pbcopy < 'docs/github-pages-workflow.yml'",
+      "localTemplateHashCommand": "shasum -a 256 'docs/github-pages-workflow.yml'",
+      "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'",
+      "githubWorkflowOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml'",
+      "githubFileNameFieldValue": ".github/workflows/joopark-pages.yml",
+      "suggestedCommitMessage": "Add JooPark Pages publish workflow",
+      "githubNewFileFormCheck": "GitHub file name field must equal .github/workflows/joopark-pages.yml; suggested commit message: Add JooPark Pages publish workflow",
+      "templateExists": true,
+      "targetExists": true,
+      "bytes": 2837,
+      "sha256": "7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471",
+      "templateSha256": "7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471",
+      "targetSha256": "7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471",
+      "targetMatchesTemplate": true,
+      "localTargetParityReady": true,
+      "requiredTerms": [
+        "workflow_dispatch:",
+        "pages: write",
+        "id-token: write",
+        "attestations: write",
+        "actions/attest@v4",
+        "subject-path: dist/release/**",
+        "actions/upload-pages-artifact@v4",
+        "actions/deploy-pages@v4",
+        "node scripts/package-release.mjs",
+        "node scripts/verify-release.mjs",
+        "search-empty-state.js",
+        "calendar-view.js",
+        "todo-view.js",
+        "notes-view.js",
+        "habits-view.js",
+        "stats-view.js",
+        "portfolio-view.js",
+        "kanban-view.js",
+        "gantt-view.js",
+        "team-view.js",
+        "workspace-storage.js",
+        "storage-status-view.js",
+        "settings-view.js",
+        "system-status-view.js",
+        "operations-copy-actions.js",
+        "dialog-shell.js",
+        "project-picker.js",
+        "global-search.js",
+        "command-palette.js",
+        "review-result-view.js",
+        "review-execution-checklist.js",
+        "review-issue-payload.js",
+        "review-result-state.js",
+        "review-result-draft-state.js",
+        "review-creation-actions.js",
+        "review-package-view.js",
+        "review-artifact-view.js",
+        "review-artifact-state.js",
+        "review-copy-actions.js",
+        "review-submission-copy.js",
+        "review-recommendation-export.js"
+      ],
+      "missingTerms": [],
+      "uiInstallReady": true,
+      "nextVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+      "placeholderVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO",
+      "uiSteps": [
+        "Run pbcopy < 'docs/github-pages-workflow.yml' to copy docs/github-pages-workflow.yml",
+        "Run open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml' and create .github/workflows/joopark-pages.yml",
+        "Confirm the GitHub file name field is .github/workflows/joopark-pages.yml and use commit message \"Add JooPark Pages publish workflow\"",
+        "Paste the copied template contents from docs/github-pages-workflow.yml",
+        "Commit to default branch main with a workflow-scope capable GitHub UI session",
+        "Run open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml' and confirm the workflow appears",
+        "Run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects after the workflow appears in Actions",
+        "Treat node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO as a template only if the suggested repo is unavailable or wrong"
+      ],
+      "manualDispatchRequirement": "workflow_dispatch must be present on the repository default branch before GitHub UI, CLI, or REST dispatch can run it"
+    },
+    {
+      "key": "drift-watch",
+      "name": "Watch JooPark Candidate Drift",
+      "template": "docs/github-drift-watch-workflow.yml",
+      "target": ".github/workflows/joopark-drift-watch.yml",
+      "targetRepositoryPath": ".github/workflows/joopark-drift-watch.yml",
+      "defaultBranchRequired": true,
+      "defaultBranch": "main",
+      "defaultBranchSource": "local refs/remotes/biojuho-projects/main",
+      "repositoryUrl": "https://github.com/biojuho/BIOJUHO-Projects",
+      "suggestedRepo": "biojuho/BIOJUHO-Projects",
+      "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
+      "actionsUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions",
+      "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml",
+      "githubBlobUrl": "https://github.com/biojuho/BIOJUHO-Projects/blob/main/.github/workflows/joopark-drift-watch.yml",
+      "githubWorkflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml",
+      "templateCopyCommand": "pbcopy < 'docs/github-drift-watch-workflow.yml'",
+      "localTemplateHashCommand": "shasum -a 256 'docs/github-drift-watch-workflow.yml'",
+      "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'",
+      "githubWorkflowOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml'",
+      "githubFileNameFieldValue": ".github/workflows/joopark-drift-watch.yml",
+      "suggestedCommitMessage": "Add JooPark candidate drift watch workflow",
+      "githubNewFileFormCheck": "GitHub file name field must equal .github/workflows/joopark-drift-watch.yml; suggested commit message: Add JooPark candidate drift watch workflow",
+      "templateExists": true,
+      "targetExists": true,
+      "bytes": 1851,
+      "sha256": "c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+      "templateSha256": "c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+      "targetSha256": "c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+      "targetMatchesTemplate": true,
+      "localTargetParityReady": true,
+      "requiredTerms": [
+        "workflow_dispatch:",
+        "schedule:",
+        "contents: read",
+        "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}",
+        "node scripts/check-candidate-freshness-drift.mjs --live",
+        "fail-on-drift"
+      ],
+      "missingTerms": [],
+      "uiInstallReady": true,
+      "nextVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+      "placeholderVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO",
+      "uiSteps": [
+        "Run pbcopy < 'docs/github-drift-watch-workflow.yml' to copy docs/github-drift-watch-workflow.yml",
+        "Run open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml' and create .github/workflows/joopark-drift-watch.yml",
+        "Confirm the GitHub file name field is .github/workflows/joopark-drift-watch.yml and use commit message \"Add JooPark candidate drift watch workflow\"",
+        "Paste the copied template contents from docs/github-drift-watch-workflow.yml",
+        "Commit to default branch main with a workflow-scope capable GitHub UI session",
+        "Run open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml' and confirm the workflow appears",
+        "Run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects after the workflow appears in Actions",
+        "Treat node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO as a template only if the suggested repo is unavailable or wrong"
+      ],
+      "manualDispatchRequirement": "workflow_dispatch must be present on the repository default branch before GitHub UI, CLI, or REST dispatch can run it"
+    }
+  ],
+  "blockers": [],
+  "nextVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+  "placeholderVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO",
+  "nextCommands": [
+    "node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope",
+    "node scripts/prepare-github-drift-watch-workflow.mjs --dry-run --check-scope",
+    "node scripts/plan-workflow-ui-install.mjs --dry-run",
+    "node scripts/plan-workflow-ui-install.mjs --dry-run --markdown",
+    "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
+  ],
+  "placeholderTemplateCommands": [
+    "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO"
+  ],
+  "writtenTo": "data/workflow-ui-install-plan.json"
+}

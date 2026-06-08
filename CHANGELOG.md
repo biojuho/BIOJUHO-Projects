@@ -1,0 +1,21 @@
+# Changelog
+
+- 2026-06-08: Cycle 019 created `wiki/source-governance.md` and exhausted the AutoResearch wiki queue.
+- 2026-06-08: Cycle 018 created `wiki/model-landscape.md` and moved the AutoResearch wiki queue to source governance.
+- 2026-06-08: Cycle 017 created `wiki/cost-observability.md` and moved the AutoResearch wiki queue to model landscape.
+- 2026-06-08: Cycle 016 created `wiki/api-examples.md` and moved the AutoResearch wiki queue to cost observability.
+- 2026-06-08: Cycle 015 created `wiki/multimodal-file-inputs.md` and moved the AutoResearch wiki queue to api examples.
+- 2026-06-08: Cycle 014 created `wiki/model-optimization-routing.md` and moved the AutoResearch wiki queue to multimodal file inputs.
+- 2026-06-08: Cycle 013 created `wiki/prompt-release-management.md` and moved the AutoResearch wiki queue to model optimization routing.
+- 2026-06-08: Cycle 012 created `wiki/deployment-secrets-env.md` and moved the AutoResearch wiki queue to prompt release management.
+- 2026-06-08: Cycle 011 created `wiki/runtime-reliability.md` and moved the AutoResearch wiki queue to deployment secrets env.
+- 2026-06-08: Cycle 010 created `wiki/safety.md` and moved the AutoResearch wiki queue to runtime reliability.
+- 2026-06-08: Cycle 009 created `wiki/agent-tool-permissions.md` and moved the AutoResearch wiki queue to safety.
+- 2026-06-08: Cycle 008 created `wiki/data-privacy-retention.md` and moved the AutoResearch wiki queue to agent tool permissions.
+- 2026-06-08: Cycle 007 created `wiki/postmortem-action-ledger.md` and moved the AutoResearch wiki queue to data privacy retention.
+- 2026-06-08: Cycle 006 created `wiki/rollout-decision-log.md` and moved the AutoResearch wiki queue to postmortem action ledger.
+- 2026-06-08: Cycle 005 created `wiki/eval-failure-triage.md` and moved the AutoResearch wiki queue to rollout decision log.
+- 2026-06-08: Cycle 004 created `wiki/evaluator-calibration.md` and moved the AutoResearch wiki queue to eval failure triage.
+- 2026-06-08: Cycle 003 created `wiki/eval-result-lineage.md` and moved the AutoResearch wiki queue to evaluator calibration.
+- 2026-06-08: Cycle 002 created `wiki/eval-dataset-governance.md` and updated the AutoResearch wiki queue checkpoint.
+- 2026-06-08: Cycle 001 created `wiki/rag-evals.md`, initialized `wiki/index.md`, and checkpointed the AutoResearch wiki queue in `goal_state.md`.

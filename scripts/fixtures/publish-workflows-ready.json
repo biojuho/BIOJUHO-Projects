@@ -1,0 +1,16 @@
+{
+  "workflows": [
+    {
+      "id": 910001,
+      "name": "Publish JooPark Pages",
+      "path": ".github/workflows/joopark-pages.yml",
+      "state": "active"
+    },
+    {
+      "id": 910002,
+      "name": "Watch JooPark Candidate Drift",
+      "path": ".github/workflows/joopark-drift-watch.yml",
+      "state": "active"
+    }
+  ]
+}

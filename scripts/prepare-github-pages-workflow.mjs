@@ -13,8 +13,10 @@ const templatePath = join(root, templateRel);
 const targetPath = join(repositoryRoot, targetRel);
 const targetDisplayPath = relative(root, targetPath).replaceAll("\\", "/") || targetRel;
 const args = new Set(process.argv.slice(2));
-const dryRun = args.has("--dry-run") || !args.has("--write");
+const stageLocal = args.has("--stage-local");
+const dryRun = args.has("--dry-run") || (!args.has("--write") && !stageLocal);
 const write = args.has("--write") && !dryRun;
+const localStage = stageLocal && !dryRun && !write;
 const force = args.has("--force");
 const checkScope = args.has("--check-scope") || write;
 const workflowScope = checkScope ? inspectWorkflowScope() : {
@@ -29,11 +31,57 @@ const requiredTerms = [
   "permissions:",
   "pages: write",
   "id-token: write",
-  "actions/configure-pages@v6",
-  "actions/upload-pages-artifact@v5",
-  "actions/deploy-pages@v5",
+  "attestations: write",
+  "actions/checkout@v6",
+  "actions/configure-pages@v5",
+  "actions/attest@v4",
+  "subject-path: dist/release/**",
+  "actions/upload-pages-artifact@v4",
+  "actions/deploy-pages@v4",
   "node scripts/package-release.mjs",
   "node scripts/verify-release.mjs",
+  "search-empty-state.js",
+  "calendar-view.js",
+  "todo-view.js",
+  "notes-view.js",
+  "habits-view.js",
+  "stats-view.js",
+  "portfolio-view.js",
+  "kanban-view.js",
+  "gantt-view.js",
+  "team-view.js",
+  "workspace-storage.js",
+  "storage-status-view.js",
+  "settings-view.js",
+  "system-status-view.js",
+  "backup-import-guards.js",
+  "backup-import-ui.js",
+  "release-status.js",
+  "operations-copy-actions.js",
+  "dialog-shell.js",
+  "project-picker.js",
+  "global-search.js",
+  "command-palette.js",
+  "db-catalog.js",
+  "review-handoff.js",
+  "review-result-view.js",
+  "review-execution-checklist.js",
+  "review-issue-payload.js",
+  "review-result-state.js",
+  "review-result-draft-state.js",
+  "review-creation-actions.js",
+  "review-package-view.js",
+  "review-artifact-view.js",
+  "review-artifact-state.js",
+  "review-copy-actions.js",
+  "review-submission-copy.js",
+  "review-recommendation-export.js",
+  "pwa-runtime.js",
+  "sw.js",
+  "icons/**",
+  "site.webmanifest",
+  "social-preview.png",
+  "social-preview.svg",
   "path: dist/release",
 ];
 
@@ -81,18 +129,21 @@ function inspectWorkflowScope() {
 function result(status, extra = {}) {
   const payload = {
     status,
-    mode: dryRun ? "dry-run" : "write",
+    mode: dryRun ? "dry-run" : localStage ? "stage-local" : "write",
     template: templateRel,
     target: targetDisplayPath,
     targetRepositoryPath: targetRel,
     repositoryRoot,
-    willWrite: write,
+    willWrite: write || localStage,
+    localStage,
+    remoteWriteReady: write && workflowScope.available === true,
     force,
     workflowScopeRequired: true,
     workflowScopeChecked: workflowScope.checked,
     workflowScopeAvailable: workflowScope.available,
     workflowScope,
     workflowScopeHint: "Commit or push the repository-root workflow only with a GitHub token or UI session that has workflow scope.",
+    localStageHint: "The --stage-local mode only copies the workflow into this working tree; pushing it to GitHub still requires a workflow-scope token or a GitHub UI session.",
     ...extra,
   };
   console.log(JSON.stringify(payload, null, 2));
@@ -110,6 +161,31 @@ if (missingTerms.length > 0) {
 }
 
 if (!write) {
+  if (localStage) {
+    mkdirSync(dirname(targetPath), { recursive: true });
+    try {
+      writeFileSync(targetPath, template, { encoding: "utf-8", flag: force ? "w" : "wx" });
+    } catch (error) {
+      if (error && error.code === "EEXIST" && !force) {
+        result("fail", {
+          reason: "target already exists; pass --force to overwrite",
+          targetExists: true,
+        });
+      }
+      throw error;
+    }
+    result("pass", {
+      targetExists: true,
+      wrote: targetDisplayPath,
+      checks: {
+        templateExists: true,
+        requiredTerms: true,
+        targetPath: true,
+        localStage: true,
+        workflowScopePreflight: workflowScope.checked ? workflowScope.available : null,
+      },
+    });
+  }
   const targetExists = existsSync(targetPath);
   result("pass", {
     targetExists,

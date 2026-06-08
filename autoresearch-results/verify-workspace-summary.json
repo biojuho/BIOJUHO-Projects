@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "joopark-verify-workspace/v1",
+  "status": "fail",
+  "generatedAt": "2026-06-08T23:04:11.295Z",
+  "startedAt": "2026-06-08T22:59:08.060Z",
+  "durationMs": 303235,
+  "command": "npm run verify",
+  "runner": "scripts/verify-workspace.mjs",
+  "syncArtifacts": false,
+  "evidenceSyncRequired": false,
+  "evidenceSyncPass": true,
+  "stepResults": [
+    {
+      "id": "release_readiness_gates",
+      "command": "node scripts/audit-release-readiness.mjs --run-gates --format=summary",
+      "status": "fail",
+      "code": 1,
+      "signal": "",
+      "error": "",
+      "startedAt": "2026-06-08T22:59:08.062Z",
+      "finishedAt": "2026-06-08T23:04:11.292Z",
+      "durationMs": 303230,
+      "timeoutMs": 720000
+    }
+  ],
+  "auditLockBefore": {
+    "path": "dist/.release-readiness-audit.lock",
+    "exists": false,
+    "ownerExists": false,
+    "ownerPid": null,
+    "ownerCommand": "",
+    "ownerStartedAt": ""
+  },
+  "auditLockAfter": {
+    "path": "dist/.release-readiness-audit.lock",
+    "exists": false,
+    "ownerExists": false,
+    "ownerPid": null,
+    "ownerCommand": "",
+    "ownerStartedAt": ""
+  },
+  "artifacts": {
+    "releaseReadiness": {
+      "path": "autoresearch-results/release-readiness-summary.json",
+      "status": "fail",
+      "generatedAt": "2026-06-08T23:04:11.262Z",
+      "summary": "263 pass, 19 fail, 0 not_run, 0 blocked",
+      "checks": {
+        "pass": 263,
+        "fail": 19,
+        "notRun": 0,
+        "blocked": 0,
+        "total": 282
+      }
+    },
+    "launchReadiness": {
+      "path": "data/launch-readiness-refresh.json",
+      "status": "pass",
+      "generatedAt": "2026-06-08T22:51:55.789Z",
+      "latestGateSummary": "282 pass, 0 fail, 0 not_run, 0 blocked",
+      "safeToDispatch": false,
+      "readyForExternalClaim": false,
+      "workflowScopeInstallBlocked": true
+    },
+    "outputQuality": {
+      "path": "data/output-quality-audit.json",
+      "status": "pass",
+      "generatedAt": "2026-06-08T23:02:17.329Z",
+      "releaseQualityReady": true,
+      "publicLaunchProofReady": false,
+      "readyForExternalClaim": false,
+      "latestGateSummary": "282 pass, 0 fail, 0 not_run, 0 blocked"
+    },
+    "productLoop": {
+      "path": "autoresearch-results/joopark-product-loop.json",
+      "status": "release-quality-ready-public-launch-blocked",
+      "generatedAt": "2026-06-08T22:54:31Z",
+      "latestGateSummary": "282 pass, 0 fail, 0 not_run, 0 blocked",
+      "latestExperiment": "pages-workflow-runtime-path-filter-parity"
+    },
+    "evidenceSync": {
+      "status": "fail",
+      "productLoopGateParityReady": false,
+      "productLoopPublishParityReady": false,
+      "summarySyncReady": false,
+      "outputQualityGeneratedAt": "2026-06-08T23:02:17.329Z",
+      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-08T22:51:55.748Z",
+      "source": "scripts/sync-product-loop-summary.mjs",
+      "fullVerifyCommand": "npm run verify:full"
+    }
+  },
+  "externalClaimGuard": "Do not claim readyForExternalClaim until release quality, public launch proof, and external completion claim proof all pass."
+}

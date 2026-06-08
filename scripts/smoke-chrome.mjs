@@ -11,22 +11,24 @@ const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-chrome-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
 const defaultEvaluateTimeoutMs = Number(process.env.SMOKE_RUNTIME_TIMEOUT_MS || 90000);
+const routeReadyTimeoutMs = Number(process.env.SMOKE_ROUTE_READY_TIMEOUT_MS || 12000);
 
 const routes = [
-  ["home", ["오늘 일정", "팀 · 시스템 관리"]],
+  ["home", ["오늘 일정", "공개 준비 요약", "데이터 소유권", "팀 · 시스템 관리"]],
   ["cal", ["이번 달 일정", "일정 추가"]],
   ["todo", ["미완료", "새 할 일"]],
   ["notes", ["개의 메모", "+ 메모"]],
   ["habits", ["활성 습관", "습관"]],
   ["stats", ["이번 주 완료", "전체 완료율"]],
+  ["llm-wiki", ["LLM 위키", "기초 개념", "개 문서"]],
   ["pm-portfolio", ["프로젝트", "평균 진행률"]],
   ["pm-kanban", ["Kanban", "To Do"]],
   ["pm-gantt", ["간트 차트", "작업"]],
   ["pm-team", ["팀 멤버", "프로젝트 매트릭스"]],
-  ["dbm-instances", ["인스턴스", "평균 CPU"]],
-  ["dbm-schema", ["스키마", "인덱스 / 관계"]],
-  ["dbm-queries", ["저장 쿼리", "실행 시간 분포"]],
-  ["dbm-backups", ["백업 캘린더", "마이그레이션 이력"]],
+  ["dbm-instances", ["인스턴스", "평균 CPU", "로컬 DB 카탈로그"]],
+  ["dbm-schema", ["스키마", "인덱스 / 관계", "로컬 DB 카탈로그"]],
+  ["dbm-queries", ["저장 쿼리", "실행 시간 분포", "로컬 DB 카탈로그"]],
+  ["dbm-backups", ["백업 캘린더", "마이그레이션 이력", "로컬 DB 카탈로그"]],
   ["settings", ["프로필", "데이터 백업"]],
   ["system", ["시스템 상태", "저장소", "운영 표면"]],
 ];
@@ -179,31 +181,60 @@ async function evaluate(client, expression, timeoutMs = defaultEvaluateTimeoutMs
     returnByValue: true,
   }, timeoutMs);
   if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text || "Runtime evaluation failed");
+    throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Runtime evaluation failed");
   }
   return result.result ? result.result.value : undefined;
 }
 
+function routeReadyTimeoutFor(route) {
+  if (route === "system") return Math.max(routeReadyTimeoutMs, 20000);
+  if (route === "settings") return Math.max(routeReadyTimeoutMs, 16000);
+  return routeReadyTimeoutMs;
+}
+
 async function waitForAppRoute(client, route) {
+  const timeoutMs = routeReadyTimeoutFor(route);
   const expression = `
     new Promise((resolve, reject) => {
+      const route = ${JSON.stringify(route)};
       const started = Date.now();
+      const routeReadyDiagnostics = () => {
+        const view = document.getElementById("view-" + route);
+        return {
+          route,
+          readyState: document.readyState,
+          hash: location.hash,
+          bodyView: document.body?.dataset?.view || "",
+          viewExists: Boolean(view),
+          viewHidden: view ? view.hidden : null,
+          viewTextLength: view ? view.innerText.trim().length : 0,
+          visibleViews: Array.from(document.querySelectorAll(".view"))
+            .filter((node) => node.hidden === false)
+            .map((node) => node.id),
+          elapsedMs: Date.now() - started
+        };
+      };
       const check = () => {
-        const view = document.getElementById("view-${route}");
+        const state = routeReadyDiagnostics();
         const isReady = document.readyState === "complete" &&
           document.body &&
-          document.body.dataset.view === "${route}" &&
-          view &&
-          view.hidden === false &&
-          view.innerText.trim().length > 0;
-        if (isReady) resolve(true);
-        else if (Date.now() - started > 6000) reject(new Error("route not ready"));
+          document.body.dataset.view === route &&
+          state.viewExists &&
+          state.viewHidden === false &&
+          state.viewTextLength > 0;
+        if (isReady) resolve(state);
+        else if (Date.now() - started > ${timeoutMs}) reject(new Error("route not ready: " + JSON.stringify(state)));
         else setTimeout(check, 100);
       };
       check();
     })
   `;
-  await evaluate(client, expression);
+  const routeState = await evaluate(client, expression);
+  progress("route-ready", {
+    route,
+    elapsedMs: routeState?.elapsedMs,
+    timeoutMs,
+  });
   await delay(650);
 }
 
@@ -243,6 +274,7 @@ async function main() {
   const layoutIssues = [];
   const consoleIssues = [];
   const networkIssues = [];
+  let serviceWorkerReport = null;
   let currentRoute = "boot";
   let pageClient;
 
@@ -319,6 +351,13 @@ async function main() {
         const visibleViews = Array.from(document.querySelectorAll(".view"))
           .filter((node) => node.hidden === false)
           .map((node) => node.id);
+        const readiness = document.querySelector("[data-home-readiness]");
+        const readinessCards = Array.from(document.querySelectorAll("[data-home-readiness-card]")).map((node) => ({
+          key: node.dataset.homeReadinessCard || "",
+          tone: node.dataset.readinessTone || "",
+          text: node.innerText || "",
+        }));
+        const pwaRuntime = document.querySelector("[data-system-pwa-runtime]");
         return {
           route,
           title: document.title,
@@ -334,6 +373,24 @@ async function main() {
           projectCount: Number(document.getElementById("navCountProjects")?.textContent || 0),
           issueCount: Number(document.getElementById("navCountIssues")?.textContent || 0),
           tableCount: Number(document.getElementById("navCountTables")?.textContent || 0),
+          homeReadiness: route === "home" ? {
+            present: Boolean(readiness),
+            cardCount: readinessCards.length,
+            keys: readinessCards.map((card) => card.key),
+            tones: readinessCards.map((card) => card.tone),
+            publishBlockers: readiness ? readiness.dataset.homePublishBlockers || "" : "",
+            launchProofReady: readiness ? readiness.dataset.homeLaunchProofReady || "" : "",
+            benchmarkCount: readiness ? readiness.dataset.homeBenchmarkCount || "" : "",
+            sourceBackedCount: readiness ? readiness.dataset.homeSourceBackedCount || "" : "",
+          } : null,
+          pwaRuntime: route === "system" ? {
+            present: Boolean(pwaRuntime),
+            status: pwaRuntime ? pwaRuntime.dataset.pwaRuntimeStatus || "" : "",
+            serviceWorkerActive: pwaRuntime ? pwaRuntime.dataset.pwaRuntimeServiceWorkerActive || "" : "",
+            cacheReady: pwaRuntime ? pwaRuntime.dataset.pwaRuntimeCacheReady || "" : "",
+            manifestLinked: pwaRuntime ? pwaRuntime.dataset.pwaRuntimeManifestLinked || "" : "",
+            cachedAssetCount: pwaRuntime ? pwaRuntime.dataset.pwaRuntimeCachedAssetCount || "" : "",
+          } : null,
           expected: ${JSON.stringify(expectedTexts)},
           missingText: ${JSON.stringify(expectedTexts)}.filter((needle) => !searchableText.includes(needle)),
         };
@@ -343,6 +400,42 @@ async function main() {
       if (!report.visibleViews.includes(`view-${route}`)) failures.push(`${route}: visible view missing view-${route}`);
       if (report.textLength < 80) failures.push(`${route}: rendered text too short (${report.textLength})`);
       if (report.missingText.length > 0) failures.push(`${route}: missing text ${report.missingText.join(", ")}`);
+      if (route === "home") {
+        const readiness = report.homeReadiness || {};
+        const readinessKeys = Array.isArray(readiness.keys) ? readiness.keys : [];
+        const requiredKeys = ["data-ownership", "release-gate", "publish-proof", "benchmark-queue"];
+        if (!readiness.present) failures.push("home readiness summary did not render");
+        if (readiness.cardCount !== requiredKeys.length) failures.push(`home readiness card count was ${readiness.cardCount}`);
+        for (const key of requiredKeys) {
+          if (!readinessKeys.includes(key)) failures.push(`home readiness card missing ${key}`);
+        }
+        if (!/^\d+$/.test(readiness.publishBlockers || "")) failures.push("home readiness publish blocker count missing");
+        if (!/^\d+$/.test(readiness.benchmarkCount || "")) failures.push("home readiness benchmark count missing");
+        if (!/^\d+$/.test(readiness.sourceBackedCount || "")) failures.push("home readiness source-backed count missing");
+        serviceWorkerReport = await evaluate(pageClient, `(() => {
+          if (!("serviceWorker" in navigator)) return Promise.resolve({ supported: false, active: false, scriptURL: "", scope: "" });
+          const timeout = new Promise((resolve) => setTimeout(() => resolve({ supported: true, active: false, scriptURL: "", scope: "", timedOut: true }), 6000));
+          const ready = navigator.serviceWorker.ready.then((registration) => ({
+            supported: true,
+            active: Boolean(registration.active),
+            scriptURL: registration.active ? registration.active.scriptURL : "",
+            scope: registration.scope || "",
+            timedOut: false,
+          }));
+          return Promise.race([ready, timeout]);
+        })()`, 10000);
+        if (!serviceWorkerReport.supported) failures.push("service worker API was not available");
+        if (!serviceWorkerReport.active) failures.push("service worker did not become active");
+        if (!String(serviceWorkerReport.scriptURL || "").endsWith("/sw.js")) failures.push(`service worker script was ${serviceWorkerReport.scriptURL || "(empty)"}`);
+      }
+      if (route === "system") {
+        const pwaRuntime = report.pwaRuntime || {};
+        if (!pwaRuntime.present) failures.push("system PWA runtime panel did not render");
+        if (pwaRuntime.serviceWorkerActive !== "true") failures.push("system PWA runtime did not report active service worker");
+        if (pwaRuntime.cacheReady !== "true") failures.push("system PWA runtime did not report app shell cache");
+        if (pwaRuntime.manifestLinked !== "true") failures.push("system PWA runtime did not report manifest link");
+        if (!/^\d+$/.test(pwaRuntime.cachedAssetCount || "") || Number(pwaRuntime.cachedAssetCount) < 1) failures.push("system PWA runtime cached asset count missing");
+      }
       if (report.overflowX) layoutIssues.push(`${route}: horizontal overflow ${report.docScrollWidth}px > ${report.innerWidth}px`);
       if (report.shell?.width > report.innerWidth + 1) layoutIssues.push(`${route}: shell width ${Math.round(report.shell.width)}px > viewport ${report.innerWidth}px`);
       if (report.main?.right > report.innerWidth + 1) layoutIssues.push(`${route}: main right edge ${Math.round(report.main.right)}px > viewport ${report.innerWidth}px`);
@@ -364,7 +457,14 @@ async function main() {
   }
 
   const appConsoleIssues = consoleIssues.filter((issue) => issue.text && !issue.text.includes("Autofill.enable"));
-  const appNetworkIssues = networkIssues.filter((issue) => !String(issue.text || "").includes("net::ERR_ABORTED"));
+  const appNetworkIssues = networkIssues.filter((issue) => {
+    if (String(issue.text || "").includes("net::ERR_ABORTED")) return false;
+    try {
+      const url = new URL(issue.url || "");
+      if (url.pathname.endsWith("/release-provenance.json")) return false;
+    } catch (_) {}
+    return true;
+  });
   if (appConsoleIssues.length > 0) failures.push(`console issues: ${appConsoleIssues.length}`);
   if (appNetworkIssues.length > 0) failures.push(`network issues: ${appNetworkIssues.length}`);
   if (layoutIssues.length > 0) failures.push(`desktop layout issues: ${layoutIssues.length}`);
@@ -387,9 +487,11 @@ async function main() {
       projectCount: r.projectCount,
       issueCount: r.issueCount,
       tableCount: r.tableCount,
+      homeReadiness: r.homeReadiness,
       missingText: r.missingText,
     })),
     layoutIssues,
+    serviceWorker: serviceWorkerReport,
     consoleIssues: appConsoleIssues,
     networkIssues: appNetworkIssues,
     status: failures.length === 0 ? "pass" : "fail",

@@ -1,0 +1,71 @@
+{
+  "id": "./",
+  "name": "JooPark Workspace",
+  "short_name": "JooPark",
+  "description": "A static local-first workspace for personal productivity, project management, and database cataloging.",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#050b14",
+  "theme_color": "#050b14",
+  "categories": ["productivity", "business", "utilities"],
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./social-preview.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "JooPark Workspace dashboard screenshot"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today dashboard",
+      "short_name": "Today",
+      "description": "Open the daily agenda and key workspace metrics.",
+      "url": "./#home"
+    },
+    {
+      "name": "Tasks",
+      "short_name": "Tasks",
+      "description": "Open the task board.",
+      "url": "./#todo"
+    },
+    {
+      "name": "Portfolio",
+      "short_name": "Portfolio",
+      "description": "Open project portfolio and adoption candidates.",
+      "url": "./#pm-portfolio"
+    },
+    {
+      "name": "Database catalog",
+      "short_name": "DB catalog",
+      "description": "Open database instances and schema catalog.",
+      "url": "./#dbm-instances"
+    }
+  ]
+}

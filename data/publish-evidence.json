@@ -1,0 +1,266 @@
+{
+  "status": "pass",
+  "mode": "live",
+  "generatedAt": "2026-06-08T22:59:10.279Z",
+  "evidenceFresh": true,
+  "evidenceExpiresAt": "2026-06-09T22:59:10.279Z",
+  "evidenceMaxAgeHours": 24,
+  "suggestedRepo": "biojuho/BIOJUHO-Projects",
+  "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
+  "repo": "biojuho/BIOJUHO-Projects",
+  "displayRepo": "biojuho/BIOJUHO-Projects",
+  "evidenceRepo": "biojuho/BIOJUHO-Projects",
+  "repoResolution": "source_repo",
+  "repoPlaceholderResolved": false,
+  "suggestedRepoEvidenceRepo": "biojuho/BIOJUHO-Projects",
+  "suggestedRepoResolution": "source_repo",
+  "suggestedRepoEvidenceLine": "Evidence repo: biojuho/BIOJUHO-Projects",
+  "suggestedRepoResolutionLine": "Repo resolution: source_repo",
+  "repoEvidenceReady": true,
+  "pagesSite": {
+    "checked": true,
+    "command": "gh api repos/biojuho/BIOJUHO-Projects/pages",
+    "ready": false,
+    "site": null,
+    "error": "gh: Not Found (HTTP 404)\n"
+  },
+  "workflowEvidencePlans": [
+    {
+      "key": "pages",
+      "workflowName": "Publish JooPark Pages",
+      "workflowFile": "joopark-pages.yml",
+      "dispatchFields": [],
+      "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+      "evidenceCommand": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
+    },
+    {
+      "key": "drift-watch",
+      "workflowName": "Watch JooPark Candidate Drift",
+      "workflowFile": "joopark-drift-watch.yml",
+      "dispatchFields": [
+        "-f",
+        "mode=advisory"
+      ],
+      "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory",
+      "evidenceCommand": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
+    }
+  ],
+  "workflowRuns": [
+    {
+      "key": "pages",
+      "workflowName": "Publish JooPark Pages",
+      "workflowFile": "joopark-pages.yml",
+      "dispatchFields": [],
+      "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+      "evidenceCommand": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+      "checked": true,
+      "ready": false,
+      "latestRun": {
+        "conclusion": "failure",
+        "createdAt": "2026-06-08T22:56:34Z",
+        "databaseId": 27172216103,
+        "displayTitle": "Publish JooPark Pages",
+        "event": "workflow_dispatch",
+        "headSha": "71d31313027055091096d5f8facbc72a44bbb257",
+        "status": "completed",
+        "updatedAt": "2026-06-08T22:56:52Z",
+        "url": "https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216103"
+      },
+      "error": ""
+    },
+    {
+      "key": "drift-watch",
+      "workflowName": "Watch JooPark Candidate Drift",
+      "workflowFile": "joopark-drift-watch.yml",
+      "dispatchFields": [
+        "-f",
+        "mode=advisory"
+      ],
+      "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory",
+      "evidenceCommand": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+      "checked": true,
+      "ready": false,
+      "latestRun": {
+        "conclusion": "failure",
+        "createdAt": "2026-06-08T22:56:34Z",
+        "databaseId": 27172216127,
+        "displayTitle": "Watch JooPark Candidate Drift",
+        "event": "workflow_dispatch",
+        "headSha": "71d31313027055091096d5f8facbc72a44bbb257",
+        "status": "completed",
+        "updatedAt": "2026-06-08T22:56:45Z",
+        "url": "https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216127"
+      },
+      "error": ""
+    }
+  ],
+  "pagesEvidenceReady": false,
+  "workflowEvidenceReady": false,
+  "postPublishEvidenceReady": false,
+  "blockers": [
+    "GitHub Pages site html_url/status evidence is not ready",
+    "pages: latest workflow run is not completed with success conclusion",
+    "drift-watch: latest workflow run is not completed with success conclusion"
+  ],
+  "publishDispatchPlanSource": "data/publish-dispatch-plan.json",
+  "publishDispatchReady": true,
+  "dispatchSuggestionStatus": "ready",
+  "nextAction": {
+    "key": "capture_launch_proof",
+    "label": "Capture launch proof",
+    "status": "action_required_after_dispatch",
+    "detail": "",
+    "successCondition": "postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.",
+    "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "commandCount": 2,
+    "withheldCommandCount": 2,
+    "launchInstallPaths": {
+      "ready": false,
+      "count": 0,
+      "commandCount": 0,
+      "labels": [],
+      "installerCommand": "",
+      "paths": []
+    },
+    "source": "data/launch-execution-packet.json"
+  },
+  "immediateNextAction": {
+    "key": "capture_launch_proof",
+    "label": "Capture launch proof",
+    "status": "action_required_after_dispatch",
+    "detail": "",
+    "successCondition": "postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.",
+    "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "commandCount": 2,
+    "withheldCommandCount": 2,
+    "launchInstallPaths": {
+      "ready": false,
+      "count": 0,
+      "commandCount": 0,
+      "labels": [],
+      "installerCommand": "",
+      "paths": []
+    },
+    "source": "data/launch-execution-packet.json"
+  },
+  "immediateNextActionSource": "data/launch-execution-packet.json",
+  "immediateActionCommandCount": 2,
+  "immediateActionWithheldCommandCount": 2,
+  "launchInstallPaths": {
+    "ready": false,
+    "count": 0,
+    "commandCount": 0,
+    "labels": [],
+    "installerCommand": "",
+    "paths": []
+  },
+  "deferredNextAction": {
+    "key": "verify-pages-site",
+    "label": "Verify GitHub Pages site",
+    "detail": "GitHub Pages must expose html_url with status built before launch proof is ready.",
+    "command": "gh api repos/biojuho/BIOJUHO-Projects/pages"
+  },
+  "commands": [
+    "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+    "gh api repos/biojuho/BIOJUHO-Projects/pages",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
+  ],
+  "templateVerificationCommands": [
+    "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+    "gh api repos/biojuho/BIOJUHO-Projects/pages",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
+  ],
+  "templateDispatchCommands": [
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
+  ],
+  "suggestedCommands": [
+    "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+    "gh api repos/biojuho/BIOJUHO-Projects/pages",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
+  ],
+  "suggestedVerificationCommands": [
+    "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+    "gh api repos/biojuho/BIOJUHO-Projects/pages",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
+  ],
+  "suggestedDispatchCommands": [
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
+  ],
+  "withheldDispatchCommands": [],
+  "safeSuggestedCommandCount": 7,
+  "withheldDispatchCommandCount": 0,
+  "suggestedDispatchCommandCount": 2,
+  "documentationSignals": [
+    "GitHub REST: Get a GitHub Pages site returns html_url and status.",
+    "GitHub REST/CLI workflow run evidence uses status and conclusion."
+  ],
+  "shareUpdate": "JooPark Publish Evidence Update\nStatus: action required\nRepo: biojuho/BIOJUHO-Projects\nEvidence repo: biojuho/BIOJUHO-Projects\nSuggested repo: biojuho/BIOJUHO-Projects\nRepo resolution: source_repo\nPages URL: not available\nPages status: not available\nEvidence freshness: fresh until 2026-06-09T22:59:10.279Z\npostPublishEvidenceReady: false\nDispatch guard: ready (ready)\nSuggested commands safe: true; suggested dispatch: 2; withheld dispatch: 0\nWorkflow runs:\n- joopark-pages.yml: ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216103\n- joopark-drift-watch.yml: ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216127\nBlockers:\n- GitHub Pages site html_url/status evidence is not ready\n- pages: latest workflow run is not completed with success conclusion\n- drift-watch: latest workflow run is not completed with success conclusion\nImmediate action: Capture launch proof [action_required_after_dispatch]\nImmediate source: data/launch-execution-packet.json\nImmediate success condition: postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.\nImmediate command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\nImmediate command count: 2\nImmediate withheld dispatch count: 2\nDeferred evidence capture: Verify GitHub Pages site - GitHub Pages must expose html_url with status built before launch proof is ready.\nDeferred command: gh api repos/biojuho/BIOJUHO-Projects/pages",
+  "launchAnnouncement": "JooPark Public Launch Announcement\nStatus: not ready for public posting\nRepo: biojuho/BIOJUHO-Projects\nEvidence repo: biojuho/BIOJUHO-Projects\nSuggested repo: biojuho/BIOJUHO-Projects\nRepo resolution: source_repo\nReason:\n- GitHub Pages site html_url/status evidence is not ready\n- pages: latest workflow run is not completed with success conclusion\n- drift-watch: latest workflow run is not completed with success conclusion\nDispatch gate:\nDispatch guard: ready (ready)\nSuggested commands safe: true; suggested dispatch: 2; withheld dispatch: 0\nDo not post or dispatch until allDispatchReady: true and postPublishEvidenceReady: true.\nImmediate action: Capture launch proof [action_required_after_dispatch]\nImmediate source: data/launch-execution-packet.json\nImmediate success condition: postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.\nImmediate command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\nImmediate command count: 2\nImmediate withheld dispatch count: 2\nDeferred evidence capture: Verify GitHub Pages site - GitHub Pages must expose html_url with status built before launch proof is ready.\nDeferred command: gh api repos/biojuho/BIOJUHO-Projects/pages\nDo not post a public launch announcement until repoEvidenceReady, evidenceFresh, and postPublishEvidenceReady are all true.",
+  "postLaunchVerificationReceipt": "JooPark Post-Launch Verification Receipt\nStatus: not ready to archive\nRepo: biojuho/BIOJUHO-Projects\nEvidence repo: biojuho/BIOJUHO-Projects\nSuggested repo: biojuho/BIOJUHO-Projects\nRepo resolution: source_repo\nPages URL: not available\nPages status: not available\nHTTPS enforced: not available\nEvidence generated: 2026-06-08T22:59:10.279Z\nEvidence fresh until: 2026-06-09T22:59:10.279Z\nVerification checklist:\n- repoEvidenceReady: true\n- pagesEvidenceReady: false\n- workflowEvidenceReady: false\n- evidenceFresh: true\n- postPublishEvidenceReady: false\n- publishDispatchReady: true\n- dispatchSuggestionStatus: ready\nDispatch gate:\nDispatch guard: ready (ready)\nSuggested commands safe: true; suggested dispatch: 2; withheld dispatch: 0\nWorkflow evidence:\n- joopark-pages.yml: ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216103; headSha=71d31313027055091096d5f8facbc72a44bbb257\n- joopark-drift-watch.yml: ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216127; headSha=71d31313027055091096d5f8facbc72a44bbb257\nBlockers:\n- GitHub Pages site html_url/status evidence is not ready\n- pages: latest workflow run is not completed with success conclusion\n- drift-watch: latest workflow run is not completed with success conclusion\nImmediate action: Capture launch proof [action_required_after_dispatch]\nImmediate source: data/launch-execution-packet.json\nImmediate success condition: postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.\nImmediate command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\nImmediate command count: 2\nImmediate withheld dispatch count: 2\nDeferred evidence capture: Verify GitHub Pages site - GitHub Pages must expose html_url with status built before launch proof is ready.\nDeferred command: gh api repos/biojuho/BIOJUHO-Projects/pages\nDo not archive this as post-launch verification until repoEvidenceReady, pagesEvidenceReady, workflowEvidenceReady, evidenceFresh, and postPublishEvidenceReady are all true.",
+  "launchProofEvidenceFields": [
+    {
+      "label": "Pages site proof",
+      "value": "html_url=not available; status=not available; https_enforced=not available",
+      "required": "GitHub Pages site API must provide html_url, built status, and HTTPS enforcement.",
+      "command": "gh api repos/biojuho/BIOJUHO-Projects/pages",
+      "nextAction": "Run gh api repos/biojuho/BIOJUHO-Projects/pages after the Pages workflow succeeds, then paste html_url, status=built, and https_enforced=true."
+    },
+    {
+      "label": "Pages workflow run proof",
+      "value": "status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216103; headSha=71d31313027055091096d5f8facbc72a44bbb257",
+      "required": "Latest joopark-pages.yml run must be completed successfully and linked.",
+      "command": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+      "nextAction": "Run gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle and paste status=completed, conclusion=success, url, and headSha."
+    },
+    {
+      "label": "Drift Watch workflow run proof",
+      "value": "status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216127; headSha=71d31313027055091096d5f8facbc72a44bbb257",
+      "required": "Latest joopark-drift-watch.yml run must be completed successfully and linked.",
+      "command": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+      "nextAction": "Run gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle and paste status=completed, conclusion=success, url, and headSha."
+    },
+    {
+      "label": "Evidence freshness proof",
+      "value": "generatedAt=2026-06-08T22:59:10.279Z; evidenceFresh=true; evidenceExpiresAt=2026-06-09T22:59:10.279Z; postPublishEvidenceReady=false",
+      "required": "Saved evidence must be generated after dispatch and remain inside the freshness window.",
+      "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
+      "nextAction": "Run node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write after both workflow runs succeed, then paste generatedAt, evidenceFresh=true, evidenceExpiresAt, and postPublishEvidenceReady=true."
+    },
+    {
+      "label": "Release receipt proof",
+      "value": "postLaunchVerificationReceipt=available; status=not ready to archive",
+      "required": "Post-launch verification receipt must be archive-ready only after live Pages and workflow evidence is ready.",
+      "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+      "nextAction": "Run node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown and paste the archive-ready post-launch verification receipt only after live proof is ready."
+    },
+    {
+      "label": "Public claim guard proof",
+      "value": "repoEvidenceReady=true; pagesEvidenceReady=false; workflowEvidenceReady=false; readyForExternalClaim=false",
+      "required": "Public claim remains blocked until release quality, live proof, and launch-packet external-claim guard are all true.",
+      "command": "copy System Status quality receipt after readyForExternalClaim=true",
+      "nextAction": "Run node scripts/capture-output-quality-audit.mjs --write after live proof is ready, then paste readyForExternalClaim=true and the external claim guard receipt."
+    }
+  ],
+  "launchProofEvidenceFieldCount": 6,
+  "launchProofEvidenceFieldCoverage": 1,
+  "launchProofEvidenceReceipt": "JooPark Launch Proof Evidence Receipt\nStatus: blocked until live proof\nRepo: biojuho/BIOJUHO-Projects\nEvidence repo: biojuho/BIOJUHO-Projects\nRepo resolution: source_repo\n\nEvidence fields to fill:\n- Pages site proof: html_url=not available; status=not available; https_enforced=not available\n- Pages workflow run proof: status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216103; headSha=71d31313027055091096d5f8facbc72a44bbb257\n- Drift Watch workflow run proof: status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216127; headSha=71d31313027055091096d5f8facbc72a44bbb257\n- Evidence freshness proof: generatedAt=2026-06-08T22:59:10.279Z; evidenceFresh=true; evidenceExpiresAt=2026-06-09T22:59:10.279Z; postPublishEvidenceReady=false\n- Release receipt proof: postLaunchVerificationReceipt=available; status=not ready to archive\n- Public claim guard proof: repoEvidenceReady=true; pagesEvidenceReady=false; workflowEvidenceReady=false; readyForExternalClaim=false\n\nRequired proof commands:\n1. gh api repos/biojuho/BIOJUHO-Projects/pages\n2. gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n3. gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n4. node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n5. node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n6. copy System Status quality receipt after readyForExternalClaim=true\n\nNext proof actions:\n1. Pages site proof: nextAction=Run gh api repos/biojuho/BIOJUHO-Projects/pages after the Pages workflow succeeds, then paste html_url, status=built, and https_enforced=true.\n2. Pages workflow run proof: nextAction=Run gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle and paste status=completed, conclusion=success, url, and headSha.\n3. Drift Watch workflow run proof: nextAction=Run gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle and paste status=completed, conclusion=success, url, and headSha.\n4. Evidence freshness proof: nextAction=Run node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write after both workflow runs succeed, then paste generatedAt, evidenceFresh=true, evidenceExpiresAt, and postPublishEvidenceReady=true.\n5. Release receipt proof: nextAction=Run node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown and paste the archive-ready post-launch verification receipt only after live proof is ready.\n6. Public claim guard proof: nextAction=Run node scripts/capture-output-quality-audit.mjs --write after live proof is ready, then paste readyForExternalClaim=true and the external claim guard receipt.\n\nAcceptance criteria:\n- Pages site proof: GitHub Pages site API must provide html_url, built status, and HTTPS enforcement.\n- Pages workflow run proof: Latest joopark-pages.yml run must be completed successfully and linked.\n- Drift Watch workflow run proof: Latest joopark-drift-watch.yml run must be completed successfully and linked.\n- Evidence freshness proof: Saved evidence must be generated after dispatch and remain inside the freshness window.\n- Release receipt proof: Post-launch verification receipt must be archive-ready only after live Pages and workflow evidence is ready.\n- Public claim guard proof: Public claim remains blocked until release quality, live proof, and launch-packet external-claim guard are all true.\n\nBlockers:\n- GitHub Pages site html_url/status evidence is not ready\n- pages: latest workflow run is not completed with success conclusion\n- drift-watch: latest workflow run is not completed with success conclusion\n\nStop condition: do not post public launch copy, archive proof, or claim readyForExternalClaim until all six evidence fields are live, fresh, linked, and successful.",
+  "writtenTo": "data/publish-evidence.json"
+}

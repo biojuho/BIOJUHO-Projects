@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "joopark-pages-attestation-proof/v1",
+  "status": "pass",
+  "generatedAt": "2026-06-08T06:42:27.001Z",
+  "source": "operator proof input not provided",
+  "sourceProofInput": "",
+  "repo": "biojuho/BIOJUHO-Projects",
+  "workflow": "joopark-pages.yml",
+  "action": "actions/attest@v4",
+  "subjectPath": "dist/release/**",
+  "requiredPermission": "attestations: write",
+  "proofCaptureReady": true,
+  "proofComplete": false,
+  "signedProofReady": false,
+  "verificationOnly": true,
+  "readyForExternalClaim": false,
+  "proofFieldCoverage": 1,
+  "requiredFieldCount": 6,
+  "detectedFieldCount": 0,
+  "completedFieldCount": 0,
+  "missingFields": [
+    "pages_workflow_run",
+    "attestation_url",
+    "attestation_id",
+    "manifest_verify",
+    "index_verify",
+    "predicate_type"
+  ],
+  "fields": [
+    {
+      "key": "pages_workflow_run",
+      "label": "Pages workflow run",
+      "required": "Successful joopark-pages.yml run URL plus headSha.",
+      "value": "",
+      "present": false,
+      "valid": false,
+      "status": "missing"
+    },
+    {
+      "key": "attestation_url",
+      "label": "Attestation URL",
+      "required": "actions/attest attestation-url output.",
+      "value": "",
+      "present": false,
+      "valid": false,
+      "status": "missing"
+    },
+    {
+      "key": "attestation_id",
+      "label": "Attestation ID",
+      "required": "actions/attest attestation-id output.",
+      "value": "",
+      "present": false,
+      "valid": false,
+      "status": "missing"
+    },
+    {
+      "key": "manifest_verify",
+      "label": "Manifest verification",
+      "required": "Passing gh attestation verify output for dist/release/release-manifest.json.",
+      "value": "",
+      "present": false,
+      "valid": false,
+      "status": "missing"
+    },
+    {
+      "key": "index_verify",
+      "label": "Index verification",
+      "required": "Passing gh attestation verify output for dist/release/index.html.",
+      "value": "",
+      "present": false,
+      "valid": false,
+      "status": "missing"
+    },
+    {
+      "key": "predicate_type",
+      "label": "Predicate type",
+      "required": "SLSA build provenance predicate.",
+      "value": "",
+      "present": false,
+      "valid": false,
+      "status": "missing"
+    }
+  ],
+  "parserReadyProofBlock": "pages_workflow_run:\nattestation_url:\nattestation_id:\nmanifest_verify:\nindex_verify:\npredicate_type:\nbundle_path:",
+  "verificationCommands": [
+    "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle",
+    "gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects",
+    "gh attestation verify dist/release/index.html -R biojuho/BIOJUHO-Projects",
+    "gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects --format json --jq '.[].verificationResult.statement.predicateType'"
+  ],
+  "commandCount": 4,
+  "falsePositiveGuard": false,
+  "falsePositiveGuardDetail": "Blank parser-ready template fields are not treated as completed attestation proof.",
+  "guard": "Do not claim signed GitHub artifact attestation proof, archive proof, public launch complete, or readyForExternalClaim=true until all required attestation proof fields are valid, both gh attestation verify commands pass, and publish evidence plus launch handoff proof gates are ready.",
+  "nextAction": {
+    "key": "fill_pages_attestation_proof",
+    "status": "action_required",
+    "command": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
+  },
+  "externalComparison": [
+    {
+      "key": "github_artifact_attestation_verify",
+      "label": "GitHub artifact attestation verification",
+      "url": "https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations",
+      "detail": "Use gh attestation verify against the artifact and repository before trusting signed provenance."
+    },
+    {
+      "key": "actions_attest_outputs",
+      "label": "actions/attest outputs",
+      "url": "https://github.com/actions/attest",
+      "detail": "Capture attestation-id, attestation-url, and bundle-path from the action outputs."
+    }
+  ],
+  "receipt": "# JooPark Pages Attestation Proof Capture\n\nStatus: blocked; not signed proof yet\nRepo: biojuho/BIOJUHO-Projects\nWorkflow: joopark-pages.yml\nProof complete: false\nSigned proof ready: false\nCompleted fields: 0/6\nFalse positive guard: false\n\nParser-ready proof block:\npages_workflow_run:\nattestation_url:\nattestation_id:\nmanifest_verify:\nindex_verify:\npredicate_type:\nbundle_path:\n\nVerification commands:\n- gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects\n- gh attestation verify dist/release/index.html -R biojuho/BIOJUHO-Projects\n- gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects --format json --jq '.[].verificationResult.statement.predicateType'\n\nMissing fields:\n- pages_workflow_run\n- attestation_url\n- attestation_id\n- manifest_verify\n- index_verify\n- predicate_type\n\nGuard:\nDo not claim signed GitHub artifact attestation proof, archive proof, public launch complete, or readyForExternalClaim=true until all required attestation proof fields are valid, both gh attestation verify commands pass, and publish evidence plus launch handoff proof gates are ready."
+}

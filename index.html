@@ -3,8 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="일정, 할 일, 메모, 습관, 프로젝트, DB 카탈로그를 한 화면에서 로컬 저장으로 관리하는 정적 개인 워크스페이스." />
+    <meta name="application-name" content="JooPark Workspace" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#050b14" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#eef2f8" media="(prefers-color-scheme: light)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JooPark Workspace" />
+    <meta property="og:description" content="로컬 저장 기반의 개인 생산성, 프로젝트 관리, DB 카탈로그 정적 SPA." />
+    <meta property="og:image" content="./social-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="JooPark Workspace" />
+    <meta name="twitter:description" content="일정·할 일·메모·습관·프로젝트·DB 카탈로그를 하나의 로컬 워크스페이스에서 관리합니다." />
+    <meta name="twitter:image" content="./social-preview.png" />
     <title>JooPark Workspace — 프로젝트 & DB 관리</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="./site.webmanifest" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -32,6 +49,11 @@
           <a href="#stats"   data-action="nav-to" data-view="stats">   <span>▤</span> 통계 </a>
         </nav>
 
+        <p class="nav-title">지식 베이스</p>
+        <nav class="nav-list">
+          <a href="#llm-wiki" data-action="nav-to" data-view="llm-wiki"> <span>◎</span> LLM 위키 <b id="navCountWiki">0</b> </a>
+        </nav>
+
         <p class="nav-title">프로젝트 관리</p>
         <nav class="nav-list">
           <a href="#pm-portfolio" data-action="nav-to" data-view="pm-portfolio"> <span>▦</span> 포트폴리오 <b id="navCountProjects">6</b> </a>
@@ -42,7 +64,7 @@
 
         <p class="nav-title">데이터베이스 관리</p>
         <nav class="nav-list">
-          <a href="#dbm-instances" data-action="nav-to" data-view="dbm-instances"> <span>✺</span> 인스턴스 상태 <em>LIVE</em> </a>
+          <a href="#dbm-instances" data-action="nav-to" data-view="dbm-instances"> <span>✺</span> 인스턴스 상태 <em>LOCAL</em> </a>
           <a href="#dbm-schema"    data-action="nav-to" data-view="dbm-schema">    <span>◎</span> 스키마 탐색 <b id="navCountTables">40</b> </a>
           <a href="#dbm-queries"   data-action="nav-to" data-view="dbm-queries">   <span>◉</span> 질의 성능 <b class="hot" id="navCountSlow">12</b> </a>
           <a href="#dbm-backups"   data-action="nav-to" data-view="dbm-backups">   <span>⌘</span> 백업 / 마이그 <b id="navCountMig">3</b> </a>
@@ -50,7 +72,7 @@
 
         <p class="nav-title">운영</p>
         <nav class="nav-list">
-          <a href="#alerts"   data-action="open-notifications"> <span>▤</span> 알림 <b id="navCountAlerts">4</b> </a>
+          <button type="button" class="nav-list-action" data-action="open-notifications" aria-haspopup="dialog" aria-controls="sheet" aria-expanded="false"> <span>▤</span> 알림 <b id="navCountAlerts">4</b> </button>
           <a href="#settings" data-action="nav-to" data-view="settings"> <span>⚙</span> 설정 </a>
           <a href="#system"   data-action="nav-to" data-view="system"> <span>◌</span> 시스템 상태 </a>
         </nav>
@@ -69,20 +91,30 @@
             <span aria-hidden="true">⌄</span>
           </button>
           <div id="projectPicker" class="project-picker" role="dialog" aria-labelledby="projectSelectLabel" hidden></div>
-          <span class="pill ok">정상</span>
-          <label class="search">
+          <span class="pill ok">로컬 저장</span>
+          <div class="search" data-search-scope="view">
             <span>⌕</span>
-            <input id="globalSearch" placeholder="현재 뷰 안에서 검색... (/)" aria-label="현재 뷰 검색" />
+            <input id="globalSearch" placeholder="현재 뷰 안에서 검색... (/)" aria-label="현재 뷰 검색" aria-describedby="searchCount" autocomplete="off" />
+            <button type="button" id="globalSearchClear" class="search-clear" data-action="clear-search" aria-label="검색어 지우기" hidden>×</button>
             <small id="searchCount" class="search-count" aria-live="polite"></small>
-          </label>
+          </div>
+          <button type="button" class="data-status-btn" data-action="open-data-safety-status" data-data-safety-trigger data-data-safety-ready="false" data-data-safety-tone="checking" aria-haspopup="dialog" aria-controls="sheet" aria-expanded="false" title="로컬 데이터 상태" aria-label="로컬 데이터 상태 열기">
+            <span class="data-status-dot" aria-hidden="true"></span>
+            <span class="data-status-label">저장</span>
+            <small data-data-safety-topbar-meta>확인 중</small>
+          </button>
           <button type="button" class="cmdk-btn" data-action="open-palette" title="명령 팔레트 — 검색·이동 (⌘K)" aria-label="명령 팔레트 열기">
             <span class="cmdk-glyph" aria-hidden="true">⌘</span>
             <span class="cmdk-label">검색·이동</span>
             <kbd>⌘K</kbd>
           </button>
+          <button type="button" class="help-btn" data-action="open-global-help" data-global-help-trigger aria-haspopup="dialog" aria-controls="sheet" aria-expanded="false" title="도움·상태" aria-label="도움과 상태 열기">
+            <span aria-hidden="true">?</span>
+            <span class="help-label">도움</span>
+          </button>
           <div class="user">
             <button type="button" class="theme-btn" data-action="toggle-theme" aria-label="테마 전환" title="테마 전환 (라이트/다크)">◑</button>
-            <button type="button" class="bell" data-action="open-notifications" aria-label="알림 열기">
+            <button type="button" class="bell" data-action="open-notifications" aria-label="알림 열기" aria-haspopup="dialog" aria-controls="sheet" aria-expanded="false">
               ●<span class="bell-badge" id="bellBadge" aria-hidden="true">0</span>
             </button>
             <div class="avatar" aria-hidden="true">J</div>
@@ -96,6 +128,7 @@
         <section class="view" id="view-notes" hidden></section>
         <section class="view" id="view-habits" hidden></section>
         <section class="view" id="view-stats" hidden></section>
+        <section class="view" id="view-llm-wiki" hidden></section>
         <section class="view" id="view-pm-portfolio" hidden></section>
         <section class="view" id="view-pm-kanban" hidden></section>
         <section class="view" id="view-pm-gantt" hidden></section>
@@ -111,24 +144,25 @@
 
     <footer class="footer">
       <span>JooPark Workspace</span>
-      <span>환경: 운영</span>
-      <span>지역: ap-northeast-2</span>
-      <span>DB: PostgreSQL 15.3 / Redis 7.2.4</span>
+      <span>환경: 정적 배포</span>
+      <span>저장: 브라우저 localStorage</span>
+      <span>DB: 로컬 카탈로그 / 실제 연결 없음</span>
       <span id="footerNow"></span>
     </footer>
 
     <section id="palette" class="palette" aria-hidden="true">
       <div class="palette-backdrop" data-action="close-palette"></div>
       <div class="palette-panel" role="dialog" aria-modal="true" aria-label="명령 팔레트">
-        <input id="paletteInput" type="text" role="combobox" aria-controls="paletteResults" aria-expanded="false" aria-autocomplete="list" placeholder="검색 또는 명령 입력... (일정·할 일·메모·습관·프로젝트·이슈)" autocomplete="off" spellcheck="false" />
+        <input id="paletteInput" type="text" role="combobox" aria-controls="paletteResults" aria-expanded="false" aria-autocomplete="list" aria-describedby="paletteHint paletteStatus" placeholder="검색 또는 명령 입력... (일정·할 일·메모·습관·프로젝트·이슈)" autocomplete="off" spellcheck="false" />
         <div id="paletteResults" class="palette-results" role="listbox" aria-label="명령 팔레트 결과"></div>
-        <div class="palette-hint">↑↓ 이동 &middot; Enter 실행 &middot; Esc 닫기</div>
+        <div id="paletteStatus" class="palette-status" role="status" aria-live="polite" aria-atomic="true"></div>
+        <div id="paletteHint" class="palette-hint">↑↓ 이동 &middot; Enter 실행 &middot; Esc 닫기</div>
       </div>
     </section>
 
     <section id="sheet" class="sheet" aria-hidden="true">
       <div class="sheet-backdrop" data-action="close-sheet"></div>
-      <div class="sheet-panel" role="dialog" aria-live="polite" aria-label="상세 패널">
+      <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-live="polite">
         <div class="sheet-head">
           <h3 id="sheetTitle"></h3>
           <button type="button" data-action="close-sheet">닫기</button>
@@ -159,6 +193,46 @@
     <script src="./vendor/fuse.min.js"></script>
     <script src="./vendor/marked.umd.js"></script>
     <script src="./vendor/purify.min.js"></script>
+    <script src="./search-empty-state.js"></script>
+    <script src="./home-execution-view.js"></script>
+    <script src="./calendar-view.js"></script>
+    <script src="./todo-view.js"></script>
+    <script src="./notes-view.js"></script>
+    <script src="./habits-view.js"></script>
+    <script src="./stats-view.js"></script>
+    <script src="./llm-wiki-view.js"></script>
+    <script src="./portfolio-view.js"></script>
+    <script src="./kanban-view.js"></script>
+    <script src="./gantt-view.js"></script>
+    <script src="./team-view.js"></script>
+    <script src="./workspace-storage.js"></script>
+    <script src="./storage-status-view.js"></script>
+    <script src="./settings-view.js"></script>
+    <script src="./system-status-view.js"></script>
+    <script src="./backup-import-guards.js"></script>
+    <script src="./backup-import-ui.js"></script>
+    <script src="./release-status.js"></script>
+    <script src="./operations-copy-actions.js"></script>
+    <script src="./verify-workspace-summary.js"></script>
+    <script src="./dialog-shell.js"></script>
+    <script src="./project-picker.js"></script>
+    <script src="./global-search.js"></script>
+    <script src="./command-palette.js"></script>
+    <script src="./db-catalog.js"></script>
+    <script src="./review-handoff.js"></script>
+    <script src="./review-result-view.js"></script>
+    <script src="./review-execution-checklist.js"></script>
+    <script src="./review-issue-payload.js"></script>
+    <script src="./review-result-state.js"></script>
+    <script src="./review-result-draft-state.js"></script>
+    <script src="./review-creation-actions.js"></script>
+    <script src="./review-package-view.js"></script>
+    <script src="./review-artifact-view.js"></script>
+    <script src="./review-artifact-state.js"></script>
+    <script src="./review-copy-actions.js"></script>
+    <script src="./review-submission-copy.js"></script>
+    <script src="./review-recommendation-export.js"></script>
+    <script src="./pwa-runtime.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

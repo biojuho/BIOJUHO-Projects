@@ -8,6 +8,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -19,19 +20,115 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = process.env.RELEASE_OUT_DIR
   ? resolve(root, process.env.RELEASE_OUT_DIR)
   : join(root, "dist", "release");
+let packageDir = outDir;
+const packageLockDir = `${outDir}.packaging.lock`;
+const packageLockTimeoutMs = Number(process.env.RELEASE_PACKAGE_LOCK_TIMEOUT_MS || 60000);
+const packageLockStaleMs = Number(process.env.RELEASE_PACKAGE_LOCK_STALE_MS || 10 * 60 * 1000);
 const sourceEntries = [
   "index.html",
+  "search-empty-state.js",
+  "home-execution-view.js",
+  "calendar-view.js",
+  "todo-view.js",
+  "notes-view.js",
+  "habits-view.js",
+  "stats-view.js",
+  "llm-wiki-view.js",
+  "portfolio-view.js",
+  "kanban-view.js",
+  "gantt-view.js",
+  "team-view.js",
+  "workspace-storage.js",
+  "storage-status-view.js",
+  "settings-view.js",
+  "system-status-view.js",
+  "backup-import-guards.js",
+  "backup-import-ui.js",
+  "release-status.js",
+  "operations-copy-actions.js",
+  "verify-workspace-summary.js",
+  "dialog-shell.js",
+  "project-picker.js",
+  "global-search.js",
+  "command-palette.js",
+  "db-catalog.js",
+  "review-handoff.js",
+  "review-result-view.js",
+  "review-execution-checklist.js",
+  "review-issue-payload.js",
+  "review-result-state.js",
+  "review-result-draft-state.js",
+  "review-creation-actions.js",
+  "review-package-view.js",
+  "review-artifact-view.js",
+  "review-artifact-state.js",
+  "review-copy-actions.js",
+  "review-submission-copy.js",
+  "review-recommendation-export.js",
+  "pwa-runtime.js",
   "app.js",
+  "sw.js",
   "styles.css",
   "favicon.svg",
+  "icons",
+  "site.webmanifest",
+  "social-preview.png",
+  "social-preview.svg",
   "README.md",
+  "autoresearch-results/release-readiness-summary.json",
+  "autoresearch-results/verify-workspace-summary.json",
   "data",
   "vendor",
 ];
 const runtimeAssets = [
   { path: "styles.css", attr: "href" },
+  { path: "search-empty-state.js", attr: "src" },
+  { path: "home-execution-view.js", attr: "src" },
+  { path: "calendar-view.js", attr: "src" },
+  { path: "todo-view.js", attr: "src" },
+  { path: "notes-view.js", attr: "src" },
+  { path: "habits-view.js", attr: "src" },
+  { path: "stats-view.js", attr: "src" },
+  { path: "llm-wiki-view.js", attr: "src" },
+  { path: "portfolio-view.js", attr: "src" },
+  { path: "kanban-view.js", attr: "src" },
+  { path: "gantt-view.js", attr: "src" },
+  { path: "team-view.js", attr: "src" },
+  { path: "workspace-storage.js", attr: "src" },
+  { path: "storage-status-view.js", attr: "src" },
+  { path: "settings-view.js", attr: "src" },
+  { path: "system-status-view.js", attr: "src" },
+  { path: "backup-import-guards.js", attr: "src" },
+  { path: "backup-import-ui.js", attr: "src" },
+  { path: "release-status.js", attr: "src" },
+  { path: "operations-copy-actions.js", attr: "src" },
+  { path: "verify-workspace-summary.js", attr: "src" },
+  { path: "dialog-shell.js", attr: "src" },
+  { path: "project-picker.js", attr: "src" },
+  { path: "global-search.js", attr: "src" },
+  { path: "command-palette.js", attr: "src" },
+  { path: "db-catalog.js", attr: "src" },
+  { path: "review-handoff.js", attr: "src" },
+  { path: "review-result-view.js", attr: "src" },
+  { path: "review-execution-checklist.js", attr: "src" },
+  { path: "review-issue-payload.js", attr: "src" },
+  { path: "review-result-state.js", attr: "src" },
+  { path: "review-result-draft-state.js", attr: "src" },
+  { path: "review-creation-actions.js", attr: "src" },
+  { path: "review-package-view.js", attr: "src" },
+  { path: "review-artifact-view.js", attr: "src" },
+  { path: "review-artifact-state.js", attr: "src" },
+  { path: "review-copy-actions.js", attr: "src" },
+  { path: "review-submission-copy.js", attr: "src" },
+  { path: "review-recommendation-export.js", attr: "src" },
+  { path: "pwa-runtime.js", attr: "src" },
   { path: "app.js", attr: "src" },
 ];
+const releaseMetadataFiles = new Set(["RELEASE.md", "release-manifest.json", "release-provenance.json"]);
+const provenanceStatementType = "https://in-toto.io/Statement/v1";
+const provenancePredicateType = "https://slsa.dev/provenance/v1";
+const provenanceBuildType = "https://biojuho.local/joopark/static-release/v1";
+const provenanceBuilderId = "https://biojuho.local/joopark/local-release-packager";
 
 function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -51,9 +148,40 @@ function walkFiles(baseDir) {
   return files;
 }
 
+function sourceEntryResource(entry) {
+  const source = join(root, entry);
+  const stat = statSync(source);
+  if (stat.isFile()) {
+    return {
+      name: entry,
+      uri: `git+file://./${entry}`,
+      digest: { sha256: sha256(source) },
+    };
+  }
+
+  const hash = createHash("sha256");
+  let fileCount = 0;
+  for (const file of walkFiles(source)) {
+    const rel = relative(root, file).replaceAll("\\", "/");
+    hash.update(rel);
+    hash.update("\0");
+    hash.update(sha256(file));
+    hash.update("\n");
+    fileCount += 1;
+  }
+  return {
+    name: entry,
+    uri: `git+file://./${entry}`,
+    digest: { sha256: hash.digest("hex") },
+    annotations: {
+      "joopark.fileCount": fileCount,
+    },
+  };
+}
+
 function copyEntry(entry) {
   const source = join(root, entry);
-  const target = join(outDir, entry);
+  const target = join(packageDir, entry);
   if (!existsSync(source)) throw new Error(`Missing release source: ${entry}`);
   const stat = statSync(source);
   if (stat.isDirectory()) {
@@ -70,12 +198,12 @@ function copyEntry(entry) {
 }
 
 function versionRuntimeAssetRefs() {
-  const indexPath = join(outDir, "index.html");
+  const indexPath = join(packageDir, "index.html");
   let html = readFileSync(indexPath, "utf-8");
   for (const asset of runtimeAssets) {
-    const assetPath = join(outDir, asset.path);
+    const assetPath = join(packageDir, asset.path);
     if (!existsSync(assetPath)) throw new Error(`Missing runtime asset for versioning: ${asset.path}`);
-    const assetHash = sha256(join(outDir, asset.path)).slice(0, 12);
+    const assetHash = sha256(join(packageDir, asset.path)).slice(0, 12);
     const escapedPath = asset.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pattern = new RegExp(`(${asset.attr}=["'])\\./${escapedPath}(?:\\?v=[^"']*)?(["'])`, "g");
     let replacements = 0;
@@ -90,10 +218,10 @@ function versionRuntimeAssetRefs() {
 
 function buildManifest() {
   const source = sourceMetadata();
-  const files = walkFiles(outDir)
-    .filter((file) => !["RELEASE.md", "release-manifest.json"].includes(basename(file)))
+  const files = walkFiles(packageDir)
+    .filter((file) => !releaseMetadataFiles.has(basename(file)))
     .map((file) => {
-      const rel = relative(outDir, file).replaceAll("\\", "/");
+      const rel = relative(packageDir, file).replaceAll("\\", "/");
       return {
         path: rel,
         bytes: statSync(file).size,
@@ -154,6 +282,7 @@ function writeReleaseNotes(manifest) {
     `- Source tree: ${dirtyLabel}`,
     `- Runtime files: ${manifest.files.length}`,
     `- Total bytes: ${totalBytes}`,
+    "- Provenance: release-provenance.json (in-toto Statement v1 / SLSA provenance v1, unsigned-local-provenance)",
     "",
     "## Run",
     "",
@@ -180,26 +309,199 @@ function writeReleaseNotes(manifest) {
     "Expected result: verification and smoke commands report `status` as `pass`; the smoke output should also have empty `consoleIssues` and `networkIssues`. `smoke-mobile.mjs` must also report empty `layoutIssues`. `smoke-a11y.mjs` must report every keyboard and ARIA check as `true`. `audit-release-readiness.mjs --run-gates` maps release requirements to concrete evidence and reports external publish blockers such as a missing Git remote. `smoke-release.mjs` is the full packaged-release gate: it rebuilds `dist/release`, verifies the manifest, serves the package on a temporary local port, route-smokes the served package, checks the mobile layout, runs the click/input interaction smoke, and runs the keyboard/ARIA accessibility smoke.",
     "",
   ];
-  writeFileSync(join(outDir, "RELEASE.md"), lines.join("\n"), "utf-8");
+  writeFileSync(join(packageDir, "RELEASE.md"), lines.join("\n"), "utf-8");
+}
+
+function buildReleaseProvenance(manifest) {
+  const manifestSha256 = sha256(join(packageDir, "release-manifest.json"));
+  const releaseNotesPath = join(packageDir, "RELEASE.md");
+  const totalBytes = manifest.files.reduce((sum, file) => sum + file.bytes, 0);
+  const sourceDirtyFiles = Array.isArray(manifest.source?.dirtyFiles) ? manifest.source.dirtyFiles : [];
+  const finishedOn = new Date().toISOString();
+
+  return {
+    _type: provenanceStatementType,
+    subject: [
+      {
+        name: "release-manifest.json",
+        digest: { sha256: manifestSha256 },
+        mediaType: "application/json",
+      },
+    ],
+    predicateType: provenancePredicateType,
+    predicate: {
+      buildDefinition: {
+        buildType: provenanceBuildType,
+        externalParameters: {
+          releaseOutDir: relative(root, outDir).replaceAll("\\", "/"),
+          sourceCommit: manifest.sourceCommit,
+          sourceBranch: manifest.source?.branch || "unknown",
+          sourceDirty: manifest.source?.dirty === true,
+          sourceDirtyFiles,
+        },
+        internalParameters: {
+          packageScript: "scripts/package-release.mjs",
+          manifestPath: "release-manifest.json",
+          provenancePath: "release-provenance.json",
+          runtimeFileCount: manifest.files.length,
+          totalBytes,
+        },
+        resolvedDependencies: [
+          {
+            name: "source-tree",
+            uri: "git+file://./",
+            digest: { gitCommit: manifest.sourceCommit },
+            annotations: {
+              "joopark.sourceBranch": manifest.source?.branch || "unknown",
+              "joopark.sourceDirty": manifest.source?.dirty === true,
+              "joopark.sourceDirtyFileCount": sourceDirtyFiles.length,
+            },
+          },
+          ...sourceEntries.map((entry) => sourceEntryResource(entry)),
+        ],
+      },
+      runDetails: {
+        builder: {
+          id: provenanceBuilderId,
+          version: {
+            node: process.version,
+            packageScript: "1",
+          },
+        },
+        metadata: {
+          invocationId: `joopark-release-${process.pid}-${Date.now()}`,
+          startedOn: manifest.generatedAt,
+          finishedOn,
+        },
+        byproducts: [
+          {
+            name: "release-manifest.json",
+            digest: { sha256: manifestSha256 },
+            mediaType: "application/json",
+          },
+          {
+            name: "RELEASE.md",
+            digest: { sha256: sha256(releaseNotesPath) },
+            mediaType: "text/markdown",
+          },
+        ],
+      },
+      joopark_release: {
+        signed: false,
+        signatureStatus: "unsigned-local-provenance",
+        strongerExternalReference: "GitHub artifact attestations can sign release artifacts after workflow installation.",
+        manifestSubjectDigest: manifestSha256,
+        runtimeFileCount: manifest.files.length,
+        totalBytes,
+      },
+    },
+  };
+}
+
+function writeReleaseProvenance(manifest) {
+  const provenance = buildReleaseProvenance(manifest);
+  writeFileSync(join(packageDir, "release-provenance.json"), `${JSON.stringify(provenance, null, 2)}\n`, "utf-8");
+  return provenance;
 }
 
 function writeDeploySupportFiles() {
-  copyFileSync(join(outDir, "index.html"), join(outDir, "404.html"));
-  writeFileSync(join(outDir, "_redirects"), [
+  copyFileSync(join(packageDir, "index.html"), join(packageDir, "404.html"));
+  writeFileSync(join(packageDir, "_redirects"), [
     "# Netlify fallback for static SPA deployments.",
     "# Existing files are served normally; unmatched direct paths rewrite to the app shell.",
     "/* /index.html 200",
     "",
   ].join("\n"), "utf-8");
-  writeFileSync(join(outDir, "_headers"), [
+  writeFileSync(join(packageDir, "_headers"), [
     "/*",
     "  X-Content-Type-Options: nosniff",
     "  X-Frame-Options: DENY",
     "  Referrer-Policy: strict-origin-when-cross-origin",
     "  Permissions-Policy: camera=(), microphone=(), geolocation=()",
+    "  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
     "/vendor/*",
     "  Cache-Control: public, max-age=31536000, immutable",
+    "/search-empty-state.js",
+    "  Cache-Control: no-cache",
+    "/calendar-view.js",
+    "  Cache-Control: no-cache",
+    "/todo-view.js",
+    "  Cache-Control: no-cache",
+    "/notes-view.js",
+    "  Cache-Control: no-cache",
+    "/habits-view.js",
+    "  Cache-Control: no-cache",
+    "/stats-view.js",
+    "  Cache-Control: no-cache",
+    "/llm-wiki-view.js",
+    "  Cache-Control: no-cache",
+    "/portfolio-view.js",
+    "  Cache-Control: no-cache",
+    "/kanban-view.js",
+    "  Cache-Control: no-cache",
+    "/gantt-view.js",
+    "  Cache-Control: no-cache",
+    "/team-view.js",
+    "  Cache-Control: no-cache",
+    "/workspace-storage.js",
+    "  Cache-Control: no-cache",
+    "/storage-status-view.js",
+    "  Cache-Control: no-cache",
+    "/settings-view.js",
+    "  Cache-Control: no-cache",
+    "/system-status-view.js",
+    "  Cache-Control: no-cache",
+    "/backup-import-guards.js",
+    "  Cache-Control: no-cache",
+    "/backup-import-ui.js",
+    "  Cache-Control: no-cache",
+    "/release-status.js",
+    "  Cache-Control: no-cache",
+    "/operations-copy-actions.js",
+    "  Cache-Control: no-cache",
+    "/verify-workspace-summary.js",
+    "  Cache-Control: no-cache",
+    "/dialog-shell.js",
+    "  Cache-Control: no-cache",
+    "/project-picker.js",
+    "  Cache-Control: no-cache",
+    "/global-search.js",
+    "  Cache-Control: no-cache",
+    "/command-palette.js",
+    "  Cache-Control: no-cache",
+    "/db-catalog.js",
+    "  Cache-Control: no-cache",
+    "/review-handoff.js",
+    "  Cache-Control: no-cache",
+    "/review-result-view.js",
+    "  Cache-Control: no-cache",
+    "/review-execution-checklist.js",
+    "  Cache-Control: no-cache",
+    "/review-issue-payload.js",
+    "  Cache-Control: no-cache",
+    "/review-result-state.js",
+    "  Cache-Control: no-cache",
+    "/review-result-draft-state.js",
+    "  Cache-Control: no-cache",
+    "/review-creation-actions.js",
+    "  Cache-Control: no-cache",
+    "/review-package-view.js",
+    "  Cache-Control: no-cache",
+    "/review-artifact-view.js",
+    "  Cache-Control: no-cache",
+    "/review-artifact-state.js",
+    "  Cache-Control: no-cache",
+    "/review-copy-actions.js",
+    "  Cache-Control: no-cache",
+    "/review-submission-copy.js",
+    "  Cache-Control: no-cache",
+    "/review-recommendation-export.js",
+    "  Cache-Control: no-cache",
+    "/pwa-runtime.js",
+    "  Cache-Control: no-cache",
     "/app.js",
+    "  Cache-Control: no-cache",
+    "/sw.js",
     "  Cache-Control: no-cache",
     "/styles.css",
     "  Cache-Control: no-cache",
@@ -207,9 +509,13 @@ function writeDeploySupportFiles() {
     "  Cache-Control: no-cache",
     "/404.html",
     "  Cache-Control: no-cache",
+    "/autoresearch-results/release-readiness-summary.json",
+    "  Cache-Control: no-cache",
+    "/autoresearch-results/verify-workspace-summary.json",
+    "  Cache-Control: no-cache",
     "",
   ].join("\n"), "utf-8");
-  writeFileSync(join(outDir, "vercel.json"), `${JSON.stringify({
+  writeFileSync(join(packageDir, "vercel.json"), `${JSON.stringify({
     $schema: "https://openapi.vercel.sh/vercel.json",
     cleanUrls: false,
     trailingSlash: false,
@@ -221,6 +527,7 @@ function writeDeploySupportFiles() {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
         ],
       },
       {
@@ -230,7 +537,7 @@ function writeDeploySupportFiles() {
         ],
       },
       {
-        source: "/(app.js|styles.css|index.html|404.html)",
+        source: "/(search-empty-state.js|home-execution-view.js|calendar-view.js|todo-view.js|notes-view.js|habits-view.js|stats-view.js|llm-wiki-view.js|portfolio-view.js|kanban-view.js|gantt-view.js|team-view.js|workspace-storage.js|storage-status-view.js|settings-view.js|system-status-view.js|backup-import-guards.js|backup-import-ui.js|release-status.js|operations-copy-actions.js|verify-workspace-summary.js|dialog-shell.js|project-picker.js|global-search.js|command-palette.js|db-catalog.js|review-handoff.js|review-result-view.js|review-execution-checklist.js|review-issue-payload.js|review-result-state.js|review-result-draft-state.js|review-creation-actions.js|review-package-view.js|review-artifact-view.js|review-artifact-state.js|review-copy-actions.js|review-submission-copy.js|review-recommendation-export.js|pwa-runtime.js|app.js|sw.js|styles.css|index.html|404.html|autoresearch-results/release-readiness-summary.json|autoresearch-results/verify-workspace-summary.json)",
         headers: [
           { key: "Cache-Control", value: "no-cache" },
         ],
@@ -239,15 +546,92 @@ function writeDeploySupportFiles() {
   }, null, 2)}\n`, "utf-8");
 }
 
-rmSync(outDir, { recursive: true, force: true });
-mkdirSync(outDir, { recursive: true });
-for (const entry of sourceEntries) copyEntry(entry);
-versionRuntimeAssetRefs();
-writeDeploySupportFiles();
-const manifest = buildManifest();
-writeReleaseNotes(manifest);
-manifest.files = buildManifest().files;
-writeFileSync(join(outDir, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf-8");
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function lockIsStale(path) {
+  try {
+    return Date.now() - statSync(path).mtimeMs > packageLockStaleMs;
+  } catch {
+    return false;
+  }
+}
+
+function acquirePackageLock() {
+  mkdirSync(dirname(packageLockDir), { recursive: true });
+  const started = Date.now();
+  while (true) {
+    try {
+      mkdirSync(packageLockDir);
+      writeFileSync(join(packageLockDir, "owner.json"), `${JSON.stringify({
+        pid: process.pid,
+        startedAt: new Date().toISOString(),
+        outDir: relative(root, outDir),
+      }, null, 2)}\n`, "utf-8");
+      return;
+    } catch (error) {
+      if (error && error.code !== "EEXIST") throw error;
+      if (lockIsStale(packageLockDir)) {
+        rmSync(packageLockDir, { recursive: true, force: true });
+        continue;
+      }
+      if (Date.now() - started > packageLockTimeoutMs) {
+        throw new Error(`Timed out waiting for release package lock: ${relative(root, packageLockDir)}`);
+      }
+      sleepSync(100);
+    }
+  }
+}
+
+function releasePackageLock() {
+  rmSync(packageLockDir, { recursive: true, force: true });
+}
+
+function publishStagingDir(stagingDir) {
+  const previousDir = `${outDir}.previous-${process.pid}-${Date.now()}`;
+  rmSync(previousDir, { recursive: true, force: true });
+  if (existsSync(outDir)) renameSync(outDir, previousDir);
+  try {
+    renameSync(stagingDir, outDir);
+  } catch (error) {
+    if (existsSync(previousDir) && !existsSync(outDir)) renameSync(previousDir, outDir);
+    throw error;
+  }
+  rmSync(previousDir, { recursive: true, force: true });
+}
+
+function buildRelease() {
+  const stagingDir = `${outDir}.staging-${process.pid}-${Date.now()}`;
+  packageDir = stagingDir;
+  rmSync(stagingDir, { recursive: true, force: true });
+  mkdirSync(stagingDir, { recursive: true });
+  try {
+    for (const entry of sourceEntries) copyEntry(entry);
+    versionRuntimeAssetRefs();
+    writeDeploySupportFiles();
+    const manifest = buildManifest();
+    writeReleaseNotes(manifest);
+    manifest.files = buildManifest().files;
+    writeFileSync(join(stagingDir, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf-8");
+    writeReleaseProvenance(manifest);
+    publishStagingDir(stagingDir);
+    return manifest;
+  } catch (error) {
+    rmSync(stagingDir, { recursive: true, force: true });
+    throw error;
+  } finally {
+    packageDir = outDir;
+  }
+}
+
+acquirePackageLock();
+let manifest;
+try {
+  manifest = buildRelease();
+} finally {
+  releasePackageLock();
+}
 
 console.log(JSON.stringify({
   status: "pass",
