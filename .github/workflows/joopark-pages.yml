@@ -2,6 +2,12 @@ name: Publish JooPark Pages
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or ref that contains the JooPark workspace app."
+        required: true
+        default: codex/joopark-workspace-release
+        type: string
   push:
     branches:
       - codex/joopark-workspace-release
@@ -79,6 +85,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || 'codex/joopark-workspace-release' }}
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -87,6 +95,8 @@ jobs:
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Build release package
         run: node scripts/package-release.mjs
