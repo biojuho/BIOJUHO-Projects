@@ -98,6 +98,9 @@ jobs:
         with:
           enablement: true
 
+      - name: Generate release readiness summary cache
+        run: node scripts/audit-release-readiness.mjs --format=summary || true
+
       - name: Build release package
         run: node scripts/package-release.mjs
 
