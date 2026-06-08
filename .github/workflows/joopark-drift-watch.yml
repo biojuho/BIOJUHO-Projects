@@ -1,0 +1,67 @@
+name: Watch JooPark Candidate Drift
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run advisory report or fail when blocking drift is found."
+        required: true
+        default: advisory
+        type: choice
+        options:
+          - advisory
+          - fail-on-drift
+      repo:
+        description: "Optional owner/name filter, for example Veritas-7/autoresearch-skill-system."
+        required: false
+        type: string
+  schedule:
+    - cron: "23 2 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: joopark-candidate-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env:
+      DRIFT_MODE: ${{ inputs.mode || 'advisory' }}
+      DRIFT_REPO: ${{ inputs.repo || '' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate local candidate snapshot shape
+        run: node scripts/check-candidate-freshness-drift.mjs --snapshot-only
+
+      - name: Report live candidate drift
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO_ARGS=()
+          if [ -n "$DRIFT_REPO" ]; then
+            REPO_ARGS=(--repo "$DRIFT_REPO")
+          fi
+          node scripts/check-candidate-freshness-drift.mjs --live "${REPO_ARGS[@]}"
+
+      - name: Fail on blocking live drift when requested
+        if: ${{ inputs.mode == 'fail-on-drift' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO_ARGS=()
+          if [ -n "$DRIFT_REPO" ]; then
+            REPO_ARGS=(--repo "$DRIFT_REPO")
+          fi
+          node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift "${REPO_ARGS[@]}"
