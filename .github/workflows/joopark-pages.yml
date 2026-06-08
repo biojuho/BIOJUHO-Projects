@@ -99,7 +99,10 @@ jobs:
           enablement: true
 
       - name: Generate release readiness summary cache
-        run: node scripts/audit-release-readiness.mjs --format=summary || true
+        run: |
+          node scripts/audit-release-readiness.mjs --format=summary || audit_status=$?
+          node -e "const fs = require('fs'); const p = 'autoresearch-results/release-readiness-summary.json'; const data = JSON.parse(fs.readFileSync(p, 'utf8')); if (data.schemaVersion !== 'joopark-release-readiness-summary/v1' || !data.generatedAt) process.exit(1);"
+          echo "audit_status=${audit_status:-0}"
 
       - name: Build release package
         run: node scripts/package-release.mjs
