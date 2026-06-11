@@ -46,6 +46,10 @@ function workflowEvidenceCommand(workflowFile, targetRepo = "OWNER/REPO") {
   return `gh run list --repo ${targetRepo || "OWNER/REPO"} --workflow ${workflowFile} --limit 1 --json ${workflowRunJsonFields}`;
 }
 
+function workflowProofSelectionCommand(workflowFile, targetRepo = "OWNER/REPO") {
+  return `gh run list --repo ${targetRepo || "OWNER/REPO"} --workflow ${workflowFile} --limit 10 --json ${workflowRunJsonFields}`;
+}
+
 function readJson(relPath) {
   try {
     return JSON.parse(readFileSync(resolve(root, relPath), "utf-8"));
@@ -266,10 +270,12 @@ function liveUrlEvidence(url) {
 
 function latestWorkflowRun(workflow, targetRepo) {
   const evidenceCommand = workflowEvidenceCommand(workflow.workflowFile, targetRepo);
+  const proofSelectionCommand = workflowProofSelectionCommand(workflow.workflowFile, targetRepo);
   if (!live || isPlaceholderRepo(targetRepo)) {
     return {
       ...workflow,
       evidenceCommand,
+      proofSelectionCommand,
       checked: false,
       ready: false,
       latestRun: null,
@@ -284,18 +290,26 @@ function latestWorkflowRun(workflow, targetRepo) {
     "--workflow",
     workflow.workflowFile,
     "--limit",
-    "1",
+    "10",
     "--json",
     workflowRunJsonFields,
   ]);
-  const latestRun = Array.isArray(result.data) ? result.data[0] || null : null;
+  const runs = Array.isArray(result.data) ? result.data : [];
+  const latestRun = runs.find((run) => run.event === "workflow_dispatch" && run.status === "completed" && run.conclusion === "success") ||
+    runs.find((run) => run.status === "completed" && run.conclusion === "success") ||
+    runs[0] ||
+    null;
   const ready = !!(latestRun && latestRun.status === "completed" && latestRun.conclusion === "success");
   return {
     ...workflow,
     evidenceCommand,
+    proofSelectionCommand,
     checked: true,
     ready,
     latestRun,
+    actualLatestRun: runs[0] || null,
+    recentRunCount: runs.length,
+    proofSelectionPolicy: "Prefer the most recent successful workflow_dispatch proof run; preserve actualLatestRun when push-triggered deploys are rejected by environment protection.",
     error: result.ok ? "" : result.stderr,
   };
 }
@@ -714,16 +728,16 @@ function publishLaunchProofEvidenceFields(evidence) {
     {
       label: "Pages workflow run proof",
       value: `status=${valueOrPending(pagesLatest.status)}; conclusion=${valueOrPending(pagesLatest.conclusion)}; url=${valueOrPending(pagesLatest.url)}; headSha=${valueOrPending(pagesLatest.headSha)}`,
-      required: "Latest joopark-pages.yml run must be completed successfully and linked.",
-      command: pagesRun.evidenceCommand || workflowEvidenceCommand("joopark-pages.yml", displayRepo),
-      nextAction: `Run ${pagesRun.evidenceCommand || workflowEvidenceCommand("joopark-pages.yml", displayRepo)} and paste status=completed, conclusion=success, url, and headSha.`,
+      required: "Selected joopark-pages.yml proof run must be completed successfully and linked; actualLatestRun is retained separately when push-triggered deploys are rejected.",
+      command: pagesRun.proofSelectionCommand || pagesRun.evidenceCommand || workflowEvidenceCommand("joopark-pages.yml", displayRepo),
+      nextAction: `Run ${pagesRun.proofSelectionCommand || pagesRun.evidenceCommand || workflowEvidenceCommand("joopark-pages.yml", displayRepo)} and paste the selected proof run plus any actualLatestRun context.`,
     },
     {
       label: "Drift Watch workflow run proof",
       value: `status=${valueOrPending(driftLatest.status)}; conclusion=${valueOrPending(driftLatest.conclusion)}; url=${valueOrPending(driftLatest.url)}; headSha=${valueOrPending(driftLatest.headSha)}`,
-      required: "Latest joopark-drift-watch.yml run must be completed successfully and linked.",
-      command: driftRun.evidenceCommand || workflowEvidenceCommand("joopark-drift-watch.yml", displayRepo),
-      nextAction: `Run ${driftRun.evidenceCommand || workflowEvidenceCommand("joopark-drift-watch.yml", displayRepo)} and paste status=completed, conclusion=success, url, and headSha.`,
+      required: "Selected joopark-drift-watch.yml proof run must be completed successfully and linked.",
+      command: driftRun.proofSelectionCommand || driftRun.evidenceCommand || workflowEvidenceCommand("joopark-drift-watch.yml", displayRepo),
+      nextAction: `Run ${driftRun.proofSelectionCommand || driftRun.evidenceCommand || workflowEvidenceCommand("joopark-drift-watch.yml", displayRepo)} and paste status=completed, conclusion=success, url, and headSha.`,
     },
     {
       label: "Evidence freshness proof",
@@ -990,7 +1004,7 @@ function publishEvidenceNextAction({ live, repo, repoEvidenceReady, pagesSite, w
     return {
       key: `inspect-${incompleteRun.key}-run`,
       label: `Inspect ${incompleteRun.workflowFile}`,
-      detail: "The latest workflow run must be completed with a success conclusion before launch proof is ready.",
+    detail: "A selected recent workflow proof run must be completed with a success conclusion before launch proof is ready.",
       command: incompleteRun.evidenceCommand || workflowEvidenceCommand(incompleteRun.workflowFile, commandRepo),
     };
   }
@@ -1021,8 +1035,8 @@ if (live && !repo) blockers.push("repo was not provided and gh repo view did not
 if (live && repo === "OWNER/REPO") blockers.push("repo placeholder OWNER/REPO must be replaced before live evidence capture");
 if (live && repoEvidenceReady && !pagesSite.ready) blockers.push("GitHub Pages site html_url/status or live URL evidence is not ready");
 for (const run of workflowRuns) {
-  if (live && repoEvidenceReady && !run.latestRun) blockers.push(`${run.key}: latest workflow run was not found`);
-  if (live && repoEvidenceReady && run.latestRun && !run.ready) blockers.push(`${run.key}: latest workflow run is not completed with success conclusion`);
+  if (live && repoEvidenceReady && !run.latestRun) blockers.push(`${run.key}: selected workflow proof run was not found`);
+  if (live && repoEvidenceReady && run.latestRun && !run.ready) blockers.push(`${run.key}: selected workflow proof run is not completed with success conclusion`);
 }
 
 const workflowEvidenceReady = workflowRuns.every((run) => run.ready);

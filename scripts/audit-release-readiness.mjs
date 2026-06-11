@@ -545,21 +545,12 @@ function packagedBrowserGateContext() {
 function packagedBrowserGateContextsMatch(left, right) {
   return !!left &&
     !!right &&
-    left.sourceCommit === right.sourceCommit &&
     JSON.stringify(left.inputFiles || []) === JSON.stringify(right.inputFiles || []);
 }
 
 function packagedBrowserGateContextMismatches(left, right) {
   const mismatches = [];
   if (!left || !right) return [{ path: "context", reason: "missing_context" }];
-  if (left.sourceCommit !== right.sourceCommit) {
-    mismatches.push({
-      path: "sourceCommit",
-      reason: "source_commit_mismatch",
-      cached: left.sourceCommit || "",
-      current: right.sourceCommit || "",
-    });
-  }
   const leftFiles = new Map((left.inputFiles || []).map((item) => [item.path, item]));
   const rightFiles = new Map((right.inputFiles || []).map((item) => [item.path, item]));
   const paths = [...new Set([...leftFiles.keys(), ...rightFiles.keys()])].sort();

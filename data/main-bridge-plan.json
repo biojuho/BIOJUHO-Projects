@@ -1,13 +1,13 @@
 {
   "status": "pass",
-  "generatedAt": "2026-06-11T08:57:19.629Z",
+  "generatedAt": "2026-06-11T09:05:45.334Z",
   "write": true,
   "outPath": "data/main-bridge-plan.json",
   "remote": "biojuho-projects",
   "mainRef": "biojuho-projects/main",
   "mainCommit": "62bae03",
   "releaseRef": "HEAD",
-  "releaseCommit": "a95eef9",
+  "releaseCommit": "9d4ed5c",
   "mergeBase": null,
   "noCommonHistory": true,
   "appPath": "apps/joopark-workspace",
@@ -27,7 +27,7 @@
     "git push biojuho-projects codex/joopark-workspace-main-bridge",
     "open the PR from codex/joopark-workspace-main-bridge to main"
   ],
-  "receipt": "JooPark Main PR Bridge Plan\nStatus: pass\nStrategy: main-subdirectory-bridge\nRemote: biojuho-projects\nMain ref: biojuho-projects/main (62bae03)\nRelease ref: HEAD (a95eef9)\nMerge base: none\nNo common history: true\nApp path: apps/joopark-workspace (exists on main: true)\nBridge branch: codex/joopark-workspace-main-bridge\nCommands:\n- git fetch biojuho-projects main\n- git switch -c codex/joopark-workspace-main-bridge biojuho-projects/main\n- sync the release branch runtime files into apps/joopark-workspace/ while preserving repository-root .github workflows\n- cd apps/joopark-workspace && node scripts/audit-release-readiness.mjs --run-gates\n- git push biojuho-projects codex/joopark-workspace-main-bridge\n- open the PR from codex/joopark-workspace-main-bridge to main\nGuard: do not open a PR directly from the orphan release branch while noCommonHistory=true.",
+  "receipt": "JooPark Main PR Bridge Plan\nStatus: pass\nStrategy: main-subdirectory-bridge\nRemote: biojuho-projects\nMain ref: biojuho-projects/main (62bae03)\nRelease ref: HEAD (9d4ed5c)\nMerge base: none\nNo common history: true\nApp path: apps/joopark-workspace (exists on main: true)\nBridge branch: codex/joopark-workspace-main-bridge\nCommands:\n- git fetch biojuho-projects main\n- git switch -c codex/joopark-workspace-main-bridge biojuho-projects/main\n- sync the release branch runtime files into apps/joopark-workspace/ while preserving repository-root .github workflows\n- cd apps/joopark-workspace && node scripts/audit-release-readiness.mjs --run-gates\n- git push biojuho-projects codex/joopark-workspace-main-bridge\n- open the PR from codex/joopark-workspace-main-bridge to main\nGuard: do not open a PR directly from the orphan release branch while noCommonHistory=true.",
   "externalComparison": [
     {
       "label": "Git merge-base",
