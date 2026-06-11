@@ -27,6 +27,12 @@ on:
       - "gantt-view.js"
       - "team-view.js"
       - "workspace-storage.js"
+      - "dashboard-storage.js"
+      - "dashboard-prioritization.js"
+      - "dashboard-evidence-receipts.js"
+      - "dashboard-insights-engine.js"
+      - "dashboard-autoresearch-loop.js"
+      - "dashboard-view.js"
       - "storage-status-view.js"
       - "settings-view.js"
       - "system-status-view.js"
@@ -39,6 +45,10 @@ on:
       - "project-picker.js"
       - "global-search.js"
       - "command-palette.js"
+      - "keyboard-shortcuts.js"
+      - "interaction-setup.js"
+      - "event-reminders.js"
+      - "footer-clock.js"
       - "db-catalog.js"
       - "review-handoff.js"
       - "review-result-view.js"
@@ -99,7 +109,10 @@ jobs:
           enablement: true
 
       - name: Generate release readiness summary cache
-        run: node scripts/audit-release-readiness.mjs --format=summary || true
+        run: |
+          node scripts/audit-release-readiness.mjs --format=summary || audit_status=$?
+          node -e "const fs = require('fs'); const p = 'autoresearch-results/release-readiness-summary.json'; const data = JSON.parse(fs.readFileSync(p, 'utf8')); if (data.schemaVersion !== 'joopark-release-readiness-summary/v1' || !data.generatedAt) process.exit(1);"
+          echo "audit_status=${audit_status:-0}"
 
       - name: Build release package
         run: node scripts/package-release.mjs
