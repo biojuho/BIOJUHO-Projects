@@ -168,10 +168,6 @@ function deletedItemKindLabel(kind) {
   return DELETED_ITEM_KIND_LABELS[kind] || "항목";
 }
 
-function firstDeletedItemLabelCandidate(candidates) {
-  return (candidates || []).map((value) => String(value || "").trim()).find(Boolean) || "";
-}
-
 function deletedItemLabel(kind, record) {
   const candidates = [
     record && record.title,
@@ -179,7 +175,7 @@ function deletedItemLabel(kind, record) {
     record && record.text,
     record && record.id,
   ];
-  const found = firstDeletedItemLabelCandidate(candidates);
+  const found = candidates.map((value) => String(value || "").trim()).find(Boolean) || "";
   return found || `${deletedItemKindLabel(kind)} 항목`;
 }
 
@@ -194,9 +190,18 @@ function normalizeDeletedMeta(meta) {
 }
 
 function deletedItemWithinRetention(item, nowMs = Date.now()) {
-  const deletedAtMs = Date.parse(item && item.deletedAt ? item.deletedAt : "");
+  const deletedAtMs = parseDateTime(item && item.deletedAt ? item.deletedAt : "");
   if (!Number.isFinite(deletedAtMs)) return true;
   return deletedAtMs >= nowMs - DELETED_ITEM_RETENTION_MS;
+}
+
+function compareDeletedItemsByDeletedAtDesc(a, b) {
+  return String(b.deletedAt).localeCompare(String(a.deletedAt));
+}
+
+function nonNegativeIntegerIndex(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
 }
 
 function captureDeletedItem(kind, record, meta = {}) {
@@ -204,7 +209,7 @@ function captureDeletedItem(kind, record, meta = {}) {
   if (!DELETED_ITEM_KIND_LABELS[kind]) return "";
   if (!Array.isArray(dashboard.deletedItems)) dashboard.deletedItems = [];
   const recordId = clampText(record.id || "", 120);
-  const index = Number.isFinite(Number(meta.index)) ? Math.max(0, Math.trunc(Number(meta.index))) : 0;
+  const index = nonNegativeIntegerIndex(meta.index);
   const entry = {
     id: uid("del"),
     kind,
@@ -222,14 +227,6 @@ function captureDeletedItem(kind, record, meta = {}) {
   return entry.id;
 }
 
-function deletedItemHasId(item, entryId) {
-  return item && item.id === entryId;
-}
-
-function findDeletedItemById(items, entryId) {
-  return (items || []).find((item) => deletedItemHasId(item, entryId)) || null;
-}
-
 function isFirstDeletedItemForRecord(item, index, list) {
   if (!item.recordId) return true;
   return list.findIndex((other) => other.kind === item.kind && other.recordId === item.recordId) === index;
@@ -237,13 +234,13 @@ function isFirstDeletedItemForRecord(item, index, list) {
 
 function deletedItemById(entryId) {
   if (!Array.isArray(dashboard.deletedItems)) dashboard.deletedItems = [];
-  return findDeletedItemById(dashboard.deletedItems, entryId);
+  return dashboard.deletedItems.find((item) => item && item.id === entryId) || null;
 }
 
 function dropDeletedItem(entryId) {
   if (!entryId || !Array.isArray(dashboard.deletedItems)) return false;
   const before = dashboard.deletedItems.length;
-  dashboard.deletedItems = dashboard.deletedItems.filter((item) => item && !deletedItemHasId(item, entryId));
+  dashboard.deletedItems = dashboard.deletedItems.filter((item) => item && item.id !== entryId);
   return dashboard.deletedItems.length !== before;
 }
 
@@ -256,7 +253,7 @@ function canUndoDeletedItem(entryId) {
 
 function restoreDeletedRecord(entry) {
   const record = entry && entry.record ? cloneRecord(entry.record) : null;
-  const index = Number.isFinite(Number(entry && entry.index)) ? Math.max(0, Math.trunc(Number(entry.index))) : 0;
+  const index = nonNegativeIntegerIndex(entry && entry.index);
   if (!record) return false;
   switch (entry.kind) {
     case "event":
@@ -266,8 +263,7 @@ function restoreDeletedRecord(entry) {
     case "note":
       return restoreDeletedArrayItem(dashboard.notes, index, record);
     case "habit":
-      if (!Array.isArray(dashboard.habits)) dashboard.habits = [];
-      return restoreDeletedArrayItem(dashboard.habits, index, record);
+      return restoreDeletedArrayItem(ensureDashboardHabits(), index, record);
     case "issue": {
       const restored = restoreDeletedArrayItem(dashboard.issues, index, record);
       if (restored) rebuildIndexes();
@@ -438,16 +434,26 @@ function callModuleHelper(helpers, label, name, args, missingMessage = `${label}
   return helpers[name](...args);
 }
 
-const verifyWorkspaceSummaryHelpers = window.JooParkVerifyWorkspaceSummary && typeof window.JooParkVerifyWorkspaceSummary.create === "function"
-  ? window.JooParkVerifyWorkspaceSummary.create({ fetch: window.fetch.bind(window) })
-  : null;
+function lazyRuntimeLoader() {
+  return window.JooParkOpsRuntime && window.JooParkOpsRuntime.version === "joopark-ops-runtime-loader/v1"
+    ? window.JooParkOpsRuntime
+    : null;
+}
+
+function createLazyRuntimeHelpers(current, globalName, deps) {
+  const mod = window[globalName];
+  return current || (mod && typeof mod.create === "function" ? mod.create(deps) : null);
+}
+
+let verifyWorkspaceSummaryHelpers = null;
+function getVerifyWorkspaceSummaryHelpers() { return verifyWorkspaceSummaryHelpers = createLazyRuntimeHelpers(verifyWorkspaceSummaryHelpers, "JooParkVerifyWorkspaceSummary", { fetch: window.fetch.bind(window) }); }
 
 function verifyWorkspaceSummaryCall(name, ...args) {
-  return callModuleHelper(verifyWorkspaceSummaryHelpers, "verify workspace summary", name, args, "verify workspace summary helper unavailable");
+  return callModuleHelper(getVerifyWorkspaceSummaryHelpers(), "verify workspace summary", name, args, "verify workspace summary helper unavailable");
 }
 
 function initialVerifyWorkspaceSummaryState() {
-  return verifyWorkspaceSummaryHelpers
+  return getVerifyWorkspaceSummaryHelpers()
     ? verifyWorkspaceSummaryCall("initialState")
     : { checked: false, loaded: false, source: "autoresearch-results/verify-workspace-summary.json", data: null, error: "verify workspace summary helper unavailable" };
 }
@@ -517,29 +523,31 @@ function shortCommit(value) {
   return /^[0-9a-f]{7,40}$/i.test(commit) ? commit.slice(0, 8) : "";
 }
 
-function daysSinceIso(iso) {
-  const time = Date.parse(iso || "");
-  if (Number.isNaN(time)) return 365;
-  return Math.max(0, Math.round((Date.now() - time) / (24 * 60 * 60 * 1000)));
+function parseDateTime(value) {
+  return Date.parse(value || "");
 }
 
-function candidatePriorityLabel(score) {
-  if (score >= 70) return "높음";
-  if (score >= 45) return "중간";
-  return "관찰";
+function isParseableDateTime(value) {
+  return !!value && !Number.isNaN(parseDateTime(value));
+}
+
+function sortedStrings(values) {
+  return [...(values || [])].sort();
 }
 
 function projectCandidatePriority(p) {
   if (!p || p.sourceKind !== "adoption-candidate") return null;
   const stageScore = { adopt: 24, review: 14, watch: 6 }[p.adoptionStage] || 8;
-  const recentDays = daysSinceIso(p.pushedAt);
+  const pushedAt = parseDateTime(p.pushedAt);
+  const recentDays = Number.isNaN(pushedAt) ? 365 : Math.max(0, Math.round((Date.now() - pushedAt) / (24 * 60 * 60 * 1000)));
   const activityScore = Math.max(0, 24 - Math.min(recentDays, 180) / 180 * 24);
   const popularityScore = Math.min(28, Math.log10(numericMetric(p.stars) + 1) * 7);
   const forkScore = Math.min(10, Math.log10(numericMetric(p.forks) + 1) * 4);
   const healthScore = p.health === "green" ? 8 : p.health === "amber" ? 4 : 0;
   const riskPenalty = Math.min(14, numericMetric(p.risks) * 3 + Math.log10(numericMetric(p.openIssues) + 1));
   const score = Math.round(Math.max(0, Math.min(100, stageScore + activityScore + popularityScore + forkScore + healthScore - riskPenalty)));
-  return { score, label: candidatePriorityLabel(score) };
+  const label = score >= 70 ? "높음" : score >= 45 ? "중간" : "관찰";
+  return { score, label };
 }
 
 function projectCandidateAction(p) {
@@ -563,8 +571,11 @@ function projectCandidateAction(p) {
   return { key: "feature", label: "기능 검토", reason: "적합성 확인", tone: "blue" };
 }
 
-function projectBenchmarkFocus(p) {
-  const focus = p && typeof p.benchmarkFocus === "object" ? p.benchmarkFocus : null;
+function projectBenchmarkData(p, key) {
+  return p && typeof p[key] === "object" ? p[key] : null;
+}
+
+function normalizedBenchmarkFocus(focus) {
   if (!focus) return null;
   const surface = String(focus.surface || "").trim();
   const flow = String(focus.flow || "").trim();
@@ -573,72 +584,59 @@ function projectBenchmarkFocus(p) {
     : [];
   if (!surface || !flow || signals.length === 0) return null;
   return { surface, flow, signals };
+}
+
+function clampNumber(value, min, max = Number.POSITIVE_INFINITY, fallback = 0) {
+  const parsed = Number(value);
+  const safeParsed = Number.isNaN(parsed) ? fallback : parsed;
+  return Math.min(max, Math.max(min, safeParsed));
+}
+
+function finiteNumberOr(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function positiveFiniteNumberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizedBenchmarkRubric(focus) {
+  const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
+  return rubric
+    .map((row) => ({
+      axis: String(row && row.axis || "").trim(),
+      value: String(row && row.value || "").trim(),
+      weight: clampNumber(row && row.weight, 0, 1),
+      score: clampNumber(row && row.score, 0, 100),
+    }))
+    .filter((row) => row.axis && row.value)
+    .slice(0, 6);
+}
+
+function projectBenchmarkFocus(p) {
+  return normalizedBenchmarkFocus(projectBenchmarkData(p, "benchmarkFocus"));
 }
 
 function projectBenchmarkRubric(p) {
-  const focus = p && typeof p.benchmarkFocus === "object" ? p.benchmarkFocus : null;
-  const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
-  return rubric
-    .map((row) => ({
-      axis: String(row && row.axis || "").trim(),
-      value: String(row && row.value || "").trim(),
-      weight: Math.max(0, Math.min(1, Number(row && row.weight) || 0)),
-      score: Math.max(0, Math.min(100, Number(row && row.score) || 0)),
-    }))
-    .filter((row) => row.axis && row.value)
-    .slice(0, 6);
+  return normalizedBenchmarkRubric(projectBenchmarkData(p, "benchmarkFocus"));
 }
 
 function projectKnowledgeBaseBenchmark(p) {
-  const focus = p && typeof p.knowledgeBaseBenchmark === "object" ? p.knowledgeBaseBenchmark : null;
-  if (!focus) return null;
-  const surface = String(focus.surface || "").trim();
-  const flow = String(focus.flow || "").trim();
-  const signals = Array.isArray(focus.signals)
-    ? focus.signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 4)
-    : [];
-  if (!surface || !flow || signals.length === 0) return null;
-  return { surface, flow, signals };
+  return normalizedBenchmarkFocus(projectBenchmarkData(p, "knowledgeBaseBenchmark"));
 }
 
 function projectKnowledgeBaseRubric(p) {
-  const focus = p && typeof p.knowledgeBaseBenchmark === "object" ? p.knowledgeBaseBenchmark : null;
-  const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
-  return rubric
-    .map((row) => ({
-      axis: String(row && row.axis || "").trim(),
-      value: String(row && row.value || "").trim(),
-      weight: Math.max(0, Math.min(1, Number(row && row.weight) || 0)),
-      score: Math.max(0, Math.min(100, Number(row && row.score) || 0)),
-    }))
-    .filter((row) => row.axis && row.value)
-    .slice(0, 6);
+  return normalizedBenchmarkRubric(projectBenchmarkData(p, "knowledgeBaseBenchmark"));
 }
 
 function projectWorkspaceBenchmark(p) {
-  const focus = p && typeof p.workspaceBenchmark === "object" ? p.workspaceBenchmark : null;
-  if (!focus) return null;
-  const surface = String(focus.surface || "").trim();
-  const flow = String(focus.flow || "").trim();
-  const signals = Array.isArray(focus.signals)
-    ? focus.signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 4)
-    : [];
-  if (!surface || !flow || signals.length === 0) return null;
-  return { surface, flow, signals };
+  return normalizedBenchmarkFocus(projectBenchmarkData(p, "workspaceBenchmark"));
 }
 
 function projectWorkspaceRubric(p) {
-  const focus = p && typeof p.workspaceBenchmark === "object" ? p.workspaceBenchmark : null;
-  const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
-  return rubric
-    .map((row) => ({
-      axis: String(row && row.axis || "").trim(),
-      value: String(row && row.value || "").trim(),
-      weight: Math.max(0, Math.min(1, Number(row && row.weight) || 0)),
-      score: Math.max(0, Math.min(100, Number(row && row.score) || 0)),
-    }))
-    .filter((row) => row.axis && row.value)
-    .slice(0, 6);
+  return normalizedBenchmarkRubric(projectBenchmarkData(p, "workspaceBenchmark"));
 }
 
 function weightedRubricScore(rubric) {
@@ -648,6 +646,15 @@ function weightedRubricScore(rubric) {
   const score = Math.round(scored.reduce((sum, row) => sum + row.score * row.weight, 0) / totalWeight);
   const label = score >= 86 ? "강한 추천" : score >= 80 ? "추천" : score >= 72 ? "조건부" : "보류";
   return { score, label };
+}
+
+function topWeightedRubricAxis(rubric) {
+  return (Array.isArray(rubric) ? rubric : [])
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .reduce((top, row) => {
+      if (!top) return row;
+      return row.score * row.weight > top.score * top.weight ? row : top;
+    }, null);
 }
 
 function projectBenchmarkRubricScore(p) {
@@ -685,43 +692,46 @@ function projectPromptHandoffButton(project, variant = "card") {
   return html`<button type="button" class="${cls}" data-action="show-project-prompt-handoff" data-project-id="${project.id}" data-prompt-handoff-target="${target.kind}" data-prompt-handoff-surface="${target.label}">↪ prompt handoff 보기</button>`;
 }
 
-function candidateBenchmarkRubricRanking(projects) {
+function rankProjectsByRubric(projects, scoreProject) {
   return (Array.isArray(projects) ? projects : [])
-    .map((project) => ({ project, rubricScore: projectBenchmarkRubricScore(project) }))
+    .map((project) => ({ project, rubricScore: scoreProject(project) }))
     .filter((item) => item.rubricScore)
     .sort((a, b) => b.rubricScore.score - a.rubricScore.score || String(a.project.name || "").localeCompare(String(b.project.name || "")));
+}
+
+function adoptionCandidateRubricProjects(projects, rubricProject) {
+  return (Array.isArray(projects) ? projects : [])
+    .filter((project) => project.sourceKind === "adoption-candidate" && rubricProject(project).length > 0);
+}
+
+function rankedAdoptionCandidateRubricProjects(projects, rubricProject, rankProjects, limit) {
+  return rankProjects(adoptionCandidateRubricProjects(projects, rubricProject))
+    .map((item) => item.project)
+    .slice(0, limit);
 }
 
 function knowledgeBaseBenchmarkRubricRanking(projects) {
-  return (Array.isArray(projects) ? projects : [])
-    .map((project) => ({ project, rubricScore: projectKnowledgeBaseRubricScore(project) }))
-    .filter((item) => item.rubricScore)
-    .sort((a, b) => b.rubricScore.score - a.rubricScore.score || String(a.project.name || "").localeCompare(String(b.project.name || "")));
+  return rankProjectsByRubric(projects, projectKnowledgeBaseRubricScore);
 }
 
 function workspaceBenchmarkRubricRanking(projects) {
-  return (Array.isArray(projects) ? projects : [])
-    .map((project) => ({ project, rubricScore: projectWorkspaceRubricScore(project) }))
-    .filter((item) => item.rubricScore)
-    .sort((a, b) => b.rubricScore.score - a.rubricScore.score || String(a.project.name || "").localeCompare(String(b.project.name || "")));
+  return rankProjectsByRubric(projects, projectWorkspaceRubricScore);
 }
 
-const reviewRecommendationExportHelpers = window.JooParkReviewRecommendationExport && typeof window.JooParkReviewRecommendationExport.create === "function"
-  ? window.JooParkReviewRecommendationExport.create({
-      html,
-      raw,
-      projectBenchmarkRubric,
-      projectKnowledgeBaseRubric,
-      projectWorkspaceRubric,
-    })
-  : null;
+let reviewRecommendationExportHelpers = null;
+function getReviewRecommendationExportHelpers() { return reviewRecommendationExportHelpers = createLazyRuntimeHelpers(reviewRecommendationExportHelpers, "JooParkReviewRecommendationExport", { html, raw, projectBenchmarkRubric, projectKnowledgeBaseRubric, projectWorkspaceRubric }); }
 
 function reviewRecommendationExportCall(name, ...args) {
-  return callModuleHelper(reviewRecommendationExportHelpers, "review recommendation export", name, args, "Review recommendation export helper missing");
+  return callModuleHelper(getReviewRecommendationExportHelpers(), "review recommendation export", name, args, "Review recommendation export helper missing");
 }
 
 function candidateBenchmarkRecommendationMarkdown(scored) {
   return reviewRecommendationExportCall("candidateBenchmarkRecommendationMarkdown", scored);
+}
+
+function projectCandidateSeedScope(p) {
+  if (!p || p.sourceKind !== "adoption-candidate") return "";
+  return String(p.seedScope || p.sourceScope || "demo-local-snapshot").trim() || "demo-local-snapshot";
 }
 
 function projectAdoptionMeta(p) {
@@ -734,8 +744,10 @@ function projectAdoptionMeta(p) {
   const knowledgeBenchmark = projectKnowledgeBaseBenchmark(p);
   const commit = shortCommit(p.lastCommit);
   const commitTitle = p.pushedAt ? `갱신 ${formatLocalDateTime(p.pushedAt)}` : "최신 커밋";
+  const seedScope = projectCandidateSeedScope(p);
   return html`
     <div class="portfolio-candidate-meta" data-candidate-meta>
+      <span data-candidate-seed-scope="${seedScope}" title="로컬 데모 스냅샷이며 라이브 DB 동기화가 아닙니다"><b>Seed</b> demo snapshot</span>
       ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" data-candidate-action-key="${action.key}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
       ${benchmark ? raw(html`<span class="portfolio-benchmark" data-candidate-benchmark="${benchmark.surface}" data-benchmark-flow="${benchmark.flow}" title="${benchmark.signals.join(" · ")}"><b>벤치</b> ${benchmark.surface}<small>${benchmark.flow}</small></span>`) : ""}
       ${knowledgeBenchmark ? raw(html`<span class="portfolio-benchmark" data-knowledge-base-benchmark="${knowledgeBenchmark.surface}" data-knowledge-base-flow="${knowledgeBenchmark.flow}" title="${knowledgeBenchmark.signals.join(" · ")}"><b>KB</b> ${knowledgeBenchmark.surface}<small>${knowledgeBenchmark.flow}</small></span>`) : ""}
@@ -798,6 +810,7 @@ const state = {
   previousFocus: null,
   modalOnConfirm: null,
   reviewArtifactRepairUndo: null,
+  dashboardAutoresearchActive: false,
   kanbanFilter: null, // priority filter or null
   kanbanSourceFilter: "all",
   homeExecutionBucketFilter: "all",
@@ -905,6 +918,13 @@ const state = {
     data: null,
     error: "",
   },
+  githubProjectDiscovery: {
+    checked: false,
+    loaded: false,
+    source: "data/github-project-discovery.json",
+    data: null,
+    error: "",
+  },
   projectSnapshotHealth: {
     checked: false,
     loaded: false,
@@ -920,283 +940,15 @@ const state = {
 
 /* ---------- Static demo data ---------- */
 
-const dashboard = {
-  currentView: "home",
-  currentProjectId: "proj-radar",
-  currentInstanceId: "db-prod-1",
-  deletedItems: [],
+const dashboardSeedHelpers = window.JooParkWorkspaceSeedData && window.JooParkWorkspaceSeedData.version === "joopark-workspace-seed-data/v1" && typeof window.JooParkWorkspaceSeedData.create === "function"
+  ? window.JooParkWorkspaceSeedData
+  : null;
 
-  projects: [
-    { id: "proj-radar", name: "OSS Radar v2", owner: "운영팀", progress: 72, status: "on-track", health: "green",
-      deadline: "2026-07-10", burn: [10, 20, 30, 42, 55, 65, 72], risks: 1, openIssues: 14, members: ["jp", "sk", "mh"] },
-    { id: "proj-data", name: "데이터 허브", owner: "데이터팀", progress: 48, status: "at-risk", health: "amber",
-      deadline: "2026-06-20", burn: [5, 12, 22, 30, 38, 44, 48], risks: 3, openIssues: 22, members: ["sk", "yj"] },
-    { id: "proj-docs", name: "Docs 파이프라인", owner: "문서팀", progress: 91, status: "on-track", health: "green",
-      deadline: "2026-06-05", burn: [22, 40, 58, 70, 80, 87, 91], risks: 0, openIssues: 4, members: ["mh", "yj"] },
-    { id: "proj-policy", name: "정책 허브", owner: "법무팀", progress: 34, status: "delayed", health: "red",
-      deadline: "2026-06-12", burn: [4, 9, 15, 22, 27, 31, 34], risks: 4, openIssues: 9, members: ["jp", "yj"] },
-    { id: "proj-mobile", name: "모바일 알림", owner: "프론트팀", progress: 58, status: "on-track", health: "green",
-      deadline: "2026-07-25", burn: [8, 18, 28, 38, 46, 52, 58], risks: 1, openIssues: 11, members: ["sk", "mh", "hr"] },
-    { id: "proj-billing", name: "결제 정산", owner: "결제팀", progress: 25, status: "at-risk", health: "amber",
-      deadline: "2026-08-01", burn: [3, 6, 11, 15, 18, 22, 25], risks: 2, openIssues: 17, members: ["hr", "yj"] },
-  ],
+if (!dashboardSeedHelpers) {
+  throw new Error("workspace seed data helper unavailable");
+}
 
-  issues: [
-    { id: "PM-101", project: "proj-radar", title: "라이선스 보고서 자동화", status: "todo", priority: "high", assignee: "jp", labels: ["backend", "docs"], due: "2026-06-05", estimate: 5 },
-    { id: "PM-102", project: "proj-radar", title: "PR 리뷰 자동 라우팅", status: "in-progress", priority: "med", assignee: "sk", labels: ["bot"], due: "2026-06-08", estimate: 8 },
-    { id: "PM-103", project: "proj-radar", title: "라이선스 충돌 알림 채널", status: "review", priority: "high", assignee: "mh", labels: ["ops"], due: "2026-06-02", estimate: 3 },
-    { id: "PM-104", project: "proj-radar", title: "주간 리포트 PDF 출력", status: "done", priority: "low", assignee: "jp", labels: ["docs"], due: "2026-05-25", estimate: 2 },
-    { id: "PM-105", project: "proj-radar", title: "OSS 카탈로그 검색 캐시", status: "todo", priority: "med", assignee: "sk", labels: ["backend", "perf"], due: "2026-06-18", estimate: 5 },
-    { id: "PM-106", project: "proj-radar", title: "운영자 권한 분리", status: "in-progress", priority: "crit", assignee: "jp", labels: ["security"], due: "2026-06-01", estimate: 4 },
-
-    { id: "PM-201", project: "proj-data", title: "민감값 마스킹 룰", status: "review", priority: "crit", assignee: "yj", labels: ["security"], due: "2026-06-03", estimate: 3 },
-    { id: "PM-202", project: "proj-data", title: "데이터 카탈로그 정합성", status: "in-progress", priority: "high", assignee: "yj", labels: ["data"], due: "2026-06-10", estimate: 6 },
-    { id: "PM-203", project: "proj-data", title: "스키마 변경 감지", status: "todo", priority: "med", assignee: "sk", labels: ["backend"], due: "2026-06-15", estimate: 5 },
-    { id: "PM-204", project: "proj-data", title: "샘플 데이터 자동 생성", status: "todo", priority: "low", assignee: "sk", labels: ["dev"], due: "2026-06-22", estimate: 2 },
-    { id: "PM-205", project: "proj-data", title: "Airflow DAG 점검", status: "done", priority: "med", assignee: "yj", labels: ["data"], due: "2026-05-20", estimate: 4 },
-
-    { id: "PM-301", project: "proj-docs", title: "한/영 번역 동기화", status: "in-progress", priority: "med", assignee: "mh", labels: ["docs", "i18n"], due: "2026-06-04", estimate: 5 },
-    { id: "PM-302", project: "proj-docs", title: "API 레퍼런스 자동화", status: "done", priority: "high", assignee: "yj", labels: ["docs"], due: "2026-05-22", estimate: 4 },
-    { id: "PM-303", project: "proj-docs", title: "튜토리얼 영상 캡션", status: "review", priority: "low", assignee: "mh", labels: ["docs", "media"], due: "2026-06-01", estimate: 2 },
-
-    { id: "PM-401", project: "proj-policy", title: "GDPR 갭 분석 v2", status: "todo", priority: "crit", assignee: "jp", labels: ["compliance"], due: "2026-06-09", estimate: 7 },
-    { id: "PM-402", project: "proj-policy", title: "동의서 템플릿 표준화", status: "in-progress", priority: "high", assignee: "yj", labels: ["legal"], due: "2026-06-12", estimate: 5 },
-    { id: "PM-403", project: "proj-policy", title: "정책 변경 로그", status: "todo", priority: "med", assignee: "jp", labels: ["compliance"], due: "2026-06-20", estimate: 3 },
-
-    { id: "PM-501", project: "proj-mobile", title: "푸시 채널 분리", status: "in-progress", priority: "high", assignee: "sk", labels: ["mobile"], due: "2026-06-15", estimate: 5 },
-    { id: "PM-502", project: "proj-mobile", title: "다크 모드 토큰", status: "review", priority: "low", assignee: "mh", labels: ["ui"], due: "2026-06-08", estimate: 2 },
-    { id: "PM-503", project: "proj-mobile", title: "에러 추적 SDK 통합", status: "todo", priority: "med", assignee: "hr", labels: ["mobile", "ops"], due: "2026-06-25", estimate: 4 },
-    { id: "PM-504", project: "proj-mobile", title: "알림 클릭 트래킹", status: "todo", priority: "med", assignee: "sk", labels: ["mobile"], due: "2026-07-01", estimate: 3 },
-    { id: "PM-505", project: "proj-mobile", title: "iOS 16 호환성", status: "done", priority: "high", assignee: "hr", labels: ["mobile"], due: "2026-05-28", estimate: 4 },
-
-    { id: "PM-601", project: "proj-billing", title: "환불 트랜잭션 격리", status: "review", priority: "crit", assignee: "hr", labels: ["billing"], due: "2026-06-06", estimate: 5 },
-    { id: "PM-602", project: "proj-billing", title: "월간 정산 리포트", status: "in-progress", priority: "high", assignee: "yj", labels: ["data"], due: "2026-06-30", estimate: 8 },
-    { id: "PM-603", project: "proj-billing", title: "세금 코드 매핑", status: "todo", priority: "high", assignee: "hr", labels: ["billing", "compliance"], due: "2026-07-05", estimate: 6 },
-    { id: "PM-604", project: "proj-billing", title: "결제 실패 재시도", status: "todo", priority: "med", assignee: "hr", labels: ["billing"], due: "2026-07-10", estimate: 3 },
-    { id: "PM-605", project: "proj-billing", title: "PG 사 라우팅 룰", status: "todo", priority: "low", assignee: "yj", labels: ["billing"], due: "2026-07-15", estimate: 2 },
-  ],
-
-  gantt: {
-    rangeStart: "2026-05-01",
-    rangeEnd: "2026-08-01",
-    tasks: [
-      { id: "T1",  project: "proj-radar",   name: "요구 정리",         start: "2026-05-01", end: "2026-05-14", owner: "jp", deps: [],          milestone: false, color: "blue" },
-      { id: "T2",  project: "proj-radar",   name: "스키마 설계",       start: "2026-05-10", end: "2026-05-28", owner: "sk", deps: ["T1"],      milestone: false, color: "blue" },
-      { id: "T3",  project: "proj-radar",   name: "API 구현",          start: "2026-05-28", end: "2026-06-20", owner: "sk", deps: ["T2"],      milestone: false, color: "blue" },
-      { id: "M1",  project: "proj-radar",   name: "베타 마일스톤",     start: "2026-06-20", end: "2026-06-20", owner: "jp", deps: ["T3"],      milestone: true,  color: "blue" },
-      { id: "T4",  project: "proj-radar",   name: "QA & 문서",         start: "2026-06-20", end: "2026-07-10", owner: "mh", deps: ["M1"],      milestone: false, color: "blue" },
-
-      { id: "T5",  project: "proj-data",    name: "파이프라인 설계",   start: "2026-05-05", end: "2026-05-22", owner: "yj", deps: [],          milestone: false, color: "cyan" },
-      { id: "T6",  project: "proj-data",    name: "마스킹 룰 구현",    start: "2026-05-22", end: "2026-06-10", owner: "yj", deps: ["T5"],      milestone: false, color: "cyan" },
-      { id: "M2",  project: "proj-data",    name: "데이터 GA",         start: "2026-06-20", end: "2026-06-20", owner: "yj", deps: ["T6"],      milestone: true,  color: "cyan" },
-
-      { id: "T7",  project: "proj-docs",    name: "번역 동기화",       start: "2026-05-12", end: "2026-06-04", owner: "mh", deps: [],          milestone: false, color: "violet" },
-      { id: "T8",  project: "proj-docs",    name: "API 레퍼런스",      start: "2026-05-01", end: "2026-05-22", owner: "yj", deps: [],          milestone: false, color: "violet" },
-
-      { id: "T9",  project: "proj-policy",  name: "GDPR 갭 분석",      start: "2026-05-20", end: "2026-06-09", owner: "jp", deps: [],          milestone: false, color: "amber" },
-      { id: "T10", project: "proj-policy",  name: "동의서 표준화",     start: "2026-05-25", end: "2026-06-12", owner: "yj", deps: [],          milestone: false, color: "amber" },
-      { id: "M3",  project: "proj-policy",  name: "정책 v3 공개",      start: "2026-06-25", end: "2026-06-25", owner: "jp", deps: ["T10"],     milestone: true,  color: "amber" },
-
-      { id: "T11", project: "proj-mobile",  name: "푸시 채널 분리",    start: "2026-05-15", end: "2026-06-15", owner: "sk", deps: [],          milestone: false, color: "green" },
-      { id: "T12", project: "proj-mobile",  name: "다크 모드 토큰",    start: "2026-05-28", end: "2026-06-08", owner: "mh", deps: [],          milestone: false, color: "green" },
-      { id: "T13", project: "proj-mobile",  name: "SDK 통합",          start: "2026-06-15", end: "2026-07-01", owner: "hr", deps: ["T11"],     milestone: false, color: "green" },
-
-      { id: "T14", project: "proj-billing", name: "환불 격리",         start: "2026-05-18", end: "2026-06-06", owner: "hr", deps: [],          milestone: false, color: "red" },
-      { id: "T15", project: "proj-billing", name: "정산 리포트",       start: "2026-06-06", end: "2026-06-30", owner: "yj", deps: ["T14"],     milestone: false, color: "red" },
-      { id: "T16", project: "proj-billing", name: "세금 매핑",         start: "2026-06-15", end: "2026-07-05", owner: "hr", deps: [],          milestone: false, color: "red" },
-      { id: "T17", project: "proj-billing", name: "재시도 로직",       start: "2026-07-05", end: "2026-07-20", owner: "hr", deps: ["T16"],     milestone: false, color: "red" },
-    ],
-  },
-
-  team: [
-    { id: "jp", name: "박주호", role: "PM",       load: 78, projects: ["proj-radar", "proj-policy"], onLeave: false },
-    { id: "sk", name: "서기태", role: "Backend",  load: 92, projects: ["proj-radar", "proj-data", "proj-mobile"], onLeave: false },
-    { id: "mh", name: "문하늘", role: "Design",   load: 35, projects: ["proj-radar", "proj-docs", "proj-mobile"], onLeave: false },
-    { id: "yj", name: "윤재민", role: "Data",     load: 84, projects: ["proj-data", "proj-docs", "proj-policy", "proj-billing"], onLeave: false },
-    { id: "hr", name: "한혜린", role: "Mobile",   load: 71, projects: ["proj-mobile", "proj-billing"], onLeave: false },
-    { id: "do", name: "도민재", role: "Frontend", load: 0,  projects: [],                              onLeave: true  },
-    { id: "ks", name: "강서윤", role: "QA",       load: 48, projects: ["proj-radar", "proj-mobile"], onLeave: false },
-    { id: "nm", name: "남명진", role: "DevOps",   load: 62, projects: ["proj-radar", "proj-data", "proj-billing"], onLeave: false },
-  ],
-
-  dbInstances: [
-    { id: "db-prod-1",  name: "prod-postgres-01",  engine: "PostgreSQL 15.3", region: "ap-northeast-2", cpu: 42, mem: 68, conn: 184, connMax: 300,  health: "green", latencyMs: 12, series: [20, 22, 28, 34, 30, 38, 42] },
-    { id: "db-prod-2",  name: "prod-redis-01",     engine: "Redis 7.2.4",     region: "ap-northeast-2", cpu: 18, mem: 35, conn: 512, connMax: 2000, health: "green", latencyMs: 1,  series: [12, 14, 15, 15, 17, 18, 18] },
-    { id: "db-stage-1", name: "stage-postgres-01", engine: "PostgreSQL 15.3", region: "ap-northeast-2", cpu: 88, mem: 74, conn: 240, connMax: 300,  health: "amber", latencyMs: 38, series: [60, 72, 80, 84, 85, 86, 88] },
-    { id: "db-dev-1",   name: "dev-postgres-01",   engine: "PostgreSQL 14.9", region: "ap-northeast-2", cpu: 9,  mem: 21, conn: 8,   connMax: 100,  health: "green", latencyMs: 4,  series: [6, 7, 7, 8, 8, 9, 9] },
-  ],
-
-  schemas: [
-    { id: "db-prod-1", databases: [
-      { name: "radar", tables: [
-        { id: "t-radar-users",    name: "users",          rows: 18342, sizeMb: 62,
-          columns: [
-            { name: "id",         type: "bigint",       pk: true,  nullable: false },
-            { name: "email",      type: "text",         nullable: false, idx: ["uniq_email"] },
-            { name: "name",       type: "text",         nullable: true },
-            { name: "role",       type: "text",         nullable: false },
-            { name: "created_at", type: "timestamptz",  nullable: false },
-          ],
-          indexes: [{ name: "uniq_email", cols: ["email"], unique: true }],
-          fks: [] },
-        { id: "t-radar-repos",    name: "repositories",   rows: 4012, sizeMb: 18,
-          columns: [
-            { name: "id",         type: "bigint", pk: true },
-            { name: "owner_id",   type: "bigint", fk: "users.id", nullable: false },
-            { name: "name",       type: "text",   nullable: false },
-            { name: "license",    type: "text",   nullable: true },
-            { name: "created_at", type: "timestamptz", nullable: false },
-          ],
-          indexes: [{ name: "idx_owner", cols: ["owner_id"] }],
-          fks: [{ col: "owner_id", refs: "users.id" }] },
-        { id: "t-radar-issues",   name: "issues",         rows: 22018, sizeMb: 41,
-          columns: [
-            { name: "id",       type: "bigint", pk: true },
-            { name: "repo_id",  type: "bigint", fk: "repositories.id", nullable: false },
-            { name: "title",    type: "text",   nullable: false },
-            { name: "status",   type: "text",   nullable: false },
-            { name: "priority", type: "text",   nullable: false },
-            { name: "due_at",   type: "timestamptz", nullable: true },
-          ],
-          indexes: [{ name: "idx_repo_status", cols: ["repo_id", "status"] }],
-          fks: [{ col: "repo_id", refs: "repositories.id" }] },
-        { id: "t-radar-licenses", name: "licenses",       rows: 312, sizeMb: 1,
-          columns: [
-            { name: "spdx_id", type: "text", pk: true },
-            { name: "name",   type: "text", nullable: false },
-            { name: "kind",   type: "text", nullable: false },
-          ],
-          indexes: [],
-          fks: [] },
-        { id: "t-radar-audit", name: "audit_log",         rows: 184012, sizeMb: 412,
-          columns: [
-            { name: "id",        type: "bigserial", pk: true },
-            { name: "actor_id",  type: "bigint",    fk: "users.id" },
-            { name: "action",    type: "text" },
-            { name: "object",    type: "text" },
-            { name: "at",        type: "timestamptz", nullable: false },
-          ],
-          indexes: [{ name: "idx_audit_at", cols: ["at"] }],
-          fks: [{ col: "actor_id", refs: "users.id" }] },
-      ] },
-      { name: "billing", tables: [
-        { id: "t-bill-orders",   name: "orders",          rows: 92341, sizeMb: 184,
-          columns: [
-            { name: "id",        type: "bigint", pk: true },
-            { name: "user_id",   type: "bigint", fk: "radar.users.id" },
-            { name: "amount",    type: "numeric(12,2)" },
-            { name: "currency",  type: "char(3)" },
-            { name: "status",    type: "text" },
-            { name: "created_at",type: "timestamptz" },
-          ],
-          indexes: [{ name: "idx_user", cols: ["user_id"] }, { name: "idx_status", cols: ["status"] }],
-          fks: [{ col: "user_id", refs: "radar.users.id" }] },
-        { id: "t-bill-refunds",  name: "refunds",         rows: 1240, sizeMb: 8,
-          columns: [
-            { name: "id",        type: "bigint", pk: true },
-            { name: "order_id",  type: "bigint", fk: "orders.id" },
-            { name: "reason",    type: "text" },
-            { name: "amount",    type: "numeric(12,2)" },
-            { name: "created_at",type: "timestamptz" },
-          ],
-          indexes: [{ name: "idx_order", cols: ["order_id"] }],
-          fks: [{ col: "order_id", refs: "orders.id" }] },
-        { id: "t-bill-tax",      name: "tax_rates",       rows: 412, sizeMb: 1,
-          columns: [
-            { name: "code", type: "text", pk: true },
-            { name: "rate", type: "numeric(6,4)" },
-            { name: "region", type: "text" },
-          ],
-          indexes: [],
-          fks: [] },
-      ] },
-    ] },
-    { id: "db-prod-2", databases: [
-      { name: "cache", tables: [
-        { id: "t-cache-sess",   name: "sessions:*",        rows: 12842, sizeMb: 22, columns: [{ name: "key", type: "string" }, { name: "ttl", type: "seconds" }, { name: "value", type: "json" }], indexes: [], fks: [] },
-        { id: "t-cache-queue",  name: "queue:notifications", rows: 1240, sizeMb: 3, columns: [{ name: "id", type: "stream" }, { name: "payload", type: "json" }], indexes: [], fks: [] },
-        { id: "t-cache-rate",   name: "rate:user:*",       rows: 4920, sizeMb: 5, columns: [{ name: "key", type: "string" }, { name: "count", type: "int" }], indexes: [], fks: [] },
-      ] },
-    ] },
-    { id: "db-stage-1", databases: [
-      { name: "radar_stage", tables: [
-        { id: "t-stage-users",  name: "users",         rows: 184, sizeMb: 1,  columns: [{ name: "id", type: "bigint", pk: true }, { name: "email", type: "text" }, { name: "name", type: "text" }], indexes: [], fks: [] },
-        { id: "t-stage-repos",  name: "repositories",  rows: 42, sizeMb: 1,   columns: [{ name: "id", type: "bigint", pk: true }, { name: "owner_id", type: "bigint" }, { name: "name", type: "text" }], indexes: [], fks: [] },
-        { id: "t-stage-issues", name: "issues",        rows: 220, sizeMb: 1,  columns: [{ name: "id", type: "bigint", pk: true }, { name: "repo_id", type: "bigint" }, { name: "status", type: "text" }], indexes: [], fks: [] },
-        { id: "t-stage-flags",  name: "feature_flags", rows: 28, sizeMb: 1,   columns: [{ name: "key", type: "text", pk: true }, { name: "enabled", type: "bool" }], indexes: [], fks: [] },
-      ] },
-    ] },
-    { id: "db-dev-1", databases: [
-      { name: "scratch", tables: [
-        { id: "t-dev-test", name: "test_runs", rows: 18, sizeMb: 1, columns: [{ name: "id", type: "bigint", pk: true }, { name: "ran_at", type: "timestamptz" }], indexes: [], fks: [] },
-      ] },
-    ] },
-  ],
-
-  queries: [
-    { id: "Q1",  instance: "db-prod-1",  db: "radar",   text: "SELECT r.*, u.email FROM repositories r JOIN users u ON u.id = r.owner_id WHERE r.license IS NULL", avgMs: 1280, p95Ms: 2100, count: 42,  lastRun: "2026-05-29 09:14", planHint: "seq scan on repositories" },
-    { id: "Q2",  instance: "db-stage-1", db: "radar",   text: "UPDATE issues SET status = $1 WHERE repo_id = $2 AND due_at < NOW()",                              avgMs: 980,  p95Ms: 1450, count: 118, lastRun: "2026-05-29 09:11", planHint: "missing idx on (repo_id, due_at)" },
-    { id: "Q3",  instance: "db-prod-1",  db: "billing", text: "SELECT o.id, SUM(o.amount) FROM orders o WHERE o.created_at > now() - interval '30 days' GROUP BY o.id", avgMs: 740, p95Ms: 1200, count: 32, lastRun: "2026-05-29 09:09", planHint: "consider materialized view" },
-    { id: "Q4",  instance: "db-prod-1",  db: "radar",   text: "SELECT * FROM audit_log WHERE at > NOW() - interval '1 hour' ORDER BY at DESC LIMIT 200",            avgMs: 612,  p95Ms: 980,  count: 84,  lastRun: "2026-05-29 09:08", planHint: "OK (idx_audit_at)" },
-    { id: "Q5",  instance: "db-prod-1",  db: "radar",   text: "SELECT count(*) FROM issues WHERE status = 'todo' AND priority IN ('high','crit')",                  avgMs: 540,  p95Ms: 820,  count: 240, lastRun: "2026-05-29 09:07", planHint: "consider partial idx" },
-    { id: "Q6",  instance: "db-stage-1", db: "radar",   text: "INSERT INTO issues(...) SELECT ... FROM staging_issues",                                              avgMs: 488,  p95Ms: 720,  count: 6,   lastRun: "2026-05-29 02:00", planHint: "batch insert" },
-    { id: "Q7",  instance: "db-prod-1",  db: "billing", text: "SELECT * FROM orders WHERE status = 'failed' AND created_at > now() - interval '24h'",               avgMs: 420,  p95Ms: 640,  count: 64,  lastRun: "2026-05-29 09:05", planHint: "OK (idx_status)" },
-    { id: "Q8",  instance: "db-prod-1",  db: "radar",   text: "DELETE FROM audit_log WHERE at < now() - interval '90 days'",                                        avgMs: 380,  p95Ms: 580,  count: 1,   lastRun: "2026-05-29 03:00", planHint: "scheduled cleanup" },
-    { id: "Q9",  instance: "db-dev-1",   db: "scratch", text: "SELECT * FROM test_runs ORDER BY ran_at DESC LIMIT 100",                                             avgMs: 320,  p95Ms: 480,  count: 22,  lastRun: "2026-05-29 08:42", planHint: "OK" },
-    { id: "Q10", instance: "db-prod-1",  db: "billing", text: "SELECT r.id FROM refunds r WHERE r.created_at > $1 ORDER BY r.amount DESC",                          avgMs: 270,  p95Ms: 400,  count: 18,  lastRun: "2026-05-29 09:01", planHint: "OK (idx_order)" },
-    { id: "Q11", instance: "db-stage-1", db: "radar",   text: "VACUUM ANALYZE issues",                                                                              avgMs: 240,  p95Ms: 320,  count: 1,   lastRun: "2026-05-29 04:00", planHint: "scheduled maintenance" },
-    { id: "Q12", instance: "db-prod-1",  db: "radar",   text: "SELECT spdx_id FROM licenses WHERE kind = $1",                                                       avgMs: 210,  p95Ms: 300,  count: 920, lastRun: "2026-05-29 09:14", planHint: "lookup" },
-  ],
-
-  queryHistogram: [
-    { bucket: "<10",     count: 1820 },
-    { bucket: "10-50",   count: 940 },
-    { bucket: "50-100",  count: 612 },
-    { bucket: "100-200", count: 412 },
-    { bucket: "200-400", count: 280 },
-    { bucket: "400-600", count: 184 },
-    { bucket: "600-800", count: 120 },
-    { bucket: "0.8-1s",  count: 82  },
-    { bucket: "1-2s",    count: 42  },
-    { bucket: "2-5s",    count: 14  },
-    { bucket: "5-10s",   count: 4   },
-    { bucket: ">10s",    count: 1   },
-  ],
-
-  backups: (function () {
-    const out = [];
-    const instances = ["db-prod-1", "db-prod-2", "db-stage-1", "db-dev-1"];
-    const start = "2026-05-01";
-    for (let d = 0; d < 30; d++) {
-      const date = addDays(start, d);
-      instances.forEach((inst) => {
-        // Deterministic pattern: most ok, some warn, rare fail
-        const key = (d * 7 + inst.length) % 23;
-        let status = "ok";
-        let note = "";
-        if (key === 0) { status = "fail"; note = "디스크 부족"; }
-        else if (key === 3 || key === 14) { status = "warn"; note = "느린 I/O"; }
-        const sizeMb = status === "fail" ? 0 : (inst === "db-prod-1" ? 1800 + (d * 6) : inst === "db-prod-2" ? 420 + d : inst === "db-stage-1" ? 380 + d * 2 : 80 + d);
-        const durationS = status === "fail" ? 0 : (inst === "db-prod-1" ? 42 + (key % 5) * 8 : 8 + (key % 4) * 3);
-        out.push({ date, instance: inst, status, sizeMb, durationS, note });
-      });
-    }
-    return out;
-  })(),
-
-  migrations: [
-    { id: "M-2026-05-12-01", instance: "db-prod-1",  title: "add issues.priority", status: "applied",  appliedAt: "2026-05-12 02:05", rolledBack: false },
-    { id: "M-2026-05-15-01", instance: "db-prod-1",  title: "create index idx_audit_at", status: "applied", appliedAt: "2026-05-15 02:02", rolledBack: false },
-    { id: "M-2026-05-20-01", instance: "db-prod-1",  title: "add billing.refunds.reason", status: "applied", appliedAt: "2026-05-20 02:04", rolledBack: false },
-    { id: "M-2026-05-25-03", instance: "db-stage-1", title: "drop users.legacy_token",  status: "pending",  scheduledAt: "2026-05-30 02:00" },
-    { id: "M-2026-05-28-01", instance: "db-prod-1",  title: "alter audit_log.actor_id nullable",  status: "review",   author: "jp" },
-    { id: "M-2026-05-28-02", instance: "db-stage-1", title: "feature flag table bootstrap", status: "applied", appliedAt: "2026-05-28 02:10", rolledBack: false },
-    { id: "M-2026-05-29-01", instance: "db-prod-1",  title: "create materialized view monthly_orders", status: "pending", scheduledAt: "2026-05-31 02:00" },
-    { id: "M-2026-05-29-02", instance: "db-prod-1",  title: "drop audit_log.legacy",   status: "rolled-back", appliedAt: "2026-05-26 02:00", rolledBack: true, rollbackReason: "타이밍 충돌로 롤백" },
-  ],
-
-  projects_list_for_picker: null, // computed below in setup if needed
-};
+const dashboard = dashboardSeedHelpers.create({ addDays });
 
 /* ---------- Refs ---------- */
 
@@ -1276,7 +1028,7 @@ const globalSearchHelpers = window.JooParkGlobalSearch && typeof window.JooParkG
       state,
       getCurrentView: () => dashboard.currentView,
       renderCurrentView: () => renderCurrentView(),
-      openPalette: () => openPalette(),
+      openPalette: () => commandPaletteCall("open"),
       debounce,
     })
   : null;
@@ -1433,6 +1185,10 @@ function homeEmptyHTML(key, title, description, action, label) {
   `;
 }
 
+function homeListPreviewHTML(items, itemHTML) {
+  return html`<ul class="home-list">${items.map((item) => raw(itemHTML(item)))}</ul>`;
+}
+
 const HOME_EXECUTION_PRIORITY_WEIGHT = { crit: 4, high: 3, med: 2, low: 1 };
 const HOME_EXECUTION_STATUS_WEIGHT = { "in-progress": 3, review: 2, todo: 1 };
 const HOME_EXECUTION_ISSUE_NEXT_STATUS = { todo: "in-progress", "in-progress": "review", review: "done" };
@@ -1473,19 +1229,58 @@ function homeExecutionReasonKey(chips) {
   return (chips || []).map((chip) => chip.key).filter(Boolean).join("|");
 }
 
-function homeExecutionReasonChipsHTML(item) {
-  return homeExecutionViewCall("homeExecutionReasonChipsHTML", item);
+function homeExecutionTypeCounts(items) {
+  const list = items || [];
+  return {
+    todoCount: list.filter((item) => item.type === "todo").length,
+    issueCount: list.filter((item) => item.type === "issue").length,
+  };
+}
+
+function homeExecutionDueStateCounts(items) {
+  const list = items || [];
+  return {
+    overdueCount: list.filter((item) => item.dueState === "overdue").length,
+    todayCount: list.filter((item) => item.dueState === "today").length,
+    upcomingCount: list.filter((item) => item.dueState === "upcoming").length,
+  };
+}
+
+function homeExecutionWindowDriverModel({ dueCount, priorityCount, activeCount }) {
+  const rows = [
+    { key: "due", label: "마감", count: dueCount },
+    { key: "priority", label: "고우선", count: priorityCount },
+    { key: "active", label: "진행", count: activeCount },
+  ];
+  const leadDriverCount = Math.max(0, ...rows.map((driver) => driver.count));
+  const leadDrivers = rows.filter((driver) => driver.count === leadDriverCount && driver.count > 0);
+  return {
+    leadDriverKey: leadDrivers.length ? leadDrivers.map((driver) => driver.key).join("+") : "baseline",
+    leadDriverLabel: leadDrivers.length > 1 ? `공동 ${leadDrivers.map((driver) => driver.label).join("+")}` : leadDrivers[0]?.label || "기본",
+    leadDriverCount,
+    leadDriverTieCount: leadDrivers.length,
+  };
+}
+
+function homeExecutionWindowDriverCounts(items) {
+  const list = items || [];
+  return {
+    windowDuePressureCount: list.filter((item) => item.dueState === "overdue" || item.dueState === "today").length,
+    windowHighPriorityCount: list.filter((item) => item.priority === "crit" || item.priority === "high").length,
+    windowActiveIssueCount: list.filter((item) => item.reasonKey.includes("status:in-progress") || item.reasonKey.includes("status:review")).length,
+  };
 }
 
 function homeExecutionBucketSummary(items) {
   return HOME_EXECUTION_BUCKET_ORDER.map((key) => {
     const bucketItems = (items || []).filter((item) => item.dueState === key);
+    const typeCounts = homeExecutionTypeCounts(bucketItems);
     return {
       key,
       label: HOME_EXECUTION_BUCKET_LABEL[key] || key,
       count: bucketItems.length,
-      todoCount: bucketItems.filter((item) => item.type === "todo").length,
-      issueCount: bucketItems.filter((item) => item.type === "issue").length,
+      todoCount: typeCounts.todoCount,
+      issueCount: typeCounts.issueCount,
       topScore: bucketItems.reduce((max, item) => Math.max(max, item.score || 0), 0),
     };
   }).filter((bucket) => bucket.count > 0);
@@ -1501,8 +1296,14 @@ function normalizeHomeExecutionBucketFilter(value, buckets = []) {
   return allowed.has(value) ? value : "all";
 }
 
-function homeExecutionBucketSummaryHTML(model) {
-  return homeExecutionViewCall("homeExecutionBucketSummaryHTML", model);
+function homeExecutionCandidatesForBucket(candidates, bucketFilter) {
+  return bucketFilter === "all"
+    ? candidates
+    : (candidates || []).filter((item) => item.dueState === bucketFilter);
+}
+
+function compareHomeExecutionQueueItems(a, b) {
+  return b.score - a.score || String(a.due || "").localeCompare(String(b.due || "")) || a.title.localeCompare(b.title);
 }
 
 function homeExecutionQueueModel({ today, weekEnd, openTodos, bucketFilter = "all" }) {
@@ -1585,40 +1386,36 @@ function homeExecutionQueueModel({ today, weekEnd, openTodos, bucketFilter = "al
   const allCandidates = [...todoItems, ...issueItems];
   const focusBuckets = homeExecutionBucketSummary(allCandidates);
   const normalizedBucketFilter = normalizeHomeExecutionBucketFilter(bucketFilter, focusBuckets);
-  const visibleCandidates = normalizedBucketFilter === "all"
-    ? allCandidates
-    : allCandidates.filter((item) => item.dueState === normalizedBucketFilter);
-  const visibleSortedCandidates = visibleCandidates
-    .sort((a, b) => b.score - a.score || String(a.due || "").localeCompare(String(b.due || "")) || a.title.localeCompare(b.title));
+  const visibleCandidates = homeExecutionCandidatesForBucket(allCandidates, normalizedBucketFilter);
+  const visibleSortedCandidates = visibleCandidates.sort(compareHomeExecutionQueueItems);
   const items = visibleSortedCandidates.slice(0, 6);
   [
     { type: "todo", candidates: todoItems },
     { type: "issue", candidates: issueItems },
   ].forEach(({ type, candidates }) => {
-    const bucketCandidates = normalizedBucketFilter === "all"
-      ? candidates
-      : candidates.filter((item) => item.dueState === normalizedBucketFilter);
+    const bucketCandidates = homeExecutionCandidatesForBucket(candidates, normalizedBucketFilter);
     if (!bucketCandidates.length || items.some((item) => item.type === type)) return;
-    const candidate = [...bucketCandidates]
-      .sort((a, b) => b.score - a.score || String(a.due || "").localeCompare(String(b.due || "")) || a.title.localeCompare(b.title))[0];
+    const candidate = [...bucketCandidates].sort(compareHomeExecutionQueueItems)[0];
     if (!candidate) return;
     if (items.length >= 6) items[items.length - 1] = candidate;
     else items.push(candidate);
   });
-  items.sort((a, b) => b.score - a.score || String(a.due || "").localeCompare(String(b.due || "")) || a.title.localeCompare(b.title));
-  const filteredTodoCount = visibleCandidates.filter((item) => item.type === "todo").length;
-  const filteredIssueCount = visibleCandidates.filter((item) => item.type === "issue").length;
+  items.sort(compareHomeExecutionQueueItems);
+  const filteredTypeCounts = homeExecutionTypeCounts(visibleCandidates);
+  const filteredTodoCount = filteredTypeCounts.todoCount;
+  const filteredIssueCount = filteredTypeCounts.issueCount;
   const hiddenCandidateCount = Math.max(visibleCandidates.length - items.length, 0);
-  const windowDuePressureCount = items.filter((item) => item.dueState === "overdue" || item.dueState === "today").length;
-  const windowHighPriorityCount = items.filter((item) => item.priority === "crit" || item.priority === "high").length;
-  const windowActiveIssueCount = items.filter((item) => item.reasonKey.includes("status:in-progress") || item.reasonKey.includes("status:review")).length;
-  const windowDriverRows = [
-    { key: "due", label: "마감", count: windowDuePressureCount },
-    { key: "priority", label: "고우선", count: windowHighPriorityCount },
-    { key: "active", label: "진행", count: windowActiveIssueCount },
-  ];
-  const windowLeadDriverCount = Math.max(0, ...windowDriverRows.map((driver) => driver.count));
-  const windowLeadDrivers = windowDriverRows.filter((driver) => driver.count === windowLeadDriverCount && driver.count > 0);
+  const {
+    windowDuePressureCount,
+    windowHighPriorityCount,
+    windowActiveIssueCount,
+  } = homeExecutionWindowDriverCounts(items);
+  const windowDriver = homeExecutionWindowDriverModel({
+    dueCount: windowDuePressureCount,
+    priorityCount: windowHighPriorityCount,
+    activeCount: windowActiveIssueCount,
+  });
+  const dueStateCounts = homeExecutionDueStateCounts(allCandidates);
 
   return {
     source: "linear_todoist_priority_due_benchmark",
@@ -1630,16 +1427,16 @@ function homeExecutionQueueModel({ today, weekEnd, openTodos, bucketFilter = "al
     windowDuePressureCount,
     windowHighPriorityCount,
     windowActiveIssueCount,
-    windowLeadDriverKey: windowLeadDrivers.length ? windowLeadDrivers.map((driver) => driver.key).join("+") : "baseline",
-    windowLeadDriverLabel: windowLeadDrivers.length > 1 ? `공동 ${windowLeadDrivers.map((driver) => driver.label).join("+")}` : windowLeadDrivers[0]?.label || "기본",
-    windowLeadDriverCount,
-    windowLeadDriverTieCount: windowLeadDrivers.length,
+    windowLeadDriverKey: windowDriver.leadDriverKey,
+    windowLeadDriverLabel: windowDriver.leadDriverLabel,
+    windowLeadDriverCount: windowDriver.leadDriverCount,
+    windowLeadDriverTieCount: windowDriver.leadDriverTieCount,
     totalCandidateCount: todoItems.length + issueItems.length,
     todoCount: todoItems.length,
     issueCount: issueItems.length,
-    overdueCount: allCandidates.filter((item) => item.dueState === "overdue").length,
-    todayCount: allCandidates.filter((item) => item.dueState === "today").length,
-    upcomingCount: allCandidates.filter((item) => item.dueState === "upcoming").length,
+    overdueCount: dueStateCounts.overdueCount,
+    todayCount: dueStateCounts.todayCount,
+    upcomingCount: dueStateCounts.upcomingCount,
     activeBucket: focusBuckets[0]?.key || "",
     bucketFilter: normalizedBucketFilter,
     bucketFilterLabel: HOME_EXECUTION_BUCKET_LABEL[normalizedBucketFilter] || HOME_EXECUTION_BUCKET_LABEL.all,
@@ -1694,449 +1491,13 @@ function advanceHomeExecutionIssue(id, nextStatus) {
   });
 }
 
-function homeCommandTilesHTML({
-  todayEventsHTML,
-  todayTodosHTML,
-  upcomingHTML,
-  totalProjects,
-  portfolioBody,
-  totalIssues,
-  kanbanBody,
-  dashboard,
-  ganttBody,
-  teamBody,
-  unhealthy,
-  instancesBody,
-  schemaTotalTables,
-  schemaBody,
-  slow,
-  queriesBody,
-  pendingMig,
-  backupsBody,
-}) {
-  return html`
-    <section class="home-command">
-      <article class="panel home-today">
-        <div class="panel-head"><div><h2>오늘</h2><a href="#cal" data-action="nav-to" data-view="cal">일정 전체 ›</a></div></div>
-        <div class="agenda-list">${raw(todayEventsHTML)}</div>
-        <p class="home-today-label">오늘 마감 할 일</p>
-        ${raw(todayTodosHTML)}
-      </article>
-      <article class="panel home-upcoming-panel">
-        <div class="panel-head"><div><h2>다가오는 7일</h2><a href="#cal" data-action="nav-to" data-view="cal">달력 ›</a></div></div>
-        ${raw(upcomingHTML)}
-      </article>
-    </section>
-    <p class="home-section-title">팀 · 시스템 관리</p>
-    <section class="home-tiles">
-      ${raw(homeTileHTML("프로젝트 포트폴리오", `${totalProjects}개`,        "pm-portfolio",   portfolioBody))}
-      ${raw(homeTileHTML("Kanban 보드",         `${totalIssues}개 이슈`,    "pm-kanban",      kanbanBody))}
-      ${raw(homeTileHTML("간트 마일스톤",        `${dashboard.gantt.tasks.filter((t) => t.milestone).length}개`, "pm-gantt", ganttBody))}
-      ${raw(homeTileHTML("팀 부하",              `${dashboard.team.length}명`, "pm-team",      teamBody))}
-      ${raw(homeTileHTML("DB 인스턴스",          `${unhealthy}건 주의`,       "dbm-instances",instancesBody))}
-      ${raw(homeTileHTML("스키마",               `${schemaTotalTables} 테이블`,"dbm-schema",   schemaBody))}
-      ${raw(homeTileHTML("질의 성능",            `slow ${slow}건`,            "dbm-queries",  queriesBody))}
-      ${raw(homeTileHTML("백업 / 마이그",         `대기 ${pendingMig}건`,       "dbm-backups",  backupsBody))}
-    </section>
-  `;
-}
 
-function homeFirstRunGuidanceHTML({
-  firstRunSteps,
-  firstRunReadyCount,
-  firstRunActionRequiredCount,
-  firstRunNextStep,
-  firstRunGuidedStartItems,
-  firstRunGuidedStartCoverage,
-}) {
-  const firstRunGuidedStartReady = firstRunGuidedStartCoverage === 1 && firstRunGuidedStartItems.length === 3;
-  return html`
-    <section class="panel home-first-run" data-home-first-run-guidance data-home-first-run-variant="task_strip" data-home-first-run-source="linear_jira_onboarding_benchmark" data-home-first-run-step-count="${firstRunSteps.length}" data-home-first-run-ready-count="${firstRunReadyCount}" data-home-first-run-action-required-count="${firstRunActionRequiredCount}" data-home-first-run-next-key="${firstRunNextStep.key}" data-home-first-run-next-action="${firstRunNextStep.action}" data-home-first-run-next-view="${firstRunNextStep.viewName || ""}" data-home-first-run-guided-start-ready="${firstRunGuidedStartReady ? "true" : "false"}" data-home-first-run-guided-start-coverage="${firstRunGuidedStartCoverage}" data-home-first-run-guided-start-item-count="${firstRunGuidedStartItems.length}">
-      <div class="panel-head">
-        <div>
-          <h2>처음 5분 quick start</h2>
-          <small>오늘 할 일, 실행 프로젝트, 로컬 백업을 한 화면에서 시작</small>
-        </div>
-        <span class="home-first-run-score">${firstRunReadyCount}/${firstRunSteps.length} ready</span>
-      </div>
-      <div class="home-first-run-guided-start" data-home-first-run-guided-start data-home-first-run-guided-start-coverage="${firstRunGuidedStartCoverage}" data-home-first-run-guided-start-item-count="${firstRunGuidedStartItems.length}">
-        ${firstRunGuidedStartItems.map((item) => raw(html`
-          <article class="home-first-run-guided-start-item" data-home-first-run-guided-start-item data-home-first-run-guided-start-key="${item.key}" data-home-first-run-guided-start-status="${item.status}" data-home-first-run-guided-start-action="${item.action}" data-home-first-run-guided-start-metric="${item.metric}">
-            <small>${item.metric}</small>
-            <strong>${item.label}</strong>
-            <p>${item.detail}</p>
-          </article>
-        `))}
-      </div>
-      <ol class="home-first-run-steps">
-        ${firstRunSteps.map((step, index) => raw(html`
-          <li data-home-first-run-step data-home-first-run-step-key="${step.key}" data-home-first-run-step-status="${step.status}" data-home-first-run-step-action="${step.action}" data-home-first-run-step-view="${step.viewName || ""}">
-            <span>${index + 1}</span>
-            <div>
-              <strong>${step.label}</strong>
-              <small>${step.metric}</small>
-              <p>${step.detail}</p>
-            </div>
-            <button type="button" class="small-action" data-action="${step.action}" data-view="${step.viewName || ""}">${step.actionLabel}</button>
-          </li>
-        `))}
-      </ol>
-    </section>
-  `;
-}
 
-function homeProjectFollowThroughHTML({
-  projectFollowThroughSteps,
-  projectFollowThroughReadyCount,
-  projectFollowThroughActionRequiredCount,
-  projectFollowThroughNextStep,
-}) {
-  if (!projectFollowThroughSteps.length) return "";
-  return html`
-    <section class="panel home-project-followthrough" data-home-project-followthrough data-home-project-followthrough-variant="activation_ladder" data-home-project-followthrough-source="linear_project_jira_work_item_benchmark" data-home-project-followthrough-step-count="${projectFollowThroughSteps.length}" data-home-project-followthrough-ready-count="${projectFollowThroughReadyCount}" data-home-project-followthrough-action-required-count="${projectFollowThroughActionRequiredCount}" data-home-project-followthrough-next-key="${projectFollowThroughNextStep.key || ""}" data-home-project-followthrough-next-action="${projectFollowThroughNextStep.action || ""}" data-home-project-followthrough-next-view="${projectFollowThroughNextStep.viewName || ""}">
-      <div class="panel-head">
-        <div>
-          <h2>Project follow-through</h2>
-          <small>프로젝트 생성 후 실행 가능한 상태까지 이어지는 다음 행동</small>
-        </div>
-        <span class="home-project-followthrough-score">${projectFollowThroughReadyCount}/${projectFollowThroughSteps.length} ready</span>
-      </div>
-      <ol class="home-project-followthrough-steps">
-        ${projectFollowThroughSteps.map((step) => raw(html`
-          <li data-home-project-followthrough-step data-home-project-followthrough-step-key="${step.key}" data-home-project-followthrough-step-status="${step.status}" data-home-project-followthrough-step-action="${step.action}" data-home-project-followthrough-step-view="${step.viewName}">
-            <span>${step.status === "ready" ? "Ready" : "Next"}</span>
-            <div>
-              <strong>${step.label}</strong>
-              <small>${step.metric}</small>
-              <p>${step.detail}</p>
-            </div>
-            <button type="button" class="small-action" data-action="${step.action}" data-view="${step.viewName}"${step.defaultMilestone ? raw(' data-default-milestone="true"') : ""}>${step.actionLabel}</button>
-          </li>
-        `))}
-      </ol>
-    </section>
-  `;
-}
 
-function homeLaunchOperationsHTML(model) {
-  const {
-    publishBlockers, launchProofReady, benchmarkFocused, sourceBacked, readinessCards,
-    currentLaunchActionKey, currentLaunchActionLabel, currentLaunchActionStatus,
-    currentLaunchActionCommandCount, currentLaunchWithheldCount, safeToDispatch,
-    externalClaimReady, launchTransition, currentLaunchStage, launchTransitionNextStage,
-    launchTransitionPendingCount, launchTransitionGateCommand, launchInstallMatrix,
-    launchInstallMatrixRows, launchInstallMatrixSignals, remoteWorkflowFileLedger,
-    remoteWorkflowFileLedgerItems, launchProofLedger, launchProofLedgerItems,
-    currentLaunchActionDetail, currentLaunchActionCommand, launchTransitionNextLabel,
-    launchActionChecklistText, launchActionChecklistReady, launchActionChecklistStatus,
-    launchActionChecklistActiveKey, launchActionChecklistImmediateCommand,
-    launchActionChecklistDeferredCommand, launchActionChecklistRecheckSteps,
-    launchActionChecklistSourceArtifacts, launchActionChecklistDispatchApproval,
-    launchActionChecklistVerificationOnly, launchActionChecklistGuard,
-    launchBlockerResolverText, launchBlockerResolverReady, launchBlockerActiveKey,
-    launchBlockerResolution, launchBlockerItems, launchBlockerProofCommands,
-    launchBlockerFallbackCommands, launchEvidenceGapItems, launchPostInstallIntakeForGap,
-    launchBlockerDispatchGuard, launchBlockerActiveItem, workflowInstallShortcutText,
-    workflowInstallShortcutReady, workflowScopeInstallBlocked, workflowInstallShortcutPaths,
-    workflowInstallShortcutCommandCount, workflowInstallShortcutTargetCount,
-    workflowInstallShortcutPrimaryPath, workflowInstallShortcutPrimaryCommand,
-    workflowInstallShortcutVerifyCommand, workflowInstallShortcutDefaultBranchGuard,
-    workflowInstallShortcutScopeGuard, launchBlockerFallbackPath, postInstallEvidenceText,
-    postInstallEvidenceReady, postInstallEvidenceStatus, postInstallEvidenceProofComplete,
-    postInstallEvidenceCompletedCount, postInstallEvidencePendingCount,
-    postInstallEvidenceFieldCount, postInstallEvidenceCommands, postInstallEvidenceSignals,
-    postInstallEvidenceFields, postInstallEvidenceIntake, postInstallQuickProofReady,
-    postInstallQuickProofStepCount, postInstallQuickProofCoverage, postInstallQuickProofSteps,
-    postInstallQuickProofFieldMappingReady, postInstallQuickProofFieldMappingCoverage,
-    postInstallQuickProofMappedFieldCount, postInstallQuickProofCompletedMappedFieldCount,
-    postInstallQuickProofFieldMappings,
-    postInstallVerificationSequence,
-    postInstallVerificationSequenceReady, postInstallVerificationFinalCommand,
-    postInstallEvidenceStopCondition, externalClaimGuardText, externalClaimGuardReady,
-    externalClaimGuard, externalClaimGuardBlockedCount, externalClaimGuardRequirementCount,
-    externalClaimGuardCommands, externalClaimGuardPrimaryRequirement,
-    externalClaimGuardPrimarySignal, externalClaimGuardPrimaryCommand,
-    externalClaimGuardRequirements, externalClaimGuardSignals, homeExternalClaimGuardText,
-  } = model;
 
-  return html`
-    <section class="panel home-readiness" data-home-readiness data-home-publish-blockers="${publishBlockers.length}" data-home-launch-proof-ready="${launchProofReady ? "true" : "false"}" data-home-benchmark-count="${benchmarkFocused.length}" data-home-source-backed-count="${sourceBacked.length}">
-      <div class="panel-head">
-        <div><h2>공개 준비 요약</h2><a href="#system" data-action="nav-to" data-view="system">시스템 상태 ›</a></div>
-        <small>첫 방문자가 신뢰도를 판단하는 핵심 증거</small>
-      </div>
-      <div class="home-readiness-grid">
-        ${readinessCards.map((card) => raw(html`
-          <button type="button" class="home-readiness-card" data-action="nav-to" data-view="${card.viewName}" data-home-readiness-card="${card.key}" data-readiness-tone="${card.tone}" data-home-readiness-card-evidence-count="${card.evidenceCount || 0}">
-            <span>${card.label}</span>
-            <strong>${card.value}</strong>
-            <small>${card.detail}</small>
-          </button>
-        `))}
-      </div>
-      <div class="home-launch-next" data-home-launch-next-action data-home-launch-action-key="${currentLaunchActionKey}" data-home-launch-action-label="${currentLaunchActionLabel}" data-home-launch-action-status="${currentLaunchActionStatus}" data-home-launch-command-count="${currentLaunchActionCommandCount}" data-home-launch-withheld-count="${currentLaunchWithheldCount}" data-home-launch-safe-to-dispatch="${safeToDispatch ? "true" : "false"}" data-home-launch-ready-for-external-claim="${externalClaimReady ? "true" : "false"}" data-home-launch-transition-source="${launchTransition.source || "ui-fallback"}" data-home-launch-transition-current-stage="${currentLaunchStage}" data-home-launch-transition-next-stage="${launchTransitionNextStage}" data-home-launch-transition-pending-count="${launchTransitionPendingCount}" data-home-launch-transition-gate-command="${launchTransitionGateCommand}" data-home-launch-install-matrix-source="${launchInstallMatrix.source || "missing"}" data-home-launch-install-matrix-path-count="${launchInstallMatrix.installPathCount || launchInstallMatrixRows.length}" data-home-launch-install-matrix-signal-count="${launchInstallMatrix.requiredSignalCount || launchInstallMatrixSignals.length}" data-home-launch-install-matrix-next-stage="${launchInstallMatrix.nextStageKey || "verify_visibility"}" data-home-remote-workflow-file-ledger-source="${remoteWorkflowFileLedger.source || "missing"}" data-home-remote-workflow-file-ledger-status="${remoteWorkflowFileLedger.status || "missing"}" data-home-remote-workflow-file-ledger-file-count="${remoteWorkflowFileLedger.fileCount || remoteWorkflowFileLedgerItems.length}" data-home-remote-workflow-file-ledger-ready-count="${remoteWorkflowFileLedger.readyCount || 0}" data-home-remote-workflow-file-ledger-missing-count="${remoteWorkflowFileLedger.missingCount || 0}" data-home-launch-proof-ledger-source="${launchProofLedger.source || "missing"}" data-home-launch-proof-ledger-status="${launchProofLedger.status || "missing"}" data-home-launch-proof-ledger-required-count="${launchProofLedger.requiredProofCount || launchProofLedgerItems.length}" data-home-launch-proof-ledger-ready-count="${launchProofLedger.readyProofCount || 0}" data-home-launch-proof-ledger-pending-count="${launchProofLedger.pendingProofCount || launchProofLedgerItems.length}" data-home-launch-proof-ledger-current-gate="${launchProofLedger.currentGate || "capture_launch_proof"}">
-        <div>
-          <span>현재 launch action</span>
-          <strong>${currentLaunchActionLabel}</strong>
-          <p>${currentLaunchActionDetail}</p>
-        </div>
-        <code>${currentLaunchActionCommand}</code>
-        <div class="home-launch-transition" data-home-launch-transition-preview>
-          <span>next transition</span>
-          <strong>${currentLaunchStage} -> ${launchTransitionNextStage}</strong>
-          <p>${launchTransitionNextLabel} · pending ${launchTransitionPendingCount} · ${safeToDispatch ? "safeToDispatch=true" : "dispatch withheld"}</p>
-          <code>${launchTransitionGateCommand}</code>
-        </div>
-        <div class="home-launch-transition home-launch-install-matrix" data-home-launch-install-matrix>
-          <span>install verification matrix</span>
-          <strong>${launchInstallMatrix.installPathCount || launchInstallMatrixRows.length || 0} paths -> ${launchInstallMatrix.nextStageKey || "verify_visibility"}</strong>
-          <p>${launchInstallMatrix.requiredSignalCount || launchInstallMatrixSignals.length || 0} signals · remoteWorkflowFilesReady=true · remoteWorkflowVisibilityReady=true · dispatchReady=true · driftDispatchReady=true · allDispatchReady=true · verify-launch-handoff reports safeToDispatch=true</p>
-          <code>${launchInstallMatrix.handoffCommand || launchTransitionGateCommand}</code>
-        </div>
-        <div class="home-launch-transition home-remote-workflow-file-ledger" data-home-remote-workflow-file-ledger>
-          <span>remote workflow file acceptance ledger</span>
-          <strong>${remoteWorkflowFileLedger.readyCount || 0}/${remoteWorkflowFileLedger.fileCount || remoteWorkflowFileLedgerItems.length || 0} files ready</strong>
-          <p>${remoteWorkflowFileLedger.status || "remote_file_install_required"} · missing ${remoteWorkflowFileLedger.missingCount || 0} · remoteMatchesTemplate required</p>
-          <code>${remoteWorkflowFileLedger.verifyCommand || "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"}</code>
-        </div>
-        <div class="home-launch-transition home-launch-proof-ledger" data-home-launch-proof-ledger>
-          <span>launch proof acceptance ledger</span>
-          <strong>${launchProofLedger.readyProofCount || 0}/${launchProofLedger.requiredProofCount || launchProofLedgerItems.length || 0} proofs ready</strong>
-          <p>${launchProofLedger.status || "proof_blocked_until_dispatch"} · pending ${launchProofLedger.pendingProofCount || launchProofLedgerItems.length || 0} · ${launchProofLedger.deferredUntil || "safeToDispatch=true"}</p>
-          <code>${launchProofLedger.captureWriteCommand || "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"}</code>
-        </div>
-        <dl>
-          <div><dt>safeToDispatch</dt><dd>${safeToDispatch ? "true" : "false"}</dd></div>
-          <div><dt>withheld</dt><dd>${currentLaunchWithheldCount}</dd></div>
-          <div><dt>externalClaim</dt><dd>${externalClaimReady ? "true" : "false"}</dd></div>
-        </dl>
-        <button type="button" class="secondary-btn" data-action="nav-to" data-view="system">실행 패킷 보기</button>
-      </div>
-      ${launchActionChecklistText ? raw(html`
-        <div class="home-launch-action-checklist" data-home-launch-action-checklist data-home-launch-action-checklist-ready="${launchActionChecklistReady ? "true" : "false"}" data-home-launch-action-checklist-active="${launchActionChecklistActiveKey}" data-home-launch-action-checklist-status="${launchActionChecklistStatus}" data-home-launch-action-checklist-recheck-count="${launchActionChecklistRecheckSteps.length}" data-home-launch-action-checklist-source-artifact-count="${launchActionChecklistSourceArtifacts.length}" data-home-launch-action-checklist-dispatch-approval="${launchActionChecklistDispatchApproval ? "true" : "false"}" data-home-launch-action-checklist-verification-only="${launchActionChecklistVerificationOnly ? "true" : "false"}" data-home-launch-action-checklist-withheld-count="${currentLaunchWithheldCount}" data-home-launch-action-checklist-immediate-command="${launchActionChecklistImmediateCommand}" data-home-launch-action-checklist-deferred-command="${launchActionChecklistDeferredCommand}" data-home-launch-action-checklist-guard="${launchActionChecklistGuard}">
-          <div class="home-launch-action-checklist-summary">
-            <span>launch action checklist</span>
-            <strong>${launchActionChecklistActiveKey}</strong>
-            <p>${launchActionChecklistStatus} · recheck ${launchActionChecklistRecheckSteps.length} · source artifacts ${launchActionChecklistSourceArtifacts.length} · dispatchApproval=${launchActionChecklistDispatchApproval ? "true" : "false"} · verificationOnly=${launchActionChecklistVerificationOnly ? "true" : "false"}</p>
-          </div>
-          <div class="home-launch-action-checklist-command">
-            <span>immediate command</span>
-            <code>${launchActionChecklistImmediateCommand}</code>
-            <p><b>Deferred proof</b> ${launchActionChecklistDeferredCommand}</p>
-          </div>
-          <ol class="home-launch-action-checklist-steps" data-home-launch-action-checklist-recheck-sequence>
-            ${launchActionChecklistRecheckSteps.map((step, index) => raw(html`
-              <li data-home-launch-action-checklist-step data-home-launch-action-checklist-step-key="${step.key || ""}" data-home-launch-action-checklist-step-command="${step.command || ""}" data-home-launch-action-checklist-step-expected="${step.expected || ""}" data-home-launch-action-checklist-step-source="${step.sourceArtifact || ""}">
-                <div>
-                  <strong>${index + 1}. ${step.label || step.key || "Recheck step"}</strong>
-                  <small>${step.key || ""}</small>
-                </div>
-                <code>${step.command || ""}</code>
-                <p>${step.expected || ""}</p>
-                <small>${step.sourceArtifact || ""} · ${step.stopCondition || ""}</small>
-              </li>
-            `))}
-          </ol>
-          <div class="home-launch-action-checklist-sources">
-            ${launchActionChecklistSourceArtifacts.map((artifact) => raw(html`<code data-home-launch-action-checklist-source-artifact="${artifact}">${artifact}</code>`))}
-          </div>
-          <p class="home-launch-action-checklist-guard">${launchActionChecklistGuard}</p>
-          <pre data-home-launch-action-checklist-text hidden>${launchActionChecklistText}</pre>
-          <div class="home-launch-action-checklist-actions">
-            <button type="button" class="secondary-btn" data-action="copy-home-launch-action-checklist" data-home-launch-action-checklist-copy>checklist 복사</button>
-            <span data-home-launch-action-checklist-copy-status aria-live="polite"></span>
-          </div>
-        </div>
-      `) : ""}
-      ${launchBlockerResolverText ? raw(html`
-        <div class="home-launch-blocker-resolver" data-home-launch-blocker-resolver data-home-launch-blocker-resolver-ready="${launchBlockerResolverReady ? "true" : "false"}" data-home-launch-blocker-resolver-active="${launchBlockerActiveKey}" data-home-launch-blocker-resolver-status="${launchBlockerResolution.status || "action_required"}" data-home-launch-blocker-resolver-source="${launchBlockerResolution.source || "missing"}" data-home-launch-blocker-resolver-repo="${launchBlockerResolution.repo || "biojuho/BIOJUHO-Projects"}" data-home-launch-blocker-resolver-item-count="${launchBlockerResolution.itemCount || launchBlockerItems.length}" data-home-launch-blocker-resolver-pass-count="${launchBlockerResolution.passCount || 0}" data-home-launch-blocker-resolver-action-required-count="${launchBlockerResolution.actionRequiredCount || 0}" data-home-launch-blocker-resolver-deferred-count="${launchBlockerResolution.deferredCount || 0}" data-home-launch-blocker-resolver-proof-command-count="${launchBlockerResolution.proofCommandCount || launchBlockerProofCommands.length}" data-home-launch-blocker-resolver-fallback-command-count="${launchBlockerFallbackCommands.length}" data-home-launch-blocker-resolver-evidence-gap-count="${launchEvidenceGapItems.length}" data-home-launch-blocker-resolver-remote-files-ready="${remoteWorkflowFileLedger.ready ? "true" : "false"}" data-home-launch-blocker-resolver-launch-proof-ready="${launchProofLedger.ready ? "true" : "false"}" data-home-launch-blocker-resolver-post-install-proof-complete="${launchPostInstallIntakeForGap.proofComplete ? "true" : "false"}" data-home-launch-blocker-resolver-dispatch-guard="${launchBlockerDispatchGuard}">
-          <div class="home-launch-blocker-summary">
-            <span>launch unblock resolver</span>
-            <strong>${launchBlockerActiveItem.label || launchBlockerActiveKey}</strong>
-            <p>${launchBlockerResolution.status || "action_required"} · ${launchBlockerActiveItem.blockedSignal || "blocked signal unavailable"}</p>
-          </div>
-          <div class="home-launch-blocker-active" data-home-launch-blocker-resolver-active-item data-home-launch-blocker-resolver-active-status="${launchBlockerActiveItem.status || "action_required"}">
-            <span>primary proof command</span>
-            <code data-home-launch-blocker-resolver-primary-command>${launchBlockerActiveItem.proofCommand || ""}</code>
-            <p>${launchBlockerActiveItem.action || ""}</p>
-            <p><b>Expected</b> ${launchBlockerActiveItem.expectedValue || ""}</p>
-            <p><b>Stop</b> ${launchBlockerActiveItem.stopCondition || ""}</p>
-          </div>
-          <div class="home-launch-blocker-evidence-gap" data-home-launch-blocker-evidence-gap data-home-launch-blocker-evidence-gap-count="${launchEvidenceGapItems.length}">
-            <span>evidence gap</span>
-            <ul>
-              ${launchEvidenceGapItems.map((item) => raw(html`
-                <li data-home-launch-blocker-evidence-gap-item data-home-launch-blocker-evidence-gap-key="${item.key}" data-home-launch-blocker-evidence-gap-ready="${item.ready ? "true" : "false"}">
-                  <strong>${item.label}</strong>
-                  <small>${item.status}</small>
-                  <p>${item.summary}</p>
-                  <code>${item.command}</code>
-                </li>
-              `))}
-            </ul>
-          </div>
-          ${workflowInstallShortcutText ? raw(html`
-            <div class="home-workflow-install-shortcut" data-home-workflow-install-shortcut data-home-workflow-install-shortcut-ready="${workflowInstallShortcutReady ? "true" : "false"}" data-home-workflow-install-shortcut-status="${workflowScopeInstallBlocked ? "workflow_scope_blocked_use_ui_or_refresh" : "workflow_scope_available_use_cli"}" data-home-workflow-install-shortcut-path-count="${workflowInstallShortcutPaths.length}" data-home-workflow-install-shortcut-command-count="${workflowInstallShortcutCommandCount}" data-home-workflow-install-shortcut-target-count="${workflowInstallShortcutTargetCount}" data-home-workflow-install-shortcut-primary-path="${workflowInstallShortcutPrimaryPath.key || ""}" data-home-workflow-install-shortcut-primary-command="${workflowInstallShortcutPrimaryCommand}" data-home-workflow-install-shortcut-verify-command="${workflowInstallShortcutVerifyCommand}">
-              <div>
-                <span>workflow install shortcut</span>
-                <strong>${workflowScopeInstallBlocked ? "GitHub UI path 또는 scope refresh" : "CLI install path ready"}</strong>
-                <p>${workflowInstallShortcutTargetCount} workflow files · ${workflowInstallShortcutPaths.length} paths · ${workflowInstallShortcutCommandCount} commands</p>
-              </div>
-              <div class="home-workflow-install-shortcut-guards">
-                <span data-home-workflow-install-shortcut-guard>${workflowInstallShortcutDefaultBranchGuard}</span>
-                <span data-home-workflow-install-shortcut-guard>${workflowInstallShortcutScopeGuard}</span>
-              </div>
-              <ul>
-                ${workflowInstallShortcutPaths.map((path) => raw(html`
-                  <li data-home-workflow-install-shortcut-path data-home-workflow-install-shortcut-path-key="${path.key || ""}" data-home-workflow-install-shortcut-path-command-count="${Array.isArray(path.commands) ? path.commands.length : 0}">
-                    <div>
-                      <strong>${path.label || path.key}</strong>
-                      <small>${Array.isArray(path.commands) ? path.commands.length : 0} commands</small>
-                    </div>
-                    <p>${path.when || path.success || ""}</p>
-                    ${(Array.isArray(path.commands) ? path.commands.slice(0, 3) : []).map((command) => raw(html`<code data-home-workflow-install-shortcut-command>${command}</code>`))}
-                    <small>${path.guard || ""}</small>
-                  </li>
-                `))}
-              </ul>
-              <p><b>Verify</b> <code data-home-workflow-install-shortcut-verify>${workflowInstallShortcutVerifyCommand}</code></p>
-            </div>
-          `) : ""}
-          <ul class="home-launch-blocker-items">
-            ${launchBlockerItems.map((item) => raw(html`
-              <li data-home-launch-blocker-resolver-item data-home-launch-blocker-resolver-item-key="${item.key || ""}" data-home-launch-blocker-resolver-item-status="${item.status || ""}">
-                <div>
-                  <strong>${item.label || item.key}</strong>
-                  <span>${item.status || "unknown"}</span>
-                </div>
-                <p>${item.blockedSignal || item.evidence || ""}</p>
-                <code>${item.proofCommand || ""}</code>
-              </li>
-            `))}
-          </ul>
-          <div class="home-launch-blocker-fallback" data-home-launch-blocker-resolver-fallback>
-            <span>GitHub UI fallback</span>
-            <strong>${launchBlockerFallbackPath.label || "GitHub UI path"}</strong>
-            <p>${launchBlockerFallbackPath.when || "Use when the CLI token still lacks workflow scope or browser-based file creation is preferred."}</p>
-            <div>
-              ${launchBlockerFallbackCommands.map((command) => raw(html`<code data-home-launch-blocker-resolver-fallback-command>${command}</code>`))}
-            </div>
-          </div>
-          <p class="home-launch-blocker-guard" data-home-launch-blocker-resolver-dispatch-guard-text>${launchBlockerDispatchGuard}</p>
-          <pre data-home-launch-blocker-resolver-text hidden>${launchBlockerResolverText}</pre>
-          <div class="home-launch-blocker-actions">
-            <button type="button" class="secondary-btn" data-action="copy-home-launch-blocker-resolver" data-home-launch-blocker-resolver-copy>resolver 복사</button>
-            <span data-home-launch-blocker-resolver-copy-status aria-live="polite"></span>
-          </div>
-        </div>
-      `) : ""}
-      ${postInstallEvidenceText ? raw(html`
-        <div class="home-post-install-intake" data-home-post-install-evidence-intake data-post-install-evidence-intake data-home-post-install-evidence-intake-ready="${postInstallEvidenceReady ? "true" : "false"}" data-home-post-install-evidence-intake-status="${postInstallEvidenceStatus}" data-home-post-install-evidence-intake-proof-complete="${postInstallEvidenceProofComplete ? "true" : "false"}" data-home-post-install-evidence-intake-completed-count="${postInstallEvidenceCompletedCount}" data-home-post-install-evidence-intake-pending-count="${postInstallEvidencePendingCount}" data-home-post-install-evidence-intake-field-count="${postInstallEvidenceFieldCount}" data-home-post-install-evidence-intake-command-count="${postInstallEvidenceCommands.length}" data-home-post-install-evidence-intake-signal-count="${postInstallEvidenceSignals.length}" data-home-post-install-evidence-intake-sequence-count="${postInstallVerificationSequence.length}" data-home-post-install-evidence-intake-sequence-ready="${postInstallVerificationSequenceReady ? "true" : "false"}" data-home-post-install-evidence-intake-final-command="${postInstallVerificationFinalCommand}" data-post-install-evidence-intake-ready="${postInstallEvidenceReady ? "true" : "false"}" data-post-install-evidence-intake-proof-complete="${postInstallEvidenceProofComplete ? "true" : "false"}" data-post-install-evidence-intake-completed-count="${postInstallEvidenceCompletedCount}" data-post-install-evidence-intake-pending-count="${postInstallEvidencePendingCount}" data-post-install-evidence-intake-field-count="${postInstallEvidenceFieldCount}" data-post-install-evidence-intake-command-count="${postInstallEvidenceCommands.length}" data-post-install-evidence-intake-signal-count="${postInstallEvidenceSignals.length}" data-post-install-evidence-intake-sequence-count="${postInstallVerificationSequence.length}" data-post-install-evidence-intake-final-command="${postInstallVerificationFinalCommand}" data-post-install-evidence-intake-dispatch-guard="${postInstallEvidenceStopCondition}" data-post-install-quick-proof-ready="${postInstallQuickProofReady ? "true" : "false"}" data-post-install-quick-proof-step-count="${postInstallQuickProofStepCount}" data-post-install-quick-proof-coverage="${postInstallQuickProofCoverage}" data-post-install-quick-proof-final-command="${postInstallEvidenceIntake.quickProofFinalCommand || postInstallVerificationFinalCommand}" data-post-install-quick-proof-field-mapping-ready="${postInstallQuickProofFieldMappingReady ? "true" : "false"}" data-post-install-quick-proof-field-mapping-coverage="${postInstallQuickProofFieldMappingCoverage}" data-post-install-quick-proof-mapped-field-count="${postInstallQuickProofMappedFieldCount}" data-post-install-quick-proof-completed-mapped-field-count="${postInstallQuickProofCompletedMappedFieldCount}">
-          <div class="home-post-install-intake-summary">
-            <span>post-install proof intake</span>
-            <strong>${postInstallEvidenceCompletedCount}/${postInstallEvidenceFieldCount} proof fields complete</strong>
-            <p>${postInstallEvidenceStatus} · proofComplete=${postInstallEvidenceProofComplete ? "true" : "false"} · pending ${postInstallEvidencePendingCount}</p>
-          </div>
-          <div class="home-post-install-quick-proof" data-post-install-quick-proof data-post-install-quick-proof-ready="${postInstallQuickProofReady ? "true" : "false"}" data-post-install-quick-proof-step-count="${postInstallQuickProofStepCount}" data-post-install-quick-proof-coverage="${postInstallQuickProofCoverage}" data-post-install-quick-proof-field-mapping-ready="${postInstallQuickProofFieldMappingReady ? "true" : "false"}" data-post-install-quick-proof-field-mapping-coverage="${postInstallQuickProofFieldMappingCoverage}">
-            <span>Quick proof</span>
-            <ol>
-              ${postInstallQuickProofSteps.map((step, index) => raw(html`
-                <li data-post-install-quick-proof-step data-post-install-quick-proof-step-key="${step.key || ""}" data-post-install-quick-proof-step-command="${step.command || ""}" data-post-install-quick-proof-step-expected="${step.expected || ""}" data-post-install-quick-proof-step-field="${step.evidenceFieldKey || ""}">
-                  <strong>${index + 1}. ${step.label || step.key}</strong>
-                  <code>${step.command || ""}</code>
-                  <small>${step.expected || ""}</small>
-                </li>
-              `))}
-            </ol>
-          </div>
-          <div class="home-post-install-quick-proof-map" data-post-install-quick-proof-field-map data-post-install-quick-proof-field-mapping-ready="${postInstallQuickProofFieldMappingReady ? "true" : "false"}" data-post-install-quick-proof-field-mapping-coverage="${postInstallQuickProofFieldMappingCoverage}" data-post-install-quick-proof-mapped-field-count="${postInstallQuickProofMappedFieldCount}" data-post-install-quick-proof-completed-mapped-field-count="${postInstallQuickProofCompletedMappedFieldCount}">
-            <span>Mapped fields</span>
-            <ol>
-              ${postInstallQuickProofFieldMappings.map((item, index) => raw(html`
-                <li data-post-install-quick-proof-field-map-item data-post-install-quick-proof-field-map-step="${item.stepKey || ""}" data-post-install-quick-proof-field-map-field="${item.fieldKey || ""}" data-post-install-quick-proof-field-map-status="${item.fieldStatus || ""}" data-post-install-quick-proof-field-map-completed="${item.fieldCompleted ? "true" : "false"}">
-                  <strong>${index + 1}. ${item.stepKey || "step"} -> ${item.fieldLabel || item.fieldKey}</strong>
-                  <small>${item.fieldStatus || "missing"} · completed=${item.fieldCompleted ? "true" : "false"}</small>
-                  <p>${item.currentValue || ""}</p>
-                </li>
-              `))}
-            </ol>
-          </div>
-          <ul class="home-post-install-intake-fields">
-            ${postInstallEvidenceFields.map((field) => raw(html`
-              <li data-home-post-install-evidence-intake-field data-post-install-evidence-intake-field data-home-post-install-evidence-intake-field-key="${field.key || ""}" data-home-post-install-evidence-intake-field-status="${field.status || ""}" data-post-install-evidence-intake-field-label="${field.label || field.key || ""}">
-                <strong>${field.label || field.key}</strong>
-                <span>${field.status || (field.completed ? "complete" : "evidence_required")}</span>
-                <p>${field.currentValue || field.placeholder || ""}</p>
-              </li>
-            `))}
-          </ul>
-          <div class="home-post-install-intake-sequence" data-home-post-install-evidence-sequence data-post-install-evidence-intake-sequence data-home-post-install-evidence-sequence-count="${postInstallVerificationSequence.length}" data-home-post-install-evidence-sequence-ready="${postInstallVerificationSequenceReady ? "true" : "false"}">
-            <span>Verification sequence</span>
-            <ol>
-              ${postInstallVerificationSequence.map((step, index) => raw(html`
-                <li data-home-post-install-evidence-sequence-step data-post-install-evidence-intake-sequence-step data-home-post-install-evidence-sequence-key="${step.key}" data-home-post-install-evidence-sequence-command="${step.command}" data-home-post-install-evidence-sequence-expected="${step.expected}">
-                  <div>
-                    <strong>${index + 1}. ${step.label}</strong>
-                    <small>${step.key}</small>
-                  </div>
-                  <code>${step.command}</code>
-                  <p>${step.expected}</p>
-                </li>
-              `))}
-            </ol>
-          </div>
-          <div class="home-post-install-intake-commands">
-            ${postInstallEvidenceCommands.map((command) => raw(html`<code data-home-post-install-evidence-intake-command data-post-install-evidence-intake-command>${command}</code>`))}
-          </div>
-          <div class="home-post-install-intake-signals">
-            ${postInstallEvidenceSignals.map((signal) => raw(html`<span data-home-post-install-evidence-intake-signal data-post-install-evidence-intake-signal>${signal}</span>`))}
-          </div>
-          <p class="home-post-install-intake-stop" data-home-post-install-evidence-intake-stop>${postInstallEvidenceStopCondition}</p>
-          <pre data-post-install-evidence-intake-text hidden>${postInstallEvidenceText}</pre>
-          <div class="home-post-install-intake-actions">
-            <button type="button" class="secondary-btn" data-action="copy-post-install-evidence-intake" data-post-install-evidence-intake-copy>intake template 복사</button>
-            <span data-post-install-evidence-intake-copy-status aria-live="polite"></span>
-          </div>
-        </div>
-      `) : ""}
-      ${externalClaimGuardText ? raw(html`
-        <div class="home-external-claim-guard" data-home-external-claim-guard data-output-quality-audit-external-claim-guard data-home-external-claim-guard-ready="${externalClaimGuardReady ? "true" : "false"}" data-home-external-claim-guard-status="${externalClaimGuard.status || "not_available"}" data-home-external-claim-guard-blocked-count="${externalClaimGuardBlockedCount}" data-home-external-claim-guard-requirement-count="${externalClaimGuardRequirementCount}" data-home-external-claim-guard-command-count="${externalClaimGuardCommands.length}" data-home-external-claim-guard-next-proof-key="${externalClaimGuardPrimaryRequirement.key || "workflow_installation"}" data-home-external-claim-guard-next-proof-command="${externalClaimGuardPrimaryCommand}" data-output-quality-audit-external-claim-guard-ready="${externalClaimGuardReady ? "true" : "false"}" data-output-quality-audit-external-claim-guard-status="${externalClaimGuard.status || "not_available"}" data-output-quality-audit-external-claim-guard-blocked-count="${externalClaimGuardBlockedCount}" data-output-quality-audit-external-claim-guard-requirement-count="${externalClaimGuardRequirementCount}" data-output-quality-audit-external-claim-guard-command-count="${externalClaimGuardCommands.length}">
-          <div class="home-external-claim-guard-summary">
-            <span>external claim guard</span>
-            <strong>${externalClaimGuardReady ? "외부 완료 주장 가능" : "외부 완료 주장 차단"}</strong>
-            <p>${externalClaimGuard.status || "not_available"} · blocked ${externalClaimGuardBlockedCount}/${externalClaimGuardRequirementCount}</p>
-          </div>
-          <div class="home-external-claim-guard-next-proof" data-home-external-claim-guard-next-proof data-home-external-claim-guard-next-proof-ready="${externalClaimGuardReady ? "true" : "false"}" data-home-external-claim-guard-next-proof-key="${externalClaimGuardPrimaryRequirement.key || "workflow_installation"}" data-home-external-claim-guard-next-proof-status="${externalClaimGuardPrimaryRequirement.status || "blocked"}">
-            <span>next proof</span>
-            <strong>${externalClaimGuardPrimaryRequirement.label || "Workflow installation"}</strong>
-            <p>${externalClaimGuardPrimaryRequirement.status || "blocked"} · ${externalClaimGuardPrimarySignal}</p>
-            <code>${externalClaimGuardPrimaryCommand}</code>
-          </div>
-          <ul class="home-external-claim-guard-requirements">
-            ${externalClaimGuardRequirements.map((item) => raw(html`
-              <li data-home-external-claim-guard-item data-home-external-claim-guard-key="${item.key}" data-home-external-claim-guard-item-status="${item.status}" data-output-quality-audit-external-claim-guard-item data-output-quality-audit-external-claim-guard-key="${item.key}" data-output-quality-audit-external-claim-guard-item-status="${item.status}">
-                <strong>${item.label}</strong>
-                <span>${item.status}</span>
-              </li>
-            `))}
-          </ul>
-          <div class="home-external-claim-guard-signals">
-            ${externalClaimGuardSignals.slice(0, 6).map((signal) => raw(html`<span data-home-external-claim-guard-signal data-output-quality-audit-external-claim-guard-signal>${signal}</span>`))}
-          </div>
-          <div class="home-external-claim-guard-commands">
-            ${externalClaimGuardCommands.map((command) => raw(html`<code data-home-external-claim-guard-command data-output-quality-audit-external-claim-guard-command>${command}</code>`))}
-          </div>
-          <p class="home-external-claim-guard-stop" data-home-external-claim-guard-stop data-output-quality-audit-external-claim-guard-stop>${externalClaimGuard.stopCondition || ""}</p>
-          <pre data-output-quality-audit-external-claim-guard-text hidden>${homeExternalClaimGuardText}</pre>
-          <div class="home-external-claim-guard-actions">
-            <button type="button" class="secondary-btn" data-action="copy-output-quality-external-claim-guard" data-output-quality-audit-external-claim-guard-copy>external claim guard 복사</button>
-            <span data-output-quality-audit-external-claim-guard-copy-status aria-live="polite"></span>
-          </div>
-        </div>
-      `) : ""}
-    </section>
-  `;
-}
+
+
+
 
 function firstStatusItem(items, status) {
   return (items || []).find((item) => item && item.status === status) || null;
@@ -2157,6 +1518,14 @@ function nextStatusItem(items, fallback = {}, statuses = ["action_required"]) {
     if (item) return item;
   }
   return items[0] || fallback;
+}
+
+function readyStatusCounts(items) {
+  const readyCount = items.filter((item) => item.status === "ready").length;
+  return {
+    readyCount,
+    actionRequiredCount: items.length - readyCount,
+  };
 }
 
 function homeFirstRunGuidanceModel({
@@ -2210,8 +1579,9 @@ function homeFirstRunGuidanceModel({
       viewName: "settings",
     },
   ];
-  const firstRunReadyCount = firstRunSteps.filter((step) => step.status === "ready").length;
-  const firstRunActionRequiredCount = firstRunSteps.filter((step) => step.status !== "ready").length;
+  const firstRunCounts = readyStatusCounts(firstRunSteps);
+  const firstRunReadyCount = firstRunCounts.readyCount;
+  const firstRunActionRequiredCount = firstRunCounts.actionRequiredCount;
   const firstRunNextStep = nextStatusItem(firstRunSteps, {}, ["action_required", "blocked"]);
   const firstRunGuidedStartItems = [
     {
@@ -2256,475 +1626,7 @@ function homeFirstRunGuidanceModel({
   };
 }
 
-/* ============================================================
- * View: Home
- * ============================================================ */
-
-function renderHome() {
-  const view = refs.views.home;
-  if (!view) return;
-
-  const today = todayISO();
-  const now = new Date();
-  const hour = now.getHours();
-  const greet = hour < 6 ? "편안한 새벽 되세요" : hour < 12 ? "좋은 아침입니다" : hour < 18 ? "좋은 오후입니다" : "좋은 저녁입니다";
-  const name = (dashboard.settings && dashboard.settings.displayName) || "박주호";
-
-  const todaysEvents = eventsOn(today);
-  const openTodos = dashboard.todos.filter((t) => !t.done);
-  const overdueTodos = openTodos.filter((t) => t.due && t.due < today);
-  const todayTodos = openTodos.filter((t) => t.due === today);
-  const weekEnd = addDaysISO(today, 7);
-  // Use expandOccurrences so recurring events appear in the upcoming list.
-  const upcoming = sortEvents(expandOccurrences(addDaysISO(today, 1), weekEnd)).slice(0, 6);
-  const executionQueue = homeExecutionQueueModel({ today, weekEnd, openTodos, bucketFilter: state.homeExecutionBucketFilter });
-  const weekDeadlines =
-    dashboard.events.filter((e) => e.category === "deadline" && e.date >= today && e.date <= weekEnd).length +
-    openTodos.filter((t) => t.due && t.due >= today && t.due <= weekEnd).length;
-
-  const totalProjects = dashboard.projects.length;
-  const onTrack = dashboard.projects.filter((p) => p.status === "on-track").length;
-  const totalIssues = dashboard.issues.length;
-  const unhealthy = dashboard.dbInstances.filter((d) => d.health !== "green").length;
-  const slow = dashboard.queries.length;
-  const pendingMig = dashboard.migrations.filter((m) => m.status === "pending").length;
-  const adoptionCandidates = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate");
-  const sourceBacked = adoptionCandidates.filter((project) => safeGithubUrl(project.url) && shortCommit(project.lastCommit));
-  const benchmarkFocused = adoptionCandidates.filter((project) => projectBenchmarkContext(project).any);
-  const publishItems = publishReadinessItems();
-  const publishBlockers = publishItems.filter((item) => item.state === "blocked");
-  const publishData = state.publishEvidence && state.publishEvidence.data ? state.publishEvidence.data : null;
-  const launchExecution = state.launchExecutionPacket && state.launchExecutionPacket.data ? state.launchExecutionPacket.data : null;
-  const outputAudit = state.outputQualityAudit && state.outputQualityAudit.data ? state.outputQualityAudit.data : null;
-  const outputImmediateAction = outputAudit?.publishState?.immediateNextAction || null;
-  const currentLaunchAction = launchExecution?.currentAction || outputImmediateAction || null;
-  const currentLaunchActionKey = currentLaunchAction?.stageKey || currentLaunchAction?.key || outputImmediateAction?.key || "system-review";
-  const currentLaunchActionLabel = currentLaunchAction?.label || outputImmediateAction?.label || publishBlockers[0]?.label || "System Status 확인";
-  const currentLaunchActionStatus = currentLaunchAction?.status || outputImmediateAction?.status || (publishBlockers.length ? "action_required" : "ready");
-  const currentLaunchActionCommand = Array.isArray(currentLaunchAction?.commands) && currentLaunchAction.commands.length
-    ? currentLaunchAction.commands[0]
-    : currentLaunchAction?.command || outputImmediateAction?.command || publishBlockers[0]?.command || "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --markdown";
-  const currentLaunchActionDetail = currentLaunchAction?.successCondition || outputImmediateAction?.successCondition || "System Status에서 현재 blocker와 다음 검증 명령을 확인합니다.";
-  const currentLaunchActionCommandCount = Number(currentLaunchAction?.commandCount || outputImmediateAction?.commandCount || 0);
-  const currentLaunchWithheldCount = Number(currentLaunchAction?.withheldCommandCount || outputImmediateAction?.withheldCommandCount || outputAudit?.outputReadinessSnapshot?.publishEvidenceCommandGuard?.withheldDispatchCommands || 0);
-  const safeToDispatch = !!(launchExecution?.readyToDispatch || outputAudit?.dispatchState?.allDispatchReady);
-  const externalClaimReady = !!(launchExecution?.readyForExternalClaim || outputAudit?.readyForExternalClaim);
-  const launchStages = Array.isArray(launchExecution?.stages) ? launchExecution.stages : [];
-  const launchTransition = launchExecution?.stageTransitionPreview && typeof launchExecution.stageTransitionPreview === "object" ? launchExecution.stageTransitionPreview : {};
-  const launchInstallMatrix = launchExecution?.workflowInstallVerificationMatrix && typeof launchExecution.workflowInstallVerificationMatrix === "object" ? launchExecution.workflowInstallVerificationMatrix : {};
-  const launchInstallMatrixRows = Array.isArray(launchInstallMatrix.matrixRows) ? launchInstallMatrix.matrixRows : [];
-  const launchInstallMatrixSignals = Array.isArray(launchInstallMatrix.signalChecks) ? launchInstallMatrix.signalChecks : [];
-  const remoteWorkflowFileLedger = launchExecution?.remoteWorkflowFileAcceptanceLedger && typeof launchExecution.remoteWorkflowFileAcceptanceLedger === "object" ? launchExecution.remoteWorkflowFileAcceptanceLedger : {};
-  const remoteWorkflowFileLedgerItems = Array.isArray(remoteWorkflowFileLedger.files) ? remoteWorkflowFileLedger.files : [];
-  const launchProofLedger = launchExecution?.launchProofAcceptanceLedger && typeof launchExecution.launchProofAcceptanceLedger === "object" ? launchExecution.launchProofAcceptanceLedger : {};
-  const launchProofLedgerItems = Array.isArray(launchProofLedger.requiredProofs) ? launchProofLedger.requiredProofs : [];
-  const launchBlockerResolution = launchExecution?.blockerResolutionChecklist && typeof launchExecution.blockerResolutionChecklist === "object"
-    ? launchExecution.blockerResolutionChecklist
-    : (outputAudit?.outputReadinessSnapshot?.blockerResolutionChecklist && typeof outputAudit.outputReadinessSnapshot.blockerResolutionChecklist === "object" ? outputAudit.outputReadinessSnapshot.blockerResolutionChecklist : {});
-  const launchBlockerItems = Array.isArray(launchBlockerResolution.items) ? launchBlockerResolution.items : [];
-  const launchBlockerActionRequiredItem = firstStatusItem(launchBlockerItems, "action_required");
-  const launchBlockerActiveKey = launchBlockerResolution.activeItemKey || launchBlockerActionRequiredItem?.key || "";
-  const launchBlockerActiveItem = recordByKey(launchBlockerItems, launchBlockerActiveKey) || launchBlockerActionRequiredItem || null;
-  const launchBlockerProofCommands = launchBlockerItems.map((item) => item.proofCommand).filter(Boolean);
-  const launchInstallPathOptions = Array.isArray(currentLaunchAction?.installPaths)
-    ? currentLaunchAction.installPaths
-    : (Array.isArray(launchExecution?.installPaths) ? launchExecution.installPaths : []);
-  const launchBlockerFallbackPath = recordByKey(launchInstallPathOptions, "github_ui") || {};
-  const launchBlockerFallbackCommands = Array.isArray(launchBlockerFallbackPath.commands) ? launchBlockerFallbackPath.commands : [];
-  const workflowAuthPreflight = launchExecution?.authPreflight && typeof launchExecution.authPreflight === "object"
-    ? launchExecution.authPreflight
-    : (outputAudit?.outputReadinessSnapshot?.workflowAuthPreflight && typeof outputAudit.outputReadinessSnapshot.workflowAuthPreflight === "object" ? outputAudit.outputReadinessSnapshot.workflowAuthPreflight : {});
-  const workflowScopeInstallBlocked = !!workflowAuthPreflight.workflowScopeInstallBlocked;
-  const workflowInstallShortcutPaths = launchInstallPathOptions.filter((path) => Array.isArray(path.commands) && path.commands.length);
-  const workflowInstallShortcutCommandCount = workflowInstallShortcutPaths.reduce((total, path) => total + path.commands.length, 0);
-  const workflowInstallShortcutTargetCount = Number(remoteWorkflowFileLedger.fileCount || remoteWorkflowFileLedgerItems.length || 2);
-  const workflowInstallShortcutCliPath = recordByKey(workflowInstallShortcutPaths, "cli_workflow_scope") || workflowInstallShortcutPaths[0] || {};
-  const workflowInstallShortcutUiPath = recordByKey(workflowInstallShortcutPaths, "github_ui") || {};
-  const workflowInstallShortcutPrimaryPath = workflowScopeInstallBlocked && workflowInstallShortcutUiPath.key ? workflowInstallShortcutUiPath : workflowInstallShortcutCliPath;
-  const workflowInstallShortcutPrimaryCommands = Array.isArray(workflowInstallShortcutPrimaryPath.commands) ? workflowInstallShortcutPrimaryPath.commands : [];
-  const workflowInstallShortcutPrimaryCommand = workflowInstallShortcutPrimaryCommands[0] || currentLaunchActionCommand;
-  const workflowInstallShortcutVerifyCommand = launchExecution?.postAuthCheckpoint?.verifyCommand ||
-    "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown";
-  const workflowInstallShortcutDefaultBranchGuard = "workflow_dispatch requires the workflow file on the repository default branch before manual dispatch.";
-  const workflowInstallShortcutScopeGuard = "Writing .github/workflows through the repository contents API requires workflow scope; use GitHub UI when workflowScopeInstallBlocked=true.";
-  const workflowInstallShortcutReady = workflowInstallShortcutPaths.length >= 2 && workflowInstallShortcutCommandCount >= 10;
-  const launchBlockerDispatchGuard = launchBlockerResolution.guard || launchBlockerResolution.dispatchGuard || "Do not run gh workflow run until every action_required item has passed and verify-launch-handoff reports safeToDispatch=true.";
-  const launchPostInstallIntakeForGap = launchExecution?.postInstallEvidenceIntake && typeof launchExecution.postInstallEvidenceIntake === "object"
-    ? launchExecution.postInstallEvidenceIntake
-    : (outputAudit?.outputReadinessSnapshot?.postInstallEvidenceIntake && typeof outputAudit.outputReadinessSnapshot.postInstallEvidenceIntake === "object" ? outputAudit.outputReadinessSnapshot.postInstallEvidenceIntake : {});
-  const launchPostInstallFieldCountForGap = Number(launchPostInstallIntakeForGap.fieldCount || launchPostInstallIntakeForGap.fieldsCount || (Array.isArray(launchPostInstallIntakeForGap.fields) ? launchPostInstallIntakeForGap.fields.length : 0) || 0);
-  const launchPostInstallCompletedForGap = Number(launchPostInstallIntakeForGap.completedFieldCount || 0);
-  const launchPostInstallPendingForGap = Number.isFinite(Number(launchPostInstallIntakeForGap.pendingFieldCount))
-    ? Number(launchPostInstallIntakeForGap.pendingFieldCount)
-    : Math.max(0, launchPostInstallFieldCountForGap - launchPostInstallCompletedForGap);
-  const launchEvidenceGapItems = [
-    {
-      key: "remote_workflow_files",
-      label: "Remote workflow files",
-      status: remoteWorkflowFileLedger.status || "remote_file_install_required",
-      ready: !!remoteWorkflowFileLedger.ready,
-      summary: `${remoteWorkflowFileLedger.readyCount || 0}/${remoteWorkflowFileLedger.fileCount || remoteWorkflowFileLedgerItems.length || 0} files ready; missing=${remoteWorkflowFileLedger.missingCount || 0}; mismatch=${remoteWorkflowFileLedger.mismatchCount || 0}`,
-      command: remoteWorkflowFileLedger.verifyCommand || "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
-    },
-    {
-      key: "launch_proof",
-      label: "Launch proof",
-      status: launchProofLedger.status || "proof_blocked_until_dispatch",
-      ready: !!launchProofLedger.ready,
-      summary: `${launchProofLedger.readyProofCount || 0}/${launchProofLedger.requiredProofCount || launchProofLedgerItems.length || 0} proofs ready; pending=${launchProofLedger.pendingProofCount || launchProofLedgerItems.length || 0}; gate=${launchProofLedger.currentGate || "capture_launch_proof"}`,
-      command: launchProofLedger.captureWriteCommand || "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
-    },
-    {
-      key: "post_install_intake",
-      label: "Post-install intake",
-      status: launchPostInstallIntakeForGap.status || "collect_post_install_proof",
-      ready: !!launchPostInstallIntakeForGap.proofComplete,
-      summary: `${launchPostInstallCompletedForGap}/${launchPostInstallFieldCountForGap} proof fields complete; pending=${launchPostInstallPendingForGap}; proofComplete=${launchPostInstallIntakeForGap.proofComplete ? "true" : "false"}`,
-      command: Array.isArray(launchPostInstallIntakeForGap.commands) && launchPostInstallIntakeForGap.commands.length
-        ? launchPostInstallIntakeForGap.commands[0]
-        : "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
-    },
-  ];
-  const launchBlockerResolverReady = !!(launchBlockerActiveItem && launchBlockerItems.length && launchBlockerProofCommands.length);
-  const workflowInstallShortcutText = workflowInstallShortcutReady ? [
-    "JooPark Workflow Install Shortcut",
-    `Status: ${workflowScopeInstallBlocked ? "workflow_scope_blocked_use_ui_or_refresh" : "workflow_scope_available_use_cli"}`,
-    `Repo: ${launchBlockerResolution.repo || "biojuho/BIOJUHO-Projects"}`,
-    `Target workflow files: ${workflowInstallShortcutTargetCount}`,
-    `Install paths: ${workflowInstallShortcutPaths.length}`,
-    `Install command count: ${workflowInstallShortcutCommandCount}`,
-    `Primary path: ${workflowInstallShortcutPrimaryPath.label || workflowInstallShortcutPrimaryPath.key || "not_available"}`,
-    `Primary command: ${workflowInstallShortcutPrimaryCommand}`,
-    `Verify command: ${workflowInstallShortcutVerifyCommand}`,
-    "",
-    "Official guard:",
-    `- ${workflowInstallShortcutDefaultBranchGuard}`,
-    `- ${workflowInstallShortcutScopeGuard}`,
-    "",
-    "Install paths:",
-    ...workflowInstallShortcutPaths.flatMap((path) => [
-      `- ${path.key}: ${path.label}; commands=${Array.isArray(path.commands) ? path.commands.length : 0}; success=${path.success || "not_available"}; guard=${path.guard || "not_available"}`,
-      ...(Array.isArray(path.commands) ? path.commands.map((command, index) => `  ${index + 1}. ${command}`) : []),
-    ]),
-    "",
-    `Dispatch guard: ${launchBlockerDispatchGuard}`,
-  ].join("\n") : "";
-  const launchBlockerResolverText = launchBlockerResolverReady ? [
-    "JooPark Launch Blocker Resolver",
-    `Source: ${launchBlockerResolution.source || "missing"}`,
-    `Repo: ${launchBlockerResolution.repo || "biojuho/BIOJUHO-Projects"}`,
-    `Status: ${launchBlockerResolution.status || "action_required"}`,
-    `currentStageKey=${launchBlockerResolution.currentStageKey || currentLaunchActionKey}`,
-    `activeItemKey=${launchBlockerActiveKey}`,
-    `activeStatus=${launchBlockerActiveItem.status || "action_required"}`,
-    `blockedSignal=${launchBlockerActiveItem.blockedSignal || "not_available"}`,
-    "",
-    "Active unblock action:",
-    `- ${launchBlockerActiveItem.action || "not_available"}`,
-    `Primary proof command: ${launchBlockerActiveItem.proofCommand || "not_available"}`,
-    `Expected value: ${launchBlockerActiveItem.expectedValue || "not_available"}`,
-    `Stop condition: ${launchBlockerActiveItem.stopCondition || "not_available"}`,
-    "",
-    "Checklist state:",
-    `- items=${launchBlockerResolution.itemCount || launchBlockerItems.length}; pass=${launchBlockerResolution.passCount || 0}; actionRequired=${launchBlockerResolution.actionRequiredCount || 0}; deferred=${launchBlockerResolution.deferredCount || 0}; proofCommands=${launchBlockerResolution.proofCommandCount || launchBlockerProofCommands.length}`,
-    ...launchBlockerItems.map((item) => `- ${item.key}: ${item.status}; blockedSignal=${item.blockedSignal || "not_available"}; proofCommand=${item.proofCommand || "not_available"}; expected=${item.expectedValue || "not_available"}; stopCondition=${item.stopCondition || "not_available"}`),
-    "",
-	    "Evidence gap:",
-	    ...launchEvidenceGapItems.map((item) => `- ${item.key}: ${item.status}; ready=${item.ready ? "true" : "false"}; ${item.summary}; command=${item.command}`),
-	    "",
-    ...(workflowInstallShortcutText ? [
-      "Workflow install shortcut:",
-      ...workflowInstallShortcutText.split("\n"),
-      "",
-    ] : []),
-	    "Required proof commands:",
-    ...launchBlockerProofCommands.map((command, index) => `${index + 1}. ${command}`),
-    "",
-    "GitHub UI fallback:",
-    `- Use when: ${launchBlockerFallbackPath.when || "Use when workflowScopeInstallBlocked=true remains after recheck or the operator chooses browser-based default-branch file creation."}`,
-    ...launchBlockerFallbackCommands.map((command, index) => `${index + 1}. ${command}`),
-    `- Success: ${launchBlockerFallbackPath.success || "remoteWorkflowFilesReady=true and remoteWorkflowVisibilityReady=true are confirmed."}`,
-    `- Guard: ${launchBlockerFallbackPath.guard || "Keep dispatch withheld until every post-install evidence field, remote workflow parity, Actions visibility, dispatch readiness, and verify-launch-handoff safeToDispatch=true proof are complete."}`,
-    "",
-    `Dispatch guard: ${launchBlockerDispatchGuard}`,
-  ].join("\n") : "";
-  const launchPostAuthCheckpoint = launchExecution?.postAuthCheckpoint && typeof launchExecution.postAuthCheckpoint === "object"
-    ? launchExecution.postAuthCheckpoint
-    : (outputAudit?.outputReadinessSnapshot?.launchPostAuthCheckpoint && typeof outputAudit.outputReadinessSnapshot.launchPostAuthCheckpoint === "object" ? outputAudit.outputReadinessSnapshot.launchPostAuthCheckpoint : {});
-  const launchActionChecklistRecheckSteps = Array.isArray(launchPostAuthCheckpoint.recheckSequence) ? launchPostAuthCheckpoint.recheckSequence : [];
-  const launchActionChecklistSourceArtifacts = Array.isArray(launchPostAuthCheckpoint.sourceArtifacts) ? launchPostAuthCheckpoint.sourceArtifacts : [];
-  const launchActionChecklistDeferredCommand = outputAudit?.nextAction?.deferredCommand ||
-    outputAudit?.publishState?.deferredNextAction?.command ||
-    publishData?.deferredNextAction?.command ||
-    "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown";
-  const launchActionChecklistStatus = launchPostAuthCheckpoint.status || currentLaunchActionStatus || "action_required";
-  const launchActionChecklistActiveKey = launchBlockerActiveKey || currentLaunchActionKey || "install_workflows";
-  const launchActionChecklistImmediateCommand = currentLaunchActionCommand || launchPostAuthCheckpoint.triggerCommand || "gh auth refresh -h github.com -s workflow";
-  const launchActionChecklistDispatchApproval = launchPostAuthCheckpoint.dispatchApproval === true;
-  const launchActionChecklistVerificationOnly = launchPostAuthCheckpoint.verificationOnly === true;
-  const launchActionChecklistGuard = launchPostAuthCheckpoint.guard || outputAudit?.nextAction?.guard || launchBlockerDispatchGuard;
-  const launchActionChecklistReady = launchActionChecklistRecheckSteps.length >= 5 &&
-    launchActionChecklistSourceArtifacts.length >= 4 &&
-    launchActionChecklistVerificationOnly &&
-    !launchActionChecklistDispatchApproval &&
-    !!launchActionChecklistGuard;
-  const launchActionChecklistText = launchActionChecklistReady ? [
-    "JooPark Launch Action Checklist",
-    `Status: ${launchActionChecklistStatus}`,
-    `Active blocker: ${launchActionChecklistActiveKey}`,
-    `Immediate command: ${launchActionChecklistImmediateCommand}`,
-    `Recheck sequence: ${launchActionChecklistRecheckSteps.length}`,
-    `Source artifacts: ${launchActionChecklistSourceArtifacts.length}`,
-    `Withheld dispatch commands: ${currentLaunchWithheldCount}`,
-    `dispatchApproval=${launchActionChecklistDispatchApproval ? "true" : "false"}`,
-    `verificationOnly=${launchActionChecklistVerificationOnly ? "true" : "false"}`,
-    "",
-    "Recheck sequence:",
-    ...launchActionChecklistRecheckSteps.map((step, index) => `${index + 1}. ${step.key || "step"}: ${step.label || "Recheck step"}; command=${step.command || "not_available"}; expected=${step.expected || "not_available"}; source=${step.sourceArtifact || "not_available"}; stop=${step.stopCondition || "not_available"}`),
-    "",
-    "Source artifacts:",
-    ...launchActionChecklistSourceArtifacts.map((artifact) => `- ${artifact}`),
-    "",
-    "Deferred proof command:",
-    `- ${launchActionChecklistDeferredCommand}`,
-    "",
-    `Guard: ${launchActionChecklistGuard}`,
-  ].join("\n") : "";
-  const postInstallEvidenceIntake = launchExecution?.postInstallEvidenceIntake && typeof launchExecution.postInstallEvidenceIntake === "object"
-    ? launchExecution.postInstallEvidenceIntake
-    : (outputAudit?.outputReadinessSnapshot?.postInstallEvidenceIntake && typeof outputAudit.outputReadinessSnapshot.postInstallEvidenceIntake === "object" ? outputAudit.outputReadinessSnapshot.postInstallEvidenceIntake : {});
-  const postInstallEvidenceFields = Array.isArray(postInstallEvidenceIntake.fields)
-    ? postInstallEvidenceIntake.fields
-    : (Array.isArray(postInstallEvidenceIntake.fieldItems) ? postInstallEvidenceIntake.fieldItems : []);
-  const postInstallEvidenceCommands = Array.isArray(postInstallEvidenceIntake.commands) ? postInstallEvidenceIntake.commands : [];
-  const postInstallEvidenceSignals = Array.isArray(postInstallEvidenceIntake.expectedSignals) ? postInstallEvidenceIntake.expectedSignals : [];
-  const postInstallEvidenceFieldCount = Number(postInstallEvidenceIntake.fieldCount || postInstallEvidenceIntake.fieldsCount || (typeof postInstallEvidenceIntake.fields === "number" ? postInstallEvidenceIntake.fields : postInstallEvidenceFields.length) || 0);
-  const postInstallEvidenceCompletedCount = Number(postInstallEvidenceIntake.completedFieldCount || 0);
-  const postInstallEvidencePendingCount = Number.isFinite(Number(postInstallEvidenceIntake.pendingFieldCount))
-    ? Number(postInstallEvidenceIntake.pendingFieldCount)
-    : Math.max(0, postInstallEvidenceFieldCount - postInstallEvidenceCompletedCount);
-  const postInstallEvidenceProofComplete = !!postInstallEvidenceIntake.proofComplete;
-  const postInstallEvidenceReady = !!postInstallEvidenceIntake.ready || (postInstallEvidenceFields.length >= 6 && postInstallEvidenceCommands.length >= 4 && postInstallEvidenceSignals.length >= 8);
-  const postInstallEvidenceStatus = postInstallEvidenceIntake.status || (postInstallEvidenceProofComplete ? "proof_complete" : "collect_post_install_proof");
-  const postInstallEvidenceStopCondition = postInstallEvidenceIntake.stopCondition || "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.";
-  const findPostInstallEvidenceCommand = (...needles) => firstStringIncluding(postInstallEvidenceCommands, ...needles);
-  const findPostInstallEvidenceSignal = (...needles) => firstStringIncluding(postInstallEvidenceSignals, ...needles);
-  const packetPostInstallVerificationSequence = Array.isArray(postInstallEvidenceIntake.verificationSequence)
-    ? postInstallEvidenceIntake.verificationSequence
-    : [];
-  const fallbackPostInstallVerificationSequence = [
-    {
-      key: "remote_file_parity",
-      label: "Remote workflow file check",
-      command: findPostInstallEvidenceCommand("check-remote-workflow-files") || "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
-      expected: findPostInstallEvidenceSignal("remoteWorkflowFilesReady=true") || "remoteWorkflowFilesReady=true",
-      guard: "Confirm both default-branch workflow files exist and match local templates before checking Actions visibility.",
-    },
-    {
-      key: "actions_visibility",
-      label: "Actions visibility check",
-      command: findPostInstallEvidenceCommand("gh workflow list") || "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
-      expected: findPostInstallEvidenceSignal("remoteWorkflowVisibilityReady=true") || "remoteWorkflowVisibilityReady=true",
-      guard: "Confirm GitHub Actions lists both workflow files before planning dispatch.",
-    },
-    {
-      key: "dispatch_readiness",
-      label: "Dispatch readiness plan",
-      command: findPostInstallEvidenceCommand("plan-publish-dispatch") || "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
-      expected: findPostInstallEvidenceSignal("allDispatchReady=true") || "allDispatchReady=true",
-      guard: "Confirm pages and drift dispatch readiness are both true before final handoff verification.",
-    },
-    {
-      key: "handoff_verifier",
-      label: "Launch handoff verifier",
-      command: findPostInstallEvidenceCommand("verify-launch-handoff") || "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
-      expected: findPostInstallEvidenceSignal("safeToDispatch=true before gh workflow run") || "safeToDispatch=true before gh workflow run",
-      guard: postInstallEvidenceStopCondition,
-    },
-  ];
-  const postInstallVerificationSequence = packetPostInstallVerificationSequence.length
-    ? packetPostInstallVerificationSequence
-    : fallbackPostInstallVerificationSequence;
-  const postInstallVerificationSequenceReady = postInstallEvidenceReady &&
-    (postInstallEvidenceIntake.verificationSequenceReady === true || postInstallVerificationSequence.length === 4) &&
-    postInstallVerificationSequence.every((step) => step.command && step.expected);
-  const postInstallVerificationFinalStep = postInstallVerificationSequence[postInstallVerificationSequence.length - 1] || {};
-  const postInstallVerificationFinalCommand = postInstallEvidenceIntake.finalVerificationCommand || postInstallVerificationFinalStep.command || "";
-  const packetPostInstallQuickProofSteps = Array.isArray(postInstallEvidenceIntake.quickProofSteps)
-    ? postInstallEvidenceIntake.quickProofSteps
-    : [];
-  const postInstallQuickProofSteps = packetPostInstallQuickProofSteps.length
-    ? packetPostInstallQuickProofSteps
-    : postInstallVerificationSequence.map((step) => ({
-        key: step.key,
-        label: step.label,
-        command: step.command,
-        expected: step.expected,
-        evidenceFieldKey: step.evidenceFieldKey || "",
-        status: postInstallEvidenceProofComplete ? "proof_ready" : "evidence_required",
-      }));
-  const postInstallQuickProofStepCount = Number(postInstallEvidenceIntake.quickProofStepCount || postInstallQuickProofSteps.length || 0);
-  const postInstallQuickProofCoverage = Number(postInstallEvidenceIntake.quickProofCoverage || (postInstallQuickProofStepCount === 4 && postInstallQuickProofSteps.every((step) => step.command && step.expected) ? 1 : 0));
-  const packetPostInstallQuickProofFieldMappings = Array.isArray(postInstallEvidenceIntake.quickProofFieldMappings)
-    ? postInstallEvidenceIntake.quickProofFieldMappings
-    : [];
-  const postInstallFieldByKey = new Map(postInstallEvidenceFields.map((field) => [field.key, field]));
-  const postInstallQuickProofFieldMappings = packetPostInstallQuickProofFieldMappings.length
-    ? packetPostInstallQuickProofFieldMappings
-    : postInstallQuickProofSteps.map((step) => {
-        const mappedField = postInstallFieldByKey.get(step.evidenceFieldKey) || {};
-        return {
-          stepKey: step.key || "",
-          stepLabel: step.label || "",
-          fieldKey: step.evidenceFieldKey || "",
-          fieldLabel: mappedField.label || "",
-          fieldStatus: mappedField.status || "missing",
-          fieldCompleted: !!mappedField.completed,
-          currentValue: mappedField.currentValue || "not available",
-          expectedValue: mappedField.expectedValue || step.expected || "not available",
-          proofCommand: mappedField.proofCommand || step.command || "not available",
-          stopCondition: mappedField.stopCondition || postInstallEvidenceStopCondition,
-        };
-      });
-  const postInstallQuickProofMappedFieldCount = Number(postInstallEvidenceIntake.quickProofMappedFieldCount || postInstallQuickProofFieldMappings.length || 0);
-  const postInstallQuickProofCompletedMappedFieldCount = Number(postInstallEvidenceIntake.quickProofCompletedMappedFieldCount || postInstallQuickProofFieldMappings.filter((item) => item.fieldCompleted).length || 0);
-  const postInstallQuickProofFieldMappingCoverage = Number(postInstallEvidenceIntake.quickProofFieldMappingCoverage || (postInstallQuickProofMappedFieldCount === 4 && postInstallQuickProofFieldMappings.every((item) => item.stepKey && item.fieldKey && item.fieldLabel && item.proofCommand && item.expectedValue) ? 1 : 0));
-  const postInstallQuickProofFieldMappingReady = postInstallEvidenceIntake.quickProofFieldMappingReady === true || postInstallQuickProofFieldMappingCoverage === 1;
-  const postInstallQuickProofReady = postInstallEvidenceIntake.quickProofReady === true || postInstallQuickProofCoverage === 1;
-  const postInstallQuickProofReceipt = postInstallEvidenceIntake.quickProofReceipt || [
-    "JooPark Post-Install Quick Proof Receipt",
-    `Status: ${postInstallEvidenceStatus}`,
-    `Proof complete: ${postInstallEvidenceProofComplete}`,
-    `Fields complete: ${postInstallEvidenceCompletedCount}/${postInstallEvidenceFieldCount}`,
-    `Quick proof steps: ${postInstallQuickProofStepCount}`,
-    "",
-    "4-step proof checklist:",
-    ...postInstallQuickProofSteps.map((step, index) => `${index + 1}. ${step.key}: run ${step.command}; expect ${step.expected}; paste into ${step.evidenceFieldKey || "matching evidence field"}`),
-    "",
-    "Mapped proof fields:",
-    ...postInstallQuickProofFieldMappings.map((item, index) => `${index + 1}. ${item.stepKey} -> ${item.fieldKey}: ${item.fieldStatus}; completed=${item.fieldCompleted}; current=${item.currentValue}; expected=${item.expectedValue}`),
-    "",
-    postInstallEvidenceStopCondition,
-  ].join("\n");
-  const postInstallEvidenceText = postInstallEvidenceReady ? [
-    "JooPark Workflow Post-Install Evidence Intake",
-    `Status: ${postInstallEvidenceStatus}`,
-    "Scope: Home launch handoff after GitHub UI or CLI workflow installation",
-    `Proof complete: ${postInstallEvidenceProofComplete}`,
-    `Fields complete: ${postInstallEvidenceCompletedCount}/${postInstallEvidenceFieldCount}`,
-    `Pending fields: ${postInstallEvidencePendingCount}`,
-    `Quick proof: ready=${postInstallQuickProofReady}; steps=${postInstallQuickProofStepCount}; coverage=${postInstallQuickProofCoverage}`,
-    `Quick proof field mapping: ready=${postInstallQuickProofFieldMappingReady}; mapped=${postInstallQuickProofMappedFieldCount}; completed=${postInstallQuickProofCompletedMappedFieldCount}/${postInstallQuickProofMappedFieldCount}; coverage=${postInstallQuickProofFieldMappingCoverage}`,
-    "",
-    postInstallQuickProofReceipt,
-    "",
-    "Evidence fields to fill:",
-    ...postInstallEvidenceFields.map((field) => `- ${field.label || field.key}: ${field.placeholder || field.currentValue || "evidence required"}; expected=${field.expectedValue || "not available"}; proofCommand=${field.proofCommand || "not available"}; stopCondition=${field.stopCondition || postInstallEvidenceStopCondition}`),
-    "",
-    "Verification commands:",
-    ...postInstallEvidenceCommands.map((command, index) => `${index + 1}. ${command}`),
-    "",
-    "Verification sequence:",
-    ...postInstallVerificationSequence.map((step, index) => `${index + 1}. ${step.key}: ${step.label}; command=${step.command}; expected=${step.expected}; guard=${step.guard}`),
-    "",
-    "Expected signals:",
-    ...postInstallEvidenceSignals.map((signal) => `- ${signal}`),
-    "",
-    postInstallEvidenceStopCondition,
-  ].join("\n") : "";
-  const externalClaimGuard = outputAudit?.externalClaimGuard && typeof outputAudit.externalClaimGuard === "object" ? outputAudit.externalClaimGuard : {};
-  const externalClaimGuardRequirements = Array.isArray(externalClaimGuard.requirements) ? externalClaimGuard.requirements : [];
-  const externalClaimGuardSignals = Array.isArray(externalClaimGuard.requiredSignals) ? externalClaimGuard.requiredSignals : [];
-  const externalClaimGuardCommands = Array.isArray(externalClaimGuard.proofCommands) ? externalClaimGuard.proofCommands : [];
-  const externalClaimGuardText = externalClaimGuard.text || "";
-  const externalClaimGuardReady = !!externalClaimGuard.ready;
-  const externalClaimGuardRequirementCount = Number(externalClaimGuard.requirementCount || externalClaimGuardRequirements.length || 0);
-  const externalClaimGuardBlockedCount = Number(externalClaimGuard.blockedCount || 0);
-  const externalClaimGuardPrimaryRequirement = firstNonPassingStatusItem(externalClaimGuardRequirements) || externalClaimGuardRequirements[0] || {};
-  const externalClaimGuardPrimarySignal = firstStringIncluding(externalClaimGuardSignals, "remoteWorkflowFilesReady=false") ||
-    firstStringIncluding(externalClaimGuardSignals, "readyForExternalClaim=false") ||
-    externalClaimGuardSignals[0] ||
-    "readyForExternalClaim=false";
-  const externalClaimGuardPrimaryCommand = firstStringIncluding(externalClaimGuardCommands, "verify-launch-handoff.mjs") ||
-    externalClaimGuardCommands[0] ||
-    "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown";
-  const externalClaimGuardNextProofText = externalClaimGuardText ? [
-    "Next claim proof shortcut:",
-    `- requirement=${externalClaimGuardPrimaryRequirement.key || "workflow_installation"}`,
-    `- label=${externalClaimGuardPrimaryRequirement.label || "Workflow installation"}`,
-    `- status=${externalClaimGuardPrimaryRequirement.status || "blocked"}`,
-    `- signal=${externalClaimGuardPrimarySignal}`,
-    `- command=${externalClaimGuardPrimaryCommand}`,
-    `- stopCondition=${externalClaimGuard.stopCondition || "Stop condition: do not claim readyForExternalClaim until Workflow installation, Public launch proof, and External completion claim are all pass."}`,
-  ].join("\n") : "";
-  const homeExternalClaimGuardText = externalClaimGuardText ? `${externalClaimGuardText}\n\n${externalClaimGuardNextProofText}` : "";
-  const currentLaunchStage = launchTransition.currentStageKey || currentLaunchAction?.stageKey || currentLaunchActionKey;
-  const launchTransitionNextStage = launchTransition.nextStageKey || (safeToDispatch
-    ? "capture_launch_proof"
-    : (currentLaunchStage === "install_workflows" ? "verify_visibility" : "dispatch_gate"));
-  const launchTransitionNextLabel = launchTransition.nextStageLabel || recordByKey(launchStages, launchTransitionNextStage)?.label ||
-    (safeToDispatch ? "Capture launch proof" : "Verify workflow visibility");
-  const launchTransitionPendingCount = Number.isFinite(launchTransition.pendingAcceptanceCount) ? launchTransition.pendingAcceptanceCount : Number(currentLaunchAction?.acceptancePendingCount || 0);
-  const launchTransitionGateCommand = launchTransition.gateCommand || launchExecution?.postAuthCheckpoint?.verifyCommand ||
-    firstStringIncluding(currentLaunchAction?.verifyCommands, "verify-launch-handoff") ||
-    "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown";
-  const launchProofReady = !!(publishData && publishData.postPublishEvidenceReady && publishEvidenceFresh(publishData));
-  const publishStatus = launchProofReady ? "proof ready" : `${publishBlockers.length} actions`;
-  const releaseGate = publishReadinessItems().find((item) => item.key === "release-gates") || {};
-  const releaseGateEvidence = Array.isArray(releaseGate.evidence) ? releaseGate.evidence : [];
-  const readinessCards = [
-    {
-      key: "data-ownership",
-      tone: "green",
-      viewName: "settings",
-      label: "데이터 소유권",
-      value: "local",
-      detail: "브라우저 저장 + JSON 백업/복구",
-    },
-    {
-      key: "release-gate",
-      tone: "blue",
-      viewName: "system",
-      label: "릴리스 게이트",
-      value: `${releaseGateEvidence.length} proofs`,
-      detail: "route 17/17, mobile search/UI, delete undo, a11y",
-      evidenceCount: releaseGateEvidence.length,
-    },
-    {
-      key: "publish-proof",
-      tone: launchProofReady ? "green" : "amber",
-      viewName: "system",
-      label: "공개 증거",
-      value: publishStatus,
-      detail: launchProofReady ? "Pages/workflow evidence freshness 통과" : "workflow 설치와 dispatch evidence가 남음",
-    },
-    {
-      key: "benchmark-queue",
-      tone: "violet",
-      viewName: "pm-portfolio",
-      label: "벤치마크 큐",
-      value: `${benchmarkFocused.length}/${adoptionCandidates.length}`,
-      detail: `${sourceBacked.length}개 source-backed 후보 기반`,
-    },
-  ];
-  const firstRunModel = homeFirstRunGuidanceModel({
-    todaysEvents,
-    openTodos,
-    noteCount: dashboard.notes.length,
-    totalProjects,
-    publishBlockers,
-    externalClaimReady,
-    launchProofReady,
-  });
-  const {
-    firstRunSteps,
-    firstRunReadyCount,
-    firstRunActionRequiredCount,
-    firstRunNextStep,
-    firstRunGuidedStartItems,
-    firstRunGuidedStartCoverage,
-  } = firstRunModel;
-  const milestoneCount = dashboard.gantt.tasks.filter((task) => task.milestone).length;
+function homeProjectFollowThroughModel({ totalProjects, totalIssues, milestoneCount, teamCount }) {
   const projectFollowThroughSteps = totalProjects ? [
     {
       key: "first_issue",
@@ -2750,28 +1652,31 @@ function renderHome() {
     {
       key: "first_owner",
       label: "담당자 추가",
-      status: dashboard.team.length ? "ready" : "action_required",
-      metric: `${dashboard.team.length} members`,
+      status: teamCount ? "ready" : "action_required",
+      metric: `${teamCount} members`,
       detail: "팀 멤버를 등록해 이슈와 작업을 책임자 중심으로 배정할 수 있게 만듭니다.",
       action: "member-add",
       actionLabel: "담당자 추가",
       viewName: "pm-team",
     },
   ] : [];
-  const projectFollowThroughReadyCount = projectFollowThroughSteps.filter((step) => step.status === "ready").length;
-  const projectFollowThroughActionRequiredCount = projectFollowThroughSteps.filter((step) => step.status !== "ready").length;
+  const projectFollowThroughCounts = readyStatusCounts(projectFollowThroughSteps);
+  const projectFollowThroughReadyCount = projectFollowThroughCounts.readyCount;
+  const projectFollowThroughActionRequiredCount = projectFollowThroughCounts.actionRequiredCount;
   const projectFollowThroughNextStep = nextStatusItem(projectFollowThroughSteps);
-  const projectFollowThroughHTML = homeProjectFollowThroughHTML({ projectFollowThroughSteps, projectFollowThroughReadyCount, projectFollowThroughActionRequiredCount, projectFollowThroughNextStep });
+  return {
+    projectFollowThroughSteps,
+    projectFollowThroughReadyCount,
+    projectFollowThroughActionRequiredCount,
+    projectFollowThroughNextStep,
+  };
+}
 
-  /* Personal-first KPIs */
-  const kpis = [
-    { title: "오늘 일정",   value: String(todaysEvents.length), unit: "건", color: "#2387ff", badge: "◷", delta: formatKoreanShort(today) },
-    { title: "할 일 남음",  value: String(openTodos.length),    unit: "건", color: overdueTodos.length ? "#ff4d5e" : "#22d3ee", badge: "☑", delta: overdueTodos.length ? `지남 ${overdueTodos.length}건` : "양호", trendDown: overdueTodos.length > 0 },
-    { title: "이번 주 마감", value: String(weekDeadlines),       unit: "건", color: "#f7a928", badge: "⚑", delta: "앞으로 7일" },
-    { title: "진행 프로젝트", value: String(totalProjects),       unit: "개", color: "#17d983", badge: "▦", delta: `${onTrack}개 정상` },
-  ];
+/* ============================================================
+ * View: Home
+ * ============================================================ */
 
-  /* 오늘의 일정 + 할 일 (today's command panel) */
+function homeTodayCommandContentHTML({ todaysEvents, overdueTodos, todayTodos, upcoming }) {
   const todayEventsHTML = todaysEvents.length
     ? todaysEvents.map((e) => eventRow(e, { compact: true })).join("")
     : html`<p class="agenda-empty">오늘 등록된 일정이 없습니다.</p>`;
@@ -2786,11 +1691,9 @@ function renderHome() {
           </button>
         </div>`))}</div>`
     : html`<p class="agenda-empty">오늘 마감인 할 일이 없습니다. 👍</p>`;
-
   const upcomingHTML = upcoming.length
     ? html`<ul class="home-upcoming">${upcoming.map((e) => {
         const c = EVENT_CATS[e.category] || EVENT_CATS.etc;
-        // For occurrences, open their master event.
         const openId = e._masterId || e.id;
         return raw(html`<li>
           <button type="button" class="home-upcoming-open" data-action="open-event" data-event-id="${openId}">
@@ -2801,116 +1704,197 @@ function renderHome() {
         </li>`);
       })}</ul>`
     : html`<p class="agenda-empty">앞으로 7일간 예정된 일정이 없습니다.</p>`;
+  return { todayEventsHTML, todayTodosHTML, upcomingHTML };
+}
 
-  const topProjects = [...dashboard.projects].sort((a, b) => b.progress - a.progress).slice(0, 3);
-  const portfolioBody = topProjects.length
-    ? html`<ul class="home-list">${topProjects.map((p) => raw(html`
-        <li>
-          <span class="home-dot" style="background:${raw(HEALTH_COLOR[p.health])}"></span>
-          <strong>${p.name}</strong>
-          <em>${p.progress}%</em>
-        </li>
-      `))}</ul>`
-    : homeEmptyHTML("projects", "프로젝트가 없습니다", "첫 운영 프로젝트를 만들면 진행률과 상태가 홈에 나타납니다.", "project-add", "프로젝트 만들기");
+const dashboardStorageHelpers = window.JooParkDashboardStorage && window.JooParkDashboardStorage.version === "joopark-dashboard-storage/v1" && typeof window.JooParkDashboardStorage.create === "function"
+  ? window.JooParkDashboardStorage.create()
+  : null;
+const dashboardPrioritizationHelpers = window.JooParkDashboardPrioritization && window.JooParkDashboardPrioritization.version === "joopark-dashboard-prioritization/v1" && typeof window.JooParkDashboardPrioritization.create === "function"
+  ? window.JooParkDashboardPrioritization.create()
+  : null;
+const dashboardEvidenceReceiptHelpers = window.JooParkDashboardEvidenceReceipts && window.JooParkDashboardEvidenceReceipts.version === "joopark-dashboard-evidence-receipts/v1" && typeof window.JooParkDashboardEvidenceReceipts.create === "function"
+  ? window.JooParkDashboardEvidenceReceipts.create({ storage: dashboardStorageHelpers })
+  : null;
+const dashboardInsightsEngineHelpers = window.JooParkDashboardInsightsEngine && window.JooParkDashboardInsightsEngine.version === "joopark-dashboard-insights-engine/v1" && typeof window.JooParkDashboardInsightsEngine.create === "function"
+  ? window.JooParkDashboardInsightsEngine.create()
+  : null;
+const dashboardAutoresearchLoopHelpers = window.JooParkDashboardAutoresearchLoop && window.JooParkDashboardAutoresearchLoop.version === "joopark-dashboard-autoresearch-loop/v1" && typeof window.JooParkDashboardAutoresearchLoop.create === "function"
+  ? window.JooParkDashboardAutoresearchLoop.create()
+  : null;
+const dashboardViewHelpers = window.JooParkDashboardView && window.JooParkDashboardView.version === "joopark-dashboard-view/v1" && typeof window.JooParkDashboardView.create === "function"
+  ? window.JooParkDashboardView.create({ html, raw })
+  : null;
+const DASHBOARD_COLLECTION_KEYS = Object.freeze([
+  "dashboardInsights",
+  "dashboardResearchLoops",
+  "dashboardImprovementCandidates",
+  "dashboardDecisionReceipts",
+  "dashboardEvidenceSnapshots",
+  "dashboardHealthChecks",
+]);
 
-  const counts = { todo: 0, "in-progress": 0, review: 0, done: 0 };
-  dashboard.issues.forEach((i) => { counts[i.status] = (counts[i.status] || 0) + 1; });
-  const kanbanBody = totalIssues
-    ? html`
-      <div class="home-stats">
-        <div><b>${counts.todo}</b><small>To Do</small></div>
-        <div><b>${counts["in-progress"]}</b><small>In Progress</small></div>
-        <div><b>${counts.review}</b><small>Review</small></div>
-        <div><b>${counts.done}</b><small>Done</small></div>
-      </div>
-    `
-    : homeEmptyHTML("kanban", "이슈가 없습니다", "첫 이슈를 만들면 Kanban 단계별 작업량을 바로 볼 수 있습니다.", "issue-add", "이슈 만들기");
+function dashboardStorageCall(name, ...args) {
+  return callModuleHelper(dashboardStorageHelpers, "dashboard storage", name, args, "dashboard storage helper unavailable");
+}
 
-  const upcomingMs = dashboard.gantt.tasks.filter((t) => t.milestone).slice(0, 3);
-  const ganttBody = upcomingMs.length
-    ? html`<ul class="home-list">${upcomingMs.map((m) => raw(html`
-        <li>
-          <span class="home-dot" style="background:var(--violet)"></span>
-          <strong>${m.name}</strong>
-          <em>${m.start}</em>
-        </li>
-      `))}</ul>`
-    : homeEmptyHTML("gantt", "마일스톤이 없습니다", "일정이 있는 작업을 추가하면 홈에서 다음 마일스톤을 추적합니다.", "task-add", "작업 만들기");
+function ensureDashboardCollections() {
+  if (dashboardStorageHelpers) return dashboardStorageCall("ensureCollections", dashboard);
+  DASHBOARD_COLLECTION_KEYS.forEach((key) => {
+    if (!Array.isArray(dashboard[key])) dashboard[key] = [];
+  });
+  return dashboard;
+}
 
-  const overloaded = dashboard.team.filter((m) => m.load > 85);
-  const teamBody = dashboard.team.length
-    ? html`
-      <ul class="home-list">${dashboard.team.slice(0, 4).map((m) => raw(html`
-        <li>
-          <span class="home-dot" style="background:${raw(m.load > 85 ? "var(--red)" : m.load > 65 ? "var(--amber)" : "var(--green)")}"></span>
-          <strong>${m.name}</strong>
-          <em>${m.load}%</em>
-        </li>
-      `))}</ul>
-      <small class="home-sub">오버할당 ${overloaded.length}명</small>
-    `
-    : homeEmptyHTML("team", "팀 멤버가 없습니다", "담당자를 추가하면 부하와 배정 가능성을 홈에서 확인할 수 있습니다.", "member-add", "멤버 추가");
+function dashboardCollectionSummary() {
+  if (dashboardStorageHelpers) return dashboardStorageCall("collectionSummary", dashboard);
+  return DASHBOARD_COLLECTION_KEYS.map((key) => ({
+    key,
+    count: Array.isArray(dashboard[key]) ? dashboard[key].length : 0,
+    retention: 0,
+    latestHash: Array.isArray(dashboard[key]) && dashboard[key][0] ? dashboard[key][0].receiptHash || "" : "",
+  }));
+}
 
-  const instancesBody = dashboard.dbInstances.length
-    ? html`<ul class="home-list">${dashboard.dbInstances.map((d) => raw(html`
-        <li>
-          <span class="home-dot" style="background:${raw(HEALTH_COLOR[d.health])}"></span>
-          <strong>${d.name}</strong>
-          <em>CPU ${d.cpu}%</em>
-        </li>
-      `))}</ul>`
-    : homeEmptyHTML("db-instances", "DB 인스턴스가 없습니다", "DB 카탈로그 항목을 등록하면 상태와 CPU 메모를 홈에서 볼 수 있습니다.", "instance-add", "인스턴스 추가");
+function dashboardProductLoopState() {
+  const summary = state.verifyWorkspaceSummary && state.verifyWorkspaceSummary.data ? state.verifyWorkspaceSummary.data : {};
+  const productLoop = summary.artifacts && summary.artifacts.productLoop ? summary.artifacts.productLoop : {};
+  const direct = state.productLoopSummary && state.productLoopSummary.data ? state.productLoopSummary.data : {};
+  return { ...direct, ...productLoop };
+}
 
-  const schemaTotalTables = dashboard.schemas.reduce((a, s) => a + s.databases.reduce((b, db) => b + db.tables.length, 0), 0);
-  const schemaDbCount = dashboard.schemas.reduce((a, s) => a + s.databases.length, 0);
-  const schemaBody = schemaTotalTables
-    ? html`
-      <div class="home-stats">
-        <div><b>${dashboard.dbInstances.length}</b><small>인스턴스</small></div>
-        <div><b>${schemaDbCount}</b><small>DB</small></div>
-        <div><b>${schemaTotalTables}</b><small>테이블</small></div>
-      </div>
-    `
-    : homeEmptyHTML("schema", "스키마가 없습니다", "DB 인스턴스를 기준으로 테이블 구조를 문서화하세요.", dashboard.dbInstances.length ? "table-add" : "instance-add", dashboard.dbInstances.length ? "테이블 추가" : "DB부터 추가");
+function dashboardInsightsModel() {
+  ensureDashboardCollections();
+  const autoresearchActive = state.dashboardAutoresearchActive === true || !!(dashboard.ui && dashboard.ui.dashboardAutoresearchActive);
+  const base = callModuleHelper(dashboardInsightsEngineHelpers, "dashboard insights engine", "dashboardInsightsModel", [{
+    dashboard,
+    state,
+    today: todayISO(),
+    createdAt: nowISO(),
+    publishItems: publishReadinessItems(),
+    productLoop: dashboardProductLoopState(),
+  }], "dashboard insights engine helper unavailable");
+  const rankedCandidates = callModuleHelper(dashboardPrioritizationHelpers, "dashboard prioritization", "rankCandidates", [base.candidates || []], "dashboard prioritization helper unavailable");
+  return {
+    ...base,
+    candidates: rankedCandidates,
+    loops: dashboard.dashboardResearchLoops || [],
+    receipts: dashboard.dashboardDecisionReceipts || [],
+    latestReceipt: (dashboard.dashboardDecisionReceipts || [])[0] || null,
+    autoresearchActive,
+    collections: dashboardCollectionSummary(),
+  };
+}
 
-  const topQueries = [...dashboard.queries].sort((a, b) => b.p95Ms - a.p95Ms).slice(0, 3);
-  const queriesBody = topQueries.length
-    ? html`<ul class="home-list">${topQueries.map((q) => raw(html`
-        <li>
-          <span class="home-dot" style="background:var(--red)"></span>
-          <strong>${q.id}</strong>
-          <em>p95 ${q.p95Ms}ms</em>
-        </li>
-      `))}</ul>`
-    : homeEmptyHTML("queries", "저장 쿼리가 없습니다", "자주 보는 SQL을 저장하면 느린 쿼리 신호가 홈에 나타납니다.", dashboard.dbInstances.length ? "query-add" : "instance-add", dashboard.dbInstances.length ? "쿼리 추가" : "DB부터 추가");
+function dashboardIntelligenceHTML() {
+  return callModuleHelper(dashboardViewHelpers, "dashboard view", "renderDashboardIntelligenceHTML", [dashboardInsightsModel()], "dashboard view helper unavailable");
+}
 
-  const recentBackups = dashboard.dbInstances.length ? dashboard.backups.slice(-4).reverse() : [];
-  const backupsBody = recentBackups.length
-    ? html`
-      <ul class="home-list">${recentBackups.map((b) => raw(html`
-        <li>
-          <span class="home-dot" style="background:${raw(b.status === "ok" ? "var(--green)" : b.status === "warn" ? "var(--amber)" : "var(--red)")}"></span>
-          <strong>${b.date}</strong>
-          <em>${b.instance}</em>
-        </li>
-      `))}</ul>
-    `
-    : homeEmptyHTML("backups", "백업 기록이 없습니다", "변경 이력을 기록하면 백업과 마이그레이션 상태를 홈에서 함께 확인할 수 있습니다.", "migration-add", "마이그레이션 추가");
+function systemDashboardReceiptHTML() {
+  return callModuleHelper(dashboardViewHelpers, "dashboard view", "systemDashboardReceiptHTML", [dashboardInsightsModel()], "dashboard view helper unavailable");
+}
 
-  setHTML(view, html`
-    ${raw(homeHeroHTML({ today, greet, name, todaysEvents, openTodos, overdueTodos }))}
-    <section class="kpis kpis-4">${raw(kpis.map((k) => kpiCard(k)).join(""))}</section>
-    ${raw(homeExecutionQueueHTML(executionQueue))}
-    ${raw(homeCommandTilesHTML({ todayEventsHTML, todayTodosHTML, upcomingHTML, totalProjects, portfolioBody, totalIssues, kanbanBody, dashboard, ganttBody, teamBody, unhealthy, instancesBody, schemaTotalTables, schemaBody, slow, queriesBody, pendingMig, backupsBody }))}
-    ${raw(homeFirstRunGuidanceHTML({ firstRunSteps, firstRunReadyCount, firstRunActionRequiredCount, firstRunNextStep, firstRunGuidedStartItems, firstRunGuidedStartCoverage }))}
-    ${raw(projectFollowThroughHTML)}
-    ${raw(homeLaunchOperationsHTML({
-      publishBlockers, launchProofReady, benchmarkFocused, sourceBacked, readinessCards, currentLaunchActionKey, currentLaunchActionLabel, currentLaunchActionStatus, currentLaunchActionCommandCount, currentLaunchWithheldCount, safeToDispatch, externalClaimReady, launchTransition, currentLaunchStage, launchTransitionNextStage, launchTransitionPendingCount, launchTransitionGateCommand, launchInstallMatrix, launchInstallMatrixRows, launchInstallMatrixSignals, remoteWorkflowFileLedger, remoteWorkflowFileLedgerItems, launchProofLedger, launchProofLedgerItems, currentLaunchActionDetail, currentLaunchActionCommand, launchTransitionNextLabel,
-      launchActionChecklistText, launchActionChecklistReady, launchActionChecklistStatus, launchActionChecklistActiveKey, launchActionChecklistImmediateCommand, launchActionChecklistDeferredCommand, launchActionChecklistRecheckSteps, launchActionChecklistSourceArtifacts, launchActionChecklistDispatchApproval, launchActionChecklistVerificationOnly, launchActionChecklistGuard,
-      launchBlockerResolverText, launchBlockerResolverReady, launchBlockerActiveKey, launchBlockerResolution, launchBlockerItems, launchBlockerProofCommands, launchBlockerFallbackCommands, launchEvidenceGapItems, launchPostInstallIntakeForGap, launchBlockerDispatchGuard, launchBlockerActiveItem, workflowInstallShortcutText, workflowInstallShortcutReady, workflowScopeInstallBlocked, workflowInstallShortcutPaths, workflowInstallShortcutCommandCount, workflowInstallShortcutTargetCount, workflowInstallShortcutPrimaryPath, workflowInstallShortcutPrimaryCommand, workflowInstallShortcutVerifyCommand, workflowInstallShortcutDefaultBranchGuard, workflowInstallShortcutScopeGuard, launchBlockerFallbackPath,
-      postInstallEvidenceText, postInstallEvidenceReady, postInstallEvidenceStatus, postInstallEvidenceProofComplete, postInstallEvidenceCompletedCount, postInstallEvidencePendingCount, postInstallEvidenceFieldCount, postInstallEvidenceCommands, postInstallEvidenceSignals, postInstallEvidenceFields, postInstallEvidenceIntake, postInstallQuickProofReady, postInstallQuickProofStepCount, postInstallQuickProofCoverage, postInstallQuickProofSteps, postInstallQuickProofFieldMappingReady, postInstallQuickProofFieldMappingCoverage, postInstallQuickProofMappedFieldCount, postInstallQuickProofCompletedMappedFieldCount, postInstallQuickProofFieldMappings, postInstallVerificationSequence, postInstallVerificationSequenceReady, postInstallVerificationFinalCommand, postInstallEvidenceStopCondition, externalClaimGuardText, externalClaimGuardReady, externalClaimGuard, externalClaimGuardBlockedCount, externalClaimGuardRequirementCount, externalClaimGuardCommands, externalClaimGuardPrimaryRequirement, externalClaimGuardPrimarySignal, externalClaimGuardPrimaryCommand, externalClaimGuardRequirements, externalClaimGuardSignals, homeExternalClaimGuardText,
-    }))}
-  `);
+function runDashboardAutoresearchLoop(options = {}) {
+  if (options.active === true) state.dashboardAutoresearchActive = true;
+  ensureDashboardUi().dashboardAutoresearchActive = state.dashboardAutoresearchActive === true;
+  const result = callModuleHelper(dashboardAutoresearchLoopHelpers, "dashboard autoresearch loop", "runLoop", [{
+    dashboard,
+    state,
+    today: todayISO(),
+    createdAt: nowISO(),
+    publishItems: publishReadinessItems(),
+    productLoop: dashboardProductLoopState(),
+    storage: dashboardStorageHelpers,
+    prioritization: dashboardPrioritizationHelpers,
+    receipts: dashboardEvidenceReceiptHelpers,
+    insightsEngine: dashboardInsightsEngineHelpers,
+    active: state.dashboardAutoresearchActive === true,
+  }], "dashboard autoresearch loop helper unavailable");
+  persist();
+  updateNavCounts();
+  if (dashboard.currentView === "home" || dashboard.currentView === "system") renderCurrentView();
+  showToast("AutoResearch loop receipt를 저장했습니다", "info");
+  return result;
+}
+
+function startDashboardAutoresearchLoop() {
+  state.dashboardAutoresearchActive = true;
+  ensureDashboardUi().dashboardAutoresearchActive = true;
+  return runDashboardAutoresearchLoop({ active: true });
+}
+
+function stopDashboardAutoresearchLoop() {
+  state.dashboardAutoresearchActive = false;
+  ensureDashboardUi().dashboardAutoresearchActive = false;
+  persist();
+  if (dashboard.currentView === "home" || dashboard.currentView === "system") renderCurrentView();
+  showToast("AutoResearch loop를 멈췄습니다", "info");
+}
+
+function copyDashboardDecisionReceipt(target) {
+  const panel = target.closest("[data-dashboard-decision-receipt]");
+  const text = nodeText(panel, "[data-dashboard-decision-receipt-text]");
+  const status = nodeQuery(panel, "[data-dashboard-decision-receipt-copy-status]");
+  copyTextWithStatus({
+    text,
+    datasetKey: "dashboardDecisionReceiptCopied",
+    targets: [panel, target],
+    status,
+    copiedStatusText: "복사됨",
+    failedStatusText: "복사 실패",
+    copiedToast: "dashboard decision receipt를 복사했습니다",
+    failedToast: "dashboard decision receipt 복사에 실패했습니다",
+  });
+}
+
+
+
+
+const homeViewHelpers = window.JooParkHomeView && window.JooParkHomeView.version === "joopark-home-view/v1" && typeof window.JooParkHomeView.create === "function"
+  ? window.JooParkHomeView.create({
+      refs,
+      dashboard,
+      state,
+      html,
+      raw,
+      setHTML,
+      todayISO,
+      addDaysISO,
+      eventsOn,
+      sortEvents,
+      expandOccurrences,
+      homeExecutionQueueModel,
+      publishReadinessItems,
+      safeGithubUrl,
+      shortCommit,
+      projectBenchmarkContext,
+      recordByKey,
+      firstStatusItem,
+      firstStringIncluding,
+      firstNonPassingStatusItem,
+      publishEvidenceFresh,
+      formatKoreanShort,
+      clampInteger,
+      homeFirstRunGuidanceModel,
+      homeProjectFollowThroughModel,
+      kpiCard,
+      homeTileHTML,
+      homeEmptyHTML,
+      HEALTH_COLOR,
+      homeListPreviewHTML,
+      homeTodayCommandContentHTML,
+      homeHeroHTML,
+      homeExecutionQueueHTML,
+      dashboardIntelligenceHTML,
+    })
+  : null;
+
+function homeViewCall(name, ...args) {
+  return callModuleHelper(homeViewHelpers, "Home view", name, args, "Home view helper unavailable");
+}
+
+function renderHome() {
+  return homeViewCall("renderHome");
 }
 
 /* ============================================================
@@ -2973,24 +1957,21 @@ function sortBenchmarkFocusProjects(projects) {
   return [...projects].sort((a, b) => {
     const benchmarkDiff = benchmarkFocusQueueScore(b) - benchmarkFocusQueueScore(a);
     if (benchmarkDiff !== 0) return benchmarkDiff;
-    const aPriority = projectCandidatePriority(a);
-    const bPriority = projectCandidatePriority(b);
-    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
-    if (scoreDiff !== 0) return scoreDiff;
-    return String(a.name || "").localeCompare(String(b.name || ""));
+    return compareCandidatePriorityThenName(a, b);
   });
+}
+
+function compareCandidatePriorityThenName(a, b) {
+  const aPriority = projectCandidatePriority(a);
+  const bPriority = projectCandidatePriority(b);
+  const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
+  return scoreDiff || String(a.name || "").localeCompare(String(b.name || ""));
 }
 
 function candidateActionQueueSummary(projects, filter) {
   const selected = recordByKey(CANDIDATE_ACTION_FILTERS, filter) || CANDIDATE_ACTION_FILTERS[0];
   const queue = projects.filter((p) => p.sourceKind === "adoption-candidate" && portfolioMatchesActionFilter(p, selected.key));
-  const ranked = [...queue].sort((a, b) => {
-    const aPriority = projectCandidatePriority(a);
-    const bPriority = projectCandidatePriority(b);
-    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
-    if (scoreDiff !== 0) return scoreDiff;
-    return String(a.name || "").localeCompare(String(b.name || ""));
-  });
+  const ranked = [...queue].sort(compareCandidatePriorityThenName);
   const top = ranked[0] || null;
   const topPriority = top ? projectCandidatePriority(top) : null;
   const topAction = top ? projectCandidateAction(top) : null;
@@ -3059,13 +2040,29 @@ function rubricRowByAxis(rows, axis) {
   return (rows || []).find((row) => row && row.axis === axis) || null;
 }
 
+function rubricWeightLabel(row) {
+  return row && row.weight ? `${Math.round(row.weight * 100)}%` : "가중 없음";
+}
+
+function rubricScoreLabel(row) {
+  return row && row.score ? `${row.score}점` : "점수 없음";
+}
+
+function benchmarkRubricAxes(projects, rubricProject) {
+  return Array.from(new Set((projects || []).flatMap((project) => rubricProject(project).map((row) => row.axis))));
+}
+
+function rubricProjectTitle(projects) {
+  return (projects || []).map((project) => project.name.split("/").pop()).join(" / ");
+}
+
 function candidateBenchmarkRubric(projects, filter) {
   if (filter !== "focused") return "";
-  const focused = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0)).slice(0, 2);
+  const focused = sortBenchmarkFocusProjects(adoptionCandidateRubricProjects(projects, projectBenchmarkRubric)).slice(0, 2);
   if (focused.length < 2) return "";
   const axes = ["입력 소스", "AI 보조", "PM 표면", "운영 방식"];
   const rowFor = (project, axis) => rubricRowByAxis(projectBenchmarkRubric(project), axis);
-  const scored = candidateBenchmarkRubricRanking(focused);
+  const scored = rankProjectsByRubric(focused, projectBenchmarkRubricScore);
   const topRecommendation = scored[0] || null;
   const header = html`
     <div class="portfolio-rubric-axis">비교 축</div>
@@ -3078,8 +2075,8 @@ function candidateBenchmarkRubric(projects, filter) {
     <div class="portfolio-rubric-axis" data-benchmark-rubric-axis="${axis}">${axis}</div>
     ${raw(focused.map((project) => {
       const row = rowFor(project, axis);
-      const weight = row && row.weight ? `${Math.round(row.weight * 100)}%` : "가중 없음";
-      const score = row && row.score ? `${row.score}점` : "점수 없음";
+      const weight = rubricWeightLabel(row);
+      const score = rubricScoreLabel(row);
       return html`<div class="portfolio-rubric-value" data-rubric-project="${project.name}" data-rubric-axis="${axis}" data-rubric-weight="${row ? row.weight : 0}" data-rubric-score="${row ? row.score : 0}"><span>${row ? row.value : "비교 대기"}</span><small>${weight} · ${score}</small></div>`;
     }).join(""))}
   `).join("");
@@ -3087,7 +2084,7 @@ function candidateBenchmarkRubric(projects, filter) {
     <section class="portfolio-benchmark-rubric" data-candidate-benchmark-rubric>
       <div class="portfolio-rubric-head">
         <span>벤치 비교표</span>
-        <strong>${focused.map((project) => project.name.split("/").pop()).join(" / ")}</strong>
+        <strong>${rubricProjectTitle(focused)}</strong>
       </div>
       ${topRecommendation ? raw(html`<div class="portfolio-rubric-score" data-benchmark-rubric-recommendation="${topRecommendation.project.name}" data-rubric-score="${topRecommendation.rubricScore.score}"><span>추천 후보</span><strong>${topRecommendation.project.name}</strong><small>${topRecommendation.rubricScore.label} ${topRecommendation.rubricScore.score}</small></div>`) : ""}
       <div class="portfolio-rubric-grid">
@@ -3101,12 +2098,9 @@ function candidateBenchmarkRubric(projects, filter) {
 
 function candidateKnowledgeBaseRubric(projects, filter) {
   if (filter !== "focused") return "";
-  const focused = knowledgeBaseBenchmarkRubricRanking((Array.isArray(projects) ? projects : [])
-    .filter((p) => p.sourceKind === "adoption-candidate" && projectKnowledgeBaseRubric(p).length > 0))
-    .map((item) => item.project)
-    .slice(0, 3);
+  const focused = rankedAdoptionCandidateRubricProjects(projects, projectKnowledgeBaseRubric, knowledgeBaseBenchmarkRubricRanking, 3);
   if (focused.length < 3) return "";
-  const axes = Array.from(new Set(focused.flatMap((project) => projectKnowledgeBaseRubric(project).map((row) => row.axis))));
+  const axes = benchmarkRubricAxes(focused, projectKnowledgeBaseRubric);
   const rowFor = (project, axis) => rubricRowByAxis(projectKnowledgeBaseRubric(project), axis);
   const scored = knowledgeBaseBenchmarkRubricRanking(focused);
   const topRecommendation = scored[0] || null;
@@ -3121,8 +2115,8 @@ function candidateKnowledgeBaseRubric(projects, filter) {
     <div class="portfolio-rubric-axis" data-kb-rubric-axis="${axis}">${axis}</div>
     ${raw(focused.map((project) => {
       const row = rowFor(project, axis);
-      const weight = row && row.weight ? `${Math.round(row.weight * 100)}%` : "가중 없음";
-      const score = row && row.score ? `${row.score}점` : "점수 없음";
+      const weight = rubricWeightLabel(row);
+      const score = rubricScoreLabel(row);
       return html`<div class="portfolio-rubric-value" data-kb-rubric-project="${project.name}" data-kb-rubric-axis="${axis}" data-kb-rubric-weight="${row ? row.weight : 0}" data-kb-rubric-score="${row ? row.score : 0}"><span>${row ? row.value : "비교 대기"}</span><small>${weight} · ${score}</small></div>`;
     }).join(""))}
   `).join("");
@@ -3130,7 +2124,7 @@ function candidateKnowledgeBaseRubric(projects, filter) {
     <section class="portfolio-benchmark-rubric" data-knowledge-base-benchmark-rubric>
       <div class="portfolio-rubric-head">
         <span>KB/IA 비교표</span>
-        <strong>${focused.map((project) => project.name.split("/").pop()).join(" / ")}</strong>
+        <strong>${rubricProjectTitle(focused)}</strong>
       </div>
       ${topRecommendation ? raw(html`<div class="portfolio-rubric-score" data-knowledge-base-rubric-recommendation="${topRecommendation.project.name}" data-kb-rubric-score="${topRecommendation.rubricScore.score}"><span>추천 후보</span><strong>${topRecommendation.project.name}</strong><small>${topRecommendation.rubricScore.label} ${topRecommendation.rubricScore.score}</small></div>`) : ""}
       <div class="portfolio-rubric-grid" style="--rubric-project-count:${focused.length}">
@@ -3145,12 +2139,9 @@ function candidateKnowledgeBaseRubric(projects, filter) {
 
 function candidateWorkspaceRubric(projects, filter) {
   if (filter !== "focused") return "";
-  const focused = workspaceBenchmarkRubricRanking((Array.isArray(projects) ? projects : [])
-    .filter((p) => p.sourceKind === "adoption-candidate" && projectWorkspaceRubric(p).length > 0))
-    .map((item) => item.project)
-    .slice(0, 2);
+  const focused = rankedAdoptionCandidateRubricProjects(projects, projectWorkspaceRubric, workspaceBenchmarkRubricRanking, 2);
   if (focused.length < 2) return "";
-  const axes = Array.from(new Set(focused.flatMap((project) => projectWorkspaceRubric(project).map((row) => row.axis))));
+  const axes = benchmarkRubricAxes(focused, projectWorkspaceRubric);
   const rowFor = (project, axis) => rubricRowByAxis(projectWorkspaceRubric(project), axis);
   const scored = workspaceBenchmarkRubricRanking(focused);
   const topRecommendation = scored[0] || null;
@@ -3166,8 +2157,8 @@ function candidateWorkspaceRubric(projects, filter) {
     <div class="portfolio-rubric-axis" data-workspace-rubric-axis="${axis}">${axis}</div>
     ${raw(focused.map((project) => {
       const row = rowFor(project, axis);
-      const weight = row && row.weight ? `${Math.round(row.weight * 100)}%` : "가중 없음";
-      const score = row && row.score ? `${row.score}점` : "점수 없음";
+      const weight = rubricWeightLabel(row);
+      const score = rubricScoreLabel(row);
       return html`<div class="portfolio-rubric-value" data-workspace-rubric-project="${project.name}" data-workspace-rubric-axis="${axis}" data-workspace-rubric-weight="${row ? row.weight : 0}" data-workspace-rubric-score="${row ? row.score : 0}"><span>${row ? row.value : "비교 대기"}</span><small>${weight} · ${score}</small></div>`;
     }).join(""))}
   `).join("");
@@ -3175,7 +2166,7 @@ function candidateWorkspaceRubric(projects, filter) {
     <section class="portfolio-benchmark-rubric" data-workspace-benchmark-rubric data-workspace-benchmark-surface="${topFocus ? topFocus.surface : "JooPark Workspace"}" data-workspace-benchmark-flow="${topFocus ? topFocus.flow : "PM/task + notes/wiki collaboration transfer"}">
       <div class="portfolio-rubric-head">
         <span>Workspace 비교표</span>
-        <strong>${focused.map((project) => project.name.split("/").pop()).join(" / ")}</strong>
+        <strong>${rubricProjectTitle(focused)}</strong>
       </div>
       ${topRecommendation ? raw(html`<div class="portfolio-rubric-score" data-workspace-rubric-recommendation="${topRecommendation.project.name}" data-workspace-rubric-score="${topRecommendation.rubricScore.score}"><span>추천 후보</span><strong>${topRecommendation.project.name}</strong><small>${topRecommendation.rubricScore.label} ${topRecommendation.rubricScore.score}</small></div>`) : ""}
       <div class="portfolio-rubric-grid" style="--rubric-project-count:${focused.length}">
@@ -3196,47 +2187,58 @@ function candidateWorkspaceRecommendationExport(scored) {
   return reviewRecommendationExportCall("candidateWorkspaceRecommendationExport", scored);
 }
 
-function projectWorkspaceReviewDecision(project, rank = 0) {
-  const rubricScore = projectWorkspaceRubricScore(project);
-  if (!project || !rubricScore) return null;
-  const focus = projectWorkspaceBenchmark(project);
-  const topAxis = projectWorkspaceRubric(project)
-    .filter((row) => row.weight > 0 && row.score > 0)
-    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
-  const status = rubricScore.score >= 86 ? "Workspace 도입 검토" : rubricScore.score >= 80 ? "비교 유지" : "관찰";
+function reviewStatusFromRubricScore(score, highStatus) {
+  if (score >= 86) return highStatus;
+  if (score >= 80) return "비교 유지";
+  return "관찰";
+}
+
+function reviewReasonFromAxisOrFocus(rubric, focus, fallback) {
+  const topAxis = topWeightedRubricAxis(rubric);
+  if (topAxis) return `${topAxis.axis}: ${topAxis.value}`;
+  return focus ? focus.flow : fallback;
+}
+
+function reviewDecisionRecord(rank, rubricScore, status, fields) {
   return {
     rank: rank + 1,
     status,
     score: rubricScore.score,
     label: rubricScore.label,
-    surface: focus ? focus.surface : "JooPark Workspace",
-    reason: topAxis ? `${topAxis.axis}: ${topAxis.value}` : focus ? focus.flow : "Workspace 검토",
-    persistKey: `workspace-review:${project.id}:${rubricScore.score}`,
+    ...fields,
   };
 }
 
-function workspaceReviewDecisions(scored) {
-  return (Array.isArray(scored) ? scored : [])
-    .map(({ project }, index) => ({ project, decision: projectWorkspaceReviewDecision(project, index) }))
-    .filter((item) => item.decision)
-    .slice(0, 2)
+function projectWorkspaceReviewDecision(project, rank = 0) {
+  const rubricScore = projectWorkspaceRubricScore(project);
+  if (!project || !rubricScore) return null;
+  const focus = projectWorkspaceBenchmark(project);
+  const status = reviewStatusFromRubricScore(rubricScore.score, "Workspace 도입 검토");
+  return reviewDecisionRecord(rank, rubricScore, status, {
+    surface: focus ? focus.surface : "JooPark Workspace",
+    reason: reviewReasonFromAxisOrFocus(projectWorkspaceRubric(project), focus, "Workspace 검토"),
+    persistKey: `workspace-review:${project.id}:${rubricScore.score}`,
+  });
+}
+
+function reviewDecisionsFromScored(scored, createDecision, limit) {
+  return limitAndRerankDecisions(
+    (Array.isArray(scored) ? scored : [])
+      .map(({ project }, index) => ({ project, decision: createDecision(project, index) }))
+      .filter((item) => item.decision),
+    limit
+  );
+}
+
+function limitAndRerankDecisions(items, limit) {
+  return (Array.isArray(items) ? items : [])
+    .slice(0, limit)
     .map((item, index) => ({ ...item, decision: { ...item.decision, rank: index + 1 } }));
 }
 
-function candidateWorkspaceReviewHandoff(scored) {
-  const decisions = workspaceReviewDecisions(scored);
-  if (decisions.length === 0) return "";
-  const markdown = workspaceReviewHandoffMarkdown(decisions);
-  if (!markdown) return "";
-  const primary = decisions[0];
-  const existingNote = noteBySourceKey(primary.decision.persistKey);
-  const issueDraft = workspaceReviewIssueDraft(decisions);
-  const githubComment = workspaceReviewGithubCommentMarkdown(decisions);
-  const noteBody = reviewPackageNoteBody(markdown, issueDraft);
-  const savedResult = savedReviewResultByKey(primary.decision.persistKey);
-  const validatedNoteBody = savedResult ? reviewSavedResultNoteBody(markdown, savedResult, issueDraft ? issueDraft.body : "") : "";
+function reviewPackageBundleArtifacts({ title, kind, primary, decisions, markdown, issueDraft, githubComment, noteBody }) {
   const bundleManifest = reviewPackageManifest({
-    kind: "workspace",
+    kind,
     primaryKey: primary.decision.persistKey,
     decisions,
     handoffMarkdown: markdown,
@@ -3245,8 +2247,8 @@ function candidateWorkspaceReviewHandoff(scored) {
     noteBody,
   });
   const bundleMarkdown = reviewPackageBundleMarkdown({
-    title: "JooPark Workspace Review Package Bundle",
-    kind: "workspace",
+    title,
+    kind,
     primaryKey: primary.decision.persistKey,
     decisions,
     handoffMarkdown: markdown,
@@ -3255,23 +2257,183 @@ function candidateWorkspaceReviewHandoff(scored) {
     noteBody,
     manifest: bundleManifest,
   });
+  return { bundleManifest, bundleMarkdown };
+}
+
+function reviewPackageValidatedNoteBody(primary, markdown, issueDraft) {
+  const key = primary && primary.decision ? primary.decision.persistKey : "";
+  if (!key) return "";
+  const savedResult = savedReviewResultByKey(key);
+  return savedResult ? reviewSavedResultNoteBody(markdown, savedResult, issueDraft ? issueDraft.body : "") : "";
+}
+
+function reviewPackageNoteArtifact(kind, primary, noteBody, validatedNoteBody, existingNote) {
+  const key = primary && primary.decision ? primary.decision.persistKey : "";
+  return {
+    kind,
+    key,
+    staticBody: noteBody,
+    validatedBody: validatedNoteBody,
+    createdBody: existingNote ? existingNote.body : "",
+    sourceKind: existingNote ? existingNote.sourceKind : "",
+    createdId: existingNote ? existingNote.id : "",
+    artifactType: "note",
+    repairReceiptMarkdown: reviewResultRepairReceiptForKey(key),
+  };
+}
+
+function reviewPackageNoteContext(primary, markdown, issueDraft, artifactKind) {
+  const key = primary && primary.decision ? primary.decision.persistKey : "";
+  const existingNote = noteBySourceKey(key);
+  const noteBody = reviewPackageNoteBody(markdown, issueDraft);
+  const validatedNoteBody = reviewPackageValidatedNoteBody(primary, markdown, issueDraft);
+  return {
+    existingNote,
+    noteBody,
+    artifact: reviewPackageNoteArtifact(artifactKind, primary, noteBody, validatedNoteBody, existingNote),
+  };
+}
+
+function reviewPackageHandoffViewHTML({
+  kind,
+  validatorTitle,
+  decisions,
+  primary,
+  markdown,
+  noteContext,
+  issueDraft,
+  githubComment,
+  bundleManifest,
+  bundleMarkdown,
+  bundleFilename,
+  issueDraftHTML = "",
+  githubCommentHTML = "",
+}) {
   return reviewPackageViewCall("reviewPackageHandoffHTML", {
-    kind: "workspace",
+    kind,
     schemaVersion: REVIEW_HANDOFF_SCHEMA_VERSION,
-    validatorTitle: "Workspace adoption review",
+    validatorTitle,
     decisions,
     primary,
     markdown,
-    existingNote,
+    existingNote: noteContext.existingNote,
     issueDraft,
     githubCommentMarkdown: githubComment,
-    noteBody,
+    noteBody: noteContext.noteBody,
     bundleManifest,
     bundleMarkdown,
+    bundleFilename,
+    issueDraftHTML,
+    githubCommentHTML,
+    artifact: noteContext.artifact,
+  });
+}
+
+function reviewPackageHandoffContext({ title, kind, artifactKind, primary, decisions, markdown, issueDraft, githubComment }) {
+  const noteContext = reviewPackageNoteContext(primary, markdown, issueDraft, artifactKind);
+  const { bundleManifest, bundleMarkdown } = reviewPackageBundleArtifacts({
+    title,
+    kind,
+    primary,
+    decisions,
+    markdown,
+    issueDraft,
+    githubComment,
+    noteBody: noteContext.noteBody,
+  });
+  return { noteContext, bundleManifest, bundleMarkdown };
+}
+
+const REVIEW_PACKAGE_HANDOFF_CONFIGS = Object.freeze({
+  workspace: Object.freeze({
+    title: "JooPark Workspace Review Package Bundle",
+    kind: "workspace",
+    artifactKind: "workspace-note",
+    validatorTitle: "Workspace adoption review",
     bundleFilename: "joopark-workspace-review-package.md",
-    issueDraftHTML: candidateWorkspaceReviewIssueDraft(decisions),
-    githubCommentHTML: candidateWorkspaceReviewGithubComment(decisions),
-    artifact: { kind: "workspace-note", key: primary.decision.persistKey, staticBody: noteBody, validatedBody: validatedNoteBody, createdBody: existingNote ? existingNote.body : "", sourceKind: existingNote ? existingNote.sourceKind : "", createdId: existingNote ? existingNote.id : "", artifactType: "note", repairReceiptMarkdown: reviewResultRepairReceiptForKey(primary.decision.persistKey) },
+  }),
+  "knowledge-base": Object.freeze({
+    title: "JooPark Knowledge/IA Review Package Bundle",
+    kind: "knowledge-base",
+    artifactKind: "kb-note",
+    validatorTitle: "Knowledge/IA benchmark review",
+    bundleFilename: "joopark-kb-ia-review-package.md",
+  }),
+  benchmark: Object.freeze({
+    title: "JooPark PM Benchmark Review Package Bundle",
+    kind: "benchmark",
+    artifactKind: "benchmark-note",
+    validatorTitle: "PM benchmark review",
+    bundleFilename: "joopark-benchmark-review-package.md",
+  }),
+});
+
+function reviewPackageConfiguredHandoffHTML(config, { primary, decisions, markdown, issueDraft, githubComment, issueDraftHTML = "", githubCommentHTML = "" }) {
+  const { noteContext, bundleManifest, bundleMarkdown } = reviewPackageHandoffContext({
+    title: config.title,
+    kind: config.kind,
+    artifactKind: config.artifactKind,
+    primary,
+    decisions,
+    markdown,
+    issueDraft,
+    githubComment,
+  });
+  return reviewPackageHandoffViewHTML({
+    kind: config.kind,
+    validatorTitle: config.validatorTitle,
+    decisions,
+    primary,
+    markdown,
+    noteContext,
+    issueDraft,
+    githubComment,
+    bundleManifest,
+    bundleMarkdown,
+    bundleFilename: config.bundleFilename,
+    issueDraftHTML,
+    githubCommentHTML,
+  });
+}
+
+function reviewPackageHandoffFromDecisions(decisions, {
+  config,
+  markdownForDecisions,
+  issueDraftForDecisions,
+  githubCommentForDecisions,
+  issueDraftHTMLForDecisions,
+  githubCommentHTMLForDecisions,
+}) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  if (!config || typeof markdownForDecisions !== "function" || typeof issueDraftForDecisions !== "function" || typeof githubCommentForDecisions !== "function") return "";
+  const markdown = markdownForDecisions(decisions);
+  if (!markdown) return "";
+  const primary = decisions[0];
+  const issueDraft = issueDraftForDecisions(decisions);
+  const githubComment = githubCommentForDecisions(decisions, issueDraft);
+  return reviewPackageConfiguredHandoffHTML(config, {
+    primary,
+    decisions,
+    markdown,
+    issueDraft,
+    githubComment,
+    issueDraftHTML: typeof issueDraftHTMLForDecisions === "function" ? issueDraftHTMLForDecisions(decisions) : "",
+    githubCommentHTML: typeof githubCommentHTMLForDecisions === "function" ? githubCommentHTMLForDecisions(decisions) : "",
+  });
+}
+
+function workspaceReviewDecisions(scored) {
+  return reviewDecisionsFromScored(scored, projectWorkspaceReviewDecision, 2);
+}
+
+function candidateWorkspaceReviewHandoff(scored) {
+  return reviewPackageHandoffFromDecisions(workspaceReviewDecisions(scored), {
+    config: REVIEW_PACKAGE_HANDOFF_CONFIGS.workspace,
+    markdownForDecisions: workspaceReviewHandoffMarkdown,
+    issueDraftForDecisions: workspaceReviewIssueDraft,
+    githubCommentForDecisions: workspaceReviewGithubCommentMarkdown,
+    issueDraftHTMLForDecisions: candidateWorkspaceReviewIssueDraft,
+    githubCommentHTMLForDecisions: candidateWorkspaceReviewGithubComment,
   });
 }
 
@@ -3339,29 +2501,12 @@ function reviewExecutionPlanLines(config, decisions) {
   ];
 }
 
-function reviewOperationalReadinessLines({ owner, firstAction, timeboxHours, decisionGate, fallbackIfBlocked }) {
-  return reviewIssuePayloadCall("reviewOperationalReadinessLines", { owner, firstAction, timeboxHours, decisionGate, fallbackIfBlocked });
-}
-
-function reviewIssueDecisionSummaryLines({ project, decision, secondary, scope, timeboxHours, firstAction, fallbackIfBlocked }) {
-  return reviewIssuePayloadCall("reviewIssueDecisionSummaryLines", { project, decision, secondary, scope, timeboxHours, firstAction, fallbackIfBlocked });
-}
-
-function reviewIssueBodyLines({ project, decision, secondary, scope, timeboxHours, acceptanceCriteria, validationPlan }) {
-  return reviewIssuePayloadCall("reviewIssueBodyLines", { project, decision, secondary, scope, timeboxHours, acceptanceCriteria, validationPlan });
-}
-
-function reviewPackageNoteBody(handoffMarkdown, draft) {
-  return reviewIssuePayloadCall("reviewPackageNoteBody", handoffMarkdown, draft);
-}
-
-function reviewMarkdownSection(text, heading) {
-  return reviewIssuePayloadCall("reviewMarkdownSection", text, heading);
-}
-
-function reviewPinnedNoteSummary(draft) {
-  return reviewIssuePayloadCall("reviewPinnedNoteSummary", draft);
-}
+function reviewOperationalReadinessLines({ owner, firstAction, timeboxHours, decisionGate, fallbackIfBlocked }) { return reviewIssuePayloadCall("reviewOperationalReadinessLines", { owner, firstAction, timeboxHours, decisionGate, fallbackIfBlocked }); }
+function reviewIssueDecisionSummaryLines({ project, decision, secondary, scope, timeboxHours, firstAction, fallbackIfBlocked }) { return reviewIssuePayloadCall("reviewIssueDecisionSummaryLines", { project, decision, secondary, scope, timeboxHours, firstAction, fallbackIfBlocked }); }
+function reviewIssueBodyLines({ project, decision, secondary, scope, timeboxHours, acceptanceCriteria, validationPlan }) { return reviewIssuePayloadCall("reviewIssueBodyLines", { project, decision, secondary, scope, timeboxHours, acceptanceCriteria, validationPlan }); }
+function reviewPackageNoteBody(handoffMarkdown, draft) { return reviewIssuePayloadCall("reviewPackageNoteBody", handoffMarkdown, draft); }
+function reviewMarkdownSection(text, heading) { return reviewIssuePayloadCall("reviewMarkdownSection", text, heading); }
+function reviewPinnedNoteSummary(draft) { return reviewIssuePayloadCall("reviewPinnedNoteSummary", draft); }
 
 const REVIEW_PACKAGE_MANIFEST_SCHEMA_VERSION = "joopark-review-package-manifest/v1";
 const REVIEW_PACKAGE_REQUIRED_SECTIONS = ["Markdown Handoff", "Issue Draft", "GitHub Comment Draft", "Pinned Note Body"];
@@ -3387,41 +2532,13 @@ const REVIEW_PACKAGE_FINAL_QUALITY_REPAIRS = {
   submit_ready: "Complete the failing quality repairs, then copy the regenerated tracker/comment/note bundle instead of rewriting it manually.",
 };
 
-function reviewPackagePayloadChecksum(value) {
-  return reviewHandoffCall("reviewPackagePayloadChecksum", value);
-}
-
-function reviewPackagePayloadLength(value) {
-  return reviewHandoffCall("reviewPackagePayloadLength", value);
-}
-
-function reviewPackageHasTerms(text, terms) {
-  return reviewHandoffCall("reviewPackageHasTerms", text, terms);
-}
-
-function reviewPackagePasteTargetReadiness(options) {
-  return reviewHandoffCall("reviewPackagePasteTargetReadiness", options);
-}
-
-function reviewPackageFinalQualityGate(options) {
-  return reviewHandoffCall("reviewPackageFinalQualityGate", options);
-}
-
-function reviewPackageManifest(options) {
-  return reviewHandoffCall("reviewPackageManifest", options);
-}
-
-function reviewPackageManifestMarkdown(manifest) {
-  return reviewHandoffCall("reviewPackageManifestMarkdown", manifest);
-}
-
-function reviewPackageManifestSummary(options) {
-  return reviewHandoffCall("reviewPackageManifestSummary", options);
-}
-
-function reviewPackagePastePreview(options) {
-  return reviewHandoffCall("reviewPackagePastePreview", options);
-}
+function reviewPackagePayloadChecksum(value) { return reviewHandoffCall("reviewPackagePayloadChecksum", value); }
+function reviewPackagePasteTargetReadiness(options) { return reviewHandoffCall("reviewPackagePasteTargetReadiness", options); }
+function reviewPackageFinalQualityGate(options) { return reviewHandoffCall("reviewPackageFinalQualityGate", options); }
+function reviewPackageManifest(options) { return reviewHandoffCall("reviewPackageManifest", options); }
+function reviewPackageManifestMarkdown(manifest) { return reviewHandoffCall("reviewPackageManifestMarkdown", manifest); }
+function reviewPackageManifestSummary(options) { return reviewHandoffCall("reviewPackageManifestSummary", options); }
+function reviewPackagePastePreview(options) { return reviewHandoffCall("reviewPackagePastePreview", options); }
 
 const REVIEW_PACKAGE_PASTE_PREVIEW_DATA_ATTRIBUTES = [
   "data-workspace-review-package-paste-preview",
@@ -3429,20 +2546,13 @@ const REVIEW_PACKAGE_PASTE_PREVIEW_DATA_ATTRIBUTES = [
   "data-benchmark-review-package-paste-preview",
 ];
 
-function reviewPackageBundleMarkdown(options) {
-  return reviewHandoffCall("reviewPackageBundleMarkdown", options);
-}
-
-function reviewPackageBundleControls(options) {
-  return reviewHandoffCall("reviewPackageBundleControls", options);
-}
-
-function reviewGithubCommentMarkdown(options) {
-  return reviewResultViewCall("reviewGithubCommentMarkdown", options);
-}
-
-function genericReviewGithubCommentMarkdown(title, decisions, draft) {
-  return reviewGithubCommentMarkdown({ title, decisions, draft });
+function reviewPackageBundleMarkdown(options) { return reviewHandoffCall("reviewPackageBundleMarkdown", options); }
+function reviewPackageBundleControls(options) { return reviewHandoffCall("reviewPackageBundleControls", options); }
+function reviewGithubCommentMarkdown(options) { return reviewResultViewCall("reviewGithubCommentMarkdown", options); }
+function genericReviewGithubCommentMarkdown(title, decisions, draft) { return reviewGithubCommentMarkdown({ title, decisions, draft }); }
+function reviewGithubCommentMarkdownFromDraft(title, decisions, buildDraft) {
+  const draft = buildDraft(decisions);
+  return genericReviewGithubCommentMarkdown(title, decisions, draft);
 }
 
 function reviewResultIssuePrefix(reviewType) {
@@ -3461,135 +2571,124 @@ function reviewResultDefaultLabels(reviewType) {
   return ["handoff", "review"];
 }
 
-const reviewExecutionChecklistHelpers = window.JooParkReviewExecutionChecklist && typeof window.JooParkReviewExecutionChecklist.create === "function"
-  ? window.JooParkReviewExecutionChecklist.create({
-      parseSavedReviewResult,
-      reviewPrimaryDecision,
+let reviewExecutionChecklistHelpers = null;
+function getReviewExecutionChecklistHelpers() { return reviewExecutionChecklistHelpers = createLazyRuntimeHelpers(reviewExecutionChecklistHelpers, "JooParkReviewExecutionChecklist", { parseSavedReviewResult, reviewPrimaryDecision }); }
+
+function fallbackIssueExecutionChecklistItems(issue) {
+  return (Array.isArray(issue && issue.executionChecklist) ? issue.executionChecklist : [])
+    .map((item, index) => {
+      if (typeof item === "string") return { id: `exec-${index + 1}`, text: item, done: false };
+      return {
+        id: item && item.id ? String(item.id) : `exec-${index + 1}`,
+        text: item && item.text ? String(item.text) : "",
+        done: !!(item && item.done),
+      };
     })
-  : null;
+    .filter((item) => item.text.trim());
+}
+
+function fallbackReviewExecutionChecklistItemsFromSavedResult(saved) {
+  const result = parseSavedReviewResult(saved);
+  if (!result) return [];
+  const decisions = Array.isArray(result.decisions) ? result.decisions : [];
+  const primary = reviewPrimaryDecision(decisions, saved && saved.key);
+  const plans = Array.isArray(result.executionPlan) ? result.executionPlan : [];
+  const primaryPlan = plans[0] || {};
+  const executionCriteria = plans.flatMap((plan) => Array.isArray(plan && plan.acceptanceCriteria) ? plan.acceptanceCriteria : []);
+  const executionValidation = plans.flatMap((plan) => Array.isArray(plan && plan.validationPlan) ? plan.validationPlan : []);
+  const items = uniqueTextItems([
+    primaryPlan.firstAction || primaryPlan.action ? `First action: ${primaryPlan.firstAction || primaryPlan.action}` : "",
+    ...(Array.isArray(primary.acceptanceCriteria) ? primary.acceptanceCriteria.map((item) => `Acceptance: ${item}`) : []),
+    ...executionCriteria.map((item) => `Acceptance: ${item}`),
+    ...(Array.isArray(primary.validationPlan) ? primary.validationPlan.map((item) => `Validation: ${item}`) : []),
+    ...executionValidation.map((item) => `Validation: ${item}`),
+  ]).slice(0, 8);
+  return items.map((text, index) => ({ id: `exec-${index + 1}`, text, done: false }));
+}
+
+function fallbackIssueExecutionChecklistProgress(issue) {
+  const items = fallbackIssueExecutionChecklistItems(issue);
+  const done = items.filter((item) => item.done).length;
+  const total = items.length;
+  const percent = total ? Math.round((done / total) * 100) : 0;
+  return {
+    total,
+    done,
+    remaining: Math.max(0, total - done),
+    percent,
+    label: total ? `${done}/${total} 완료` : "체크리스트 없음",
+  };
+}
+
+function fallbackReviewExecutionChecklistLines(items) {
+  const checklist = fallbackIssueExecutionChecklistItems({ executionChecklist: items });
+  return (checklist.length ? checklist : [{ text: "No execution checklist supplied.", done: false }])
+    .map((item) => `- [${item.done ? "x" : " "}] ${item.text}`);
+}
+
+function fallbackSyncIssueBodyExecutionChecklist(issue) {
+  const body = String(issue && issue.body || "");
+  if (!body.includes("## Execution Checklist")) return body;
+  const section = ["## Execution Checklist", ...fallbackReviewExecutionChecklistLines(fallbackIssueExecutionChecklistItems(issue))].join("\n");
+  return body.replace(/## Execution Checklist\n[\s\S]*?(?=\n## |$)/, section);
+}
+
+function fallbackReviewExecutionChecklistCountLabel(items) {
+  const count = fallbackIssueExecutionChecklistItems({ executionChecklist: items }).length;
+  return count ? `${count}개` : "없음";
+}
+
+function fallbackFirstPositiveTimeboxHours(plans) {
+  return (Array.isArray(plans) ? plans : [])
+    .map((plan) => Number(plan && plan.timeboxHours))
+    .find((value) => Number.isFinite(value) && value > 0);
+}
+
+function reviewExecutionChecklistFallback(name, ...args) {
+  if (name === "reviewExecutionChecklistItemsFromSavedResult") return fallbackReviewExecutionChecklistItemsFromSavedResult(args[0]);
+  if (name === "issueExecutionChecklistItems") return fallbackIssueExecutionChecklistItems(args[0]);
+  if (name === "issueExecutionChecklistProgress") return fallbackIssueExecutionChecklistProgress(args[0]);
+  if (name === "reviewExecutionChecklistLines") return fallbackReviewExecutionChecklistLines(args[0]);
+  if (name === "syncIssueBodyExecutionChecklist") return fallbackSyncIssueBodyExecutionChecklist(args[0]);
+  if (name === "reviewExecutionChecklistCountLabel") return fallbackReviewExecutionChecklistCountLabel(args[0]);
+  if (name === "firstPositiveTimeboxHours") return fallbackFirstPositiveTimeboxHours(args[0]);
+  throw new Error(`Review execution checklist fallback missing: ${name}`);
+}
 
 function reviewExecutionChecklistCall(name, ...args) {
-  return callModuleHelper(reviewExecutionChecklistHelpers, "review execution checklist", name, args, "Review execution checklist runtime helper missing");
+  const helpers = getReviewExecutionChecklistHelpers();
+  if (!helpers) return reviewExecutionChecklistFallback(name, ...args);
+  return callModuleHelper(helpers, "review execution checklist", name, args, "Review execution checklist runtime helper missing");
 }
 
-const reviewIssuePayloadHelpers = window.JooParkReviewIssuePayload && typeof window.JooParkReviewIssuePayload.create === "function"
-  ? window.JooParkReviewIssuePayload.create({
-      shortCommit,
-      metricValue,
-      parseSavedReviewResult,
-      projectByIdOrName,
-      reviewExecutionChecklistItemsFromSavedResult,
-      reviewOwnerAssignment,
-      reviewOwnerFollowUpItems,
-      reviewOwnerPromptExamples,
-      todayISO,
-      addDays,
-    })
-  : null;
+let reviewIssuePayloadHelpers = null;
+function getReviewIssuePayloadHelpers() { return reviewIssuePayloadHelpers = createLazyRuntimeHelpers(reviewIssuePayloadHelpers, "JooParkReviewIssuePayload", { shortCommit, metricValue, parseSavedReviewResult, projectByIdOrName, reviewExecutionChecklistItemsFromSavedResult, reviewOwnerAssignment, reviewOwnerFollowUpItems, reviewOwnerPromptExamples, todayISO, addDays }); }
 
-function reviewIssuePayloadCall(name, ...args) {
-  return callModuleHelper(reviewIssuePayloadHelpers, "review issue payload", name, args, "Review issue payload runtime helper missing");
-}
+function reviewIssuePayloadCall(name, ...args) { return callModuleHelper(getReviewIssuePayloadHelpers(), "review issue payload", name, args, "Review issue payload runtime helper missing"); }
 
-const reviewResultViewHelpers = window.JooParkReviewResultView && typeof window.JooParkReviewResultView.create === "function"
-  ? window.JooParkReviewResultView.create({
-      html,
-      raw,
-      schemaVersion: REVIEW_HANDOFF_SCHEMA_VERSION,
-      clampText,
-      clampTextArray,
-      formatLocalDateTime,
-      nowISO,
-      shortCommit,
-      metricValue,
-      memberName,
-      reviewOperationalReadinessLines,
-      reviewMarkdownList,
-      reviewExecutionChecklistLines,
-    })
-  : null;
+let reviewResultViewHelpers = null;
+function getReviewResultViewHelpers() { return reviewResultViewHelpers = createLazyRuntimeHelpers(reviewResultViewHelpers, "JooParkReviewResultView", { html, raw, schemaVersion: REVIEW_HANDOFF_SCHEMA_VERSION, clampText, clampTextArray, clampInteger, formatLocalDateTime, nowISO, shortCommit, metricValue, memberName, reviewOperationalReadinessLines, reviewMarkdownList, reviewExecutionChecklistLines }); }
 
-function reviewResultViewCall(name, ...args) {
-  return callModuleHelper(reviewResultViewHelpers, "review result view", name, args, "Review result view runtime helper missing");
-}
+function reviewResultViewCall(name, ...args) { return callModuleHelper(getReviewResultViewHelpers(), "review result view", name, args, "Review result view runtime helper missing"); }
 
-const reviewHandoffHelpers = window.JooParkReviewHandoff && typeof window.JooParkReviewHandoff.create === "function"
-  ? window.JooParkReviewHandoff.create({
-      html,
-      raw,
-      dashboard,
-      safeGithubUrl,
-      shortCommit,
-      metricValue,
-      numericMetric,
-      promptTableCell,
-      reviewPromptDecisionRows,
-      reviewPromptDecisionInputs,
-      reviewPromptEvidenceRows,
-      reviewExecutionPlanLines,
-      reviewOwnerAssignment,
-      reviewOwnerRequiredFollowUpText,
-      reviewResultIssuePrefix,
-      reviewResultDefaultLabels,
-      savedReviewResultByKey,
-      reviewResultSavedCard,
-      memberName,
-    })
-  : null;
+let reviewHandoffHelpers = null;
+function getReviewHandoffHelpers() { return reviewHandoffHelpers = createLazyRuntimeHelpers(reviewHandoffHelpers, "JooParkReviewHandoff", { html, raw, dashboard, safeGithubUrl, shortCommit, metricValue, numericMetric, promptTableCell, reviewPromptDecisionRows, reviewPromptDecisionInputs, reviewPromptEvidenceRows, reviewExecutionPlanLines, reviewOwnerAssignment, reviewOwnerRequiredFollowUpText, reviewResultIssuePrefix, reviewResultDefaultLabels, savedReviewResultByKey, reviewResultSavedCard, memberName }); }
 
-function reviewHandoffCall(name, ...args) {
-  return callModuleHelper(reviewHandoffHelpers, "review handoff", name, args, "Review handoff runtime helper missing");
-}
+function reviewHandoffCall(name, ...args) { return callModuleHelper(getReviewHandoffHelpers(), "review handoff", name, args, "Review handoff runtime helper missing"); }
 
-const reviewArtifactViewHelpers = window.JooParkReviewArtifactView && typeof window.JooParkReviewArtifactView.create === "function"
-  ? window.JooParkReviewArtifactView.create({
-      html,
-      raw,
-      clampText,
-      promptTableCell,
-      formatLocalDateTime,
-      escapeHtml,
-      reviewArtifactRepairUndoFor,
-      contractTerms: ["post-apply fresh receipt", "data-review-artifact-repair-preview"],
-    })
-  : null;
+let reviewArtifactViewHelpers = null;
+function getReviewArtifactViewHelpers() { return reviewArtifactViewHelpers = createLazyRuntimeHelpers(reviewArtifactViewHelpers, "JooParkReviewArtifactView", { html, raw, clampText, promptTableCell, formatLocalDateTime, escapeHtml, reviewArtifactRepairUndoFor, contractTerms: ["post-apply fresh receipt", "data-review-artifact-repair-preview"] }); }
 
-function reviewArtifactViewCall(name, ...args) {
-  return callModuleHelper(reviewArtifactViewHelpers, "review artifact view", name, args, "Review artifact view runtime helper missing");
-}
+function reviewArtifactViewCall(name, ...args) { return callModuleHelper(getReviewArtifactViewHelpers(), "review artifact view", name, args, "Review artifact view runtime helper missing"); }
 
-const reviewPackageViewHelpers = window.JooParkReviewPackageView && typeof window.JooParkReviewPackageView.create === "function"
-  ? window.JooParkReviewPackageView.create({
-      html,
-      raw,
-      reviewResultValidator,
-      reviewPackageManifestSummary,
-      reviewPackagePastePreview,
-      reviewPackageBundleControls,
-      reviewArtifactDiffPanel,
-    })
-  : null;
+let reviewPackageViewHelpers = null;
+function getReviewPackageViewHelpers() { return reviewPackageViewHelpers = createLazyRuntimeHelpers(reviewPackageViewHelpers, "JooParkReviewPackageView", { html, raw, reviewResultValidator, reviewPackageManifestSummary, reviewPackagePastePreview, reviewPackageBundleControls, reviewArtifactDiffPanel }); }
 
-function reviewPackageViewCall(name, payload) {
-  return callModuleHelper(reviewPackageViewHelpers, "review package view", name, [payload], "Review package view runtime helper missing");
-}
+function reviewPackageViewCall(name, payload) { return callModuleHelper(getReviewPackageViewHelpers(), "review package view", name, [payload], "Review package view runtime helper missing"); }
 
 
-function reviewPromptSchema(primary, config) {
-  return reviewHandoffCall("reviewPromptSchema", primary, config);
-}
-
-function reviewResultExample(primary, reviewType) {
-  return reviewHandoffCall("reviewResultExample", primary, reviewType);
-}
-
-function reviewActionLabel(action) {
-  return reviewResultViewCall("reviewActionLabel", action);
-}
-
-function reviewConfidenceLabel(confidence) {
-  return reviewResultViewCall("reviewConfidenceLabel", confidence);
-}
+function reviewPromptSchema(primary, config) { return reviewHandoffCall("reviewPromptSchema", primary, config); }
+function reviewResultExample(primary, reviewType) { return reviewHandoffCall("reviewResultExample", primary, reviewType); }
 
 function savedReviewResultByKey(key) {
   return recordByKey(dashboard.reviewResults, key);
@@ -3634,9 +2733,7 @@ function saveReviewIssueDraftAssigneeOverride(key, assignee) {
   return override;
 }
 
-function reviewResultSavedCard(saved) {
-  return reviewResultViewCall("reviewResultSavedCard", saved);
-}
+function reviewResultSavedCard(saved) { return reviewResultViewCall("reviewResultSavedCard", saved); }
 
 function renderSavedReviewResult(validator, saved) {
   const panel = nodeQuery(validator, "[data-review-result-saved-panel]");
@@ -3660,7 +2757,7 @@ function reviewResultManifestEvidence(validator) {
     packageChecksum: manifest.dataset.reviewPackagePayloadChecksum || "",
     packageManifestStatus: manifest.dataset.reviewPackageManifestStatus || "",
     packageSourceFreshness: manifest.dataset.reviewPackageSourceFreshness || "",
-    packageSourceCount: Number(manifest.dataset.reviewPackageSourceCount || "0") || 0,
+    packageSourceCount: clampInteger(manifest.dataset.reviewPackageSourceCount, 0, 20),
   };
 }
 
@@ -3733,17 +2830,9 @@ function reviewMarkdownList(items, fallback) {
   return (list.length ? list : [fallback || "No validated item supplied."]).map((item) => `- ${item}`);
 }
 
-function reviewExecutionChecklistItemsFromSavedResult(saved) {
-  return reviewExecutionChecklistCall("reviewExecutionChecklistItemsFromSavedResult", saved);
-}
-
-function issueExecutionChecklistItems(issue) {
-  return reviewExecutionChecklistCall("issueExecutionChecklistItems", issue);
-}
-
-function issueExecutionChecklistProgress(issue) {
-  return reviewExecutionChecklistCall("issueExecutionChecklistProgress", issue);
-}
+function reviewExecutionChecklistItemsFromSavedResult(saved) { return reviewExecutionChecklistCall("reviewExecutionChecklistItemsFromSavedResult", saved); }
+function issueExecutionChecklistItems(issue) { return reviewExecutionChecklistCall("issueExecutionChecklistItems", issue); }
+function issueExecutionChecklistProgress(issue) { return reviewExecutionChecklistCall("issueExecutionChecklistProgress", issue); }
 
 function renderIssueExecutionChecklistControls(issue) {
   const items = issueExecutionChecklistItems(issue);
@@ -3755,13 +2844,8 @@ function renderIssueExecutionChecklistControls(issue) {
   });
 }
 
-function reviewExecutionChecklistLines(items) {
-  return reviewExecutionChecklistCall("reviewExecutionChecklistLines", items);
-}
-
-function syncIssueBodyExecutionChecklist(issue) {
-  return reviewExecutionChecklistCall("syncIssueBodyExecutionChecklist", issue);
-}
+function reviewExecutionChecklistLines(items) { return reviewExecutionChecklistCall("reviewExecutionChecklistLines", items); }
+function syncIssueBodyExecutionChecklist(issue) { return reviewExecutionChecklistCall("syncIssueBodyExecutionChecklist", issue); }
 
 function reviewIssueArtifactKind(issue) {
   const key = String(issue && issue.sourceKey || "");
@@ -4002,10 +3086,6 @@ function refreshReviewIssueDraftAssigneeFollowUpPanel(draftNode, draft) {
   if (panel) anchor.insertAdjacentElement("afterend", panel);
 }
 
-function reviewOwnerToAssignee(owner, project) {
-  return reviewOwnerAssignment(owner, project).assignee;
-}
-
 function reviewAssigneeOptions(selected) {
   return [
     html`<option value="">미지정</option>`,
@@ -4198,7 +3278,7 @@ function refreshReviewIssueDraftFromSavedResult(validator, saved) {
     projectName: draftNode.dataset.issueDraftProject || "",
     priority: draftNode.dataset.issueDraftPriority || "med",
     labels: draftNode.dataset.issueDraftLabels ? draftNode.dataset.issueDraftLabels.split(",").map((label) => label.trim()).filter(Boolean) : [],
-    estimate: Number(draftNode.dataset.issueDraftEstimate || "0") || 4,
+    estimate: clampInteger(draftNode.dataset.issueDraftEstimate, 0, 999, 4),
     assignee: draftNode.dataset.issueDraftAssignee || "",
     assigneeOverride: draftNode.dataset.issueDraftAssigneeOverride === "true",
     assigneeOverrideSavedAt: draftNode.dataset.issueDraftAssigneeOverrideSavedAt || "",
@@ -4299,31 +3379,11 @@ function reviewArtifactDiffPanel(options) {
   return reviewArtifactViewCall("reviewArtifactDiffPanel", options);
 }
 
-const reviewArtifactStateHelpers = window.JooParkReviewArtifactState && typeof window.JooParkReviewArtifactState.create === "function"
-  ? window.JooParkReviewArtifactState.create({
-      html,
-      nodeText,
-      nodeQuery,
-      setHTML,
-      showToast,
-      openModal,
-      reviewArtifactDiffSnippet,
-      reviewArtifactDiffChecks,
-      parseReviewArtifactReceipt,
-      reviewArtifactReceiptComparison,
-      reviewArtifactReceiptCompareOutput,
-      issueById: (id) => indexes.issueById.get(id),
-      noteById,
-      getRepairUndo: () => state.reviewArtifactRepairUndo,
-      setRepairUndo: (undo) => { state.reviewArtifactRepairUndo = undo; },
-      nowISO,
-      rebuildIndexes,
-      commit,
-    })
-  : null;
+let reviewArtifactStateHelpers = null;
+function getReviewArtifactStateHelpers() { return reviewArtifactStateHelpers = createLazyRuntimeHelpers(reviewArtifactStateHelpers, "JooParkReviewArtifactState", { html, nodeText, nodeQuery, setHTML, showToast, openModal, reviewArtifactDiffSnippet, reviewArtifactDiffChecks, parseReviewArtifactReceipt, reviewArtifactReceiptComparison, reviewArtifactReceiptCompareOutput, issueById: (id) => indexes.issueById.get(id), noteById, getRepairUndo: () => state.reviewArtifactRepairUndo, setRepairUndo: (undo) => { state.reviewArtifactRepairUndo = undo; }, nowISO, rebuildIndexes, commit }); }
 
 function reviewArtifactStateCall(name, ...args) {
-  return callModuleHelper(reviewArtifactStateHelpers, "review artifact state", name, args, "Review artifact state helper missing");
+  return callModuleHelper(getReviewArtifactStateHelpers(), "review artifact state", name, args, "Review artifact state helper missing");
 }
 function reviewResultValidator(decisions, reviewType) {
   return reviewHandoffCall("reviewResultValidator", decisions, reviewType);
@@ -4333,16 +3393,111 @@ function reviewPromptHandoffMarkdown(config) {
   return reviewHandoffCall("reviewPromptHandoffMarkdown", config);
 }
 
-function workspaceReviewHandoffMarkdown(decisions) {
+function reviewPromptHandoffMarkdownFromDecisions(decisions, config) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const options = config || {};
+  const primary = decisions[0];
+  const primarySurface = typeof options.primarySurface === "function"
+    ? options.primarySurface(primary, decisions)
+    : options.primarySurface || primary.decision.surface;
+  return reviewPromptHandoffMarkdown({
+    ...options,
+    primarySurface,
+    decisions,
+  });
+}
+
+function reviewIssueDraftPanelConfig(title, artifactKind, scopeAttribute = "", createAttribute = "") {
+  return { title, scopeAttribute, createAttribute, artifactKind };
+}
+
+function candidateReviewIssueDraftPanel(decisions, buildDraft, options) {
+  const staticDraft = buildDraft(decisions);
+  const draft = reviewDraftWithSavedResult(staticDraft);
+  if (!draft) return "";
+  const existing = issueBySourceKey(draft.persistKey);
+  return reviewIssueDraftPanel({
+    ...options,
+    staticBody: staticDraft ? staticDraft.body : "",
+    draft,
+    existing,
+  });
+}
+
+function candidateReviewGithubCommentPanel(decisions, buildDraft, buildComment, options) {
   if (!Array.isArray(decisions) || decisions.length === 0) return "";
   const primary = decisions[0];
-  return reviewPromptHandoffMarkdown({
+  const draft = buildDraft(decisions);
+  const comment = buildComment(decisions);
+  if (!primary || !draft || !comment) return "";
+  const issueUrl = githubNewIssueUrl(primary.project, draft.title, comment);
+  return reviewGithubCommentDraftPanel({
+    ...options,
+    key: draft.persistKey,
+    target: primary.project.name,
+    issueUrl,
+    comment,
+  });
+}
+
+function reviewGithubCommentPanelAttributes(scopeAttribute) {
+  return {
+    scopeAttribute,
+    openAttribute: `${scopeAttribute}-open`,
+    copyAttribute: `${scopeAttribute}-copy`,
+    statusAttribute: `${scopeAttribute}-copy-status`,
+    textAttribute: `${scopeAttribute}-text`,
+  };
+}
+
+function reviewIssueDraftContext(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return null;
+  const primary = decisions[0];
+  if (!primary || !primary.project || !primary.decision) return null;
+  return { primary, secondary: reviewSecondaryDecision(decisions) };
+}
+
+function reviewIssueDraftPriority(score) {
+  return score >= 86 ? "high" : "med";
+}
+
+function reviewIssueDraftBase(primary, labels, estimate) {
+  return {
+    projectId: primary.project.id,
+    projectName: primary.project.name,
+    priority: reviewIssueDraftPriority(primary.decision.score),
+    status: "todo",
+    estimate,
+    labels,
+    persistKey: primary.decision.persistKey,
+  };
+}
+
+function reviewIssueDraftFromDecisions(decisions, config) {
+  const context = reviewIssueDraftContext(decisions);
+  if (!context) return null;
+  const { primary, secondary } = context;
+  return {
+    title: `[${config.titlePrefix}] ${primary.project.name} ${primary.decision.status}`,
+    ...reviewIssueDraftBase(primary, config.labels, config.estimate),
+    body: reviewIssueBodyLines({
+      project: primary.project,
+      decision: primary.decision,
+      secondary,
+      scope: config.scope,
+      timeboxHours: config.timeboxHours,
+      acceptanceCriteria: config.acceptanceCriteria,
+      validationPlan: config.validationPlan,
+    }),
+  };
+}
+
+function workspaceReviewHandoffMarkdown(decisions) {
+  return reviewPromptHandoffMarkdownFromDecisions(decisions, {
     title: "JooPark Workspace Review Handoff",
     reviewType: "Workspace adoption review",
     task: "choose the next workspace benchmark or defer when evidence is weak",
     outputFocus: "PM/task transfer, local-first collaboration, and adoption risk",
-    primarySurface: primary.decision.surface,
-    decisions,
     successCriteria: [
       "The primary recommendation uses the highest scored candidate without losing the comparison candidate.",
       "Every action item can be converted into a JooPark issue draft with stable labels and persistKey.",
@@ -4352,79 +3507,35 @@ function workspaceReviewHandoffMarkdown(decisions) {
 }
 
 function workspaceReviewIssueDraft(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return null;
-  const primary = decisions[0];
-  if (!primary || !primary.project || !primary.decision) return null;
-  const secondary = reviewSecondaryDecision(decisions);
-  const labels = ["workspace", "benchmark", "handoff", "adoption"];
-  return {
-    title: `[Workspace] ${primary.project.name} ${primary.decision.status}`,
-    projectId: primary.project.id,
-    projectName: primary.project.name,
-    priority: primary.decision.score >= 86 ? "high" : "med",
-    status: "todo",
+  return reviewIssueDraftFromDecisions(decisions, {
+    titlePrefix: "Workspace",
+    labels: ["workspace", "benchmark", "handoff", "adoption"],
     estimate: 4,
-    labels,
-    persistKey: primary.decision.persistKey,
-    body: reviewIssueBodyLines({
-      project: primary.project,
-      decision: primary.decision,
-      secondary,
-      scope: "Workspace benchmark review",
-      timeboxHours: 4,
-      acceptanceCriteria: [
-        "PM/task transfer, notes/wiki flow, and collaboration/data-control fit are each reviewed against the comparison candidate.",
-        "The reviewer records one adoption blocker or explicitly marks missingEvidence as empty.",
-        "The final decision can be copied into a JooPark note or issue without rewriting the persist key, labels, score, or source URL.",
-      ],
-      validationPlan: [
-        "Open the source repository and verify the commit/pushedAt from the Evidence Snapshot.",
-        "Reopen Portfolio > 벤치 포커스 and confirm the same recommendation and comparison candidate are visible.",
-        "Create or update a follow-up issue only after acceptance criteria and missingEvidence are explicit.",
-      ],
-    }),
-  };
+    scope: "Workspace benchmark review",
+    timeboxHours: 4,
+    acceptanceCriteria: [
+      "PM/task transfer, notes/wiki flow, and collaboration/data-control fit are each reviewed against the comparison candidate.",
+      "The reviewer records one adoption blocker or explicitly marks missingEvidence as empty.",
+      "The final decision can be copied into a JooPark note or issue without rewriting the persist key, labels, score, or source URL.",
+    ],
+    validationPlan: [
+      "Open the source repository and verify the commit/pushedAt from the Evidence Snapshot.",
+      "Reopen Portfolio > 벤치 포커스 and confirm the same recommendation and comparison candidate are visible.",
+      "Create or update a follow-up issue only after acceptance criteria and missingEvidence are explicit.",
+    ],
+  });
 }
 
 function candidateWorkspaceReviewIssueDraft(decisions) {
-  const staticDraft = workspaceReviewIssueDraft(decisions);
-  const draft = reviewDraftWithSavedResult(staticDraft);
-  if (!draft) return "";
-  const existing = issueBySourceKey(draft.persistKey);
-  return reviewIssueDraftPanel({
-    title: "Workspace issue draft",
-    scopeAttribute: "data-workspace-review-issue-draft",
-    createAttribute: "data-workspace-review-issue-create",
-    artifactKind: "workspace-issue",
-    staticBody: staticDraft ? staticDraft.body : "",
-    draft,
-    existing,
-  });
+  return candidateReviewIssueDraftPanel(decisions, workspaceReviewIssueDraft, reviewIssueDraftPanelConfig("Workspace issue draft", "workspace-issue", "data-workspace-review-issue-draft", "data-workspace-review-issue-create"));
 }
 
 function workspaceReviewGithubCommentMarkdown(decisions) {
-  const draft = workspaceReviewIssueDraft(decisions);
-  return reviewGithubCommentMarkdown({ title: "JooPark Workspace Review", decisions, draft });
+  return reviewGithubCommentMarkdownFromDraft("JooPark Workspace Review", decisions, workspaceReviewIssueDraft);
 }
 
 function candidateWorkspaceReviewGithubComment(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return "";
-  const primary = decisions[0];
-  const draft = workspaceReviewIssueDraft(decisions);
-  const comment = workspaceReviewGithubCommentMarkdown(decisions);
-  if (!primary || !draft || !comment) return "";
-  const issueUrl = githubNewIssueUrl(primary.project, draft.title, comment);
-  return reviewGithubCommentDraftPanel({
-    scopeAttribute: "data-workspace-review-github-comment",
-    openAttribute: "data-workspace-review-github-comment-open",
-    copyAttribute: "data-workspace-review-github-comment-copy",
-    statusAttribute: "data-workspace-review-github-comment-copy-status",
-    textAttribute: "data-workspace-review-github-comment-text",
-    key: draft.persistKey,
-    target: primary.project.name,
-    issueUrl,
-    comment,
-  });
+  return candidateReviewGithubCommentPanel(decisions, workspaceReviewIssueDraft, workspaceReviewGithubCommentMarkdown, reviewGithubCommentPanelAttributes("data-workspace-review-github-comment"));
 }
 
 function knowledgeBaseBenchmarkRecommendationMarkdown(scored) {
@@ -4439,91 +3550,35 @@ function projectKnowledgeBaseReviewDecision(project, rank = 0) {
   const rubricScore = projectKnowledgeBaseRubricScore(project);
   if (!project || !rubricScore) return null;
   const focus = projectKnowledgeBaseBenchmark(project);
-  const topAxis = projectKnowledgeBaseRubric(project)
-    .filter((row) => row.weight > 0 && row.score > 0)
-    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
-  const status = rubricScore.score >= 86 ? "IA 도입 검토" : rubricScore.score >= 80 ? "비교 유지" : "관찰";
-  return {
-    rank: rank + 1,
-    status,
-    score: rubricScore.score,
-    label: rubricScore.label,
+  const status = reviewStatusFromRubricScore(rubricScore.score, "IA 도입 검토");
+  return reviewDecisionRecord(rank, rubricScore, status, {
     surface: focus ? focus.surface : "Knowledge/IA",
-    reason: topAxis ? `${topAxis.axis}: ${topAxis.value}` : focus ? focus.flow : "KB/IA 검토",
+    reason: reviewReasonFromAxisOrFocus(projectKnowledgeBaseRubric(project), focus, "KB/IA 검토"),
     persistKey: `kb-ia-review:${project.id}:${rubricScore.score}`,
-  };
+  });
 }
 
 function knowledgeBaseReviewDecisions(scored) {
-  return (Array.isArray(scored) ? scored : [])
-    .map(({ project }, index) => ({ project, decision: projectKnowledgeBaseReviewDecision(project, index) }))
-    .filter((item) => item.decision)
-    .slice(0, 3)
-    .map((item, index) => ({ ...item, decision: { ...item.decision, rank: index + 1 } }));
+  return reviewDecisionsFromScored(scored, projectKnowledgeBaseReviewDecision, 3);
 }
 
 function candidateKnowledgeBaseReviewHandoff(scored) {
-  const decisions = knowledgeBaseReviewDecisions(scored);
-  if (decisions.length === 0) return "";
-  const markdown = knowledgeBaseReviewHandoffMarkdown(decisions);
-  if (!markdown) return "";
-  const primary = decisions[0];
-  const existingNote = noteBySourceKey(primary.decision.persistKey);
-  const issueDraft = knowledgeBaseReviewIssueDraft(decisions);
-  const githubComment = knowledgeBaseReviewGithubCommentMarkdown(decisions);
-  const noteBody = reviewPackageNoteBody(markdown, issueDraft);
-  const savedResult = savedReviewResultByKey(primary.decision.persistKey);
-  const validatedNoteBody = savedResult ? reviewSavedResultNoteBody(markdown, savedResult, issueDraft ? issueDraft.body : "") : "";
-  const bundleManifest = reviewPackageManifest({
-    kind: "knowledge-base",
-    primaryKey: primary.decision.persistKey,
-    decisions,
-    handoffMarkdown: markdown,
-    issueDraft,
-    githubCommentMarkdown: githubComment,
-    noteBody,
-  });
-  const bundleMarkdown = reviewPackageBundleMarkdown({
-    title: "JooPark Knowledge/IA Review Package Bundle",
-    kind: "knowledge-base",
-    primaryKey: primary.decision.persistKey,
-    decisions,
-    handoffMarkdown: markdown,
-    issueDraft,
-    githubCommentMarkdown: githubComment,
-    noteBody,
-    manifest: bundleManifest,
-  });
-  return reviewPackageViewCall("reviewPackageHandoffHTML", {
-    kind: "knowledge-base",
-    schemaVersion: REVIEW_HANDOFF_SCHEMA_VERSION,
-    validatorTitle: "Knowledge/IA benchmark review",
-    decisions,
-    primary,
-    markdown,
-    existingNote,
-    issueDraft,
-    githubCommentMarkdown: githubComment,
-    noteBody,
-    bundleManifest,
-    bundleMarkdown,
-    bundleFilename: "joopark-kb-ia-review-package.md",
-    issueDraftHTML: candidateKnowledgeBaseReviewIssueDraft(decisions),
-    githubCommentHTML: candidateKnowledgeBaseReviewGithubComment(decisions),
-    artifact: { kind: "kb-note", key: primary.decision.persistKey, staticBody: noteBody, validatedBody: validatedNoteBody, createdBody: existingNote ? existingNote.body : "", sourceKind: existingNote ? existingNote.sourceKind : "", createdId: existingNote ? existingNote.id : "", artifactType: "note", repairReceiptMarkdown: reviewResultRepairReceiptForKey(primary.decision.persistKey) },
+  return reviewPackageHandoffFromDecisions(knowledgeBaseReviewDecisions(scored), {
+    config: REVIEW_PACKAGE_HANDOFF_CONFIGS["knowledge-base"],
+    markdownForDecisions: knowledgeBaseReviewHandoffMarkdown,
+    issueDraftForDecisions: knowledgeBaseReviewIssueDraft,
+    githubCommentForDecisions: knowledgeBaseReviewGithubCommentMarkdown,
+    issueDraftHTMLForDecisions: candidateKnowledgeBaseReviewIssueDraft,
+    githubCommentHTMLForDecisions: candidateKnowledgeBaseReviewGithubComment,
   });
 }
 
 function knowledgeBaseReviewHandoffMarkdown(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return "";
-  const primary = decisions[0];
-  return reviewPromptHandoffMarkdown({
+  return reviewPromptHandoffMarkdownFromDecisions(decisions, {
     title: "JooPark Knowledge/IA Review Handoff",
     reviewType: "Knowledge-base information architecture review",
     task: "choose the next knowledge-base benchmark or identify the missing IA evidence",
     outputFocus: "navigation structure, Markdown portability, permissions, and publishing workflow fit",
-    primarySurface: primary.decision.surface,
-    decisions,
     successCriteria: [
       "The recommendation explains why the top IA pattern fits JooPark better than the alternatives.",
       "The issue draft can preserve labels, score, source URL, and persistKey without parsing prose.",
@@ -4533,79 +3588,35 @@ function knowledgeBaseReviewHandoffMarkdown(decisions) {
 }
 
 function knowledgeBaseReviewIssueDraft(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return null;
-  const primary = decisions[0];
-  if (!primary || !primary.project || !primary.decision) return null;
-  const secondary = reviewSecondaryDecision(decisions);
-  const labels = ["knowledge-base", "ia", "handoff", "adoption"];
-  return {
-    title: `[KB/IA] ${primary.project.name} ${primary.decision.status}`,
-    projectId: primary.project.id,
-    projectName: primary.project.name,
-    priority: primary.decision.score >= 86 ? "high" : "med",
-    status: "todo",
+  return reviewIssueDraftFromDecisions(decisions, {
+    titlePrefix: "KB/IA",
+    labels: ["knowledge-base", "ia", "handoff", "adoption"],
     estimate: 3,
-    labels,
-    persistKey: primary.decision.persistKey,
-    body: reviewIssueBodyLines({
-      project: primary.project,
-      decision: primary.decision,
-      secondary,
-      scope: "Knowledge/IA benchmark review",
-      timeboxHours: 3,
-      acceptanceCriteria: [
-        "Navigation structure, Markdown portability, permission model, and publishing workflow fit are each checked.",
-        "The reviewer names the IA pattern JooPark should copy and the pattern it should avoid.",
-        "The source URL, score, persist key, and comparison candidate survive note, issue, and GitHub comment copy flows.",
-      ],
-      validationPlan: [
-        "Open the source repository and verify the Evidence Snapshot commit/pushedAt.",
-        "Compare the top candidate against the portability counterweight before changing the status out of review.",
-        "Publish a pinned review note only when missingEvidence is explicit.",
-      ],
-    }),
-  };
+    scope: "Knowledge/IA benchmark review",
+    timeboxHours: 3,
+    acceptanceCriteria: [
+      "Navigation structure, Markdown portability, permission model, and publishing workflow fit are each checked.",
+      "The reviewer names the IA pattern JooPark should copy and the pattern it should avoid.",
+      "The source URL, score, persist key, and comparison candidate survive note, issue, and GitHub comment copy flows.",
+    ],
+    validationPlan: [
+      "Open the source repository and verify the Evidence Snapshot commit/pushedAt.",
+      "Compare the top candidate against the portability counterweight before changing the status out of review.",
+      "Publish a pinned review note only when missingEvidence is explicit.",
+    ],
+  });
 }
 
 function candidateKnowledgeBaseReviewIssueDraft(decisions) {
-  const staticDraft = knowledgeBaseReviewIssueDraft(decisions);
-  const draft = reviewDraftWithSavedResult(staticDraft);
-  if (!draft) return "";
-  const existing = issueBySourceKey(draft.persistKey);
-  return reviewIssueDraftPanel({
-    title: "KB/IA issue draft",
-    scopeAttribute: "data-kb-review-issue-draft",
-    createAttribute: "data-kb-review-issue-create",
-    artifactKind: "kb-issue",
-    staticBody: staticDraft ? staticDraft.body : "",
-    draft,
-    existing,
-  });
+  return candidateReviewIssueDraftPanel(decisions, knowledgeBaseReviewIssueDraft, reviewIssueDraftPanelConfig("KB/IA issue draft", "kb-issue", "data-kb-review-issue-draft", "data-kb-review-issue-create"));
 }
 
 function knowledgeBaseReviewGithubCommentMarkdown(decisions) {
-  const draft = knowledgeBaseReviewIssueDraft(decisions);
-  return reviewGithubCommentMarkdown({ title: "JooPark Knowledge/IA Review", decisions, draft });
+  return reviewGithubCommentMarkdownFromDraft("JooPark Knowledge/IA Review", decisions, knowledgeBaseReviewIssueDraft);
 }
 
 function candidateKnowledgeBaseReviewGithubComment(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return "";
-  const primary = decisions[0];
-  const draft = knowledgeBaseReviewIssueDraft(decisions);
-  const comment = knowledgeBaseReviewGithubCommentMarkdown(decisions);
-  if (!primary || !draft || !comment) return "";
-  const issueUrl = githubNewIssueUrl(primary.project, draft.title, comment);
-  return reviewGithubCommentDraftPanel({
-    scopeAttribute: "data-kb-review-github-comment",
-    openAttribute: "data-kb-review-github-comment-open",
-    copyAttribute: "data-kb-review-github-comment-copy",
-    statusAttribute: "data-kb-review-github-comment-copy-status",
-    textAttribute: "data-kb-review-github-comment-text",
-    key: draft.persistKey,
-    target: primary.project.name,
-    issueUrl,
-    comment,
-  });
+  return candidateReviewGithubCommentPanel(decisions, knowledgeBaseReviewIssueDraft, knowledgeBaseReviewGithubCommentMarkdown, reviewGithubCommentPanelAttributes("data-kb-review-github-comment"));
 }
 
 function candidateBenchmarkRecommendationExport(scored) {
@@ -4617,26 +3628,27 @@ function projectBenchmarkReviewDecision(project, rank = 0) {
   if (!project || !rubricScore) return null;
   const action = projectCandidateAction(project);
   const focus = projectBenchmarkFocus(project);
-  const status = rubricScore.score >= 86 ? "도입 검토" : rubricScore.score >= 80 ? "비교 유지" : "관찰";
-  return {
-    rank: rank + 1,
-    status,
-    score: rubricScore.score,
-    label: rubricScore.label,
+  const status = reviewStatusFromRubricScore(rubricScore.score, "도입 검토");
+  return reviewDecisionRecord(rank, rubricScore, status, {
     actionLabel: action ? action.label : "검토",
     reason: action ? action.reason : focus ? focus.flow : "벤치 대기",
     persistKey: `benchmark-review:${project.id}:${rubricScore.score}`,
-  };
+  });
+}
+
+function compareReviewDecisionItemsByScoreThenRank(a, b) {
+  return b.decision.score - a.decision.score || a.decision.rank - b.decision.rank;
 }
 
 function candidateBenchmarkReviewQueue(projects, filter) {
   if (filter !== "focused") return "";
-  const decisions = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0))
-    .map((project, index) => ({ project, decision: projectBenchmarkReviewDecision(project, index) }))
-    .filter((item) => item.decision)
-    .sort((a, b) => b.decision.score - a.decision.score || a.decision.rank - b.decision.rank)
-    .slice(0, 3)
-    .map((item, index) => ({ ...item, decision: { ...item.decision, rank: index + 1 } }));
+  const decisions = limitAndRerankDecisions(
+    sortBenchmarkFocusProjects(adoptionCandidateRubricProjects(projects, projectBenchmarkRubric))
+      .map((project, index) => ({ project, decision: projectBenchmarkReviewDecision(project, index) }))
+      .filter((item) => item.decision)
+      .sort(compareReviewDecisionItemsByScoreThenRank),
+    3
+  );
   if (decisions.length === 0) return "";
   return html`
     <section class="portfolio-benchmark-review" data-benchmark-review-queue>
@@ -4662,64 +3674,22 @@ function candidateBenchmarkReviewQueue(projects, filter) {
 }
 
 function candidateBenchmarkReviewQueueHandoff(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return "";
-  const markdown = candidateBenchmarkReviewQueueMarkdown(decisions);
-  if (!markdown) return "";
-  const primary = decisions[0];
-  const existingNote = noteBySourceKey(primary.decision.persistKey);
-  const issueDraft = benchmarkReviewIssueDraft(decisions);
-  const githubComment = genericReviewGithubCommentMarkdown("JooPark PM Benchmark Review", decisions, issueDraft);
-  const noteBody = reviewPackageNoteBody(markdown, issueDraft);
-  const savedResult = savedReviewResultByKey(primary.decision.persistKey);
-  const validatedNoteBody = savedResult ? reviewSavedResultNoteBody(markdown, savedResult, issueDraft ? issueDraft.body : "") : "";
-  const bundleManifest = reviewPackageManifest({
-    kind: "benchmark",
-    primaryKey: primary.decision.persistKey,
-    decisions,
-    handoffMarkdown: markdown,
-    issueDraft,
-    githubCommentMarkdown: githubComment,
-    noteBody,
-  });
-  const bundleMarkdown = reviewPackageBundleMarkdown({
-    title: "JooPark PM Benchmark Review Package Bundle",
-    kind: "benchmark",
-    primaryKey: primary.decision.persistKey,
-    decisions,
-    handoffMarkdown: markdown,
-    issueDraft,
-    githubCommentMarkdown: githubComment,
-    noteBody,
-    manifest: bundleManifest,
-  });
-  return reviewPackageViewCall("reviewPackageHandoffHTML", {
-    kind: "benchmark",
-    schemaVersion: REVIEW_HANDOFF_SCHEMA_VERSION,
-    validatorTitle: "PM benchmark review",
-    decisions,
-    primary,
-    markdown,
-    existingNote,
-    issueDraft,
-    githubCommentMarkdown: githubComment,
-    noteBody,
-    bundleManifest,
-    bundleMarkdown,
-    bundleFilename: "joopark-benchmark-review-package.md",
-    issueDraftHTML: candidateBenchmarkReviewIssueDraft(decisions),
-    artifact: { kind: "benchmark-note", key: primary.decision.persistKey, staticBody: noteBody, validatedBody: validatedNoteBody, createdBody: existingNote ? existingNote.body : "", sourceKind: existingNote ? existingNote.sourceKind : "", createdId: existingNote ? existingNote.id : "", artifactType: "note", repairReceiptMarkdown: reviewResultRepairReceiptForKey(primary.decision.persistKey) },
+  return reviewPackageHandoffFromDecisions(decisions, {
+    config: REVIEW_PACKAGE_HANDOFF_CONFIGS.benchmark,
+    markdownForDecisions: candidateBenchmarkReviewQueueMarkdown,
+    issueDraftForDecisions: benchmarkReviewIssueDraft,
+    githubCommentForDecisions: (items, issueDraft) => genericReviewGithubCommentMarkdown("JooPark PM Benchmark Review", items, issueDraft),
+    issueDraftHTMLForDecisions: candidateBenchmarkReviewIssueDraft,
   });
 }
 
 function candidateBenchmarkReviewQueueMarkdown(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return "";
-  return reviewPromptHandoffMarkdown({
+  return reviewPromptHandoffMarkdownFromDecisions(decisions, {
     title: "JooPark Benchmark Review Queue",
     reviewType: "PM benchmark review",
     task: "choose the next PM benchmark experiment and keep the runner-up as a comparison baseline",
     outputFocus: "AI task execution, PM surface fit, source quality, and operational repeatability",
     primarySurface: "JooPark PM benchmark",
-    decisions,
     successCriteria: [
       "The top candidate remains traceable through rank, persistKey, score, and labels.",
       "The output separates recommendation JSON from Markdown summary for downstream parsing.",
@@ -4729,51 +3699,29 @@ function candidateBenchmarkReviewQueueMarkdown(decisions) {
 }
 
 function benchmarkReviewIssueDraft(decisions) {
-  if (!Array.isArray(decisions) || decisions.length === 0) return null;
-  const primary = decisions[0];
-  if (!primary || !primary.project || !primary.decision) return null;
-  const secondary = reviewSecondaryDecision(decisions);
-  const labels = ["benchmark", "handoff", "adoption"];
-  return {
-    title: `[Benchmark] ${primary.project.name} ${primary.decision.status}`,
-    projectId: primary.project.id,
-    projectName: primary.project.name,
-    priority: primary.decision.score >= 86 ? "high" : "med",
-    status: "todo",
+  return reviewIssueDraftFromDecisions(decisions, {
+    titlePrefix: "Benchmark",
+    labels: ["benchmark", "handoff", "adoption"],
     estimate: 4,
-    labels,
-    persistKey: primary.decision.persistKey,
-    body: reviewIssueBodyLines({
-      project: primary.project,
-      decision: primary.decision,
-      secondary,
-      scope: "PM benchmark review",
-      timeboxHours: 4,
-      acceptanceCriteria: [
-        "AI task execution, PM surface fit, source quality, and operational repeatability are each scored or marked missingEvidence.",
-        "The runner-up remains in the issue body as the comparison baseline.",
-        "A reviewer can accept, compare, watch, or defer the recommendation without reprocessing the portfolio cards.",
-      ],
-      validationPlan: [
-        "Verify the source URL and commit from the Evidence Snapshot before accepting the candidate.",
-        "Re-run the portfolio benchmark filter and confirm the same rank, score, and persist key.",
-        "Move the issue only after the acceptance criteria are checked or exceptions are listed.",
-      ],
-    }),
-  };
+    scope: "PM benchmark review",
+    timeboxHours: 4,
+    acceptanceCriteria: [
+      "AI task execution, PM surface fit, source quality, and operational repeatability are each scored or marked missingEvidence.",
+      "The runner-up remains in the issue body as the comparison baseline.",
+      "A reviewer can accept, compare, watch, or defer the recommendation without reprocessing the portfolio cards.",
+    ],
+    validationPlan: [
+      "Verify the source URL and commit from the Evidence Snapshot before accepting the candidate.",
+      "Re-run the portfolio benchmark filter and confirm the same rank, score, and persist key.",
+      "Move the issue only after the acceptance criteria are checked or exceptions are listed.",
+    ],
+  });
 }
 
 function candidateBenchmarkReviewIssueDraft(decisions) {
-  const staticDraft = benchmarkReviewIssueDraft(decisions);
-  const draft = reviewDraftWithSavedResult(staticDraft);
-  if (!draft) return "";
-  const existing = issueBySourceKey(draft.persistKey);
-  return reviewIssueDraftPanel({
+  return candidateReviewIssueDraftPanel(decisions, benchmarkReviewIssueDraft, {
     title: "PM issue draft",
     artifactKind: "benchmark-issue",
-    staticBody: staticDraft ? staticDraft.body : "",
-    draft,
-    existing,
   });
 }
 
@@ -4819,6 +3767,28 @@ function copyTextWithStatus({ text, datasetKey, targets, status, copiedStatusTex
   });
 }
 
+function copyTextWithLabeledStatus({ statusLabel, copiedToast, ...options }) {
+  copyTextWithStatus({
+    ...options,
+    copiedStatusText: `${statusLabel} 복사됨`,
+    failedStatusText: `${statusLabel} 복사 실패`,
+    copiedToast,
+    failedToast: `${statusLabel} 복사 실패`,
+  });
+}
+
+function copyPanelReceiptWithStatus({ panel, target, textSelector, statusSelector, datasetKey, extraTargets = [], statusLabel, copiedToast }) {
+  if (!panel) return;
+  copyTextWithLabeledStatus({
+    text: nodeText(panel, textSelector),
+    datasetKey,
+    targets: [panel, ...extraTargets, target],
+    status: nodeQuery(panel, statusSelector),
+    statusLabel,
+    copiedToast,
+  });
+}
+
 function nodeQuery(root, selector) {
   return root ? root.querySelector(selector) : null;
 }
@@ -4831,81 +3801,43 @@ function scrollMainToTop() {
   nodeQuery(document, ".main")?.scrollTo({ top: 0, behavior: "instant" });
 }
 
-const reviewResultDraftStateHelpers = window.JooParkReviewResultDraftState && typeof window.JooParkReviewResultDraftState.create === "function"
-  ? window.JooParkReviewResultDraftState.create({
-      nodeQuery,
-      nodeText,
-      copyTextWithStatus,
-      memberName,
-      reviewAssigneeConfidenceLabel,
-      uniqueTextItems,
-      saveReviewIssueDraftAssigneeOverride,
-      showToast,
-    })
-  : null;
+let reviewResultDraftStateHelpers = null;
+function getReviewResultDraftStateHelpers() { return reviewResultDraftStateHelpers = createLazyRuntimeHelpers(reviewResultDraftStateHelpers, "JooParkReviewResultDraftState", { nodeQuery, nodeText, copyTextWithStatus, memberName, reviewAssigneeConfidenceLabel, uniqueTextItems, saveReviewIssueDraftAssigneeOverride, showToast }); }
 
 function reviewResultDraftStateCall(name, ...args) {
-  return callModuleHelper(reviewResultDraftStateHelpers, "review result draft state", name, args, "Review result draft state helper missing");
+  return callModuleHelper(getReviewResultDraftStateHelpers(), "review result draft state", name, args, "Review result draft state helper missing");
 }
 
-const reviewCreationActionsHelpers = window.JooParkReviewCreationActions && typeof window.JooParkReviewCreationActions.create === "function"
-  ? window.JooParkReviewCreationActions.create({
-      dashboard,
-      reviewHandoffNode,
-      issueBySourceKey,
-      noteBySourceKey,
-      openIssueInKanban,
-      openNoteInNotesView,
-      reviewIssueDraftNode,
-      projectByName,
-      nodeText,
-      reviewDraftWithSavedResult,
-      issueExecutionChecklistItems,
-      savedReviewResultByKey,
-      reviewSavedResultNoteBody,
-      uid,
-      nowISO,
-      rebuildIndexes,
-      commit,
-      showToast,
-    })
-  : null;
+let reviewCreationActionsHelpers = null;
+function getReviewCreationActionsHelpers() { return reviewCreationActionsHelpers = createLazyRuntimeHelpers(reviewCreationActionsHelpers, "JooParkReviewCreationActions", { dashboard, reviewHandoffNode, issueBySourceKey, noteBySourceKey, openIssueInKanban, openNoteInNotesView, reviewIssueDraftNode, projectByName, nodeText, reviewDraftWithSavedResult, issueExecutionChecklistItems, savedReviewResultByKey, reviewSavedResultNoteBody, uid, nowISO, rebuildIndexes, commit, showToast }); }
 
 function reviewCreationActionsCall(name, ...args) {
-  return callModuleHelper(reviewCreationActionsHelpers, "review creation actions", name, args, "Review creation actions helper missing");
+  return callModuleHelper(getReviewCreationActionsHelpers(), "review creation actions", name, args, "Review creation actions helper missing");
 }
 
-const reviewCopyActionsHelpers = window.JooParkReviewCopyActions && typeof window.JooParkReviewCopyActions.create === "function"
-  ? window.JooParkReviewCopyActions.create({
-      writeClipboardText,
-      showToast,
-    })
-  : null;
+let reviewCopyActionsHelpers = null;
+function getReviewCopyActionsHelpers() { return reviewCopyActionsHelpers = createLazyRuntimeHelpers(reviewCopyActionsHelpers, "JooParkReviewCopyActions", { writeClipboardText, showToast }); }
 
 function reviewCopyActionsCall(name, ...args) {
-  return callModuleHelper(reviewCopyActionsHelpers, "review copy actions", name, args, "Review copy actions helper missing");
+  return callModuleHelper(getReviewCopyActionsHelpers(), "review copy actions", name, args, "Review copy actions helper missing");
 }
 
-const reviewSubmissionCopyHelpers = window.JooParkReviewSubmissionCopy && typeof window.JooParkReviewSubmissionCopy.create === "function"
-  ? window.JooParkReviewSubmissionCopy.create({
-      writeClipboardText,
-      showToast,
-    })
-  : null;
+let reviewSubmissionCopyHelpers = null;
+function getReviewSubmissionCopyHelpers() { return reviewSubmissionCopyHelpers = createLazyRuntimeHelpers(reviewSubmissionCopyHelpers, "JooParkReviewSubmissionCopy", { writeClipboardText, showToast }); }
 
 function reviewSubmissionCopyCall(name, ...args) {
-  return callModuleHelper(reviewSubmissionCopyHelpers, "review submission copy", name, args, "Review submission copy helper missing");
+  return callModuleHelper(getReviewSubmissionCopyHelpers(), "review submission copy", name, args, "Review submission copy helper missing");
 }
 
-const operationsCopyActionsHelpers = window.JooParkOperationsCopyActions && typeof window.JooParkOperationsCopyActions.create === "function"
-  ? window.JooParkOperationsCopyActions.create({
-      writeClipboardText,
-      showToast,
-    })
-  : null;
+let operationsCopyActionsHelpers = null;
+function getOperationsCopyActionsHelpers() { return operationsCopyActionsHelpers = createLazyRuntimeHelpers(operationsCopyActionsHelpers, "JooParkOperationsCopyActions", { writeClipboardText, showToast }); }
 
 function operationsCopyActionsCall(name, ...args) {
-  return callModuleHelper(operationsCopyActionsHelpers, "operations copy actions", name, args, "Operations copy actions helper missing");
+  const helpers = getOperationsCopyActionsHelpers();
+  if (helpers) return callModuleHelper(helpers, "operations copy actions", name, args, "Operations copy actions helper missing");
+  return ensureOpsRuntime("operations").then(() => (
+    callModuleHelper(getOperationsCopyActionsHelpers(), "operations copy actions", name, args, "Operations copy actions helper missing")
+  ));
 }
 
 const operationsCopySurfaceContracts = Object.freeze({
@@ -4998,60 +3930,70 @@ function copyReviewPackagePanelText(target, options) {
   reviewCopyActionsCall("copyReviewPackagePanelText", target, options);
 }
 
+function reviewPackagePanelCopyOptions({ panelSelector, textSelector, statusSelector, datasetKey, successStatus, failureStatus, successToast, failureToast }) {
+  return {
+    panelSelector,
+    textSelector,
+    statusSelector,
+    targetDatasetKey: datasetKey,
+    panelDatasetKey: datasetKey,
+    successStatus,
+    failureStatus,
+    successToast,
+    failureToast,
+  };
+}
+
 function copyReviewPackageTrackerFields(target) {
-  copyReviewPackagePanelText(target, {
+  copyReviewPackagePanelText(target, reviewPackagePanelCopyOptions({
     panelSelector: "[data-review-package-tracker-fields]",
     textSelector: "[data-review-package-tracker-field-packet-body]",
     statusSelector: "[data-review-package-tracker-field-copy-status]",
-    targetDatasetKey: "reviewPackageTrackerFieldCopied",
-    panelDatasetKey: "reviewPackageTrackerFieldCopied",
+    datasetKey: "reviewPackageTrackerFieldCopied",
     successStatus: "필드 복사됨",
     failureStatus: "필드 복사 실패",
     successToast: "tracker field packet을 복사했습니다",
     failureToast: "tracker field packet 복사 실패",
-  });
+  }));
 }
 
 function copyReviewPackageTrackerForm(target) {
-  copyReviewPackagePanelText(target, {
+  copyReviewPackagePanelText(target, reviewPackagePanelCopyOptions({
     panelSelector: "[data-review-package-tracker-form]",
     textSelector: "[data-review-package-tracker-form-body]",
     statusSelector: "[data-review-package-tracker-form-copy-status]",
-    targetDatasetKey: "reviewPackageTrackerFormCopied",
-    panelDatasetKey: "reviewPackageTrackerFormCopied",
+    datasetKey: "reviewPackageTrackerFormCopied",
     successStatus: "form packet 복사됨",
     failureStatus: "form packet 복사 실패",
     successToast: "external tracker form packet을 복사했습니다",
     failureToast: "external tracker form packet 복사 실패",
-  });
+  }));
 }
 
 function copyReviewPackageSubmitSequence(target) {
-  copyReviewPackagePanelText(target, {
+  copyReviewPackagePanelText(target, reviewPackagePanelCopyOptions({
     panelSelector: "[data-review-package-submit-sequence]",
     textSelector: "[data-review-package-submit-sequence-body]",
     statusSelector: "[data-review-package-submit-sequence-copy-status]",
-    targetDatasetKey: "reviewPackageSubmitSequenceCopied",
-    panelDatasetKey: "reviewPackageSubmitSequenceCopied",
+    datasetKey: "reviewPackageSubmitSequenceCopied",
     successStatus: "순서 복사됨",
     failureStatus: "순서 복사 실패",
     successToast: "submit sequence를 복사했습니다",
     failureToast: "submit sequence 복사 실패",
-  });
+  }));
 }
 
 function copyReviewPackageExternalReceiptTemplate(target) {
-  copyReviewPackagePanelText(target, {
+  copyReviewPackagePanelText(target, reviewPackagePanelCopyOptions({
     panelSelector: "[data-review-package-external-receipt-template]",
     textSelector: "[data-review-package-external-receipt-template-body]",
     statusSelector: "[data-review-package-external-receipt-template-copy-status]",
-    targetDatasetKey: "reviewPackageExternalReceiptTemplateCopied",
-    panelDatasetKey: "reviewPackageExternalReceiptTemplateCopied",
+    datasetKey: "reviewPackageExternalReceiptTemplateCopied",
     successStatus: "receipt 복사됨",
     failureStatus: "receipt 복사 실패",
     successToast: "external issue receipt template을 복사했습니다",
     failureToast: "external receipt template 복사 실패",
-  });
+  }));
 }
 
 function externalReceiptSubmittedAt(value) {
@@ -5102,48 +4044,12 @@ function reviewArtifactRepairUndoFor(artifactType, createdId) {
   return reviewArtifactStateCall("repairUndoFor", artifactType, createdId);
 }
 
-function reviewArtifactRepairTarget(panel) {
-  return reviewArtifactStateCall("repairTarget", panel);
-}
-
-function reviewArtifactRecordBody(target) {
-  return reviewArtifactStateCall("recordBody", target);
-}
-
-function setReviewArtifactRecordBody(target, body) {
-  return reviewArtifactStateCall("setRecordBody", target, body);
-}
-
-function reviewArtifactDiffNode(target) {
-  return reviewArtifactStateCall("diffNode", target);
-}
-
-function reviewArtifactRepairBodyText(panel) {
-  return reviewArtifactStateCall("repairBodyText", panel);
-}
-
-function reviewArtifactReceiptInput(panel) {
-  return reviewArtifactStateCall("receiptInput", panel);
-}
-
-function reviewArtifactReceiptText(panel) {
-  return reviewArtifactStateCall("receiptText", panel);
-}
-
 function reviewArtifactRepairPreview(target) {
   return reviewArtifactStateCall("repairPreview", target);
 }
 
-function applyReviewArtifactRepairBody(repair) {
-  return reviewArtifactStateCall("applyRepairBody", repair);
-}
-
 function undoReviewArtifactRepair(target) {
   return reviewArtifactStateCall("undoRepair", target);
-}
-
-function setReviewArtifactReceiptCompareState(panel, state, message, checks = []) {
-  return reviewArtifactStateCall("setReceiptCompareState", panel, state, message, checks);
 }
 
 function compareReviewArtifactReceipt(target) {
@@ -5170,34 +4076,11 @@ function validateReviewResultShape(result, expectedKey) {
   return reviewHandoffCall("validateReviewResultShape", result, expectedKey);
 }
 
-const reviewResultStateHelpers = window.JooParkReviewResultState && typeof window.JooParkReviewResultState.create === "function"
-  ? window.JooParkReviewResultState.create({
-      nodeQuery,
-      nodeText,
-      setHTML,
-      copyTextWithStatus,
-      nowISO,
-      clampText,
-      clampTextArray,
-      normalizeAllData,
-      persist,
-      renderSavedReviewResult,
-      refreshReviewIssueDraftFromSavedResult,
-      repairReceiptMarkdown: (model) => reviewResultViewCall("reviewResultRepairReceiptMarkdown", model),
-      validationOutputHTML: (model) => reviewResultViewCall("reviewResultValidationOutput", model),
-    })
-  : null;
+let reviewResultStateHelpers = null;
+function getReviewResultStateHelpers() { return reviewResultStateHelpers = createLazyRuntimeHelpers(reviewResultStateHelpers, "JooParkReviewResultState", { nodeQuery, nodeText, setHTML, copyTextWithStatus, nowISO, clampText, clampTextArray, normalizeAllData, persist, renderSavedReviewResult, refreshReviewIssueDraftFromSavedResult, repairReceiptMarkdown: (model) => reviewResultViewCall("reviewResultRepairReceiptMarkdown", model), validationOutputHTML: (model) => reviewResultViewCall("reviewResultValidationOutput", model) }); }
 
 function reviewResultStateCall(name, ...args) {
-  return callModuleHelper(reviewResultStateHelpers, "review result state", name, args, "Review result state helper missing");
-}
-
-function reviewResultRecordRepairSnapshot(validator, state, message, details) {
-  return reviewResultStateCall("recordRepairSnapshot", validator, state, message, details);
-}
-
-function reviewResultPostRepairReceiptModel(validator, result, warnings, saved) {
-  return reviewResultStateCall("postRepairReceiptModel", validator, result, warnings, saved);
+  return callModuleHelper(getReviewResultStateHelpers(), "review result state", name, args, "Review result state helper missing");
 }
 
 function attachReviewResultRepairReceipt(validator, saved, result, warnings) {
@@ -5210,14 +4093,6 @@ function reviewResultValidatorNode(target) {
 
 function reviewResultValidatorInput(validator) {
   return reviewResultStateCall("validatorInput", validator);
-}
-
-function reviewResultValidatorStatus(validator) {
-  return reviewResultStateCall("validatorStatus", validator);
-}
-
-function reviewResultValidatorOutput(validator) {
-  return reviewResultStateCall("validatorOutput", validator);
 }
 
 function setReviewResultValidation(target, state, message, details = {}) {
@@ -5303,13 +4178,7 @@ function publishReviewHandoffNote(target) {
 function sortPortfolioProjects(projects) {
   if (state.portfolioFilter !== "candidates") return projects;
   if (state.portfolioBenchmarkFilter === "focused") return sortBenchmarkFocusProjects(projects);
-  return [...projects].sort((a, b) => {
-    const aPriority = projectCandidatePriority(a);
-    const bPriority = projectCandidatePriority(b);
-    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
-    if (scoreDiff !== 0) return scoreDiff;
-    return String(a.name || "").localeCompare(String(b.name || ""));
-  });
+  return [...projects].sort(compareCandidatePriorityThenName);
 }
 
 const portfolioViewHelpers = window.JooParkPortfolioView && typeof window.JooParkPortfolioView.create === "function"
@@ -5361,7 +4230,30 @@ function renderPortfolio() {
     portfolioFilter: state.portfolioFilter,
     portfolioActionFilter: state.portfolioActionFilter,
     portfolioBenchmarkFilter: state.portfolioBenchmarkFilter,
+    showReferenceProjects: referenceProjectsVisible(),
   }));
+}
+
+function referenceProjectsVisible() {
+  return !!(dashboard.settings && dashboard.settings.showReferenceProjects === true);
+}
+
+function setReferenceProjectsVisible(visible) {
+  if (!dashboard.settings || typeof dashboard.settings !== "object") dashboard.settings = {};
+  dashboard.settings.showReferenceProjects = visible === true;
+  if (!dashboard.settings.showReferenceProjects && state.portfolioFilter === "candidates") {
+    state.portfolioFilter = "all";
+    state.portfolioActionFilter = "all";
+    state.portfolioBenchmarkFilter = "all";
+  }
+  persist();
+  if (dashboard.currentView === "pm-portfolio") renderPortfolio();
+  if (dashboard.currentView === "settings") renderSettings();
+  showToast(dashboard.settings.showReferenceProjects ? "참고 자료를 표시합니다" : "참고 자료를 숨겼습니다", "info");
+}
+
+function toggleReferenceProjects() {
+  setReferenceProjectsVisible(!referenceProjectsVisible());
 }
 
 /* ============================================================
@@ -5493,6 +4385,8 @@ const dbCatalogHelpers = window.JooParkDbCatalog && typeof window.JooParkDbCatal
       setHTML,
       matches,
       escapeHtml,
+      clampInteger,
+      clampNumber,
       HEALTH_COLOR,
       panelHead,
       kpiCard,
@@ -5523,30 +4417,6 @@ const dbCatalogHelpers = window.JooParkDbCatalog && typeof window.JooParkDbCatal
 function dbCatalogCall(name, ...args) {
   return callModuleHelper(dbCatalogHelpers, "db catalog", name, args, "db catalog helper unavailable");
 }
-
-function dbCatalogProvenanceHTML() { return dbCatalogCall("dbCatalogProvenanceHTML"); }
-function renderDbInstances() { return dbCatalogCall("renderDbInstances"); }
-function renderDbSchema() { return dbCatalogCall("renderDbSchema"); }
-function renderDbQueries() { return dbCatalogCall("renderDbQueries"); }
-function renderDbBackups() { return dbCatalogCall("renderDbBackups"); }
-function setDbCatalogFilter(filter) { return dbCatalogCall("setDbCatalogFilter", filter); }
-function findTableById(tableId) { return dbCatalogCall("findTableById", tableId); }
-function instanceSelectOptions(current) { return dbCatalogCall("instanceSelectOptions", current); }
-function openInstanceModal(arg) { return dbCatalogCall("openInstanceModal", arg); }
-function saveInstanceFromForm(id) { return dbCatalogCall("saveInstanceFromForm", id); }
-function deleteInstance(id) { return dbCatalogCall("deleteInstance", id); }
-function openTableModal(arg) { return dbCatalogCall("openTableModal", arg); }
-function saveTableFromForm(id) { return dbCatalogCall("saveTableFromForm", id); }
-function deleteTable(tableId) { return dbCatalogCall("deleteTable", tableId); }
-function openColumnModal(tableId, colIndex) { return dbCatalogCall("openColumnModal", tableId, colIndex); }
-function saveColumnFromForm(tableId, colIndex) { return dbCatalogCall("saveColumnFromForm", tableId, colIndex); }
-function deleteColumn(tableId, colIndex) { return dbCatalogCall("deleteColumn", tableId, colIndex); }
-function openQueryModal(arg) { return dbCatalogCall("openQueryModal", arg); }
-function saveQueryFromForm(id) { return dbCatalogCall("saveQueryFromForm", id); }
-function deleteQuery(id) { return dbCatalogCall("deleteQuery", id); }
-function openMigrationModal(arg) { return dbCatalogCall("openMigrationModal", arg); }
-function saveMigrationFromForm(id) { return dbCatalogCall("saveMigrationFromForm", id); }
-function deleteMigration(id) { return dbCatalogCall("deleteMigration", id); }
 
 const DB_CATALOG_STALE_REVIEW_SOURCE_KEY = "db-catalog:stale-sample-review";
 const DB_CATALOG_PROJECT_PATTERN = /데이터|data|db|catalog|카탈로그/i;
@@ -5601,7 +4471,7 @@ function dbCatalogStaleReviewBody(records) {
     acc[record.kind] = (acc[record.kind] || 0) + 1;
     return acc;
   }, {});
-  const countLines = Object.keys(counts).sort().map((kind) => `- ${kind}: ${counts[kind]}`);
+  const countLines = sortedStrings(Object.keys(counts)).map((kind) => `- ${kind}: ${counts[kind]}`);
   const sampleLines = records.slice(0, 12).map((record) => `- ${record.kind}: ${record.label}${record.updatedAt ? ` (${record.updatedAt})` : ""}`);
   return [
     "DB Catalog stale sample review",
@@ -5676,10 +4546,6 @@ function createDbCatalogStaleReviewIssue() {
  * View: Settings
  * ============================================================ */
 
-function settingsImportFileInput(view) {
-  return nodeQuery(view, "#importFile");
-}
-
 function renderSettings() {
   const view = refs.views.settings;
   if (!view) return;
@@ -5699,16 +4565,29 @@ function renderSettings() {
       kind: state.deletedRecoveryKind || "all",
     },
   }));
-  const fileInput = settingsImportFileInput(view);
+  const fileInput = nodeQuery(view, "#importFile");
   if (fileInput) fileInput.addEventListener("change", handleImportFile);
 }
 
-const releaseStatusHelpers = window.JooParkReleaseStatus && typeof window.JooParkReleaseStatus.create === "function"
-  ? window.JooParkReleaseStatus.create({ html, raw, formatLocalDateTime })
-  : null;
+let releaseStatusHelpers = null;
+function getReleaseStatusHelpers() { return releaseStatusHelpers = createLazyRuntimeHelpers(releaseStatusHelpers, "JooParkReleaseStatus", { html, raw, formatLocalDateTime }); }
+
+function releaseStatusFallback(name) {
+  if (name === "publishReadinessItems") return [];
+  if (name === "publishReadinessStateLabel") return "대기";
+  if (name === "publishReadinessMarkdownLines") return [];
+  if (name === "publishRepoPlaceholderGuardLines") return [];
+  if (name === "publishDispatchGateGuardLines") return [];
+  if (name === "publishUnblockHandoffText") return "";
+  if (name === "publishEvidenceFresh") return false;
+  if (name.endsWith("HTML")) return "";
+  return "";
+}
 
 function releaseStatusCall(name, ...args) {
-  return callModuleHelper(releaseStatusHelpers, "release status", name, args, "release status helper unavailable");
+  const helpers = getReleaseStatusHelpers();
+  if (!helpers) return releaseStatusFallback(name);
+  return callModuleHelper(helpers, "release status", name, args, "release status helper unavailable");
 }
 
 function publishReadinessItems() {
@@ -5812,6 +4691,7 @@ const systemStatusViewHelpers = window.JooParkSystemStatusView && typeof window.
       pagesAttestationProofIntakeHTML,
       publishEvidenceHTML,
       outputQualityAuditHTML,
+      systemDashboardReceiptHTML,
     })
   : null;
 
@@ -5831,6 +4711,7 @@ function renderSystemStatus() {
     state,
     health: state.storageHealth || {},
     pwaRuntime: state.pwaRuntime || {},
+    opsRuntime: lazyRuntimeLoader()?.stats() || {},
     routeCount: VIEWS.length,
     alerts: computeAlerts(),
     alertCount: urgentAlertCount(),
@@ -5840,27 +4721,23 @@ function renderSystemStatus() {
   }));
 }
 
+function isEditingViewField(viewName) {
+  const active = document.activeElement;
+  const view = refs.views[viewName];
+  return !!(active && view && view.contains(active) && ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName));
+}
+
 function refreshReleaseEvidenceViews() {
   if (dashboard.currentView === "system") {
-    renderSystemStatus();
+    renderCurrentView();
     return;
   }
   if (dashboard.currentView === "home") {
-    const active = document.activeElement;
-    const editingHomeField = active &&
-      refs.views.home &&
-      refs.views.home.contains(active) &&
-      ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName);
-    if (!editingHomeField) renderHome();
+    if (!isEditingViewField("home")) renderCurrentView();
     return;
   }
   if (dashboard.currentView === "settings") {
-    const active = document.activeElement;
-    const editingSettingsField = active &&
-      refs.views.settings &&
-      refs.views.settings.contains(active) &&
-      ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName);
-    if (!editingSettingsField) renderSettings();
+    if (!isEditingViewField("settings")) renderSettings();
   }
 }
 
@@ -5868,35 +4745,22 @@ function refreshReleaseEvidenceViews() {
  * Sheet / Modal
  * ============================================================ */
 
-function renderSheetMeta(meta) {
-  return dialogShellCall("renderSheetMeta", meta);
-}
-
-function setNotificationTriggerExpanded(expanded) {
-  return dialogShellCall("setNotificationTriggerExpanded", expanded);
-}
-
-function setGlobalHelpTriggerExpanded(expanded) {
-  document.querySelectorAll('[data-action="open-global-help"][aria-expanded]').forEach((trigger) => {
+function setActionTriggerExpanded(action, expanded) {
+  document.querySelectorAll("[data-action][aria-expanded]").forEach((trigger) => {
+    if (trigger.dataset.action !== action) return;
     trigger.setAttribute("aria-expanded", expanded ? "true" : "false");
   });
 }
 
-function setDataSafetyTriggerExpanded(expanded) {
-  document.querySelectorAll('[data-action="open-data-safety-status"][aria-expanded]').forEach((trigger) => {
-    trigger.setAttribute("aria-expanded", expanded ? "true" : "false");
-  });
-}
+function setGlobalHelpTriggerExpanded(expanded) { setActionTriggerExpanded("open-global-help", expanded); }
+
+function setDataSafetyTriggerExpanded(expanded) { setActionTriggerExpanded("open-data-safety-status", expanded); }
 
 function openSheet(title, body, meta, options = {}) {
   const opened = dialogShellCall("openSheet", title, body, meta, options);
   setGlobalHelpTriggerExpanded(opened && options.globalHelpExpanded === true);
   setDataSafetyTriggerExpanded(opened && options.dataSafetyExpanded === true);
   return opened;
-}
-
-function restoreFocusAfterClose(target, isClosed) {
-  return dialogShellCall("restoreFocusAfterClose", target, isClosed);
 }
 
 function closeSheet(options = {}) {
@@ -5906,87 +4770,34 @@ function closeSheet(options = {}) {
   return closed;
 }
 
-function openModal(title, bodyHTML, onConfirm) {
-  return dialogShellCall("openModal", title, bodyHTML, onConfirm);
-}
+function openModal(title, bodyHTML, onConfirm) { return dialogShellCall("openModal", title, bodyHTML, onConfirm); }
 
-function closeModal() {
-  return dialogShellCall("closeModal");
-}
+function closeModal() { return dialogShellCall("closeModal"); }
 
-function isModalOpen() {
-  return !!nodeQuery(document, "#modal.open");
-}
+function editableModalRecord(arg) { return arg && typeof arg === "object" ? arg : null; }
 
-function getOpenDialogRoot() {
-  return dialogShellCall("getOpenDialogRoot");
-}
+function formText(data, name) { return (data.get(name) || "").toString().trim(); }
 
-function getFocusable(root) {
-  return dialogShellCall("getFocusable", root);
-}
-function trapTab(event, root) {
-  return dialogShellCall("trapTab", event, root);
-}
+function isSheetOpen() { return dialogShellCall("isSheetOpen"); }
+
+function isModalOpen() { return dialogShellCall("isModalOpen"); }
+
+function getOpenDialogRoot() { return dialogShellCall("getOpenDialogRoot"); }
+
+function trapTab(event, root) { return dialogShellCall("trapTab", event, root); }
 
 /* ============================================================
  * Project picker (enhanced)
  * ============================================================ */
 
-function projectPickerStatusEl() {
-  return projectPickerCall("statusEl");
-}
-
-function projectPickerElements() {
-  return projectPickerCall("elements");
-}
-
-function normalizeProjectPickerAccessibility() {
-  return projectPickerCall("normalizeAccessibility");
-}
-
-function projectPickerScaffoldReady() {
-  return projectPickerCall("scaffoldReady");
-}
-
-function setProjectPickerStatus(message, options = {}) {
-  return projectPickerCall("setStatus", message, options);
-}
-
-function renderProjectOptions() {
-  return projectPickerCall("renderOptions");
-}
-
-function restoreProjectPickerFocus() {
-  return projectPickerCall("restoreFocus");
-}
-
-function ensureProjectPickerScaffold() {
-  return projectPickerCall("ensureScaffold");
-}
-
-function setProjectPickerOpen(open) {
-  return projectPickerCall("setOpen", open);
-}
-
-function toggleProjectPicker() {
-  return projectPickerCall("toggle");
-}
-
-function projectPickerIsOpen() {
-  return projectPickerCall("isOpen");
-}
-
-function closeProjectPickerIfOutside(target) {
-  return projectPickerCall("closeIfOutside", target);
-}
+function updateProjectSelectLabel(project = currentProject()) { if (refs.projectSelectLabel) refs.projectSelectLabel.textContent = project ? project.name : ""; }
 function pickProject(projectId) {
   const project = indexes.projectById.get(projectId);
   if (!project) return;
   const wasSame = dashboard.currentProjectId === projectId;
   dashboard.currentProjectId = projectId;
-  if (refs.projectSelectLabel) refs.projectSelectLabel.textContent = project.name;
-  setProjectPickerOpen(false);
+  updateProjectSelectLabel(project);
+  projectPickerCall("setOpen", false);
   if (refs.projectSelect) refs.projectSelect.focus();
   if (!wasSame) {
     showToast(`프로젝트 '${project.name}'로 전환`, "info");
@@ -6140,9 +4951,9 @@ function openNotificationsSheet() {
 
 function dataSafetyStatusModel() {
   const health = state.storageHealth || {};
-  const localBytes = Number.isFinite(Number(health.localBytes)) ? Number(health.localBytes) : storedPayloadBytes();
-  const usageBytes = Number.isFinite(Number(health.usageBytes)) ? Number(health.usageBytes) : localBytes;
-  const quotaBytes = Number.isFinite(Number(health.quotaBytes)) && Number(health.quotaBytes) > 0 ? Number(health.quotaBytes) : null;
+  const localBytes = finiteNumberOr(health.localBytes, storedPayloadBytes());
+  const usageBytes = finiteNumberOr(health.usageBytes, localBytes);
+  const quotaBytes = positiveFiniteNumberOrNull(health.quotaBytes);
   const usagePct = storagePercent(usageBytes, quotaBytes);
   const modelHealth = { ...health, localBytes, usageBytes, quotaBytes };
   const tone = storageTone(modelHealth);
@@ -6209,14 +5020,6 @@ function dataSafetyAccessItems(model = dataSafetyStatusModel()) {
   ];
 }
 
-function dataSafetyTopbarLabel(trigger) {
-  return nodeQuery(trigger, ".data-status-label");
-}
-
-function dataSafetyTopbarMeta(trigger) {
-  return nodeQuery(trigger, "[data-data-safety-topbar-meta]");
-}
-
 function updateDataSafetyTopbar() {
   const model = dataSafetyStatusModel();
   const items = dataSafetyAccessItems(model);
@@ -6235,12 +5038,14 @@ function updateDataSafetyTopbar() {
     trigger.dataset.dataSafetyLastSaved = dashboard.lastSavedAt || "";
     trigger.setAttribute("aria-label", `로컬 데이터 상태 열기: ${model.statusLabel}, 마지막 저장 ${model.lastSavedLabel}, ${formatBytes(model.localBytes)}`);
     trigger.setAttribute("title", `로컬 데이터 상태 · ${model.statusLabel} · ${formatBytes(model.localBytes)}`);
-    const label = dataSafetyTopbarLabel(trigger);
-    const meta = dataSafetyTopbarMeta(trigger);
+    const label = nodeQuery(trigger, ".data-status-label");
+    const meta = nodeQuery(trigger, "[data-data-safety-topbar-meta]");
     if (label) label.textContent = labelText;
     if (meta) meta.textContent = metaText;
   });
 }
+
+function isDataSafetyStatusSheetOpen() { return isSheetOpen() && !!nodeQuery(document, "#sheet [data-topbar-data-safety]"); }
 
 function openDataSafetyStatusSheet() {
   const model = dataSafetyStatusModel();
@@ -6281,8 +5086,8 @@ function globalHelpAccessItems() {
   const searchReady = !isSearchInertView(currentView);
   const launchRefresh = state.launchReadinessRefresh && state.launchReadinessRefresh.data ? state.launchReadinessRefresh.data : {};
   const launchExecution = state.launchExecutionPacket && state.launchExecutionPacket.data ? state.launchExecutionPacket.data : {};
-  const readyForExternalClaim = !!(launchRefresh.readyForExternalClaim || launchExecution.readyForExternalClaim);
-  const safeToDispatch = !!(launchRefresh.safeToDispatch || launchExecution.safeToDispatch);
+  const readyForExternalClaim = launchRefresh.readyForExternalClaim === true && launchExecution.readyForExternalClaim === true;
+  const safeToDispatch = launchRefresh.safeToDispatch === true && (launchExecution.safeToDispatch === true || launchExecution.readyToDispatch === true);
   return [
     {
       key: "command_palette",
@@ -6327,8 +5132,8 @@ function openGlobalHelpSheet() {
   const coverage = items.length === 4 && items.every((item) => item.key && item.label && item.value && item.detail && item.action && item.status) ? 1 : 0;
   const launchRefresh = state.launchReadinessRefresh && state.launchReadinessRefresh.data ? state.launchReadinessRefresh.data : {};
   const launchExecution = state.launchExecutionPacket && state.launchExecutionPacket.data ? state.launchExecutionPacket.data : {};
-  const safeToDispatch = !!(launchRefresh.safeToDispatch || launchExecution.safeToDispatch);
-  const readyForExternalClaim = !!(launchRefresh.readyForExternalClaim || launchExecution.readyForExternalClaim);
+  const safeToDispatch = launchRefresh.safeToDispatch === true && (launchExecution.safeToDispatch === true || launchExecution.readyToDispatch === true);
+  const readyForExternalClaim = launchRefresh.readyForExternalClaim === true && launchExecution.readyForExternalClaim === true;
   const searchMode = isSearchInertView(currentView) ? "command" : "view";
   const bodyHTML = html`
     <section class="global-help" data-global-help-access data-global-help-access-ready="${coverage === 1 ? "true" : "false"}" data-global-help-access-coverage="${coverage}" data-global-help-access-action-count="${items.length}" data-global-help-current-view="${currentView}" data-global-help-search-mode="${searchMode}" data-global-help-safe-to-dispatch="${safeToDispatch ? "true" : "false"}" data-global-help-ready-for-external-claim="${readyForExternalClaim ? "true" : "false"}" data-global-help-consistent-help="wcag-3.2.6" data-global-help-status-role="status">
@@ -6603,19 +5408,6 @@ function openIssueSourceBacklink(issueId) {
   openIssueInKanban(issue, { toast: `${issue.id} 이슈로 돌아왔습니다` });
 }
 
-function issueSourceBacklinkHTML(link, surface) {
-  if (!link) return "";
-  return html`
-    <section class="source-backlink" data-source-backlink data-source-backlink-surface="${surface}" data-source-backlink-issue-id="${link.issueId}" data-source-backlink-source="${link.sourceLabel}">
-      <span>
-        <strong>${link.sourceLabel}에서 열린 이슈</strong>
-        <small>${link.issueId} · ${link.issueTitle}</small>
-      </span>
-      <button type="button" class="secondary-btn" data-action="open-source-backlink-issue" data-issue-id="${link.issueId}">Kanban 이슈로 돌아가기</button>
-    </section>
-  `;
-}
-
 function reviewIssueSourceBacklinkSurface(section) {
   return nodeQuery(section, '[data-source-backlink-surface="review"]');
 }
@@ -6674,6 +5466,10 @@ function reviewHandoffSectionByKey(selector, key) {
     .find((node) => node.dataset.reviewHandoffPrimaryKey === key) || null;
 }
 
+function resetSearchQueryState() { state.query = ""; if (refs.query) refs.query.value = ""; if (refs.searchCount) refs.searchCount.textContent = ""; }
+
+function focusPortfolioCandidateHandoffs() { state.portfolioFilter = "candidates"; state.portfolioActionFilter = "all"; state.portfolioBenchmarkFilter = "focused"; }
+
 function openReviewIssueSource(location) {
   const project = indexes.projectById.get(location.projectId);
   if (!project) {
@@ -6681,12 +5477,8 @@ function openReviewIssueSource(location) {
     return;
   }
   if (dashboard.currentView !== "pm-portfolio") setView("pm-portfolio");
-  state.query = "";
-  if (refs.query) refs.query.value = "";
-  if (refs.searchCount) refs.searchCount.textContent = "";
-  state.portfolioFilter = "candidates";
-  state.portfolioActionFilter = "all";
-  state.portfolioBenchmarkFilter = "focused";
+  resetSearchQueryState();
+  focusPortfolioCandidateHandoffs();
   renderPortfolio();
   syncSearchClearControl();
   const section = reviewHandoffSectionByKey(location.selector, location.key);
@@ -6751,7 +5543,7 @@ function openIssueSource(issueId) {
   if (sourceKind === "db-catalog-stale-review" || sourceKey === DB_CATALOG_STALE_REVIEW_SOURCE_KEY) {
     rememberIssueSourceBacklink(issue, "db-catalog", "DB Catalog", "stale-sample");
     setView("dbm-instances");
-    setDbCatalogFilter("stale-sample");
+    dbCatalogCall("setDbCatalogFilter", "stale-sample");
     showToast("DB Catalog stale sample queue를 열었습니다", "info");
     return;
   }
@@ -6825,7 +5617,7 @@ function openTableSheet(id) {
   }
   if (!table) return;
   state.schemaSelectedTable = id;
-  renderDbSchema();
+  dbCatalogCall("renderDbSchema");
   const inst = indexes.instanceById.get(instance);
 
   // Build column rows with edit/delete controls
@@ -6913,11 +5705,11 @@ function pickInstance(id) {
   const inst = indexes.instanceById.get(id);
   if (!inst) return;
   dashboard.currentInstanceId = id;
-  if (dashboard.currentView === "dbm-instances") renderDbInstances();
+  if (dashboard.currentView === "dbm-instances") dbCatalogCall("renderDbInstances");
   if (dashboard.currentView === "dbm-schema") {
     state.schemaExpanded.add(id);
     state.schemaSelectedTable = null;
-    renderDbSchema();
+    dbCatalogCall("renderDbSchema");
   }
   showToast(`인스턴스 '${inst.name}' 선택`, "info");
 }
@@ -6961,8 +5753,7 @@ function openKanbanSourceFilter(filter) {
   renderKanban();
 }
 function setKanbanDensity(density) {
-  if (!dashboard.ui || typeof dashboard.ui !== "object") dashboard.ui = { theme: "dark" };
-  dashboard.ui.kanbanDensity = density === "compact" ? "compact" : "comfortable";
+  ensureDashboardUi({ theme: "dark" }).kanbanDensity = density === "compact" ? "compact" : "comfortable";
   persist();
   renderKanban();
 }
@@ -7003,12 +5794,8 @@ function showProjectPromptHandoff(projectId) {
   }
   closeSheet({ restoreFocus: false });
   if (dashboard.currentView !== "pm-portfolio") setView("pm-portfolio");
-  state.query = "";
-  if (refs.query) refs.query.value = "";
-  if (refs.searchCount) refs.searchCount.textContent = "";
-  state.portfolioFilter = "candidates";
-  state.portfolioActionFilter = "all";
-  state.portfolioBenchmarkFilter = "focused";
+  resetSearchQueryState();
+  focusPortfolioCandidateHandoffs();
   renderPortfolio();
   syncSearchClearControl();
   const section = nodeQuery(document, target.selector);
@@ -7080,6 +5867,8 @@ const workspaceStorageHelpers = window.JooParkWorkspaceStorage && typeof window.
       normalizeAllData,
       rebuildIndexes,
       seedPersonalData,
+      finiteNumberOr,
+      positiveFiniteNumberOrNull,
       showToast,
       getCurrentView: () => dashboard.currentView,
       renderSettings,
@@ -7163,8 +5952,10 @@ if (!Array.isArray(dashboard.reviewResults)) dashboard.reviewResults = [];
 if (!Array.isArray(dashboard.reviewIssueDraftOverrides)) dashboard.reviewIssueDraftOverrides = [];
 if (!dashboard.settings)               dashboard.settings = { displayName: "박주호" };
 if (!Array.isArray(dashboard.habits))  dashboard.habits  = [];
-if (!dashboard.ui || typeof dashboard.ui !== "object") dashboard.ui = { theme: "dark" };
+ensureDashboardUi({ theme: "dark" });
 dashboard.lastSavedAt = null;
+
+function ensureDashboardUi(defaults = {}) { if (!dashboard.ui || typeof dashboard.ui !== "object") dashboard.ui = { ...defaults }; return dashboard.ui; }
 
 /* ---------- Local-date helpers (calendar uses the viewer's local day) ---------- */
 
@@ -7229,6 +6020,26 @@ function selectOptions(map, orderKeys, current) {
   return orderKeys.map((k) => html`<option value="${k}" ${raw(k === current ? "selected" : "")}>${map[k].label}</option>`).join("");
 }
 
+function modalDeleteButtonHTML({ action, dataAttr, dataValue, label, title = "", ariaLabel = "" }) {
+  const attrs = [
+    `data-action="${escapeHtml(action)}"`,
+    `${dataAttr}="${escapeHtml(dataValue)}"`,
+  ];
+  if (title) attrs.push(`title="${escapeHtml(title)}"`);
+  if (ariaLabel) attrs.push(`aria-label="${escapeHtml(ariaLabel)}"`);
+  return `<button type="button" class="modal-delete" ${attrs.join(" ")}>${escapeHtml(label)}</button>`;
+}
+
+function noteColorSwatchesHTML(activeColor) {
+  const swatches = NOTE_COLORS.map((c) => html`
+    <label class="swatch" style="--sw:${raw(c)}">
+      <input type="radio" name="color" value="${c}" ${raw(activeColor === c ? "checked" : "")} />
+      <span></span>
+    </label>
+  `).join("");
+  return html`<div class="note-swatches" role="radiogroup" aria-label="색상">${raw(swatches)}</div>`;
+}
+
 /* ---------- Finders ---------- */
 
 function eventById(id) { return recordById(dashboard.events, id); }
@@ -7238,6 +6049,10 @@ function taskById(id) { return recordById(dashboard.gantt.tasks, id); }
 function habitById(id) { return recordById(dashboard.habits, id); }
 function queryById(id) { return recordById(dashboard.queries, id); }
 function migrationById(id) { return recordById(dashboard.migrations, id); }
+function ensureDashboardHabits() {
+  if (!Array.isArray(dashboard.habits)) dashboard.habits = [];
+  return dashboard.habits;
+}
 function eventIndexById(id) { return recordIndexById(dashboard.events, id); }
 function todoIndexById(id) { return recordIndexById(dashboard.todos, id); }
 function noteIndexById(id) { return recordIndexById(dashboard.notes, id); }
@@ -7246,12 +6061,13 @@ function issueIndexById(id) { return recordIndexById(dashboard.issues, id); }
 function projectIndexById(id) { return recordIndexById(dashboard.projects, id); }
 function memberIndexById(id) { return recordIndexById(dashboard.team, id); }
 function taskIndexById(id) { return recordIndexById(dashboard.gantt.tasks, id); }
+function compareEventsByDateAllDayStart(a, b) {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+  return (a.start || "99:99") < (b.start || "99:99") ? -1 : 1;
+}
 function sortEvents(list) {
-  return [...list].sort((a, b) => {
-    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-    if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
-    return (a.start || "99:99") < (b.start || "99:99") ? -1 : 1;
-  });
+  return [...list].sort(compareEventsByDateAllDayStart);
 }
 
 /* ---------- Recurrence expansion ---------- */
@@ -7392,6 +6208,13 @@ function clampNumberArray(value, maxItems) {
     .slice(0, maxItems);
 }
 
+function clampInteger(value, min, max = Number.POSITIVE_INFINITY, fallback = 0) {
+  const source = value == null || value === "" ? fallback : value;
+  const parsed = parseInt(source, 10);
+  const safeParsed = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.min(max, Math.max(min, safeParsed));
+}
+
 /* Clamp/validate user- or import-supplied data so a hand-edited or malicious
  * backup can neither crash a renderer (missing date) nor break out of an
  * attribute (the only raw()-injected value reachable from import is note color). */
@@ -7437,11 +6260,11 @@ function normalizeAllData() {
       recordId: clampText(item.recordId || (item.record && item.record.id) || "", 120),
       label: clampText(item.label || deletedItemLabel(item.kind, item.record), 160),
       deletedAt: clampText(item.deletedAt || nowISO(), 40),
-      index: Number.isFinite(Number(item.index)) ? Math.max(0, Math.trunc(Number(item.index))) : 0,
+      index: nonNegativeIntegerIndex(item.index),
       record: cloneRecord(item.record),
       meta: item.meta && typeof item.meta === "object" && !Array.isArray(item.meta) ? cloneRecord(item.meta) : {},
     }))
-    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)))
+    .sort(compareDeletedItemsByDeletedAtDesc)
     .filter(isFirstDeletedItemForRecord)
     .slice(0, DELETED_ITEM_LIMIT);
   dashboard.reviewResults = (Array.isArray(dashboard.reviewResults) ? dashboard.reviewResults : [])
@@ -7452,7 +6275,7 @@ function normalizeAllData() {
     item.reviewType = clampText(item.reviewType, 120);
     item.project = clampText(item.project, 120);
     item.status = clampText(item.status, 80);
-    item.score = Math.max(0, Math.min(100, parseInt(item.score || "0", 10) || 0));
+    item.score = clampInteger(item.score, 0, 100);
     if (!["adopt", "compare", "watch", "defer"].includes(item.recommendedAction)) item.recommendedAction = "defer";
     if (!["high", "medium", "low"].includes(item.confidence)) item.confidence = "low";
     item.summary = clampText(item.summary, 1200);
@@ -7462,14 +6285,14 @@ function normalizeAllData() {
     item.packageChecksum = clampText(item.packageChecksum, 80);
     item.packageManifestStatus = clampText(item.packageManifestStatus, 40);
     item.packageSourceFreshness = clampText(item.packageSourceFreshness, 40);
-    item.packageSourceCount = Math.max(0, Math.min(20, parseInt(item.packageSourceCount || "0", 10) || 0));
-    item.savedAt = item.savedAt && !Number.isNaN(Date.parse(item.savedAt)) ? item.savedAt : nowISO();
+    item.packageSourceCount = clampInteger(item.packageSourceCount, 0, 20);
+    item.savedAt = isParseableDateTime(item.savedAt) ? item.savedAt : nowISO();
     item.resultJson = clampText(item.resultJson, 20000);
     item.repairReceiptMarkdown = clampText(item.repairReceiptMarkdown || item.postRepairReceipt || "", 16000);
     item.postRepairReceipt = clampText(item.postRepairReceipt || item.repairReceiptMarkdown || "", 16000);
-    item.repairReceiptAt = item.repairReceiptAt && !Number.isNaN(Date.parse(item.repairReceiptAt)) ? item.repairReceiptAt : "";
-    item.repairReceiptPreviousFailureCount = Math.max(0, Math.min(20, parseInt(item.repairReceiptPreviousFailureCount || "0", 10) || 0));
-    item.repairReceiptPreviousWarningCount = Math.max(0, Math.min(20, parseInt(item.repairReceiptPreviousWarningCount || "0", 10) || 0));
+    item.repairReceiptAt = isParseableDateTime(item.repairReceiptAt) ? item.repairReceiptAt : "";
+    item.repairReceiptPreviousFailureCount = clampInteger(item.repairReceiptPreviousFailureCount, 0, 20);
+    item.repairReceiptPreviousWarningCount = clampInteger(item.repairReceiptPreviousWarningCount, 0, 20);
     item.repairReceiptReady = !!(item.repairReceiptMarkdown && item.repairReceiptAt);
     const repairEvidence = item.repairEvidence && typeof item.repairEvidence === "object" ? item.repairEvidence : {};
     item.repairEvidence = item.repairReceiptReady ? {
@@ -7477,11 +6300,11 @@ function normalizeAllData() {
       reviewType: clampText(repairEvidence.reviewType || item.reviewType || "", 120),
       primaryKey: clampText(repairEvidence.primaryKey || item.key || "", 180),
       previousState: clampText(repairEvidence.previousState || "fail", 20),
-      previousFailureCount: Math.max(0, Math.min(20, parseInt(repairEvidence.previousFailureCount || item.repairReceiptPreviousFailureCount || "0", 10) || 0)),
-      previousWarningCount: Math.max(0, Math.min(20, parseInt(repairEvidence.previousWarningCount || item.repairReceiptPreviousWarningCount || "0", 10) || 0)),
+      previousFailureCount: clampInteger(repairEvidence.previousFailureCount || item.repairReceiptPreviousFailureCount, 0, 20),
+      previousWarningCount: clampInteger(repairEvidence.previousWarningCount || item.repairReceiptPreviousWarningCount, 0, 20),
       previousFailures: clampTextArray(repairEvidence.previousFailures, 8, 240),
       previousWarnings: clampTextArray(repairEvidence.previousWarnings, 8, 240),
-      repairedAt: repairEvidence.repairedAt && !Number.isNaN(Date.parse(repairEvidence.repairedAt)) ? repairEvidence.repairedAt : item.repairReceiptAt,
+      repairedAt: isParseableDateTime(repairEvidence.repairedAt) ? repairEvidence.repairedAt : item.repairReceiptAt,
       checksum: clampText(repairEvidence.checksum || item.packageChecksum || "", 80),
     } : {};
   });
@@ -7490,7 +6313,7 @@ function normalizeAllData() {
     .map((item) => ({
       key: clampText(item.key, 180),
       assignee: clampText(item.assignee || "", 80),
-      savedAt: item.savedAt && !Number.isNaN(Date.parse(item.savedAt)) ? item.savedAt : nowISO(),
+      savedAt: isParseableDateTime(item.savedAt) ? item.savedAt : nowISO(),
     }))
     .filter((item, index, list) => recordIndexByKey(list, item.key) === index);
 
@@ -7519,6 +6342,7 @@ function normalizeAllData() {
       Array.isArray(dashboard.imports.projectImports)) {
     dashboard.imports.projectImports = {};
   }
+  ensureDashboardCollections();
 
   dashboard.projects = dashboard.projects.filter((p) => p && typeof p === "object" && p.id && p.name);
   dashboard.projects.forEach((p) => {
@@ -7528,9 +6352,9 @@ function normalizeAllData() {
     if (p.burn.length === 0) p.burn = [0, 0, 0, 0, 0, 0, 0];
     if (!["on-track", "at-risk", "delayed"].includes(p.status)) p.status = "on-track";
     if (!["green", "amber", "red"].includes(p.health)) p.health = "green";
-    p.progress = Math.min(100, Math.max(0, parseInt(p.progress || "0", 10) || 0));
-    p.openIssues = Math.max(0, parseInt(p.openIssues || "0", 10) || 0);
-    p.risks = Math.max(0, parseInt(p.risks || "0", 10) || 0);
+    p.progress = clampInteger(p.progress, 0, 100);
+    p.openIssues = clampInteger(p.openIssues, 0);
+    p.risks = clampInteger(p.risks, 0);
     p.name = clampText(p.name, 80);
     p.owner = clampText(p.owner || "—", 40);
     p.deadline = /^\d{4}-\d{2}-\d{2}$/.test(p.deadline || "") ? p.deadline : "2099-12-31";
@@ -7567,8 +6391,8 @@ function normalizeAllData() {
     if (!ISSUE_STATUS_LABELS[i.status]) i.status = "todo";
     if (!ISSUE_PRIORITY_MAP[i.priority]) i.priority = "med";
     if (i.due != null && !/^\d{4}-\d{2}-\d{2}$/.test(i.due)) i.due = null;
-    i.estimate = Math.max(0, Math.min(999, parseInt(i.estimate || "0", 10) || 0));
-    i.order = Number.isFinite(Number(i.order)) ? Number(i.order) : 0;
+    i.estimate = clampInteger(i.estimate, 0, 999);
+    i.order = finiteNumberOr(i.order, 0);
   });
   normalizeKanbanIssueOrders();
 
@@ -7579,7 +6403,7 @@ function normalizeAllData() {
     m.role = clampText(m.role, 40);
     m.avatar = clampText(m.avatar || m.name.slice(0, 1), 4);
     m.projects = clampTextArray(m.projects, 20, 80);
-    m.load = Math.max(0, Math.min(100, parseInt(m.load || "0", 10) || 0));
+    m.load = clampInteger(m.load, 0, 100);
     m.onLeave = !!m.onLeave;
   });
 
@@ -7590,11 +6414,11 @@ function normalizeAllData() {
     d.engine = clampText(d.engine, 60);
     d.region = clampText(d.region, 40);
     if (!["green", "amber", "red"].includes(d.health)) d.health = "green";
-    d.cpu = Math.max(0, Math.min(100, parseInt(d.cpu || "0", 10) || 0));
-    d.mem = Math.max(0, Math.min(100, parseInt(d.mem || "0", 10) || 0));
-    d.conn = Math.max(0, parseInt(d.conn || "0", 10) || 0);
-    d.connMax = Math.max(1, parseInt(d.connMax || "1", 10) || 1);
-    d.latencyMs = Math.max(0, parseInt(d.latencyMs || "0", 10) || 0);
+    d.cpu = clampInteger(d.cpu, 0, 100);
+    d.mem = clampInteger(d.mem, 0, 100);
+    d.conn = clampInteger(d.conn, 0);
+    d.connMax = clampInteger(d.connMax, 1);
+    d.latencyMs = clampInteger(d.latencyMs, 0);
     d.series = clampNumberArray(d.series, 60);
     d.catalogSource = normalizeCatalogSource(d.catalogSource);
     d.catalogUpdatedAt = normalizeCatalogUpdatedAt(d.catalogUpdatedAt || d.updatedAt, "2026-05-29");
@@ -7612,8 +6436,8 @@ function normalizeAllData() {
           ...table,
           id: clampText(table && table.id, 80),
           name: clampText(table && table.name, 80),
-          rows: Math.max(0, parseInt(table && table.rows || "0", 10) || 0),
-          sizeMb: Math.max(0, parseInt(table && table.sizeMb || "0", 10) || 0),
+          rows: clampInteger(table && table.rows, 0),
+          sizeMb: clampInteger(table && table.sizeMb, 0),
           catalogSource: normalizeCatalogSource(table && table.catalogSource),
           catalogUpdatedAt: normalizeCatalogUpdatedAt(table && (table.catalogUpdatedAt || table.updatedAt), "2026-05-29"),
           columns: (Array.isArray(table && table.columns) ? table.columns : []).slice(0, 80).map((column) => ({
@@ -7643,9 +6467,9 @@ function normalizeAllData() {
     q.db = clampText(q.db, 60);
     q.text = clampText(q.text, 2000);
     q.planHint = clampText(q.planHint, 200);
-    q.avgMs = Math.max(0, parseInt(q.avgMs || "0", 10) || 0);
-    q.p95Ms = Math.max(0, parseInt(q.p95Ms || "0", 10) || 0);
-    q.count = Math.max(0, parseInt(q.count || "0", 10) || 0);
+    q.avgMs = clampInteger(q.avgMs, 0);
+    q.p95Ms = clampInteger(q.p95Ms, 0);
+    q.count = clampInteger(q.count, 0);
     q.lastRun = clampText(q.lastRun, 40);
     q.catalogSource = normalizeCatalogSource(q.catalogSource);
     q.catalogUpdatedAt = normalizeCatalogUpdatedAt(q.catalogUpdatedAt || q.lastRun, q.lastRun || "2026-05-29");
@@ -7655,8 +6479,8 @@ function normalizeAllData() {
   dashboard.backups.forEach((b) => {
     b.instance = clampText(b.instance, 80);
     if (!["ok", "warn", "fail"].includes(b.status)) b.status = "ok";
-    b.sizeMb = Math.max(0, parseInt(b.sizeMb || "0", 10) || 0);
-    b.durationS = Math.max(0, parseInt(b.durationS || "0", 10) || 0);
+    b.sizeMb = clampInteger(b.sizeMb, 0);
+    b.durationS = clampInteger(b.durationS, 0);
     b.note = clampText(b.note, 200);
     b.catalogSource = normalizeCatalogSource(b.catalogSource);
     b.catalogUpdatedAt = normalizeCatalogUpdatedAt(b.catalogUpdatedAt, b.date || "2026-05-29");
@@ -7701,16 +6525,15 @@ function normalizeAllData() {
     : (dashboard.dbInstances[0] ? dashboard.dbInstances[0].id : "");
 
   // ---- UI 슬라이스 ----
-  if (!dashboard.ui || typeof dashboard.ui !== "object") dashboard.ui = { theme: "dark" };
-  if (typeof dashboard.ui.theme !== "string") dashboard.ui.theme = "dark";
-  if (!["comfortable", "compact"].includes(dashboard.ui.kanbanDensity)) dashboard.ui.kanbanDensity = "comfortable";
+  const ui = ensureDashboardUi({ theme: "dark" });
+  if (typeof ui.theme !== "string") ui.theme = "dark";
+  if (!["comfortable", "compact"].includes(ui.kanbanDensity)) ui.kanbanDensity = "comfortable";
 }
 // 하위 호환 별칭 (기존 호출부에서 normalizePersonalData()를 참조하는 곳이 있을 경우 대비)
 function normalizePersonalData() { normalizeAllData(); }
 
 /* ---------- Persistence ---------- */
 
-function storageByteLength(value) { return workspaceStorageCall("storageByteLength", value); }
 function storedPayloadBytes() { return workspaceStorageCall("storedPayloadBytes"); }
 function formatBytes(bytes) { return workspaceStorageCall("formatBytes", bytes); }
 function storagePercent(usageBytes, quotaBytes) { return workspaceStorageCall("storagePercent", usageBytes, quotaBytes); }
@@ -7748,6 +6571,17 @@ function loadPersisted() {
   const result = workspaceStorageCall("loadPersisted");
   updateDataSafetyTopbar();
   return result;
+}
+function hydrateArtifactStorage(options = {}) {
+  const result = workspaceStorageCall("hydrateArtifactStorage", options);
+  if (result && typeof result.then === "function") {
+    return result.then((hydrated) => {
+      updateDataSafetyTopbar();
+      return hydrated;
+    });
+  }
+  updateDataSafetyTopbar();
+  return Promise.resolve(!!result);
 }
 
 function seedPersonalData() {
@@ -7838,10 +6672,6 @@ function calendarViewCall(name, ...args) {
   return callModuleHelper(calendarViewHelpers, "Calendar view", name, args);
 }
 
-function calLegend() {
-  return calendarViewCall("calLegend");
-}
-
 function eventRow(e, opts) {
   return calendarViewCall("eventRow", e, opts);
 }
@@ -7873,9 +6703,9 @@ function openEventModal(arg) {
   if (arg && typeof arg === "object" && arg._masterId) {
     arg = eventById(arg._masterId) || arg;
   }
-  const editing = arg && typeof arg === "object";
-  const ev = editing ? arg : null;
-  const date = editing ? ev.date : (arg || state.calSelected || todayISO());
+  const ev = editableModalRecord(arg);
+  const editing = !!ev;
+  const date = ev ? ev.date : (arg || state.calSelected || todayISO());
   const cat = ev ? ev.category : "work";
   const curRepeat = (ev && ev.repeat) || "none";
   const curRepeatUntil = (ev && ev.repeatUntil) || "";
@@ -7922,7 +6752,7 @@ function openEventModal(arg) {
       <label>메모
         <textarea name="memo" rows="3" maxlength="600" placeholder="선택 사항">${ev ? ev.memo || "" : ""}</textarea>
       </label>
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="delete-event" data-event-id="${ev.id}">${deleteLabel}</button>`) : ""}
+      ${editing ? raw(modalDeleteButtonHTML({ action: "delete-event", dataAttr: "data-event-id", dataValue: ev.id, label: deleteLabel })) : ""}
     </form>
   `;
   openModal(editing ? "일정 편집" : "새 일정", form, () => saveEventFromForm(editing ? ev.id : null));
@@ -7950,7 +6780,7 @@ function saveEventFromForm(id) {
   const form = nodeQuery(document, "#eventForm");
   if (!form) return false;
   const data = new FormData(form);
-  const title = (data.get("title") || "").toString().trim();
+  const title = formText(data, "title");
   if (!title) { showToast("제목을 입력하세요", "warn"); return false; }
   const date = (data.get("date") || "").toString();
   if (!date) { showToast("날짜를 선택하세요", "warn"); return false; }
@@ -7959,10 +6789,10 @@ function saveEventFromForm(id) {
   let end = allDay ? null : ((data.get("end") || "").toString() || null);
   if (start && end && end < start) { const tmp = start; start = end; end = tmp; }
   const category = (data.get("category") || "work").toString();
-  const location = (data.get("location") || "").toString().trim();
-  const memo = (data.get("memo") || "").toString().trim();
+  const location = formText(data, "location");
+  const memo = formText(data, "memo");
   const repeat = (data.get("repeat") || "none").toString();
-  const repeatUntilRaw = (data.get("repeatUntil") || "").toString().trim();
+  const repeatUntilRaw = formText(data, "repeatUntil");
   const repeatUntil = (repeat !== "none" && repeatUntilRaw) ? repeatUntilRaw : null;
   if (id) {
     const ev = eventById(id);
@@ -8099,14 +6929,6 @@ function todoViewCall(name, ...args) {
   return callModuleHelper(todoViewHelpers, "Todo view", name, args);
 }
 
-function todoMatchesFilter(t, filter) {
-  return todoViewCall("todoMatchesFilter", t, filter);
-}
-
-function todoRow(t) {
-  return todoViewCall("todoRow", t);
-}
-
 function renderTodos() {
   const view = refs.views.todo;
   if (!view) return;
@@ -8196,8 +7018,7 @@ function openReviewSourceFromRecord(kind, recordId, fallbackSourceKey = "") {
 }
 
 function openTodoModal(arg) {
-  const editing = arg && typeof arg === "object";
-  const t = editing ? arg : null;
+  const t = editableModalRecord(arg);
   const form = html`
     <form id="todoForm" class="modal-form">
       ${raw(llmWikiRecordSourceLinkHTML(t, "todo"))}
@@ -8218,22 +7039,22 @@ function openTodoModal(arg) {
       <label>메모
         <textarea name="memo" rows="3" maxlength="600" placeholder="선택 사항">${t ? t.memo || "" : ""}</textarea>
       </label>
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="delete-todo" data-todo-id="${t.id}">이 할 일 삭제</button>`) : ""}
+      ${t ? raw(modalDeleteButtonHTML({ action: "delete-todo", dataAttr: "data-todo-id", dataValue: t.id, label: "이 할 일 삭제" })) : ""}
     </form>
   `;
-  openModal(editing ? "할 일 편집" : "새 할 일", form, () => saveTodoFromForm(editing ? t.id : null));
+  openModal(t ? "할 일 편집" : "새 할 일", form, () => saveTodoFromForm(t ? t.id : null));
 }
 
 function saveTodoFromForm(id) {
   const form = nodeQuery(document, "#todoForm");
   if (!form) return false;
   const data = new FormData(form);
-  const title = (data.get("title") || "").toString().trim();
+  const title = formText(data, "title");
   if (!title) { showToast("내용을 입력하세요", "warn"); return false; }
   const due = ((data.get("due") || "").toString() || null);
   const priority = (data.get("priority") || "med").toString();
-  const category = (data.get("category") || "").toString().trim();
-  const memo = (data.get("memo") || "").toString().trim();
+  const category = formText(data, "category");
+  const memo = formText(data, "memo");
   if (id) {
     const t = todoById(id);
     if (t) Object.assign(t, { title, due, priority, category, memo });
@@ -8378,9 +7199,7 @@ function selectLlmWiki(categoryId, articleId) {
   state.llmWikiArticle = articleId;
   // 카테고리/문서를 직접 고르면 검색 모드를 빠져나간다
   if (state.query) {
-    state.query = "";
-    if (refs.query) refs.query.value = "";
-    if (refs.searchCount) refs.searchCount.textContent = "";
+    resetSearchQueryState();
     syncSearchAffordance({ announce: false });
   }
   renderLlmWiki();
@@ -8579,15 +7398,7 @@ function createLlmWikiIssueDraft(categoryId, articleId) {
 }
 
 function openNoteModal(arg) {
-  const editing = arg && typeof arg === "object";
-  const n = editing ? arg : null;
-  const current = n ? n.color || NOTE_COLORS[0] : NOTE_COLORS[0];
-  const swatches = NOTE_COLORS.map((c, i) => html`
-    <label class="swatch" style="--sw:${raw(c)}">
-      <input type="radio" name="color" value="${c}" ${raw((n ? n.color === c : i === 0) ? "checked" : "")} />
-      <span></span>
-    </label>
-  `).join("");
+  const n = editableModalRecord(arg);
   const form = html`
     <form id="noteForm" class="modal-form">
       ${raw(llmWikiRecordSourceLinkHTML(n, "note"))}
@@ -8599,22 +7410,22 @@ function openNoteModal(arg) {
         <textarea name="body" rows="6" maxlength="4000" placeholder="메모를 입력하세요  ·  **굵게**, - 목록, [링크](url), \`코드\`">${n ? n.body || "" : ""}</textarea>
       </label>
       <div class="form-row note-form-row">
-        <div class="note-swatches" role="radiogroup" aria-label="색상">${raw(swatches)}</div>
+        ${raw(noteColorSwatchesHTML(n ? n.color : NOTE_COLORS[0]))}
         <label class="check-inline">
           <input type="checkbox" name="pinned" ${raw(n && n.pinned ? "checked" : "")} /> 상단 고정
         </label>
       </div>
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="delete-note" data-note-id="${n.id}">이 메모 삭제</button>`) : ""}
+      ${n ? raw(modalDeleteButtonHTML({ action: "delete-note", dataAttr: "data-note-id", dataValue: n.id, label: "이 메모 삭제" })) : ""}
     </form>
   `;
-  openModal(editing ? "메모 편집" : "새 메모", form, () => saveNoteFromForm(editing ? n.id : null));
+  openModal(n ? "메모 편집" : "새 메모", form, () => saveNoteFromForm(n ? n.id : null));
 }
 
 function saveNoteFromForm(id) {
   const form = nodeQuery(document, "#noteForm");
   if (!form) return false;
   const data = new FormData(form);
-  const title = (data.get("title") || "").toString().trim();
+  const title = formText(data, "title");
   const body = (data.get("body") || "").toString();
   if (!title && !body.trim()) { showToast("제목이나 내용을 입력하세요", "warn"); return false; }
   const color = (data.get("color") || NOTE_COLORS[0]).toString();
@@ -8690,7 +7501,7 @@ function habitStreak(habit) {
   }
 
   // Longest streak: collect all logged dates, sort, find max run
-  const logged = Object.keys(log).filter((d) => log[d]).sort();
+  const logged = sortedStrings(Object.keys(log).filter((d) => log[d]));
   let longest = 0;
   let run = 0;
   let prev = null;
@@ -8737,23 +7548,14 @@ function habitsViewCall(name, ...args) {
 function renderHabits() {
   const view = refs.views.habits;
   if (!view) return;
-  if (!Array.isArray(dashboard.habits)) dashboard.habits = [];
   setHTML(view, habitsViewCall("renderHabitsHTML", {
-    habits: dashboard.habits,
+    habits: ensureDashboardHabits(),
     query: state.query,
   }));
 }
 
 function openHabitModal(arg) {
-  const editing = arg && typeof arg === "object";
-  const h = editing ? arg : null;
-  const curColor = h ? (h.color || NOTE_COLORS[0]) : NOTE_COLORS[0];
-  const swatches = NOTE_COLORS.map((c, i) => html`
-    <label class="swatch" style="--sw:${raw(c)}">
-      <input type="radio" name="color" value="${c}" ${raw((h ? h.color === c : i === 0) ? "checked" : "")} />
-      <span></span>
-    </label>
-  `).join("");
+  const h = editableModalRecord(arg);
   const form = html`
     <form id="habitForm" class="modal-form">
       <label>습관 이름
@@ -8768,30 +7570,30 @@ function openHabitModal(arg) {
         </label>
       </div>
       <div class="form-row note-form-row">
-        <div class="note-swatches" role="radiogroup" aria-label="색상">${raw(swatches)}</div>
+        ${raw(noteColorSwatchesHTML(h ? h.color : NOTE_COLORS[0]))}
       </div>
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="habit-delete" data-habit-id="${h.id}">이 습관 삭제</button>`) : ""}
+      ${h ? raw(modalDeleteButtonHTML({ action: "habit-delete", dataAttr: "data-habit-id", dataValue: h.id, label: "이 습관 삭제" })) : ""}
     </form>
   `;
-  openModal(editing ? "습관 편집" : "새 습관", form, () => saveHabitFromForm(editing ? h.id : null));
+  openModal(h ? "습관 편집" : "새 습관", form, () => saveHabitFromForm(h ? h.id : null));
 }
 
 function saveHabitFromForm(id) {
   const form = nodeQuery(document, "#habitForm");
   if (!form) return false;
   const data = new FormData(form);
-  const name = (data.get("name") || "").toString().trim();
+  const name = formText(data, "name");
   if (!name) { showToast("이름을 입력하세요", "warn"); return false; }
-  const emoji = (data.get("emoji") || "✅").toString().trim() || "✅";
+  const emoji = formText(data, "emoji") || "✅";
   const color = (data.get("color") || NOTE_COLORS[0]).toString();
-  const target = Math.min(7, Math.max(1, parseInt(data.get("target") || "7", 10) || 7));
-  if (!Array.isArray(dashboard.habits)) dashboard.habits = [];
+  const target = clampInteger(data.get("target"), 1, 7, 7);
+  const habits = ensureDashboardHabits();
   if (id) {
     const h = habitById(id);
     if (h) Object.assign(h, { name, emoji, color, target });
     showToast("습관을 수정했습니다", "info");
   } else {
-    dashboard.habits.push({ id: uid("hb"), name, emoji, color, target, createdAt: nowISO(), archived: false, log: {} });
+    habits.push({ id: uid("hb"), name, emoji, color, target, createdAt: nowISO(), archived: false, log: {} });
     showToast("습관을 추가했습니다", "info");
   }
   commit();
@@ -8800,7 +7602,7 @@ function saveHabitFromForm(id) {
 
 function toggleHabit(habitId, dateISO) {
   if (!habitId || !dateISO) return;
-  if (!Array.isArray(dashboard.habits)) dashboard.habits = [];
+  ensureDashboardHabits();
   const h = habitById(habitId);
   if (!h) return;
   if (!h.log) h.log = {};
@@ -8864,11 +7666,10 @@ function renderStats() {
   const view = refs.views.stats;
   if (!view) return;
   if (!Array.isArray(dashboard.todos)) dashboard.todos = [];
-  if (!Array.isArray(dashboard.habits)) dashboard.habits = [];
   if (!Array.isArray(dashboard.events)) dashboard.events = [];
   setHTML(view, statsViewCall("renderStatsHTML", {
     todos: dashboard.todos,
-    habits: dashboard.habits,
+    habits: ensureDashboardHabits(),
     events: dashboard.events,
   }));
 }
@@ -8887,6 +7688,12 @@ function exportData() {
       deletedItems: dashboard.deletedItems,
       reviewResults: dashboard.reviewResults,
       reviewIssueDraftOverrides: dashboard.reviewIssueDraftOverrides,
+      dashboardInsights: dashboard.dashboardInsights,
+      dashboardResearchLoops: dashboard.dashboardResearchLoops,
+      dashboardImprovementCandidates: dashboard.dashboardImprovementCandidates,
+      dashboardDecisionReceipts: dashboard.dashboardDecisionReceipts,
+      dashboardEvidenceSnapshots: dashboard.dashboardEvidenceSnapshots,
+      dashboardHealthChecks: dashboard.dashboardHealthChecks,
       settings:    dashboard.settings,
       habits:      dashboard.habits,
       projects:    dashboard.projects,
@@ -8917,39 +7724,8 @@ function exportData() {
   }
 }
 
-const IMPORT_ARRAY_KEYS = IMPORT_GUARDS.arrayKeys;
-const IMPORT_RECORD_LIMITS = IMPORT_GUARDS.recordLimits;
-
-function isImportBackupShape(obj) {
-  return IMPORT_GUARDS.isBackupShape(obj);
-}
-
 function rejectImportFile(input, message) {
   return backupImportUiCall("rejectImportFile", input, message);
-}
-
-function importArrayCount(obj, key) {
-  return IMPORT_GUARDS.importArrayCount(obj, key);
-}
-
-function importGanttTaskCount(obj) {
-  return IMPORT_GUARDS.importGanttTaskCount(obj);
-}
-
-function importSchemaTableCount(obj) {
-  return IMPORT_GUARDS.importSchemaTableCount(obj);
-}
-
-function importBackupSummaryItems(obj) {
-  return IMPORT_GUARDS.backupSummaryItems(obj);
-}
-
-function importRecordLimitViolations(obj) {
-  return IMPORT_GUARDS.recordLimitViolations(obj);
-}
-
-function importRecordLimitMessage(violations) {
-  return IMPORT_GUARDS.recordLimitMessage(violations);
 }
 
 function importBackupSummaryHTML(obj) {
@@ -8977,6 +7753,12 @@ function confirmResetData() {
     dashboard.deletedItems = [];
     dashboard.reviewResults = [];
     dashboard.reviewIssueDraftOverrides = [];
+    dashboard.dashboardInsights = [];
+    dashboard.dashboardResearchLoops = [];
+    dashboard.dashboardImprovementCandidates = [];
+    dashboard.dashboardDecisionReceipts = [];
+    dashboard.dashboardEvidenceSnapshots = [];
+    dashboard.dashboardHealthChecks = [];
     dashboard.habits = [];
     dashboard.projects = [];
     dashboard.issues = [];
@@ -9008,6 +7790,12 @@ function settingsDataSummaryLines() {
     `- recently deleted: ${Array.isArray(dashboard.deletedItems) ? dashboard.deletedItems.length : 0}`,
     `- review results: ${dashboard.reviewResults.length}`,
     `- review draft assignee overrides: ${dashboard.reviewIssueDraftOverrides.length}`,
+    `- dashboard insights: ${(dashboard.dashboardInsights || []).length}`,
+    `- dashboard research loops: ${(dashboard.dashboardResearchLoops || []).length}`,
+    `- dashboard improvement candidates: ${(dashboard.dashboardImprovementCandidates || []).length}`,
+    `- dashboard decision receipts: ${(dashboard.dashboardDecisionReceipts || []).length}`,
+    `- dashboard evidence snapshots: ${(dashboard.dashboardEvidenceSnapshots || []).length}`,
+    `- dashboard health checks: ${(dashboard.dashboardHealthChecks || []).length}`,
     `- habits: ${(dashboard.habits || []).filter((habit) => !habit.archived).length}`,
     `- projects: ${dashboard.projects.length}`,
     `- issues: ${dashboard.issues.length}`,
@@ -9047,6 +7835,7 @@ function settingsPrivacyHandoffText() {
     "## 저장 범위",
     "- 이 앱은 정적 SPA 기준이며 서버 계정, 서버 DB, 원격 동기화를 사용하지 않습니다.",
     "- 모든 워크스페이스 데이터는 현재 브라우저 origin의 localStorage 키 `joopark.workspace.v3`에 저장됩니다.",
+    "- Claude Artifact 환경처럼 `window.storage`가 제공되면 같은 v3 payload를 personal scope(shared=false) 키 `joopark-workspace:v3`에 비동기 미러링합니다.",
     "- 같은 파일을 `file://`로 직접 열면 localStorage 동작이 브라우저마다 달라질 수 있으므로 `http://127.0.0.1` 같은 로컬 정적 서버로 확인합니다.",
     "- private browsing 또는 incognito 세션, 브라우저 저장소 정리, 프로필 삭제 시 데이터가 사라질 수 있습니다.",
     "",
@@ -9099,10 +7888,10 @@ function settingsDeployHandoffText() {
     "1. `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope`",
     "2. `workflowScopeAvailable`이 false이면 `gh auth refresh -h github.com -s workflow`로 CLI 권한을 갱신한 뒤 `node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects`로 재확인합니다. 브라우저 인증을 진행하지 않으면 GitHub UI 경로를 사용합니다.",
     "3. `node scripts/plan-workflow-ui-install.mjs --dry-run --markdown`으로 GitHub UI target, `githubNewFileUrl`, `githubWorkflowUrl`, `templateCopyCommand`, `githubNewFileOpenCommand`, `githubWorkflowOpenCommand`, defaultBranch, template sha256, required terms, `suggestedRepo`, `nextVerificationCommand`를 확인합니다.",
-    "4. `templateCopyCommand`로 workflow YAML을 복사하고 `githubNewFileOpenCommand`로 GitHub new-file page를 열어 `docs/github-pages-workflow.yml`을 `.github/workflows/joopark-pages.yml`로 설치합니다.",
+    "4. `Remote workflow install packet` 또는 `workflow UI install plan`의 각 row에서 `installAction`을 확인합니다. `replace_existing_remote_file`은 edit-file page로 기존 파일을 전체 교체하고, `create_missing_remote_file`은 new-file page로 만들며, `verified_remote_matches_template`는 그대로 둡니다.",
     "5. workflow 파일은 repository default branch에 있어야 `workflow_dispatch`와 `schedule` 운영이 가능합니다.",
     "6. `githubWorkflowOpenCommand` 또는 `githubWorkflowUrl`에서 Actions workflow가 보이는지 확인합니다.",
-    "7. `node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write`로 default branch의 remote workflow file이 로컬 template과 같은지 확인하고 `remoteWorkflowFilesReady: true`, `remoteMatchesTemplate`를 확인합니다. System Status의 `Remote workflow install packet` 또는 `install packet 복사`로 GitHub new-file page, `pbcopy` template, 재검증 명령을 한 번에 복사합니다.",
+    "7. `node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write`로 default branch의 remote workflow file이 로컬 template과 같은지 확인하고 `remoteWorkflowFilesReady: true`, `remoteMatchesTemplate`를 확인합니다. System Status의 `Remote workflow install packet` 또는 `install packet 복사`로 GitHub edit/new-file page, `pbcopy` template, 재검증 명령을 한 번에 복사합니다.",
     "8. Pages 배포 job은 `pages: write`, `id-token: write`, `actions/upload-pages-artifact`, `actions/deploy-pages`, build/deploy `needs` 연결을 유지합니다.",
     "9. `node scripts/plan-publish-dispatch.mjs --dry-run`의 `workflowUiInstallPlans`에서 `templateCopyCommand`, `githubNewFileOpenCommand`, `githubWorkflowOpenCommand`, `templateSha256`를 다시 확인합니다.",
     "10. `node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects`를 우선 실행하고, repo가 다르면 `node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO` 템플릿에서 `OWNER/REPO`를 실제 repo로 바꿔 `repoEvidenceReady: true`, `remoteWorkflowFilesReady: true`, `dispatchReady: true`, `driftDispatchReady: true`, `allDispatchReady: true`를 확인한 뒤에만 `Publish JooPark Pages` workflow를 `workflow_dispatch`로 실행합니다.",
@@ -9207,6 +7996,21 @@ function postInstallProofParserActualLine(context, markers, predicate) {
   });
 }
 
+function postInstallProofParserTextHasAll(text, terms) {
+  const normalized = normalizePostInstallProofParserText(text);
+  return terms.every((term) => normalized.includes(normalizePostInstallProofParserText(term)));
+}
+
+function postInstallProofParserJsonFlagFallback(context, marker, flagKeys) {
+  return postInstallProofParserTextHasAll(context.text, [marker])
+    && flagKeys.every((key) => postInstallProofParserHasFlag(context.text, key));
+}
+
+function postInstallProofParserWorkflowCommitPredicate(workflowPath) {
+  const normalizedPath = normalizePostInstallProofParserText(workflowPath);
+  return (_raw, text) => text.includes(normalizedPath) && (text.includes("/commit/") || /\b[0-9a-f]{7,40}\b/.test(text));
+}
+
 function postInstallProofParserRules() {
   return [
     {
@@ -9214,42 +8018,42 @@ function postInstallProofParserRules() {
       label: "Pages workflow commit",
       required: ".github/workflows/joopark-pages.yml commit URL or SHA",
       nextAction: "Paste the default-branch commit URL or SHA for .github/workflows/joopark-pages.yml from GitHub UI.",
-      test: (context) => postInstallProofParserActualLine(context, ["pages_workflow_commit", "pages workflow commit", ".github/workflows/joopark-pages.yml"], (_raw, text) => text.includes(".github/workflows/joopark-pages.yml") && (text.includes("/commit/") || /\b[0-9a-f]{7,40}\b/.test(text))),
+      test: (context) => postInstallProofParserActualLine(context, ["pages_workflow_commit", "pages workflow commit", ".github/workflows/joopark-pages.yml"], postInstallProofParserWorkflowCommitPredicate(".github/workflows/joopark-pages.yml")),
     },
     {
       key: "drift_workflow_commit",
       label: "Drift Watch workflow commit",
       required: ".github/workflows/joopark-drift-watch.yml commit URL or SHA",
       nextAction: "Paste the default-branch commit URL or SHA for .github/workflows/joopark-drift-watch.yml from GitHub UI.",
-      test: (context) => postInstallProofParserActualLine(context, ["drift_workflow_commit", "drift watch workflow commit", ".github/workflows/joopark-drift-watch.yml"], (_raw, text) => text.includes(".github/workflows/joopark-drift-watch.yml") && (text.includes("/commit/") || /\b[0-9a-f]{7,40}\b/.test(text))),
+      test: (context) => postInstallProofParserActualLine(context, ["drift_workflow_commit", "drift watch workflow commit", ".github/workflows/joopark-drift-watch.yml"], postInstallProofParserWorkflowCommitPredicate(".github/workflows/joopark-drift-watch.yml")),
     },
     {
       key: "remote_parity_proof",
       label: "Remote parity proof",
       required: "remoteWorkflowFilesReady=true",
       nextAction: "Run node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write and paste remoteWorkflowFilesReady=true.",
-      test: (context) => postInstallProofParserActualLine(context, ["remote_parity_proof", "remote parity proof"], (_raw, text) => postInstallProofParserHasFlag(text, "remoteWorkflowFilesReady")) || (context.text.includes("\"generatedat\"") && postInstallProofParserHasFlag(context.text, "remoteWorkflowFilesReady") && postInstallProofParserHasFlag(context.text, "remoteMatchesTemplate")),
+      test: (context) => postInstallProofParserActualLine(context, ["remote_parity_proof", "remote parity proof"], (_raw, text) => postInstallProofParserHasFlag(text, "remoteWorkflowFilesReady")) || postInstallProofParserJsonFlagFallback(context, "\"generatedat\"", ["remoteWorkflowFilesReady", "remoteMatchesTemplate"]),
     },
     {
       key: "actions_visibility_proof",
       label: "Actions visibility proof",
       required: "remoteWorkflowVisibilityReady=true or gh workflow list shows both workflow paths",
       nextAction: "Run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write and paste remoteWorkflowVisibilityReady=true.",
-      test: (context) => postInstallProofParserActualLine(context, ["actions_visibility_proof", "actions visibility proof"], (_raw, text) => postInstallProofParserHasFlag(text, "remoteWorkflowVisibilityReady") || (text.includes("gh workflow list") && text.includes(".github/workflows/joopark-pages.yml") && text.includes(".github/workflows/joopark-drift-watch.yml"))) || (context.text.includes("\"workflowlistsource\"") && context.text.includes(".github/workflows/joopark-pages.yml") && context.text.includes(".github/workflows/joopark-drift-watch.yml")),
+      test: (context) => postInstallProofParserActualLine(context, ["actions_visibility_proof", "actions visibility proof"], (_raw, text) => postInstallProofParserHasFlag(text, "remoteWorkflowVisibilityReady") || (text.includes("gh workflow list") && text.includes(".github/workflows/joopark-pages.yml") && text.includes(".github/workflows/joopark-drift-watch.yml"))) || postInstallProofParserTextHasAll(context.text, ["\"workflowlistsource\"", ".github/workflows/joopark-pages.yml", ".github/workflows/joopark-drift-watch.yml"]),
     },
     {
       key: "dispatch_readiness_proof",
       label: "Dispatch readiness proof",
       required: "dispatchReady=true, driftDispatchReady=true, allDispatchReady=true",
       nextAction: "Rerun node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write and paste dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.",
-      test: (context) => postInstallProofParserActualLine(context, ["dispatch_readiness_proof", "dispatch readiness proof"], (_raw, text) => postInstallProofParserHasFlag(text, "dispatchReady") && postInstallProofParserHasFlag(text, "driftDispatchReady") && postInstallProofParserHasFlag(text, "allDispatchReady")) || (context.text.includes("\"generatedat\"") && postInstallProofParserHasFlag(context.text, "dispatchReady") && postInstallProofParserHasFlag(context.text, "driftDispatchReady") && postInstallProofParserHasFlag(context.text, "allDispatchReady")),
+      test: (context) => postInstallProofParserActualLine(context, ["dispatch_readiness_proof", "dispatch readiness proof"], (_raw, text) => postInstallProofParserHasFlag(text, "dispatchReady") && postInstallProofParserHasFlag(text, "driftDispatchReady") && postInstallProofParserHasFlag(text, "allDispatchReady")) || postInstallProofParserJsonFlagFallback(context, "\"generatedat\"", ["dispatchReady", "driftDispatchReady", "allDispatchReady"]),
     },
     {
       key: "handoff_verifier_proof",
       label: "Handoff verifier proof",
       required: "verify-launch-handoff reports safeToDispatch=true before gh workflow run",
       nextAction: "Run node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown and paste safeToDispatch=true.",
-      test: (context) => postInstallProofParserActualLine(context, ["handoff_verifier_proof", "handoff verifier proof"], (_raw, text) => postInstallProofParserHasFlag(text, "safeToDispatch") && (text.includes("verify-launch-handoff") || text.includes("handoff verifier") || text.includes("before gh workflow run"))) || (context.text.includes("\"verificationartifact\"") && postInstallProofParserHasFlag(context.text, "safeToDispatch")),
+      test: (context) => postInstallProofParserActualLine(context, ["handoff_verifier_proof", "handoff verifier proof"], (_raw, text) => postInstallProofParserHasFlag(text, "safeToDispatch") && (text.includes("verify-launch-handoff") || text.includes("handoff verifier") || text.includes("before gh workflow run"))) || postInstallProofParserJsonFlagFallback(context, "\"verificationartifact\"", ["safeToDispatch"]),
     },
   ];
 }
@@ -9265,6 +8069,7 @@ function parsePostInstallProofText(value) {
   }));
   const detectedCount = fields.filter((field) => field.detected).length;
   const fieldCount = fields.length;
+  const missingFields = fields.filter((field) => !field.detected);
   const coverage = fieldCount === 6 ? 1 : 0;
   const status = detectedCount === fieldCount ? "all_fields_detected" : detectedCount > 0 ? "partial_fields_detected" : "waiting_for_pasted_proof";
   const summary = [
@@ -9277,8 +8082,8 @@ function parsePostInstallProofText(value) {
     ...fields.map((field) => `- ${field.key}: ${field.detected ? "detected" : "missing"}; required=${field.required}; nextAction=${field.nextAction}`),
     "",
     "Missing field repair hints:",
-    ...(fields.filter((field) => !field.detected).length
-      ? fields.filter((field) => !field.detected).map((field) => `- ${field.key}: ${field.nextAction}`)
+    ...(missingFields.length
+      ? missingFields.map((field) => `- ${field.key}: ${field.nextAction}`)
       : ["- none"]),
     "",
     "Stop condition: do not run gh workflow run until every post-install evidence field has been filled and verify-launch-handoff reports safeToDispatch=true.",
@@ -9361,15 +8166,13 @@ function copyPostInstallProofParserSummary(target) {
   updatePostInstallProofParser(panel);
   const status = postInstallProofParserCopyStatus(panel);
   const text = nodeText(panel, "[data-post-install-proof-parser-summary]");
-  copyTextWithStatus({
+  copyTextWithLabeledStatus({
     text,
     datasetKey: "postInstallProofParserSummaryCopied",
     targets: [panel, target],
     status,
-    copiedStatusText: "parser summary 복사됨",
-    failedStatusText: "parser summary 복사 실패",
+    statusLabel: "parser summary",
     copiedToast: "post-install proof parser summary를 복사했습니다",
-    failedToast: "parser summary 복사 실패",
   });
 }
 
@@ -9405,28 +8208,16 @@ function releaseGateCacheRepairReceipt(target) {
   return target.closest("[data-release-gate-cache-repair-receipt]");
 }
 
-function releaseGateCacheRepairText(panel) {
-  return nodeText(panel, "[data-release-gate-cache-repair-text]");
-}
-
-function releaseGateCacheRepairCopyStatus(panel) {
-  return nodeQuery(panel, "[data-release-gate-cache-repair-copy-status]");
-}
-
 function copyReleaseGateCacheRepair(target) {
-  const panel = releaseGateCachePanel(target);
-  if (!panel) return;
-  const text = releaseGateCacheRepairText(panel);
-  const status = releaseGateCacheRepairCopyStatus(panel);
-  copyTextWithStatus({
-    text,
+  copyPanelReceiptWithStatus({
+    panel: releaseGateCachePanel(target),
+    target,
+    textSelector: "[data-release-gate-cache-repair-text]",
+    statusSelector: "[data-release-gate-cache-repair-copy-status]",
     datasetKey: "releaseGateCacheRepairCopied",
-    targets: [panel, releaseGateCacheRepairReceipt(target), target],
-    status,
-    copiedStatusText: "cache repair 복사됨",
-    failedStatusText: "cache repair 복사 실패",
+    extraTargets: [releaseGateCacheRepairReceipt(target)],
+    statusLabel: "cache repair",
     copiedToast: "release gate cache repair receipt를 복사했습니다",
-    failedToast: "cache repair 복사 실패",
   });
 }
 
@@ -9434,28 +8225,15 @@ function releaseProvenancePanel(target) {
   return target.closest("[data-system-release-provenance]");
 }
 
-function releaseProvenanceReceiptText(panel) {
-  return nodeText(panel, "[data-release-provenance-receipt-text]");
-}
-
-function releaseProvenanceReceiptCopyStatus(panel) {
-  return nodeQuery(panel, "[data-release-provenance-receipt-copy-status]");
-}
-
 function copyReleaseProvenanceReceipt(target) {
-  const panel = releaseProvenancePanel(target);
-  if (!panel) return;
-  const text = releaseProvenanceReceiptText(panel);
-  const status = releaseProvenanceReceiptCopyStatus(panel);
-  copyTextWithStatus({
-    text,
+  copyPanelReceiptWithStatus({
+    panel: releaseProvenancePanel(target),
+    target,
+    textSelector: "[data-release-provenance-receipt-text]",
+    statusSelector: "[data-release-provenance-receipt-copy-status]",
     datasetKey: "releaseProvenanceReceiptCopied",
-    targets: [panel, target],
-    status,
-    copiedStatusText: "provenance receipt 복사됨",
-    failedStatusText: "provenance receipt 복사 실패",
+    statusLabel: "provenance receipt",
     copiedToast: "release provenance receipt를 복사했습니다",
-    failedToast: "provenance receipt 복사 실패",
   });
 }
 
@@ -9463,28 +8241,15 @@ function pagesAttestationProofIntakePanel(target) {
   return target.closest("[data-system-pages-attestation-proof-intake]");
 }
 
-function pagesAttestationProofIntakeReceiptText(panel) {
-  return nodeText(panel, "[data-pages-attestation-proof-intake-receipt-text]");
-}
-
-function pagesAttestationProofIntakeCopyStatus(panel) {
-  return nodeQuery(panel, "[data-pages-attestation-proof-intake-copy-status]");
-}
-
 function copyPagesAttestationProofIntake(target) {
-  const panel = pagesAttestationProofIntakePanel(target);
-  if (!panel) return;
-  const text = pagesAttestationProofIntakeReceiptText(panel);
-  const status = pagesAttestationProofIntakeCopyStatus(panel);
-  copyTextWithStatus({
-    text,
+  copyPanelReceiptWithStatus({
+    panel: pagesAttestationProofIntakePanel(target),
+    target,
+    textSelector: "[data-pages-attestation-proof-intake-receipt-text]",
+    statusSelector: "[data-pages-attestation-proof-intake-copy-status]",
     datasetKey: "pagesAttestationProofIntakeCopied",
-    targets: [panel, target],
-    status,
-    copiedStatusText: "attestation proof intake 복사됨",
-    failedStatusText: "attestation proof intake 복사 실패",
+    statusLabel: "attestation proof intake",
     copiedToast: "attestation proof intake를 복사했습니다",
-    failedToast: "attestation proof intake 복사 실패",
   });
 }
 
@@ -9496,14 +8261,15 @@ function copyOutputQualityExternalClaimGuard(target) {
   operationsCopyActionsCall("copyOutputQualityExternalClaimGuard", target);
 }
 
+function updateUserDisplayName(name = dashboard.settings && dashboard.settings.displayName) { const el = nodeQuery(document, ".user strong"); if (el && name) el.textContent = name; }
+
 function saveSettingsFromForm(form) {
   if (!form) return;
   const data = new FormData(form);
-  const displayName = (data.get("displayName") || "").toString().trim() || "사용자";
+  const displayName = formText(data, "displayName") || "사용자";
   dashboard.settings.displayName = displayName;
   persist();
-  const avatar = nodeQuery(document, ".user strong");
-  if (avatar) avatar.textContent = displayName;
+  updateUserDisplayName(displayName);
   showToast("설정을 저장했습니다", "info");
   renderSettings();
 }
@@ -9535,7 +8301,7 @@ const VIEW_LABELS = {
 const VIEW_RENDERERS = {
   home: renderHome, cal: renderCalendar, todo: renderTodos, notes: renderNotes, habits: renderHabits, stats: renderStats,
   "llm-wiki": renderLlmWiki, "pm-portfolio": renderPortfolio, "pm-kanban": renderKanban, "pm-gantt": renderGantt, "pm-team": renderTeam,
-  "dbm-instances": renderDbInstances, "dbm-schema": renderDbSchema, "dbm-queries": renderDbQueries, "dbm-backups": renderDbBackups, settings: renderSettings, system: renderSystemStatus,
+  "dbm-instances": () => dbCatalogCall("renderDbInstances"), "dbm-schema": () => dbCatalogCall("renderDbSchema"), "dbm-queries": () => dbCatalogCall("renderDbQueries"), "dbm-backups": () => dbCatalogCall("renderDbBackups"), settings: renderSettings, system: renderSystemStatus,
 };
 
 const navItemsByView = new Map();
@@ -9565,8 +8331,47 @@ function setActiveNav(viewName) {
   activeNavEls = next;
 }
 
+const OPS_RUNTIME_VIEW_GROUPS = Object.freeze({ settings: "release", system: "release", "pm-portfolio": "review" });
+const OPS_RUNTIME_GETTERS = Object.freeze({
+  release: [getReleaseStatusHelpers, getVerifyWorkspaceSummaryHelpers, getOperationsCopyActionsHelpers],
+  operations: [getOperationsCopyActionsHelpers],
+  review: [getReviewRecommendationExportHelpers, getReviewExecutionChecklistHelpers, getReviewIssuePayloadHelpers, getReviewResultViewHelpers, getReviewHandoffHelpers, getReviewArtifactViewHelpers, getReviewPackageViewHelpers, getReviewArtifactStateHelpers, getReviewResultDraftStateHelpers, getReviewCreationActionsHelpers, getReviewCopyActionsHelpers, getReviewSubmissionCopyHelpers, getReviewResultStateHelpers],
+});
+const opsRuntimeLoadPromises = new Map();
+function opsRuntimeGroupForView(viewName) { return OPS_RUNTIME_VIEW_GROUPS[viewName] || ""; }
+function refreshOpsRuntimeHelpers(group) { (OPS_RUNTIME_GETTERS[group] || []).forEach((getter) => getter()); }
+function opsRuntimeGroupReady(group) { refreshOpsRuntimeHelpers(group); return (OPS_RUNTIME_GETTERS[group] || []).every((getter) => !!getter()); }
+function ensureOpsRuntime(group) {
+  if (opsRuntimeGroupReady(group)) return Promise.resolve(true);
+  const loader = lazyRuntimeLoader();
+  if (!loader || typeof loader.load !== "function") return Promise.reject(new Error(`operations runtime loader unavailable: ${group}`));
+  if (!opsRuntimeLoadPromises.has(group)) opsRuntimeLoadPromises.set(group, loader.load(group).then(() => (refreshOpsRuntimeHelpers(group), opsRuntimeGroupReady(group))).finally(() => opsRuntimeLoadPromises.delete(group)));
+  return opsRuntimeLoadPromises.get(group);
+}
+function renderOpsRuntimeLoading(viewName, group) {
+  const view = refs.views[viewName];
+  if (view) setHTML(view, html`<section class="panel ops-runtime-loading" data-ops-runtime-loading data-ops-runtime-group="${group}"><div class="panel-head"><div><h2>${VIEW_LABELS[viewName] || "운영 화면"} 준비 중</h2><small>운영/리뷰 런타임을 지연 로드하고 있습니다.</small></div><span class="pill warn">lazy runtime</span></div></section>`);
+}
+function queueOpsRuntimeRender(viewName, group) {
+  ensureOpsRuntime(group).then(() => {
+    if (dashboard.currentView === viewName) renderCurrentView();
+    if (group === "release") refreshVerifyWorkspaceSummaryEvidence().catch(() => {});
+  }).catch((error) => handleRuntimeError(error, { source: "ops-runtime", view: viewName, group }));
+}
+
 function renderCurrentView() {
-  return (VIEW_RENDERERS[dashboard.currentView] || renderHome)();
+  try {
+    const lazyGroup = opsRuntimeGroupForView(dashboard.currentView);
+    if (lazyGroup && !opsRuntimeGroupReady(lazyGroup)) {
+      renderOpsRuntimeLoading(dashboard.currentView, lazyGroup);
+      queueOpsRuntimeRender(dashboard.currentView, lazyGroup);
+      return null;
+    }
+    return (VIEW_RENDERERS[dashboard.currentView] || renderHome)();
+  } catch (error) {
+    handleRuntimeError(error, { source: "render", view: dashboard.currentView });
+    return null;
+  }
 }
 
 let activeViewEl = null;
@@ -9599,16 +8404,14 @@ function syncRouteHistory(viewName, mode) {
   }
 }
 
-function setView(name, options = {}) {
-  name = normalizeRouteView(name);
-  const previous = dashboard.currentView;
-  if (previous !== name) closeSheet({ restoreFocus: false });
-  dashboard.currentView = name;
+function syncViewDataset(name) {
   document.body.dataset.view = name; // 상단바 맥락화(프로젝트 선택기 노출)·뷰별 CSS 훅
   document.body.dataset.routeView = name;
   document.body.dataset.routeHash = `#${name}`;
   document.body.dataset.routeDeepLinkCoverage = "1";
+}
 
+function syncActiveViewElement(name, previous) {
   if (previous !== name && activeViewEl) {
     activeViewEl.hidden = true;
   } else if (!activeViewEl) {
@@ -9623,19 +8426,38 @@ function setView(name, options = {}) {
     nextEl.hidden = false;
     activeViewEl = nextEl;
   }
-  setActiveNav(name);
-  const defaultHistoryMode = previous && previous !== name ? "push" : "replace";
-  syncRouteHistory(name, options.history || defaultHistoryMode);
-  state.query = "";
+}
+
+function routeHistoryModeForView(previous, name) {
+  return previous && previous !== name ? "push" : "replace";
+}
+
+function resetViewTransientState(previous, name) {
+  resetSearchQueryState();
   state.kanbanFilter = null;
   state.kanbanSourceFilter = "all";
   if (previous !== name) { state.llmWikiCategory = null; state.llmWikiArticle = null; }
-  if (refs.query) refs.query.value = "";
-  if (refs.searchCount) refs.searchCount.textContent = "";
   syncSearchAffordance({ announce: document.activeElement === refs.query });
-  renderCurrentView();
+}
+
+function refreshViewPostRender(name) {
   if (name === "settings" || name === "system") refreshStorageHealth({ render: true });
   scrollMainToTop();
+}
+
+function setView(name, options = {}) {
+  name = normalizeRouteView(name);
+  const previous = dashboard.currentView;
+  if (previous !== name) closeSheet({ restoreFocus: false });
+  dashboard.currentView = name;
+  syncViewDataset(name);
+  syncActiveViewElement(name, previous);
+  setActiveNav(name);
+  const defaultHistoryMode = routeHistoryModeForView(previous, name);
+  syncRouteHistory(name, options.history || defaultHistoryMode);
+  resetViewTransientState(previous, name);
+  renderCurrentView();
+  refreshViewPostRender(name);
 }
 
 /* ============================================================
@@ -9643,6 +8465,70 @@ function setView(name, options = {}) {
  * ============================================================ */
 
 let kanbanDragId = null;
+let kanbanPointerDrag = null;
+
+function clearKanbanDragClasses(board) {
+  const root = board || document.getElementById("kanbanBoard");
+  if (!root) return;
+  root.querySelectorAll(".kanban-col").forEach((col) => {
+    col.classList.remove("drag-over");
+    col.classList.remove("touch-drag-over");
+  });
+  root.querySelectorAll(".kanban-card-wrap").forEach((card) => {
+    card.classList.remove("is-touch-dragging");
+  });
+}
+
+function kanbanPlacementOptions(targetWrap, draggedId, clientY) {
+  const options = {};
+  if (targetWrap && targetWrap.dataset.issueId && targetWrap.dataset.issueId !== draggedId) {
+    const rect = targetWrap.getBoundingClientRect();
+    if (clientY < rect.top + rect.height / 2) options.beforeId = targetWrap.dataset.issueId;
+    else options.afterId = targetWrap.dataset.issueId;
+  }
+  return options;
+}
+
+function kanbanDropTargetFromPoint(clientX, clientY) {
+  const target = document.elementFromPoint(clientX, clientY);
+  return kanbanDropTargetFromElement(target);
+}
+
+function kanbanDropTargetFromElement(target) {
+  if (!target) return null;
+  const col = target.closest("[data-kanban-col]");
+  if (!col) return null;
+  return {
+    col,
+    status: col.dataset.kanbanCol,
+    wrap: target.closest(".kanban-card-wrap[data-issue-id]"),
+  };
+}
+
+function kanbanDropTargetFromEvent(event) {
+  return kanbanDropTargetFromPoint(event.clientX, event.clientY) || kanbanDropTargetFromElement(event.target);
+}
+
+function finishKanbanPointerDrag(event, { cancel = false } = {}) {
+  const drag = kanbanPointerDrag;
+  if (!drag) return;
+  kanbanPointerDrag = null;
+  if (drag.card && typeof drag.card.releasePointerCapture === "function") {
+    try { drag.card.releasePointerCapture(drag.pointerId); } catch (_) {}
+  }
+  clearKanbanDragClasses(drag.board);
+  const clientX = Number.isFinite(event.clientX) ? event.clientX : drag.lastX;
+  const clientY = Number.isFinite(event.clientY) ? event.clientY : drag.lastY;
+  if (!drag.active) {
+    const dx = Math.abs(Number(clientX || 0) - Number(drag.startX || 0));
+    const dy = Math.abs(Number(clientY || 0) - Number(drag.startY || 0));
+    drag.active = Math.max(dx, dy) >= 8;
+  }
+  if (cancel || !drag.active) return;
+  const drop = kanbanDropTargetFromEvent(event) || kanbanDropTargetFromPoint(clientX, clientY) || drag.lastDrop;
+  if (!drop || !drop.status) return;
+  moveIssue(drag.id, drop.status, kanbanPlacementOptions(drop.wrap, drag.id, clientY));
+}
 
 function setupKanbanDrag() {
   const board = document.getElementById("kanbanBoard");
@@ -9660,7 +8546,7 @@ function setupKanbanDrag() {
   board.addEventListener("dragend", (event) => {
     const wrap = event.target.closest("[data-issue-id]");
     if (wrap) wrap.classList.remove("is-dragging");
-    board.querySelectorAll(".kanban-col").forEach((col) => col.classList.remove("drag-over"));
+    clearKanbanDragClasses(board);
     kanbanDragId = null;
   });
 
@@ -9685,15 +8571,59 @@ function setupKanbanDrag() {
     const id = kanbanDragId || event.dataTransfer.getData("text/plain");
     const newStatus = col.dataset.kanbanCol;
     const targetWrap = event.target.closest(".kanban-card-wrap[data-issue-id]");
-    const options = {};
-    if (targetWrap && targetWrap.dataset.issueId && targetWrap.dataset.issueId !== id) {
-      const rect = targetWrap.getBoundingClientRect();
-      if (event.clientY < rect.top + rect.height / 2) options.beforeId = targetWrap.dataset.issueId;
-      else options.afterId = targetWrap.dataset.issueId;
-    }
+    const options = kanbanPlacementOptions(targetWrap, id, event.clientY);
     if (id && newStatus) moveIssue(id, newStatus, options);
-    board.querySelectorAll(".kanban-col").forEach((c) => c.classList.remove("drag-over"));
+    clearKanbanDragClasses(board);
     kanbanDragId = null;
+  });
+
+  board.addEventListener("pointerdown", (event) => {
+    if (!["touch", "pen"].includes(event.pointerType)) return;
+    if (event.button !== 0) return;
+    if (event.target.closest("button, a, input, select, textarea, [contenteditable='true']")) return;
+    const card = event.target.closest(".kanban-card-wrap[data-issue-id]");
+    if (!card) return;
+    kanbanPointerDrag = {
+      id: card.dataset.issueId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      card,
+      board,
+    };
+    if (typeof card.setPointerCapture === "function") {
+      try { card.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+  });
+
+  board.addEventListener("pointermove", (event) => {
+    const drag = kanbanPointerDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = Math.abs(event.clientX - drag.startX);
+    const dy = Math.abs(event.clientY - drag.startY);
+    if (!drag.active && Math.max(dx, dy) < 8) return;
+    drag.active = true;
+    event.preventDefault();
+    drag.card.classList.add("is-touch-dragging");
+    const drop = kanbanDropTargetFromEvent(event);
+    drag.lastX = event.clientX;
+    drag.lastY = event.clientY;
+    drag.lastDrop = drop;
+    board.querySelectorAll(".kanban-col").forEach((col) => col.classList.remove("touch-drag-over"));
+    if (drop && drop.col) drop.col.classList.add("touch-drag-over");
+  });
+
+  board.addEventListener("pointerup", (event) => {
+    if (kanbanPointerDrag && kanbanPointerDrag.pointerId === event.pointerId) {
+      finishKanbanPointerDrag(event);
+    }
+  });
+
+  board.addEventListener("pointercancel", (event) => {
+    if (kanbanPointerDrag && kanbanPointerDrag.pointerId === event.pointerId) {
+      finishKanbanPointerDrag(event, { cancel: true });
+    }
   });
 }
 
@@ -9701,9 +8631,40 @@ function setupKanbanDrag() {
  * PM CRUD — Projects, Issues (Kanban), Gantt Tasks, Team Members
  * ============================================================ */
 
-/* ---- 공통 select 옵션 빌더 (배열 버전) ---- */
-function simpleOptions(arr, valueKey, labelFn, current) {
-  return arr.map((item) => html`<option value="${item[valueKey]}" ${raw(item[valueKey] === current ? "selected" : "")}>${labelFn(item)}</option>`).join("");
+function optionHTML(value, label, selected = false) {
+  return html`<option value="${value}" ${raw(selected ? "selected" : "")}>${label}</option>`;
+}
+
+function optionListHTML(items, valueFn, labelFn, selectedFn = () => false) {
+  return (items || []).map((item) => optionHTML(valueFn(item), labelFn(item), selectedFn(item))).join("");
+}
+
+function selectedOptionKey(selectedValue = "", fallbackValue = "") {
+  const selected = selectedValue == null ? "" : String(selectedValue);
+  const fallback = fallbackValue == null ? "" : String(fallbackValue);
+  return selected || fallback;
+}
+
+function projectOptionsHTML(selectedProjectId = "", fallbackSelectedProjectId = "") {
+  const current = selectedOptionKey(selectedProjectId, fallbackSelectedProjectId);
+  return optionListHTML(dashboard.projects, (project) => project.id, (project) => project.name, (project) => !!current && project.id === current);
+}
+
+function keyedOptionsHTML(keys, labelMap, selectedKey = "", fallbackSelectedKey = "") {
+  const current = selectedOptionKey(selectedKey, fallbackSelectedKey);
+  return optionListHTML(keys, (key) => key, (key) => labelMap[key], (key) => !!current && key === current);
+}
+
+function teamMemberLabel(member) {
+  return `${member.name} (${member.role})`;
+}
+
+function teamMemberOptionsHTML(selectedMemberId = "") {
+  const current = selectedOptionKey(selectedMemberId);
+  return [
+    optionHTML("", "—"),
+    optionListHTML(dashboard.team, (member) => member.id, teamMemberLabel, (member) => !!current && member.id === current),
+  ].join("");
 }
 
 /* ---- 체크박스 목록 빌더 ---- */
@@ -9728,9 +8689,10 @@ const TASK_COLOR_MAP = { blue: "파랑", cyan: "청록", green: "초록", amber:
 const TASK_COLOR_ORDER = ["blue", "cyan", "green", "amber", "red", "violet"];
 
 function openProjectModal(arg) {
-  const editing = arg && typeof arg === "object";
-  const p = editing ? arg : null;
+  const p = editableModalRecord(arg);
   const memberChecked = new Set(p ? p.members : []);
+  const statusOptions = keyedOptionsHTML(PM_STATUS_ORDER, PM_STATUS_MAP, p ? p.status : "");
+  const healthOptions = keyedOptionsHTML(PM_HEALTH_ORDER, PM_HEALTH_MAP, p ? p.health : "");
   const form = html`
     <form id="projectForm" class="modal-form">
       <label>이름
@@ -9750,35 +8712,35 @@ function openProjectModal(arg) {
         </label>
         <label>상태
           <select name="status">
-            ${raw(PM_STATUS_ORDER.map((k) => html`<option value="${k}" ${raw(p && p.status === k ? "selected" : "")}>${PM_STATUS_MAP[k]}</option>`).join(""))}
+            ${raw(statusOptions)}
           </select>
         </label>
         <label>헬스
           <select name="health">
-            ${raw(PM_HEALTH_ORDER.map((k) => html`<option value="${k}" ${raw(p && p.health === k ? "selected" : "")}>${PM_HEALTH_MAP[k]}</option>`).join(""))}
+            ${raw(healthOptions)}
           </select>
         </label>
       </div>
       <label>멤버
         <div class="pm-checkbox-group">
-          ${raw(checkboxList(dashboard.team, "id", (m) => `${m.name} (${m.role})`, memberChecked, "members"))}
+          ${raw(checkboxList(dashboard.team, "id", teamMemberLabel, memberChecked, "members"))}
         </div>
       </label>
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="project-delete" data-project-id="${p.id}">이 프로젝트 삭제</button>`) : ""}
+      ${p ? raw(modalDeleteButtonHTML({ action: "project-delete", dataAttr: "data-project-id", dataValue: p.id, label: "이 프로젝트 삭제" })) : ""}
     </form>
   `;
-  openModal(editing ? "프로젝트 편집" : "새 프로젝트 등록", form, () => saveProjectFromForm(editing ? p.id : null));
+  openModal(p ? "프로젝트 편집" : "새 프로젝트 등록", form, () => saveProjectFromForm(p ? p.id : null));
 }
 
 function saveProjectFromForm(id) {
   const form = nodeQuery(document, "#projectForm");
   if (!form) return false;
   const data = new FormData(form);
-  const name = (data.get("name") || "").toString().trim();
+  const name = formText(data, "name");
   if (!name) { showToast("이름을 입력하세요", "warn"); return false; }
-  const owner = (data.get("owner") || "").toString().trim() || "—";
+  const owner = formText(data, "owner") || "—";
   const deadline = (data.get("deadline") || "").toString() || "2099-12-31";
-  const progress = Math.min(100, Math.max(0, parseInt(data.get("progress") || "0", 10) || 0));
+  const progress = clampInteger(data.get("progress"), 0, 100);
   const status = (data.get("status") || "on-track").toString();
   const health = (data.get("health") || "green").toString();
   const members = data.getAll("members");
@@ -9813,10 +8775,7 @@ function saveProjectFromForm(id) {
     });
     showToast(`프로젝트 '${name}' 등록`, "info");
   }
-  if (refs.projectSelectLabel) {
-    const cur = currentProject();
-    if (cur) refs.projectSelectLabel.textContent = cur.name;
-  }
+  updateProjectSelectLabel();
   commit();
   return true;
 }
@@ -9842,10 +8801,7 @@ function deleteProject(id) {
     // currentProjectId 보정
     if (dashboard.currentProjectId === id) {
       dashboard.currentProjectId = dashboard.projects.length ? dashboard.projects[0].id : "";
-      if (refs.projectSelectLabel) {
-        const cur = dashboard.projects[0];
-        refs.projectSelectLabel.textContent = cur ? cur.name : "";
-      }
+      updateProjectSelectLabel();
     }
     rebuildIndexes();
     closeModal();
@@ -9870,16 +8826,18 @@ function issueKanbanOrder(issue, fallbackIndex = 0) {
   return Number.isFinite(order) && order > 0 ? order : (Number(fallbackIndex) + 1) * KANBAN_ORDER_STEP;
 }
 
+function compareKanbanIssueEntriesByOrder(a, b) {
+  const orderDiff = issueKanbanOrder(a.issue, a.index) - issueKanbanOrder(b.issue, b.index);
+  if (orderDiff !== 0) return orderDiff;
+  return a.index - b.index;
+}
+
 function sortedKanbanLaneIssues(project, status, options = {}) {
   const excludeId = options.excludeId || "";
   return dashboard.issues
     .map((issue, index) => ({ issue, index }))
     .filter((entry) => entry.issue.project === project && entry.issue.status === status && entry.issue.id !== excludeId)
-    .sort((a, b) => {
-      const orderDiff = issueKanbanOrder(a.issue, a.index) - issueKanbanOrder(b.issue, b.index);
-      if (orderDiff !== 0) return orderDiff;
-      return a.index - b.index;
-    })
+    .sort(compareKanbanIssueEntriesByOrder)
     .map((entry) => entry.issue);
 }
 
@@ -9899,11 +8857,7 @@ function normalizeKanbanIssueOrders() {
     lanes.get(key).entries.push({ issue, index });
   });
   lanes.forEach((lane) => {
-    lane.entries.sort((a, b) => {
-      const orderDiff = issueKanbanOrder(a.issue, a.index) - issueKanbanOrder(b.issue, b.index);
-      if (orderDiff !== 0) return orderDiff;
-      return a.index - b.index;
-    });
+    lane.entries.sort(compareKanbanIssueEntriesByOrder);
     lane.entries.forEach((entry, index) => {
       entry.issue.order = (index + 1) * KANBAN_ORDER_STEP;
     });
@@ -9948,12 +8902,11 @@ function insertIssueIntoKanbanLane(issue, newStatus, options = {}) {
 }
 
 function openIssueModal(arg) {
-  const editing = arg && typeof arg === "object";
-  const i = editing ? arg : null;
-  const projOptions = dashboard.projects.map((p) => html`<option value="${p.id}" ${raw(i && i.project === p.id ? "selected" : (!i && p.id === dashboard.currentProjectId ? "selected" : ""))}>${p.name}</option>`).join("");
-  const teamOptions = [html`<option value="">—</option>`, ...dashboard.team.map((m) => html`<option value="${m.id}" ${raw(i && i.assignee === m.id ? "selected" : "")}>${m.name} (${m.role})</option>`)].join("");
-  const statusOptions = ISSUE_STATUS_ORDER.map((k) => html`<option value="${k}" ${raw(i && i.status === k ? "selected" : (!i && k === "todo" ? "selected" : ""))}>${ISSUE_STATUS_LABELS[k]}</option>`).join("");
-  const prioOptions = ISSUE_PRIORITY_ORDER.map((k) => html`<option value="${k}" ${raw(i && i.priority === k ? "selected" : (!i && k === "med" ? "selected" : ""))}>${ISSUE_PRIORITY_MAP[k]}</option>`).join("");
+  const i = editableModalRecord(arg);
+  const projOptions = projectOptionsHTML(i ? i.project : "", i ? "" : dashboard.currentProjectId);
+  const teamOptions = teamMemberOptionsHTML(i ? i.assignee : "");
+  const statusOptions = keyedOptionsHTML(ISSUE_STATUS_ORDER, ISSUE_STATUS_LABELS, i ? i.status : "", i ? "" : "todo");
+  const prioOptions = keyedOptionsHTML(ISSUE_PRIORITY_ORDER, ISSUE_PRIORITY_MAP, i ? i.priority : "", i ? "" : "med");
   const form = html`
     <form id="issueForm" class="modal-form">
       <label>제목
@@ -9986,17 +8939,17 @@ function openIssueModal(arg) {
       <label>라벨 (쉼표 구분)
         <input type="text" name="labels" maxlength="200" value="${i ? i.labels.join(", ") : ""}" placeholder="예: backend, perf" />
       </label>
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="issue-delete" data-issue-id="${i.id}" title="${i.id} 이슈 삭제" aria-label="${i.id} 이슈 삭제">이 이슈 삭제</button>`) : ""}
+      ${i ? raw(modalDeleteButtonHTML({ action: "issue-delete", dataAttr: "data-issue-id", dataValue: i.id, label: "이 이슈 삭제", title: `${i.id} 이슈 삭제`, ariaLabel: `${i.id} 이슈 삭제` })) : ""}
     </form>
   `;
-  openModal(editing ? `이슈 편집: ${i.id}` : "새 이슈", form, () => saveIssueFromForm(editing ? i.id : null));
+  openModal(i ? `이슈 편집: ${i.id}` : "새 이슈", form, () => saveIssueFromForm(i ? i.id : null));
 }
 
 function saveIssueFromForm(id) {
   const form = nodeQuery(document, "#issueForm");
   if (!form) return false;
   const data = new FormData(form);
-  const title = (data.get("title") || "").toString().trim();
+  const title = formText(data, "title");
   if (!title) { showToast("제목을 입력하세요", "warn"); return false; }
   const project = (data.get("project") || "").toString();
   if (!project) { showToast("프로젝트를 선택하세요", "warn"); return false; }
@@ -10004,7 +8957,7 @@ function saveIssueFromForm(id) {
   const priority = (data.get("priority") || "med").toString();
   const assignee = (data.get("assignee") || "").toString();
   const due = (data.get("due") || "").toString() || null;
-  const estimate = Math.max(0, parseFloat(data.get("estimate") || "1") || 0);
+  const estimate = clampNumber(data.get("estimate"), 0, 999, 1);
   const labelsRaw = (data.get("labels") || "").toString();
   const labels = labelsRaw ? labelsRaw.split(",").map((l) => l.trim()).filter(Boolean) : [];
   if (id) {
@@ -10073,19 +9026,18 @@ function moveIssueOrder(id, position) {
  * ============================================================ */
 
 function openTaskModal(arg, options = {}) {
-  const editing = arg && typeof arg === "object";
-  const t = editing ? arg : null;
-  const defaultMilestone = !editing && options.defaultMilestone === true;
-  const projOptions = dashboard.projects.map((p) => html`<option value="${p.id}" ${raw(t && t.project === p.id ? "selected" : "")}>${p.name}</option>`).join("");
-  const teamOptions = [html`<option value="">—</option>`, ...dashboard.team.map((m) => html`<option value="${m.id}" ${raw(t && t.owner === m.id ? "selected" : "")}>${m.name} (${m.role})</option>`)].join("");
-  const colorOptions = TASK_COLOR_ORDER.map((k) => html`<option value="${k}" ${raw(t && t.color === k ? "selected" : (!t && k === "blue" ? "selected" : ""))}>${TASK_COLOR_MAP[k]}</option>`).join("");
+  const t = editableModalRecord(arg);
+  const defaultMilestone = !t && options.defaultMilestone === true;
+  const projOptions = projectOptionsHTML(t ? t.project : "");
+  const teamOptions = teamMemberOptionsHTML(t ? t.owner : "");
+  const colorOptions = keyedOptionsHTML(TASK_COLOR_ORDER, TASK_COLOR_MAP, t ? t.color : "", t ? "" : "blue");
   // deps: multi-select existing tasks (exclude self)
   const depSet = new Set(t ? t.deps : []);
   const otherTasks = dashboard.gantt.tasks.filter((x) => !t || x.id !== t.id);
   const depsHTML = otherTasks.length ? html`
     <label>의존 작업 (복수 선택 가능)
       <select name="deps" multiple size="${Math.min(6, otherTasks.length)}" class="pm-multi-select">
-        ${raw(otherTasks.map((x) => html`<option value="${x.id}" ${raw(depSet.has(x.id) ? "selected" : "")}>${x.name} (${x.id})</option>`).join(""))}
+        ${raw(optionListHTML(otherTasks, (x) => x.id, (x) => `${x.name} (${x.id})`, (x) => depSet.has(x.id)))}
       </select>
     </label>
   ` : "";
@@ -10119,17 +9071,17 @@ function openTaskModal(arg, options = {}) {
         </label>
       </div>
       ${raw(depsHTML)}
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="task-delete" data-task-id="${t.id}">이 작업 삭제</button>`) : ""}
+      ${t ? raw(modalDeleteButtonHTML({ action: "task-delete", dataAttr: "data-task-id", dataValue: t.id, label: "이 작업 삭제" })) : ""}
     </form>
   `;
-  openModal(editing ? `작업 편집: ${t.name}` : "새 작업 추가", form, () => saveTaskFromForm(editing ? t.id : null));
+  openModal(t ? `작업 편집: ${t.name}` : "새 작업 추가", form, () => saveTaskFromForm(t ? t.id : null));
 }
 
 function saveTaskFromForm(id) {
   const form = nodeQuery(document, "#taskForm");
   if (!form) return false;
   const data = new FormData(form);
-  const name = (data.get("name") || "").toString().trim();
+  const name = formText(data, "name");
   if (!name) { showToast("이름을 입력하세요", "warn"); return false; }
   const project = (data.get("project") || "").toString();
   const owner = (data.get("owner") || "").toString();
@@ -10187,8 +9139,7 @@ function deleteTask(id) {
  * ============================================================ */
 
 function openMemberModal(arg) {
-  const editing = arg && typeof arg === "object";
-  const m = editing ? arg : null;
+  const m = editableModalRecord(arg);
   const projChecked = new Set(m ? m.projects : []);
   const form = html`
     <form id="memberForm" class="modal-form">
@@ -10213,20 +9164,20 @@ function openMemberModal(arg) {
           ${raw(checkboxList(dashboard.projects, "id", (p) => p.name, projChecked, "projects"))}
         </div>
       </label>
-      ${editing ? raw(html`<button type="button" class="modal-delete" data-action="member-delete" data-member-id="${m.id}">이 멤버 삭제</button>`) : ""}
+      ${m ? raw(modalDeleteButtonHTML({ action: "member-delete", dataAttr: "data-member-id", dataValue: m.id, label: "이 멤버 삭제" })) : ""}
     </form>
   `;
-  openModal(editing ? `멤버 편집: ${m.name}` : "새 멤버 추가", form, () => saveMemberFromForm(editing ? m.id : null));
+  openModal(m ? `멤버 편집: ${m.name}` : "새 멤버 추가", form, () => saveMemberFromForm(m ? m.id : null));
 }
 
 function saveMemberFromForm(id) {
   const form = nodeQuery(document, "#memberForm");
   if (!form) return false;
   const data = new FormData(form);
-  const name = (data.get("name") || "").toString().trim();
+  const name = formText(data, "name");
   if (!name) { showToast("이름을 입력하세요", "warn"); return false; }
-  const role = (data.get("role") || "").toString().trim();
-  const load = Math.min(100, Math.max(0, parseInt(data.get("load") || "0", 10) || 0));
+  const role = formText(data, "role");
+  const load = clampInteger(data.get("load"), 0, 100);
   const onLeave = data.get("onLeave") === "on";
   const projects = data.getAll("projects");
   if (id) {
@@ -10307,7 +9258,7 @@ const MODAL_ACTION_HANDLERS = new Map([
 ]);
 
 const APP_SHELL_ACTION_HANDLERS = new Map([
-  ["close-palette", closePalette],
+  ["close-palette", () => commandPaletteCall("close")],
   ["close-sheet", closeSheet],
   ["close-modal", closeModal],
   ["open-new-project", openNewProjectModal],
@@ -10320,12 +9271,12 @@ const APP_SHELL_ACTION_HANDLERS = new Map([
   }],
   ["data-safety-refresh", () => {
     refreshStorageHealth({ render: true }).then(() => {
-      if (nodeQuery(document, "#sheet.open [data-topbar-data-safety]")) openDataSafetyStatusSheet();
+      if (isDataSafetyStatusSheetOpen()) openDataSafetyStatusSheet();
     }).catch(() => {});
   }],
   ["global-help-open-palette", () => {
     closeSheet({ restoreFocus: false });
-    openPalette();
+    commandPaletteCall("open");
   }],
   ["global-help-nav", (target) => {
     closeSheet({ restoreFocus: false });
@@ -10333,19 +9284,22 @@ const APP_SHELL_ACTION_HANDLERS = new Map([
   }],
   ["global-help-search-recovery", () => {
     closeSheet({ restoreFocus: false });
-    if (isSearchInertView()) openPalette();
+    if (isSearchInertView()) commandPaletteCall("open");
     else if (refs.query) {
       refs.query.focus();
       showToast("현재 뷰 검색이 준비되었습니다", "info");
     }
   }],
+  ["dashboard-autoresearch-run", () => runDashboardAutoresearchLoop()],
+  ["dashboard-autoresearch-start", startDashboardAutoresearchLoop],
+  ["dashboard-autoresearch-stop", stopDashboardAutoresearchLoop],
   ["request-notif-permission", () => {
     try {
       if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission().then((perm) => {
           if (perm === "granted") {
             showToast("브라우저 알림 권한이 허용되었습니다", "info");
-            startEventReminders();
+            eventReminderCall("start");
           } else {
             showToast("알림 권한이 거부되었습니다", "warn");
           }
@@ -10354,11 +9308,12 @@ const APP_SHELL_ACTION_HANDLERS = new Map([
     } catch (_) {}
   }],
   ["nav-to", (target) => setView(target.dataset.view)],
-  ["open-palette", openPalette],
-  ["clear-search", clearGlobalSearch],
+  ["open-palette", () => commandPaletteCall("open")],
+  ["clear-search", () => globalSearchCall("clear")],
   ["toggle-theme", toggleTheme],
   ["set-theme", (target) => setTheme(target.dataset.theme)],
-  ["toggle-project-picker", toggleProjectPicker],
+  ["toggle-reference-projects", toggleReferenceProjects],
+  ["toggle-project-picker", () => projectPickerCall("toggle")],
   ["pick-project", (target) => pickProject(target.dataset.projectId)],
 ]);
 
@@ -10436,7 +9391,7 @@ const PORTFOLIO_ACTION_HANDLERS = new Map([
   ["portfolio-filter", (target) => setPortfolioFilter(target.dataset.filter)],
   ["portfolio-action-filter", (target) => setPortfolioActionFilter(target.dataset.actionFilter)],
   ["portfolio-benchmark-filter", (target) => setPortfolioBenchmarkFilter(target.dataset.benchmarkFilter)],
-  ["show-project-prompt-handoff", (target) => showProjectPromptHandoff(target.dataset.projectId || target.dataset.target)],
+  ["show-project-prompt-handoff", (target) => showProjectPromptHandoff(targetDatasetId(target, "projectId"))],
 ]);
 
 const KANBAN_ACTION_HANDLERS = new Map([
@@ -10446,7 +9401,7 @@ const KANBAN_ACTION_HANDLERS = new Map([
 ]);
 
 const DB_CATALOG_ACTION_HANDLERS = new Map([
-  ["db-catalog-filter", (target) => setDbCatalogFilter(target.dataset.dbCatalogFilterOption)],
+  ["db-catalog-filter", (target) => dbCatalogCall("setDbCatalogFilter", target.dataset.dbCatalogFilterOption)],
   ["db-catalog-create-stale-issue", createDbCatalogStaleReviewIssue],
 ]);
 
@@ -10455,102 +9410,109 @@ const CREATE_MODAL_ACTION_HANDLERS = new Map([
   ["issue-add", () => openIssueModal(null)],
   ["task-add", (target) => openTaskModal(null, { defaultMilestone: target.dataset.defaultMilestone === "true" })],
   ["member-add", () => openMemberModal(null)],
-  ["instance-add", () => openInstanceModal(null)],
-  ["table-add", () => openTableModal(null)],
-  ["column-add", (target) => openColumnModal(target.dataset.tableId, null)],
-  ["query-add", () => openQueryModal(null)],
-  ["migration-add", () => openMigrationModal(null)],
+  ["instance-add", () => dbCatalogCall("openInstanceModal", null)],
+  ["table-add", () => dbCatalogCall("openTableModal", null)],
+  ["column-add", (target) => dbCatalogCall("openColumnModal", target.dataset.tableId, null)],
+  ["query-add", () => dbCatalogCall("openQueryModal", null)],
+  ["migration-add", () => dbCatalogCall("openMigrationModal", null)],
 ]);
+
+function targetDatasetId(target, key) {
+  return target.dataset[key] || target.dataset.target;
+}
+
+function withTargetColumnIndex(target, callback) {
+  const tid = target.dataset.tableId;
+  const ci = Number(target.dataset.colIndex);
+  if (!Number.isInteger(ci) || ci < 0) { showToast("컬럼 정보를 찾을 수 없습니다", "warn"); return; }
+  callback(tid, ci);
+}
 
 const PM_CRUD_ACTION_HANDLERS = new Map([
   ["project-edit", (target) => {
-    const pid = target.dataset.projectId || target.dataset.target;
+    const pid = targetDatasetId(target, "projectId");
     closeSheet();
     openProjectModal(indexes.projectById.get(pid));
   }],
   ["project-delete", (target) => {
-    const pid = target.dataset.projectId || target.dataset.target;
+    const pid = targetDatasetId(target, "projectId");
     closeModal(); closeSheet(); deleteProject(pid);
   }],
   ["issue-edit", (target) => {
-    const iid = target.dataset.issueId || target.dataset.target;
+    const iid = targetDatasetId(target, "issueId");
     closeSheet();
     openIssueModal(indexes.issueById.get(iid));
   }],
   ["issue-delete", (target) => {
-    const iid = target.dataset.issueId || target.dataset.target;
+    const iid = targetDatasetId(target, "issueId");
     closeSheet(); deleteIssue(iid);
   }],
   ["issue-move", (target) => moveIssue(target.dataset.issueId, target.dataset.status)],
   ["issue-order", (target) => moveIssueOrder(target.dataset.issueId, target.dataset.position)],
   ["task-edit", (target) => {
-    const tid = target.dataset.taskId || target.dataset.target;
+    const tid = targetDatasetId(target, "taskId");
     closeSheet();
     openTaskModal(taskById(tid));
   }],
   ["task-delete", (target) => {
-    const tid = target.dataset.taskId || target.dataset.target;
+    const tid = targetDatasetId(target, "taskId");
     closeSheet(); deleteTask(tid);
   }],
   ["member-edit", (target) => {
-    const mid = target.dataset.memberId || target.dataset.target;
+    const mid = targetDatasetId(target, "memberId");
     closeSheet();
     openMemberModal(indexes.teamById.get(mid));
   }],
   ["member-delete", (target) => {
-    const mid = target.dataset.memberId || target.dataset.target;
+    const mid = targetDatasetId(target, "memberId");
     closeSheet(); deleteMember(mid);
   }],
 ]);
 
 const DB_CRUD_ACTION_HANDLERS = new Map([
   ["instance-edit", (target) => {
-    const iid = target.dataset.instanceId || target.dataset.target;
+    const iid = targetDatasetId(target, "instanceId");
     closeSheet();
-    openInstanceModal(indexes.instanceById.get(iid));
+    dbCatalogCall("openInstanceModal", indexes.instanceById.get(iid));
   }],
   ["instance-delete", (target) => {
-    const iid = target.dataset.instanceId || target.dataset.target;
-    closeModal(); closeSheet(); deleteInstance(iid);
+    const iid = targetDatasetId(target, "instanceId");
+    closeModal(); closeSheet(); dbCatalogCall("deleteInstance", iid);
   }],
   ["table-edit", (target) => {
-    const tid = target.dataset.tableId || target.dataset.target;
+    const tid = targetDatasetId(target, "tableId");
     closeSheet();
-    const ctx = findTableById(tid);
-    openTableModal(ctx ? ctx.table : null);
+    const ctx = dbCatalogCall("findTableById", tid);
+    dbCatalogCall("openTableModal", ctx ? ctx.table : null);
   }],
   ["table-delete", (target) => {
-    const tid = target.dataset.tableId || target.dataset.target;
-    closeModal(); deleteTable(tid);
+    const tid = targetDatasetId(target, "tableId");
+    closeModal(); dbCatalogCall("deleteTable", tid);
   }],
-  ["column-edit", (target) => {
-    const tid = target.dataset.tableId;
-    const ci = parseInt(target.dataset.colIndex, 10);
+  ["column-edit", (target) => withTargetColumnIndex(target, (tid, ci) => {
     closeModal();
-    openColumnModal(tid, ci);
-  }],
-  ["column-delete", (target) => {
-    const tid = target.dataset.tableId;
-    const ci = parseInt(target.dataset.colIndex, 10);
-    deleteColumn(tid, ci);
-  }],
+    dbCatalogCall("openColumnModal", tid, ci);
+  })],
+  ["column-delete", (target) => withTargetColumnIndex(target, (tid, ci) => {
+    dbCatalogCall("deleteColumn", tid, ci);
+  })],
   ["query-edit", (target) => {
-    const qid = target.dataset.queryId || target.dataset.target;
+    const qid = targetDatasetId(target, "queryId");
     closeSheet();
-    openQueryModal(queryById(qid));
+    dbCatalogCall("openQueryModal", queryById(qid));
   }],
   ["query-delete", (target) => {
-    const qid = target.dataset.queryId || target.dataset.target;
-    closeModal(); deleteQuery(qid);
+    const qid = targetDatasetId(target, "queryId");
+    closeModal(); dbCatalogCall("deleteQuery", qid);
   }],
   ["migration-edit", (target) => {
-    const mid = target.dataset.migId || target.dataset.target;
+    const mid = targetDatasetId(target, "migId");
     closeSheet();
-    openMigrationModal(migrationById(mid));
+    dbCatalogCall("openMigrationModal", migrationById(mid));
   }],
   ["migration-delete", (target) => {
-    const mid = target.dataset.migId || target.dataset.target;
-    closeModal(); deleteMigration(mid);
+    const mid = targetDatasetId(target, "migId");
+    closeModal(); dbCatalogCall("deleteMigration", mid);
   }],
 ]);
 
@@ -10578,6 +9540,7 @@ const OPERATIONS_COPY_ACTION_HANDLERS = new Map([
   ["copy-pages-attestation-proof-intake", copyPagesAttestationProofIntake],
   ["copy-output-quality-audit-receipt", copyOutputQualityAuditReceipt],
   ["copy-output-quality-external-claim-guard", copyOutputQualityExternalClaimGuard],
+  ["copy-dashboard-decision-receipt", copyDashboardDecisionReceipt],
 ]);
 
 const OPERATIONS_PARSER_ACTION_HANDLERS = new Map([
@@ -10637,10 +9600,41 @@ const RECORD_OPEN_ACTION_HANDLERS = new Map([
   ["open-migration", (target) => openMigrationSheet(target.dataset.migId)],
 ]);
 
+const ACTION_HANDLER_GROUPS = Object.freeze([
+  MODAL_ACTION_HANDLERS,
+  APP_SHELL_ACTION_HANDLERS,
+  LLM_WIKI_ACTION_HANDLERS,
+  CALENDAR_ACTION_HANDLERS,
+  TODO_ACTION_HANDLERS,
+  HOME_EXECUTION_QUICK_ACTION_HANDLERS,
+  NOTE_ACTION_HANDLERS,
+  HABIT_ACTION_HANDLERS,
+  SETTINGS_STORAGE_ACTION_HANDLERS,
+  OPERATIONS_COPY_ACTION_HANDLERS,
+  OPERATIONS_PARSER_ACTION_HANDLERS,
+  RECORD_OPEN_ACTION_HANDLERS,
+  PORTFOLIO_ACTION_HANDLERS,
+  REVIEW_COPY_ACTION_HANDLERS,
+  REVIEW_VALIDATION_ACTION_HANDLERS,
+  REVIEW_EXECUTION_ACTION_HANDLERS,
+  DB_CATALOG_ACTION_HANDLERS,
+  KANBAN_ACTION_HANDLERS,
+  CREATE_MODAL_ACTION_HANDLERS,
+  PM_CRUD_ACTION_HANDLERS,
+  DB_CRUD_ACTION_HANDLERS,
+]);
+
 function runActionHandler(action, target, handlers) {
   const handler = handlers.get(action);
   if (!handler) return false;
-  handler(target);
+  try {
+    const result = handler(target);
+    if (result && typeof result.then === "function") {
+      result.catch((error) => handleRuntimeError(error, { source: "action", action }));
+    }
+  } catch (error) {
+    handleRuntimeError(error, { source: "action", action });
+  }
   return true;
 }
 
@@ -10648,43 +9642,7 @@ function handleActions(event) {
   const target = event.target.closest("[data-action]");
   if (!target) return;
   const action = target.getAttribute("data-action");
-  if (runActionHandler(action, target, MODAL_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, APP_SHELL_ACTION_HANDLERS)) return;
-
-  /* --- LLM 위키 --- */
-  if (runActionHandler(action, target, LLM_WIKI_ACTION_HANDLERS)) return;
-
-  /* --- 일정 (Calendar) --- */
-  if (runActionHandler(action, target, CALENDAR_ACTION_HANDLERS)) return;
-
-  /* --- 할 일 (To-Do) --- */
-  if (runActionHandler(action, target, TODO_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, HOME_EXECUTION_QUICK_ACTION_HANDLERS)) return;
-
-  /* --- 메모 (Notes) --- */
-  if (runActionHandler(action, target, NOTE_ACTION_HANDLERS)) return;
-
-  /* --- 습관 (Habits) --- */
-  if (runActionHandler(action, target, HABIT_ACTION_HANDLERS)) return;
-
-  /* --- 설정 / 백업 --- */
-  if (runActionHandler(action, target, SETTINGS_STORAGE_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, OPERATIONS_COPY_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, OPERATIONS_PARSER_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, RECORD_OPEN_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, PORTFOLIO_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, REVIEW_COPY_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, REVIEW_VALIDATION_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, REVIEW_EXECUTION_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, DB_CATALOG_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, KANBAN_ACTION_HANDLERS)) return;
-  if (runActionHandler(action, target, CREATE_MODAL_ACTION_HANDLERS)) return;
-
-  /* --- PM CRUD actions --- */
-  if (runActionHandler(action, target, PM_CRUD_ACTION_HANDLERS)) return;
-
-  /* --- DB CRUD actions --- */
-  if (runActionHandler(action, target, DB_CRUD_ACTION_HANDLERS)) return;
+  ACTION_HANDLER_GROUPS.some((handlers) => runActionHandler(action, target, handlers));
 }
 
 /* ============================================================
@@ -10692,13 +9650,13 @@ function handleActions(event) {
  * ============================================================ */
 
 let _palOpen = false;
-let _lastGTime = 0; // timestamp for g-chord detection
 
 const commandPaletteHelpers = window.JooParkCommandPalette && typeof window.JooParkCommandPalette.create === "function"
   ? window.JooParkCommandPalette.create({
       document,
       matches,
       escapeHtml,
+      clampInteger,
       formatKoreanShort,
       getDashboard: () => dashboard,
       getFuse: () => (typeof Fuse === "function" ? Fuse : null),
@@ -10717,7 +9675,7 @@ const commandPaletteHelpers = window.JooParkCommandPalette && typeof window.JooP
       openIssueRecord: openIssueFromPalette,
       exportData,
       toggleTheme,
-      openShortcutHelp,
+      openShortcutHelp: () => keyboardShortcutCall("openHelp"),
       openDeletedRecoveryPanel,
       getLlmWikiContext: currentLlmWikiActionContext,
       createLlmWikiTodoDraft,
@@ -10734,320 +9692,102 @@ function commandPaletteCall(name, ...args) {
   return callModuleHelper(commandPaletteHelpers, "command palette", name, args, "command palette helper unavailable");
 }
 
-function _palEl() { return commandPaletteCall("el"); }
-function _palInput() { return commandPaletteCall("input"); }
-function _palResultsEl() { return commandPaletteCall("results"); }
-function _palStatusEl() { return commandPaletteCall("status"); }
-function setPaletteStatus(message, options = {}) { return commandPaletteCall("setStatus", message, options); }
-function openPalette() { return commandPaletteCall("open"); }
-function closePalette() { return commandPaletteCall("close"); }
-function _buildPaletteItems(query) { return commandPaletteCall("buildItems", query); }
-function renderPaletteResults(query) { return commandPaletteCall("render", query); }
-function _palSetIndex(idx) { return commandPaletteCall("setIndex", idx); }
-function _palRunIndex(idx) { return commandPaletteCall("runIndex", idx); }
-function setupPalette() { return commandPaletteCall("setup"); }
+const keyboardShortcutHelpers = window.JooParkKeyboardShortcuts && typeof window.JooParkKeyboardShortcuts.create === "function"
+  ? window.JooParkKeyboardShortcuts.create({
+      document,
+      getCurrentView: () => dashboard.currentView,
+      getSearchInput: () => refs.query,
+      isPaletteOpen: () => _palOpen,
+      isSearchInertView,
+      escapeHtml,
+      openModal,
+      openPalette: () => commandPaletteCall("open"),
+      closePalette: () => commandPaletteCall("close"),
+      projectPickerIsOpen: () => projectPickerCall("isOpen"),
+      setProjectPickerOpen: (open) => projectPickerCall("setOpen", open),
+      restoreProjectPickerFocus: () => projectPickerCall("restoreFocus"),
+      isModalOpen,
+      closeModal,
+      isSheetOpen,
+      closeSheet,
+      getOpenDialogRoot,
+      trapTab,
+      calSelectDay,
+      addDaysISO,
+      dateFromISO,
+      openTaskSheet,
+      moveIssueOrder,
+      setCalendarMode,
+      openEventModal,
+      openTodoModal,
+      openNoteModal,
+      openHabitModal,
+      openIssueModal,
+      openProjectModal,
+      openTaskModal,
+      openMemberModal,
+      setView,
+    })
+  : null;
 
-/* ============================================================
- * Shortcut help modal
- * ============================================================ */
+function keyboardShortcutCall(name, ...args) {
+  return callModuleHelper(keyboardShortcutHelpers, "keyboard shortcuts", name, args, "keyboard shortcut helper unavailable");
+}
 
-function openShortcutHelp() {
-  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-  const mod = isMac ? "⌘" : "Ctrl";
-  const rows = [
-    [`<kbd class="kbd">${mod}+K</kbd>`, "명령 팔레트 / 통합 검색 열기"],
-    [`<kbd class="kbd">/</kbd>`, "검색 가능 뷰는 현재 뷰 검색, 요약 뷰는 명령 팔레트"],
-    [`<kbd class="kbd">n</kbd>`, "현재 뷰에 새 항목 추가"],
-    [`<kbd class="kbd">?</kbd>`, "이 도움말 열기"],
-    [`<kbd class="kbd">Esc</kbd>`, "팔레트 · 모달 · 시트 닫기"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">h</kbd>`, "홈 대시보드로 이동"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">c</kbd>`, "일정으로 이동"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">t</kbd>`, "할 일로 이동"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">m</kbd>`, "메모로 이동"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">i</kbd>`, "습관으로 이동"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">s</kbd>`, "통계로 이동"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">p</kbd>`, "포트폴리오로 이동"],
-    [`<kbd class="kbd">g</kbd> → <kbd class="kbd">k</kbd>`, "Kanban 보드로 이동"],
-    ["할 일 입력 후 <kbd class=\"kbd\">Enter</kbd>", "할 일 빠른 추가"],
-  ];
-  const tableHTML = `<table class="shortcut-table">
-    <thead><tr><th>단축키</th><th>기능</th></tr></thead>
-    <tbody>${rows.map(([key, desc]) => `<tr><td>${key}</td><td>${escapeHtml(desc)}</td></tr>`).join("")}</tbody>
-  </table>`;
-  openModal("키보드 단축키", tableHTML, null);
+const interactionSetupHelpers = window.JooParkInteractionSetup && typeof window.JooParkInteractionSetup.create === "function"
+  ? window.JooParkInteractionSetup.create({
+      document,
+      state,
+      handleActions,
+      projectPickerIsOpen: () => projectPickerCall("isOpen"),
+      closeProjectPickerIfOutside: (target) => projectPickerCall("closeIfOutside", target),
+      updateReviewIssueDraftAssignee,
+      setDeletedRecoveryKind,
+      updatePostInstallProofParser,
+      postInstallProofParserNode,
+      setDeletedRecoveryQuery,
+      isModalOpen,
+      closeModal,
+    })
+  : null;
+
+function interactionSetupCall(name, ...args) {
+  return callModuleHelper(interactionSetupHelpers, "interaction setup", name, args, "interaction setup helper unavailable");
 }
 
 /* ============================================================
  * Setup
  * ============================================================ */
 
-function isSearchInertView(view = dashboard.currentView) {
-  return globalSearchCall("isInertView", view);
-}
+function isSearchInertView(view = dashboard.currentView) { return globalSearchCall("isInertView", view); }
 
-function syncSearchClearControl() {
-  return globalSearchCall("clearControl");
-}
+function syncSearchClearControl() { return globalSearchCall("clearControl"); }
 
-function syncSearchAffordance({ announce = false } = {}) {
-  return globalSearchCall("syncAffordance", { announce });
-}
+function syncSearchAffordance({ announce = false } = {}) { return globalSearchCall("syncAffordance", { announce }); }
 
-function announceInertSearch() {
-  return globalSearchCall("announceInert");
-}
-
-function currentSearchStatus() {
-  return globalSearchCall("status");
-}
-
-function revealSearchEmptyIfNeeded() {
-  return globalSearchCall("revealEmptyIfNeeded");
-}
-
-function clearGlobalSearch() {
-  return globalSearchCall("clear");
-}
-
-function setupGlobalSearch() {
-  return globalSearchCall("setup");
+function syncViewFromLocation() {
+  const name = routeViewFromLocation(), validHash = (location.hash || "") === `#${name}`;
+  if (name !== dashboard.currentView || !validHash) setView(name, { history: validHash ? "none" : "replace" });
 }
 
 function setupInteractions() {
-  document.body.addEventListener("click", (event) => {
-    const action = event.target.closest("[data-action]");
-    // Forms with data-action are handled on `submit` (Enter / submit button),
-    // not on click, so the click and the native submit don't fire twice.
-    if (action && action.tagName !== "FORM") {
-      event.preventDefault();
-      handleActions({ target: action });
-      return;
-    }
-    if (projectPickerIsOpen()) closeProjectPickerIfOutside(event.target);
-  });
-  document.body.addEventListener("change", (event) => {
-    const assigneeSelect = event.target.closest && event.target.closest("[data-issue-draft-assignee-select]");
-    if (assigneeSelect) {
-      updateReviewIssueDraftAssignee(assigneeSelect);
-    }
-    const deletedRecoveryKind = event.target.closest && event.target.closest("[data-deleted-recovery-kind-filter]");
-    if (deletedRecoveryKind) {
-      setDeletedRecoveryKind(deletedRecoveryKind.value);
-    }
-  });
-  document.body.addEventListener("input", (event) => {
-    const parserInput = event.target.closest && event.target.closest("[data-post-install-proof-parser-input]");
-    if (parserInput) {
-      updatePostInstallProofParser(postInstallProofParserNode(parserInput) || document);
-    }
-    const deletedRecoverySearch = event.target.closest && event.target.closest("[data-deleted-recovery-search]");
-    if (deletedRecoverySearch) {
-      setDeletedRecoveryQuery(deletedRecoverySearch.value);
-    }
-  });
-  document.addEventListener("keydown", (event) => {
-    // ── Cmd/Ctrl+K → open command palette (replaces old focus-search)
-    if ((event.metaKey || event.ctrlKey) && event.key && event.key.toLowerCase() === "k") {
-      event.preventDefault();
-      if (_palOpen) closePalette();
-      else openPalette();
-      return;
-    }
-
-    // ── Escape: palette → modal → sheet → project picker (in priority order)
-    if (event.key === "Escape") {
-      if (_palOpen) {
-        event.preventDefault();
-        closePalette();
-        return;
-      }
-      if (projectPickerIsOpen()) {
-        event.preventDefault();
-        setProjectPickerOpen(false);
-        restoreProjectPickerFocus();
-        return;
-      }
-      if (refs.modal.root && refs.modal.root.classList.contains("open")) { closeModal(); }
-      else if (refs.sheets.root.classList.contains("open")) { closeSheet(); }
-      return;
-    }
-
-    if (event.key === "Tab") {
-      // Also trap tab inside palette panel
-      if (_palOpen) {
-        const palPanel = nodeQuery(document, ".palette-panel");
-        if (palPanel) { trapTab(event, palPanel); return; }
-      }
-      const dialog = getOpenDialogRoot();
-      if (dialog) trapTab(event, dialog);
-    }
-
-    const calendarCell = event.target.closest && event.target.closest("[data-action='cal-open-day']");
-    if (calendarCell && calendarCell.tagName.toLowerCase() !== "button") {
-      const date = calendarCell.dataset.date;
-      const deltas = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
-      if (Object.prototype.hasOwnProperty.call(deltas, event.key)) {
-        event.preventDefault();
-        calSelectDay(addDaysISO(date, deltas[event.key]), { focus: true });
-        return;
-      }
-      if (event.key === "Home" || event.key === "End") {
-        event.preventDefault();
-        const dow = dateFromISO(date).getDay();
-        calSelectDay(addDaysISO(date, event.key === "Home" ? -dow : 6 - dow), { focus: true });
-        return;
-      }
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        calSelectDay(date, { focus: true });
-        return;
-      }
-    }
-
-    if (event.key === "Enter" || event.key === " ") {
-      // Focusable-but-not-native-button elements (Gantt SVG bars/milestones)
-      // need Enter/Space activated here. Real <button>s skip — the click
-      // handler already fires for those on Enter/Space.
-      const el = event.target.closest && event.target.closest("[data-action='open-task']");
-      if (el && el.tagName.toLowerCase() !== "button") {
-        event.preventDefault();
-        openTaskSheet(el.dataset.taskId);
-      }
-    }
-
-    // ── Single-key shortcuts: only fire when not typing in a form field or
-    //    palette/modal/sheet open. The palette has its own keydown listener.
-    const ae = document.activeElement;
-    const inField = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT" || ae.isContentEditable);
-    const dialogOpen = _palOpen || (refs.modal.root && refs.modal.root.classList.contains("open")) || (refs.sheets.root && refs.sheets.root.classList.contains("open"));
-    if (inField || dialogOpen) return;
-
-    if (
-      dashboard.currentView === "pm-kanban" &&
-      event.altKey &&
-      event.shiftKey &&
-      !event.metaKey &&
-      !event.ctrlKey &&
-      (event.key === "ArrowUp" || event.key === "ArrowDown")
-    ) {
-      const focusedCard = ae && ae.closest ? ae.closest("#view-pm-kanban .kanban-card-wrap[data-issue-id]") : null;
-      if (focusedCard) {
-        event.preventDefault();
-        moveIssueOrder(focusedCard.dataset.issueId, event.key === "ArrowUp" ? "top" : "bottom");
-        return;
-      }
-    }
-
-    // / → scoped search where available; command palette on summary-only views
-    if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      event.preventDefault();
-      if (isSearchInertView()) {
-        openPalette();
-      } else if (refs.query) {
-        refs.query.focus();
-        refs.query.select();
-      }
-      return;
-    }
-
-    // ? (Shift+/) → shortcut help
-    if (event.key === "?") {
-      event.preventDefault();
-      openShortcutHelp();
-      return;
-    }
-
-    // m/w/d → switch calendar time scale when the calendar is active
-    if (dashboard.currentView === "cal" && ["m", "w", "d"].includes(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      event.preventDefault();
-      const mode = { m: "month", w: "week", d: "day" }[event.key];
-      setCalendarMode(mode);
-      return;
-    }
-
-    // n → new item (context-aware)
-    if (event.key === "n" && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      event.preventDefault();
-      const cv = dashboard.currentView;
-      if (cv === "cal")          { openEventModal(null); }
-      else if (cv === "todo")    { openTodoModal(null); }
-      else if (cv === "notes")   { openNoteModal(null); }
-      else if (cv === "habits")  { openHabitModal(null); }
-      else if (cv === "pm-kanban")   { openIssueModal(null); }
-      else if (cv === "pm-portfolio") { openProjectModal(null); }
-      else if (cv === "pm-gantt")    { openTaskModal(null); }
-      else if (cv === "pm-team")     { openMemberModal(null); }
-      else { openEventModal(null); }
-      return;
-    }
-
-    // g-chord: g then a letter within 1.2 s → navigate
-    if (event.key === "g" && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      event.preventDefault();
-      _lastGTime = Date.now();
-      return;
-    }
-    if (_lastGTime && (Date.now() - _lastGTime) < 1200 && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      const G_MAP = {
-        h: "home", c: "cal", t: "todo", m: "notes",
-        i: "habits", s: "stats", p: "pm-portfolio", k: "pm-kanban",
-      };
-      const dest = G_MAP[event.key];
-      if (dest) {
-        event.preventDefault();
-        _lastGTime = 0;
-        setView(dest);
-        return;
-      }
-      _lastGTime = 0;
-    }
-  });
-  // Form submission: quick-add / settings forms dispatch via data-action;
-  // modal forms (no data-action) trigger the modal's confirm on Enter.
-  // preventDefault on every submit so a form never navigates the page.
-  document.body.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const actionForm = event.target.closest("form[data-action]");
-    if (actionForm) { handleActions({ target: actionForm }); return; }
-    if (refs.modal.root && refs.modal.root.classList.contains("open") && typeof state.modalOnConfirm === "function") {
-      if (state.modalOnConfirm() !== false) closeModal();
-    }
-  });
-  window.addEventListener("hashchange", () => {
-    const name = routeViewFromLocation();
-    const validHash = (location.hash || "") === `#${name}`;
-    if (name !== dashboard.currentView || !validHash) setView(name, { history: validHash ? "none" : "replace" });
-  });
-  window.addEventListener("popstate", () => {
-    const name = routeViewFromLocation();
-    const validHash = (location.hash || "") === `#${name}`;
-    if (name !== dashboard.currentView || !validHash) setView(name, { history: validHash ? "none" : "replace" });
-  });
+  keyboardShortcutCall("setup");
+  interactionSetupCall("setup");
+  window.addEventListener("hashchange", syncViewFromLocation);
+  window.addEventListener("popstate", syncViewFromLocation);
 }
 
-function updateFooter() {
-  if (!refs.footerNow) return;
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  refs.footerNow.textContent = `현재 시각: ${yyyy}-${mm}-${dd} ${hh}:${mi}`;
-}
+const footerClockHelpers = window.JooParkFooterClock && typeof window.JooParkFooterClock.create === "function"
+  ? window.JooParkFooterClock.create({ document, getFooterNow: () => refs.footerNow })
+  : null;
 
-let footerTimerId = null;
-function scheduleFooterTick() {
-  if (footerTimerId !== null) return;
-  const now = new Date();
-  const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-  footerTimerId = setTimeout(function tick() {
-    updateFooter();
-    footerTimerId = setTimeout(tick, 60 * 1000);
-  }, msToNextMinute);
-}
-function pauseFooterTick() {
-  if (footerTimerId !== null) { clearTimeout(footerTimerId); footerTimerId = null; }
+function footerClockCall(name, ...args) {
+  if (!footerClockHelpers || typeof footerClockHelpers[name] !== "function") return null;
+  try {
+    return footerClockHelpers[name](...args);
+  } catch (_) {
+    return null;
+  }
 }
 
 /* ============================================================
@@ -11086,21 +9826,11 @@ async function fetchProjectSnapshot(path) {
   try {
     const res = await fetch(path, { cache: "no-store" });
     if (!res.ok) {
-      recordProjectSnapshotHealth(path, {
-        loaded: false,
-        status: "http-error",
-        error: `HTTP ${res.status}`,
-      });
-      return null;
+      return projectSnapshotFailure(path, "http-error", `HTTP ${res.status}`);
     }
     const snapshot = await res.json();
     if (!Array.isArray(snapshot.projects) || snapshot.projects.length === 0) {
-      recordProjectSnapshotHealth(path, {
-        loaded: false,
-        status: "invalid-shape",
-        error: "projects array missing or empty",
-      });
-      return null;
+      return projectSnapshotFailure(path, "invalid-shape", "projects array missing or empty");
     }
     recordProjectSnapshotHealth(path, {
       loaded: true,
@@ -11112,14 +9842,15 @@ async function fetchProjectSnapshot(path) {
     });
     return snapshot;
   } catch (err) {
-    recordProjectSnapshotHealth(path, {
-      loaded: false,
-      status: "error",
-      error: err.message,
-    });
+    const failed = projectSnapshotFailure(path, "error", err.message);
     console.info(`[workspace] project snapshot not loaded: ${path}`, err.message);
-    return null;
+    return failed;
   }
+}
+
+function projectSnapshotFailure(path, status, error) {
+  recordProjectSnapshotHealth(path, { loaded: false, status, error });
+  return null;
 }
 
 function resetProjectSnapshotHealth() {
@@ -11136,24 +9867,27 @@ function resetProjectSnapshotHealth() {
   };
 }
 
+function projectSnapshotSources() {
+  return Array.isArray(state.projectSnapshotHealth.sources) ? state.projectSnapshotHealth.sources : [];
+}
+
 function recordProjectSnapshotHealth(path, result) {
-  const sources = Array.isArray(state.projectSnapshotHealth.sources) ? state.projectSnapshotHealth.sources : [];
   const relPath = String(path || "").replace(/^\.\//, "");
   const next = {
     path: relPath,
     loaded: !!result.loaded,
     status: result.status || (result.loaded ? "pass" : "error"),
-    projectCount: Number.isFinite(Number(result.projectCount)) ? Number(result.projectCount) : 0,
+    projectCount: finiteNumberOr(result.projectCount, 0),
     generatedAt: result.generatedAt || "",
     source: result.source || "",
     importId: result.importId || "",
     error: result.error || "",
   };
-  state.projectSnapshotHealth.sources = [...sources.filter((item) => item.path !== relPath), next];
+  state.projectSnapshotHealth.sources = [...projectSnapshotSources().filter((item) => item.path !== relPath), next];
 }
 
 function finalizeProjectSnapshotHealth({ snapshot, applied, appliedReason }) {
-  const sources = Array.isArray(state.projectSnapshotHealth.sources) ? state.projectSnapshotHealth.sources : [];
+  const sources = projectSnapshotSources();
   const loadedCount = sources.filter((item) => item.loaded).length;
   const errorCount = sources.filter((item) => !item.loaded).length;
   state.projectSnapshotHealth = {
@@ -11170,269 +9904,163 @@ function finalizeProjectSnapshotHealth({ snapshot, applied, appliedReason }) {
   };
 }
 
-async function loadPublishEvidence() {
-  const source = "./data/publish-evidence.json";
+function setEvidenceState(stateKey, { source, loaded, data = null, error = "" }) {
+  state[stateKey] = {
+    checked: true,
+    loaded,
+    source,
+    data: loaded ? data : null,
+    error: loaded ? "" : error,
+  };
+  return loaded;
+}
+
+async function loadJsonEvidenceState({ url, source, stateKey, invalidMessage, validate }) {
   try {
-    const res = await fetch(source, { cache: "no-store" });
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
-      state.publishEvidence = {
-        checked: true,
-        loaded: false,
-        source: "data/publish-evidence.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
+      return setEvidenceState(stateKey, { source, loaded: false, error: `HTTP ${res.status}` });
     }
-    const evidence = await res.json();
-    const valid = evidence &&
+    const payload = await res.json();
+    const valid = !!validate(payload);
+    return setEvidenceState(stateKey, { source, loaded: valid, data: payload, error: invalidMessage });
+  } catch (err) {
+    return setEvidenceState(stateKey, { source, loaded: false, error: err.message });
+  }
+}
+
+async function loadPublishEvidence() {
+  return loadJsonEvidenceState({
+    url: "./data/publish-evidence.json",
+    source: "data/publish-evidence.json",
+    stateKey: "publishEvidence",
+    invalidMessage: "invalid publish evidence shape",
+    validate: (evidence) => evidence &&
       evidence.status === "pass" &&
       Array.isArray(evidence.workflowEvidencePlans) &&
-      typeof evidence.postPublishEvidenceReady === "boolean";
-    state.publishEvidence = {
-      checked: true,
-      loaded: valid,
-      source: "data/publish-evidence.json",
-      data: valid ? evidence : null,
-      error: valid ? "" : "invalid publish evidence shape",
-    };
-    return valid;
-  } catch (err) {
-    state.publishEvidence = {
-      checked: true,
-      loaded: false,
-      source: "data/publish-evidence.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+      typeof evidence.postPublishEvidenceReady === "boolean",
+  });
 }
 
 async function loadWorkflowUiInstallPlan() {
-  const source = "./data/workflow-ui-install-plan.json";
-  try {
-    const res = await fetch(source, { cache: "no-store" });
-    if (!res.ok) {
-      state.workflowUiInstallPlan = {
-        checked: true,
-        loaded: false,
-        source: "data/workflow-ui-install-plan.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
-    }
-    const plan = await res.json();
-    const plans = Array.isArray(plan?.plans) ? plan.plans : [];
-    const pastePacketText = plan?.workflowUiInstallPastePacket || plan?.uiPastePacket || plan?.packet || plan?.installReceipt?.text || "";
-    const pastePacketReady = plan?.workflowUiInstallPastePacketReady === true || plan?.uiPastePacketReady === true || plan?.packetReady === true || plan?.installReceipt?.ready === true;
-    const valid = plan &&
-      plan.status === "pass" &&
-      plan.workflowUiInstallReady === true &&
-      typeof plan.nextVerificationCommand === "string" &&
-      plan.installReceipt &&
-      plan.installReceipt.ready === true &&
-      typeof plan.installReceipt.text === "string" &&
-      plan.installReceipt.text.includes("JooPark GitHub UI Workflow Install Receipt") &&
-      pastePacketReady &&
-      pastePacketText.includes("JooPark GitHub UI Workflow Paste Packet") &&
-      pastePacketText.includes("workflowUiInstallReady") &&
-      pastePacketText.includes("GitHub new-file form values:") &&
-      pastePacketText.includes("githubFileNameFieldValue=.github/workflows/joopark-pages.yml") &&
-      pastePacketText.includes("remoteWorkflowVisibilityReady=true") &&
-      Number(plan.workflowUiInstallPastePacketCoverage || 0) >= 1 &&
-      Number(plan.workflowUiInstallFormFieldCoverage || 0) >= 1 &&
-      Number(plan.installReceipt.commandCount || 0) >= 8 &&
-      plans.length >= 2 &&
-      plans.every((item) => item.githubNewFileUrl && item.githubWorkflowUrl && item.templateCopyCommand && item.githubNewFileOpenCommand && item.githubWorkflowOpenCommand && item.githubFileNameFieldValue && item.suggestedCommitMessage);
-    state.workflowUiInstallPlan = {
-      checked: true,
-      loaded: valid,
-      source: "data/workflow-ui-install-plan.json",
-      data: valid ? plan : null,
-      error: valid ? "" : "invalid workflow install plan shape",
-    };
-    return valid;
-  } catch (err) {
-    state.workflowUiInstallPlan = {
-      checked: true,
-      loaded: false,
-      source: "data/workflow-ui-install-plan.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+  return loadJsonEvidenceState({
+    url: "./data/workflow-ui-install-plan.json",
+    source: "data/workflow-ui-install-plan.json",
+    stateKey: "workflowUiInstallPlan",
+    invalidMessage: "invalid workflow install plan shape",
+    validate: (plan) => {
+      const plans = Array.isArray(plan?.plans) ? plan.plans : [];
+      const pastePacketText = plan?.workflowUiInstallPastePacket || plan?.uiPastePacket || plan?.packet || plan?.installReceipt?.text || "";
+      const pastePacketReady = plan?.workflowUiInstallPastePacketReady === true || plan?.uiPastePacketReady === true || plan?.packetReady === true || plan?.installReceipt?.ready === true;
+      return plan &&
+        plan.status === "pass" &&
+        plan.workflowUiInstallReady === true &&
+        typeof plan.nextVerificationCommand === "string" &&
+        plan.installReceipt &&
+        plan.installReceipt.ready === true &&
+        typeof plan.installReceipt.text === "string" &&
+        plan.installReceipt.text.includes("JooPark GitHub UI Workflow Install Receipt") &&
+        pastePacketReady &&
+        pastePacketText.includes("JooPark GitHub UI Workflow Paste Packet") &&
+        pastePacketText.includes("workflowUiInstallReady") &&
+        pastePacketText.includes("GitHub new-file form values:") &&
+        pastePacketText.includes("githubFileNameFieldValue=.github/workflows/joopark-pages.yml") &&
+        pastePacketText.includes("remoteWorkflowVisibilityReady=true") &&
+        Number(plan.workflowUiInstallPastePacketCoverage || 0) >= 1 &&
+        Number(plan.workflowUiInstallFormFieldCoverage || 0) >= 1 &&
+        Number(plan.installReceipt.commandCount || 0) >= 8 &&
+        plans.length >= 2 &&
+        plans.every((item) => item.githubNewFileUrl && item.githubWorkflowUrl && item.templateCopyCommand && item.githubNewFileOpenCommand && item.githubWorkflowOpenCommand && item.githubFileNameFieldValue && item.suggestedCommitMessage);
+    },
+  });
 }
 
 async function loadPublishDispatchPlan() {
-  const source = "./data/publish-dispatch-plan.json";
-  try {
-    const res = await fetch(source, { cache: "no-store" });
-    if (!res.ok) {
-      state.publishDispatchPlan = {
-        checked: true,
-        loaded: false,
-        source: "data/publish-dispatch-plan.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
-    }
-    const plan = await res.json();
-    const workflowPlans = Array.isArray(plan?.workflowPlans) ? plan.workflowPlans : [];
-    const valid = plan &&
-      plan.status === "pass" &&
-      typeof plan.repoEvidenceReady === "boolean" &&
-      typeof plan.dispatchReady === "boolean" &&
-      typeof plan.driftDispatchReady === "boolean" &&
-      typeof plan.allDispatchReady === "boolean" &&
-      typeof plan.nextVerificationCommand === "string" &&
-      typeof plan.workflowListCommand === "string" &&
-      workflowPlans.length >= 2 &&
-      workflowPlans.every((item) => item.workflowFile && item.workflowPath && typeof item.dispatchReady === "boolean" && typeof item.dispatchCommand === "string");
-    state.publishDispatchPlan = {
-      checked: true,
-      loaded: valid,
-      source: "data/publish-dispatch-plan.json",
-      data: valid ? plan : null,
-      error: valid ? "" : "invalid publish dispatch plan shape",
-    };
-    return valid;
-  } catch (err) {
-    state.publishDispatchPlan = {
-      checked: true,
-      loaded: false,
-      source: "data/publish-dispatch-plan.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+  return loadJsonEvidenceState({
+    url: "./data/publish-dispatch-plan.json",
+    source: "data/publish-dispatch-plan.json",
+    stateKey: "publishDispatchPlan",
+    invalidMessage: "invalid publish dispatch plan shape",
+    validate: (plan) => {
+      const workflowPlans = Array.isArray(plan?.workflowPlans) ? plan.workflowPlans : [];
+      return plan &&
+        plan.status === "pass" &&
+        typeof plan.repoEvidenceReady === "boolean" &&
+        typeof plan.dispatchReady === "boolean" &&
+        typeof plan.driftDispatchReady === "boolean" &&
+        typeof plan.allDispatchReady === "boolean" &&
+        typeof plan.nextVerificationCommand === "string" &&
+        typeof plan.workflowListCommand === "string" &&
+        workflowPlans.length >= 2 &&
+        workflowPlans.every((item) => item.workflowFile && item.workflowPath && typeof item.dispatchReady === "boolean" && typeof item.dispatchCommand === "string");
+    },
+  });
 }
 
 async function loadRemoteWorkflowFileCheck() {
-  const source = "./data/remote-workflow-file-check.json";
-  try {
-    const res = await fetch(source, { cache: "no-store" });
-    if (!res.ok) {
-      state.remoteWorkflowFileCheck = {
-        checked: true,
-        loaded: false,
-        source: "data/remote-workflow-file-check.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
-    }
-    const check = await res.json();
-    const checks = Array.isArray(check?.checks) ? check.checks : [];
-    const valid = check &&
-      check.status === "pass" &&
-      typeof check.repoEvidenceReady === "boolean" &&
-      typeof check.remoteWorkflowFilesChecked === "boolean" &&
-      typeof check.remoteWorkflowFilesReady === "boolean" &&
-      typeof check.nextVerificationCommand === "string" &&
-      typeof check.installPacket === "string" &&
-      checks.length >= 2 &&
-      checks.every((item) =>
-        item.path &&
-        typeof item.remoteExists === "boolean" &&
-        typeof item.remoteMatchesTemplate === "boolean" &&
-        typeof item.templateCopyCommand === "string" &&
-        typeof item.githubNewFileOpenCommand === "string"
-      );
-    state.remoteWorkflowFileCheck = {
-      checked: true,
-      loaded: valid,
-      source: "data/remote-workflow-file-check.json",
-      data: valid ? check : null,
-      error: valid ? "" : "invalid remote workflow file check shape",
-    };
-    return valid;
-  } catch (err) {
-    state.remoteWorkflowFileCheck = {
-      checked: true,
-      loaded: false,
-      source: "data/remote-workflow-file-check.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+  return loadJsonEvidenceState({
+    url: "./data/remote-workflow-file-check.json",
+    source: "data/remote-workflow-file-check.json",
+    stateKey: "remoteWorkflowFileCheck",
+    invalidMessage: "invalid remote workflow file check shape",
+    validate: (check) => {
+      const checks = Array.isArray(check?.checks) ? check.checks : [];
+      return check &&
+        check.status === "pass" &&
+        typeof check.repoEvidenceReady === "boolean" &&
+        typeof check.remoteWorkflowFilesChecked === "boolean" &&
+        typeof check.remoteWorkflowFilesReady === "boolean" &&
+        typeof check.nextVerificationCommand === "string" &&
+        typeof check.installPacket === "string" &&
+        checks.length >= 2 &&
+        checks.every((item) =>
+          item.path &&
+          typeof item.remoteExists === "boolean" &&
+          typeof item.remoteMatchesTemplate === "boolean" &&
+          typeof item.templateCopyCommand === "string" &&
+          typeof item.githubNewFileOpenCommand === "string"
+        );
+    },
+  });
 }
 
 async function loadLaunchExecutionPacket() {
-  const source = "./data/launch-execution-packet.json";
-  try {
-    const res = await fetch(source, { cache: "no-store" });
-    if (!res.ok) {
-      state.launchExecutionPacket = {
-        checked: true,
-        loaded: false,
-        source: "data/launch-execution-packet.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
-    }
-    const packet = await res.json();
-    const stages = Array.isArray(packet?.stages) ? packet.stages : [];
-    const postInstallIntake = packet?.postInstallEvidenceIntake && typeof packet.postInstallEvidenceIntake === "object" ? packet.postInstallEvidenceIntake : {};
-    const valid = packet &&
-      packet.status === "pass" &&
-      typeof packet.packet === "string" &&
-      typeof packet.readyToDispatch === "boolean" &&
-      typeof packet.launchProofReady === "boolean" &&
-      typeof packet.readyForExternalClaim === "boolean" &&
-      postInstallIntake.quickProofReady === true &&
-      Number(postInstallIntake.quickProofStepCount || 0) === 4 &&
-      Number(postInstallIntake.quickProofCoverage || 0) === 1 &&
-      postInstallIntake.quickProofFieldMappingReady === true &&
-      Number(postInstallIntake.quickProofMappedFieldCount || 0) === 4 &&
-      Number(postInstallIntake.quickProofFieldMappingCoverage || 0) === 1 &&
-      Array.isArray(postInstallIntake.quickProofFieldMappings) &&
-      String(postInstallIntake.quickProofReceipt || "").includes("JooPark Post-Install Quick Proof Receipt") &&
-      Array.isArray(packet.externalComparison) &&
-      stages.length >= 5 &&
-      stages.every((item) => item.key && item.label && item.status && Array.isArray(item.commands));
-    state.launchExecutionPacket = {
-      checked: true,
-      loaded: valid,
-      source: "data/launch-execution-packet.json",
-      data: valid ? packet : null,
-      error: valid ? "" : "invalid launch execution packet shape",
-    };
-    return valid;
-  } catch (err) {
-    state.launchExecutionPacket = {
-      checked: true,
-      loaded: false,
-      source: "data/launch-execution-packet.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+  return loadJsonEvidenceState({
+    url: "./data/launch-execution-packet.json",
+    source: "data/launch-execution-packet.json",
+    stateKey: "launchExecutionPacket",
+    invalidMessage: "invalid launch execution packet shape",
+    validate: (packet) => {
+      const stages = Array.isArray(packet?.stages) ? packet.stages : [];
+      const postInstallIntake = packet?.postInstallEvidenceIntake && typeof packet.postInstallEvidenceIntake === "object" ? packet.postInstallEvidenceIntake : {};
+      return packet &&
+        packet.status === "pass" &&
+        typeof packet.packet === "string" &&
+        typeof packet.readyToDispatch === "boolean" &&
+        typeof packet.launchProofReady === "boolean" &&
+        typeof packet.readyForExternalClaim === "boolean" &&
+        postInstallIntake.quickProofReady === true &&
+        Number(postInstallIntake.quickProofStepCount || 0) === 4 &&
+        Number(postInstallIntake.quickProofCoverage || 0) === 1 &&
+        postInstallIntake.quickProofFieldMappingReady === true &&
+        Number(postInstallIntake.quickProofMappedFieldCount || 0) === 4 &&
+        Number(postInstallIntake.quickProofFieldMappingCoverage || 0) === 1 &&
+        Array.isArray(postInstallIntake.quickProofFieldMappings) &&
+        String(postInstallIntake.quickProofReceipt || "").includes("JooPark Post-Install Quick Proof Receipt") &&
+        Array.isArray(packet.externalComparison) &&
+        stages.length >= 5 &&
+        stages.every((item) => item.key && item.label && item.status && Array.isArray(item.commands));
+    },
+  });
 }
 
 async function loadLaunchReadinessRefresh() {
-  const source = "./data/launch-readiness-refresh.json";
-  try {
-    const res = await fetch(source, { cache: "no-store" });
-    if (!res.ok) {
-      state.launchReadinessRefresh = {
-        checked: true,
-        loaded: false,
-        source: "data/launch-readiness-refresh.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
-    }
-    const refresh = await res.json();
-    const valid = refresh &&
+  return loadJsonEvidenceState({
+    url: "./data/launch-readiness-refresh.json",
+    source: "data/launch-readiness-refresh.json",
+    stateKey: "launchReadinessRefresh",
+    invalidMessage: "invalid launch readiness refresh shape",
+    validate: (refresh) => refresh &&
       refresh.status === "pass" &&
       Number(refresh.commandCoverage || 0) >= 6 &&
       Array.isArray(refresh.commandRuns) &&
@@ -11445,29 +10073,12 @@ async function loadLaunchReadinessRefresh() {
       typeof refresh.safeToDispatch === "boolean" &&
       typeof refresh.readyForExternalClaim === "boolean" &&
       refresh.nextAction &&
-      typeof refresh.nextAction.command === "string";
-    state.launchReadinessRefresh = {
-      checked: true,
-      loaded: valid,
-      source: "data/launch-readiness-refresh.json",
-      data: valid ? refresh : null,
-      error: valid ? "" : "invalid launch readiness refresh shape",
-    };
-    return valid;
-  } catch (err) {
-    state.launchReadinessRefresh = {
-      checked: true,
-      loaded: false,
-      source: "data/launch-readiness-refresh.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+      typeof refresh.nextAction.command === "string",
+  });
 }
 
 async function loadVerifyWorkspaceSummary() {
-  if (!verifyWorkspaceSummaryHelpers) {
+  if (!getVerifyWorkspaceSummaryHelpers()) {
     state.verifyWorkspaceSummary = initialVerifyWorkspaceSummaryState();
     return false;
   }
@@ -11477,47 +10088,28 @@ async function loadVerifyWorkspaceSummary() {
 }
 
 async function loadReleaseReadinessSummary() {
-  const source = "./autoresearch-results/release-readiness-summary.json";
-  try {
-    const res = await fetch(source, { cache: "no-store" });
-    if (!res.ok) {
-      state.releaseReadinessSummary = {
-        checked: true,
-        loaded: false,
-        source: "autoresearch-results/release-readiness-summary.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
-    }
-    const summary = await res.json();
-    const gate = summary?.packagedBrowserGate || summary?.packagedBrowserGates || {};
-    const valid = summary &&
-      summary.schemaVersion === "joopark-release-readiness-summary/v1" &&
-      summary.checks &&
-      typeof summary.checks === "object" &&
-      gate &&
-      typeof gate.status === "string" &&
-      gate.cache &&
-      typeof gate.cache === "object";
-    state.releaseReadinessSummary = {
-      checked: true,
-      loaded: valid,
-      source: "autoresearch-results/release-readiness-summary.json",
-      data: valid ? summary : null,
-      error: valid ? "" : "invalid release readiness summary shape",
-    };
-    return valid;
-  } catch (err) {
-    state.releaseReadinessSummary = {
-      checked: true,
-      loaded: false,
-      source: "autoresearch-results/release-readiness-summary.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+  return loadJsonEvidenceState({
+    url: "./autoresearch-results/release-readiness-summary.json",
+    source: "autoresearch-results/release-readiness-summary.json",
+    stateKey: "releaseReadinessSummary",
+    invalidMessage: "invalid release readiness summary shape",
+    validate: (summary) => {
+      const gate = summary?.packagedBrowserGate || summary?.packagedBrowserGates || {};
+      const completionAudit = summary?.completionAudit || {};
+      return summary &&
+        summary.schemaVersion === "joopark-release-readiness-summary/v1" &&
+        summary.checks &&
+        typeof summary.checks === "object" &&
+        completionAudit &&
+        typeof completionAudit.status === "string" &&
+        typeof completionAudit.launchCompletionAchieved === "boolean" &&
+        Array.isArray(completionAudit.blockedSignals) &&
+        gate &&
+        typeof gate.status === "string" &&
+        gate.cache &&
+        typeof gate.cache === "object";
+    },
+  });
 }
 
 function provenanceSubjectByName(provenance, name) {
@@ -11557,68 +10149,49 @@ async function loadReleaseProvenance() {
         jooparkRelease.signatureStatus === "unsigned-local-provenance" &&
         jooparkRelease.signed === false &&
         ["source-tree", "index.html", "app.js", "sw.js", "data", "vendor"].every((name) => dependencyNames.has(name));
-      state.releaseProvenance = {
-        checked: true,
-        loaded: valid,
-        source: candidate.source,
-        data: valid ? provenance : null,
-        error: valid ? "" : "invalid release provenance shape",
-      };
-      return valid;
+      return setEvidenceState("releaseProvenance", { source: candidate.source, loaded: valid, data: provenance, error: "invalid release provenance shape" });
     } catch (err) {
       lastError = err.message;
     }
   }
-  state.releaseProvenance = {
-    checked: true,
-    loaded: false,
-    source: "release-provenance.json",
-    data: null,
-    error: lastError || "release provenance not found",
-  };
-  return false;
+  return setEvidenceState("releaseProvenance", { source: "release-provenance.json", loaded: false, error: lastError || "release provenance not found" });
 }
 
 async function loadOutputQualityAudit() {
-  const source = "./data/output-quality-audit.json";
-  try {
-    const res = await fetch(source, { cache: "no-store" });
-    if (!res.ok) {
-      state.outputQualityAudit = {
-        checked: true,
-        loaded: false,
-        source: "data/output-quality-audit.json",
-        data: null,
-        error: `HTTP ${res.status}`,
-      };
-      return false;
-    }
-    const audit = await res.json();
-    const valid = audit &&
+  return loadJsonEvidenceState({
+    url: "./data/output-quality-audit.json",
+    source: "data/output-quality-audit.json",
+    stateKey: "outputQualityAudit",
+    invalidMessage: "invalid output quality audit shape",
+    validate: (audit) => audit &&
       audit.status === "pass" &&
       typeof audit.receipt === "string" &&
       Array.isArray(audit.criteria) &&
       Array.isArray(audit.externalComparison) &&
       typeof audit.releaseQualityReady === "boolean" &&
-      typeof audit.readyForExternalClaim === "boolean";
-    state.outputQualityAudit = {
-      checked: true,
-      loaded: valid,
-      source: "data/output-quality-audit.json",
-      data: valid ? audit : null,
-      error: valid ? "" : "invalid output quality audit shape",
-    };
-    return valid;
-  } catch (err) {
-    state.outputQualityAudit = {
-      checked: true,
-      loaded: false,
-      source: "data/output-quality-audit.json",
-      data: null,
-      error: err.message,
-    };
-    return false;
-  }
+      typeof audit.readyForExternalClaim === "boolean",
+  });
+}
+
+async function loadGithubProjectDiscovery() {
+  return loadJsonEvidenceState({
+    url: "./data/github-project-discovery.json",
+    source: "data/github-project-discovery.json",
+    stateKey: "githubProjectDiscovery",
+    invalidMessage: "invalid GitHub project discovery shape",
+    validate: (discovery) => discovery &&
+      discovery.schemaVersion === "joopark-github-project-discovery/v1" &&
+      discovery.status === "pass" &&
+      discovery.privacy &&
+      discovery.privacy.publicArtifactSafe === true &&
+      discovery.privacy.absoluteLocalPathExposure === false &&
+      discovery.counts &&
+      Number(discovery.counts.rankedProjects || 0) > 0 &&
+      Array.isArray(discovery.rankedProjects) &&
+      discovery.rankedProjects.length > 0 &&
+      discovery.abComparison &&
+      discovery.abComparison.decision === "keep_b",
+  });
 }
 
 function mergeProjectSnapshots(...snapshots) {
@@ -11674,7 +10247,7 @@ function markAppliedProjectImports(projects, importId) {
   const applied = new Set(Array.isArray(registry[key]) ? registry[key] : []);
   const before = applied.size;
   candidates.forEach((id) => applied.add(id));
-  registry[key] = [...applied].sort();
+  registry[key] = sortedStrings(applied);
   return applied.size !== before;
 }
 
@@ -11714,7 +10287,7 @@ function mergeImportedProjects(snapshot) {
     });
 
   if (!registryChanged && updated === 0) return false;
-  registry[importId] = [...applied].sort();
+  registry[importId] = sortedStrings(applied);
   normalizeAllData();
   rebuildIndexes();
   persist();
@@ -11793,51 +10366,26 @@ function applyGithubSnapshot(snapshot) {
 }
 
 function refreshAfterSnapshot() {
-  const cur = currentProject();
-  if (refs.projectSelectLabel && cur) refs.projectSelectLabel.textContent = cur.name;
-  const navProjects = document.getElementById("navCountProjects");
-  if (navProjects) navProjects.textContent = String(dashboard.projects.length);
-  const navIssues = document.getElementById("navCountIssues");
-  if (navIssues) navIssues.textContent = String(dashboard.issues.length);
-  if (projectPickerIsOpen()) renderProjectOptions();
+  updateProjectSelectLabel();
+  setText("navCountProjects", dashboard.projects.length);
+  setText("navCountIssues", dashboard.issues.length);
+  if (projectPickerCall("isOpen")) projectPickerCall("renderOptions");
   renderCurrentView();
 }
 
 /* ---------- Browser notification helper (best-effort, opt-in only) ---------- */
 
-function tryBrowserNotification(title, body) {
-  try {
-    if (!("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-    new Notification(title, { body, icon: "" });
-  } catch (_) { /* intentionally silent */ }
-}
+const eventReminderHelpers = window.JooParkEventReminders && typeof window.JooParkEventReminders.create === "function"
+  ? window.JooParkEventReminders.create({ window, eventsOn, todayISO })
+  : null;
 
-/* Poll every ~60 s for events starting within 10 minutes (while page is open). */
-let _browserNotifLastFired = new Set();
-function startEventReminders() {
+function eventReminderCall(name, ...args) {
+  if (!eventReminderHelpers || typeof eventReminderHelpers[name] !== "function") return null;
   try {
-    setInterval(() => {
-      try {
-        if (!("Notification" in window) || Notification.permission !== "granted") return;
-        const now = new Date();
-        const todayStr = todayISO();
-        eventsOn(todayStr).forEach((e) => {
-          if (e.allDay || !e.start) return;
-          const [hh, mm] = e.start.split(":").map(Number);
-          const evTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0);
-          const diffMin = (evTime - now) / 60000;
-          if (diffMin >= 0 && diffMin <= 10) {
-            const key = `${e._masterId || e.id}-${todayStr}`;
-            if (!_browserNotifLastFired.has(key)) {
-              _browserNotifLastFired.add(key);
-              tryBrowserNotification(`일정 알림: ${e.title}`, `${e.start} 시작 (약 ${Math.round(diffMin)}분 후)`);
-            }
-          }
-        });
-      } catch (_) { /* silent */ }
-    }, 60000);
-  } catch (_) { /* silent */ }
+    return eventReminderHelpers[name](...args);
+  } catch (_) {
+    return null;
+  }
 }
 
 const pwaRuntimeHelpers = window.JooParkPwaRuntime && typeof window.JooParkPwaRuntime.create === "function"
@@ -11849,6 +10397,74 @@ const pwaRuntimeHelpers = window.JooParkPwaRuntime && typeof window.JooParkPwaRu
       caches: window.caches,
     })
   : null;
+
+function renderRuntimeErrorFallback(payload = {}) {
+  const viewName = normalizeRouteView(dashboard.currentView || "home");
+  const target = refs.views && refs.views[viewName] ? refs.views[viewName] : activeViewEl;
+  if (!target) return;
+  Object.entries(refs.views || {}).forEach(([name, el]) => {
+    if (el) el.hidden = name !== viewName;
+  });
+  activeViewEl = target;
+  target.hidden = false;
+  target.replaceChildren();
+
+  const section = document.createElement("section");
+  section.className = "panel";
+  section.dataset.runtimeErrorFallback = "true";
+  section.setAttribute("role", "alert");
+
+  const head = document.createElement("div");
+  head.className = "panel-head";
+  const titleWrap = document.createElement("div");
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = "Runtime safety";
+  const title = document.createElement("h2");
+  title.textContent = "화면을 안전하게 유지했습니다";
+  titleWrap.append(eyebrow, title);
+  const badge = document.createElement("span");
+  badge.className = "pill warn";
+  badge.textContent = "오류 감지";
+  head.append(titleWrap, badge);
+
+  const guidance = document.createElement("p");
+  guidance.className = "muted";
+  guidance.textContent = "예상치 못한 오류가 발생했습니다. 다른 메뉴로 이동하거나 새로고침하면 계속 사용할 수 있습니다.";
+  const detail = document.createElement("p");
+  detail.className = "muted";
+  detail.textContent = payload.message || "runtime error";
+
+  section.append(head, guidance, detail);
+  target.appendChild(section);
+}
+
+const runtimeErrorBoundaryHelpers = window.JooParkRuntimeErrorBoundary && typeof window.JooParkRuntimeErrorBoundary.create === "function"
+  ? window.JooParkRuntimeErrorBoundary.create({
+      window,
+      consoleRef: console,
+      locationRef: location,
+      showToast,
+      fallback: renderRuntimeErrorFallback,
+      nowISO,
+    })
+  : null;
+
+function handleRuntimeError(error, context = {}) {
+  if (runtimeErrorBoundaryHelpers) {
+    return runtimeErrorBoundaryHelpers.handle(error, context);
+  }
+  console.error("[joopark-runtime-error]", error);
+  try {
+    showToast("예상치 못한 오류가 발생했습니다. 화면을 안전하게 유지했습니다.", "error", { timeoutMs: 5200 });
+  } catch (_) { /* fallback toast unavailable */ }
+  return null;
+}
+
+function setupRuntimeErrorBoundary() {
+  if (!runtimeErrorBoundaryHelpers) return false;
+  return runtimeErrorBoundaryHelpers.install();
+}
 
 function pwaRuntimeCall(name, ...args) {
   return callModuleHelper(pwaRuntimeHelpers, "PWA runtime", name, args, "PWA runtime helper unavailable");
@@ -11908,8 +10524,7 @@ function applyTheme() {
 }
 
 function setTheme(theme) {
-  if (!dashboard.ui || typeof dashboard.ui !== "object") dashboard.ui = { theme: "dark" };
-  dashboard.ui.theme = theme === "light" ? "light" : "dark";
+  ensureDashboardUi({ theme: "dark" }).theme = theme === "light" ? "light" : "dark";
   applyTheme();
   persist();
   if (dashboard.currentView === "settings") renderSettings();
@@ -11921,32 +10536,38 @@ function toggleTheme() {
   showToast(next === "light" ? "라이트 테마로 전환했습니다" : "다크 테마로 전환했습니다", "info");
 }
 
+function refreshReleaseEvidenceAfter(load) { return load().then(() => { refreshReleaseEvidenceViews(); }); }
+function refreshVerifyWorkspaceSummaryEvidence() { return refreshReleaseEvidenceAfter(loadVerifyWorkspaceSummary); }
+
 function setup() {
   assertRefs();
+  setupRuntimeErrorBoundary();
   // Load the user's saved 일정 / 할 일 / 메모 before the first render (seeds on
   // first run). Everything the user manages day to day lives in localStorage.
   loadPersisted();
+  hydrateArtifactStorage().then((hydrated) => {
+    if (!hydrated) return;
+    applyTheme();
+    updateUserDisplayName();
+    updateNavCounts();
+    updateProjectSelectLabel();
+    renderCurrentView();
+  }).catch((error) => handleRuntimeError(error, { source: "artifact-storage-hydration" }));
+  state.dashboardAutoresearchActive = !!(dashboard.ui && dashboard.ui.dashboardAutoresearchActive);
   applyTheme();
-  const nameEl = nodeQuery(document, ".user strong");
-  if (nameEl && dashboard.settings && dashboard.settings.displayName) {
-    nameEl.textContent = dashboard.settings.displayName;
-  }
+  updateUserDisplayName();
   updateNavCounts();
   // Boot to URL hash if present
   setView(routeViewFromLocation(), { history: "replace" });
-  setupGlobalSearch();
-  setupPalette();
+  globalSearchCall("setup");
+  commandPaletteCall("setup");
   setupInteractions();
-  updateFooter();
+  footerClockCall("update");
   updateDataSafetyTopbar();
   // Set project label to the current one
-  const cur = currentProject();
-  if (refs.projectSelectLabel && cur) refs.projectSelectLabel.textContent = cur.name;
-  scheduleFooterTick();
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) pauseFooterTick();
-    else { updateFooter(); scheduleFooterTick(); }
-  });
+  updateProjectSelectLabel();
+  footerClockCall("schedule");
+  footerClockCall("setupVisibility");
   refreshStorageHealth();
   window.addEventListener("online", updateDataSafetyTopbar);
   window.addEventListener("offline", updateDataSafetyTopbar);
@@ -11954,36 +10575,19 @@ function setup() {
     if (loaded) refreshAfterSnapshot();
     else if (dashboard.currentView === "system") renderSystemStatus();
   });
-  loadPublishEvidence().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadWorkflowUiInstallPlan().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadPublishDispatchPlan().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadRemoteWorkflowFileCheck().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadLaunchExecutionPacket().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadLaunchReadinessRefresh().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadVerifyWorkspaceSummary().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadReleaseReadinessSummary().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadReleaseProvenance().then(() => {
-    refreshReleaseEvidenceViews();
-  });
-  loadOutputQualityAudit().then(() => {
-    refreshReleaseEvidenceViews();
-  });
+  [
+    loadPublishEvidence,
+    loadWorkflowUiInstallPlan,
+    loadPublishDispatchPlan,
+    loadRemoteWorkflowFileCheck,
+    loadLaunchExecutionPacket,
+    loadLaunchReadinessRefresh,
+    loadReleaseReadinessSummary,
+    loadReleaseProvenance,
+    loadOutputQualityAudit,
+    loadGithubProjectDiscovery,
+  ].forEach(refreshReleaseEvidenceAfter);
+  ensureOpsRuntime("release").then(refreshVerifyWorkspaceSummaryEvidence).catch((error) => handleRuntimeError(error, { source: "ops-runtime", group: "release" }));
 
   // Boot toast: warn about overdue todos once on load.
   const overdueCount = (Array.isArray(dashboard.todos) ? dashboard.todos : [])
@@ -11994,9 +10598,13 @@ function setup() {
 
   // Start browser-notification reminder poll (guarded, does nothing unless
   // permission was previously granted — never auto-prompts).
-  startEventReminders();
+  eventReminderCall("start");
   setupPwaRuntimeObservers();
   registerServiceWorker();
 }
 
-setup();
+try {
+  setup();
+} catch (error) {
+  handleRuntimeError(error, { source: "setup" });
+}

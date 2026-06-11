@@ -19,6 +19,14 @@
       return !!rootWindow.isSecureContext || localHostContext();
     }
 
+    function serviceWorkerSupported() {
+      return "serviceWorker" in rootNavigator;
+    }
+
+    function updateCallback(onUpdate) {
+      return typeof onUpdate === "function" ? onUpdate : function () {};
+    }
+
     function statusLabel(runtime) {
       if (!runtime.checked) return "checking";
       if (!runtime.secureContext && !runtime.localHostContext) return "insecure";
@@ -28,13 +36,25 @@
       return "waiting";
     }
 
+    function resetServiceWorkerState(runtime) {
+      runtime.serviceWorkerActive = false;
+      runtime.scriptURL = "";
+      runtime.scope = "";
+    }
+
+    function resetCacheState(runtime) {
+      runtime.cacheReady = false;
+      runtime.appShellCache = "";
+      runtime.cachedAssetCount = 0;
+    }
+
     async function inspect(previous) {
       const next = {
         ...(previous && typeof previous === "object" ? previous : {}),
         checked: true,
         secureContext: !!rootWindow.isSecureContext,
         localHostContext: localHostContext(),
-        serviceWorkerSupported: "serviceWorker" in rootNavigator,
+        serviceWorkerSupported: serviceWorkerSupported(),
         controller: !!(rootNavigator.serviceWorker && rootNavigator.serviceWorker.controller),
         cachesSupported: !!rootCaches,
         manifestLinked: !!(rootDocument && rootDocument.querySelector('link[rel="manifest"][href$="site.webmanifest"]')),
@@ -52,15 +72,11 @@
           next.scriptURL = worker ? worker.scriptURL || "" : "";
           next.scope = registration ? registration.scope || "" : "";
         } catch (error) {
-          next.serviceWorkerActive = false;
-          next.scriptURL = "";
-          next.scope = "";
+          resetServiceWorkerState(next);
           next.lastError = error && error.message ? error.message : "service worker registration unavailable";
         }
       } else {
-        next.serviceWorkerActive = false;
-        next.scriptURL = "";
-        next.scope = "";
+        resetServiceWorkerState(next);
       }
 
       if (next.cachesSupported) {
@@ -77,15 +93,11 @@
             next.cachedAssetCount = requests.length;
           }
         } catch (error) {
-          next.cacheReady = false;
-          next.appShellCache = "";
-          next.cachedAssetCount = 0;
+          resetCacheState(next);
           next.lastError = next.lastError || (error && error.message ? error.message : "cache storage unavailable");
         }
       } else {
-        next.cacheReady = false;
-        next.appShellCache = "";
-        next.cachedAssetCount = 0;
+        resetCacheState(next);
       }
 
       next.status = statusLabel(next);
@@ -93,10 +105,10 @@
     }
 
     function setupObservers(onUpdate) {
-      const refresh = typeof onUpdate === "function" ? onUpdate : function () {};
+      const refresh = updateCallback(onUpdate);
       rootWindow.addEventListener("online", refresh);
       rootWindow.addEventListener("offline", refresh);
-      if ("serviceWorker" in rootNavigator) {
+      if (serviceWorkerSupported()) {
         rootNavigator.serviceWorker.addEventListener("controllerchange", refresh);
         rootNavigator.serviceWorker.ready.then(refresh).catch(refresh);
       }
@@ -104,8 +116,8 @@
     }
 
     function register(onUpdate) {
-      const refresh = typeof onUpdate === "function" ? onUpdate : function () {};
-      if (!("serviceWorker" in rootNavigator)) return false;
+      const refresh = updateCallback(onUpdate);
+      if (!serviceWorkerSupported()) return false;
       if (!secureEnoughForServiceWorker()) return false;
       rootWindow.addEventListener("load", () => {
         rootNavigator.serviceWorker.register("./sw.js", { scope: "./" })

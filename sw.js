@@ -1,5 +1,5 @@
-const CACHE_VERSION = "joopark-workspace-v3-offline-2026-06-08-review-issue-payload-module";
-const CACHE_VERSION_LINEAGE = ["joopark-workspace-v3-offline-2026-06-08-review-execution-checklist-module", "joopark-workspace-v3-offline-2026-06-08-review-creation-actions-module", "joopark-workspace-v3-offline-2026-06-08-verify-summary-module"];
+const CACHE_VERSION = "joopark-workspace-v3-offline-2026-06-09-github-discovery";
+const CACHE_VERSION_LINEAGE = ["joopark-workspace-v3-offline-2026-06-09-ops-runtime-loader", "joopark-workspace-v3-offline-2026-06-09-home-view-module", "joopark-workspace-v3-offline-2026-06-09-runtime-error-boundary-module", "joopark-workspace-v3-offline-2026-06-08-review-issue-payload-module", "joopark-workspace-v3-offline-2026-06-08-review-execution-checklist-module"];
 const APP_SHELL_CACHE = `joopark-app-shell-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
@@ -27,6 +27,12 @@ const APP_SHELL_ASSETS = [
   "./gantt-view.js",
   "./team-view.js",
   "./workspace-storage.js",
+  "./dashboard-storage.js",
+  "./dashboard-prioritization.js",
+  "./dashboard-evidence-receipts.js",
+  "./dashboard-insights-engine.js",
+  "./dashboard-autoresearch-loop.js",
+  "./dashboard-view.js",
   "./storage-status-view.js",
   "./settings-view.js",
   "./system-status-view.js",
@@ -39,6 +45,10 @@ const APP_SHELL_ASSETS = [
   "./project-picker.js",
   "./global-search.js",
   "./command-palette.js",
+  "./keyboard-shortcuts.js",
+  "./interaction-setup.js",
+  "./event-reminders.js",
+  "./footer-clock.js",
   "./db-catalog.js",
   "./review-handoff.js",
   "./review-result-view.js",
@@ -53,10 +63,15 @@ const APP_SHELL_ASSETS = [
   "./review-copy-actions.js",
   "./review-submission-copy.js",
   "./review-recommendation-export.js",
+  "./runtime-error-boundary.js",
   "./pwa-runtime.js",
+  "./workspace-seed-data.js",
+  "./home-view.js",
+  "./ops-runtime-loader.js",
   "./app.js",
   "./data/repos.json",
   "./data/adoption-candidates.json",
+  "./data/github-project-discovery.json",
   "./data/publish-evidence.json",
   "./data/pages-attestation-proof.json",
   "./data/launch-readiness-refresh.json",

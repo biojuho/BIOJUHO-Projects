@@ -721,6 +721,28 @@ button.bell:hover { background: var(--cyan-22); }
   padding: 0 14px;
 }
 
+.virtual-list-note {
+  border: 1px dashed rgba(138, 160, 191, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(10, 20, 34, 0.48);
+  color: var(--muted);
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.virtual-list-note strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.kanban-virtual-note,
+.todo-virtual-note,
+.db-virtual-note {
+  margin-top: 6px;
+}
+
 .calendar-search-empty {
   margin: 10px 0;
 }
@@ -729,6 +751,40 @@ button.bell:hover { background: var(--cyan-22); }
   height: auto;
   padding: 0;
   color: inherit;
+}
+
+.dashboard-intel-card .secondary-btn,
+.dashboard-loop-actions .secondary-btn,
+.dashboard-receipt .secondary-btn,
+.view .dashboard-intel-card .secondary-btn,
+.view .dashboard-loop-actions .secondary-btn,
+.view .dashboard-receipt .secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  height: auto;
+  max-width: 100%;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ink-50);
+  color: var(--text);
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-intel-card .secondary-btn:hover,
+.dashboard-loop-actions .secondary-btn:hover,
+.dashboard-receipt .secondary-btn:hover,
+.view .dashboard-intel-card .secondary-btn:hover,
+.view .dashboard-loop-actions .secondary-btn:hover,
+.view .dashboard-receipt .secondary-btn:hover {
+  border-color: var(--cyan-60);
+  background: var(--cyan-08);
 }
 
 /* ---------- Donut & Gauge ---------- */
@@ -6592,6 +6648,91 @@ textarea:focus:not(:focus-visible) { outline: none; }
   border-radius: 8px;
   background: rgba(34, 211, 238, 0.07);
 }
+#view-system,
+#view-system > *,
+#view-system .panel,
+#view-system article,
+#view-system section {
+  min-width: 0;
+  max-width: 100%;
+}
+#view-system .panel-head,
+#view-system .panel-head > div:first-child,
+#view-system .publish-evidence-head {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+#view-system .panel-head > div:first-child > *,
+#view-system .publish-evidence-head > * {
+  min-width: 0;
+}
+#view-system .workflow-ui-install-plan,
+#view-system .publish-dispatch-plan,
+#view-system .publish-evidence,
+#view-system .launch-execution-packet,
+#view-system .launch-execution-current-action,
+#view-system .launch-execution-auth-preflight,
+#view-system .launch-execution-post-auth-checkpoint,
+#view-system .launch-blocker-resolution-checklist,
+#view-system .launch-transition-preview,
+#view-system .launch-operator-one-page,
+#view-system .launch-install-verification-matrix,
+#view-system .launch-post-install-evidence-intake,
+#view-system .launch-execution-acceptance,
+#view-system .launch-execution-install-paths,
+#view-system .launch-current-default-branch-proof,
+#view-system .launch-execution-commands,
+#view-system .output-quality-audit {
+  grid-template-columns: minmax(0, 1fr);
+}
+#view-system .launch-operator-one-page,
+#view-system .launch-install-verification-matrix,
+#view-system .launch-post-install-evidence-intake {
+  display: grid;
+  gap: 10px;
+}
+#view-system .launch-execution-acceptance li,
+#view-system .launch-execution-install-paths section,
+#view-system .launch-current-default-branch-proof,
+#view-system .launch-execution-stages li {
+  min-width: 0;
+  max-width: 100%;
+}
+#view-system .launch-execution-acceptance li > div,
+#view-system .launch-execution-install-paths section > div {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+#view-system .launch-execution-acceptance small,
+#view-system .launch-execution-install-paths small,
+#view-system .launch-post-install-evidence-intake p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+#view-system code,
+#view-system pre {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+#view-system .launch-execution-packet > *,
+#view-system .launch-execution-packet .storage-grid,
+#view-system .launch-execution-packet .launch-execution-current-action-copy,
+#view-system .launch-execution-packet .launch-execution-install-paths,
+#view-system .launch-execution-packet .launch-execution-acceptance,
+#view-system .launch-execution-packet .launch-execution-stages,
+#view-system .launch-execution-packet .launch-execution-commands {
+  min-width: 0;
+  max-width: 100%;
+}
+#view-system .launch-execution-packet p,
+#view-system .launch-execution-packet a,
+#view-system .launch-execution-packet dd,
+#view-system .launch-execution-packet li,
+#view-system .launch-execution-packet small,
+#view-system .launch-execution-packet strong {
+  overflow-wrap: anywhere;
+}
 .launch-execution-stages {
   display: grid;
   gap: 8px;
@@ -7178,6 +7319,34 @@ textarea:focus:not(:focus-visible) { outline: none; }
   overflow-wrap: anywhere;
 }
 .storage-error { margin-top: 12px; color: var(--red); }
+.storage-failure-recovery {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 77, 94, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 77, 94, 0.08);
+}
+.storage-failure-recovery strong { color: var(--red); }
+.storage-failure-recovery p,
+.storage-failure-recovery small {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.storage-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.storage-failure-actions a,
+.storage-failure-actions button {
+  min-height: 34px;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .file-btn {
   display: inline-flex;
   align-items: center;
@@ -7313,6 +7482,13 @@ textarea:focus:not(:focus-visible) { outline: none; }
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 4px;
+}
+
+.portfolio-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .portfolio-action-filter,
@@ -9044,8 +9220,10 @@ textarea:focus:not(:focus-visible) { outline: none; }
 .kanban-card-wrap {
   position: relative;
   cursor: grab;
+  touch-action: pan-y;
 }
-.kanban-card-wrap.is-dragging { opacity: 0.4; }
+.kanban-card-wrap.is-dragging,
+.kanban-card-wrap.is-touch-dragging { opacity: 0.4; }
 .kanban-card-wrap:active { cursor: grabbing; }
 .kanban-card-wrap:focus-visible {
   outline: none;
@@ -9058,6 +9236,11 @@ textarea:focus:not(:focus-visible) { outline: none; }
 .kanban-col.drag-over {
   border-color: var(--cyan);
   background: var(--cyan-08);
+}
+
+.kanban-col.touch-drag-over {
+  border-color: var(--green);
+  background: rgba(23, 217, 131, 0.1);
 }
 
 /* 카드는 이제 div (wrap 내부) — user-select: none 추가만 */
@@ -10218,6 +10401,7 @@ select:focus-visible,
   .nav-list a,
   .nav-list button {
     flex: 0 0 auto;
+    width: auto;
     min-width: max-content;
   }
 

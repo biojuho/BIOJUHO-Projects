@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="description" content="일정, 할 일, 메모, 습관, 프로젝트, DB 카탈로그를 한 화면에서 로컬 저장으로 관리하는 정적 개인 워크스페이스." />
     <meta name="application-name" content="JooPark Workspace" />
     <meta name="color-scheme" content="dark light" />
@@ -190,9 +191,9 @@
     <div id="toastRegion" class="toast-region" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- 도입한 오픈소스 (로컬 동봉, 빌드 불필요 · vendor/LICENSES.md) -->
-    <script src="./vendor/fuse.min.js"></script>
-    <script src="./vendor/marked.umd.js"></script>
-    <script src="./vendor/purify.min.js"></script>
+    <script src="./vendor/fuse.min.js" integrity="sha256-xXM5w/oWsdadmmtGdJqBOe+NT8m7/kgUT/iXqn1CIuw=" crossorigin="anonymous"></script>
+    <script src="./vendor/marked.umd.js" integrity="sha256-LcR2nf3in1HHrKGlOcZAfHicjqZEz4t9Ad7SipwdgAs=" crossorigin="anonymous"></script>
+    <script src="./vendor/purify.min.js" integrity="sha256-tlYROr5fm18sMMixBGK3tOlH4QpJ9WEFiCK8SOlgG0o=" crossorigin="anonymous"></script>
     <script src="./search-empty-state.js"></script>
     <script src="./home-execution-view.js"></script>
     <script src="./calendar-view.js"></script>
@@ -206,33 +207,31 @@
     <script src="./gantt-view.js"></script>
     <script src="./team-view.js"></script>
     <script src="./workspace-storage.js"></script>
+    <script src="./dashboard-storage.js"></script>
+    <script src="./dashboard-prioritization.js"></script>
+    <script src="./dashboard-evidence-receipts.js"></script>
+    <script src="./dashboard-insights-engine.js"></script>
+    <script src="./dashboard-autoresearch-loop.js"></script>
+    <script src="./dashboard-view.js"></script>
     <script src="./storage-status-view.js"></script>
     <script src="./settings-view.js"></script>
     <script src="./system-status-view.js"></script>
     <script src="./backup-import-guards.js"></script>
     <script src="./backup-import-ui.js"></script>
-    <script src="./release-status.js"></script>
-    <script src="./operations-copy-actions.js"></script>
-    <script src="./verify-workspace-summary.js"></script>
     <script src="./dialog-shell.js"></script>
     <script src="./project-picker.js"></script>
     <script src="./global-search.js"></script>
     <script src="./command-palette.js"></script>
+    <script src="./keyboard-shortcuts.js"></script>
+    <script src="./interaction-setup.js"></script>
+    <script src="./event-reminders.js"></script>
+    <script src="./footer-clock.js"></script>
     <script src="./db-catalog.js"></script>
-    <script src="./review-handoff.js"></script>
-    <script src="./review-result-view.js"></script>
-    <script src="./review-execution-checklist.js"></script>
-    <script src="./review-issue-payload.js"></script>
-    <script src="./review-result-state.js"></script>
-    <script src="./review-result-draft-state.js"></script>
-    <script src="./review-creation-actions.js"></script>
-    <script src="./review-package-view.js"></script>
-    <script src="./review-artifact-view.js"></script>
-    <script src="./review-artifact-state.js"></script>
-    <script src="./review-copy-actions.js"></script>
-    <script src="./review-submission-copy.js"></script>
-    <script src="./review-recommendation-export.js"></script>
+    <script src="./runtime-error-boundary.js"></script>
     <script src="./pwa-runtime.js"></script>
+    <script src="./workspace-seed-data.js"></script>
+    <script src="./home-view.js"></script>
+    <script src="./ops-runtime-loader.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
