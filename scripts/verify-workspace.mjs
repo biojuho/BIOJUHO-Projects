@@ -62,6 +62,12 @@ function writeJson(relPath, payload) {
   writeFileSync(target, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
 }
 
+function redactLocalPaths(value) {
+  return String(value || "")
+    .replaceAll(root, "project-root")
+    .replace(/\/Users\/[^\s"']+/g, "<local-path>");
+}
+
 function auditLockSnapshot() {
   const relPath = "dist/.release-readiness-audit.lock";
   const path = resolve(root, relPath);
@@ -72,7 +78,7 @@ function auditLockSnapshot() {
     exists: existsSync(path),
     ownerExists: existsSync(ownerPath),
     ownerPid: Number.isInteger(Number(owner?.pid)) ? Number(owner.pid) : null,
-    ownerCommand: owner?.command || "",
+    ownerCommand: redactLocalPaths(owner?.command || ""),
     ownerStartedAt: owner?.startedAt || "",
   };
 }

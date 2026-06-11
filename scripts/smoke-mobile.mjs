@@ -244,14 +244,14 @@ function routeReadyTimeoutFor(route) {
   return routeReadyTimeoutMs;
 }
 
-async function waitForAppRoute(client, route) {
-  const timeoutMs = routeReadyTimeoutFor(route);
-  const routeState = await evaluate(client, `
+function routeReadyExpression(route, timeoutMs) {
+  return `
     new Promise((resolve, reject) => {
       const route = ${JSON.stringify(route)};
       const started = Date.now();
       const routeReadyDiagnostics = () => {
         const view = document.getElementById("view-" + route);
+        const runtimeLoading = Boolean(view?.querySelector("[data-ops-runtime-loading]"));
         return {
           route,
           readyState: document.readyState,
@@ -259,6 +259,7 @@ async function waitForAppRoute(client, route) {
           bodyView: document.body?.dataset?.view || "",
           viewExists: Boolean(view),
           viewHidden: view ? view.hidden : null,
+          runtimeLoading,
           viewTextLength: view ? view.innerText.trim().length : 0,
           visibleViews: Array.from(document.querySelectorAll(".view"))
             .filter((node) => node.hidden === false)
@@ -272,6 +273,7 @@ async function waitForAppRoute(client, route) {
           document.body?.dataset.view === route &&
           state.viewExists &&
           state.viewHidden === false &&
+          !state.runtimeLoading &&
           state.viewTextLength > 0;
         if (ready) resolve(state);
         else if (Date.now() - started > ${timeoutMs}) reject(new Error("route not ready: " + JSON.stringify(state)));
@@ -279,7 +281,12 @@ async function waitForAppRoute(client, route) {
       };
       check();
     })
-  `);
+  `;
+}
+
+async function waitForAppRoute(client, route) {
+  const timeoutMs = routeReadyTimeoutFor(route);
+  const routeState = await evaluate(client, routeReadyExpression(route, timeoutMs));
   progress("mobile-route-ready", {
     route,
     elapsedMs: routeState?.elapsedMs,

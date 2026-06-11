@@ -1,16 +1,16 @@
 {
   "status": "pass",
   "mode": "write",
-  "generatedAt": "2026-06-11T05:20:45.678Z",
+  "generatedAt": "2026-06-11T07:13:56.992Z",
   "decision": "keep_b",
   "sourceArtifactCount": 6,
   "evidenceFreshnessStatus": "fresh",
   "evidenceMaxAgeHours": 24,
-  "evidenceExpiresAt": "2026-06-12T05:20:45.678Z",
+  "evidenceExpiresAt": "2026-06-12T07:13:56.992Z",
   "evidenceFreshness": {
     "status": "fresh",
-    "generatedAt": "2026-06-11T05:20:45.678Z",
-    "expiresAt": "2026-06-12T05:20:45.678Z",
+    "generatedAt": "2026-06-11T07:13:56.992Z",
+    "expiresAt": "2026-06-12T07:13:56.992Z",
     "maxAgeHours": 24,
     "refreshRequired": false,
     "sourceArtifactCount": 6,
@@ -20,42 +20,42 @@
         "path": "data/workflow-ui-install-plan.json",
         "command": "node scripts/plan-workflow-ui-install.mjs --dry-run --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T05:20:45.678Z"
+        "refreshedAt": "2026-06-11T07:13:56.992Z"
       },
       {
         "key": "remote_workflow_file_check",
         "path": "data/remote-workflow-file-check.json",
         "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T05:20:45.678Z"
+        "refreshedAt": "2026-06-11T07:13:56.992Z"
       },
       {
         "key": "publish_dispatch_plan",
         "path": "data/publish-dispatch-plan.json",
         "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T05:20:45.678Z"
+        "refreshedAt": "2026-06-11T07:13:56.992Z"
       },
       {
         "key": "launch_execution_packet",
         "path": "data/launch-execution-packet.json",
         "command": "node scripts/capture-launch-execution-packet.mjs --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T05:20:45.678Z"
+        "refreshedAt": "2026-06-11T07:13:56.992Z"
       },
       {
         "key": "launch_handoff_verification",
         "path": "data/launch-handoff-verification.json",
         "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T05:20:45.678Z"
+        "refreshedAt": "2026-06-11T07:13:56.992Z"
       },
       {
         "key": "output_quality_audit",
         "path": "data/output-quality-audit.json",
         "command": "node scripts/capture-output-quality-audit.mjs --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T05:20:45.678Z"
+        "refreshedAt": "2026-06-11T07:13:56.992Z"
       }
     ],
     "policy": "Rerun npm run refresh:launch-readiness before workflow dispatch, live publish proof capture, or external completion claim when this artifact is stale."
@@ -66,10 +66,10 @@
     "baseline": 0,
     "candidate": 1,
     "decision": "keep",
-    "outputQualityGeneratedAt": "2026-06-11T05:20:45.630Z",
-    "latestGateGeneratedAt": "2026-06-11T05:20:45.630Z",
+    "outputQualityGeneratedAt": "2026-06-11T07:13:56.951Z",
+    "latestGateGeneratedAt": "2026-06-11T07:13:56.951Z",
     "source": "data/output-quality-audit.json",
-    "evidence": "launch readiness embedded outputQualityGeneratedAt=2026-06-11T05:20:45.630Z"
+    "evidence": "launch readiness embedded outputQualityGeneratedAt=2026-06-11T07:13:56.951Z"
   },
   "repo": "biojuho/BIOJUHO-Projects",
   "source": "data/launch-readiness-refresh.json",
@@ -115,7 +115,7 @@
       "error": ""
     }
   ],
-  "outputQualityGeneratedAt": "2026-06-11T05:20:45.630Z",
+  "outputQualityGeneratedAt": "2026-06-11T07:13:56.951Z",
   "outputQualitySourceInputCount": 11,
   "latestGate": {
     "command": "npm run verify",
@@ -127,7 +127,7 @@
       "blocked": 0,
       "total": 284
     },
-    "generatedAt": "2026-06-11T05:20:45.630Z",
+    "generatedAt": "2026-06-11T07:13:56.951Z",
     "source": "data/output-quality-audit.json",
     "sourceInputCount": 11
   },
@@ -140,7 +140,7 @@
     "candidate": 1,
     "decision": "keep",
     "source": "data/output-quality-audit.json",
-    "evidence": "npm run verify -> 284 pass, 0 fail, 0 not_run, 0 blocked; sourceInputCount=11; generatedAt=2026-06-11T05:20:45.630Z",
+    "evidence": "npm run verify -> 284 pass, 0 fail, 0 not_run, 0 blocked; sourceInputCount=11; generatedAt=2026-06-11T07:13:56.951Z",
     "externalComparison": "GitHub Actions job summaries surface important run results on the workflow summary page so readers do not need to inspect raw logs; this receipt mirrors that pattern by carrying the latest gate summary in the operator handoff."
   },
   "abComparison": {

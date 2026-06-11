@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
@@ -4110,6 +4110,113 @@ function testReleaseStatusWorkflowUiInstallCoveragePreservesExplicitZero() {
   assert.equal(source.includes("Number(data?.workflowUiInstallFormFieldCoverage || installReceipt.formFieldCoverage || 0)"), false);
 }
 
+function testAppWorkflowUiInstallLoaderAcceptsSixReceiptCommands() {
+  const source = readFileSync(join(root, "app.js"), "utf8");
+  assert.match(source, /function loadWorkflowUiInstallPlan\(\)/);
+  assert.match(source, /Number\(plan\.installReceipt\.commandCount \|\| 0\) >= 6/);
+  assert.equal(source.includes("Number(plan.installReceipt.commandCount || 0) >= 8"), false);
+}
+
+function testLegacyWorkflowReceiptSmokeUsesRepairAwarePlan() {
+  const source = readFileSync(join(root, "scripts/smoke-interactions.mjs"), "utf8");
+  assert.match(source, /const workflowInstallReceiptMatchesRepairPlan = \(text\) =>/);
+  assert.match(source, /pagesWorkflowInstallCard\?\.dataset\.workflowUiInstallOpenCommand/);
+  assert.match(source, /text\.includes\("pages: installAction=" \+ pagesAction\)/);
+  assert.match(source, /text\.includes\("drift-watch: installAction=" \+ driftAction\)/);
+  assert.match(source, /No GitHub UI edit is required for \.github\/workflows\/joopark-drift-watch\.yml/);
+  assert.equal(source.includes("open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'"), false);
+}
+
+function testOutputQualitySmokeAllowsBlockedWorkflowAuthPreflight() {
+  const source = readFileSync(join(root, "scripts/smoke-interactions.mjs"), "utf8");
+  assert.match(source, /\["true", "false"\]\.includes\(outputQuality\.dataset\.outputQualityAuditWorkflowAuthPreflight \|\| ""\)/);
+  assert.match(source, /\["true", "false"\]\.includes\(outputQuality\.dataset\.outputQualityAuditWorkflowAuthPreflightUiVerified \|\| ""\)/);
+  assert.match(source, /Number\(outputQuality\.dataset\.outputQualityAuditWorkflowAuthPreflightFields \|\| 0\) >= 0/);
+  assert.match(source, /Number\(outputQuality\.dataset\.outputQualityAuditWorkflowUiInstallReceiptCommandCount \|\| 0\) >= 6/);
+  assert.equal(source.includes('outputQuality.dataset.outputQualityAuditWorkflowAuthPreflight === "true"'), false);
+  assert.equal(source.includes('outputQuality.dataset.outputQualityAuditWorkflowUiInstallReceiptCommandCount === "8"'), false);
+}
+
+function testOutputQualitySmokeAcceptsGuardedZeroProofParserReceipt() {
+  const source = readFileSync(join(root, "scripts/smoke-interactions.mjs"), "utf8");
+  assert.match(source, /text\.includes\("Post-install proof parser: pass \(0 fields, coverage=0\)"\) &&\n\s+text\.includes\("detected=0\/0"\) &&\n\s+text\.includes\("falsePositiveGuard=true"\)/);
+  assert.equal(source.includes("Post-install proof parser: blocked (0 fields, coverage=0)"), false);
+  assert.equal(source.includes("falsePositiveGuard=false"), false);
+}
+
+function testLegacyOutputQualityAuditSmokeRequeriesRenderedPanel() {
+  const source = readFileSync(join(root, "scripts/smoke-interactions.mjs"), "utf8");
+  assert(source.includes('let outputQuality = qs("[data-system-output-quality-audit]", panel)'));
+  assert(source.includes('outputQuality = document.querySelector("[data-system-publish-readiness] [data-system-output-quality-audit]") || outputQuality'));
+  assert(source.includes('outputQuality.dataset.outputQualityAuditSource === "data/output-quality-audit.json"'));
+}
+
+function testReleaseStatusPublishUnblockHandoffNamesWorkflowTargets() {
+  const source = readFileSync(join(root, "release-status.js"), "utf8");
+  assert.match(source, /function publishUnblockHandoffText\(\)/);
+  assert(source.includes("Targets: `.github/workflows/joopark-pages.yml`, `.github/workflows/joopark-drift-watch.yml`."));
+  assert(source.includes("replace_existing_remote_file"));
+  assert(source.includes("verified_remote_matches_template"));
+}
+
+function testReleaseAuditOutputQualityReceiptAcceptsCurrentPassEvidence() {
+  const source = readFileSync(join(root, "scripts/audit-release-readiness.mjs"), "utf8");
+  const receiptTerms = source.split("\n").find((line) => line.includes('file: "data/output-quality-audit.json"') && line.includes('terms: ["JooPark Final Output Quality Audit Receipt"')) || "";
+  const workflowReceiptTerms = source.split("\n").find((line) => line.includes('file: "data/output-quality-audit.json"') && line.includes('terms: ["workflowUiInstallReceipt"')) || "";
+  const postInstallIntakeTerms = source.split("\n").find((line) => line.includes('file: "data/output-quality-audit.json"') && line.includes('terms: ["postInstallEvidenceIntake"')) || "";
+  assert(receiptTerms.includes("artifactQualityRubric=pass; totalScore=100/100; passingScore=90"));
+  assert(receiptTerms.includes("Copy-ready completeness: pass (20/20)"));
+  assert(receiptTerms.includes("candidateComplete=true"));
+  assert(receiptTerms.includes("Workflow auth preflight: pass (uiVerified=true, workflowScopeAvailable=true, workflowScopeInstallBlocked=false"));
+  assert(!receiptTerms.includes("artifactQualityRubric=blocked; totalScore=80/100; passingScore=90"));
+  assert(!receiptTerms.includes("Copy-ready completeness: blocked (0/20)"));
+  assert(!receiptTerms.includes("candidateComplete=false"));
+  assert(workflowReceiptTerms.includes("Post-install proof parser: pass (6 fields, coverage=1)"));
+  assert(workflowReceiptTerms.includes("status=all_fields_detected"));
+  assert(workflowReceiptTerms.includes("detected=6/6"));
+  assert(!workflowReceiptTerms.includes("Post-install proof parser: pass (0 fields, coverage=0)"));
+  assert(!workflowReceiptTerms.includes("status=waiting_for_pasted_proof"));
+  assert(postInstallIntakeTerms.includes('\\"status\\": \\"collect_post_install_proof\\"'));
+  assert(postInstallIntakeTerms.includes('\\"completedFieldCount\\": 2'));
+  assert(postInstallIntakeTerms.includes('\\"proofComplete\\": false'));
+  assert(postInstallIntakeTerms.includes("completed=2/6"));
+  assert(postInstallIntakeTerms.includes("remote_parity_proof: evidence_required"));
+  assert(!postInstallIntakeTerms.includes('\\"status\\": \\"proof_complete\\"'));
+  assert(!postInstallIntakeTerms.includes("completed=6/6"));
+  assert(source.includes('"outputQualityAuditWorkflowAuthPreflightUiVerified ===": ["[\\"true\\", \\"false\\"].includes(outputQuality.dataset.outputQualityAuditWorkflowAuthPreflightUiVerified || \\"\\")"]'));
+}
+
+function testReleaseAuditLaunchReadinessRefreshAcceptsCurrentGuardedEvidence() {
+  const source = readFileSync(join(root, "scripts/audit-release-readiness.mjs"), "utf8");
+  const jsonTerms = source.split("\n").find((line) => line.includes('file: "data/launch-readiness-refresh.json"') && line.includes("single_launch_readiness_refresh_runner")) || "";
+  const markdownTerms = source.split("\n").find((line) => line.includes('file: "data/launch-readiness-refresh.md"') && line.includes("JooPark Launch Readiness Refresh")) || "";
+  const readmeTerms = source.split("\n").find((line) => line.includes('file: "README.md"') && line.includes("npm run refresh:launch-readiness")) || "";
+  assert(jsonTerms.includes("evidenceFreshnessStatus"));
+  assert(jsonTerms.includes("fresh"));
+  assert(jsonTerms.includes("sourceArtifactSync"));
+  assert(jsonTerms.includes("outputQualitySourceInputCount"));
+  assert(jsonTerms.includes(": 11"));
+  assert(jsonTerms.includes("dispatchCommandDisposition"));
+  assert(jsonTerms.includes("withheld"));
+  assert(jsonTerms.includes("suggestedDispatchCommandCount"));
+  assert(jsonTerms.includes("activeDispatchCommandCount"));
+  assert(jsonTerms.includes("dispatchCommandReferenceCount"));
+  assert(jsonTerms.includes(": 0"));
+  assert(jsonTerms.includes(": 2"));
+  assert(jsonTerms.includes("Do not run gh workflow run"));
+  assert(jsonTerms.includes("every action_required refresh checklist item has passed"));
+  assert(jsonTerms.includes("verify-launch-handoff reports safeToDispatch=true"));
+  assert(markdownTerms.includes("sourceArtifactSync: pass"));
+  assert(markdownTerms.includes("dispatchCommandDisposition:"));
+  assert(markdownTerms.includes("installAction: replace_existing_remote_file"));
+  assert(readmeTerms.includes("every action_required refresh checklist item has passed"));
+  assert(readmeTerms.includes("verify-launch-handoff reports safeToDispatch=true"));
+  assert(source.includes('const archivedFullReadmeRel = "archive/meta-machine/README.full-before-slim.md"'));
+  assert(source.includes('text = `${text}\\n${read(archivedFullReadmeRel)}`'));
+  assert(source.includes("launchReadinessRefreshArtifact.outputQualityGeneratedAt === outputQualityAuditArtifact.generatedAt"));
+  assert(source.includes('refreshCommand: "npm run refresh:launch-readiness"'));
+}
+
 function testReleaseStatusExternalClaimGuardCountsPreserveExplicitZero() {
   const source = readFileSync(join(root, "release-status.js"), "utf8");
   assert.match(source, /const externalClaimGuardBlockedCount = finiteNumberOr\(externalClaimGuard\.blockedCount, 0\)/);
@@ -4884,7 +4991,75 @@ function testPublishDispatchOptionValueGuard() {
   assert.match(source, /function optionValue\(argsList, name\)/);
   assert.match(source, /function workflowScopeFallbackText/);
   assert.match(source, /const installAction = remoteFileCheck\?\.installAction/);
+  assert.match(source, /const publicRepositoryRoot = "project-root"/);
+  assert.match(source, /repositoryRoot: publicRepositoryRoot/);
+  assert.match(source, /repositoryRootRedacted: true/);
+  assert.doesNotMatch(source, /repositoryRoot,\n\s+suggestedRepo/);
   assert.match(source, /return value\.startsWith\("--"\) \? "" : value/);
+}
+
+function testPublicWorkflowEvidenceRedactsLocalPaths() {
+  const auditSource = readFileSync(join(root, "scripts/audit-release-readiness.mjs"), "utf8");
+  const redactLocalPaths = vm.runInNewContext([
+    scriptFunctionSource("scripts/verify-workspace.mjs", "redactLocalPaths"),
+    "redactLocalPaths;",
+  ].join("\n"), {
+    root: "/Users/ju-hopark/Desktop/JooPark Project",
+  });
+  assert.equal(
+    redactLocalPaths("/opt/node /Users/ju-hopark/Desktop/JooPark Project/scripts/audit-release-readiness.mjs --run-gates"),
+    "/opt/node project-root/scripts/audit-release-readiness.mjs --run-gates",
+  );
+  assert.equal(redactLocalPaths("/Users/ju-hopark/Downloads/secret.md"), "<local-path>");
+  assert.match(auditSource, /const publicProjectRoot = "project-root"/);
+  assert.match(auditSource, /function redactLocalPathText\(value\)/);
+  assert.match(auditSource, /function redactAuditPayload\(value\)/);
+  assert.match(auditSource, /projectRoot: publicProjectRoot/);
+  assert.match(auditSource, /projectRootRedacted: true/);
+  assert.match(auditSource, /const payload = redactAuditPayload\(audit\(\)\)/);
+  assert.match(auditSource, /process\.exitCode = exitCode/);
+  assert.doesNotMatch(auditSource, /projectRoot:\s*root/);
+  assert.doesNotMatch(auditSource, /process\.exit\(exitCode\)/);
+
+  const dryRunOutputs = [
+    execFileSync(process.execPath, ["scripts/plan-workflow-ui-install.mjs", "--dry-run"], {
+      cwd: root,
+      encoding: "utf8",
+    }),
+    execFileSync(process.execPath, ["scripts/plan-publish-dispatch.mjs", "--dry-run"], {
+      cwd: root,
+      encoding: "utf8",
+    }),
+  ];
+  for (const output of dryRunOutputs) {
+    const payload = JSON.parse(output);
+    assert.equal(payload.repositoryRoot, "project-root");
+    assert.equal(payload.repositoryRootRedacted, true);
+    assert.equal(output.includes("/Users/"), false);
+  }
+  for (const relPath of [
+    "llm-wiki-view.js",
+    "docs/knowledge/pwa-offline-operations.md",
+    "docs/knowledge/llm-agent-loop-guardrails.md",
+    "data/workflow-ui-install-plan.json",
+    "data/publish-dispatch-plan.json",
+    "autoresearch-results/verify-workspace-summary.json",
+    "dist/release/llm-wiki-view.js",
+    "dist/release/autoresearch-results/verify-workspace-summary.json",
+    "dist/release/data/workflow-ui-install-plan.json",
+    "dist/release/data/publish-dispatch-plan.json",
+  ]) {
+    const path = join(root, relPath);
+    if (!existsSync(path)) continue;
+    const text = readFileSync(path, "utf8");
+    if (relPath.endsWith("workflow-ui-install-plan.json") || relPath.endsWith("publish-dispatch-plan.json")) {
+      const payload = JSON.parse(text);
+      assert.equal(payload.repositoryRoot, "project-root", `${relPath} should expose only the public repository root label`);
+      assert.equal(payload.repositoryRootRedacted, true, `${relPath} should mark repositoryRoot as redacted`);
+    }
+    assert.equal(text.includes("/Users/"), false, `${relPath} should not expose local absolute paths`);
+    assert.equal(text.includes("/Users/ju-hopark"), false, `${relPath} should not expose the local account path`);
+  }
 }
 
 function testRemoteWorkflowCheckOptionValueGuard() {
@@ -4909,6 +5084,7 @@ function testRemoteWorkflowInstallerOptionValueGuard() {
   const source = readFileSync(join(root, "scripts/install-remote-workflow-files.mjs"), "utf8");
   const optionValue = scriptFunction("scripts/install-remote-workflow-files.mjs", "optionValue");
   const workflowUiFallbackText = scriptFunction("scripts/install-remote-workflow-files.mjs", "workflowUiFallbackText");
+  const uniqueActions = scriptFunction("scripts/install-remote-workflow-files.mjs", "uniqueActions");
   assert.equal(optionValue(["--repo=biojuho/BIOJUHO-Projects"], "--repo"), "biojuho/BIOJUHO-Projects");
   assert.equal(optionValue(["--repo", "biojuho/BIOJUHO-Projects", "--write"], "--repo"), "biojuho/BIOJUHO-Projects");
   assert.equal(optionValue(["--repo", "--write"], "--repo"), "");
@@ -4920,8 +5096,12 @@ function testRemoteWorkflowInstallerOptionValueGuard() {
   assert.match(workflowUiFallbackText([{ operation: "update" }, { operation: "noop" }]), /do not use new-file links for update rows/);
   assert.match(workflowUiFallbackText([{ operation: "create" }, { operation: "noop" }]), /new-file pages only for create rows/);
   assert.match(workflowUiFallbackText([{ operation: "noop" }, { operation: "noop" }]), /No GitHub UI file change is required/);
+  assert.equal(JSON.stringify(uniqueActions(["install", "install", "", "verify", null, "verify"])), JSON.stringify(["install", "verify"]));
   assert.match(source, /function optionValue\(argsList, name\)/);
   assert.match(source, /function workflowUiFallbackText/);
+  assert.match(source, /function uniqueActions\(actionsList = \[\]\)/);
+  assert.match(source, /nextActions: uniqueActions\(nextActions\)/);
+  assert.match(source, /nextActions: uniqueActions\(remoteWorkflowFilesReady/);
   assert.match(source, /return value\.startsWith\("--"\) \? "" : value/);
 }
 
@@ -4948,6 +5128,10 @@ function testWorkflowUiInstallRepairAwareActions() {
   assert.match(source, /githubEditFileOpenCommand/);
   assert.match(source, /uiInstallOpenCommand/);
   assert.match(source, /installActionCoverage/);
+  assert.match(source, /const publicRepositoryRoot = "project-root"/);
+  assert.match(source, /repositoryRoot: publicRepositoryRoot/);
+  assert.match(source, /repositoryRootRedacted: true/);
+  assert.doesNotMatch(source, /repositoryRoot,\n\s+remoteName/);
   assert.match(source, /verified_remote_matches_template rows require no edit/);
 }
 
@@ -5107,6 +5291,7 @@ function testMobileSmokeNumericFallbacks() {
   const source = readFileSync(join(root, "scripts/smoke-mobile.mjs"), "utf8");
   const positiveIntegerOption = scriptFunction("scripts/smoke-mobile.mjs", "positiveIntegerOption");
   const positiveMsOption = scriptFunction("scripts/smoke-mobile.mjs", "positiveMsOption");
+  const routeReadyExpression = scriptFunction("scripts/smoke-mobile.mjs", "routeReadyExpression");
   assert.equal(positiveIntegerOption("500", 1), 500);
   assert.equal(positiveIntegerOption("bad", 500), 500);
   assert.equal(positiveIntegerOption("Infinity", 500), 500);
@@ -5120,6 +5305,14 @@ function testMobileSmokeNumericFallbacks() {
   assert.match(source, /const viewportHeight = positiveIntegerOption\(process\.env\.MOBILE_SMOKE_HEIGHT, 757\)/);
   assert.match(source, /const defaultEvaluateTimeoutMs = positiveMsOption\(process\.env\.SMOKE_RUNTIME_TIMEOUT_MS, 60000\)/);
   assert.match(source, /const routeReadyTimeoutMs = positiveMsOption\(process\.env\.MOBILE_SMOKE_ROUTE_READY_TIMEOUT_MS \|\| process\.env\.SMOKE_ROUTE_READY_TIMEOUT_MS, 9000\)/);
+  assert.match(source, /function routeReadyExpression\(route, timeoutMs\)/);
+  assert.match(source, /const routeState = await evaluate\(client, routeReadyExpression\(route, timeoutMs\)\)/);
+  const routeReadySource = routeReadyExpression("pm-portfolio", 9000);
+  assert.match(routeReadySource, /const route = "pm-portfolio"/);
+  assert.match(routeReadySource, /\[data-ops-runtime-loading\]/);
+  assert.match(routeReadySource, /runtimeLoading/);
+  assert.match(routeReadySource, /!state\.runtimeLoading/);
+  assert.match(routeReadySource, /Date\.now\(\) - started > 9000/);
 }
 
 function testBrowserSmokeTimeoutFallbacks() {
@@ -5155,6 +5348,16 @@ function testBrowserSmokeTimeoutFallbacks() {
     assert.equal(positiveMsOption("0", 60000), 60000);
     assert.equal(positiveMsOption("-5", 60000), 60000);
     for (const pattern of contract.patterns) assert.match(source, pattern);
+    if (contract.relPath === "scripts/smoke-chrome.mjs") {
+      const routeReadyExpression = scriptFunction(contract.relPath, "routeReadyExpression");
+      const routeReadySource = routeReadyExpression("system", 20000);
+      assert.match(source, /function routeReadyExpression\(route, timeoutMs\)/);
+      assert.match(source, /const routeState = await evaluate\(client, routeReadyExpression\(route, timeoutMs\)\)/);
+      assert.match(routeReadySource, /const route = "system"/);
+      assert.match(routeReadySource, /document\.body\.dataset\.view === route/);
+      assert.match(routeReadySource, /state\.viewTextLength > 0/);
+      assert.match(routeReadySource, /Date\.now\(\) - started > 20000/);
+    }
   }
 }
 
@@ -5374,6 +5577,16 @@ function testCandidateFreshnessDriftRepoOptionValueGuard() {
   assert.deepEqual([...collectOptionValues("--repo", ["--repo", "--fail-on-drift"])], []);
   assert.match(source, /function collectOptionValues\(flag, argsList = rawArgs\)/);
   assert.match(source, /!argsList\[index \+ 1\]\.startsWith\("--"\)/);
+  assert.match(source, /function writeJson\(payload\)/);
+  assert.match(source, /process\.stdout\.write\(`\$\{JSON\.stringify\(payload, null, 2\)\}\\n`, resolveWrite\)/);
+  assert.match(source, /const exitCode = payload\.status === "fail" \|\| payload\.status === "blocked" \|\| \(payload\.status === "drift" && failOnDrift\) \? 1 : 0/);
+  assert.match(source, /process\.exitCode = exitCode/);
+  assert.match(source, /return finish\(withCadencePolicy/);
+  assert.match(source, /await main\(\)/);
+  assert.doesNotMatch(source, /console\.log\(JSON\.stringify\(payload/);
+  assert.doesNotMatch(source, /writeFileSync\(process\.stdout\.fd/);
+  assert.doesNotMatch(source, /process\.exit\(0\)/);
+  assert.doesNotMatch(source, /process\.exit\(exitCode\)/);
 }
 
 function testRefreshCandidateSnapshotRepoOptionValueGuard() {
@@ -5494,6 +5707,14 @@ testHomeLaunchBlockerResolverCountsPreserveExplicitZero();
 testHomePostInstallQuickProofCountsPreserveExplicitZero();
 testHomeExternalClaimGuardCountsPreserveExplicitZero();
 testReleaseStatusWorkflowUiInstallCoveragePreservesExplicitZero();
+testAppWorkflowUiInstallLoaderAcceptsSixReceiptCommands();
+testLegacyWorkflowReceiptSmokeUsesRepairAwarePlan();
+testOutputQualitySmokeAllowsBlockedWorkflowAuthPreflight();
+testOutputQualitySmokeAcceptsGuardedZeroProofParserReceipt();
+testLegacyOutputQualityAuditSmokeRequeriesRenderedPanel();
+testReleaseStatusPublishUnblockHandoffNamesWorkflowTargets();
+testReleaseAuditOutputQualityReceiptAcceptsCurrentPassEvidence();
+testReleaseAuditLaunchReadinessRefreshAcceptsCurrentGuardedEvidence();
 testReleaseStatusExternalClaimGuardCountsPreserveExplicitZero();
 testReleaseStatusLaunchReadinessFreshnessCountsPreserveExplicitZero();
 testReleaseStatusPostAuthCheckpointCountsPreserveExplicitZero();
@@ -5509,6 +5730,7 @@ testProductLoopSummaryOptionValueGuard();
 testGithubProjectDiscoveryOptionValueGuard();
 testOutputQualityPublishInstallPathRepairAwareCoverage();
 testPublishDispatchOptionValueGuard();
+testPublicWorkflowEvidenceRedactsLocalPaths();
 testRemoteWorkflowCheckOptionValueGuard();
 testRemoteWorkflowInstallerOptionValueGuard();
 testWorkflowUiInstallRepairAwareActions();

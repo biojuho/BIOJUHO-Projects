@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = gitRoot();
+const publicRepositoryRoot = "project-root";
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
 const live = args.has("--live");
@@ -651,7 +652,8 @@ const payload = {
   workflowFile: pagesPlan.workflowFile,
   workflowPath: pagesPlan.workflowPath,
   target: pagesPlan.target,
-  repositoryRoot,
+  repositoryRoot: publicRepositoryRoot,
+  repositoryRootRedacted: true,
   suggestedRepo,
   repoReplacementHint,
   repo,

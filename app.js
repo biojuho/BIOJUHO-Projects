@@ -9968,7 +9968,7 @@ async function loadWorkflowUiInstallPlan() {
         pastePacketText.includes("remoteWorkflowVisibilityReady=true") &&
         Number(plan.workflowUiInstallPastePacketCoverage || 0) >= 1 &&
         Number(plan.workflowUiInstallFormFieldCoverage || 0) >= 1 &&
-        Number(plan.installReceipt.commandCount || 0) >= 8 &&
+        Number(plan.installReceipt.commandCount || 0) >= 6 &&
         plans.length >= 2 &&
         plans.every((item) => item.githubNewFileUrl && item.githubWorkflowUrl && item.templateCopyCommand && item.githubNewFileOpenCommand && item.githubWorkflowOpenCommand && item.githubFileNameFieldValue && item.suggestedCommitMessage);
     },

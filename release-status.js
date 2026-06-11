@@ -211,6 +211,7 @@
         ...publishDispatchGateGuardLines(),
         "",
         "## GitHub UI 설치 경로",
+        "Targets: `.github/workflows/joopark-pages.yml`, `.github/workflows/joopark-drift-watch.yml`.",
         "1. `Remote workflow install packet` 또는 `install packet 복사`의 각 workflow row에서 `installAction`을 확인합니다: `replace_existing_remote_file`은 edit-file page, `create_missing_remote_file`은 new-file page, `verified_remote_matches_template`는 no-op입니다.",
         "2. 변경이 필요한 row만 `templateCopyCommand`로 YAML을 복사하고, 해당 row의 GitHub edit/new-file open command로 default branch 파일을 갱신합니다.",
         "3. `node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write`로 default branch remote workflow file의 `remoteWorkflowFilesReady`와 `remoteMatchesTemplate`를 확인합니다.",

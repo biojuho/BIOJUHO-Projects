@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = gitRoot();
+const publicRepositoryRoot = "project-root";
 const args = new Set(process.argv.slice(2));
 const markdown = args.has("--markdown");
 const write = args.has("--write");
@@ -586,7 +587,8 @@ const payload = {
   status: blockers.length === 0 ? "pass" : "fail",
   mode: "dry-run",
   generatedAt,
-  repositoryRoot,
+  repositoryRoot: publicRepositoryRoot,
+  repositoryRootRedacted: true,
   remoteName,
   repositoryUrl,
   suggestedRepo,

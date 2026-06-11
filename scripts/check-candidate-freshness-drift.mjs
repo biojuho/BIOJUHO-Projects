@@ -333,89 +333,98 @@ function withCadencePolicy(payload, snapshot) {
   };
 }
 
-function finish(payload) {
-  console.log(JSON.stringify(payload, null, 2));
-  if (payload.status === "fail" || payload.status === "blocked") process.exit(1);
-  if (payload.status === "drift" && failOnDrift) process.exit(1);
-  process.exit(0);
+function writeJson(payload) {
+  return new Promise((resolveWrite) => {
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`, resolveWrite);
+  });
 }
 
-const snapshot = readSnapshot();
-if (snapshot.invalid.length > 0 || snapshot.monitored.length === 0) {
-  finish(withCadencePolicy({
-    status: "fail",
-    mode: snapshotOnly ? "snapshot-only" : "live",
-    generatedAt: snapshot.payload.generatedAt || "",
-    repoFilters,
-    monitored: snapshot.monitored.length,
-    sourceMarkers: snapshot.sourceMarkers.length,
-    invalidSnapshots: snapshot.invalid,
-  }, snapshot));
+async function finish(payload) {
+  const exitCode = payload.status === "fail" || payload.status === "blocked" || (payload.status === "drift" && failOnDrift) ? 1 : 0;
+  process.exitCode = exitCode;
+  await writeJson(payload);
 }
 
-if (snapshotOnly) {
-  finish(withCadencePolicy({
-    status: "pass",
-    mode: "snapshot-only",
-    generatedAt: snapshot.payload.generatedAt || "",
-    repoFilters,
-    monitored: snapshot.monitored.length,
-    sourceMarkers: snapshot.sourceMarkers.length,
-    checks: {
-      githubUrls: true,
-      commitShape: true,
-      sourceMarkers: snapshot.sourceMarkers.length > 0,
-      liveNetwork: false,
-    },
-  }, snapshot));
-}
+async function main() {
+  const snapshot = readSnapshot();
+  if (snapshot.invalid.length > 0 || snapshot.monitored.length === 0) {
+    return finish(withCadencePolicy({
+      status: "fail",
+      mode: snapshotOnly ? "snapshot-only" : "live",
+      generatedAt: snapshot.payload.generatedAt || "",
+      repoFilters,
+      monitored: snapshot.monitored.length,
+      sourceMarkers: snapshot.sourceMarkers.length,
+      invalidSnapshots: snapshot.invalid,
+    }, snapshot));
+  }
 
-const liveResult = fetchLiveSnapshots(snapshot.monitored);
-if (!liveResult.ok) {
-  finish(withCadencePolicy({
-    status: "blocked",
+  if (snapshotOnly) {
+    return finish(withCadencePolicy({
+      status: "pass",
+      mode: "snapshot-only",
+      generatedAt: snapshot.payload.generatedAt || "",
+      repoFilters,
+      monitored: snapshot.monitored.length,
+      sourceMarkers: snapshot.sourceMarkers.length,
+      checks: {
+        githubUrls: true,
+        commitShape: true,
+        sourceMarkers: snapshot.sourceMarkers.length > 0,
+        liveNetwork: false,
+      },
+    }, snapshot));
+  }
+
+  const liveResult = fetchLiveSnapshots(snapshot.monitored);
+  if (!liveResult.ok) {
+    return finish(withCadencePolicy({
+      status: "blocked",
+      mode: "live",
+      generatedAt: snapshot.payload.generatedAt || "",
+      repoFilters,
+      monitored: snapshot.monitored.length,
+      reason: liveResult.error,
+      stderr: liveResult.stderr || "",
+    }, snapshot));
+  }
+
+  const comparisons = compare(snapshot.monitored, liveResult.data);
+  const drifted = comparisons.filter((item) => item.drift.length > 0);
+  const blockingDrifted = comparisons.filter((item) => item.blockingDrift.length > 0);
+  const actionableDrifted = blockingDrifted;
+  const cadenceAdvisoryDrifted = comparisons.filter((item) => item.cadenceAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
+  const metadataAdvisoryDrifted = comparisons.filter((item) => item.metadataAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
+  const advisoryDrifted = comparisons.filter((item) => item.advisoryDrift.length > 0 && item.blockingDrift.length === 0);
+  return finish(withCadencePolicy({
+    status: blockingDrifted.length === 0 ? "pass" : "drift",
     mode: "live",
     generatedAt: snapshot.payload.generatedAt || "",
     repoFilters,
     monitored: snapshot.monitored.length,
-    reason: liveResult.error,
-    stderr: liveResult.stderr || "",
+    driftCount: drifted.length,
+    blockingDriftCount: blockingDrifted.length,
+    actionableDriftCount: actionableDrifted.length,
+    advisoryDriftCount: advisoryDrifted.length,
+    cadenceAdvisoryDriftCount: cadenceAdvisoryDrifted.length,
+    metadataAdvisoryDriftCount: metadataAdvisoryDrifted.length,
+    failOnDrift,
+    driftPolicy: {
+      blockingFields,
+      actionableFields: blockingFields,
+      advisoryFields: Array.from(advisoryFields),
+      cadenceAdvisoryFields: Array.from(highChurnCadenceFields),
+      metadataAdvisoryFields: Array.from(commitStableMetadataFields),
+      metadataPolicyId,
+      highChurnRepoPolicies,
+    },
+    drifted,
+    blockingDrifted,
+    actionableDrifted,
+    advisoryDrifted,
+    cadenceAdvisoryDrifted,
+    metadataAdvisoryDrifted,
   }, snapshot));
 }
 
-const comparisons = compare(snapshot.monitored, liveResult.data);
-const drifted = comparisons.filter((item) => item.drift.length > 0);
-const blockingDrifted = comparisons.filter((item) => item.blockingDrift.length > 0);
-const actionableDrifted = blockingDrifted;
-const cadenceAdvisoryDrifted = comparisons.filter((item) => item.cadenceAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
-const metadataAdvisoryDrifted = comparisons.filter((item) => item.metadataAdvisoryDrift.length > 0 && item.blockingDrift.length === 0);
-const advisoryDrifted = comparisons.filter((item) => item.advisoryDrift.length > 0 && item.blockingDrift.length === 0);
-finish(withCadencePolicy({
-  status: blockingDrifted.length === 0 ? "pass" : "drift",
-  mode: "live",
-  generatedAt: snapshot.payload.generatedAt || "",
-  repoFilters,
-  monitored: snapshot.monitored.length,
-  driftCount: drifted.length,
-  blockingDriftCount: blockingDrifted.length,
-  actionableDriftCount: actionableDrifted.length,
-  advisoryDriftCount: advisoryDrifted.length,
-  cadenceAdvisoryDriftCount: cadenceAdvisoryDrifted.length,
-  metadataAdvisoryDriftCount: metadataAdvisoryDrifted.length,
-  failOnDrift,
-  driftPolicy: {
-    blockingFields,
-    actionableFields: blockingFields,
-    advisoryFields: Array.from(advisoryFields),
-    cadenceAdvisoryFields: Array.from(highChurnCadenceFields),
-    metadataAdvisoryFields: Array.from(commitStableMetadataFields),
-    metadataPolicyId,
-    highChurnRepoPolicies,
-  },
-  drifted,
-  blockingDrifted,
-  actionableDrifted,
-  advisoryDrifted,
-  cadenceAdvisoryDrifted,
-  metadataAdvisoryDrifted,
-}, snapshot));
+await main();

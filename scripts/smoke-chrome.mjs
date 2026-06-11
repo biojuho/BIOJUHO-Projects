@@ -231,9 +231,8 @@ function routeReadyTimeoutFor(route) {
   return routeReadyTimeoutMs;
 }
 
-async function waitForAppRoute(client, route) {
-  const timeoutMs = routeReadyTimeoutFor(route);
-  const expression = `
+function routeReadyExpression(route, timeoutMs) {
+  return `
     new Promise((resolve, reject) => {
       const route = ${JSON.stringify(route)};
       const started = Date.now();
@@ -268,7 +267,11 @@ async function waitForAppRoute(client, route) {
       check();
     })
   `;
-  const routeState = await evaluate(client, expression);
+}
+
+async function waitForAppRoute(client, route) {
+  const timeoutMs = routeReadyTimeoutFor(route);
+  const routeState = await evaluate(client, routeReadyExpression(route, timeoutMs));
   progress("route-ready", {
     route,
     elapsedMs: routeState?.elapsedMs,

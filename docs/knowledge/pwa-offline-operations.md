@@ -52,7 +52,7 @@ JooPark Workspace는 `sw.js` + `pwa-runtime.js`로 PWA가 이미 켜져 있고, 
 
 현재 `sw.js`는 네트워크-우선 전략 + 버전 캐시 이름(`CACHE_VERSION`, 1행) + `activate`에서 옛 캐시 삭제(`clearOldCaches`)까지 이미 갖췄고, `install`에서 무조건 `skipWaiting()`, `activate`에서 `clients.claim()`을 호출한다. 빠진 것은 **업데이트 알림**이다.
 
-1. **배포마다 캐시 버전 올리기**: 릴리스 시 `/Users/ju-hopark/Desktop/JooPark Project/sw.js` 1행 `CACHE_VERSION` 문자열을 반드시 변경. 릴리스 게이트 스크립트(`scripts/audit-release-readiness.mjs`)에 "직전 커밋 대비 CACHE_VERSION 변경 여부" 검사를 추가한다.
+1. **배포마다 캐시 버전 올리기**: 릴리스 시 `sw.js` 1행 `CACHE_VERSION` 문자열을 반드시 변경. 릴리스 게이트 스크립트(`scripts/audit-release-readiness.mjs`)에 "직전 커밋 대비 CACHE_VERSION 변경 여부" 검사를 추가한다.
 2. **업데이트 토스트 추가**: `pwa-runtime.js`의 `register()`에서 `registration.addEventListener("updatefound", ...)`로 새 워커의 `statechange`를 듣고, `state === "installed" && navigator.serviceWorker.controller`일 때 "새 버전이 준비됐어요 — 새로고침" 토스트를 띄운다. 현재처럼 무조건 `skipWaiting`을 유지한다면 최소한 `controllerchange` 시 자동 `location.reload()`가 아닌 **안내 후 수동 새로고침**으로 처리한다(편집 중 데이터 보호). 정석은 `skipWaiting`을 메시지 수신(`SKIP_WAITING`) 시에만 실행하도록 옮기는 것.
 3. **첫 배포 후 검증 절차**: 배포 → 일반 창에서 열기 → 두 번째 배포 푸시 → 페이지 새로고침 후 DevTools > Application > Service Workers에서 새 워커가 활성화되고 캐시 이름이 새 `CACHE_VERSION`으로 바뀌는지 확인. 시크릿 창 결과와 비교해 구버전 잔존 여부 점검.
 4. **버전 가시화**: 푸터나 설정 뷰(`settings-view.js`)에 현재 `CACHE_VERSION`을 표시해 "지금 무슨 버전인가"를 누구나 확인 가능하게 한다.

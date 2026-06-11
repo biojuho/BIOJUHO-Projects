@@ -1,9 +1,9 @@
 {
   "schemaVersion": "joopark-verify-workspace/v1",
   "status": "blocked",
-  "generatedAt": "2026-06-11T05:19:57.985Z",
-  "startedAt": "2026-06-11T05:13:22.141Z",
-  "durationMs": 395844,
+  "generatedAt": "2026-06-11T06:46:47.730Z",
+  "startedAt": "2026-06-11T06:38:27.821Z",
+  "durationMs": 499909,
   "command": "npm run verify:full",
   "runner": "scripts/verify-workspace.mjs",
   "syncArtifacts": true,
@@ -17,9 +17,9 @@
       "code": 1,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T05:13:22.142Z",
-      "finishedAt": "2026-06-11T05:19:51.860Z",
-      "durationMs": 389717,
+      "startedAt": "2026-06-11T06:38:27.824Z",
+      "finishedAt": "2026-06-11T06:46:40.064Z",
+      "durationMs": 492239,
       "timeoutMs": 720000
     },
     {
@@ -29,9 +29,9 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T05:19:51.860Z",
-      "finishedAt": "2026-06-11T05:19:57.885Z",
-      "durationMs": 6025,
+      "startedAt": "2026-06-11T06:46:40.064Z",
+      "finishedAt": "2026-06-11T06:46:47.598Z",
+      "durationMs": 7534,
       "timeoutMs": 180000
     },
     {
@@ -41,19 +41,19 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T05:19:57.885Z",
-      "finishedAt": "2026-06-11T05:19:57.980Z",
-      "durationMs": 95,
+      "startedAt": "2026-06-11T06:46:47.598Z",
+      "finishedAt": "2026-06-11T06:46:47.724Z",
+      "durationMs": 126,
       "timeoutMs": 60000
     }
   ],
   "auditLockBefore": {
     "path": "dist/.release-readiness-audit.lock",
-    "exists": false,
-    "ownerExists": false,
-    "ownerPid": null,
-    "ownerCommand": "",
-    "ownerStartedAt": ""
+    "exists": true,
+    "ownerExists": true,
+    "ownerPid": 74693,
+    "ownerCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node project-root/scripts/audit-release-readiness.mjs --run-gates --format=summary",
+    "ownerStartedAt": "2026-06-11T06:35:04.027Z"
   },
   "auditLockAfter": {
     "path": "dist/.release-readiness-audit.lock",
@@ -67,7 +67,7 @@
     "releaseReadiness": {
       "path": "autoresearch-results/release-readiness-summary.json",
       "status": "blocked",
-      "generatedAt": "2026-06-11T05:19:51.852Z",
+      "generatedAt": "2026-06-11T06:46:40.052Z",
       "summary": "283 pass, 0 fail, 0 not_run, 1 blocked",
       "checks": {
         "pass": 283,
@@ -80,7 +80,7 @@
     "launchReadiness": {
       "path": "data/launch-readiness-refresh.json",
       "status": "pass",
-      "generatedAt": "2026-06-11T05:19:57.878Z",
+      "generatedAt": "2026-06-11T06:46:47.589Z",
       "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
       "safeToDispatch": false,
       "readyForExternalClaim": false,
@@ -92,7 +92,7 @@
     "outputQuality": {
       "path": "data/output-quality-audit.json",
       "status": "pass",
-      "generatedAt": "2026-06-11T05:19:57.822Z",
+      "generatedAt": "2026-06-11T06:46:47.542Z",
       "releaseQualityReady": true,
       "publicLaunchProofReady": true,
       "readyForExternalClaim": false,
@@ -101,7 +101,7 @@
     "productLoop": {
       "path": "autoresearch-results/joopark-product-loop.json",
       "status": "release-quality-ready-public-launch-proof-ready",
-      "generatedAt": "2026-06-11T05:19:57.968Z",
+      "generatedAt": "2026-06-11T06:46:47.706Z",
       "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
       "latestExperiment": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
       "latestDirectionLoop": "loop-207",
@@ -130,8 +130,8 @@
       "latestDiscoveryExperimentReady": true,
       "latestDirectionLoopNumber": 207,
       "productLoopLatestDirectionLoopNumber": 207,
-      "outputQualityGeneratedAt": "2026-06-11T05:19:57.822Z",
-      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-11T05:19:57.822Z",
+      "outputQualityGeneratedAt": "2026-06-11T06:46:47.542Z",
+      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-11T06:46:47.542Z",
       "source": "scripts/sync-product-loop-summary.mjs",
       "directionLogPath": "docs/product-direction.md",
       "fullVerifyCommand": "npm run verify:full"

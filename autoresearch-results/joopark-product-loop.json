@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-11T05:19:57.968Z",
+  "generatedAt": "2026-06-11T06:46:47.706Z",
   "project": "JooPark Workspace",
   "status": "release-quality-ready-public-launch-proof-ready",
   "latestGate": {
@@ -15,10 +15,10 @@
     "evidenceDowngradeGuard": {
       "source": "previous_output_quality_audit",
       "applied": false,
-      "previousGeneratedAt": "2026-06-11T05:19:57.496Z",
+      "previousGeneratedAt": "2026-06-11T06:46:47.078Z",
       "previousAgeHours": 0,
       "reason": "previous_output_quality_not_pass",
-      "candidateComplete": false,
+      "candidateComplete": true,
       "previousComplete": false
     },
     "browserEvidence": {
@@ -26,7 +26,7 @@
       "mobileRoutes": 17,
       "interactionSteps": 67,
       "releaseFiles": 92,
-      "releaseBytes": 3329284,
+      "releaseBytes": 3308300,
       "deploySupportFiles": 4,
       "releaseSourceParity": true,
       "releaseSourceParityFiles": 65,
@@ -58,8 +58,8 @@
       "publishEvidenceShareUpdateInstallPathCopy": true,
       "publishLaunchAnnouncementInstallPathCopy": true,
       "publishPostLaunchReceiptInstallPathCopy": true,
-      "publishDispatchAuthPreflight": false,
-      "systemStatusWorkflowAuthPreflightFields": 0,
+      "publishDispatchAuthPreflight": true,
+      "systemStatusWorkflowAuthPreflightFields": 1,
       "launchExecutionPacket": true,
       "launchExecutionPacketStages": 5,
       "launchExecutionPacketCommands": 11,
@@ -92,16 +92,16 @@
       "postInstallEvidenceIntakeFieldCoverage": 1,
       "postInstallProofParser": true,
       "postInstallProofParserFalsePositiveGuard": true,
-      "postInstallProofParserFields": 0,
-      "postInstallProofParserCoverage": 0,
-      "postInstallProofParserDetectedFields": 0,
+      "postInstallProofParserFields": 6,
+      "postInstallProofParserCoverage": 1,
+      "postInstallProofParserDetectedFields": 6,
       "launchProofEvidenceReceipt": true,
       "launchProofEvidenceFields": 6,
       "launchProofEvidenceFieldCoverage": 1,
-      "outputQualityAuditReceipt": false,
-      "outputQualityExternalClaimGuard": false,
-      "outputQualityExternalComparison": false,
-      "outputQualityExternalComparisonSources": 0,
+      "outputQualityAuditReceipt": true,
+      "outputQualityExternalClaimGuard": true,
+      "outputQualityExternalComparison": true,
+      "outputQualityExternalComparisonSources": 4,
       "reviewPackageReadyToSubmit": true,
       "reviewPackageFinalQualityScore": "6/6",
       "reviewPackageArtifactQualityRubric": true,
@@ -3645,7 +3645,7 @@
       "baseline": 1,
       "candidate": 2,
       "decision": "keep",
-      "generatedAt": "2026-06-11T05:19:57.968Z",
+      "generatedAt": "2026-06-11T06:46:47.706Z",
       "hypothesis": "The AutoResearch product-loop summary should carry the same latest gate and launch publish blockers as the final output-quality audit so operators do not see stale pass counts or stale external-claim state.",
       "evidence": [
         "Baseline product-loop latestGate reported 284 pass/284 total while data/output-quality-audit.json reported 284 pass/284 total.",
@@ -5960,14 +5960,14 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep",
-      "generatedAt": "2026-06-11T05:19:57.822Z",
+      "generatedAt": "2026-06-11T06:46:47.542Z",
       "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
       "evidence": [
         "Latest direction loop is loop-207 from docs/product-direction.md.",
         "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
         "Direction summary: The next product gap is breaking a self-reinforcing full-verify evidence sync loop after product direction changes. Direction check: `npm run verify:full` starts with release-readiness gates and previously stopped on the first failing or blocked step. When release-readiness failed only because `autoresearch-results/...",
         "Verification summary: not available",
-        "Output-quality audit generatedAt=2026-06-11T05:19:57.822Z; readyForExternalClaim=false."
+        "Output-quality audit generatedAt=2026-06-11T06:46:47.542Z; readyForExternalClaim=false."
       ],
       "externalComparison": {
         "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
@@ -6003,7 +6003,7 @@
     "Continue extracting low-state navigation/runtime helpers only where accessibility ownership and state mutation stay clear."
   ],
   "summarySync": {
-    "generatedAt": "2026-06-11T05:19:57.968Z",
+    "generatedAt": "2026-06-11T06:46:47.706Z",
     "source": "scripts/sync-product-loop-summary.mjs",
     "productLoopPath": "autoresearch-results/joopark-product-loop.json",
     "outputQualityPath": "data/output-quality-audit.json",
@@ -6013,7 +6013,7 @@
     "githubDiscoveryExperimentReady": true,
     "latestDiscoveryExperimentReady": true,
     "latestDiscoveryExperimentId": "github-project-discovery-artifact",
-    "outputQualityGeneratedAt": "2026-06-11T05:19:57.822Z",
+    "outputQualityGeneratedAt": "2026-06-11T06:46:47.542Z",
     "gateParityReady": true,
     "publishParityReady": true,
     "directionLoopReady": true,
@@ -6042,7 +6042,7 @@
     "baseline": 0,
     "candidate": 1,
     "decision": "keep",
-    "generatedAt": "2026-06-11T05:19:57.822Z"
+    "generatedAt": "2026-06-11T06:46:47.542Z"
   },
   "latestSyncExperiment": {
     "id": "product-loop-summary-gate-parity",
@@ -6050,7 +6050,7 @@
     "baseline": 1,
     "candidate": 2,
     "decision": "keep",
-    "generatedAt": "2026-06-11T05:19:57.968Z"
+    "generatedAt": "2026-06-11T06:46:47.706Z"
   },
   "latestDirectionLoop": {
     "id": "loop-207",

@@ -194,6 +194,10 @@ function workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, operations:
   };
 }
 
+function uniqueActions(actionsList = []) {
+  return [...new Set(actionsList.filter(Boolean))];
+}
+
 function remoteDefaultBranch(targetRepo) {
   if (!targetRepo || targetRepo === "OWNER/REPO") return "";
   try {
@@ -522,7 +526,7 @@ function blockedPayload(blockers, nextActions) {
     operations: operations.map(publicOperation),
     blockers,
     postInstallVerificationCommands: [remoteFileCheckCommand, dispatchPlanCommand],
-    nextActions,
+    nextActions: uniqueActions(nextActions),
   };
 }
 
@@ -599,7 +603,7 @@ const payload = {
   verification,
   blockers: operationBlockers,
   postInstallVerificationCommands: [remoteFileCheckCommand, dispatchPlanCommand],
-  nextActions: remoteWorkflowFilesReady
+  nextActions: uniqueActions(remoteWorkflowFilesReady
     ? [
         dispatchPlanCommand,
         "Run dispatch only after allDispatchReady: true.",
@@ -608,7 +612,7 @@ const payload = {
         workflowScope.available === true ? `node scripts/install-remote-workflow-files.mjs --repo ${repoEvidenceReady ? repo : "OWNER/REPO"} --write --verify` : workflowScopeRefreshCommand,
         workflowScopeRecheckCommand,
         "Do not run dispatch until remoteWorkflowFilesReady: true and allDispatchReady: true.",
-      ],
+      ]),
 };
 
 console.log(markdown ? markdownSummary(payload) : JSON.stringify(payload, null, 2));
