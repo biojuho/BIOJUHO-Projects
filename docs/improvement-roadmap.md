@@ -19,7 +19,7 @@
 ### 핵심 문제 3가지
 1. **자기참조 팽창** — GitHub 토큰에 `workflow` scope 하나가 없어 Pages 배포가 막혔는데, 풀지 않고 그 주위에 `blocker-resolver → evidence-intake → proof-parser → handoff-verifier → quick-proof-receipt` 레이어를 계속 쌓았다. README 403줄 중 실제 제품 설명은 한 단락.
 2. **스코프 크리프** — 개인 워크스페이스 앱인데 외부 OSS 44개(AFFiNE·AppFlowy·Outline·OpenProject 등)를 "adoption candidate"로 등록·commit SHA 단위 "drift watch"하는 경쟁 인텔리전스 기계가 PM 뷰에 들어왔다.
-3. **제품 정체** — 진짜 사용자 가치 방치: 모바일 0/10(`min-width:1180px` 하드코딩), 캘린더 주간/일 뷰 없음, 칸반 드래그 미완성, undo/휴지통 없음, DB 카탈로그 전부 mock.
+3. **제품 정체** — 진짜 사용자 가치 방치: 모바일 회귀, 캘린더 주간/일 뷰 없음, 칸반 드래그 미완성, undo/휴지통 없음, DB 카탈로그 전부 mock.
 
 > **한 줄 요약: "출시 준비는 100% 완벽하게 증명됐지만, 출시는 안 됐고, 제품은 그대로다."**
 
@@ -63,7 +63,7 @@
 
 | 우선 | 상태 | 항목 | 대상 파일 |
 |---|---|---|---|
-| ★ 최우선 | 완료 | 모바일 반응형 — 전역 `min-width:1180px` 제거, 사이드바 collapse, 그리드 브레이크포인트 | `styles.css` |
+| ★ 최우선 | 완료 | 모바일 반응형 — 전역 데스크톱 최소폭 제거, 사이드바 collapse, 그리드 브레이크포인트 | `styles.css` |
 | ★ | 완료 | 캘린더 주간/일 뷰 | `calendar-view.js` |
 | ★ | 완료 | 파괴적 삭제 보호 — undo 토스트 + 최근 삭제 복구함 | `app.js` delete 핸들러, `dialog-shell.js` |
 | ○ | 완료 | 칸반 드래그앤드롭 상태 이동 + 카드 순서 조정 | `app.js` Kanban drag-and-drop |
