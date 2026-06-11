@@ -7,13 +7,20 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const summaryRel = "autoresearch-results/verify-workspace-summary.json";
+const directionLogRel = "docs/product-direction.md";
 
 const syncArtifacts = process.argv.includes("--sync-artifacts");
+const releaseReadinessCommand = syncArtifacts
+  ? "node scripts/audit-release-readiness.mjs --run-gates --format=summary"
+  : "node scripts/audit-release-readiness.mjs --format=summary";
+const releaseReadinessArgs = syncArtifacts
+  ? ["scripts/audit-release-readiness.mjs", "--run-gates", "--format=summary"]
+  : ["scripts/audit-release-readiness.mjs", "--format=summary"];
 const gateSteps = [
   {
     id: "release_readiness_gates",
-    command: "node scripts/audit-release-readiness.mjs --run-gates --format=summary",
-    args: ["scripts/audit-release-readiness.mjs", "--run-gates", "--format=summary"],
+    command: releaseReadinessCommand,
+    args: releaseReadinessArgs,
     timeoutMs: 12 * 60 * 1000,
   },
 ];
@@ -36,6 +43,14 @@ const steps = syncArtifacts ? [...gateSteps, ...artifactSyncSteps] : gateSteps;
 function readJson(relPath, fallback = null) {
   try {
     return JSON.parse(readFileSync(resolve(root, relPath), "utf-8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function readText(relPath, fallback = "") {
+  try {
+    return readFileSync(resolve(root, relPath), "utf-8");
   } catch {
     return fallback;
   }
@@ -77,7 +92,14 @@ function runStep(step) {
     killSignal: "SIGTERM",
   });
   const durationMs = Date.now() - startedMs;
-  const status = result.status === 0 && !result.error && !result.signal ? "pass" : "fail";
+  const releaseReadiness = step.id === "release_readiness_gates"
+    ? readJson("autoresearch-results/release-readiness-summary.json", {})
+    : {};
+  const status = result.status === 0 && !result.error && !result.signal
+    ? "pass"
+    : releaseReadiness.status === "blocked" && !result.error && !result.signal
+      ? "blocked"
+      : "fail";
   console.error(`[verify-workspace] ${status} ${step.id} (${Math.round(durationMs / 1000)}s)`);
   return {
     id: step.id,
@@ -95,6 +117,12 @@ function runStep(step) {
 
 function gateSummary(checks = {}) {
   return `${Number(checks.pass || 0)} pass, ${Number(checks.fail || 0)} fail, ${Number(checks.notRun || 0)} not_run, ${Number(checks.blocked || 0)} blocked`;
+}
+
+function finiteNumberOr(value, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function sameJson(left, right) {
@@ -133,26 +161,56 @@ function trackedPublishParity(publish, patch) {
   return Object.entries(patch).every(([key, value]) => publish?.[key] === value);
 }
 
+function latestDirectionLoopNumber(markdownText) {
+  const matches = Array.from(markdownText.matchAll(/^## Loop (\d+) Decision\s*$/gm));
+  if (!matches.length) return 0;
+  return Math.max(...matches.map((match) => Number(match[1] || 0)).filter(Number.isFinite));
+}
+
 function artifactSnapshot() {
   const releaseSummary = readJson("autoresearch-results/release-readiness-summary.json", {});
   const launchReadiness = readJson("data/launch-readiness-refresh.json", {});
   const outputQuality = readJson("data/output-quality-audit.json", {});
   const productLoop = readJson("autoresearch-results/joopark-product-loop.json", {});
+  const directionLoopNumber = latestDirectionLoopNumber(readText(directionLogRel));
   const releaseChecks = releaseSummary.checks || {};
   const launchGateChecks = launchReadiness.latestGate?.checks || outputQuality.latestGate?.checks || {};
   const productGateChecks = productLoop.latestGate?.checks || {};
   const outputLatestGate = outputQuality.latestGate || null;
   const publishPatch = publishPatchFromOutputQuality(outputQuality);
+  const nextCandidates = Array.isArray(productLoop.nextCandidates)
+    ? productLoop.nextCandidates.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())
+    : [];
+  const nextCandidateListReady = productLoop.summarySync?.nextCandidatesReady === true &&
+    nextCandidates.length > 0 &&
+    nextCandidates.length === Number(productLoop.summarySync?.nextCandidateCount || 0);
   const productLoopGateParityReady = !!outputLatestGate &&
     sameJson(latestGateForParity(productLoop.latestGate), latestGateForParity(outputLatestGate));
   const productLoopPublishParityReady = trackedPublishParity(productLoop.publish || {}, publishPatch);
   const summarySyncReady = productLoop.summarySync?.source === "scripts/sync-product-loop-summary.mjs" &&
     productLoop.summarySync?.productLoopPath === "autoresearch-results/joopark-product-loop.json" &&
     productLoop.summarySync?.outputQualityPath === "data/output-quality-audit.json" &&
+    productLoop.summarySync?.directionLogPath === directionLogRel &&
     productLoop.summarySync?.outputQualityGeneratedAt === (outputQuality.generatedAt || "") &&
     productLoop.summarySync?.gateParityReady === true &&
-    productLoop.summarySync?.publishParityReady === true;
-  const evidenceSyncReady = productLoopGateParityReady && productLoopPublishParityReady && summarySyncReady;
+    productLoop.summarySync?.publishParityReady === true &&
+    productLoop.summarySync?.nextCandidatesReady === true &&
+    nextCandidateListReady;
+  const directionLoopSyncReady = directionLoopNumber > 0 &&
+    productLoop.latestDirectionLoop?.number === directionLoopNumber &&
+    productLoop.summarySync?.latestDirectionLoopNumber === directionLoopNumber &&
+    productLoop.summarySync?.directionLoopReady === true;
+  const latestDirectionExperimentReady = productLoop.summarySync?.latestDirectionExperimentReady === true &&
+    typeof productLoop.summarySync?.latestDirectionExperimentId === "string" &&
+    productLoop.summarySync.latestDirectionExperimentId.length > 0 &&
+    productLoop.latestExperiment?.id === productLoop.summarySync.latestDirectionExperimentId &&
+    productLoop.latestExperiment.id.startsWith(`loop-${directionLoopNumber}-`);
+  const latestDiscoveryExperimentReady = productLoop.summarySync?.latestDiscoveryExperimentReady === true &&
+    typeof productLoop.summarySync?.latestDiscoveryExperimentId === "string" &&
+    productLoop.summarySync.latestDiscoveryExperimentId.length > 0 &&
+    productLoop.latestDiscoveryExperiment?.id === productLoop.summarySync.latestDiscoveryExperimentId &&
+    productLoop.latestDiscoveryExperiment.id === "github-project-discovery-artifact";
+  const evidenceSyncReady = productLoopGateParityReady && productLoopPublishParityReady && summarySyncReady && directionLoopSyncReady && latestDirectionExperimentReady && latestDiscoveryExperimentReady && nextCandidateListReady;
   return {
     releaseReadiness: {
       path: "autoresearch-results/release-readiness-summary.json",
@@ -169,6 +227,12 @@ function artifactSnapshot() {
       safeToDispatch: launchReadiness.safeToDispatch === true,
       readyForExternalClaim: launchReadiness.readyForExternalClaim === true,
       workflowScopeInstallBlocked: launchReadiness.workflowScopeInstallBlocked === true,
+      dispatchCommandDisposition: launchReadiness.dispatchCommandDisposition || (launchReadiness.readyForExternalClaim === true ? "not_applicable_after_launch_proof" : launchReadiness.safeToDispatch === true ? "active" : "withheld"),
+      activeDispatchCommandCount: finiteNumberOr(launchReadiness.activeDispatchCommandCount, 0),
+      dispatchCommandReferenceCount: finiteNumberOr(
+        launchReadiness.dispatchCommandReferenceCount,
+        finiteNumberOr(launchReadiness.suggestedDispatchCommandCount, 0),
+      ),
     },
     outputQuality: {
       path: "data/output-quality-audit.json",
@@ -185,15 +249,29 @@ function artifactSnapshot() {
       generatedAt: productLoop.generatedAt || "",
       latestGateSummary: gateSummary(productGateChecks),
       latestExperiment: productLoop.latestExperiment?.id || "",
+      latestDirectionLoop: productLoop.latestDirectionLoop?.id || "",
+      latestDirectionLoopNumber: productLoop.latestDirectionLoop?.number || 0,
+      latestDirectionExperiment: productLoop.summarySync?.latestDirectionExperimentId || "",
+      latestDiscoveryExperiment: productLoop.summarySync?.latestDiscoveryExperimentId || "",
+      nextCandidateCount: nextCandidates.length,
+      nextCandidates,
     },
     evidenceSync: {
       status: evidenceSyncReady ? "pass" : "fail",
       productLoopGateParityReady,
       productLoopPublishParityReady,
       summarySyncReady,
+      nextCandidatesReady: productLoop.summarySync?.nextCandidatesReady === true,
+      nextCandidateListReady,
+      directionLoopSyncReady,
+      latestDirectionExperimentReady,
+      latestDiscoveryExperimentReady,
+      latestDirectionLoopNumber: directionLoopNumber,
+      productLoopLatestDirectionLoopNumber: productLoop.latestDirectionLoop?.number || 0,
       outputQualityGeneratedAt: outputQuality.generatedAt || "",
       productLoopSummarySyncOutputQualityGeneratedAt: productLoop.summarySync?.outputQualityGeneratedAt || "",
       source: "scripts/sync-product-loop-summary.mjs",
+      directionLogPath: directionLogRel,
       fullVerifyCommand: "npm run verify:full",
     },
   };
@@ -212,7 +290,7 @@ function printSummary(payload) {
     `- launchReadiness: ${payload.artifacts.launchReadiness.status} (${payload.artifacts.launchReadiness.latestGateSummary})`,
     `- outputQuality: ${payload.artifacts.outputQuality.status} (${payload.artifacts.outputQuality.latestGateSummary})`,
     `- productLoop: ${payload.artifacts.productLoop.status} (${payload.artifacts.productLoop.latestGateSummary})`,
-    `- evidenceSync: ${payload.artifacts.evidenceSync.status} (gateParity=${payload.artifacts.evidenceSync.productLoopGateParityReady}, publishParity=${payload.artifacts.evidenceSync.productLoopPublishParityReady}, summarySync=${payload.artifacts.evidenceSync.summarySyncReady})`,
+    `- evidenceSync: ${payload.artifacts.evidenceSync.status} (gateParity=${payload.artifacts.evidenceSync.productLoopGateParityReady}, publishParity=${payload.artifacts.evidenceSync.productLoopPublishParityReady}, summarySync=${payload.artifacts.evidenceSync.summarySyncReady}, nextCandidates=${payload.artifacts.evidenceSync.nextCandidatesReady}, nextCandidateList=${payload.artifacts.evidenceSync.nextCandidateListReady}, directionLoop=${payload.artifacts.evidenceSync.directionLoopSyncReady}, discoveryExperiment=${payload.artifacts.evidenceSync.latestDiscoveryExperimentReady})`,
     `- safeToDispatch: ${payload.artifacts.launchReadiness.safeToDispatch}`,
     `- readyForExternalClaim: ${payload.artifacts.outputQuality.readyForExternalClaim}`,
     `- fullVerifyCommand: npm run verify:full`,
@@ -228,15 +306,21 @@ const stepResults = [];
 for (const step of steps) {
   const result = runStep(step);
   stepResults.push(result);
-  if (result.status !== "pass") break;
+  if (result.status !== "pass" && !syncArtifacts) break;
 }
 
 const artifacts = artifactSnapshot();
 const evidenceSyncRequired = syncArtifacts;
 const evidenceSyncPass = !evidenceSyncRequired || artifacts.evidenceSync.status === "pass";
+const ranAllSteps = stepResults.length === steps.length;
+const hasFailedStep = stepResults.some((step) => step.status === "fail");
+const hasBlockedStep = stepResults.some((step) => step.status === "blocked");
+const status = ranAllSteps && !hasFailedStep && evidenceSyncPass
+  ? hasBlockedStep ? "blocked" : "pass"
+  : "fail";
 const payload = {
   schemaVersion: "joopark-verify-workspace/v1",
-  status: stepResults.length === steps.length && stepResults.every((step) => step.status === "pass") && evidenceSyncPass ? "pass" : "fail",
+  status,
   generatedAt: new Date().toISOString(),
   startedAt,
   durationMs: Date.now() - startedMs,

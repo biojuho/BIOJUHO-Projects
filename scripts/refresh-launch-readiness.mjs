@@ -15,10 +15,16 @@ const outMarkdownRel = argValue("--out-markdown") || "data/launch-readiness-refr
 const evidenceMaxAgeHours = positiveNumber(process.env.LAUNCH_READINESS_MAX_AGE_HOURS, 24);
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function gitText(argsList) {
@@ -122,6 +128,12 @@ function positiveNumber(value, fallback) {
   return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
+function finiteNumberOr(value, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
@@ -133,6 +145,37 @@ function checklistItem(key, label, ready, evidence, command = "") {
     status: ready ? "pass" : "action_required",
     evidence,
     command,
+  };
+}
+
+function remoteWorkflowRepairAction(remoteWorkflowFileCheck) {
+  const checks = Array.isArray(remoteWorkflowFileCheck?.checks) ? remoteWorkflowFileCheck.checks : [];
+  const target = checks.find((check) => check?.remediation?.status === "action_required") ||
+    checks.find((check) => check?.installAction && check.installAction !== "verified_remote_matches_template") ||
+    checks.find((check) => check?.remoteMatchesTemplate === false);
+  if (!target) return null;
+  const remediation = target.remediation || {};
+  const installAction = target.installAction || remediation.installAction || "repair_remote_workflow_file";
+  const copyCommand = target.templateCopyCommand || remediation.templateCopyCommand || "";
+  const editCommand = target.githubEditFileOpenCommand || remediation.githubEditFileOpenCommand || "";
+  const newFileCommand = target.githubNewFileOpenCommand || remediation.githubNewFileOpenCommand || "";
+  const openCommand = installAction === "replace_existing_remote_file" ? editCommand || newFileCommand : newFileCommand || editCommand;
+  const command = copyCommand && openCommand
+    ? `${copyCommand} && ${openCommand}`
+    : openCommand || copyCommand || remoteWorkflowFileCheck?.nextVerificationCommand || "";
+  return {
+    key: target.key || "",
+    label: target.name || target.path || "Remote workflow repair",
+    installAction,
+    command,
+    copyCommand,
+    openCommand,
+    templatePath: target.template || remediation.templatePath || "",
+    targetPath: target.path || remediation.targetPath || "",
+    remoteBlobSha: target.remoteBlobSha || remediation.remoteBlobSha || target.githubBlobSha || "",
+    githubEditFileUrl: target.githubEditFileUrl || remediation.githubEditFileUrl || "",
+    githubNewFileUrl: target.githubNewFileUrl || remediation.githubNewFileUrl || "",
+    nextStep: remediation.nextStep || "Repair the remote workflow file, then rerun the remote workflow file check.",
   };
 }
 
@@ -186,9 +229,18 @@ const evidenceExpiresAt = new Date(Date.parse(generatedAt) + evidenceMaxAgeHours
 const withheldDispatchCommands = Array.isArray(launchHandoffVerification.withheldDispatchCommands)
   ? launchHandoffVerification.withheldDispatchCommands
   : Array.isArray(publishDispatchPlan.withheldDispatchCommands) ? publishDispatchPlan.withheldDispatchCommands : [];
-const suggestedDispatchCommands = safeToDispatch && Array.isArray(publishDispatchPlan.suggestedDispatchCommands)
+const publishSuggestedDispatchCommands = Array.isArray(publishDispatchPlan.suggestedDispatchCommands)
   ? publishDispatchPlan.suggestedDispatchCommands
   : [];
+const suggestedDispatchCommands = safeToDispatch ? publishSuggestedDispatchCommands : [];
+const dispatchCommandDisposition = readyForExternalClaim
+  ? "not_applicable_after_launch_proof"
+  : safeToDispatch ? "active" : "withheld";
+const activeDispatchCommands = dispatchCommandDisposition === "active" ? suggestedDispatchCommands : [];
+const dispatchCommandReferenceCount = dispatchCommandDisposition === "withheld"
+  ? withheldDispatchCommands.length
+  : publishSuggestedDispatchCommands.length;
+const remoteWorkflowRepair = remoteWorkflowRepairAction(remoteWorkflowFileCheck);
 const blockers = unique([
   ...commandRuns.filter((run) => run.status !== "pass").map((run) => `${run.command}: ${run.stderr || "failed"}`),
   ...(Array.isArray(launchHandoffVerification.blockers) ? launchHandoffVerification.blockers : []),
@@ -244,7 +296,14 @@ const refreshChecklist = [
   ),
 ];
 
-const nextAction = safeToDispatch
+const nextAction = readyForExternalClaim
+  ? {
+      key: "share_launch_proof",
+      status: "ready",
+      command: `node scripts/capture-publish-evidence.mjs --live --repo ${repo} --markdown`,
+      detail: "Live launch proof is fresh, workflows succeeded, and readyForExternalClaim=true.",
+    }
+  : safeToDispatch
   ? {
       key: "dispatch_workflows",
       status: "ready",
@@ -254,8 +313,12 @@ const nextAction = safeToDispatch
   : {
       key: workflowScopeInstallBlocked ? "refresh_workflow_scope_or_use_github_ui" : "install_workflows",
       status: "action_required",
-      command: publishDispatchPlan.workflowScopeRefreshCommand || "gh auth refresh -h github.com -s workflow",
-      detail: refreshDispatchGuard,
+      command: workflowScopeInstallBlocked
+        ? publishDispatchPlan.workflowScopeRefreshCommand || "gh auth refresh -h github.com -s workflow"
+        : remoteWorkflowRepair?.command || remoteWorkflowFileCheck.nextVerificationCommand || `node scripts/check-remote-workflow-files.mjs --repo ${repo} --write`,
+      detail: remoteWorkflowRepair
+        ? `${remoteWorkflowRepair.installAction}: ${remoteWorkflowRepair.nextStep} ${refreshDispatchGuard}`
+        : refreshDispatchGuard,
     };
 const sourceArtifacts = [
   ["workflow_ui_install_plan", "data/workflow-ui-install-plan.json", commandRuns[0]],
@@ -281,6 +344,19 @@ const evidenceFreshness = {
   sourceArtifacts,
   policy: "Rerun npm run refresh:launch-readiness before workflow dispatch, live publish proof capture, or external completion claim when this artifact is stale.",
 };
+const sourceArtifactSync = {
+  status: outputQualityAudit.generatedAt ? "pass" : "fail",
+  primaryMetric: "launchReadinessSourceArtifactSyncCoverage",
+  baseline: 0,
+  candidate: outputQualityAudit.generatedAt ? 1 : 0,
+  decision: outputQualityAudit.generatedAt ? "keep" : "reject",
+  outputQualityGeneratedAt: outputQualityAudit.generatedAt || "",
+  latestGateGeneratedAt: outputQualityLatestGate?.generatedAt || "",
+  source: "data/output-quality-audit.json",
+  evidence: outputQualityAudit.generatedAt
+    ? `launch readiness embedded outputQualityGeneratedAt=${outputQualityAudit.generatedAt}`
+    : "output quality generatedAt missing",
+};
 
 const payload = {
   status: commandRuns.every((run) => run.status === "pass") ? "pass" : "fail",
@@ -292,6 +368,7 @@ const payload = {
   evidenceMaxAgeHours,
   evidenceExpiresAt,
   evidenceFreshness,
+  sourceArtifactSync,
   repo,
   source: outJsonRel,
   write,
@@ -336,8 +413,13 @@ const payload = {
   readyForExternalClaim,
   withheldDispatchCommandCount: withheldDispatchCommands.length,
   suggestedDispatchCommandCount: suggestedDispatchCommands.length,
+  dispatchCommandReferenceCount,
+  activeDispatchCommandCount: activeDispatchCommands.length,
+  activeDispatchCommands,
+  dispatchCommandDisposition,
   suggestedDispatchCommands,
   withheldDispatchCommands,
+  remoteWorkflowRepairAction: remoteWorkflowRepair,
   nextAction,
   refreshChecklist,
   blockers,
@@ -368,6 +450,7 @@ function markdownLines(data) {
     `- commandCoverage: ${data.commandCoverage}`,
     `- decision: ${data.decision || data.abComparison?.decision || "not checked"}`,
     `- sourceArtifactCount: ${data.sourceArtifactCount || data.evidenceFreshness?.sourceArtifactCount || 0}`,
+    `- sourceArtifactSync: ${data.sourceArtifactSync?.status || "missing"}`,
     `- outputQualityGeneratedAt: ${data.outputQualityGeneratedAt || "not available"}`,
     `- outputQualitySourceInputCount: ${data.outputQualitySourceInputCount || 0}`,
     `- latestGate: ${data.latestGate?.command || "not available"} -> ${data.latestGateSummary || "not available"}`,
@@ -378,6 +461,9 @@ function markdownLines(data) {
     `- allDispatchReady: ${yesNo(data.allDispatchReady)}`,
     `- safeToDispatch: ${yesNo(data.safeToDispatch)}`,
     `- readyForExternalClaim: ${yesNo(data.readyForExternalClaim)}`,
+    `- dispatchCommandDisposition: ${data.dispatchCommandDisposition || "withheld"}`,
+    `- activeDispatchCommandCount: ${finiteNumberOr(data.activeDispatchCommandCount, 0)}`,
+    `- dispatchCommandReferenceCount: ${finiteNumberOr(data.dispatchCommandReferenceCount, finiteNumberOr(data.suggestedDispatchCommandCount, 0))}`,
     `- guard: ${data.guard}`,
     "",
     "## A/B Decision",
@@ -397,11 +483,20 @@ function markdownLines(data) {
     `- expiresAt: ${data.evidenceExpiresAt}`,
     `- refreshRequired: ${yesNo(data.evidenceFreshness?.refreshRequired)}`,
     `- sourceArtifactCount: ${data.evidenceFreshness?.sourceArtifactCount || 0}`,
+    `- sourceArtifactSync: ${data.sourceArtifactSync?.status || "missing"}`,
+    `- sourceArtifactSyncOutputQualityGeneratedAt: ${data.sourceArtifactSync?.outputQualityGeneratedAt || "not available"}`,
     `- policy: ${data.evidenceFreshness?.policy || "Rerun before dispatch or external claim."}`,
     ...(Array.isArray(data.evidenceFreshness?.sourceArtifacts) ? data.evidenceFreshness.sourceArtifacts.map((item) => `- ${item.key}: ${item.status} - ${item.path}`) : []),
     "",
     "## Refresh Checklist",
     ...data.refreshChecklist.map((item) => `- ${item.label}: ${item.status} - ${item.evidence}; command=${item.command}`),
+    "",
+    "## Remote Workflow Repair Action",
+    `- installAction: ${data.remoteWorkflowRepairAction?.installAction || "not required"}`,
+    `- target: ${data.remoteWorkflowRepairAction?.targetPath || "not available"}`,
+    `- command: ${data.remoteWorkflowRepairAction?.command || "not available"}`,
+    `- remoteBlobSha: ${data.remoteWorkflowRepairAction?.remoteBlobSha || "not available"}`,
+    `- githubEditFileUrl: ${data.remoteWorkflowRepairAction?.githubEditFileUrl || "not available"}`,
     "",
     "## Commands Run",
     ...data.commandRuns.map((run) => `- ${run.status}: \`${run.command}\``),

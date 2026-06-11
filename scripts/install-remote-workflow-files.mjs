@@ -65,10 +65,16 @@ const workflows = [
 ];
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function gitText(argsList) {
@@ -142,7 +148,24 @@ function inspectWorkflowScope() {
   }
 }
 
-function workflowScopeApprovalHandoff({ workflowScopeInstallBlocked }) {
+function workflowUiFallbackText(operationRows = []) {
+  const operationsList = Array.isArray(operationRows) ? operationRows : [];
+  const hasUpdate = operationsList.some((operation) => operation.operation === "update");
+  const hasCreate = operationsList.some((operation) => operation.operation === "create");
+  const allReady = operationsList.length > 0 && operationsList.every((operation) => operation.operation === "noop");
+  if (hasUpdate) {
+    return "If browser approval cannot be completed, use each operation value: open GitHub edit-file pages for update rows, new-file pages for create rows, and do not use new-file links for update rows.";
+  }
+  if (hasCreate) {
+    return "If browser approval cannot be completed, use each operation value: open GitHub new-file pages only for create rows before rerunning verification.";
+  }
+  if (allReady) {
+    return "No GitHub UI file change is required; both remote workflow files already match the local templates.";
+  }
+  return "If browser approval cannot be completed, resolve blocked operations first, then use each operation value to choose the GitHub create or edit page before rerunning verification.";
+}
+
+function workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, operations: operationRows = [] }) {
   return {
     requiredWhenInstallBlocked: workflowScopeInstallBlocked,
     status: workflowScopeInstallBlocked ? "approval_required" : "not_required",
@@ -160,7 +183,7 @@ function workflowScopeApprovalHandoff({ workflowScopeInstallBlocked }) {
     authStatusCommand: "gh auth status -h github.com",
     postApprovalAuthStatusCommand: "gh auth status -h github.com",
     incompleteApprovalSignal: "Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.",
-    fallback: "If browser approval cannot be completed, use the GitHub UI new-file links from data/workflow-ui-install-plan.json to create both workflow files on the default branch.",
+    fallback: workflowUiFallbackText(operationRows),
     successSignals: [
       "Token scopes include workflow",
       "workflowScopeAvailable=true",
@@ -469,7 +492,7 @@ const operations = workflows.map(operationFor);
 const writesRequired = operations.filter((operation) => operation.writeRequired);
 const operationBlockers = operations.flatMap((operation) => operation.blockers);
 const workflowScopeInstallBlocked = writesRequired.length > 0 && workflowScope.available !== true;
-const approvalHandoff = workflowScopeApprovalHandoff({ workflowScopeInstallBlocked });
+const approvalHandoff = workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, operations });
 const remoteWorkflowFilesReady = operations.length > 0 && operations.every((operation) => operation.remoteMatchesTemplate);
 const remoteWriteReady = write && repoEvidenceReady && workflowScope.available === true && writesRequired.length > 0 && operationBlockers.length === 0;
 const writeResults = [];
@@ -509,7 +532,7 @@ if (write && workflowScopeInstallBlocked) {
     [
       workflowScopeRefreshCommand,
       workflowScopeRecheckCommand,
-      "Use the GitHub UI fallback from data/workflow-ui-install-plan.json if browser approval cannot be completed.",
+      workflowUiFallbackText(operations),
       "Do not run dispatch until remoteWorkflowFilesReady: true and allDispatchReady: true.",
     ],
   );

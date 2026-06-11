@@ -10,8 +10,14 @@ const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-chrome-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
-const defaultEvaluateTimeoutMs = Number(process.env.SMOKE_RUNTIME_TIMEOUT_MS || 90000);
-const routeReadyTimeoutMs = Number(process.env.SMOKE_ROUTE_READY_TIMEOUT_MS || 12000);
+const defaultEvaluateTimeoutMs = positiveMsOption(process.env.SMOKE_RUNTIME_TIMEOUT_MS, 90000);
+const routeReadyTimeoutMs = positiveMsOption(process.env.SMOKE_ROUTE_READY_TIMEOUT_MS, 12000);
+
+function positiveMsOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
 
 const routes = [
   ["home", ["오늘 일정", "공개 준비 요약", "데이터 소유권", "팀 · 시스템 관리"]],
@@ -117,6 +123,14 @@ function progress(event, extra = {}) {
   }));
 }
 
+function cleanupTmpProfile() {
+  try {
+    rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch (error) {
+    progress("cleanup-profile-warning", { message: error.message });
+  }
+}
+
 function waitForProcessExit(child, timeoutMs) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -186,6 +200,31 @@ async function evaluate(client, expression, timeoutMs = defaultEvaluateTimeoutMs
   return result.result ? result.result.value : undefined;
 }
 
+async function waitForDocumentComplete(client, url, timeoutMs = 30000) {
+  const started = Date.now();
+  let lastState = null;
+  while (Date.now() - started <= timeoutMs) {
+    try {
+      lastState = await evaluate(client, `(() => ({
+        href: location.href,
+        readyState: document.readyState
+      }))()`, 3000);
+      if (lastState?.href === url && lastState.readyState !== "loading") return lastState;
+    } catch (error) {
+      lastState = { error: error.message };
+    }
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for document complete after navigating to ${url}: ${JSON.stringify(lastState)}`);
+}
+
+async function navigateAndWaitForLoad(client, url) {
+  const result = await client.send("Page.navigate", { url });
+  if (result.errorText) throw new Error(`Navigation failed for ${url}: ${result.errorText}`);
+  await waitForDocumentComplete(client, url);
+  progress("page-loaded", { url });
+}
+
 function routeReadyTimeoutFor(route) {
   if (route === "system") return Math.max(routeReadyTimeoutMs, 20000);
   if (route === "settings") return Math.max(routeReadyTimeoutMs, 16000);
@@ -216,7 +255,7 @@ async function waitForAppRoute(client, route) {
       };
       const check = () => {
         const state = routeReadyDiagnostics();
-        const isReady = document.readyState === "complete" &&
+        const isReady = document.readyState !== "loading" &&
           document.body &&
           document.body.dataset.view === route &&
           state.viewExists &&
@@ -238,9 +277,57 @@ async function waitForAppRoute(client, route) {
   await delay(650);
 }
 
+async function waitForSystemPwaRuntime(client) {
+  const timeoutMs = 12000;
+  const expression = `
+    new Promise((resolve) => {
+      const started = Date.now();
+      const runtimeState = () => {
+        const node = document.querySelector("[data-system-pwa-runtime]");
+        const cachedAssetCount = node ? Number(node.dataset.pwaRuntimeCachedAssetCount || 0) : 0;
+        return {
+          present: Boolean(node),
+          status: node ? node.dataset.pwaRuntimeStatus || "" : "",
+          serviceWorkerActive: node ? node.dataset.pwaRuntimeServiceWorkerActive || "" : "",
+          cacheReady: node ? node.dataset.pwaRuntimeCacheReady || "" : "",
+          manifestLinked: node ? node.dataset.pwaRuntimeManifestLinked || "" : "",
+          cachedAssetCount: node ? node.dataset.pwaRuntimeCachedAssetCount || "" : "",
+          ready: Boolean(node) &&
+            node.dataset.pwaRuntimeServiceWorkerActive === "true" &&
+            node.dataset.pwaRuntimeCacheReady === "true" &&
+            node.dataset.pwaRuntimeManifestLinked === "true" &&
+            Number.isFinite(cachedAssetCount) &&
+            cachedAssetCount > 0,
+          elapsedMs: Date.now() - started
+        };
+      };
+      const check = () => {
+        const state = runtimeState();
+        if (state.ready || Date.now() - started > ${timeoutMs}) resolve(state);
+        else setTimeout(check, 150);
+      };
+      check();
+    })
+  `;
+  const state = await evaluate(client, expression, timeoutMs + 3000);
+  progress("pwa-runtime-ready", {
+    elapsedMs: state?.elapsedMs,
+    ready: state?.ready,
+    status: state?.status,
+    cachedAssetCount: state?.cachedAssetCount,
+  });
+  return state;
+}
+
 function formatArg(arg) {
   if (!arg) return "";
   if (typeof arg.value !== "undefined") return String(arg.value);
+  if (Array.isArray(arg.preview?.properties) && arg.preview.properties.length) {
+    const props = arg.preview.properties.slice(0, 8)
+      .map((prop) => `${prop.name}:${prop.value || prop.description || prop.type || ""}`)
+      .join(", ");
+    return `${arg.description || arg.className || arg.type || "Object"} {${props}}`;
+  }
   if (arg.description) return arg.description;
   if (arg.type) return `[${arg.type}]`;
   return "";
@@ -325,12 +412,13 @@ async function main() {
     await pageClient.send("Network.enable");
     progress("cdp-domains-enabled");
 
-    for (const [routeIndex, [route, expectedTexts]] of routes.entries()) {
-      currentRoute = route;
-      const url = `${baseUrl}/index.html?smoke-route=${routeIndex}#${route}`;
-      progress("route-start", { route, url });
-      await pageClient.send("Page.navigate", { url });
-      await waitForAppRoute(pageClient, route);
+	    for (const [routeIndex, [route, expectedTexts]] of routes.entries()) {
+	      currentRoute = route;
+	      const url = `${baseUrl}/index.html?smoke-route=${routeIndex}#${route}`;
+	      progress("route-start", { route, url });
+	      await navigateAndWaitForLoad(pageClient, url);
+	      await waitForAppRoute(pageClient, route);
+      if (route === "system") await waitForSystemPwaRuntime(pageClient);
 
       const report = await evaluate(pageClient, `(() => {
         const route = "${route}";
@@ -452,7 +540,7 @@ async function main() {
     progress("cleanup-start", { currentRoute });
     if (pageClient) pageClient.close();
     await terminateProcess(chrome);
-    rmSync(tmpProfile, { recursive: true, force: true });
+    cleanupTmpProfile();
     progress("cleanup-end", { currentRoute });
   }
 
@@ -503,7 +591,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  rmSync(tmpProfile, { recursive: true, force: true });
+  cleanupTmpProfile();
   console.error(error.stack || error.message);
   process.exit(1);
 });

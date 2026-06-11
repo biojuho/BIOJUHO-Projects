@@ -55,10 +55,16 @@ const proofFields = [
 ];
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function gitText(argsList) {
@@ -143,11 +149,26 @@ function actualValue(value) {
   return true;
 }
 
+function fieldLinePattern(key) {
+  return new RegExp(`^\\s*(?:[-*]\\s*)?${escapeRegExp(key)}\\s*[:=][^\\S\\r\\n]*(.*)$`, "i");
+}
+
+function startsFieldLine(line) {
+  return /^\s*(?:[-*]\s*)?[a-z_]+\s*[:=]/i.test(line);
+}
+
 function extractFieldValue(text, key) {
-  const escaped = escapeRegExp(key);
-  const pattern = new RegExp(`(?:^|\\n)\\s*(?:[-*]\\s*)?${escaped}\\s*[:=]\\s*(.+?)(?=\\n\\s*(?:[-*]\\s*)?[a-z_]+\\s*[:=]|$)`, "is");
-  const match = String(text || "").match(pattern);
-  return match ? match[1].trim() : "";
+  const lines = String(text || "").split(/\r?\n/);
+  const pattern = fieldLinePattern(key);
+  const startIndex = lines.findIndex((line) => pattern.test(line));
+  if (startIndex < 0) return "";
+  const firstLine = lines[startIndex].match(pattern)?.[1] || "";
+  const valueLines = [firstLine];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    if (startsFieldLine(lines[index])) break;
+    valueLines.push(lines[index]);
+  }
+  return valueLines.join("\n").trim();
 }
 
 function parseProofText(text) {

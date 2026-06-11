@@ -30,12 +30,12 @@ const highChurnRepoPolicies = [
   },
 ];
 
-function collectOptionValues(flag) {
+function collectOptionValues(flag, argsList = rawArgs) {
   const values = [];
-  for (let index = 0; index < rawArgs.length; index += 1) {
-    const item = rawArgs[index];
-    if (item === flag && rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--")) {
-      values.push(rawArgs[index + 1]);
+  for (let index = 0; index < argsList.length; index += 1) {
+    const item = argsList[index];
+    if (item === flag && argsList[index + 1] && !argsList[index + 1].startsWith("--")) {
+      values.push(argsList[index + 1]);
       index += 1;
     } else if (item.startsWith(`${flag}=`)) {
       values.push(item.slice(flag.length + 1));

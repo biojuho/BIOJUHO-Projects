@@ -22,17 +22,39 @@ import {
   sep,
 } from "node:path";
 import { fileURLToPath } from "node:url";
+import { withProductSmokeLock } from "./product-smoke-lock.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const releaseDir = process.env.RELEASE_OUT_DIR
   ? resolve(root, process.env.RELEASE_OUT_DIR)
   : join(root, "dist", "release");
 const host = "127.0.0.1";
-const requestedPort = Number(process.env.RELEASE_SMOKE_PORT || process.env.PORT || 0);
+const requestedPort = portOption(process.env.RELEASE_SMOKE_PORT || process.env.PORT, 0);
 const shouldPackage = process.env.RELEASE_SMOKE_SKIP_PACKAGE !== "1";
 const packagedBrowserGateCacheRel = "autoresearch-results/release-readiness-gates.json";
 const packagedBrowserGateCacheSchema = "joopark-packaged-browser-gates/v1";
 const packagedBrowserGateCacheMaxAgeHours = 6;
+const desktopReleaseSmokeTimeoutMs = positiveMsOption(
+  process.env.DESKTOP_RELEASE_SMOKE_TIMEOUT_MS,
+  240000,
+);
+const mobileReleaseSmokeTimeoutMs = positiveMsOption(
+  process.env.MOBILE_RELEASE_SMOKE_TIMEOUT_MS,
+  240000,
+);
+
+function portOption(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed >= 65536) return fallback;
+  return parsed;
+}
+
+function positiveMsOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
 const packagedBrowserGateContextExcludedFiles = new Set([
   "README.md",
   "autoresearch-results/joopark-product-loop.json",
@@ -45,6 +67,7 @@ const packagedBrowserGateContextExcludedFiles = new Set([
   "data/launch-readiness-refresh.json",
   "data/launch-readiness-refresh.md",
   "data/main-bridge-plan.json",
+  "data/github-project-discovery.json",
   "data/output-quality-audit.json",
   "data/publish-dispatch-plan.json",
   "data/publish-evidence.json",
@@ -62,11 +85,18 @@ const packagedBrowserGateRuntimeFiles = [
   "notes-view.js",
   "habits-view.js",
   "stats-view.js",
+  "llm-wiki-view.js",
   "portfolio-view.js",
   "kanban-view.js",
   "gantt-view.js",
   "team-view.js",
   "workspace-storage.js",
+  "dashboard-storage.js",
+  "dashboard-prioritization.js",
+  "dashboard-evidence-receipts.js",
+  "dashboard-insights-engine.js",
+  "dashboard-autoresearch-loop.js",
+  "dashboard-view.js",
   "storage-status-view.js",
   "settings-view.js",
   "system-status-view.js",
@@ -79,6 +109,10 @@ const packagedBrowserGateRuntimeFiles = [
   "project-picker.js",
   "global-search.js",
   "command-palette.js",
+  "keyboard-shortcuts.js",
+  "interaction-setup.js",
+  "event-reminders.js",
+  "footer-clock.js",
   "db-catalog.js",
   "review-handoff.js",
   "review-result-view.js",
@@ -93,7 +127,11 @@ const packagedBrowserGateRuntimeFiles = [
   "review-copy-actions.js",
   "review-submission-copy.js",
   "review-recommendation-export.js",
+  "runtime-error-boundary.js",
   "pwa-runtime.js",
+  "workspace-seed-data.js",
+  "home-view.js",
+  "ops-runtime-loader.js",
   "app.js",
   "sw.js",
   "styles.css",
@@ -106,6 +144,7 @@ const packagedBrowserGateRuntimeFiles = [
   "README.md",
   "data/repos.json",
   "data/adoption-candidates.json",
+  "data/github-project-discovery.json",
   "data/launch-execution-packet.json",
   "data/output-quality-audit.json",
   "data/publish-dispatch-plan.json",
@@ -118,6 +157,7 @@ const packagedBrowserGateRuntimeFiles = [
   "vendor/fuse.min.js",
   "vendor/marked.umd.js",
   "vendor/purify.min.js",
+
 ];
 const packagedBrowserGateReleaseScripts = [
   "scripts/package-release.mjs",
@@ -130,6 +170,7 @@ const packagedBrowserGateReleaseScripts = [
   "scripts/smoke-delete-undo.mjs",
   "scripts/smoke-interactions.mjs",
   "scripts/smoke-a11y.mjs",
+  "scripts/product-smoke-lock.mjs",
   "scripts/smoke-release.mjs",
   "scripts/plan-workflow-ui-install.mjs",
   "scripts/plan-publish-dispatch.mjs",
@@ -159,6 +200,12 @@ function parseJsonOutput(stdout, fallbackStatus = "unknown") {
       output: stdout.trim(),
     };
   }
+}
+
+function writeJson(payload) {
+  return new Promise((resolveWrite) => {
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`, resolveWrite);
+  });
 }
 
 function progress(message) {
@@ -410,9 +457,14 @@ function readReleaseRedirectRules() {
     if (!trimmed || trimmed.startsWith("#")) continue;
     const [from, to, status = "301"] = trimmed.split(/\s+/);
     if (!from || !to) continue;
-    rules.push({ from, to, status: Number(status) || 301 });
+    rules.push({ from, to, status: redirectStatusCode(status) });
   }
   return rules;
+}
+
+function redirectStatusCode(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 100 && parsed <= 999 ? parsed : 301;
 }
 
 function headerRuleMatches(pattern, pathname) {
@@ -547,6 +599,10 @@ async function smokeReleaseHeaders(baseUrl) {
   const projectPicker = await fetchHeaderMap(`${baseUrl}/project-picker.js`);
   const globalSearch = await fetchHeaderMap(`${baseUrl}/global-search.js`);
   const commandPalette = await fetchHeaderMap(`${baseUrl}/command-palette.js`);
+  const keyboardShortcuts = await fetchHeaderMap(`${baseUrl}/keyboard-shortcuts.js`);
+  const interactionSetup = await fetchHeaderMap(`${baseUrl}/interaction-setup.js`);
+  const eventReminders = await fetchHeaderMap(`${baseUrl}/event-reminders.js`);
+  const footerClock = await fetchHeaderMap(`${baseUrl}/footer-clock.js`);
   const dbCatalog = await fetchHeaderMap(`${baseUrl}/db-catalog.js`);
   const reviewHandoff = await fetchHeaderMap(`${baseUrl}/review-handoff.js`);
   const reviewResultView = await fetchHeaderMap(`${baseUrl}/review-result-view.js`);
@@ -599,6 +655,10 @@ async function smokeReleaseHeaders(baseUrl) {
     project_picker_cache_no_cache: projectPicker.headers["cache-control"] === "no-cache",
     global_search_cache_no_cache: globalSearch.headers["cache-control"] === "no-cache",
     command_palette_cache_no_cache: commandPalette.headers["cache-control"] === "no-cache",
+    keyboard_shortcuts_cache_no_cache: keyboardShortcuts.headers["cache-control"] === "no-cache",
+    interaction_setup_cache_no_cache: interactionSetup.headers["cache-control"] === "no-cache",
+    event_reminders_cache_no_cache: eventReminders.headers["cache-control"] === "no-cache",
+    footer_clock_cache_no_cache: footerClock.headers["cache-control"] === "no-cache",
     db_catalog_cache_no_cache: dbCatalog.headers["cache-control"] === "no-cache",
     review_handoff_cache_no_cache: reviewHandoff.headers["cache-control"] === "no-cache",
     review_result_view_cache_no_cache: reviewResultView.headers["cache-control"] === "no-cache",
@@ -651,6 +711,10 @@ async function smokeReleaseHeaders(baseUrl) {
       projectPicker: projectPicker.status,
       globalSearch: globalSearch.status,
       commandPalette: commandPalette.status,
+      keyboardShortcuts: keyboardShortcuts.status,
+      interactionSetup: interactionSetup.status,
+      eventReminders: eventReminders.status,
+      footerClock: footerClock.status,
       dbCatalog: dbCatalog.status,
       reviewHandoff: reviewHandoff.status,
       reviewResultView: reviewResultView.status,
@@ -718,18 +782,33 @@ function listen(server) {
 
 function close(server) {
   return new Promise((resolveClose, rejectClose) => {
-    const timer = setTimeout(() => {
-      if (typeof server.destroyOpenSockets === "function") server.destroyOpenSockets();
-      resolveClose();
-    }, 1000);
-    server.close((error) => {
+    let settled = false;
+    const settle = (error) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       if (error) rejectClose(error);
       else resolveClose();
-    });
-    if (typeof server.closeIdleConnections === "function") server.closeIdleConnections();
-    if (typeof server.closeAllConnections === "function") server.closeAllConnections();
-    if (typeof server.destroyOpenSockets === "function") server.destroyOpenSockets();
+    };
+    const forceStop = () => {
+      if (typeof server.destroyOpenSockets === "function") server.destroyOpenSockets();
+      if (typeof server.closeAllConnections === "function") server.closeAllConnections();
+      if (typeof server.unref === "function") server.unref();
+      settle();
+    };
+    const timer = setTimeout(() => {
+      forceStop();
+    }, 1000);
+    try {
+      server.close((error) => {
+        settle(error);
+      });
+      if (typeof server.closeIdleConnections === "function") server.closeIdleConnections();
+      if (typeof server.closeAllConnections === "function") server.closeAllConnections();
+      if (typeof server.destroyOpenSockets === "function") server.destroyOpenSockets();
+    } catch (error) {
+      settle(error);
+    }
   });
 }
 
@@ -783,14 +862,14 @@ async function main() {
       BASE_URL: baseUrl,
       SMOKE_PROGRESS: "1",
       SMOKE_RUNTIME_TIMEOUT_MS: "90000",
-    }, 180000);
+    }, desktopReleaseSmokeTimeoutMs);
     smokeResult = parseJsonOutput(smokeRun.stdout, "fail");
     if (smokeRun.attempts.length > 0) smokeResult.retryAttempts = smokeRun.attempts;
     progress("running mobile layout smoke");
     const mobileRun = await runRetryableBrowserScript("scripts/smoke-mobile.mjs", {
       BASE_URL: baseUrl,
       SMOKE_PROGRESS: "1",
-    }, 120000);
+    }, mobileReleaseSmokeTimeoutMs);
     mobileResult = parseJsonOutput(mobileRun.stdout, "fail");
     if (mobileRun.attempts.length > 0) mobileResult.retryAttempts = mobileRun.attempts;
     progress("running interaction smoke");
@@ -933,6 +1012,7 @@ async function main() {
       stepCount: interactionResult.steps ? interactionResult.steps.length : 0,
       retryAttempts: interactionResult.retryAttempts || [],
       persistedChecks: interactionResult.persistedChecks,
+      archivedMetaChecks: interactionResult.archivedMetaChecks || null,
       consoleIssues: interactionResult.consoleIssues,
       networkIssues: interactionResult.networkIssues,
       failures: interactionResult.failures,
@@ -955,20 +1035,27 @@ async function main() {
   };
   const cache = writePackagedBrowserGateCache(resultPayload);
 
-  console.log(JSON.stringify({
+  await writeJson({
     ...resultPayload,
     cache,
-  }, null, 2));
+  });
 }
 
-main().catch((error) => {
-  console.error(JSON.stringify({
-    status: "fail",
-    step: error.step || "scripts/smoke-release.mjs",
-    message: error.message,
-    stdout: error.stdout || "",
-    stderr: error.stderr || "",
-    attempts: error.attempts || [],
-  }, null, 2));
-  process.exit(1);
-});
+async function runCli() {
+  try {
+    await withProductSmokeLock({ root, label: "test:product", progress }, main);
+    process.exit(0);
+  } catch (error) {
+    console.error(JSON.stringify({
+      status: "fail",
+      step: error.step || "scripts/smoke-release.mjs",
+      message: error.message,
+      stdout: error.stdout || "",
+      stderr: error.stderr || "",
+      attempts: error.attempts || [],
+    }, null, 2));
+    process.exit(1);
+  }
+}
+
+runCli();

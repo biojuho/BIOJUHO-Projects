@@ -1,14 +1,116 @@
 #!/usr/bin/env node
 // 일회성 상호작용 검증: LLM 위키 뷰 (문서 열기/마크다운/카테고리 전환/뷰 내 검색)
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runInNewContext } from "node:vm";
 
 const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-wiki-smoke-"));
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+const appUrl = `${baseUrl}/index.html`;
+
+const projectOpsExpectedDocs = [
+  {
+    "key": "githubPagesActionsDeploy",
+    "id": "github-pages-actions-deploy",
+    "filename": "github-pages-actions-deploy.md",
+    "title": "GitHub Pages를 Actions로 배포하기",
+    "sourceKey": "project_ops_github_pages_actions_deploy",
+    "markers": [
+      "GitHub Pages를 Actions로 배포하기",
+      "작성일: 2026-06-11",
+      "프로젝트 운영 지식"
+    ]
+  },
+  {
+    "key": "localFirstDataSafety",
+    "id": "local-first-data-safety",
+    "filename": "local-first-data-safety.md",
+    "title": "localStorage만 쓰는 앱의 데이터 안전",
+    "sourceKey": "project_ops_local_first_data_safety",
+    "markers": [
+      "localStorage만 쓰는 앱의 데이터 안전",
+      "작성일: 2026-06-11",
+      "프로젝트 운영 지식"
+    ]
+  },
+  {
+    "key": "pwaOfflineOperations",
+    "id": "pwa-offline-operations",
+    "filename": "pwa-offline-operations.md",
+    "title": "PWA 서비스워커 운영",
+    "sourceKey": "project_ops_pwa_offline_operations",
+    "markers": [
+      "PWA 서비스워커 운영",
+      "작성일: 2026-06-11",
+      "프로젝트 운영 지식"
+    ]
+  },
+  {
+    "key": "vanillaSpaQualityGates",
+    "id": "vanilla-spa-quality-gates",
+    "filename": "vanilla-spa-quality-gates.md",
+    "title": "바닐라 JS SPA 품질 게이트",
+    "sourceKey": "project_ops_vanilla_spa_quality_gates",
+    "markers": [
+      "바닐라 JS SPA 품질 게이트",
+      "작성일: 2026-06-11",
+      "프로젝트 운영 지식"
+    ]
+  },
+  {
+    "key": "staticSiteDataSync",
+    "id": "static-site-data-sync",
+    "filename": "static-site-data-sync.md",
+    "title": "서버 없는 정적 사이트에서 실데이터 가져오기",
+    "sourceKey": "project_ops_static_site_data_sync",
+    "markers": [
+      "서버 없는 정적 사이트에서 실데이터 가져오기",
+      "작성일: 2026-06-11",
+      "프로젝트 운영 지식"
+    ]
+  },
+  {
+    "key": "llmAgentLoopGuardrails",
+    "id": "llm-agent-loop-guardrails",
+    "filename": "llm-agent-loop-guardrails.md",
+    "title": "LLM 에이전트 자율 루프 가드레일",
+    "sourceKey": "project_ops_llm_agent_loop_guardrails",
+    "markers": [
+      "LLM 에이전트 자율 루프 가드레일",
+      "작성일: 2026-06-11",
+      "프로젝트 운영 지식"
+    ]
+  }
+];
+
+function extractProjectOpsDocsFromWiki() {
+  const source = readFileSync(new URL("../llm-wiki-view.js", import.meta.url), "utf8");
+  const start = source.indexOf("  const PROJECT_OPS_DOCS = {");
+  const end = source.indexOf("\n\n  const WIKI = {", start);
+  if (start === -1 || end === -1) {
+    throw new Error("PROJECT_OPS_DOCS block not found in llm-wiki-view.js");
+  }
+  const objectSource = source.slice(start, end).replace(/^\s*const PROJECT_OPS_DOCS\s*=\s*/, "").replace(/;\s*$/, "");
+  return runInNewContext("(" + objectSource + ")", Object.create(null), { timeout: 1000 });
+}
+
+function assertProjectOpsExactMatch() {
+  const wikiDocs = extractProjectOpsDocsFromWiki();
+  const missing = [];
+  for (const doc of projectOpsExpectedDocs) {
+    const expected = readFileSync(new URL("../docs/knowledge/" + doc.filename, import.meta.url), "utf8");
+    if (wikiDocs[doc.key] !== expected) {
+      missing.push(doc.filename);
+    }
+  }
+  if (missing.length) {
+    throw new Error("project-ops docs are not exact matches: " + missing.join(", "));
+  }
+}
 
 class Cdp {
   constructor(ws) { this.ws = ws; this.id = 1; this.pending = new Map(); }
@@ -34,10 +136,27 @@ async function wsForPage(port) {
   throw new Error("no page target");
 }
 
+async function assertAppServerReady() {
+  try {
+    const response = await fetch(appUrl, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const body = await response.text();
+    if (!body.includes("view-llm-wiki")) {
+      throw new Error("index.html does not include #view-llm-wiki");
+    }
+  } catch (error) {
+    throw new Error(`LLM wiki smoke target is not reachable at ${appUrl}. Start a local server or set BASE_URL. ${error.message}`);
+  }
+}
+
 let chrome;
 try {
+  assertProjectOpsExactMatch();
+  await assertAppServerReady();
   const port = 9355;
-  chrome = spawn(chromePath, ["--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${tmpProfile}`, "--no-first-run", "--no-default-browser-check", baseUrl + "/index.html"], { stdio: "ignore" });
+  chrome = spawn(chromePath, ["--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${tmpProfile}`, "--no-first-run", "--no-default-browser-check", appUrl], { stdio: "ignore" });
   const cdp = await Cdp.open(await wsForPage(port));
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
@@ -54,13 +173,17 @@ try {
   await evalRetry(`document.readyState`);
   await delay(600);
   // llm-wiki 라우트 진입 대기
-  await evalRetry(`new Promise((res)=>{const t=Date.now();(function c(){if(location.hash!=='#llm-wiki')location.hash='#llm-wiki';const v=document.getElementById('view-llm-wiki');if(document.readyState==='complete'&&v&&!v.hidden&&v.innerText.trim().length>0)res(true);else if(Date.now()-t>15000)res(false);else setTimeout(c,100)})()})`);
+  const routeReady = await evalRetry(`new Promise((res)=>{const t=Date.now();(function c(){if(location.hash!=='#llm-wiki')location.hash='#llm-wiki';const v=document.getElementById('view-llm-wiki');if(document.readyState==='complete'&&v&&!v.hidden&&v.innerText.trim().length>0)res(true);else if(Date.now()-t>15000)res(false);else setTimeout(c,100)})()})`);
+  if (!routeReady) {
+    throw new Error(`LLM wiki route did not become ready at ${appUrl}#llm-wiki`);
+  }
   await delay(400);
 
   const report = await evalRetry(`(async () => {
     const out = {};
     const $ = (s, r=document) => r.querySelector(s);
     const view = $('#view-llm-wiki');
+    if (!view) throw new Error('LLM wiki view container not found: #view-llm-wiki');
     out.railCats = view.querySelectorAll('.wiki-cat').length;
     out.listCards = view.querySelectorAll('.wiki-card').length;
 
@@ -313,8 +436,44 @@ try {
     out.sourceLinkCount = view.querySelectorAll('.wiki-source-link[href^="https://"]').length;
     out.sourceABTableRendered = !!$('.wiki-body table', view) && view.innerText.includes('코드 임베드 유지') && view.innerText.includes('별도 JSON/Markdown');
 
-    // 7) 뷰 내 검색: 'RAG' 입력 → 검색 결과 모드
+
+    // 7) 프로젝트 운영 문서: 6편 카드/본문 marker/source panel/검색 확인
     const input = document.getElementById('globalSearch');
+    const projectOpsDocs = [{"key":"githubPagesActionsDeploy","id":"github-pages-actions-deploy","filename":"github-pages-actions-deploy.md","title":"GitHub Pages를 Actions로 배포하기","sourceKey":"project_ops_github_pages_actions_deploy","markers":["GitHub Pages를 Actions로 배포하기","작성일: 2026-06-11","프로젝트 운영 지식"]},{"key":"localFirstDataSafety","id":"local-first-data-safety","filename":"local-first-data-safety.md","title":"localStorage만 쓰는 앱의 데이터 안전","sourceKey":"project_ops_local_first_data_safety","markers":["localStorage만 쓰는 앱의 데이터 안전","작성일: 2026-06-11","프로젝트 운영 지식"]},{"key":"pwaOfflineOperations","id":"pwa-offline-operations","filename":"pwa-offline-operations.md","title":"PWA 서비스워커 운영","sourceKey":"project_ops_pwa_offline_operations","markers":["PWA 서비스워커 운영","작성일: 2026-06-11","프로젝트 운영 지식"]},{"key":"vanillaSpaQualityGates","id":"vanilla-spa-quality-gates","filename":"vanilla-spa-quality-gates.md","title":"바닐라 JS SPA 품질 게이트","sourceKey":"project_ops_vanilla_spa_quality_gates","markers":["바닐라 JS SPA 품질 게이트","작성일: 2026-06-11","프로젝트 운영 지식"]},{"key":"staticSiteDataSync","id":"static-site-data-sync","filename":"static-site-data-sync.md","title":"서버 없는 정적 사이트에서 실데이터 가져오기","sourceKey":"project_ops_static_site_data_sync","markers":["서버 없는 정적 사이트에서 실데이터 가져오기","작성일: 2026-06-11","프로젝트 운영 지식"]},{"key":"llmAgentLoopGuardrails","id":"llm-agent-loop-guardrails","filename":"llm-agent-loop-guardrails.md","title":"LLM 에이전트 자율 루프 가드레일","sourceKey":"project_ops_llm_agent_loop_guardrails","markers":["LLM 에이전트 자율 루프 가드레일","작성일: 2026-06-11","프로젝트 운영 지식"]}];
+    const projectOpsCat = Array.from(view.querySelectorAll('.wiki-cat')).find(b => b.textContent.includes('프로젝트 운영'));
+    projectOpsCat && projectOpsCat.click();
+    await new Promise(r=>setTimeout(r,150));
+    out.projectOpsCardCount = view.querySelectorAll('.wiki-card-open').length;
+    out.projectOpsTitlesShown = projectOpsDocs.every(doc => view.innerText.includes(doc.title));
+    out.projectOpsArticleChecks = [];
+    for (const doc of projectOpsDocs) {
+      const cat = Array.from(view.querySelectorAll('.wiki-cat')).find(b => b.textContent.includes('프로젝트 운영'));
+      cat && cat.click();
+      await new Promise(r=>setTimeout(r,100));
+      const card = Array.from(view.querySelectorAll('.wiki-card-open')).find(b => b.textContent.includes(doc.title));
+      card && card.click();
+      await new Promise(r=>setTimeout(r,120));
+      const bodyText = $('.wiki-body', view)?.innerText || '';
+      out.projectOpsArticleChecks.push({
+        id: doc.id,
+        opened: !!card && bodyText.includes(doc.markers[0]),
+        markers: doc.markers.every(marker => bodyText.includes(marker)),
+        sourcePanel: !!$('.wiki-source-panel', view) && Array.from(view.querySelectorAll('.wiki-source-link')).some(link => link.getAttribute('href').includes(doc.filename)),
+      });
+    }
+    const projectOpsSearchResults = [];
+    for (const doc of projectOpsDocs.filter(doc => !['local-first-data-safety', 'vanilla-spa-quality-gates'].includes(doc.id))) {
+      input.value = doc.title;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(r=>setTimeout(r,250));
+      projectOpsSearchResults.push({ id: doc.id, found: view.innerText.includes(doc.title) && view.querySelectorAll('[data-search-result="llm-wiki"]').length >= 1 });
+    }
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r=>setTimeout(r,150));
+    out.projectOpsSearchOk = projectOpsSearchResults.every(item => item.found);
+
+    // 8) 뷰 내 검색: 'RAG' 입력 → 검색 결과 모드
     input.value = 'RAG';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise(r=>setTimeout(r,400));
@@ -327,7 +486,7 @@ try {
   })()`);
 
   console.log(JSON.stringify(report, null, 2));
-  const pass = report && report.railCats >= 7 && report.readerShown && report.bodyIsMarkdown && report.modelLandscapeOfficialSources && report.modelLandscapeSourcePanelShown && report.tableRendered && report.tableHasOpus && report.modelOptimizationMarkers && report.modelOptimizationSourcePanel && report.apiExampleStructuredMarkers && report.apiExampleStructuredSourcePanel && report.apiExampleToolMarkers && report.apiExampleToolSourcePanel && report.apiExampleMcpMarkers && report.apiExampleMcpSourcePanel && report.ragEvalEmbeddingMarkers && report.ragEvalEmbeddingSourcePanel && report.multimodalFileMarkers && report.multimodalFileSourcePanel && report.ragEvalRagMarkers && report.ragEvalRagSourcePanel && report.ragEvalEvaluationMarkers && report.ragEvalEvaluationSourcePanel && report.evalDatasetGovernanceMarkers && report.evalDatasetGovernanceSourcePanel && report.evalResultLineageMarkers && report.evalResultLineageSourcePanel && report.evalFailureTriageMarkers && report.evalFailureTriageSourcePanel && report.evaluatorCalibrationMarkers && report.evaluatorCalibrationSourcePanel && report.postmortemActionLedgerMarkers && report.postmortemActionLedgerSourcePanel && report.rolloutDecisionLogMarkers && report.rolloutDecisionLogSourcePanel && report.safetyGuardrailMarkers && report.safetyGuardrailSourcePanel && report.dataPrivacyMarkers && report.dataPrivacySourcePanel && report.runtimeReliabilityMarkers && report.runtimeReliabilitySourcePanel && report.promptReleaseMarkers && report.promptReleaseSourcePanel && report.agentToolPermissionMarkers && report.agentToolPermissionSourcePanel && report.deploymentSecretsMarkers && report.deploymentSecretsSourcePanel && report.costOpsMarkers && report.costOpsSourcePanel && report.observabilityMarkers && report.observabilitySourcePanel && report.sourceGovernanceShown && report.sourcePanelShown && report.sourceLinkCount >= 6 && report.sourceABTableRendered && report.searchResultCards >= 1 && report.searchShowsRag;
+  const pass = report && report.railCats >= 7 && report.readerShown && report.bodyIsMarkdown && report.modelLandscapeOfficialSources && report.modelLandscapeSourcePanelShown && report.tableRendered && report.tableHasOpus && report.modelOptimizationMarkers && report.modelOptimizationSourcePanel && report.apiExampleStructuredMarkers && report.apiExampleStructuredSourcePanel && report.apiExampleToolMarkers && report.apiExampleToolSourcePanel && report.apiExampleMcpMarkers && report.apiExampleMcpSourcePanel && report.ragEvalEmbeddingMarkers && report.ragEvalEmbeddingSourcePanel && report.multimodalFileMarkers && report.multimodalFileSourcePanel && report.ragEvalRagMarkers && report.ragEvalRagSourcePanel && report.ragEvalEvaluationMarkers && report.ragEvalEvaluationSourcePanel && report.evalDatasetGovernanceMarkers && report.evalDatasetGovernanceSourcePanel && report.evalResultLineageMarkers && report.evalResultLineageSourcePanel && report.evalFailureTriageMarkers && report.evalFailureTriageSourcePanel && report.evaluatorCalibrationMarkers && report.evaluatorCalibrationSourcePanel && report.postmortemActionLedgerMarkers && report.postmortemActionLedgerSourcePanel && report.rolloutDecisionLogMarkers && report.rolloutDecisionLogSourcePanel && report.safetyGuardrailMarkers && report.safetyGuardrailSourcePanel && report.dataPrivacyMarkers && report.dataPrivacySourcePanel && report.runtimeReliabilityMarkers && report.runtimeReliabilitySourcePanel && report.promptReleaseMarkers && report.promptReleaseSourcePanel && report.agentToolPermissionMarkers && report.agentToolPermissionSourcePanel && report.deploymentSecretsMarkers && report.deploymentSecretsSourcePanel && report.costOpsMarkers && report.costOpsSourcePanel && report.observabilityMarkers && report.observabilitySourcePanel && report.sourceGovernanceShown && report.sourcePanelShown && report.sourceLinkCount >= 6 && report.sourceABTableRendered && report.projectOpsCardCount >= 6 && report.projectOpsTitlesShown && Array.isArray(report.projectOpsArticleChecks) && report.projectOpsArticleChecks.length === 6 && report.projectOpsArticleChecks.every((item) => item.opened && item.markers && item.sourcePanel) && report.projectOpsSearchOk && report.searchResultCards >= 1 && report.searchShowsRag;
   console.log(pass ? "\nLLM-WIKI INTERACTION: PASS" : "\nLLM-WIKI INTERACTION: FAIL");
   process.exitCode = pass ? 0 : 1;
 } catch (e) {

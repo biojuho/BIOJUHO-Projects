@@ -26,11 +26,13 @@ function loadModuleTexts(paths) {
 const moduleTexts = loadModuleTexts([
   "search-empty-state.js",
   "home-execution-view.js",
+  "home-view.js",
   "calendar-view.js",
   "todo-view.js",
   "notes-view.js",
   "habits-view.js",
   "stats-view.js",
+  "llm-wiki-view.js",
   "portfolio-view.js",
   "kanban-view.js",
   "gantt-view.js",
@@ -48,6 +50,9 @@ const moduleTexts = loadModuleTexts([
   "project-picker.js",
   "global-search.js",
   "command-palette.js",
+  "interaction-setup.js",
+  "event-reminders.js",
+  "footer-clock.js",
   "db-catalog.js",
   "review-handoff.js",
   "review-result-view.js",
@@ -63,16 +68,20 @@ const moduleTexts = loadModuleTexts([
   "review-submission-copy.js",
   "review-recommendation-export.js",
   "pwa-runtime.js",
+  "workspace-seed-data.js",
+  "ops-runtime-loader.js",
 ]);
 
 const {
   "search-empty-state.js": searchEmptyStateText,
   "home-execution-view.js": homeExecutionViewText,
+  "home-view.js": homeViewText,
   "calendar-view.js": calendarViewText,
   "todo-view.js": todoViewText,
   "notes-view.js": notesViewText,
   "habits-view.js": habitsViewText,
   "stats-view.js": statsViewText,
+  "llm-wiki-view.js": llmWikiViewText,
   "portfolio-view.js": portfolioViewText,
   "kanban-view.js": kanbanViewText,
   "gantt-view.js": ganttViewText,
@@ -90,6 +99,9 @@ const {
   "project-picker.js": projectPickerText,
   "global-search.js": globalSearchText,
   "command-palette.js": commandPaletteText,
+  "interaction-setup.js": interactionSetupText,
+  "event-reminders.js": eventRemindersText,
+  "footer-clock.js": footerClockText,
   "db-catalog.js": dbCatalogText,
   "review-handoff.js": reviewHandoffText,
   "review-result-view.js": reviewResultViewText,
@@ -105,9 +117,11 @@ const {
   "review-submission-copy.js": reviewSubmissionCopyText,
   "review-recommendation-export.js": reviewRecommendationExportText,
   "pwa-runtime.js": pwaRuntimeText,
+  "workspace-seed-data.js": workspaceSeedDataText,
+  "ops-runtime-loader.js": opsRuntimeLoaderText,
 } = moduleTexts;
 
-const maxAppLines = 12500;
+const maxAppLines = 11000;
 const maxSectionLines = 5200;
 const maxFunctionLines = 700;
 const minActionHandlerMaps = 21;
@@ -124,17 +138,17 @@ const requiredActionHandlerMaps = [
 
 const requiredBoundaries = [
   { id: "shell_utilities", label: "Shell utilities and markdown safety", terms: ["function renderMarkdown", "DOMPurify.sanitize", "searchEmptyStateHelpers", "function searchEmptyState"] },
-  { id: "state_refs", label: "State, seed data, and DOM references", terms: ["const dashboard = {", "const refs = {", "currentView: \"home\""] },
-  { id: "home_view", label: "Home dashboard view", terms: ["* View: Home", "function renderHome", "home-quickadd"] },
+  { id: "state_refs", label: "State, seed data, and DOM references", terms: ["dashboardSeedHelpers.create({ addDays })", "const refs = {", "dashboard.currentView"] },
+  { id: "home_view", label: "Home dashboard view", terms: ["* View: Home", "homeViewHelpers", "homeViewCall(\"renderHome\""] },
   { id: "portfolio_review", label: "Portfolio and review handoff surface", terms: ["* View: Portfolio", "function renderPortfolio", "portfolioViewHelpers", "reviewPackageViewHelpers", "reviewPackageViewCall(\"reviewPackageHandoffHTML\"", "REVIEW_HANDOFF_SCHEMA_VERSION"] },
   { id: "pm_views", label: "PM execution views", terms: ["* View: Kanban", "function renderKanban", "kanbanViewHelpers", "function renderGantt", "ganttViewHelpers", "function renderTeam", "teamViewHelpers"] },
-  { id: "db_views", label: "DB catalog views and provenance", terms: ["* View: DB Instances", "function dbCatalogProvenanceHTML", "function renderDbQueries", "function renderDbBackups"] },
+  { id: "db_views", label: "DB catalog views and provenance", terms: ["* View: DB Instances", "dbCatalogHelpers", "dbCatalogCall(\"renderDbQueries\"", "dbCatalogCall(\"renderDbBackups\""] },
   { id: "settings_system", label: "Settings, storage health, and system status", terms: ["* View: Settings", "function renderSettings", "settingsViewHelpers", "function renderSystemStatus", "systemStatusViewHelpers", "storageStatusViewHelpers", "function publishReadinessItems"] },
   { id: "persistence_import", label: "Persistence and backup import guards", terms: ["function persist", "function loadPersisted", "workspaceStorageHelpers", "MAX_IMPORT_BYTES", "function handleImportFile"] },
   { id: "personal_views", label: "Calendar, todo, notes, habits, stats", terms: ["* View: 일정", "function renderCalendar", "calendarViewHelpers", "function renderTodos", "todoViewHelpers", "function renderNotes", "notesViewHelpers", "function renderHabits", "habitsViewHelpers", "function renderStats", "statsViewHelpers"] },
-  { id: "routing_actions", label: "Routing and delegated action handling", terms: ["const VIEWS = [", "function renderCurrentView", "function handleActions", "document.body.addEventListener(\"click\""] },
-  { id: "crud_surfaces", label: "PM and DB CRUD surfaces", terms: ["* PM CRUD", "function saveProjectFromForm", "* DB CRUD", "function saveInstanceFromForm"] },
-  { id: "command_palette_bootstrap", label: "Command palette, shortcuts, and bootstrap", terms: ["function renderPaletteResults", "function openPalette", "window.addEventListener(\"hashchange\"", "document.addEventListener(\"visibilitychange\""] },
+  { id: "routing_actions", label: "Routing and delegated action handling", terms: ["const VIEWS = [", "function renderCurrentView", "function handleActions", "interactionSetupHelpers", "interactionSetupCall(\"setup\""] },
+  { id: "crud_surfaces", label: "PM and DB CRUD surfaces", terms: ["* PM CRUD", "function saveProjectFromForm", "* DB CRUD", "const DB_CRUD_ACTION_HANDLERS"] },
+  { id: "command_palette_bootstrap", label: "Command palette, shortcuts, and bootstrap", terms: ["function commandPaletteCall", `commandPaletteCall("open"`, `commandPaletteCall("setup"`, "window.addEventListener(\"hashchange\"", "eventReminderCall(\"start\"", "footerClockCall(\"setupVisibility\""] },
 ];
 
 function candidateModule(path, text, terms) {
@@ -153,6 +167,24 @@ const extractionCandidates = [
     owner: "home-cockpit",
     terms: ["homeExecutionViewHelpers", "function homeExecutionQueueHTML", "homeExecutionViewCall(\"homeExecutionQueueHTML\""],
     module: candidateModule("home-execution-view.js", homeExecutionViewText, ["JooParkHomeExecutionView", "joopark-home-execution-view/v1", "function createHomeExecutionView", "function homeExecutionQueueHTML", "function homeExecutionBucketSummaryHTML", "function homeExecutionReasonChipsHTML", "data-home-execution-queue", "aria-describedby=\"homeExecutionReceiptDetail\""]),
+  },
+  {
+    id: "home-view",
+    owner: "home-cockpit",
+    terms: ["homeViewHelpers", "function renderHome", "homeViewCall(\"renderHome\""],
+    module: candidateModule("home-view.js", homeViewText, ["JooParkHomeView", "joopark-home-view/v1", "function createHomeView", "function renderHome", "function homeCommandTilesHTML", "function homeLaunchOperationsHTML", "data-home-readiness"]),
+  },
+  {
+    id: "workspace-seed-data",
+    owner: "state-seed",
+    terms: ["dashboardSeedHelpers", "dashboardSeedHelpers.create({ addDays })", "workspace seed data helper unavailable"],
+    module: candidateModule("workspace-seed-data.js", workspaceSeedDataText, ["JooParkWorkspaceSeedData", "joopark-workspace-seed-data/v1", "function createWorkspaceSeedData", "projects:", "dbInstances:", "queryHistogram"]),
+  },
+  {
+    id: "ops-runtime-loader",
+    owner: "operations-runtime",
+    terms: ["OPS_RUNTIME_VIEW_GROUPS", "function ensureOpsRuntime", "function queueOpsRuntimeRender"],
+    module: candidateModule("ops-runtime-loader.js", opsRuntimeLoaderText, ["JooParkOpsRuntime", "joopark-ops-runtime-loader/v1", "release-status.js", "review-handoff.js", "function load(groupName)", "function stats()"]),
   },
   {
     id: "calendar-view",
@@ -183,6 +215,12 @@ const extractionCandidates = [
     owner: "personal-productivity",
     terms: ["statsViewHelpers", "function renderStats", "statsViewCall(\"renderStatsHTML\""],
     module: candidateModule("stats-view.js", statsViewText, ["JooParkStatsView", "joopark-stats-view/v1", "function createStatsView", "function statsViewModel", "function accessibleSpark", "function barChart", "function renderStatsHTML", "data-stats-chart=\"todo-trend\"", "role=\"img\""]),
+  },
+  {
+    id: "llm-wiki-view",
+    owner: "knowledge-base",
+    terms: ["llmWikiViewHelpers", "function renderLlmWiki", "llmWikiViewHelpers.renderLlmWikiHTML"],
+    module: candidateModule("llm-wiki-view.js", llmWikiViewText, ["JooParkLlmWikiView", "joopark-llm-wiki-view/v1", "function createLlmWikiView", "function llmWikiViewModel", "function renderLlmWikiHTML", "data-search-result=\"llm-wiki\""]),
   },
   {
     id: "portfolio-view",
@@ -265,7 +303,7 @@ const extractionCandidates = [
   {
     id: "review-artifact-state",
     owner: "product-review",
-    terms: ["reviewArtifactStateHelpers", "function reviewArtifactStateCall", "reviewArtifactStateCall(\"repairPreview\"", "reviewArtifactStateCall(\"compareReceipt\"", "function reviewArtifactRepairPreview", "function applyReviewArtifactRepairBody", "function undoReviewArtifactRepair", "function compareReviewArtifactReceipt"],
+    terms: ["reviewArtifactStateHelpers", "function reviewArtifactStateCall", "reviewArtifactStateCall(\"repairPreview\"", "reviewArtifactStateCall(\"undoRepair\"", "reviewArtifactStateCall(\"compareReceipt\"", "function reviewArtifactRepairPreview", "function undoReviewArtifactRepair", "function compareReviewArtifactReceipt"],
     module: candidateModule("review-artifact-state.js", reviewArtifactStateText, ["JooParkReviewArtifactState", "joopark-review-artifact-state/v1", "function createReviewArtifactState", "function repairPreview", "function applyRepairBody", "function undoRepair", "function setReceiptCompareState", "function compareReceipt", "function insertReceipt", "function clearReceipt", "data-review-artifact-repair-preview", "data-review-artifact-receipt-compare"]),
   },
   {
@@ -295,8 +333,8 @@ const extractionCandidates = [
   {
     id: "db-catalog",
     owner: "data-catalog",
-    terms: ["function dbCatalogProvenanceHTML", "function renderDbInstances", "function openInstanceModal"],
-    module: candidateModule("db-catalog.js", dbCatalogText, ["JooParkDbCatalog", "joopark-db-catalog/v1", "function createDbCatalog", "function renderDbBackups", "function saveMigrationFromForm"]),
+    terms: ["dbCatalogHelpers", "dbCatalogCall(\"renderDbInstances\"", "dbCatalogCall(\"openInstanceModal\""],
+    module: candidateModule("db-catalog.js", dbCatalogText, ["JooParkDbCatalog", "joopark-db-catalog/v1", "function createDbCatalog", "function renderDbBackups", "function saveInstanceFromForm", "function saveMigrationFromForm"]),
   },
   {
     id: "workspace-storage",
@@ -355,20 +393,38 @@ const extractionCandidates = [
   {
     id: "project-picker",
     owner: "navigation",
-    terms: ["projectPickerHelpers", "function projectPickerCall", "projectPickerCall(\"renderOptions\"", "projectPickerCall(\"setOpen\"", "projectPickerCall(\"closeIfOutside\""],
+    terms: ["projectPickerHelpers", "function projectPickerCall", "projectPickerCall(\"renderOptions\"", "projectPickerCall(\"setOpen\"", "projectPickerCall(\"isOpen\"", "projectPickerCall(\"closeIfOutside\""],
     module: candidateModule("project-picker.js", projectPickerText, ["JooParkProjectPicker", "joopark-project-picker/v1", "function createProjectPicker", "function normalizeAccessibility", "function renderOptions", "function restoreFocus", "function ensureScaffold", "function setOpen", "function closeIfOutside"]),
   },
   {
     id: "global-search",
     owner: "navigation",
-    terms: ["globalSearchHelpers", "function globalSearchCall", "globalSearchCall(\"syncAffordance\"", "globalSearchCall(\"revealEmptyIfNeeded\"", "globalSearchCall(\"clear\""],
+    terms: ["globalSearchHelpers", "function globalSearchCall", "function syncSearchClearControl", "globalSearchCall(\"clearControl\"", "globalSearchCall(\"syncAffordance\"", "globalSearchCall(\"clear\"", "globalSearchCall(\"setup\""],
     module: candidateModule("global-search.js", globalSearchText, ["JooParkGlobalSearch", "joopark-global-search/v1", "function createGlobalSearch", "const SEARCH_INERT_VIEWS", "function syncAffordance", "function revealEmptyIfNeeded", "event.key !== \"Escape\"", "openPalette();"]),
   },
   {
     id: "command-palette",
     owner: "navigation",
-    terms: ["function _buildPaletteItems", "function renderPaletteResults", "function _palRunIndex"],
+    terms: ["commandPaletteHelpers", "function commandPaletteCall", "commandPaletteCall(\"open\"", "commandPaletteCall(\"close\""],
     module: candidateModule("command-palette.js", commandPaletteText, ["JooParkCommandPalette", "joopark-command-palette/v1", "buildItems", "aria-activedescendant", "runIndex"]),
+  },
+  {
+    id: "interaction-setup",
+    owner: "navigation",
+    terms: ["interactionSetupHelpers", "function interactionSetupCall", "interactionSetupCall(\"setup\""],
+    module: candidateModule("interaction-setup.js", interactionSetupText, ["JooParkInteractionSetup", "joopark-interaction-setup/v1", "function createInteractionSetup", "function handleClick", "function handleSubmit", "body.addEventListener(\"click\"", "body.addEventListener(\"submit\"", "data-post-install-proof-parser-input"]),
+  },
+  {
+    id: "event-reminders",
+    owner: "navigation",
+    terms: ["eventReminderHelpers", "function eventReminderCall", "eventReminderCall(\"start\""],
+    module: candidateModule("event-reminders.js", eventRemindersText, ["JooParkEventReminders", "joopark-event-reminders/v1", "function createEventReminders", "function tryBrowserNotification", "function remindUpcomingEvents", "NotificationRef.permission === \"granted\"", "setIntervalRef"]),
+  },
+  {
+    id: "footer-clock",
+    owner: "navigation",
+    terms: ["footerClockHelpers", "function footerClockCall", "footerClockCall(\"setupVisibility\""],
+    module: candidateModule("footer-clock.js", footerClockText, ["JooParkFooterClock", "joopark-footer-clock/v1", "function createFooterClock", "function formatFooterNow", "function schedule", "function pause", "documentRef.addEventListener(\"visibilitychange\""]),
   },
 ];
 
@@ -518,6 +574,12 @@ function actionHandlerDispatchSequence(source) {
   return [...source.matchAll(/runActionHandler\(action, target, ([A-Z_]+ACTION_HANDLERS)\)/g)].map((match) => match[1]);
 }
 
+function actionHandlerGroupSequence() {
+  const match = appText.match(/const\s+ACTION_HANDLER_GROUPS\s*=\s*Object\.freeze\(\[\s*([\s\S]*?)\s*\]\);/);
+  if (!match) return [];
+  return [...match[1].matchAll(/\b([A-Z_]+ACTION_HANDLERS)\b/g)].map((item) => item[1]);
+}
+
 function directActionBranches(source) {
   return [...source.matchAll(/if\s*\(\s*action\s*===\s*"([^"]+)"\s*\)/g)].map((match) => match[1]);
 }
@@ -525,13 +587,17 @@ function directActionBranches(source) {
 function actionDispatchGuardEvidence() {
   const handleActionsSource = sourceBlockForFunction("handleActions");
   const handlerMaps = actionHandlerMapNames();
-  const dispatchSequence = actionHandlerDispatchSequence(handleActionsSource);
+  const inlineDispatchSequence = actionHandlerDispatchSequence(handleActionsSource);
+  const groupedDispatchSequence = actionHandlerGroupSequence();
+  const dispatchSequence = inlineDispatchSequence.length ? inlineDispatchSequence : groupedDispatchSequence;
+  const dispatchMode = inlineDispatchSequence.length ? "inline" : groupedDispatchSequence.length ? "grouped" : "missing";
   const directBranches = directActionBranches(handleActionsSource);
   const missingRequiredMaps = requiredActionHandlerMaps.filter((mapName) => !handlerMaps.includes(mapName));
   const firstHandler = dispatchSequence[0] || null;
   const status = passFail(
     handleActionsSource.length > 0
       && directBranches.length === 0
+      && dispatchMode !== "missing"
       && handlerMaps.length >= minActionHandlerMaps
       && missingRequiredMaps.length === 0
       && firstHandler === "MODAL_ACTION_HANDLERS",
@@ -545,6 +611,7 @@ function actionDispatchGuardEvidence() {
     minActionHandlerMaps,
     missingRequiredMaps,
     firstHandler,
+    dispatchMode,
   };
 }
 

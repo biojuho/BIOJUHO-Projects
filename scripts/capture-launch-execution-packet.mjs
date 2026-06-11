@@ -13,10 +13,16 @@ const POST_INSTALL_DISPATCH_GUARD = "Do not run gh workflow run until every post
 const POST_INSTALL_STOP_CONDITION = "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.";
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function readJson(relPath, fallback = null) {
@@ -32,6 +38,12 @@ function valueOrPending(value) {
   if (value === false) return "false";
   if (value === null || value === undefined || value === "") return "not available";
   return String(value);
+}
+
+function numberOr(value, fallback) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function yesNo(value) {
@@ -86,8 +98,72 @@ function installSteps(workflowUiInstallPlan, publishDispatchPlan) {
   });
 }
 
-function installPathOptions({ install, publishDispatchPlan, remoteFileCommand, remoteInstallerCommand, workflowScopeInstallBlocked, workflowScopeRefreshCommand, workflowScopeRecheckCommand }) {
+function remoteWorkflowCheckForPlan(plan, remoteWorkflowFileCheck) {
+  const checks = Array.isArray(remoteWorkflowFileCheck?.checks) ? remoteWorkflowFileCheck.checks : [];
+  return checks.find((check) =>
+    check.key === plan.key ||
+    check.path === plan.target ||
+    check.path === plan.targetRepositoryPath
+  ) || {};
+}
+
+function workflowUiInstallCommands({ install, remoteWorkflowFileCheck }) {
+  return install.flatMap((plan) => {
+    const check = remoteWorkflowCheckForPlan(plan, remoteWorkflowFileCheck);
+    const remediation = check.remediation || {};
+    const installAction = check.installAction || remediation.installAction || "";
+    if (installAction === "verified_remote_matches_template" || (check.remoteExists && check.remoteMatchesTemplate)) return [];
+    const copyCommand = check.templateCopyCommand || remediation.templateCopyCommand || plan.copyCommand || "";
+    const editCommand = check.githubEditFileOpenCommand || remediation.githubEditFileOpenCommand || "";
+    if (installAction === "replace_existing_remote_file" && copyCommand && editCommand) {
+      return [`${copyCommand} && ${editCommand}`];
+    }
+    const newFileCommand = check.githubNewFileOpenCommand || remediation.githubNewFileOpenCommand || plan.openNewFileCommand || "";
+    return [copyCommand, newFileCommand].filter(Boolean);
+  });
+}
+
+function workflowInstallActionRows(remoteWorkflowFileCheck) {
+  const checks = Array.isArray(remoteWorkflowFileCheck?.checks) ? remoteWorkflowFileCheck.checks : [];
+  return checks.map((check) => {
+    const remediation = check.remediation || {};
+    const installAction = check.installAction || remediation.installAction ||
+      (check.remoteExists && check.remoteMatchesTemplate
+        ? "verified_remote_matches_template"
+        : check.remoteExists
+          ? "replace_existing_remote_file"
+          : "create_missing_remote_file");
+    return {
+      key: check.key || check.path || "workflow",
+      path: check.path || check.workflowFile || "",
+      installAction,
+    };
+  });
+}
+
+function workflowInstallActionSummary(remoteWorkflowFileCheck) {
+  const rows = workflowInstallActionRows(remoteWorkflowFileCheck);
+  if (!rows.length) {
+    return "Apply each workflow row's installAction on the default branch: replace existing mismatched files, create only missing files, and leave already verified files unchanged.";
+  }
+  const rowSummary = rows
+    .map((row) => `${row.key}=${row.installAction}`)
+    .join("; ");
+  return `Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: ${rowSummary}.`;
+}
+
+function remoteWorkflowFileOpenCommand(options) {
+  const { installAction, githubNewFileOpenCommand, githubEditFileOpenCommand } = options || {};
+  if (installAction === "verified_remote_matches_template") return "";
+  if (installAction === "replace_existing_remote_file") {
+    return githubEditFileOpenCommand || githubNewFileOpenCommand || "";
+  }
+  return githubNewFileOpenCommand || githubEditFileOpenCommand || "";
+}
+
+function installPathOptions({ install, publishDispatchPlan, remoteWorkflowFileCheck, remoteFileCommand, remoteInstallerCommand, workflowScopeInstallBlocked, workflowScopeRefreshCommand, workflowScopeRecheckCommand }) {
   const handoff = publishDispatchPlan?.workflowDefaultBranchHandoff || {};
+  const githubUiCommands = workflowUiInstallCommands({ install, remoteWorkflowFileCheck });
   return [
     {
       key: "cli_workflow_scope",
@@ -111,14 +187,14 @@ function installPathOptions({ install, publishDispatchPlan, remoteFileCommand, r
     {
       key: "github_ui",
       label: "GitHub UI path",
-      when: "Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch file creation.",
+      when: "Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch workflow repair.",
       commands: uniq([
-        ...install.flatMap((plan) => [plan.copyCommand, plan.openNewFileCommand]),
+        ...githubUiCommands,
         remoteFileCommand,
         publishDispatchPlan?.nextVerificationCommand,
       ]),
-      success: "Both GitHub new-file pages are committed to main, remoteWorkflowFilesReady=true, and workflow visibility is confirmed.",
-      guard: "Create the files on the default branch with the exact copied template contents before any dispatch attempt.",
+      success: "Required create_missing_remote_file rows are created, replace_existing_remote_file rows are replaced on main, verified_remote_matches_template rows are skipped, remoteWorkflowFilesReady=true, and workflow visibility is confirmed.",
+      guard: "Use each file's create or edit URL according to installAction before any dispatch attempt.",
     },
   ].filter((path) => path.commands.length > 0);
 }
@@ -136,6 +212,7 @@ function workflowInstallVerificationMatrix({ repo, defaultBranch, stages, curren
   const dispatchPlanCommand = postAuthCheckpoint?.dispatchPlanCommand || publishDispatchPlan?.nextVerificationCommand || `node scripts/plan-publish-dispatch.mjs --live --repo ${repo}`;
   const handoffCommand = postAuthCheckpoint?.verifyCommand || `node scripts/verify-launch-handoff.mjs --repo ${repo} --write --markdown`;
   const verificationCommands = uniq([remoteFileCommand, workflowListCommand, dispatchPlanCommand, handoffCommand]);
+  const readyToDispatch = workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck });
   const acceptanceSignal = (key, fallback) => {
     const item = acceptance.find((candidate) => candidate.key === key) || {};
     return {
@@ -208,13 +285,13 @@ function workflowInstallVerificationMatrix({ repo, defaultBranch, stages, curren
   });
   return {
     source: "generated_from_launch_execution_packet",
-    status: publishDispatchPlan?.allDispatchReady ? "ready_to_dispatch" : "install_verification_required",
+    status: readyToDispatch ? "ready_to_dispatch" : "install_verification_required",
     repo,
     defaultBranch,
     currentStageKey: installStage.key || "install_workflows",
     nextStageKey: visibilityStage.key || "verify_visibility",
     readyToVerifyVisibility: !!remoteWorkflowFileCheck?.remoteWorkflowFilesReady,
-    readyToDispatch: !!publishDispatchPlan?.allDispatchReady,
+    readyToDispatch,
     installPathCount: matrixRows.length,
     requiredSignalCount: requiredSignals.length,
     verificationCommandCount: verificationCommands.length,
@@ -234,6 +311,7 @@ function remoteWorkflowFileAcceptanceLedger({ repo, defaultBranch, workflowUiIns
   const plans = Array.isArray(workflowUiInstallPlan?.plans) ? workflowUiInstallPlan.plans : [];
   const merged = (checks.length ? checks : plans).map((item) => {
     const plan = plans.find((candidate) => candidate.key === item.key || candidate.targetRepositoryPath === item.path) || {};
+    const remediation = item.remediation || {};
     const remoteExists = !!item.remoteExists;
     const remoteMatchesTemplate = !!item.remoteMatchesTemplate;
     const remoteChecked = item.remoteChecked !== false && (item.remoteChecked || remoteWorkflowFileCheck?.remoteWorkflowFilesChecked);
@@ -246,6 +324,17 @@ function remoteWorkflowFileAcceptanceLedger({ repo, defaultBranch, workflowUiIns
         : !remoteExists
           ? "missing_on_default_branch"
           : "sha_mismatch";
+    const installAction = item.installAction || remediation.installAction ||
+      (status === "ready"
+        ? "verified_remote_matches_template"
+        : status === "sha_mismatch"
+          ? "replace_existing_remote_file"
+          : status === "missing_on_default_branch"
+            ? "create_missing_remote_file"
+            : "replace_repo_placeholder");
+    const githubNewFileOpenCommand = item.githubNewFileOpenCommand || remediation.githubNewFileOpenCommand || plan.githubNewFileOpenCommand || "";
+    const githubEditFileOpenCommand = item.githubEditFileOpenCommand || remediation.githubEditFileOpenCommand || "";
+    const openCommand = remoteWorkflowFileOpenCommand({ installAction, githubNewFileOpenCommand, githubEditFileOpenCommand });
     return {
       key: item.key || plan.key || "",
       name: item.name || plan.name || plan.workflowName || "workflow",
@@ -253,6 +342,7 @@ function remoteWorkflowFileAcceptanceLedger({ repo, defaultBranch, workflowUiIns
       template: item.template || plan.template || "",
       defaultBranch: item.defaultBranch || defaultBranch,
       status,
+      installAction,
       localTemplateExists: item.templateExists !== false && (item.templateExists || !!templateSha256),
       localTargetMatchesTemplate: plan.targetMatchesTemplate !== false && (plan.targetMatchesTemplate || localTargetSha256 === templateSha256),
       templateSha256,
@@ -265,8 +355,11 @@ function remoteWorkflowFileAcceptanceLedger({ repo, defaultBranch, workflowUiIns
       htmlUrl: item.htmlUrl || "",
       workflowUrl: item.workflowUrl || plan.githubWorkflowUrl || "",
       githubNewFileUrl: item.githubNewFileUrl || plan.githubNewFileUrl || "",
+      githubEditFileUrl: item.githubEditFileUrl || remediation.githubEditFileUrl || "",
       templateCopyCommand: item.templateCopyCommand || plan.templateCopyCommand || "",
-      githubNewFileOpenCommand: item.githubNewFileOpenCommand || plan.githubNewFileOpenCommand || "",
+      githubNewFileOpenCommand,
+      githubEditFileOpenCommand,
+      openCommand,
       verifyCommand: item.command || `gh api --method GET repos/${repo}/contents/${item.path || plan.targetRepositoryPath || ".github/workflows/<file>.yml"} -f ref=${defaultBranch}`,
       evidence: `remoteChecked=${yesNo(remoteChecked)}; remoteExists=${yesNo(remoteExists)}; remoteMatchesTemplate=${yesNo(remoteMatchesTemplate)}; templateSha256=${valueOrPending(templateSha256)}; remoteSha256=${valueOrPending(item.remoteSha256)}`,
       blockers: Array.isArray(item.blockers) ? item.blockers : [],
@@ -276,7 +369,7 @@ function remoteWorkflowFileAcceptanceLedger({ repo, defaultBranch, workflowUiIns
   const missingCount = merged.filter((item) => item.status === "missing_on_default_branch").length;
   const mismatchCount = merged.filter((item) => item.status === "sha_mismatch").length;
   const notCheckedCount = merged.filter((item) => item.status === "not_checked").length;
-  const commandCount = merged.reduce((sum, item) => sum + [item.templateCopyCommand, item.githubNewFileOpenCommand, item.verifyCommand].filter(Boolean).length, 0);
+  const commandCount = merged.reduce((sum, item) => sum + [item.templateCopyCommand, item.openCommand, item.verifyCommand].filter(Boolean).length, 0);
   return {
     source: "generated_from_remote_workflow_file_check",
     status: readyCount === merged.length && merged.length > 0 ? "remote_files_ready" : "remote_file_install_required",
@@ -322,7 +415,42 @@ function publishEvidenceCaptureWriteCommand(markdownCommand) {
   return `${markdownCommand} --write`;
 }
 
-function launchProofAcceptanceLedger({ repo, stages, publishEvidence, publishDispatchPlan, outputQualityAudit }) {
+function releaseQualityReadyFromAudit(outputQualityAudit) {
+  const latestChecks = outputQualityAudit?.latestGate?.checks || {};
+  const latestGatePass = outputQualityAudit?.latestGate?.status === "pass" &&
+    Number(latestChecks.fail || 0) === 0 &&
+    Number(latestChecks.notRun || 0) === 0 &&
+    Number(latestChecks.blocked || 0) === 0;
+  return !!(outputQualityAudit?.releaseQualityReady || latestGatePass);
+}
+
+function publicLaunchProofReadyFromEvidence(publishEvidence, outputQualityAudit) {
+  return !!(
+    outputQualityAudit?.publicLaunchProofReady ||
+    (publishEvidence?.postPublishEvidenceReady && publishEvidence?.evidenceFresh)
+  );
+}
+
+function workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck }) {
+  return !!(
+    remoteWorkflowFileCheck?.remoteWorkflowFilesReady &&
+    publishDispatchPlan?.remoteWorkflowVisibilityReady &&
+    publishDispatchPlan?.allDispatchReady &&
+    !publishDispatchPlan?.workflowScopeInstallBlocked
+  );
+}
+
+function launchPacketReadyForExternalClaim({ publishEvidence, outputQualityAudit, publishDispatchPlan, remoteWorkflowFileCheck }) {
+  const liveProofReady = !!(publishEvidence?.postPublishEvidenceReady && publishEvidence?.evidenceFresh);
+  return !!(
+    releaseQualityReadyFromAudit(outputQualityAudit) &&
+    publicLaunchProofReadyFromEvidence(publishEvidence, outputQualityAudit) &&
+    liveProofReady &&
+    workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck })
+  );
+}
+
+function launchProofAcceptanceLedger({ repo, stages, publishEvidence, publishDispatchPlan, remoteWorkflowFileCheck, outputQualityAudit }) {
   const captureStage = Array.isArray(stages) ? stages.find((stage) => stage.key === "capture_launch_proof") || {} : {};
   const captureMarkdownCommand = publishEvidenceCaptureMarkdownCommand(publishEvidence, repo);
   const captureWriteCommand = publishEvidenceCaptureWriteCommand(captureMarkdownCommand);
@@ -345,11 +473,11 @@ function launchProofAcceptanceLedger({ repo, stages, publishEvidence, publishDis
     ].join("; ");
   };
   const commandForRepo = (command, fallback) => (command || fallback || "").replace("OWNER/REPO", repo);
-  const allDispatchReady = !!publishDispatchPlan?.allDispatchReady;
+  const allDispatchReady = workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck });
   const postPublishEvidenceReady = !!publishEvidence?.postPublishEvidenceReady;
   const evidenceFresh = !!publishEvidence?.evidenceFresh;
-  const readyForExternalClaim = !!outputQualityAudit?.readyForExternalClaim;
-  const publicLaunchProofReady = !!outputQualityAudit?.publicLaunchProofReady || !!(postPublishEvidenceReady && evidenceFresh);
+  const readyForExternalClaim = launchPacketReadyForExternalClaim({ publishEvidence, outputQualityAudit, publishDispatchPlan, remoteWorkflowFileCheck });
+  const publicLaunchProofReady = publicLaunchProofReadyFromEvidence(publishEvidence, outputQualityAudit);
   const proofBlockedStatus = allDispatchReady ? "pending_capture" : "blocked_until_dispatch";
   const requiredProofs = [
     {
@@ -516,7 +644,12 @@ function postInstallEvidenceIntake({ repo, defaultBranch, remoteWorkflowFileLedg
   const verificationSequenceReady = verificationSequence.length === 4 && verificationSequence.every((step) => step.command && step.expected);
   const remoteFilesReady = remoteWorkflowFileLedger?.remoteWorkflowFilesReady === true ||
     remoteWorkflowFileLedger?.status === "remote_files_ready";
-  const safeToDispatch = !!publishDispatchPlan?.allDispatchReady;
+  const safeToDispatch = !!(
+    remoteFilesReady &&
+    publishDispatchPlan?.remoteWorkflowVisibilityReady &&
+    publishDispatchPlan?.allDispatchReady &&
+    !publishDispatchPlan?.workflowScopeInstallBlocked
+  );
   const itemByKey = (key) => Array.isArray(blockerResolution?.items)
     ? blockerResolution.items.find((item) => item.key === key) || {}
     : {};
@@ -778,7 +911,7 @@ function buildPostAuthCheckpoint({ repo, authPreflight, publishDispatchPlan, rem
       key: "install_workflows",
       label: "Install workflow files",
       command: installCommand,
-      expected: "Create/update both default-branch workflow files or use the GitHub UI fallback.",
+      expected: workflowInstallActionSummary(remoteWorkflowFileCheck),
       sourceArtifact: "data/remote-workflow-file-check.json",
       stopCondition: "Stop if remote workflow files are not installed on the default branch.",
     },
@@ -839,8 +972,10 @@ function stageList({ workflowUiInstallPlan, publishDispatchPlan, remoteWorkflowF
   const repo = publishDispatchPlan?.repo || publishEvidence?.suggestedRepo || workflowUiInstallPlan?.suggestedRepo || "OWNER/REPO";
   const authPreflight = workflowAuthPreflight(publishDispatchPlan, repo);
   const remoteFileCommand = remoteWorkflowFileCheck?.nextVerificationCommand || `node scripts/check-remote-workflow-files.mjs --repo ${repo} --write`;
-  const dispatchReady = !!publishDispatchPlan?.allDispatchReady;
+  const remoteWorkflowFilesReady = !!remoteWorkflowFileCheck?.remoteWorkflowFilesReady;
+  const dispatchReady = workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck });
   const proofReady = !!publishEvidence?.postPublishEvidenceReady;
+  const externalClaimReady = launchPacketReadyForExternalClaim({ publishEvidence, outputQualityAudit, publishDispatchPlan, remoteWorkflowFileCheck });
   const suggestedDispatchCommands = Array.isArray(publishDispatchPlan?.suggestedDispatchCommands)
     ? publishDispatchPlan.suggestedDispatchCommands
     : [];
@@ -857,24 +992,27 @@ function stageList({ workflowUiInstallPlan, publishDispatchPlan, remoteWorkflowF
   const installPaths = installPathOptions({
     install,
     publishDispatchPlan,
+    remoteWorkflowFileCheck,
     remoteFileCommand,
     remoteInstallerCommand,
     workflowScopeInstallBlocked,
     workflowScopeRefreshCommand,
     workflowScopeRecheckCommand,
   });
+  const githubUiInstallCommands = workflowUiInstallCommands({ install, remoteWorkflowFileCheck });
+  const installActionSummary = workflowInstallActionSummary(remoteWorkflowFileCheck);
   return [
     {
       key: "install_workflows",
       label: "Install workflows on the default branch",
-      status: publishDispatchPlan?.remoteWorkflowVisibilityReady ? "pass" : "action_required",
+      status: remoteWorkflowFilesReady ? "pass" : "action_required",
       detail: workflowScopeInstallBlocked
-        ? "Refresh the GitHub CLI token with workflow scope or use GitHub UI, then create both workflow files in .github/workflows on the repository default branch; the current CLI token cannot install workflow files."
-        : "Create both workflow files in .github/workflows on the repository default branch using the copied templates.",
+        ? `Refresh the GitHub CLI token with workflow scope or use GitHub UI, then ${installActionSummary}; the current CLI token cannot install workflow files.`
+        : installActionSummary,
       commands: [
         workflowScopeInstallBlocked ? workflowScopeRefreshCommand : "",
         workflowScopeInstallBlocked ? workflowScopeRecheckCommand : "",
-        ...install.flatMap((plan) => [plan.copyCommand, plan.openNewFileCommand]),
+        ...githubUiInstallCommands,
         remoteFileCommand,
       ].filter(Boolean),
       installPaths,
@@ -893,7 +1031,7 @@ function stageList({ workflowUiInstallPlan, publishDispatchPlan, remoteWorkflowF
     {
       key: "verify_visibility",
       label: "Verify workflow visibility",
-      status: publishDispatchPlan?.remoteWorkflowVisibilityReady ? "pass" : "action_required",
+      status: remoteWorkflowFilesReady && publishDispatchPlan?.remoteWorkflowVisibilityReady ? "pass" : "action_required",
       detail: "Confirm GitHub Actions can see the workflow files before attempting dispatch.",
       commands: uniq([
         publishDispatchPlan?.nextVerificationCommand,
@@ -909,6 +1047,8 @@ function stageList({ workflowUiInstallPlan, publishDispatchPlan, remoteWorkflowF
       commands: dispatchReady ? suggestedDispatchCommands : dispatchCommands,
       evidence: [
         `repoEvidenceReady=${yesNo(publishDispatchPlan?.repoEvidenceReady)}`,
+        `remoteWorkflowFilesReady=${yesNo(remoteWorkflowFilesReady)}`,
+        `remoteWorkflowVisibilityReady=${yesNo(publishDispatchPlan?.remoteWorkflowVisibilityReady)}`,
         `dispatchReady=${yesNo(publishDispatchPlan?.dispatchReady)}`,
         `driftDispatchReady=${yesNo(publishDispatchPlan?.driftDispatchReady)}`,
         `allDispatchReady=${yesNo(publishDispatchPlan?.allDispatchReady)}`,
@@ -929,12 +1069,12 @@ function stageList({ workflowUiInstallPlan, publishDispatchPlan, remoteWorkflowF
     {
       key: "share_or_archive",
       label: "Share or archive only after proof",
-      status: outputQualityAudit?.readyForExternalClaim ? "ready" : "blocked",
+      status: externalClaimReady ? "ready" : "blocked",
       detail: "Use the public launch announcement or archive receipt only after live launch proof is present.",
       commands: ["copy System Status quality receipt", "copy publish evidence share update", "copy post-launch verification receipt"],
       evidence: [
-        `readyForExternalClaim=${yesNo(outputQualityAudit?.readyForExternalClaim)}`,
-        `publicLaunchProofReady=${yesNo(outputQualityAudit?.publicLaunchProofReady)}`,
+        `readyForExternalClaim=${yesNo(externalClaimReady)}`,
+        `publicLaunchProofReady=${yesNo(publicLaunchProofReadyFromEvidence(publishEvidence, outputQualityAudit))}`,
       ],
     },
   ];
@@ -959,7 +1099,7 @@ function currentActionAcceptanceChecklist({ stages, remoteWorkflowFileCheck, pub
   const localTargetParityReady = !!publishDispatchPlan?.localTargetParityReady;
   const remoteWorkflowFilesReady = !!remoteWorkflowFileCheck?.remoteWorkflowFilesReady;
   const remoteWorkflowVisibilityReady = !!publishDispatchPlan?.remoteWorkflowVisibilityReady;
-  const allDispatchReady = !!publishDispatchPlan?.allDispatchReady;
+  const allDispatchReady = workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck });
   const dispatchWithheld = !allDispatchReady && withheldCommandCount >= 2;
   return [
     {
@@ -994,7 +1134,7 @@ function currentActionAcceptanceChecklist({ stages, remoteWorkflowFileCheck, pub
       key: "dispatch_guard",
       label: "Dispatch guard",
       status: dispatchWithheld || allDispatchReady ? "pass" : "blocked",
-      required: "Keep gh workflow run commands withheld until allDispatchReady=true.",
+      required: "Keep gh workflow run commands withheld until remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, and allDispatchReady=true.",
       evidence: `allDispatchReady=${yesNo(allDispatchReady)}; withheldCommands=${valueOrPending(withheldCommandCount)}`,
     },
   ];
@@ -1029,6 +1169,7 @@ function authPreflightLines(authPreflight) {
 function postAuthCheckpointLines(checkpoint) {
   const recheckSequence = Array.isArray(checkpoint?.recheckSequence) ? checkpoint.recheckSequence : [];
   const sourceArtifacts = Array.isArray(checkpoint?.sourceArtifacts) ? checkpoint.sourceArtifacts : [];
+  const recheckSequenceCount = numberOr(checkpoint?.recheckSequenceCount, recheckSequence.length);
   return [
     "Post-auth checkpoint:",
     `- status: ${valueOrPending(checkpoint?.status)}`,
@@ -1039,7 +1180,7 @@ function postAuthCheckpointLines(checkpoint) {
     `- recheck dispatch plan: ${valueOrPending(checkpoint?.recheckCommand)}`,
     `- verify handoff: ${valueOrPending(checkpoint?.verifyCommand)}`,
     `- install after pass: ${valueOrPending(checkpoint?.installCommand)}`,
-    `- recheck sequence: ${valueOrPending(checkpoint?.recheckSequenceCount || recheckSequence.length)}`,
+    `- recheck sequence: ${valueOrPending(recheckSequenceCount)}`,
     `- source artifacts: ${sourceArtifacts.length ? sourceArtifacts.join("; ") : "not available"}`,
     `- expected: ${Array.isArray(checkpoint?.expectedSignals) ? checkpoint.expectedSignals.join("; ") : "not available"}`,
     `- still blocked if: ${Array.isArray(checkpoint?.blockedSignals) ? checkpoint.blockedSignals.join("; ") : "not available"}`,
@@ -1057,6 +1198,7 @@ function defaultBranchRequirementProof({ repo, defaultBranch, remoteWorkflowFile
   const workflowListCommand = publishDispatchPlan?.workflowListCommand
     ? publishDispatchPlan.workflowListCommand.replace("OWNER/REPO", repo)
     : `gh workflow list --repo ${repo} --all --json name,path,state,id`;
+  const installActionSummary = workflowInstallActionSummary(remoteWorkflowFileCheck);
   return {
     ready: true,
     source: "GitHub manual workflow dispatch docs + GitHub REST repository contents API",
@@ -1067,7 +1209,7 @@ function defaultBranchRequirementProof({ repo, defaultBranch, remoteWorkflowFile
     repositoryContentsDocsUrl: remoteWorkflowFileCheck?.sourceUrl || "https://docs.github.com/en/rest/repos/contents#get-repository-content",
     workflowListCommand,
     requirements: [
-      `Create both workflow YAML files under .github/workflows on the ${defaultBranch || "main"} default branch.`,
+      `${installActionSummary} Target workflow YAML files live under .github/workflows on the ${defaultBranch || "main"} default branch.`,
       "Manual workflow dispatch is available only after workflow_dispatch exists on the default branch.",
       "Remote workflow file check must read the default-branch contents and match each local template SHA-256.",
       "GitHub Actions visibility must be confirmed before gh workflow run commands are suggested.",
@@ -1196,7 +1338,7 @@ function operatorOnePageHandoff({ generatedAt, repo, defaultBranch, currentActio
   ]);
   const quickProofSteps = Array.isArray(postInstallIntake?.quickProofSteps) ? postInstallIntake.quickProofSteps : [];
   const successSignals = uniq([
-    "workflowScopeAvailable=true or GitHub UI workflow files committed on the default branch",
+    "workflowScopeAvailable=true or GitHub UI installAction rows applied on the default branch",
     "remoteWorkflowFilesReady=true",
     "remoteWorkflowVisibilityReady=true",
     "dispatchReady=true",
@@ -1236,7 +1378,7 @@ function operatorOnePageHandoff({ generatedAt, repo, defaultBranch, currentActio
     ...immediateCommands.map((command, index) => `${index + 1}. ${command}`),
     "",
     "If CLI workflow scope is still blocked, use GitHub UI fallback:",
-    ...(fallbackCommands.length ? fallbackCommands.map((command, index) => `${index + 1}. ${command}`) : ["1. Use the GitHub UI workflow install plan and commit both workflow files on the default branch."]),
+    ...(fallbackCommands.length ? fallbackCommands.map((command, index) => `${index + 1}. ${command}`) : ["1. Use the GitHub UI workflow install plan and commit only required create/edit workflow rows on the default branch."]),
     "",
     "Prove after install:",
     ...proofCommands.map((command, index) => `${index + 1}. ${command}`),
@@ -1388,7 +1530,7 @@ function blockerResolutionChecklist({ repo, currentAction, workflowInstallMatrix
       blockedSignal: `workflowScopeAvailable=${yesNo(authPreflight?.workflowScopeAvailable)}; workflowScopeInstallBlocked=${yesNo(authPreflight?.workflowScopeInstallBlocked)}; missingScopes=${valueOrPending(authPreflight?.missingScopeList)}`,
       action: "Refresh GitHub CLI with workflow scope, or choose the GitHub UI path with a workflow-capable browser session.",
       proofCommand: authPreflight?.workflowScopeAvailable ? authPreflight?.recheckCommand || dispatchPlanCommand : authPreflight?.refreshCommand || "gh auth refresh -h github.com -s workflow",
-      expectedValue: "workflowScopeAvailable=true; workflowScopeInstallBlocked=false, or GitHub UI path chosen for default-branch file creation.",
+      expectedValue: "workflowScopeAvailable=true; workflowScopeInstallBlocked=false, or GitHub UI path chosen to apply each workflow row's installAction on the default branch.",
       stopCondition: "If workflowScopeInstallBlocked=true remains after recheck, do not run the CLI installer; use the GitHub UI path and keep dispatch withheld.",
       evidence: authSignal.evidence || "",
     },
@@ -1408,7 +1550,7 @@ function blockerResolutionChecklist({ repo, currentAction, workflowInstallMatrix
       label: "Prove remote workflow file parity",
       status: remoteSignal.status || (remoteWorkflowFileCheck?.remoteWorkflowFilesReady ? "pass" : "action_required"),
       blockedSignal: `remoteWorkflowFilesReady=${yesNo(remoteWorkflowFileCheck?.remoteWorkflowFilesReady)}; filesReady=${remoteReadyCount}/${remoteFileCount}; missing=${remoteMissingCount}; mismatch=${remoteMismatchCount}`,
-      action: "Install or update both workflow files on the default branch, then compare remote SHA-256 values against local templates.",
+      action: "Apply each workflow row's installAction on the default branch, then compare remote SHA-256 values against local templates.",
       proofCommand: remoteFileCommand,
       expectedValue: "remoteWorkflowFilesReady=true; every workflow file has remoteExists=true and remoteMatchesTemplate=true.",
       stopCondition: "If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.",
@@ -1490,14 +1632,17 @@ function postInstallEvidenceIntakeLines(intake) {
   const sequence = Array.isArray(intake?.verificationSequence) ? intake.verificationSequence : [];
   const quickProofSteps = Array.isArray(intake?.quickProofSteps) ? intake.quickProofSteps : [];
   const quickProofFieldMappings = Array.isArray(intake?.quickProofFieldMappings) ? intake.quickProofFieldMappings : [];
+  const verificationSequenceCount = numberOr(intake?.verificationSequenceCount, sequence.length);
+  const quickProofStepCount = numberOr(intake?.quickProofStepCount, quickProofSteps.length);
+  const quickProofMappedFieldCount = numberOr(intake?.quickProofMappedFieldCount, quickProofFieldMappings.length);
   return [
     "Post-install evidence intake:",
     `- source: ${valueOrPending(intake?.source)}`,
     `- status: ${valueOrPending(intake?.status)}`,
     `- proofComplete: ${yesNo(intake?.proofComplete)}; fields=${valueOrPending(intake?.completedFieldCount)}/${valueOrPending(intake?.fieldCount)} complete; coverage=${valueOrPending(intake?.fieldCoverage)}`,
-    `- commands: ${valueOrPending(intake?.commandCount)}; signals=${valueOrPending(intake?.signalCount)}; checklist=${valueOrPending(intake?.checklistCount)}; sequence=${valueOrPending(intake?.verificationSequenceCount || sequence.length)}`,
-    `- quick proof: ready=${yesNo(intake?.quickProofReady)}; steps=${valueOrPending(intake?.quickProofStepCount || quickProofSteps.length)}; coverage=${valueOrPending(intake?.quickProofCoverage)}`,
-    `- quick proof field mapping: ready=${yesNo(intake?.quickProofFieldMappingReady)}; mapped=${valueOrPending(intake?.quickProofMappedFieldCount || quickProofFieldMappings.length)}; completed=${valueOrPending(intake?.quickProofCompletedMappedFieldCount)}/${valueOrPending(intake?.quickProofMappedFieldCount || quickProofFieldMappings.length)}; coverage=${valueOrPending(intake?.quickProofFieldMappingCoverage)}`,
+    `- commands: ${valueOrPending(intake?.commandCount)}; signals=${valueOrPending(intake?.signalCount)}; checklist=${valueOrPending(intake?.checklistCount)}; sequence=${valueOrPending(verificationSequenceCount)}`,
+    `- quick proof: ready=${yesNo(intake?.quickProofReady)}; steps=${valueOrPending(quickProofStepCount)}; coverage=${valueOrPending(intake?.quickProofCoverage)}`,
+    `- quick proof field mapping: ready=${yesNo(intake?.quickProofFieldMappingReady)}; mapped=${valueOrPending(quickProofMappedFieldCount)}; completed=${valueOrPending(intake?.quickProofCompletedMappedFieldCount)}/${valueOrPending(quickProofMappedFieldCount)}; coverage=${valueOrPending(intake?.quickProofFieldMappingCoverage)}`,
     `- guard: ${valueOrPending(intake?.dispatchGuard)}`,
     `- ${valueOrPending(intake?.stopCondition)}`,
     ...(quickProofSteps.length ? quickProofSteps.map((step, index) => `- quick proof ${index + 1} ${valueOrPending(step.key)}: command=${valueOrPending(step.command)}; expected=${valueOrPending(step.expected)}; evidenceField=${valueOrPending(step.evidenceFieldKey)}`) : []),
@@ -1547,7 +1692,7 @@ function remoteWorkflowFileAcceptanceLedgerLines(ledger) {
     `- verify: ${valueOrPending(ledger?.verifyCommand)}`,
     `- install: ${valueOrPending(ledger?.installCommand)}`,
     `- required signals: ${Array.isArray(ledger?.requiredSignals) ? ledger.requiredSignals.join("; ") : "not available"}`,
-    ...(Array.isArray(ledger?.files) ? ledger.files.map((file) => `- file ${valueOrPending(file.key)}: ${valueOrPending(file.status)}; path=${valueOrPending(file.path)}; templateSha256=${valueOrPending(file.templateSha256)}; remoteSha256=${valueOrPending(file.remoteSha256)}; evidence=${valueOrPending(file.evidence)}; copy=${valueOrPending(file.templateCopyCommand)}; open=${valueOrPending(file.githubNewFileOpenCommand)}`) : []),
+    ...(Array.isArray(ledger?.files) ? ledger.files.map((file) => `- file ${valueOrPending(file.key)}: ${valueOrPending(file.status)}; installAction=${valueOrPending(file.installAction)}; path=${valueOrPending(file.path)}; templateSha256=${valueOrPending(file.templateSha256)}; remoteSha256=${valueOrPending(file.remoteSha256)}; evidence=${valueOrPending(file.evidence)}; copy=${valueOrPending(file.templateCopyCommand)}; open=${valueOrPending(file.openCommand || (file.installAction === "verified_remote_matches_template" ? "No GitHub file edit required" : file.githubNewFileOpenCommand))}`) : []),
   ];
 }
 
@@ -1638,10 +1783,12 @@ const blockers = blockerLines({ publishDispatchPlan, remoteWorkflowFileCheck, pu
 const comparisons = externalComparison();
 const currentAction = currentActionPacket({ repo, defaultBranch, stages, remoteWorkflowFileCheck, publishDispatchPlan, authPreflight, postAuthCheckpoint });
 const commandCount = stages.reduce((sum, stage) => sum + stage.commands.length, 0);
-const stageTransition = stageTransitionPreview({ stages, currentAction, postAuthCheckpoint, readyToDispatch: !!publishDispatchPlan?.allDispatchReady });
+const readyToDispatch = workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck });
+const readyForExternalClaim = launchPacketReadyForExternalClaim({ publishEvidence, outputQualityAudit, publishDispatchPlan, remoteWorkflowFileCheck });
+const stageTransition = stageTransitionPreview({ stages, currentAction, postAuthCheckpoint, readyToDispatch });
 const workflowInstallMatrix = workflowInstallVerificationMatrix({ repo, defaultBranch, stages, currentAction, authPreflight, postAuthCheckpoint, publishDispatchPlan, remoteWorkflowFileCheck });
 const remoteWorkflowFileLedger = remoteWorkflowFileAcceptanceLedger({ repo, defaultBranch, workflowUiInstallPlan, remoteWorkflowFileCheck, postAuthCheckpoint });
-const launchProofLedger = launchProofAcceptanceLedger({ repo, stages, publishEvidence, publishDispatchPlan, outputQualityAudit });
+const launchProofLedger = launchProofAcceptanceLedger({ repo, stages, publishEvidence, publishDispatchPlan, remoteWorkflowFileCheck, outputQualityAudit });
 const blockerResolution = blockerResolutionChecklist({ repo, currentAction, workflowInstallMatrix, remoteWorkflowFileLedger, launchProofLedger, authPreflight, postAuthCheckpoint, publishDispatchPlan, remoteWorkflowFileCheck });
 const postInstallIntake = postInstallEvidenceIntake({ repo, defaultBranch, remoteWorkflowFileLedger, publishDispatchPlan, postAuthCheckpoint, blockerResolution });
 const operatorOnePage = operatorOnePageHandoff({ generatedAt, repo, defaultBranch, currentAction, blockerResolution, postInstallIntake, workflowInstallMatrix, remoteWorkflowFileLedger, launchProofLedger, authPreflight, postAuthCheckpoint });
@@ -1652,12 +1799,12 @@ const payload = {
   repo,
   suggestedRepo: publishEvidence?.suggestedRepo || workflowUiInstallPlan?.suggestedRepo || "",
   defaultBranch,
-  readyToDispatch: !!publishDispatchPlan?.allDispatchReady,
+  readyToDispatch,
   remoteWorkflowFilesReady: !!remoteWorkflowFileCheck?.remoteWorkflowFilesReady,
   authPreflight,
   postAuthCheckpoint,
   launchProofReady: !!publishEvidence?.postPublishEvidenceReady,
-  readyForExternalClaim: !!outputQualityAudit?.readyForExternalClaim,
+  readyForExternalClaim,
   stageCount: stages.length,
   commandCount,
   currentAction,

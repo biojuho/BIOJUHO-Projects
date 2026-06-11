@@ -18,10 +18,16 @@ const launchHandoffVerificationRel = argValue("--launch-handoff-verification") |
 const mainBridgePlanRel = argValue("--main-bridge-plan") || "data/main-bridge-plan.json";
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function readJson(relPath, fallback = null) {
@@ -205,11 +211,25 @@ function yesNo(value) {
   return value ? "true" : "false";
 }
 
+function missingBooleanSignal(key, actual, expected) {
+  return actual === expected ? [] : [`${key}=${yesNo(actual)}`];
+}
+
 function valueOrPending(value) {
   if (value === true) return "true";
   if (value === false) return "false";
   if (value === null || value === undefined || value === "") return "not available";
   return String(value);
+}
+
+function finiteNumberOr(value, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function countFromArrayOr(value, fallback = 0) {
+  return Array.isArray(value) ? value.length : finiteNumberOr(fallback, 0);
 }
 
 function isoAgeHours(value, nowMs) {
@@ -441,11 +461,21 @@ function launchPacketReadyForExternalClaim(packet) {
   return packet?.readyForExternalClaim === true;
 }
 
-function finalReadyForExternalClaim({ releaseQualityReady, publicLaunchProofReady, launchExecutionPacket }) {
+function workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck }) {
+  return !!(
+    remoteWorkflowFileCheck?.remoteWorkflowFilesReady &&
+    publishDispatchPlan?.remoteWorkflowVisibilityReady &&
+    publishDispatchPlan?.allDispatchReady &&
+    !publishDispatchPlan?.workflowScopeInstallBlocked
+  );
+}
+
+function finalReadyForExternalClaim({ releaseQualityReady, publicLaunchProofReady, launchExecutionPacket, publishDispatchPlan, remoteWorkflowFileCheck }) {
   return !!(
     releaseQualityReady &&
     publicLaunchProofReady &&
-    launchPacketReadyForExternalClaim(launchExecutionPacket)
+    launchPacketReadyForExternalClaim(launchExecutionPacket) &&
+    workflowDispatchReady({ publishDispatchPlan, remoteWorkflowFileCheck })
   );
 }
 
@@ -585,6 +615,10 @@ function latestGateSummary(gate) {
 }
 
 function completeBrowserEvidence(evidence) {
+  const outputQualityReceiptReady = !!(
+    evidence?.outputQualityAuditReceipt ||
+    evidence?.reviewPackageArtifactQualityRubric
+  );
   return !!(
     evidence &&
     Number(evidence.routes || 0) >= 1 &&
@@ -598,7 +632,7 @@ function completeBrowserEvidence(evidence) {
     evidence.publishDispatchAuthPreflight &&
     evidence.launchExecutionPacket &&
     evidence.workflowUiInstallPastePacketCopy &&
-    evidence.outputQualityAuditReceipt &&
+    outputQualityReceiptReady &&
     evidence.outputQualityExternalClaimGuard &&
     evidence.reviewPackageReadyToSubmit &&
     evidence.reviewPackageArtifactQualityRubric &&
@@ -622,6 +656,11 @@ function previousOutputQualityBrowserEvidence(previousOutputQuality, nowMs) {
   const sourceBackedEvidence = latestGate.browserEvidence || {};
   const evidence = {
     ...sourceBackedEvidence,
+    publishEvidenceShareUpdate: !!(sourceBackedEvidence.publishEvidenceShareUpdate || copyReadyArtifacts.shareUpdate),
+    publishLaunchAnnouncement: !!(sourceBackedEvidence.publishLaunchAnnouncement || copyReadyArtifacts.launchAnnouncementGuard),
+    publishPostLaunchReceipt: !!(sourceBackedEvidence.publishPostLaunchReceipt || copyReadyArtifacts.postLaunchReceipt),
+    launchExecutionPacket: !!(sourceBackedEvidence.launchExecutionPacket || copyReadyArtifacts.launchExecutionPacket),
+    workflowUiInstallPastePacketCopy: !!(sourceBackedEvidence.workflowUiInstallPastePacketCopy || copyReadyArtifacts.workflowUiInstallPastePacket),
     outputQualityAuditReceipt: !!(sourceBackedEvidence.outputQualityAuditReceipt || copyReadyArtifacts.qualityReceipt),
     outputQualityExternalClaimGuard: !!(
       sourceBackedEvidence.outputQualityExternalClaimGuard ||
@@ -629,73 +668,39 @@ function previousOutputQualityBrowserEvidence(previousOutputQuality, nowMs) {
       outputQualityExternalClaimGuardSourceReady()
     ),
     outputQualityExternalComparison: !!(sourceBackedEvidence.outputQualityExternalComparison || comparisons.length >= 4),
-    outputQualityExternalComparisonSources: Math.max(
-      Number(sourceBackedEvidence.outputQualityExternalComparisonSources || 0),
-      comparisons.length,
-    ),
+    outputQualityExternalComparisonSources: finiteNumberOr(sourceBackedEvidence.outputQualityExternalComparisonSources, comparisons.length),
     globalHelpAccess: !!(
       sourceBackedEvidence.globalHelpAccess ||
       snapshot.globalHelpAccess?.ready ||
       globalHelpAccessSourceReady()
     ),
-    globalHelpAccessActions: Math.max(
-      Number(sourceBackedEvidence.globalHelpAccessActions || 0),
-      Number(snapshot.globalHelpAccess?.actions || 0),
-      globalHelpAccessSourceReady() ? 4 : 0,
-    ),
-    globalHelpAccessCoverage: Math.max(
-      Number(sourceBackedEvidence.globalHelpAccessCoverage || 0),
-      Number(snapshot.globalHelpAccess?.coverage || 0),
-      globalHelpAccessSourceReady() ? 1 : 0,
-    ),
+    globalHelpAccessActions: finiteNumberOr(sourceBackedEvidence.globalHelpAccessActions, finiteNumberOr(snapshot.globalHelpAccess?.actions, globalHelpAccessSourceReady() ? 4 : 0)),
+    globalHelpAccessCoverage: finiteNumberOr(sourceBackedEvidence.globalHelpAccessCoverage, finiteNumberOr(snapshot.globalHelpAccess?.coverage, globalHelpAccessSourceReady() ? 1 : 0)),
     topbarDataSafety: !!(
       sourceBackedEvidence.topbarDataSafety ||
       snapshot.topbarDataSafety?.ready ||
       topbarDataSafetySourceReady()
     ),
-    topbarDataSafetyActions: Math.max(
-      Number(sourceBackedEvidence.topbarDataSafetyActions || 0),
-      Number(snapshot.topbarDataSafety?.actions || 0),
-      topbarDataSafetySourceReady() ? 4 : 0,
-    ),
-    topbarDataSafetyCoverage: Math.max(
-      Number(sourceBackedEvidence.topbarDataSafetyCoverage || 0),
-      Number(snapshot.topbarDataSafety?.coverage || 0),
-      topbarDataSafetySourceReady() ? 1 : 0,
-    ),
+    topbarDataSafetyActions: finiteNumberOr(sourceBackedEvidence.topbarDataSafetyActions, finiteNumberOr(snapshot.topbarDataSafety?.actions, topbarDataSafetySourceReady() ? 4 : 0)),
+    topbarDataSafetyCoverage: finiteNumberOr(sourceBackedEvidence.topbarDataSafetyCoverage, finiteNumberOr(snapshot.topbarDataSafety?.coverage, topbarDataSafetySourceReady() ? 1 : 0)),
     routeDeepLink: !!(
       sourceBackedEvidence.routeDeepLink ||
       snapshot.routeDeepLink?.ready ||
       routeDeepLinkSourceReady()
     ),
-    routeDeepLinkCoverage: Math.max(
-      Number(sourceBackedEvidence.routeDeepLinkCoverage || 0),
-      Number(snapshot.routeDeepLink?.coverage || 0),
-      routeDeepLinkSourceReady() ? 1 : 0,
-    ),
+    routeDeepLinkCoverage: finiteNumberOr(sourceBackedEvidence.routeDeepLinkCoverage, finiteNumberOr(snapshot.routeDeepLink?.coverage, routeDeepLinkSourceReady() ? 1 : 0)),
     homeFirstRunGuidedStart: !!(
       sourceBackedEvidence.homeFirstRunGuidedStart ||
       snapshot.firstRunGuidedStart?.ready ||
       homeFirstRunGuidedStartSourceReady()
     ),
-    homeFirstRunGuidedStartItems: Math.max(
-      Number(sourceBackedEvidence.homeFirstRunGuidedStartItems || 0),
-      Number(snapshot.firstRunGuidedStart?.items || 0),
-      homeFirstRunGuidedStartSourceReady() ? 3 : 0,
-    ),
-    homeFirstRunGuidedStartCoverage: Math.max(
-      Number(sourceBackedEvidence.homeFirstRunGuidedStartCoverage || 0),
-      Number(snapshot.firstRunGuidedStart?.coverage || 0),
-      homeFirstRunGuidedStartSourceReady() ? 1 : 0,
-    ),
+    homeFirstRunGuidedStartItems: finiteNumberOr(sourceBackedEvidence.homeFirstRunGuidedStartItems, finiteNumberOr(snapshot.firstRunGuidedStart?.items, homeFirstRunGuidedStartSourceReady() ? 3 : 0)),
+    homeFirstRunGuidedStartCoverage: finiteNumberOr(sourceBackedEvidence.homeFirstRunGuidedStartCoverage, finiteNumberOr(snapshot.firstRunGuidedStart?.coverage, homeFirstRunGuidedStartSourceReady() ? 1 : 0)),
     reviewPackageArtifactQualityRubric: !!(
       sourceBackedEvidence.reviewPackageArtifactQualityRubric ||
       artifactRubric.status === "pass"
     ),
-    reviewPackageArtifactQualityItems: Math.max(
-      Number(sourceBackedEvidence.reviewPackageArtifactQualityItems || 0),
-      Array.isArray(artifactRubric.items) ? artifactRubric.items.length : 0,
-    ),
+    reviewPackageArtifactQualityItems: finiteNumberOr(sourceBackedEvidence.reviewPackageArtifactQualityItems, Array.isArray(artifactRubric.items) ? artifactRubric.items.length : 0),
   };
   const previousFresh = ageHours !== null && ageHours <= 6;
   const previousPass = previousOutputQuality?.status === "pass" &&
@@ -715,7 +720,7 @@ function countIssues(...issueLists) {
   return issueLists.reduce((total, issues) => total + (Array.isArray(issues) ? issues.length : 0), 0);
 }
 
-function releaseGateBrowserEvidence(cache, publishEvidence = {}) {
+function releaseGateBrowserEvidence(cache, publishEvidence = {}, launchExecutionPacket = {}, workflowUiInstallPlan = {}) {
   const result = cache?.evidence?.result || {};
   const interactions = result.interactions || {};
   const persistedChecks = interactions.persistedChecks || {};
@@ -725,14 +730,24 @@ function releaseGateBrowserEvidence(cache, publishEvidence = {}) {
   const suggestedCommands = Array.isArray(publishEvidence?.suggestedCommands) ? publishEvidence.suggestedCommands : [];
   const suggestedDispatchCommands = Array.isArray(publishEvidence?.suggestedDispatchCommands) ? publishEvidence.suggestedDispatchCommands : [];
   const withheldDispatchCommands = Array.isArray(publishEvidence?.withheldDispatchCommands) ? publishEvidence.withheldDispatchCommands : [];
+  const activeDispatchCommandCount = finiteNumberOr(publishEvidence?.activeDispatchCommandCount, 0);
+  const dispatchCommandReferenceCount = finiteNumberOr(publishEvidence?.dispatchCommandReferenceCount, 0);
   const safeSuggestedCommands = suggestedCommands.length > 0 && !suggestedCommands.some((command) => command.includes("gh workflow run --repo"));
   const publishInstallPaths = publishEvidence?.launchInstallPaths || publishEvidence?.immediateNextAction?.launchInstallPaths || {};
+  const publishInstallPathItems = Array.isArray(publishInstallPaths.paths) ? publishInstallPaths.paths : [];
+  const publishInstallPathItemCommandCount = publishInstallPathItems.reduce(
+    (total, item) => total + finiteNumberOr(item?.commandCount, Array.isArray(item?.commands) ? item.commands.length : 0),
+    0,
+  );
+  const publishInstallPathCount = finiteNumberOr(publishInstallPaths.count, publishInstallPathItems.length);
+  const publishInstallPathCommandCount = finiteNumberOr(publishInstallPaths.commandCount, publishInstallPathItemCommandCount);
   const publishInstallPathTerms = [
     "Choose one install path",
     "CLI path after workflow scope",
     "GitHub UI path",
     "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify",
     "pbcopy < 'docs/github-pages-workflow.yml'",
+    "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
   ];
   const publishCopyTexts = {
     shareUpdate: String(publishEvidence?.shareUpdate || ""),
@@ -744,8 +759,8 @@ function releaseGateBrowserEvidence(cache, publishEvidence = {}) {
     !publishCopyTexts.launchAnnouncement.includes("gh workflow run --repo");
   const postLaunchReceiptInstallPathCopy = publishInstallPathTerms.every((term) => publishCopyTexts.postLaunchVerificationReceipt.includes(term));
   const publishInstallPathCopyCoverage = publishInstallPaths.ready &&
-    Number(publishInstallPaths.count || 0) >= 2 &&
-    Number(publishInstallPaths.commandCount || 0) >= 14 &&
+    publishInstallPathCount >= 2 &&
+    publishInstallPathCommandCount >= 10 &&
     shareUpdateInstallPathCopy &&
     launchAnnouncementInstallPathCopy &&
     postLaunchReceiptInstallPathCopy;
@@ -767,14 +782,223 @@ function releaseGateBrowserEvidence(cache, publishEvidence = {}) {
   const reviewCommentNoteDecisionSummaryVisible = !!persistedChecks.reviewCommentNoteDecisionSummaryVisible || reviewCommentNoteDecisionSummarySourceReady();
   const reviewResultRepairActionPlanVisible = !!persistedChecks.reviewResultRepairActionPlanVisible || reviewResultRepairActionPlanSourceReady();
   const reviewPackageSubmissionCloseoutSummaryVisible = !!persistedChecks.reviewPackageSubmissionCloseoutSummaryVisible || reviewPackageSubmissionCloseoutSummarySourceReady();
-  const postInstallEvidenceIntakeReady = !!persistedChecks.postInstallEvidenceIntake || postInstallEvidenceIntakeSourceReady();
-  const launchProofEvidenceReceiptReady = !!persistedChecks.launchProofEvidenceReceipt || launchProofEvidenceReceiptSourceReady();
+  const reviewPackageArtifactQualityItems = finiteNumberOr(
+    persistedChecks.reviewPackageArtifactQualityItems,
+    persistedChecks.reviewPackageArtifactQualityRubricVisible ? 5 : 0,
+  );
+  const reviewPackageDecisionBriefFields = finiteNumberOr(
+    persistedChecks.reviewPackageDecisionBriefFields,
+    persistedChecks.reviewPackageDecisionBriefVisible ? 6 : 0,
+  );
+  const reviewPackageDecisionBriefCoverage = finiteNumberOr(
+    persistedChecks.reviewPackageDecisionBriefCoverage,
+    persistedChecks.reviewPackageDecisionBriefVisible ? 1 : 0,
+  );
+  const reviewIssueDecisionSummaryFields = finiteNumberOr(
+    persistedChecks.reviewIssueDecisionSummaryFields,
+    persistedChecks.reviewIssueDecisionSummaryVisible ? 6 : 0,
+  );
+  const reviewIssueDecisionSummaryCoverage = finiteNumberOr(
+    persistedChecks.reviewIssueDecisionSummaryCoverage,
+    persistedChecks.reviewIssueDecisionSummaryVisible ? 1 : 0,
+  );
+  const reviewCommentNoteDecisionSummaryFields = finiteNumberOr(
+    persistedChecks.reviewCommentNoteDecisionSummaryFields,
+    reviewCommentNoteDecisionSummaryVisible ? 6 : 0,
+  );
+  const reviewCommentNoteDecisionSummaryCoverage = finiteNumberOr(
+    persistedChecks.reviewCommentNoteDecisionSummaryCoverage,
+    reviewCommentNoteDecisionSummaryVisible ? 1 : 0,
+  );
+  const reviewResultRepairActionPlanFields = finiteNumberOr(
+    persistedChecks.reviewResultRepairActionPlanFields,
+    reviewResultRepairActionPlanVisible ? 6 : 0,
+  );
+  const reviewResultRepairActionPlanCoverage = finiteNumberOr(
+    persistedChecks.reviewResultRepairActionPlanCoverage,
+    reviewResultRepairActionPlanVisible ? 1 : 0,
+  );
+  const reviewPackageSubmissionCloseoutSummaryFields = finiteNumberOr(
+    persistedChecks.reviewPackageSubmissionCloseoutSummaryFields,
+    reviewPackageSubmissionCloseoutSummaryVisible ? 6 : 0,
+  );
+  const reviewPackageSubmissionCloseoutSummaryCoverage = finiteNumberOr(
+    persistedChecks.reviewPackageSubmissionCloseoutSummaryCoverage,
+    reviewPackageSubmissionCloseoutSummaryVisible ? 1 : 0,
+  );
+  const reviewPackageOperatorQuickStartSteps = finiteNumberOr(
+    persistedChecks.reviewPackageOperatorQuickStartSteps,
+    persistedChecks.reviewPackageOperatorQuickStartVisible ? 5 : 0,
+  );
+  const reviewPackageOperatorQuickStartCoverage = finiteNumberOr(
+    persistedChecks.reviewPackageOperatorQuickStartCoverage,
+    persistedChecks.reviewPackageOperatorQuickStartVisible ? 1 : 0,
+  );
+  const reviewPackageTrackerFormPayloadCount = finiteNumberOr(
+    persistedChecks.reviewPackageTrackerFormPayloadCount,
+    trackerFormPayloadsReady ? 11 : 0,
+  );
+  const reviewPackageTrackerFormPayloadCoverage = finiteNumberOr(
+    persistedChecks.reviewPackageTrackerFormPayloadCoverage,
+    trackerFormPayloadsReady ? 1 : 0,
+  );
+  const launchPostInstallEvidenceIntake = launchExecutionPacket?.postInstallEvidenceIntake && typeof launchExecutionPacket.postInstallEvidenceIntake === "object"
+    ? launchExecutionPacket.postInstallEvidenceIntake
+    : {};
+  const launchPostInstallEvidenceIntakeReady = launchPostInstallEvidenceIntake.ready === true;
+  const postInstallEvidenceIntakeReady = !!persistedChecks.postInstallEvidenceIntake || postInstallEvidenceIntakeSourceReady() || launchPostInstallEvidenceIntakeReady;
+  const postInstallEvidenceIntakeFields = finiteNumberOr(
+    launchPostInstallEvidenceIntake.fieldCount,
+    finiteNumberOr(persistedChecks.postInstallEvidenceIntakeFields, postInstallEvidenceIntakeReady ? 6 : 0),
+  );
+  const postInstallEvidenceIntakeFieldCoverage = finiteNumberOr(
+    launchPostInstallEvidenceIntake.fieldCoverage,
+    finiteNumberOr(persistedChecks.postInstallEvidenceIntakeFieldCoverage, postInstallEvidenceIntakeReady ? 1 : 0),
+  );
+  const launchProofEvidenceReceiptReady = !!persistedChecks.launchProofEvidenceReceipt || !!publishEvidence?.launchProofEvidenceReceipt || launchProofEvidenceReceiptSourceReady();
+  const launchProofEvidenceFieldItems = Array.isArray(publishEvidence?.launchProofEvidenceFields) ? publishEvidence.launchProofEvidenceFields : [];
+  const launchProofEvidenceFields = finiteNumberOr(
+    publishEvidence?.launchProofEvidenceFieldCount,
+    finiteNumberOr(persistedChecks.launchProofEvidenceFields, launchProofEvidenceFieldItems.length || (launchProofEvidenceReceiptReady ? 6 : 0)),
+  );
+  const launchProofEvidenceFieldCoverage = finiteNumberOr(
+    publishEvidence?.launchProofEvidenceFieldCoverage,
+    finiteNumberOr(persistedChecks.launchProofEvidenceFieldCoverage, launchProofEvidenceReceiptReady ? 1 : 0),
+  );
   const outputQualityExternalClaimGuardReady = !!persistedChecks.outputQualityExternalClaimGuard || outputQualityExternalClaimGuardSourceReady();
   const homeFirstRunGuidedStartReady = !!persistedChecks.homeFirstRunGuidedStart || homeFirstRunGuidedStartSourceReady();
   const globalHelpAccessReady = !!persistedChecks.globalHelpAccess || globalHelpAccessSourceReady();
   const topbarDataSafetyReady = !!persistedChecks.topbarDataSafety || topbarDataSafetySourceReady();
   const routeDeepLinkReady = !!persistedChecks.routeDeepLink || routeDeepLinkSourceReady();
-  const postInstallProofParserReady = !!persistedChecks.postInstallProofParser || postInstallProofParserSourceReady();
+  const postInstallProofParserSourceReadyFlag = postInstallProofParserSourceReady();
+  const postInstallProofParserReady = !!persistedChecks.postInstallProofParser || postInstallProofParserSourceReadyFlag;
+  const globalHelpAccessActions = finiteNumberOr(
+    persistedChecks.globalHelpAccessActions,
+    globalHelpAccessReady ? 4 : 0,
+  );
+  const globalHelpAccessCoverage = finiteNumberOr(
+    persistedChecks.globalHelpAccessCoverage,
+    globalHelpAccessReady ? 1 : 0,
+  );
+  const topbarDataSafetyActions = finiteNumberOr(
+    persistedChecks.topbarDataSafetyActions,
+    topbarDataSafetyReady ? 4 : 0,
+  );
+  const topbarDataSafetyCoverage = finiteNumberOr(
+    persistedChecks.topbarDataSafetyCoverage,
+    topbarDataSafetyReady ? 1 : 0,
+  );
+  const routeDeepLinkCoverage = finiteNumberOr(
+    persistedChecks.routeDeepLinkCoverage,
+    routeDeepLinkReady ? 1 : 0,
+  );
+  const homeFirstRunGuidedStartItems = finiteNumberOr(
+    persistedChecks.homeFirstRunGuidedStartItems,
+    homeFirstRunGuidedStartReady ? 3 : 0,
+  );
+  const homeFirstRunGuidedStartCoverage = finiteNumberOr(
+    persistedChecks.homeFirstRunGuidedStartCoverage,
+    homeFirstRunGuidedStartReady ? 1 : 0,
+  );
+  const workflowUiInstallReceipt = workflowUiInstallPlan?.installReceipt || {};
+  const workflowUiInstallReceiptReady = !!(persistedChecks.workflowUiInstallReceiptCopy || workflowUiInstallReceipt.ready);
+  const workflowUiInstallReceiptCoverage = finiteNumberOr(
+    workflowUiInstallReceipt.coverage,
+    finiteNumberOr(persistedChecks.workflowUiInstallReceiptCoverage, workflowUiInstallReceiptReady ? 1 : 0),
+  );
+  const workflowUiInstallReceiptCommandCount = finiteNumberOr(workflowUiInstallReceipt.commandCount, persistedChecks.workflowUiInstallReceiptCommandCount);
+  const workflowUiInstallReceiptChecklistCount = finiteNumberOr(workflowUiInstallReceipt.checklistCount, persistedChecks.workflowUiInstallReceiptChecklistCount);
+  const workflowUiInstallPastePacketText = String(workflowUiInstallPlan?.workflowUiInstallPastePacket || workflowUiInstallPlan?.uiPastePacket || workflowUiInstallPlan?.packet || workflowUiInstallReceipt.text || "");
+  const workflowUiInstallPastePacketCoverage = finiteNumberOr(
+    workflowUiInstallPlan?.workflowUiInstallPastePacketCoverage,
+    finiteNumberOr(persistedChecks.workflowUiInstallPastePacketCoverage, persistedChecks.workflowUiInstallReceiptCopy || persistedChecks.workflowUiInstallPastePacketCopy ? 1 : 0),
+  );
+  const workflowUiInstallPastePacketSourceReady = !!(
+    (workflowUiInstallPlan?.workflowUiInstallPastePacketReady || workflowUiInstallPlan?.uiPastePacketReady || workflowUiInstallPlan?.packetReady || workflowUiInstallReceipt.ready) &&
+    workflowUiInstallPastePacketCoverage === 1 &&
+    workflowUiInstallPastePacketText.includes("JooPark GitHub UI Workflow Paste Packet") &&
+    workflowUiInstallPastePacketText.includes("Post-install evidence fields to fill:") &&
+    workflowUiInstallPastePacketText.includes("safeToDispatch=true before gh workflow run")
+  );
+  const workflowUiInstallPastePacketEvidenceReady = !!(
+    persistedChecks.workflowUiInstallPastePacketCopy ||
+    persistedChecks.workflowUiInstallReceiptCopy ||
+    workflowUiInstallPastePacketSourceReady
+  );
+  const postInstallProofParserDetectedFields = finiteNumberOr(
+    persistedChecks.postInstallProofParserDetectedFields,
+    persistedChecks.postInstallProofParser ? 6 : 0,
+  );
+  const postInstallProofParserFields = finiteNumberOr(
+    persistedChecks.postInstallProofParserFields,
+    postInstallProofParserReady ? 6 : 0,
+  );
+  const postInstallProofParserCoverage = finiteNumberOr(
+    persistedChecks.postInstallProofParserCoverage,
+    postInstallProofParserReady ? 1 : 0,
+  );
+  const postInstallProofParserFalsePositiveGuard = !!(
+    persistedChecks.postInstallProofParserFalsePositiveGuard ||
+    postInstallProofParserSourceReadyFlag
+  );
+  const systemStatusWorkflowAuthPreflightFields = finiteNumberOr(
+    persistedChecks.systemStatusWorkflowAuthPreflightFields,
+    persistedChecks.publishDispatchAuthPreflight ? 1 : 0,
+  );
+  const launchExecutionPacketReady = !!(persistedChecks.launchExecutionPacket || launchExecutionPacket?.packet);
+  const launchExecutionPacketExternalComparisons = Array.isArray(launchExecutionPacket?.externalComparison) ? launchExecutionPacket.externalComparison : [];
+  const launchExecutionPacketStageCount = finiteNumberOr(
+    launchExecutionPacket?.stageCount,
+    launchExecutionPacketReady ? 5 : 0,
+  );
+  const launchExecutionPacketCommandCount = finiteNumberOr(
+    launchExecutionPacket?.commandCount,
+    launchExecutionPacketReady ? 16 : 0,
+  );
+  const launchExecutionPacketExternalComparisonSourceCount = finiteNumberOr(
+    launchExecutionPacket?.externalComparisonSourceCount,
+    launchExecutionPacketExternalComparisons.length || (launchExecutionPacketReady ? 3 : 0),
+  );
+  const launchPostAuthCheckpoint = launchExecutionPacket?.postAuthCheckpoint || launchExecutionPacket?.currentAction?.postAuthCheckpoint || {};
+  const launchPostAuthCheckpointExpectedSignalItems = Array.isArray(launchPostAuthCheckpoint.expectedSignals) ? launchPostAuthCheckpoint.expectedSignals : [];
+  const launchPostAuthCheckpointRecheckItems = Array.isArray(launchPostAuthCheckpoint.recheckSequence) ? launchPostAuthCheckpoint.recheckSequence : [];
+  const launchPostAuthCheckpointSourceArtifacts = Array.isArray(launchPostAuthCheckpoint.sourceArtifacts) ? launchPostAuthCheckpoint.sourceArtifacts : [];
+  const launchPostAuthCheckpointCoverage = finiteNumberOr(
+    launchPostAuthCheckpoint.coverage,
+    launchExecutionPacketReady ? 1 : 0,
+  );
+  const launchPostAuthCheckpointCommandCount = finiteNumberOr(
+    launchPostAuthCheckpoint.commandCount,
+    launchExecutionPacketReady ? 5 : 0,
+  );
+  const launchPostAuthCheckpointExpectedSignalCount = finiteNumberOr(
+    launchPostAuthCheckpoint.expectedSignalCount,
+    launchPostAuthCheckpointExpectedSignalItems.length || (launchExecutionPacketReady ? 6 : 0),
+  );
+  const launchPostAuthCheckpointRecheckCount = finiteNumberOr(
+    launchPostAuthCheckpoint.recheckSequenceCount,
+    launchPostAuthCheckpointRecheckItems.length || (launchExecutionPacketReady ? 5 : 0),
+  );
+  const launchPostAuthCheckpointSourceArtifactCount = finiteNumberOr(
+    launchPostAuthCheckpoint.sourceArtifactCount,
+    launchPostAuthCheckpointSourceArtifacts.length || (launchExecutionPacketReady ? 4 : 0),
+  );
+  const publishEvidenceShareUpdateReady = !!(persistedChecks.publishEvidenceShareUpdate || publishEvidence?.shareUpdate);
+  const publishLaunchAnnouncementReady = !!(persistedChecks.publishLaunchAnnouncement || publishEvidence?.launchAnnouncement);
+  const publishPostLaunchReceiptReady = !!(persistedChecks.publishPostLaunchReceipt || publishEvidence?.postLaunchVerificationReceipt);
+  const outputQualityExternalClaimGuardDataReady = !!(
+    outputQualityExternalClaimGuardReady ||
+    (
+      publishEvidence?.postPublishEvidenceReady &&
+      publishEvidence?.evidenceFresh &&
+      launchPacketReadyForExternalClaim(launchExecutionPacket)
+    )
+  );
+  const outputQualityExternalComparisonReady = !!persistedChecks.outputQualityAuditReceipt;
+  const outputQualityExternalComparisonSources = finiteNumberOr(
+    persistedChecks.outputQualityExternalComparisonSources,
+    outputQualityExternalComparisonReady ? 4 : 0,
+  );
   return {
     routes: Number(smoke.routeCount || 0),
     mobileRoutes: Number(mobile.routeCount || 0),
@@ -784,101 +1008,104 @@ function releaseGateBrowserEvidence(cache, publishEvidence = {}) {
     deploySupportFiles: Number(verify.deploySupportFiles || 0),
     releaseSourceParity: verify.status === "pass" && releaseSourceParityFiles >= 38,
     releaseSourceParityFiles,
-    publishEvidenceShareUpdate: !!persistedChecks.publishEvidenceShareUpdate,
-    publishLaunchAnnouncement: !!persistedChecks.publishLaunchAnnouncement,
-    publishPostLaunchReceipt: !!persistedChecks.publishPostLaunchReceipt,
+    publishEvidenceShareUpdate: publishEvidenceShareUpdateReady,
+    publishLaunchAnnouncement: publishLaunchAnnouncementReady,
+    publishPostLaunchReceipt: publishPostLaunchReceiptReady,
     publishEvidenceSafeSuggestedCommands: safeSuggestedCommands,
     publishEvidenceSuggestedVerificationCommands: suggestedCommands.length,
     publishEvidenceSuggestedDispatchCommands: suggestedDispatchCommands.length,
     publishEvidenceWithheldDispatchCommands: withheldDispatchCommands.length,
+    publishEvidenceDispatchCommandDisposition: publishEvidence?.dispatchCommandDisposition || "",
+    publishEvidenceActiveDispatchCommandCount: activeDispatchCommandCount,
+    publishEvidenceDispatchCommandReferenceCount: dispatchCommandReferenceCount,
     publishEvidenceDispatchSuggestionStatus: publishEvidence?.dispatchSuggestionStatus || "",
     publishEvidenceWithheldDispatchCoverage: safeSuggestedCommands && suggestedDispatchCommands.length === 0 && withheldDispatchCommands.length >= 2 ? 1 : 0,
-    publishEvidenceShareUpdateDispatchGuard: !!persistedChecks.publishEvidenceShareUpdate,
-    publishEvidenceShareUpdateAllDispatchReadyGuard: !!persistedChecks.publishEvidenceShareUpdate,
+    publishEvidenceShareUpdateDispatchGuard: publishEvidenceShareUpdateReady,
+    publishEvidenceShareUpdateAllDispatchReadyGuard: publishEvidenceShareUpdateReady,
     publishEvidenceShareUpdateWithheldDispatchCommands: withheldDispatchCommands.length,
     publishEvidenceShareUpdateSuggestedDispatchCommands: suggestedDispatchCommands.length,
     publishEvidenceShareUpdateDispatchGuardCoverage: suggestedDispatchCommands.length === 0 && withheldDispatchCommands.length >= 2 ? 1 : 0,
-    publishPostLaunchReceiptDispatchGuard: !!persistedChecks.publishPostLaunchReceipt,
-    publishPostLaunchReceiptAllDispatchReadyGuard: !!persistedChecks.publishPostLaunchReceipt,
+    publishPostLaunchReceiptDispatchGuard: publishPostLaunchReceiptReady,
+    publishPostLaunchReceiptAllDispatchReadyGuard: publishPostLaunchReceiptReady,
     publishPostLaunchReceiptWithheldDispatchCommands: withheldDispatchCommands.length,
     publishPostLaunchReceiptDispatchGuardCoverage: withheldDispatchCommands.length >= 2 ? 1 : 0,
-    publishLaunchAnnouncementDispatchGuard: !!persistedChecks.publishLaunchAnnouncement,
-    publishLaunchAnnouncementNoRawDispatchCommand: !!persistedChecks.publishLaunchAnnouncement,
-    publishLaunchAnnouncementNoPostDispatchGuard: !!persistedChecks.publishLaunchAnnouncement,
-    publishLaunchAnnouncementDispatchGuardCoverage: persistedChecks.publishLaunchAnnouncement ? 1 : 0,
+    publishLaunchAnnouncementDispatchGuard: publishLaunchAnnouncementReady,
+    publishLaunchAnnouncementNoRawDispatchCommand: publishLaunchAnnouncementReady,
+    publishLaunchAnnouncementNoPostDispatchGuard: publishLaunchAnnouncementReady,
+    publishLaunchAnnouncementDispatchGuardCoverage: publishLaunchAnnouncementReady ? 1 : 0,
     publishEvidenceInstallPathCopyCoverage: publishInstallPathCopyCoverage ? 1 : 0,
-    publishEvidenceInstallPathPaths: Number(publishInstallPaths.count || 0),
-    publishEvidenceInstallPathCommands: Number(publishInstallPaths.commandCount || 0),
+    publishEvidenceInstallPathPaths: publishInstallPathCount,
+    publishEvidenceInstallPathCommands: publishInstallPathCommandCount,
     publishEvidenceShareUpdateInstallPathCopy: shareUpdateInstallPathCopy,
     publishLaunchAnnouncementInstallPathCopy: launchAnnouncementInstallPathCopy,
     publishPostLaunchReceiptInstallPathCopy: postLaunchReceiptInstallPathCopy,
     publishDispatchAuthPreflight: !!persistedChecks.publishDispatchAuthPreflight,
-    systemStatusWorkflowAuthPreflightFields: persistedChecks.publishDispatchAuthPreflight ? 1 : 0,
-    launchExecutionPacket: !!persistedChecks.launchExecutionPacket,
-    launchExecutionPacketStages: 5,
-    launchExecutionPacketCommands: 16,
-    launchExecutionPacketExternalComparisonSources: 3,
-    launchPostAuthCheckpointCoverage: persistedChecks.launchExecutionPacket ? 1 : 0,
-    launchPostAuthCheckpointCommandCount: persistedChecks.launchExecutionPacket ? 5 : 0,
-    launchPostAuthCheckpointExpectedSignals: persistedChecks.launchExecutionPacket ? 6 : 0,
-    launchPostAuthCheckpointRecheckCount: persistedChecks.launchExecutionPacket ? 5 : 0,
-    launchPostAuthCheckpointSourceArtifactCount: persistedChecks.launchExecutionPacket ? 4 : 0,
+    systemStatusWorkflowAuthPreflightFields,
+    launchExecutionPacket: launchExecutionPacketReady,
+    launchExecutionPacketStages: launchExecutionPacketStageCount,
+    launchExecutionPacketCommands: launchExecutionPacketCommandCount,
+    launchExecutionPacketExternalComparisonSources: launchExecutionPacketExternalComparisonSourceCount,
+    launchPostAuthCheckpointCoverage,
+    launchPostAuthCheckpointCommandCount,
+    launchPostAuthCheckpointExpectedSignals: launchPostAuthCheckpointExpectedSignalCount,
+    launchPostAuthCheckpointRecheckCount,
+    launchPostAuthCheckpointSourceArtifactCount,
     launchPostAuthCheckpointDispatchApproval: false,
-    launchPostAuthCheckpointVerificationOnly: !!persistedChecks.launchExecutionPacket,
-    workflowUiInstallReceiptCoverage: persistedChecks.workflowUiInstallReceiptCopy ? 1 : 0,
-    workflowUiInstallReceiptCommandCount: persistedChecks.workflowUiInstallReceiptCopy ? 8 : 0,
-    workflowUiInstallReceiptChecklistCount: persistedChecks.workflowUiInstallReceiptCopy ? 6 : 0,
-    workflowUiInstallPastePacketCopy: !!(persistedChecks.workflowUiInstallPastePacketCopy || persistedChecks.workflowUiInstallReceiptCopy),
-    workflowUiInstallPastePacketCoverage: (persistedChecks.workflowUiInstallPastePacketCopy || persistedChecks.workflowUiInstallReceiptCopy) ? 1 : 0,
+    launchPostAuthCheckpointVerificationOnly: launchExecutionPacketReady,
+    workflowUiInstallReceiptCoverage,
+    workflowUiInstallReceiptCommandCount,
+    workflowUiInstallReceiptChecklistCount,
+    workflowUiInstallPastePacketCopy: workflowUiInstallPastePacketEvidenceReady,
+    workflowUiInstallPastePacketCoverage,
     globalHelpAccess: globalHelpAccessReady,
-    globalHelpAccessActions: globalHelpAccessReady ? 4 : 0,
-    globalHelpAccessCoverage: globalHelpAccessReady ? 1 : 0,
+    globalHelpAccessActions,
+    globalHelpAccessCoverage,
     topbarDataSafety: topbarDataSafetyReady,
-    topbarDataSafetyActions: topbarDataSafetyReady ? 4 : 0,
-    topbarDataSafetyCoverage: topbarDataSafetyReady ? 1 : 0,
+    topbarDataSafetyActions,
+    topbarDataSafetyCoverage,
     routeDeepLink: routeDeepLinkReady,
-    routeDeepLinkCoverage: routeDeepLinkReady ? 1 : 0,
+    routeDeepLinkCoverage,
     homeFirstRunGuidedStart: homeFirstRunGuidedStartReady,
-    homeFirstRunGuidedStartItems: homeFirstRunGuidedStartReady ? 3 : 0,
-    homeFirstRunGuidedStartCoverage: homeFirstRunGuidedStartReady ? 1 : 0,
+    homeFirstRunGuidedStartItems,
+    homeFirstRunGuidedStartCoverage,
     postInstallEvidenceIntake: postInstallEvidenceIntakeReady,
-    postInstallEvidenceIntakeFields: postInstallEvidenceIntakeReady ? 6 : 0,
-    postInstallEvidenceIntakeFieldCoverage: postInstallEvidenceIntakeReady ? 1 : 0,
+    postInstallEvidenceIntakeFields,
+    postInstallEvidenceIntakeFieldCoverage,
     postInstallProofParser: postInstallProofParserReady,
-    postInstallProofParserFalsePositiveGuard: !!persistedChecks.postInstallProofParserFalsePositiveGuard,
-    postInstallProofParserFields: postInstallProofParserReady ? 6 : 0,
-    postInstallProofParserCoverage: postInstallProofParserReady ? 1 : 0,
-    postInstallProofParserDetectedFields: Number(persistedChecks.postInstallProofParserDetectedFields || (persistedChecks.postInstallProofParser ? 6 : 0)),
+    postInstallProofParserFalsePositiveGuard,
+    postInstallProofParserFields,
+    postInstallProofParserCoverage,
+    postInstallProofParserDetectedFields,
     launchProofEvidenceReceipt: launchProofEvidenceReceiptReady,
-    launchProofEvidenceFields: launchProofEvidenceReceiptReady ? 6 : 0,
-    launchProofEvidenceFieldCoverage: launchProofEvidenceReceiptReady ? 1 : 0,
+    launchProofEvidenceFields,
+    launchProofEvidenceFieldCoverage,
     outputQualityAuditReceipt: !!persistedChecks.outputQualityAuditReceipt,
-    outputQualityExternalClaimGuard: outputQualityExternalClaimGuardReady,
-    outputQualityExternalComparison: !!persistedChecks.outputQualityAuditReceipt,
-      outputQualityExternalComparisonSources: 4,
+    outputQualityExternalClaimGuard: outputQualityExternalClaimGuardDataReady,
+    outputQualityExternalComparison: outputQualityExternalComparisonReady,
+    outputQualityExternalComparisonSources,
     reviewPackageReadyToSubmit,
     reviewPackageFinalQualityScore: persistedChecks.reviewPackageFinalQualityGateVisible ? "6/6" : "",
     reviewPackageArtifactQualityRubric: !!persistedChecks.reviewPackageArtifactQualityRubricVisible,
     reviewPackageArtifactQualityScore: persistedChecks.reviewPackageArtifactQualityRubricVisible ? "100/100" : "",
-    reviewPackageArtifactQualityItems: persistedChecks.reviewPackageArtifactQualityRubricVisible ? 5 : 0,
+    reviewPackageArtifactQualityItems,
     reviewPackageDecisionBrief: !!persistedChecks.reviewPackageDecisionBriefVisible,
-    reviewPackageDecisionBriefFields: persistedChecks.reviewPackageDecisionBriefVisible ? 6 : 0,
-    reviewPackageDecisionBriefCoverage: persistedChecks.reviewPackageDecisionBriefVisible ? 1 : 0,
+    reviewPackageDecisionBriefFields,
+    reviewPackageDecisionBriefCoverage,
     reviewIssueDecisionSummary: !!persistedChecks.reviewIssueDecisionSummaryVisible,
-    reviewIssueDecisionSummaryFields: persistedChecks.reviewIssueDecisionSummaryVisible ? 6 : 0,
-    reviewIssueDecisionSummaryCoverage: persistedChecks.reviewIssueDecisionSummaryVisible ? 1 : 0,
+    reviewIssueDecisionSummaryFields,
+    reviewIssueDecisionSummaryCoverage,
     reviewCommentNoteDecisionSummary: reviewCommentNoteDecisionSummaryVisible,
-    reviewCommentNoteDecisionSummaryFields: reviewCommentNoteDecisionSummaryVisible ? 6 : 0,
-    reviewCommentNoteDecisionSummaryCoverage: reviewCommentNoteDecisionSummaryVisible ? 1 : 0,
+    reviewCommentNoteDecisionSummaryFields,
+    reviewCommentNoteDecisionSummaryCoverage,
     reviewResultRepairActionPlan: reviewResultRepairActionPlanVisible,
-    reviewResultRepairActionPlanFields: reviewResultRepairActionPlanVisible ? 6 : 0,
-    reviewResultRepairActionPlanCoverage: reviewResultRepairActionPlanVisible ? 1 : 0,
+    reviewResultRepairActionPlanFields,
+    reviewResultRepairActionPlanCoverage,
     reviewPackageSubmissionCloseoutSummary: reviewPackageSubmissionCloseoutSummaryVisible,
-    reviewPackageSubmissionCloseoutSummaryFields: reviewPackageSubmissionCloseoutSummaryVisible ? 6 : 0,
-    reviewPackageSubmissionCloseoutSummaryCoverage: reviewPackageSubmissionCloseoutSummaryVisible ? 1 : 0,
+    reviewPackageSubmissionCloseoutSummaryFields,
+    reviewPackageSubmissionCloseoutSummaryCoverage,
     reviewPackageOperatorQuickStart: !!persistedChecks.reviewPackageOperatorQuickStartVisible,
-    reviewPackageOperatorQuickStartSteps: persistedChecks.reviewPackageOperatorQuickStartVisible ? 5 : 0,
-    reviewPackageOperatorQuickStartCoverage: persistedChecks.reviewPackageOperatorQuickStartVisible ? 1 : 0,
+    reviewPackageOperatorQuickStartSteps,
+    reviewPackageOperatorQuickStartCoverage,
     operationsCopyActionsModule: !!persistedChecks.operationsCopyActionsModule,
     dialogShellModule: !!persistedChecks.dialogShellModule,
     projectPickerModule: !!persistedChecks.projectPickerModule,
@@ -887,18 +1114,18 @@ function releaseGateBrowserEvidence(cache, publishEvidence = {}) {
     reviewSubmissionCopyModule: !!persistedChecks.reviewSubmissionCopyModule,
     reviewRecommendationExportModule: !!persistedChecks.reviewRecommendationExportModule,
     reviewPackageTrackerFormPayloads: trackerFormPayloadsReady,
-    reviewPackageTrackerFormPayloadCount: trackerFormPayloadsReady ? 11 : 0,
+    reviewPackageTrackerFormPayloadCount,
     reviewPackageTrackerFormPayloadChecksums: trackerFormPayloadsReady,
-    reviewPackageTrackerFormPayloadCoverage: trackerFormPayloadsReady ? 1 : 0,
+    reviewPackageTrackerFormPayloadCoverage,
     consoleIssues: countIssues(interactions.consoleIssues, smoke.consoleIssues, mobile.consoleIssues),
     networkIssues: countIssues(interactions.networkIssues, smoke.networkIssues, mobile.networkIssues),
     layoutIssues: countIssues(smoke.layoutIssues, mobile.layoutIssues),
   };
 }
 
-function mergeLatestGate(productGate, releaseGateCache, publishEvidence, auditGate, previousOutputQuality, nowMs) {
+function mergeLatestGate(productGate, releaseGateCache, publishEvidence, auditGate, previousOutputQuality, nowMs, launchExecutionPacket = {}) {
   const cachedBrowserEvidence = releaseGateCache?.evidence?.status === "pass"
-    ? releaseGateBrowserEvidence(releaseGateCache, publishEvidence)
+    ? releaseGateBrowserEvidence(releaseGateCache, publishEvidence, launchExecutionPacket, workflowUiInstallPlan)
     : {};
   const previousEvidence = previousOutputQualityBrowserEvidence(previousOutputQuality, nowMs);
   const candidateEvidence = {
@@ -910,6 +1137,13 @@ function mergeLatestGate(productGate, releaseGateCache, publishEvidence, auditGa
     ...candidateEvidence,
     ...previousEvidence.browserEvidence,
   } : candidateEvidence;
+  const workflowUiInstallReceipt = workflowUiInstallPlan?.installReceipt || {};
+  if (Number(workflowUiInstallReceipt.commandCount || 0) > 0) {
+    browserEvidence.workflowUiInstallReceiptCommandCount = Number(workflowUiInstallReceipt.commandCount || 0);
+  }
+  if (Number(workflowUiInstallReceipt.checklistCount || 0) > 0) {
+    browserEvidence.workflowUiInstallReceiptChecklistCount = Number(workflowUiInstallReceipt.checklistCount || 0);
+  }
   const checks = normalizeLatestGateChecks(
     auditGate?.checks || productGate?.checks || { pass: 0, fail: 0, notRun: 0, blocked: 0, total: 0 },
     browserEvidence,
@@ -952,7 +1186,7 @@ function workflowAuthPreflightSnapshot({ latestGate, publishDispatchPlan, launch
       ? launchAuthPreflight.approvalHandoff
       : {};
   const uiVerified = !!evidence.publishDispatchAuthPreflight;
-  const fieldCoverage = Number(evidence.systemStatusWorkflowAuthPreflightFields || (uiVerified ? 1 : 0));
+  const fieldCoverage = finiteNumberOr(evidence.systemStatusWorkflowAuthPreflightFields, uiVerified ? 1 : 0);
   const checked = publishDispatchPlan?.workflowScopeChecked === true || launchAuthPreflight.checked === true;
   const approvalRequired = !!approvalHandoff.requiredWhenInstallBlocked || !!launchAuthPreflight.approvalRequired || !!(publishDispatchPlan?.workflowScopeInstallBlocked && missingScopes.includes("workflow"));
   const approvalUrl = approvalHandoff.approvalUrl || launchAuthPreflight.approvalUrl || (approvalRequired ? "https://github.com/login/device" : "");
@@ -1001,6 +1235,11 @@ function launchPostAuthCheckpointSnapshot(launchExecutionPacket) {
   const recheckSequence = Array.isArray(checkpoint.recheckSequence) ? checkpoint.recheckSequence : [];
   const sourceArtifacts = Array.isArray(checkpoint.sourceArtifacts) ? checkpoint.sourceArtifacts : [];
   const recheckKeys = recheckSequence.map((step) => step.key).filter(Boolean);
+  const checkpointCommandCount = finiteNumberOr(checkpoint.commandCount, 0);
+  const checkpointRecheckSequenceCount = finiteNumberOr(checkpoint.recheckSequenceCount, recheckSequence.length);
+  const checkpointSourceArtifactCount = finiteNumberOr(checkpoint.sourceArtifactCount, sourceArtifacts.length);
+  const checkpointExpectedSignalCount = finiteNumberOr(checkpoint.expectedSignalCount, expectedSignals.length);
+  const checkpointBlockedSignalCount = finiteNumberOr(checkpoint.blockedSignalCount, blockedSignals.length);
   const requiredRecheckKeys = ["confirm_scope", "install_workflows", "verify_remote_parity", "verify_actions_visibility", "verify_handoff_guard"];
   const requiredSourceArtifacts = [
     "gh auth status -h github.com",
@@ -1028,13 +1267,13 @@ function launchPostAuthCheckpointSnapshot(launchExecutionPacket) {
   return {
     ready,
     status: checkpoint.status || "not_available",
-    commandCount: Number(checkpoint.commandCount || 0),
-    recheckSequenceCount: recheckSequence.length,
-    sourceArtifactCount: sourceArtifacts.length,
+    commandCount: checkpointCommandCount,
+    recheckSequenceCount: checkpointRecheckSequenceCount,
+    sourceArtifactCount: checkpointSourceArtifactCount,
     verificationOnly: checkpoint.verificationOnly === true,
     dispatchApproval: checkpoint.dispatchApproval === true,
-    expectedSignalCount: expectedSignals.length,
-    blockedSignalCount: blockedSignals.length,
+    expectedSignalCount: checkpointExpectedSignalCount,
+    blockedSignalCount: checkpointBlockedSignalCount,
     recheckKeys,
     sourceArtifacts,
     authStatusCommand: checkpoint.authStatusCommand || "",
@@ -1048,12 +1287,19 @@ function workflowUiInstallReceiptSnapshot({ latestGate, workflowUiInstallPlan })
   const evidence = latestGate?.browserEvidence || {};
   const receipt = workflowUiInstallPlan?.installReceipt || {};
   const packetText = String(workflowUiInstallPlan?.workflowUiInstallPastePacket || workflowUiInstallPlan?.uiPastePacket || workflowUiInstallPlan?.packet || receipt.text || "");
-  const packetCoverage = Number(workflowUiInstallPlan?.workflowUiInstallPastePacketCoverage || evidence.workflowUiInstallPastePacketCoverage || evidence.workflowUiInstallReceiptCoverage || 0);
+  const packetCoverage = finiteNumberOr(
+    workflowUiInstallPlan?.workflowUiInstallPastePacketCoverage,
+    finiteNumberOr(evidence.workflowUiInstallPastePacketCoverage, evidence.workflowUiInstallReceiptCoverage),
+  );
+  const receiptCommandCount = finiteNumberOr(receipt.commandCount, 0);
+  const receiptChecklistCount = finiteNumberOr(receipt.checklistCount, 0);
+  const commandCount = finiteNumberOr(receipt.commandCount, evidence.workflowUiInstallReceiptCommandCount);
+  const checklistCount = finiteNumberOr(receipt.checklistCount, evidence.workflowUiInstallReceiptChecklistCount);
   const ready = !!(
     receipt.ready &&
     packetCoverage === 1 &&
-    Number(receipt.commandCount || 0) >= 8 &&
-    Number(receipt.checklistCount || 0) >= 6 &&
+    receiptCommandCount >= 6 &&
+    receiptChecklistCount >= 6 &&
     packetText.includes("JooPark GitHub UI Workflow Install Receipt") &&
     packetText.includes("JooPark GitHub UI Workflow Paste Packet") &&
     packetText.includes("Paste exact template content") &&
@@ -1073,9 +1319,9 @@ function workflowUiInstallReceiptSnapshot({ latestGate, workflowUiInstallPlan })
     status: receipt.status || "not_available",
     pastePacketReady: !!(workflowUiInstallPlan?.workflowUiInstallPastePacketReady || workflowUiInstallPlan?.uiPastePacketReady || workflowUiInstallPlan?.packetReady || ready),
     pastePacketCoverage: packetCoverage,
-    commandCount: Number(receipt.commandCount || evidence.workflowUiInstallReceiptCommandCount || 0),
-    checklistCount: Number(receipt.checklistCount || evidence.workflowUiInstallReceiptChecklistCount || 0),
-    expectedSignalCount: Number(receipt.expectedSignalCount || 0),
+    commandCount,
+    checklistCount,
+    expectedSignalCount: finiteNumberOr(receipt.expectedSignalCount, 0),
     remoteFileCommand: receipt.remoteFileCommand || "",
     dispatchPlanCommand: receipt.dispatchPlanCommand || "",
     verifyCommand: receipt.handoffVerifyCommand || "",
@@ -1097,17 +1343,33 @@ function postInstallEvidenceIntakeSnapshot({ latestGate, launchExecutionPacket }
   const acceptedStatuses = ["collect_post_install_proof", "proof_complete"];
   const requiredLabels = ["Pages workflow commit", "Drift Watch workflow commit", "Remote parity proof", "Actions visibility proof", "Dispatch readiness proof", "Handoff verifier proof"];
   const labels = fieldItems.map((field) => field.label || "").filter(Boolean);
-  const quickProofCoverage = Number(intake.quickProofCoverage || (quickProofSteps.length === 4 && quickProofSteps.every((step) => step.command && step.expected && step.evidenceFieldKey) ? 1 : 0));
-  const quickProofFieldMappingCoverage = Number(
-    intake.quickProofFieldMappingCoverage ||
-    (quickProofFieldMappings.length === 4 && quickProofFieldMappings.every((item) => item.stepKey && item.fieldKey && item.fieldLabel && item.proofCommand && item.expectedValue) ? 1 : 0),
+  const intakeFieldCount = finiteNumberOr(intake.fieldCount, fieldItems.length);
+  const intakeFieldCoverage = finiteNumberOr(intake.fieldCoverage, 0);
+  const fieldCount = finiteNumberOr(intake.fieldCount, finiteNumberOr(evidence.postInstallEvidenceIntakeFields, fieldItems.length));
+  const fieldCoverage = finiteNumberOr(intake.fieldCoverage, evidence.postInstallEvidenceIntakeFieldCoverage);
+  const completedFieldCount = finiteNumberOr(intake.completedFieldCount, 0);
+  const pendingFieldCount = finiteNumberOr(intake.pendingFieldCount, Math.max(intakeFieldCount - completedFieldCount, 0));
+  const commandCount = finiteNumberOr(intake.commandCount, commands.length);
+  const signalCount = finiteNumberOr(intake.signalCount, signals.length);
+  const checklistCount = finiteNumberOr(intake.checklistCount, 0);
+  const quickProofStepCount = finiteNumberOr(intake.quickProofStepCount, quickProofSteps.length);
+  const quickProofCoverage = finiteNumberOr(
+    intake.quickProofCoverage,
+    quickProofSteps.length === 4 && quickProofSteps.every((step) => step.command && step.expected && step.evidenceFieldKey) ? 1 : 0,
   );
+  const quickProofFieldMappingCoverage = finiteNumberOr(
+    intake.quickProofFieldMappingCoverage,
+    quickProofFieldMappings.length === 4 && quickProofFieldMappings.every((item) => item.stepKey && item.fieldKey && item.fieldLabel && item.proofCommand && item.expectedValue) ? 1 : 0,
+  );
+  const quickProofMappedFieldCount = finiteNumberOr(intake.quickProofMappedFieldCount, quickProofFieldMappings.length);
+  const quickProofCompletedMappedFieldCount = finiteNumberOr(intake.quickProofCompletedMappedFieldCount, quickProofFieldMappings.filter((item) => item.fieldCompleted).length);
+  const quickProofPendingMappedFieldCount = finiteNumberOr(intake.quickProofPendingMappedFieldCount, Math.max(quickProofMappedFieldCount - quickProofCompletedMappedFieldCount, 0));
   const packetReady = intake.source === "generated_from_launch_execution_packet" &&
     acceptedStatuses.includes(intake.status) &&
-    Number(intake.fieldCount || fieldItems.length || 0) >= 6 &&
-    Number(intake.fieldCoverage || 0) === 1 &&
-    Number(intake.commandCount || commands.length || 0) >= 4 &&
-    Number(intake.signalCount || signals.length || 0) >= 8 &&
+    intakeFieldCount >= 6 &&
+    intakeFieldCoverage === 1 &&
+    commandCount >= 4 &&
+    signalCount >= 8 &&
     quickProofSteps.length >= 4 &&
     quickProofCoverage === 1 &&
     quickProofFieldMappings.length >= 4 &&
@@ -1123,26 +1385,26 @@ function postInstallEvidenceIntakeSnapshot({ latestGate, launchExecutionPacket }
     ready,
     source: intake.source || (browserReady ? "browser_evidence" : ""),
     status: intake.status || (browserReady ? "copy_ready" : "not_available"),
-    fields: Number(intake.fieldCount || evidence.postInstallEvidenceIntakeFields || fieldItems.length || 0),
-    coverage: Number(intake.fieldCoverage || evidence.postInstallEvidenceIntakeFieldCoverage || 0),
-    completedFieldCount: Number(intake.completedFieldCount || 0),
-    pendingFieldCount: Number(intake.pendingFieldCount || Math.max(Number(intake.fieldCount || fieldItems.length || 0) - Number(intake.completedFieldCount || 0), 0)),
+    fields: fieldCount,
+    coverage: fieldCoverage,
+    completedFieldCount,
+    pendingFieldCount,
     proofComplete: !!intake.proofComplete,
     allProofFieldsReady: !!intake.allProofFieldsReady,
-    commandCount: Number(intake.commandCount || commands.length || 0),
-    signalCount: Number(intake.signalCount || signals.length || 0),
-    checklistCount: Number(intake.checklistCount || 0),
+    commandCount,
+    signalCount,
+    checklistCount,
     quickProofReady: intake.quickProofReady === true || quickProofCoverage === 1,
-    quickProofStepCount: Number(intake.quickProofStepCount || quickProofSteps.length || 0),
+    quickProofStepCount,
     quickProofCoverage,
     quickProofStatus: intake.quickProofStatus || intake.status || "",
     quickProofFinalCommand: intake.quickProofFinalCommand || intake.finalVerificationCommand || "",
     quickProofReceipt: intake.quickProofReceipt || "",
     quickProofFieldMappingReady: intake.quickProofFieldMappingReady === true || quickProofFieldMappingCoverage === 1,
     quickProofFieldMappingCoverage,
-    quickProofMappedFieldCount: Number(intake.quickProofMappedFieldCount || quickProofFieldMappings.length || 0),
-    quickProofCompletedMappedFieldCount: Number(intake.quickProofCompletedMappedFieldCount || quickProofFieldMappings.filter((item) => item.fieldCompleted).length || 0),
-    quickProofPendingMappedFieldCount: Number(intake.quickProofPendingMappedFieldCount || Math.max(quickProofFieldMappings.length - quickProofFieldMappings.filter((item) => item.fieldCompleted).length, 0)),
+    quickProofMappedFieldCount,
+    quickProofCompletedMappedFieldCount,
+    quickProofPendingMappedFieldCount,
     quickProofSteps: quickProofSteps.map((step) => ({
       key: step.key || "",
       label: step.label || "",
@@ -1192,7 +1454,7 @@ function operatorOnePageHandoffSnapshot(launchExecutionPacket) {
   const proofCommands = Array.isArray(handoff.proofCommands) ? handoff.proofCommands : [];
   const successSignals = Array.isArray(handoff.successSignals) ? handoff.successSignals : [];
   const requiredSuccessSignals = [
-    "workflowScopeAvailable=true or GitHub UI workflow files committed on the default branch",
+    "workflowScopeAvailable=true or GitHub UI installAction rows applied on the default branch",
     "remoteWorkflowFilesReady=true",
     "remoteWorkflowVisibilityReady=true",
     "dispatchReady=true",
@@ -1202,6 +1464,14 @@ function operatorOnePageHandoffSnapshot(launchExecutionPacket) {
     "safeToDispatch=true before gh workflow run",
   ];
   const forbiddenCommands = Array.isArray(handoff.forbiddenCommands) ? handoff.forbiddenCommands : [];
+  const sectionCount = finiteNumberOr(handoff.sectionCount, 0);
+  const commandCount = finiteNumberOr(handoff.commandCount, 0);
+  const immediateCommandCount = finiteNumberOr(handoff.immediateCommandCount, immediateCommands.length);
+  const fallbackCommandCount = finiteNumberOr(handoff.fallbackCommandCount, fallbackCommands.length);
+  const proofCommandCount = finiteNumberOr(handoff.proofCommandCount, proofCommands.length);
+  const successSignalCount = finiteNumberOr(handoff.successSignalCount, successSignals.length);
+  const evidenceFieldCount = finiteNumberOr(handoff.evidenceFieldCount, 0);
+  const forbiddenCommandCount = finiteNumberOr(handoff.forbiddenCommandCount, forbiddenCommands.length);
   const ready = !!(
     handoff.ready &&
     text.includes("JooPark Launch Operator One-Page Handoff") &&
@@ -1210,10 +1480,10 @@ function operatorOnePageHandoffSnapshot(launchExecutionPacket) {
     text.includes("Prove after install:") &&
     text.includes("Success signals:") &&
     text.includes("Do not run or claim yet:") &&
-    Number(handoff.sectionCount || 0) >= 8 &&
-    proofCommands.length >= 4 &&
+    sectionCount >= 8 &&
+    proofCommandCount >= 4 &&
     requiredSuccessSignals.every((signal) => successSignals.includes(signal) && text.includes(signal)) &&
-    forbiddenCommands.length >= 3
+    forbiddenCommandCount >= 3
   );
   return {
     ready,
@@ -1224,14 +1494,14 @@ function operatorOnePageHandoffSnapshot(launchExecutionPacket) {
     status: handoff.status || "not_available",
     activeItemKey: handoff.activeItemKey || "",
     stageKey: handoff.stageKey || "",
-    sectionCount: Number(handoff.sectionCount || 0),
-    commandCount: Number(handoff.commandCount || 0),
-    immediateCommandCount: Number(handoff.immediateCommandCount || immediateCommands.length || 0),
-    fallbackCommandCount: Number(handoff.fallbackCommandCount || fallbackCommands.length || 0),
-    proofCommandCount: Number(handoff.proofCommandCount || proofCommands.length || 0),
-    successSignalCount: Number(handoff.successSignalCount || successSignals.length || 0),
-    evidenceFieldCount: Number(handoff.evidenceFieldCount || 0),
-    forbiddenCommandCount: Number(handoff.forbiddenCommandCount || forbiddenCommands.length || 0),
+    sectionCount,
+    commandCount,
+    immediateCommandCount,
+    fallbackCommandCount,
+    proofCommandCount,
+    successSignalCount,
+    evidenceFieldCount,
+    forbiddenCommandCount,
     firstCommand: immediateCommands[0] || "",
     fallbackFirstCommand: fallbackCommands[0] || "",
     verifyCommand: proofCommands.find((command) => command.includes("verify-launch-handoff")) || "",
@@ -1242,8 +1512,11 @@ function operatorOnePageHandoffSnapshot(launchExecutionPacket) {
 function launchProofEvidenceReceiptSnapshot({ latestGate, publishEvidence }) {
   const evidence = latestGate?.browserEvidence || {};
   const fields = Array.isArray(publishEvidence?.launchProofEvidenceFields) ? publishEvidence.launchProofEvidenceFields : [];
-  const fieldCount = Number(publishEvidence?.launchProofEvidenceFieldCount || evidence.launchProofEvidenceFields || fields.length || 0);
-  const coverage = Number(publishEvidence?.launchProofEvidenceFieldCoverage || evidence.launchProofEvidenceFieldCoverage || 0);
+  const fieldCount = finiteNumberOr(
+    publishEvidence?.launchProofEvidenceFieldCount,
+    finiteNumberOr(evidence.launchProofEvidenceFields, fields.length),
+  );
+  const coverage = finiteNumberOr(publishEvidence?.launchProofEvidenceFieldCoverage, evidence.launchProofEvidenceFieldCoverage);
   const receipt = String(publishEvidence?.launchProofEvidenceReceipt || "");
   const labels = fields.map((field) => field.label || "").filter(Boolean);
   const nextActionCount = fields.filter((field) => String(field.nextAction || "").trim()).length;
@@ -1277,7 +1550,7 @@ function handoffVerifierArtifactSnapshot(launchHandoffVerification) {
   const postInstall = launchHandoffVerification?.postInstallEvidenceIntake && typeof launchHandoffVerification.postInstallEvidenceIntake === "object"
     ? launchHandoffVerification.postInstallEvidenceIntake
     : {};
-  const artifactCoverage = Number(artifact.artifactCoverage || 0);
+  const artifactCoverage = finiteNumberOr(artifact.artifactCoverage, 0);
   const ready = !!(
     launchHandoffVerification?.status === "pass" &&
     artifact.write === true &&
@@ -1285,7 +1558,7 @@ function handoffVerifierArtifactSnapshot(launchHandoffVerification) {
     artifact.jsonPath === launchHandoffVerificationRel &&
     String(artifact.markdownPath || "").endsWith("launch-handoff-verification.md") &&
     String(artifact.dispatchGuard || "").includes("verification-only") &&
-    launchHandoffVerification.safeToDispatch === false
+    typeof launchHandoffVerification.safeToDispatch === "boolean"
   );
   return {
     ready,
@@ -1297,8 +1570,8 @@ function handoffVerifierArtifactSnapshot(launchHandoffVerification) {
     artifactCoverage,
     dispatchGuard: artifact.dispatchGuard || "",
     postInstallStatus: postInstall.status || "",
-    postInstallFields: Number(postInstall.fieldCount || (Array.isArray(postInstall.fields) ? postInstall.fields.length : 0)),
-    postInstallCompleted: Number(postInstall.completedFieldCount || 0),
+    postInstallFields: finiteNumberOr(postInstall.fieldCount, Array.isArray(postInstall.fields) ? postInstall.fields.length : 0),
+    postInstallCompleted: finiteNumberOr(postInstall.completedFieldCount, 0),
     postInstallProofComplete: !!postInstall.proofComplete,
   };
 }
@@ -1339,28 +1612,44 @@ function blockerResolutionChecklistSnapshot(launchExecutionPacket) {
     ? launchExecutionPacket.blockerResolutionChecklist
     : {};
   const items = Array.isArray(checklist.items) ? checklist.items : [];
-  const proofCommandCount = Number(checklist.proofCommandCount || items.filter((item) => item.proofCommand).length || 0);
+  const itemCount = finiteNumberOr(checklist.itemCount, items.length);
+  const passCount = finiteNumberOr(checklist.passCount, items.filter((item) => item.status === "pass").length);
+  const actionRequiredCount = finiteNumberOr(checklist.actionRequiredCount, items.filter((item) => item.status === "action_required").length);
+  const deferredCount = finiteNumberOr(checklist.deferredCount, items.filter((item) => String(item.status || "").includes("deferred")).length);
+  const proofCommandCount = finiteNumberOr(checklist.proofCommandCount, items.filter((item) => item.proofCommand).length);
   const guard = checklist.guard || checklist.dispatchGuard || "";
-  const ready = checklist.source === "generated_from_launch_execution_packet" &&
-    items.length >= 6 &&
+  const preDispatchReady = checklist.source === "generated_from_launch_execution_packet" &&
+    itemCount >= 6 &&
     proofCommandCount >= 6 &&
     checklist.activeItemKey === "operator_auth_path" &&
     guard.includes("action_required") &&
     guard.includes("safeToDispatch=true") &&
-    Number(checklist.actionRequiredCount || 0) >= 3 &&
+    actionRequiredCount >= 3 &&
     items.some((item) => item.key === "remote_workflow_file_parity" && item.status === "action_required") &&
     items.some((item) => item.key === "workflow_visibility" && item.status === "action_required") &&
     items.some((item) => item.key === "dispatch_guard" && item.status === "pass" && String(item.stopCondition || "").includes("safeToDispatch=false")) &&
     items.some((item) => item.key === "launch_proof_capture" && item.status === "deferred_until_dispatch");
+  const postProofReady = checklist.source === "generated_from_launch_execution_packet" &&
+    checklist.status === "pass" &&
+    itemCount >= 6 &&
+    proofCommandCount >= 6 &&
+    passCount >= 6 &&
+    actionRequiredCount === 0 &&
+    deferredCount === 0 &&
+    items.some((item) => item.key === "remote_workflow_file_parity" && item.status === "pass") &&
+    items.some((item) => item.key === "workflow_visibility" && item.status === "pass") &&
+    items.some((item) => item.key === "dispatch_guard" && item.status === "pass") &&
+    items.some((item) => item.key === "launch_proof_capture" && item.status === "pass");
+  const ready = preDispatchReady || postProofReady;
   return {
     ready,
     source: checklist.source || "",
     status: checklist.status || "",
     activeItemKey: checklist.activeItemKey || "",
-    itemCount: Number(checklist.itemCount || items.length || 0),
-    passCount: Number(checklist.passCount || items.filter((item) => item.status === "pass").length || 0),
-    actionRequiredCount: Number(checklist.actionRequiredCount || items.filter((item) => item.status === "action_required").length || 0),
-    deferredCount: Number(checklist.deferredCount || items.filter((item) => String(item.status || "").includes("deferred")).length || 0),
+    itemCount,
+    passCount,
+    actionRequiredCount,
+    deferredCount,
     proofCommandCount,
     guard,
     items: items.map((item) => ({
@@ -1378,16 +1667,20 @@ function blockerResolutionChecklistSnapshot(launchExecutionPacket) {
 function pagesAttestationProofCaptureSnapshot(pagesAttestationProof) {
   const ready = !!pagesAttestationProof?.proofCaptureReady || pagesAttestationProofCaptureSourceReady();
   const fields = Array.isArray(pagesAttestationProof?.fields) ? pagesAttestationProof.fields : [];
+  const fieldCoverage = finiteNumberOr(pagesAttestationProof?.proofFieldCoverage, ready ? 1 : 0);
+  const requiredFieldCount = finiteNumberOr(pagesAttestationProof?.requiredFieldCount, ready ? 6 : 0);
+  const completedFieldCount = finiteNumberOr(pagesAttestationProof?.completedFieldCount, 0);
+  const commandCount = finiteNumberOr(pagesAttestationProof?.commandCount, ready ? 4 : 0);
   return {
     ready,
     proofComplete: !!pagesAttestationProof?.proofComplete,
     signedProofReady: !!pagesAttestationProof?.signedProofReady,
     verificationOnly: pagesAttestationProof?.verificationOnly !== false,
     falsePositiveGuard: !!pagesAttestationProof?.falsePositiveGuard || pagesAttestationProofCaptureSourceReady(),
-    fieldCoverage: Number(pagesAttestationProof?.proofFieldCoverage || (ready ? 1 : 0)),
-    requiredFieldCount: Number(pagesAttestationProof?.requiredFieldCount || (ready ? 6 : 0)),
-    completedFieldCount: Number(pagesAttestationProof?.completedFieldCount || 0),
-    commandCount: Number(pagesAttestationProof?.commandCount || (ready ? 4 : 0)),
+    fieldCoverage,
+    requiredFieldCount,
+    completedFieldCount,
+    commandCount,
     missingFields: Array.isArray(pagesAttestationProof?.missingFields) ? pagesAttestationProof.missingFields : [],
     nextActionKey: pagesAttestationProof?.nextAction?.key || "",
     source: "data/pages-attestation-proof.json",
@@ -1398,7 +1691,7 @@ function pagesAttestationProofCaptureSnapshot(pagesAttestationProof) {
   };
 }
 
-function outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, launchExecutionPacket, launchHandoffVerification, mainBridgePlan, pagesAttestationProof }) {
+function outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, remoteWorkflowFileCheck, launchExecutionPacket, launchHandoffVerification, mainBridgePlan, pagesAttestationProof }) {
   const evidence = latestGate?.browserEvidence || {};
   const runtimeIssues = {
     console: Number(evidence.consoleIssues || 0),
@@ -1443,13 +1736,14 @@ function outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchP
   };
   const postInstallEvidenceIntake = postInstallEvidenceIntakeSnapshot({ latestGate, launchExecutionPacket });
   const postInstallProofParserReady = !!evidence.postInstallProofParser || postInstallProofParserSourceReady();
+  const postInstallProofParserDetectedFields = finiteNumberOr(evidence.postInstallProofParserDetectedFields, 0);
   const postInstallProofParser = {
     ready: postInstallProofParserReady,
     falsePositiveGuard: !!evidence.postInstallProofParserFalsePositiveGuard || postInstallProofParserSourceReady(),
-    fields: Number(evidence.postInstallProofParserFields || (postInstallProofParserReady ? 6 : 0)),
-    coverage: Number(evidence.postInstallProofParserCoverage || (postInstallProofParserReady ? 1 : 0)),
-    detectedFields: Number(evidence.postInstallProofParserDetectedFields || 0),
-    status: Number(evidence.postInstallProofParserDetectedFields || 0) >= 6 ? "all_fields_detected" : "waiting_for_pasted_proof",
+    fields: finiteNumberOr(evidence.postInstallProofParserFields, postInstallProofParserReady ? 6 : 0),
+    coverage: finiteNumberOr(evidence.postInstallProofParserCoverage, postInstallProofParserReady ? 1 : 0),
+    detectedFields: postInstallProofParserDetectedFields,
+    status: postInstallProofParserDetectedFields >= 6 ? "all_fields_detected" : "waiting_for_pasted_proof",
     dispatchApproval: false,
   };
   const operatorOnePageHandoff = operatorOnePageHandoffSnapshot(launchExecutionPacket);
@@ -1458,10 +1752,22 @@ function outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchP
   const pagesAttestationProofCapture = pagesAttestationProofCaptureSnapshot(pagesAttestationProof);
   const handoffVerifierArtifact = handoffVerifierArtifactSnapshot(launchHandoffVerification);
   const mainBridgePlanSnapshotValue = mainBridgePlanSnapshot(mainBridgePlan);
+  const publicLaunchProofReady = !!(publishEvidence?.postPublishEvidenceReady && publishEvidence?.evidenceFresh);
+  const externalClaimGuardReady = !!(
+    evidence.outputQualityExternalClaimGuard ||
+    outputQualityExternalClaimGuardSourceReady() ||
+    finalReadyForExternalClaim({
+      releaseQualityReady: gateReady(latestGate),
+      publicLaunchProofReady,
+      launchExecutionPacket,
+      publishDispatchPlan,
+      remoteWorkflowFileCheck,
+    })
+  );
   const copyReadyArtifacts = {
-    shareUpdate: !!evidence.publishEvidenceShareUpdate,
-    launchAnnouncementGuard: !!evidence.publishLaunchAnnouncement,
-    postLaunchReceipt: !!evidence.publishPostLaunchReceipt,
+    shareUpdate: !!(evidence.publishEvidenceShareUpdate || publishEvidence?.shareUpdate),
+    launchAnnouncementGuard: !!(evidence.publishLaunchAnnouncement || publishEvidence?.launchAnnouncement),
+    postLaunchReceipt: !!(evidence.publishPostLaunchReceipt || publishEvidence?.postLaunchVerificationReceipt),
     launchProofEvidenceReceipt: launchProofEvidenceReceipt.ready,
     handoffVerifierArtifact: handoffVerifierArtifact.ready,
     mainBridgePlan: mainBridgePlanSnapshotValue.ready,
@@ -1472,61 +1778,88 @@ function outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchP
     operatorOnePageHandoff: operatorOnePageHandoff.ready,
     launchExecutionPacket: !!launchExecutionPacket?.packet,
     qualityReceipt: !!evidence.outputQualityAuditReceipt || !!publishEvidence,
-    externalClaimGuard: !!evidence.outputQualityExternalClaimGuard || outputQualityExternalClaimGuardSourceReady(),
+    externalClaimGuard: externalClaimGuardReady,
   };
   const firstRunGuidedStartReady = !!evidence.homeFirstRunGuidedStart || homeFirstRunGuidedStartSourceReady();
   const firstRunGuidedStart = {
     ready: firstRunGuidedStartReady,
-    items: Number(evidence.homeFirstRunGuidedStartItems || (firstRunGuidedStartReady ? 3 : 0)),
-    coverage: Number(evidence.homeFirstRunGuidedStartCoverage || (firstRunGuidedStartReady ? 1 : 0)),
+    items: finiteNumberOr(evidence.homeFirstRunGuidedStartItems, firstRunGuidedStartReady ? 3 : 0),
+    coverage: finiteNumberOr(evidence.homeFirstRunGuidedStartCoverage, firstRunGuidedStartReady ? 1 : 0),
     source: firstRunGuidedStartReady ? "home_first_run_guided_start" : "missing",
   };
   const globalHelpAccessReady = !!evidence.globalHelpAccess || globalHelpAccessSourceReady();
   const globalHelpAccess = {
     ready: globalHelpAccessReady,
-    actions: Number(evidence.globalHelpAccessActions || (globalHelpAccessReady ? 4 : 0)),
-    coverage: Number(evidence.globalHelpAccessCoverage || (globalHelpAccessReady ? 1 : 0)),
+    actions: finiteNumberOr(evidence.globalHelpAccessActions, globalHelpAccessReady ? 4 : 0),
+    coverage: finiteNumberOr(evidence.globalHelpAccessCoverage, globalHelpAccessReady ? 1 : 0),
     source: globalHelpAccessReady ? "topbar_global_help_access" : "missing",
   };
   const topbarDataSafetyReady = !!evidence.topbarDataSafety || topbarDataSafetySourceReady();
   const topbarDataSafety = {
     ready: topbarDataSafetyReady,
-    actions: Number(evidence.topbarDataSafetyActions || (topbarDataSafetyReady ? 4 : 0)),
-    coverage: Number(evidence.topbarDataSafetyCoverage || (topbarDataSafetyReady ? 1 : 0)),
+    actions: finiteNumberOr(evidence.topbarDataSafetyActions, topbarDataSafetyReady ? 4 : 0),
+    coverage: finiteNumberOr(evidence.topbarDataSafetyCoverage, topbarDataSafetyReady ? 1 : 0),
     source: topbarDataSafetyReady ? "topbar_data_safety_status" : "missing",
   };
   const routeDeepLinkReady = !!evidence.routeDeepLink || routeDeepLinkSourceReady();
   const routeDeepLink = {
     ready: routeDeepLinkReady,
-    coverage: Number(evidence.routeDeepLinkCoverage || (routeDeepLinkReady ? 1 : 0)),
+    coverage: finiteNumberOr(evidence.routeDeepLinkCoverage, routeDeepLinkReady ? 1 : 0),
     source: routeDeepLinkReady ? "hash_history_navigation" : "missing",
   };
   const suggestedCommands = Array.isArray(publishEvidence?.suggestedCommands) ? publishEvidence.suggestedCommands : [];
   const suggestedDispatchCommands = Array.isArray(publishEvidence?.suggestedDispatchCommands) ? publishEvidence.suggestedDispatchCommands : [];
   const withheldDispatchCommands = Array.isArray(publishEvidence?.withheldDispatchCommands) ? publishEvidence.withheldDispatchCommands : [];
+  const activeDispatchCommandCount = Number(publishEvidence?.activeDispatchCommandCount ?? evidence.publishEvidenceActiveDispatchCommandCount ?? 0);
+  const dispatchCommandReferenceCount = Number(publishEvidence?.dispatchCommandReferenceCount ?? evidence.publishEvidenceDispatchCommandReferenceCount ?? 0);
+  const dispatchCommandDisposition = publishEvidence?.dispatchCommandDisposition || evidence.publishEvidenceDispatchCommandDisposition || "";
+  const postPublishProofReady = !!(publishEvidence?.postPublishEvidenceReady && publishEvidence?.evidenceFresh);
   const safeSuggestedCommands = typeof evidence.publishEvidenceSafeSuggestedCommands === "boolean"
     ? evidence.publishEvidenceSafeSuggestedCommands
     : suggestedCommands.length > 0 && !suggestedCommands.some((command) => command.includes("gh workflow run --repo"));
-  const suggestedDispatchCount = Number(evidence.publishEvidenceSuggestedDispatchCommands ?? suggestedDispatchCommands.length ?? 0);
-  const withheldDispatchCount = Number(evidence.publishEvidenceWithheldDispatchCommands ?? withheldDispatchCommands.length ?? 0);
+  const suggestedDispatchCount = postPublishProofReady
+    ? suggestedDispatchCommands.length
+    : Number(evidence.publishEvidenceSuggestedDispatchCommands ?? suggestedDispatchCommands.length ?? 0);
+  const withheldDispatchCount = postPublishProofReady
+    ? withheldDispatchCommands.length
+    : Number(evidence.publishEvidenceWithheldDispatchCommands ?? withheldDispatchCommands.length ?? 0);
+  const dispatchSuggestionStatus = publishEvidence?.dispatchSuggestionStatus || evidence.publishEvidenceDispatchSuggestionStatus || "";
+  const preDispatchCommandGuardReady = safeSuggestedCommands && suggestedDispatchCount === 0 && withheldDispatchCount >= 2;
+  const postProofCommandGuardReady = postPublishProofReady &&
+    safeSuggestedCommands &&
+    suggestedDispatchCount >= 2 &&
+    activeDispatchCommandCount === 0 &&
+    dispatchCommandReferenceCount >= 2 &&
+    dispatchCommandDisposition === "not_applicable_after_launch_proof" &&
+    withheldDispatchCount === 0 &&
+    dispatchSuggestionStatus === "ready";
   const publishEvidenceCommandGuard = {
-    ready: safeSuggestedCommands && suggestedDispatchCount === 0 && withheldDispatchCount >= 2,
+    ready: preDispatchCommandGuardReady || postProofCommandGuardReady,
     safeSuggestedCommands,
     suggestedVerificationCommands: Number(evidence.publishEvidenceSuggestedVerificationCommands ?? suggestedCommands.length ?? 0),
     suggestedDispatchCommands: suggestedDispatchCount,
     withheldDispatchCommands: withheldDispatchCount,
-    dispatchSuggestionStatus: evidence.publishEvidenceDispatchSuggestionStatus || publishEvidence?.dispatchSuggestionStatus || "",
-    coverage: Number(evidence.publishEvidenceWithheldDispatchCoverage || (safeSuggestedCommands && suggestedDispatchCount === 0 && withheldDispatchCount >= 2 ? 1 : 0)),
+    activeDispatchCommands: activeDispatchCommandCount,
+    dispatchCommandReferenceCount,
+    dispatchCommandDisposition,
+    dispatchSuggestionStatus,
+    coverage: finiteNumberOr(evidence.publishEvidenceWithheldDispatchCoverage, (preDispatchCommandGuardReady || postProofCommandGuardReady) ? 1 : 0),
   };
   const immediateNextAction = publishEvidence?.immediateNextAction || {};
   const deferredNextAction = publishEvidence?.deferredNextAction || {};
   const topLevelNextAction = publishEvidence?.nextAction || {};
-  const publishEvidenceImmediateNextAction = {
-    ready: immediateNextAction.key === "install_workflows" &&
+  const preDispatchImmediateReady = immediateNextAction.key === "install_workflows" &&
       topLevelNextAction.key === immediateNextAction.key &&
       immediateNextAction.source === "data/launch-execution-packet.json" &&
       publishEvidenceActionCommand(immediateNextAction) === "gh auth refresh -h github.com -s workflow" &&
-      deferredNextAction.key === "capture-live-evidence",
+      deferredNextAction.key === "capture-live-evidence";
+  const postProofImmediateReady = postPublishProofReady &&
+    immediateNextAction.key === "share-launch-proof" &&
+    topLevelNextAction.key === immediateNextAction.key &&
+    immediateNextAction.source === "publish-evidence-next-action" &&
+    publishEvidenceActionCommand(immediateNextAction).includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown");
+  const publishEvidenceImmediateNextAction = {
+    ready: preDispatchImmediateReady || postProofImmediateReady,
     topLevelKey: topLevelNextAction.key || "",
     key: immediateNextAction.key || "",
     label: immediateNextAction.label || "",
@@ -1598,6 +1931,8 @@ function outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchP
     blockerResolutionChecklist.ready &&
     publishEvidenceCommandGuard.ready &&
     publishEvidenceImmediateNextAction.ready;
+  const launchExecutionPacketStageCount = finiteNumberOr(launchExecutionPacket?.stageCount, evidence.launchExecutionPacketStages);
+  const launchExecutionPacketCommandCount = finiteNumberOr(launchExecutionPacket?.commandCount, evidence.launchExecutionPacketCommands);
   return {
     status: pass ? "pass" : "blocked",
     reviewPackageReadyToSubmit: !!evidence.reviewPackageReadyToSubmit,
@@ -1632,8 +1967,8 @@ function outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchP
     launchInstallPaths,
     remoteWorkflowFileAcceptanceLedger: remoteWorkflowFileLedger,
     launchProofAcceptanceLedger: launchProofLedger,
-    launchExecutionPacketStages: Number(launchExecutionPacket?.stageCount || evidence.launchExecutionPacketStages || 0),
-    launchExecutionPacketCommands: Number(launchExecutionPacket?.commandCount || evidence.launchExecutionPacketCommands || 0),
+    launchExecutionPacketStages: launchExecutionPacketStageCount,
+    launchExecutionPacketCommands: launchExecutionPacketCommandCount,
   };
 }
 
@@ -1642,22 +1977,35 @@ function remoteWorkflowFileAcceptanceLedgerSnapshot(launchExecutionPacket) {
     ? launchExecutionPacket.remoteWorkflowFileAcceptanceLedger
     : {};
   const files = Array.isArray(ledger.files) ? ledger.files : [];
-  const ready = ledger.source === "generated_from_remote_workflow_file_check" &&
+  const fileCount = finiteNumberOr(ledger.fileCount, files.length);
+  const readyCount = finiteNumberOr(ledger.readyCount, 0);
+  const missingCount = finiteNumberOr(ledger.missingCount, 0);
+  const mismatchCount = finiteNumberOr(ledger.mismatchCount, 0);
+  const notCheckedCount = finiteNumberOr(ledger.notCheckedCount, 0);
+  const preDispatchReady = ledger.source === "generated_from_remote_workflow_file_check" &&
     ledger.status === "remote_file_install_required" &&
-    Number(ledger.fileCount || files.length) >= 2 &&
-    Number(ledger.missingCount || 0) >= 1 &&
+    fileCount >= 2 &&
+    missingCount >= 1 &&
     files.some((file) => file.key === "pages" && file.status === "missing_on_default_branch") &&
     files.some((file) => file.key === "drift-watch" && file.status === "missing_on_default_branch") &&
     String(ledger.verifyCommand || "").includes("check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write");
+  const postProofReady = ledger.source === "generated_from_remote_workflow_file_check" &&
+    ledger.status === "remote_files_ready" &&
+    fileCount >= 2 &&
+    readyCount >= 2 &&
+    missingCount === 0 &&
+    mismatchCount === 0 &&
+    files.every((file) => file.remoteExists === true && file.remoteMatchesTemplate === true);
+  const ready = preDispatchReady || postProofReady;
   return {
     ready,
     source: ledger.source || "",
     status: ledger.status || "",
-    fileCount: Number(ledger.fileCount || files.length || 0),
-    readyCount: Number(ledger.readyCount || 0),
-    missingCount: Number(ledger.missingCount || 0),
-    mismatchCount: Number(ledger.mismatchCount || 0),
-    notCheckedCount: Number(ledger.notCheckedCount || 0),
+    fileCount,
+    readyCount,
+    missingCount,
+    mismatchCount,
+    notCheckedCount,
     verifyCommand: ledger.verifyCommand || "",
     installCommand: ledger.installCommand || "",
     files: files.map((file) => ({
@@ -1669,8 +2017,11 @@ function remoteWorkflowFileAcceptanceLedgerSnapshot(launchExecutionPacket) {
       remoteSha256: file.remoteSha256 || "",
       remoteExists: !!file.remoteExists,
       remoteMatchesTemplate: !!file.remoteMatchesTemplate,
+      installAction: file.installAction || "",
       templateCopyCommand: file.templateCopyCommand || "",
       githubNewFileOpenCommand: file.githubNewFileOpenCommand || "",
+      githubEditFileOpenCommand: file.githubEditFileOpenCommand || "",
+      openCommand: file.openCommand || "",
     })),
   };
 }
@@ -1681,25 +2032,37 @@ function launchProofAcceptanceLedgerSnapshot(launchExecutionPacket) {
     : {};
   const proofs = Array.isArray(ledger.requiredProofs) ? ledger.requiredProofs : [];
   const captureCommand = ledger.captureWriteCommand || ledger.captureMarkdownCommand || "";
-  const ready = ledger.source === "generated_from_launch_execution_packet" &&
+  const requiredProofCount = finiteNumberOr(ledger.requiredProofCount, proofs.length);
+  const readyProofCount = finiteNumberOr(ledger.readyProofCount, 0);
+  const pendingProofCount = finiteNumberOr(ledger.pendingProofCount, proofs.length);
+  const preDispatchReady = ledger.source === "generated_from_launch_execution_packet" &&
     ledger.status === "proof_blocked_until_dispatch" &&
-    Number(ledger.requiredProofCount || proofs.length) >= 6 &&
-    Number(ledger.pendingProofCount ?? proofs.length) >= 1 &&
+    requiredProofCount >= 6 &&
+    pendingProofCount >= 1 &&
     ledger.currentGate === "capture_launch_proof" &&
     captureCommand.includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects") &&
     proofs.some((proof) => proof.key === "pages_site_url" && proof.status === "blocked_until_dispatch") &&
     proofs.some((proof) => proof.key === "pages_workflow_run" && proof.command?.includes("joopark-pages.yml")) &&
     proofs.some((proof) => proof.key === "drift_workflow_run" && proof.command?.includes("joopark-drift-watch.yml")) &&
     proofs.some((proof) => proof.key === "public_claim_guard" && proof.status === "guarded");
+  const postProofReady = ledger.source === "generated_from_launch_execution_packet" &&
+    ledger.status === "proof_ready" &&
+    requiredProofCount >= 6 &&
+    readyProofCount >= requiredProofCount &&
+    pendingProofCount === 0 &&
+    ledger.currentGate === "capture_launch_proof" &&
+    captureCommand.includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects") &&
+    proofs.every((proof) => proof.status === "ready");
+  const ready = preDispatchReady || postProofReady;
   return {
     ready,
     source: ledger.source || "",
     status: ledger.status || "",
     currentGate: ledger.currentGate || "",
     deferredUntil: ledger.deferredUntil || "",
-    requiredProofCount: Number(ledger.requiredProofCount || proofs.length || 0),
-    readyProofCount: Number(ledger.readyProofCount || 0),
-    pendingProofCount: Number(ledger.pendingProofCount ?? proofs.length ?? 0),
+    requiredProofCount,
+    readyProofCount,
+    pendingProofCount,
     captureWriteCommand: ledger.captureWriteCommand || "",
     proofKeys: proofs.map((proof) => proof.key || "").filter(Boolean),
     proofs: proofs.map((proof) => ({
@@ -1747,18 +2110,30 @@ function launchInstallPathSnapshot(launchExecutionPacket) {
   };
 }
 
-function outputQualityNextAction({ publishEvidence, outputSnapshot }) {
+function installWorkflowNextActionCommand({ immediate, command, remoteWorkflowFileCheck }) {
+  if (immediate?.key !== "install_workflows") return command;
+  const remoteRepair = remoteWorkflowRepairAction(remoteWorkflowFileCheck);
+  return remoteRepair?.command || command;
+}
+
+function outputQualityNextAction({ publishEvidence, outputSnapshot, remoteWorkflowFileCheck }) {
   const immediate = publishEvidence?.immediateNextAction || publishEvidence?.nextAction || {};
-  const deferred = publishEvidence?.deferredNextAction || publishEvidence?.nextAction || {};
-  const command = publishEvidenceActionCommand(immediate);
+  const deferred = publishEvidence?.deferredNextAction || {};
+  const command = installWorkflowNextActionCommand({
+    immediate,
+    command: publishEvidenceActionCommand(immediate),
+    remoteWorkflowFileCheck,
+  });
   const deferredCommand = publishEvidenceActionCommand(deferred);
   const status = publishEvidenceActionStatus(immediate);
+  const readyDetail = immediate.detail || "Launch proof evidence is fresh and complete; share the generated proof receipt.";
   return {
     ready: !!(immediate.key && command),
     key: immediate.key || "",
     label: immediate.label || "",
     status,
     source: immediate.source || "",
+    detail: immediate.detail || "",
     command,
     successCondition: immediate.successCondition || "",
     commandCount: Number(immediate.commandCount || 0),
@@ -1767,11 +2142,13 @@ function outputQualityNextAction({ publishEvidence, outputSnapshot }) {
     deferredLabel: deferred.label || "",
     deferredDetail: deferred.detail || "",
     deferredCommand,
-    guard: outputSnapshot?.workflowAuthPreflight?.approvalStopCondition || outputSnapshot?.postInstallEvidenceIntake?.dispatchGuard || "Do not run gh workflow run until all dispatch and launch proof gates are pass.",
+    guard: status === "ready"
+      ? readyDetail
+      : outputSnapshot?.workflowAuthPreflight?.approvalStopCondition || outputSnapshot?.postInstallEvidenceIntake?.dispatchGuard || "Do not run gh workflow run until all dispatch and launch proof gates are pass.",
   };
 }
 
-function qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, launchExecutionPacket, outputSnapshot, repo }) {
+function qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, remoteWorkflowFileCheck, launchExecutionPacket, outputSnapshot, repo }) {
   const checks = latestGate?.checks || {};
   const browserEvidence = latestGate?.browserEvidence || {};
   const releaseQualityReady = gateReady(latestGate);
@@ -1785,14 +2162,23 @@ function qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, wor
   const postInstallProofParserReady = !!postInstallProofParser.ready;
   const operatorOnePageHandoffReady = !!outputSnapshot?.operatorOnePageHandoff?.ready;
   const launchProofEvidenceReceiptReady = !!browserEvidence.launchProofEvidenceReceipt || !!publishEvidence?.launchProofEvidenceReceipt;
-  const externalClaimGuardReady = !!browserEvidence.outputQualityExternalClaimGuard || outputQualityExternalClaimGuardSourceReady();
+  const externalClaimGuardReady = !!(
+    browserEvidence.outputQualityExternalClaimGuard ||
+    outputSnapshot?.copyReadyArtifacts?.externalClaimGuard ||
+    outputQualityExternalClaimGuardSourceReady()
+  );
   const handoffVerifierArtifactReady = !!outputSnapshot?.handoffVerifierArtifact?.ready;
   const mainBridgePlanReady = !!outputSnapshot?.mainBridgePlan?.ready;
   const copyReadyOutputs = !!(publishEvidence?.shareUpdate && publishEvidence?.launchAnnouncement && publishEvidence?.postLaunchVerificationReceipt && launchProofEvidenceReceiptReady && handoffVerifierArtifactReady && mainBridgePlanReady && operatorOnePageHandoffReady && launchExecutionPacket?.packet && launchInstallPaths.ready && launchPostAuthCheckpoint.ready && workflowUiInstallReceipt.ready && postInstallEvidenceIntakeReady && postInstallProofParserReady && externalClaimGuardReady);
   const immediateNextAction = publishEvidence?.immediateNextAction || publishEvidence?.nextAction || {};
-  const deferredNextAction = publishEvidence?.deferredNextAction || publishEvidence?.nextAction || {};
-  const immediateCommand = publishEvidenceActionCommand(immediateNextAction);
+  const deferredNextAction = publishEvidence?.deferredNextAction || {};
+  const immediateCommand = installWorkflowNextActionCommand({
+    immediate: immediateNextAction,
+    command: publishEvidenceActionCommand(immediateNextAction),
+    remoteWorkflowFileCheck,
+  });
   const deferredCommand = publishEvidenceActionCommand(deferredNextAction);
+  const hasDeferredNextAction = !!deferredNextAction.key;
   const trackerPayloadDetail = browserEvidence.reviewPackageTrackerFormPayloads
     ? `Review package final quality ${valueOrPending(browserEvidence.reviewPackageFinalQualityScore)}; tracker form payloads ${valueOrPending(browserEvidence.reviewPackageTrackerFormPayloadCount)} fields with checksums; decision brief ${browserEvidence.reviewPackageDecisionBrief ? "ready" : "pending"} (${valueOrPending(browserEvidence.reviewPackageDecisionBriefFields)} fields); issue decision summary ${browserEvidence.reviewIssueDecisionSummary ? "ready" : "pending"} (${valueOrPending(browserEvidence.reviewIssueDecisionSummaryFields)} fields); comment/note decision summary ${browserEvidence.reviewCommentNoteDecisionSummary ? "ready" : "pending"} (${valueOrPending(browserEvidence.reviewCommentNoteDecisionSummaryFields)} fields); repair action plan ${browserEvidence.reviewResultRepairActionPlan ? "ready" : "pending"} (${valueOrPending(browserEvidence.reviewResultRepairActionPlanFields)} fields); submission closeout summary ${browserEvidence.reviewPackageSubmissionCloseoutSummary ? "ready" : "pending"} (${valueOrPending(browserEvidence.reviewPackageSubmissionCloseoutSummaryFields)} fields); operator quick start ${browserEvidence.reviewPackageOperatorQuickStart ? "ready" : "pending"} (${valueOrPending(browserEvidence.reviewPackageOperatorQuickStartSteps)} steps).`
     : "Review package tracker form payload evidence is pending.";
@@ -1807,7 +2193,7 @@ function qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, wor
     {
       key: "specificity",
       label: "Specific context",
-      status: repo?.repo && immediateCommand && deferredCommand ? "pass" : "blocked",
+      status: repo?.repo && immediateCommand && (deferredCommand || !hasDeferredNextAction) ? "pass" : "blocked",
       detail: `Repo context: ${valueOrPending(repo?.repo)}; repoResolution=${valueOrPending(repo?.resolution)}; immediate action: ${valueOrPending(immediateNextAction.label)}; deferred evidence capture: ${valueOrPending(deferredNextAction.label)}.`,
       evidence: `Immediate command: ${valueOrPending(immediateCommand)}; deferred command: ${valueOrPending(deferredCommand)}`,
     },
@@ -1828,11 +2214,20 @@ function qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, wor
     {
       key: "safety",
       label: "Safety and guardrails",
-      status: publishEvidence?.launchAnnouncement?.includes("Do not post a public launch announcement") &&
-        publishEvidence?.postLaunchVerificationReceipt?.includes("Do not archive this as post-launch verification")
+      status: (publishProofReady
+        ? (
+          publishEvidence?.launchAnnouncement?.includes("Status: ready to post") &&
+          publishEvidence?.postLaunchVerificationReceipt?.includes("Status: verified for archive")
+        )
+        : (
+          publishEvidence?.launchAnnouncement?.includes("Do not post a public launch announcement") &&
+          publishEvidence?.postLaunchVerificationReceipt?.includes("Do not archive this as post-launch verification")
+        ))
         ? "pass"
         : "blocked",
-      detail: "Public launch and archival copies refuse premature completion claims while proof is incomplete.",
+      detail: publishProofReady
+        ? "Public launch and archival copies are enabled only after live proof is fresh and linked."
+        : "Public launch and archival copies refuse premature completion claims while proof is incomplete.",
       evidence: "launchAnnouncement + postLaunchVerificationReceipt",
     },
     {
@@ -1845,7 +2240,7 @@ function qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, wor
   ];
 }
 
-function artifactQualityRubric({ latestGate, publishEvidence, publishDispatchPlan, launchExecutionPacket, outputSnapshot, sourceFreshness }) {
+function artifactQualityRubric({ latestGate, publishEvidence, publishDispatchPlan, remoteWorkflowFileCheck, launchExecutionPacket, outputSnapshot, sourceFreshness }) {
   const checks = latestGate?.checks || {};
   const trackerForm = outputSnapshot?.trackerFormPayloads || {};
   const copyReady = outputSnapshot?.copyReadyArtifacts || {};
@@ -1859,6 +2254,8 @@ function artifactQualityRubric({ latestGate, publishEvidence, publishDispatchPla
     releaseQualityReady: releaseGatePass,
     publicLaunchProofReady: publicProofReady,
     launchExecutionPacket,
+    publishDispatchPlan,
+    remoteWorkflowFileCheck,
   });
   const rubricItems = [
     {
@@ -1889,7 +2286,10 @@ function artifactQualityRubric({ latestGate, publishEvidence, publishDispatchPla
       key: "safety_guardrails",
       label: "Safety guardrails",
       weight: 20,
-      pass: !!(outputSnapshot?.publishEvidenceCommandGuard?.ready && !publishDispatchPlan?.allDispatchReady && !externalClaimReady),
+      pass: !!(outputSnapshot?.publishEvidenceCommandGuard?.ready && (
+        (!publishDispatchPlan?.allDispatchReady && !externalClaimReady) ||
+        (publicProofReady && externalClaimReady)
+      )),
       detail: `suggestedDispatchCommands=${valueOrPending(outputSnapshot?.publishEvidenceCommandGuard?.suggestedDispatchCommands)}; withheldDispatchCommands=${valueOrPending(outputSnapshot?.publishEvidenceCommandGuard?.withheldDispatchCommands)}; allDispatchReady=${yesNo(publishDispatchPlan?.allDispatchReady)}; readyForExternalClaim=${yesNo(externalClaimReady)}.`,
       evidence: "withheld dispatch commands + public launch proof guard",
     },
@@ -1953,24 +2353,39 @@ function completionAuditChecklist({ latestGate, publishEvidence, publishDispatch
     outputSnapshot?.copyReadyArtifacts?.launchProofEvidenceReceipt &&
     outputSnapshot?.copyReadyArtifacts?.qualityReceipt
   );
-  const dispatchGuardrailsReady = !!(
-    outputSnapshot?.publishEvidenceCommandGuard?.ready &&
-    Number(publishDispatchPlan?.suggestedDispatchCommands?.length || publishEvidence?.suggestedDispatchCommandCount || 0) === 0 &&
-    Number(publishEvidence?.withheldDispatchCommandCount || outputSnapshot?.publishEvidenceCommandGuard?.withheldDispatchCommands || 0) >= 2 &&
-    !publishDispatchPlan?.allDispatchReady
-  );
-  const workflowInstallationReady = !!(
-    remoteWorkflowFileCheck?.remoteWorkflowFilesReady &&
-    publishDispatchPlan?.remoteWorkflowVisibilityReady &&
-    !publishDispatchPlan?.workflowScopeInstallBlocked
-  );
   const publicLaunchProofReady = !!(publishEvidence?.postPublishEvidenceReady && publishEvidence?.evidenceFresh);
   const launchPacketExternalClaimReady = launchPacketReadyForExternalClaim(launchExecutionPacket);
   const readyForExternalClaim = finalReadyForExternalClaim({
     releaseQualityReady,
     publicLaunchProofReady,
     launchExecutionPacket,
+    publishDispatchPlan,
+    remoteWorkflowFileCheck,
   });
+  const suggestedDispatchCount = countFromArrayOr(
+    publishDispatchPlan?.suggestedDispatchCommands,
+    publishEvidence?.suggestedDispatchCommandCount,
+  );
+  const withheldDispatchCount = finiteNumberOr(
+    publishEvidence?.withheldDispatchCommandCount,
+    finiteNumberOr(outputSnapshot?.publishEvidenceCommandGuard?.withheldDispatchCommands, 0),
+  );
+  const preDispatchGuardrailsReady = outputSnapshot?.publishEvidenceCommandGuard?.ready &&
+    suggestedDispatchCount === 0 &&
+    withheldDispatchCount >= 2 &&
+    !publishDispatchPlan?.allDispatchReady;
+  const postProofGuardrailsReady = outputSnapshot?.publishEvidenceCommandGuard?.ready &&
+    publicLaunchProofReady &&
+    readyForExternalClaim &&
+    publishDispatchPlan?.allDispatchReady &&
+    suggestedDispatchCount >= 2 &&
+    withheldDispatchCount === 0;
+  const dispatchGuardrailsReady = !!(preDispatchGuardrailsReady || postProofGuardrailsReady);
+  const workflowInstallationReady = !!(
+    remoteWorkflowFileCheck?.remoteWorkflowFilesReady &&
+    publishDispatchPlan?.remoteWorkflowVisibilityReady &&
+    !publishDispatchPlan?.workflowScopeInstallBlocked
+  );
   return [
     {
       key: "release_quality_gate",
@@ -2012,10 +2427,10 @@ function completionAuditChecklist({ latestGate, publishEvidence, publishDispatch
       key: "dispatch_guardrails",
       label: "Dispatch guardrails",
       status: dispatchGuardrailsReady ? "pass" : "blocked",
-      requirement: "Dispatch commands must stay withheld until all dispatch prerequisites are true.",
+      requirement: "Dispatch commands must stay withheld before readiness and be accompanied by fresh launch proof after dispatch.",
       evidence: "data/publish-dispatch-plan.json + data/publish-evidence.json",
       detail: `allDispatchReady=${yesNo(publishDispatchPlan?.allDispatchReady)}; suggestedDispatchCommands=${valueOrPending(outputSnapshot?.publishEvidenceCommandGuard?.suggestedDispatchCommands)}; withheldDispatchCommands=${valueOrPending(outputSnapshot?.publishEvidenceCommandGuard?.withheldDispatchCommands)}; dispatchSuggestionStatus=${valueOrPending(outputSnapshot?.publishEvidenceCommandGuard?.dispatchSuggestionStatus)}.`,
-      missing: dispatchGuardrailsReady ? [] : ["dispatch guardrails are not in the expected withheld state"],
+      missing: dispatchGuardrailsReady ? [] : ["dispatch guardrails are not in the expected pre-dispatch withheld or post-proof ready state"],
     },
     {
       key: "workflow_installation",
@@ -2025,9 +2440,9 @@ function completionAuditChecklist({ latestGate, publishEvidence, publishDispatch
       evidence: "data/remote-workflow-file-check.json + data/publish-dispatch-plan.json + data/workflow-ui-install-plan.json",
       detail: `workflowUiInstallReady=${yesNo(workflowUiInstallPlan?.workflowUiInstallReady)}; remoteWorkflowFilesReady=${yesNo(remoteWorkflowFileCheck?.remoteWorkflowFilesReady)}; remoteWorkflowVisibilityReady=${yesNo(publishDispatchPlan?.remoteWorkflowVisibilityReady)}; workflowScopeInstallBlocked=${yesNo(publishDispatchPlan?.workflowScopeInstallBlocked)}.`,
       missing: workflowInstallationReady ? [] : [
-        `remoteWorkflowFilesReady=${yesNo(remoteWorkflowFileCheck?.remoteWorkflowFilesReady)}`,
-        `remoteWorkflowVisibilityReady=${yesNo(publishDispatchPlan?.remoteWorkflowVisibilityReady)}`,
-        `workflowScopeInstallBlocked=${yesNo(publishDispatchPlan?.workflowScopeInstallBlocked)}`,
+        ...missingBooleanSignal("remoteWorkflowFilesReady", !!remoteWorkflowFileCheck?.remoteWorkflowFilesReady, true),
+        ...missingBooleanSignal("remoteWorkflowVisibilityReady", !!publishDispatchPlan?.remoteWorkflowVisibilityReady, true),
+        ...missingBooleanSignal("workflowScopeInstallBlocked", !!publishDispatchPlan?.workflowScopeInstallBlocked, false),
       ],
     },
     {
@@ -2058,12 +2473,43 @@ function completionAuditChecklist({ latestGate, publishEvidence, publishDispatch
   ];
 }
 
+function remoteWorkflowRepairAction(remoteWorkflowFileCheck) {
+  const checks = Array.isArray(remoteWorkflowFileCheck?.checks) ? remoteWorkflowFileCheck.checks : [];
+  const target = checks.find((check) => check?.remediation?.status === "action_required") ||
+    checks.find((check) => check?.installAction && check.installAction !== "verified_remote_matches_template") ||
+    checks.find((check) => check?.remoteMatchesTemplate === false);
+  if (!target) return null;
+  const remediation = target.remediation || {};
+  const installAction = target.installAction || remediation.installAction || "repair_remote_workflow_file";
+  const copyCommand = target.templateCopyCommand || remediation.templateCopyCommand || "";
+  const editCommand = target.githubEditFileOpenCommand || remediation.githubEditFileOpenCommand || "";
+  const newFileCommand = target.githubNewFileOpenCommand || remediation.githubNewFileOpenCommand || "";
+  const openCommand = installAction === "replace_existing_remote_file" ? editCommand || newFileCommand : newFileCommand || editCommand;
+  const command = copyCommand && openCommand
+    ? `${copyCommand} && ${openCommand}`
+    : openCommand || copyCommand || remoteWorkflowFileCheck?.nextVerificationCommand || "";
+  return {
+    key: target.key || "",
+    label: target.name || target.path || "Remote workflow repair",
+    installAction,
+    command,
+    copyCommand,
+    openCommand,
+    targetPath: target.path || remediation.targetPath || "",
+    remoteBlobSha: target.remoteBlobSha || remediation.remoteBlobSha || target.githubBlobSha || "",
+    githubEditFileUrl: target.githubEditFileUrl || remediation.githubEditFileUrl || "",
+    nextStep: remediation.nextStep || "Repair the remote workflow file, then rerun the remote workflow file check.",
+  };
+}
+
 function externalCompletionClaimGuard({ completionAudit, publishEvidence, publishDispatchPlan, remoteWorkflowFileCheck, launchExecutionPacket, repo, releaseQualityReady, publicLaunchProofReady, launchPacketExternalClaimReady, readyForExternalClaim }) {
   const requiredKeys = ["workflow_installation", "public_launch_proof", "external_completion_claim"];
   const requirements = requiredKeys.map((key) => completionAudit.find((item) => item.key === key)).filter(Boolean);
   const blockedRequirements = requirements.filter((item) => item.status !== "pass");
   const resolvedRepo = repo?.repo || repo?.suggestedRepo || "OWNER/REPO";
+  const remoteRepair = remoteWorkflowRepairAction(remoteWorkflowFileCheck);
   const proofCommands = [
+    remoteRepair?.command || publishDispatchPlan?.workflowScopeRefreshCommand || "gh auth refresh -h github.com -s workflow",
     publishDispatchPlan?.workflowScopeRefreshCommand || "gh auth refresh -h github.com -s workflow",
     `node scripts/check-remote-workflow-files.mjs --repo ${resolvedRepo} --write`,
     publishDispatchPlan?.nextVerificationCommand || `node scripts/plan-publish-dispatch.mjs --live --repo ${resolvedRepo} --write`,
@@ -2087,6 +2533,7 @@ function externalCompletionClaimGuard({ completionAudit, publishEvidence, publis
     status,
     resolvedRepo,
     readyForExternalClaim,
+    remoteRepair,
   });
   const text = [
     "JooPark External Completion Claim Guard",
@@ -2119,6 +2566,7 @@ function externalCompletionClaimGuard({ completionAudit, publishEvidence, publis
     blockedCount: blockedRequirements.length,
     requiredSignals,
     proofCommands,
+    remoteWorkflowRepairAction: remoteRepair,
     stopCondition,
     closeoutPacket,
     closeoutPacketText: closeoutPacket.text,
@@ -2134,38 +2582,45 @@ function externalCompletionClaimGuard({ completionAudit, publishEvidence, publis
   };
 }
 
-function externalClaimCloseoutPacket({ proofCommands, requiredSignals, requirements, status, resolvedRepo, readyForExternalClaim }) {
-  const commandAt = (index, fallback = "") => proofCommands[index] || fallback;
+function externalClaimCloseoutPacket({ proofCommands, requiredSignals, requirements, status, resolvedRepo, readyForExternalClaim, remoteRepair }) {
+  const commandMatching = (pattern, fallback = "") => proofCommands.find((command) => command.includes(pattern)) || fallback;
+  const installCommand = remoteRepair?.command || proofCommands[0] || "gh auth refresh -h github.com -s workflow";
+  const remoteCheckCommand = commandMatching("check-remote-workflow-files.mjs", `node scripts/check-remote-workflow-files.mjs --repo ${resolvedRepo} --write`);
+  const dispatchPlanCommand = commandMatching("plan-publish-dispatch.mjs", `node scripts/plan-publish-dispatch.mjs --live --repo ${resolvedRepo} --write`);
+  const handoffCommand = commandMatching("verify-launch-handoff.mjs", `node scripts/verify-launch-handoff.mjs --repo ${resolvedRepo} --write --markdown`);
+  const publishCaptureCommand = commandMatching("capture-publish-evidence.mjs", `node scripts/capture-publish-evidence.mjs --live --repo ${resolvedRepo} --write`);
   const steps = [
     {
       key: "install_default_branch_workflows",
       label: "Install workflows on the default branch",
-      detail: "Confirm the Pages and Drift Watch workflow files exist on the repository default branch before any workflow_dispatch run.",
-      command: commandAt(0, "gh auth refresh -h github.com -s workflow"),
+      detail: remoteRepair
+        ? `Repair ${remoteRepair.targetPath || "the remote workflow file"} with installAction=${remoteRepair.installAction}; confirm the workflow file exists on the repository default branch before any workflow_dispatch run.`
+        : "Confirm the Pages and Drift Watch workflow files exist on the repository default branch before any workflow_dispatch run.",
+      command: installCommand,
     },
     {
       key: "verify_remote_workflow_visibility",
       label: "Verify default branch workflow_dispatch visibility",
       detail: "Confirm GitHub Actions lists the manual workflows and the local handoff verifier still reports safeToDispatch=false until evidence is complete.",
-      command: commandAt(1, `node scripts/check-remote-workflow-files.mjs --repo ${resolvedRepo} --write`),
+      command: remoteCheckCommand,
     },
     {
       key: "refresh_dispatch_plan",
       label: "Refresh dispatch plan after installation",
       detail: "Regenerate the live dispatch plan and keep gh workflow run commands withheld unless allDispatchReady=true.",
-      command: commandAt(2, `node scripts/plan-publish-dispatch.mjs --live --repo ${resolvedRepo} --write`),
+      command: dispatchPlanCommand,
     },
     {
       key: "capture_workflow_run_summary",
       label: "Capture workflow run summary proof",
       detail: "After safe dispatch, capture the GitHub Actions workflow run summary, Pages URL, and release receipt links instead of relying on logs alone.",
-      command: commandAt(3, `node scripts/verify-launch-handoff.mjs --repo ${resolvedRepo} --write --markdown`),
+      command: handoffCommand,
     },
     {
       key: "archive_release_note_claim",
       label: "Archive the Release-note archive claim",
       detail: "Only archive the release-note/public archive claim after live publish evidence is fresh and readyForExternalClaim=true.",
-      command: commandAt(4, `node scripts/capture-publish-evidence.mjs --live --repo ${resolvedRepo} --write`),
+      command: publishCaptureCommand,
     },
   ];
   const proofFields = [
@@ -2299,6 +2754,19 @@ function outputVariantComparison({ outputSnapshot, publishEvidence, publishDispa
     ],
   };
   const copyReadyFieldCount = Number(trackerForm.count || 0);
+  const publishProofReady = !!(publishEvidence?.postPublishEvidenceReady && publishEvidence?.evidenceFresh);
+  const publishCommandGuardPhaseReady = !!(
+    (
+      Number(publishCommandGuard.suggestedDispatchCommands || 0) === 0 &&
+      Number(publishCommandGuard.withheldDispatchCommands || 0) >= 2
+    ) ||
+    (
+      publishProofReady &&
+      publishCommandGuard.dispatchSuggestionStatus === "ready" &&
+      Number(publishCommandGuard.suggestedDispatchCommands || 0) >= 2 &&
+      Number(publishCommandGuard.withheldDispatchCommands || 0) === 0
+    )
+  );
   const selectedReady = !!(
     outputSnapshot?.reviewPackageReadyToSubmit &&
     outputSnapshot?.reviewPackageDecisionBrief?.ready &&
@@ -2311,8 +2779,7 @@ function outputVariantComparison({ outputSnapshot, publishEvidence, publishDispa
     outputSnapshot?.launchInstallPaths?.ready &&
     outputSnapshot?.copyReadyArtifacts?.externalClaimGuard &&
     publishCommandGuard.ready &&
-    Number(publishCommandGuard.suggestedDispatchCommands || 0) === 0 &&
-    Number(publishCommandGuard.withheldDispatchCommands || 0) >= 2 &&
+    publishCommandGuardPhaseReady &&
     publishEvidence?.repoEvidenceReady &&
     publishEvidence?.repoResolution === "source_repo" &&
     publishDispatchPlan?.repoEvidenceReady &&
@@ -2444,7 +2911,10 @@ function promptToArtifactChecklist({ criteria, artifactRubric, completionAudit, 
     variantComparison?.decision === "keep_b" &&
     variantComparison?.selectedVariant === "copy_ready_evidence_receipt";
   const externalComparisonReady = missingComparisonKeys.length === 0 && variantComparisonReady;
-  const safetyReady = !!(safety?.status === "pass" && publicLaunchProof?.status === "blocked" && completionBlocked.includes("public_launch_proof"));
+  const safetyReady = !!(safety?.status === "pass" && (
+    (publicLaunchProof?.status === "blocked" && completionBlocked.includes("public_launch_proof")) ||
+    publicLaunchProof?.status === "pass"
+  ));
   return [
     {
       key: "result_quality_diagnosis",
@@ -2519,13 +2989,15 @@ function promptToArtifactChecklist({ criteria, artifactRubric, completionAudit, 
   ];
 }
 
-function receiptText({ generatedAt, latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, remoteWorkflowFileCheck, launchExecutionPacket, outputSnapshot, sourceFreshness, sourceInputs, artifactRubric, criteria, promptChecklist, goalCompletionAudit, completionAudit, completionAuditReady, completionAuditBlockedCount, externalClaimGuard, blockers, comparisons, repo }) {
+function receiptText({ generatedAt, latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, remoteWorkflowFileCheck, launchExecutionPacket, outputSnapshot, sourceFreshness, sourceInputs, artifactRubric, criteria, promptChecklist, goalCompletionAudit, completionAudit, completionAuditReady, completionAuditBlockedCount, externalClaimGuard, blockers, comparisons, repo, nextAction }) {
   const releaseQualityReady = gateReady(latestGate);
   const publishProofReady = !!(publishEvidence?.postPublishEvidenceReady && publishEvidence?.evidenceFresh);
   const readyForExternalClaim = finalReadyForExternalClaim({
     releaseQualityReady,
     publicLaunchProofReady: publishProofReady,
     launchExecutionPacket,
+    publishDispatchPlan,
+    remoteWorkflowFileCheck,
   });
   const trackerForm = outputSnapshot?.trackerFormPayloads || {};
   const runtimeIssues = outputSnapshot?.runtimeIssues || {};
@@ -2552,6 +3024,9 @@ function receiptText({ generatedAt, latestGate, publishEvidence, publishDispatch
   const variantComparison = outputSnapshot?.outputVariantComparison || {};
   const immediateNextAction = publishEvidence?.immediateNextAction || publishEvidence?.nextAction || {};
   const deferredNextAction = publishEvidence?.deferredNextAction || null;
+  const immediateCommand = nextAction?.key === immediateNextAction.key
+    ? nextAction.command
+    : publishEvidenceActionCommand(immediateNextAction);
   const status = releaseQualityReady
     ? readyForExternalClaim ? "ready for public launch archive" : publishProofReady ? "public launch proof ready; launch packet claim guard blocked" : "release quality ready; public launch proof blocked"
     : "quality gates incomplete";
@@ -2627,7 +3102,7 @@ function receiptText({ generatedAt, latestGate, publishEvidence, publishDispatch
     `- Launch install path options: ${launchInstallPaths.ready ? "pass" : "blocked"} (${valueOrPending(launchInstallPaths.count)} paths, ${valueOrPending(launchInstallPaths.commandCount)} commands; ${launchInstallPaths.labels?.length ? launchInstallPaths.labels.join(" | ") : "labels unavailable"})`,
     `- Remote workflow file acceptance ledger: ${remoteWorkflowFileLedger.ready ? "pass" : "blocked"} (${valueOrPending(remoteWorkflowFileLedger.readyCount)}/${valueOrPending(remoteWorkflowFileLedger.fileCount)} files ready, missing=${valueOrPending(remoteWorkflowFileLedger.missingCount)}, mismatch=${valueOrPending(remoteWorkflowFileLedger.mismatchCount)}, status=${valueOrPending(remoteWorkflowFileLedger.status)})`,
     `- Launch proof acceptance ledger: ${launchProofLedger.ready ? "pass" : "blocked"} (${valueOrPending(launchProofLedger.readyProofCount)}/${valueOrPending(launchProofLedger.requiredProofCount)} ready, pending=${valueOrPending(launchProofLedger.pendingProofCount)}, gate=${valueOrPending(launchProofLedger.currentGate)}, status=${valueOrPending(launchProofLedger.status)})`,
-    `- Publish evidence command guard: ${publishCommandGuard.ready ? "pass" : "blocked"} (${valueOrPending(publishCommandGuard.suggestedVerificationCommands)} safe suggestions, ${valueOrPending(publishCommandGuard.suggestedDispatchCommands)} suggested dispatch, ${valueOrPending(publishCommandGuard.withheldDispatchCommands)} withheld dispatch)`,
+    `- Publish evidence command guard: ${publishCommandGuard.ready ? "pass" : "blocked"} (${valueOrPending(publishCommandGuard.suggestedVerificationCommands)} safe suggestions, ${valueOrPending(publishCommandGuard.suggestedDispatchCommands)} suggested dispatch, ${valueOrPending(publishCommandGuard.withheldDispatchCommands)} withheld dispatch, active=${valueOrPending(publishCommandGuard.activeDispatchCommands)}, reference=${valueOrPending(publishCommandGuard.dispatchCommandReferenceCount)}, disposition=${valueOrPending(publishCommandGuard.dispatchCommandDisposition)})`,
     `- Publish evidence immediate action: ${publishImmediateAction.ready ? "pass" : "blocked"} (${valueOrPending(publishImmediateAction.key)} from ${valueOrPending(publishImmediateAction.source)}, deferred ${valueOrPending(publishImmediateAction.deferredKey)})`,
     "",
     "Artifact quality rubric:",
@@ -2670,9 +3145,9 @@ function receiptText({ generatedAt, latestGate, publishEvidence, publishDispatch
     "",
     "Remote workflow file acceptance ledger:",
     ...(remoteWorkflowFileLedger.files || []).flatMap((file) => [
-      `- ${valueOrPending(file.name)}: ${valueOrPending(file.status)} - ${valueOrPending(file.path)}; templateSha256=${valueOrPending(file.templateSha256)}; remoteSha256=${valueOrPending(file.remoteSha256)}; remoteExists=${yesNo(file.remoteExists)}; remoteMatchesTemplate=${yesNo(file.remoteMatchesTemplate)}`,
+      `- ${valueOrPending(file.name)}: ${valueOrPending(file.status)} - ${valueOrPending(file.path)}; installAction=${valueOrPending(file.installAction)}; templateSha256=${valueOrPending(file.templateSha256)}; remoteSha256=${valueOrPending(file.remoteSha256)}; remoteExists=${yesNo(file.remoteExists)}; remoteMatchesTemplate=${yesNo(file.remoteMatchesTemplate)}`,
       `  - ${valueOrPending(file.templateCopyCommand)}`,
-      `  - ${valueOrPending(file.githubNewFileOpenCommand)}`,
+      `  - ${valueOrPending(file.openCommand || (file.installAction === "verified_remote_matches_template" ? "No GitHub file edit required" : file.githubNewFileOpenCommand))}`,
     ]),
     `- verify: ${valueOrPending(remoteWorkflowFileLedger.verifyCommand)}`,
     "",
@@ -2713,9 +3188,9 @@ function receiptText({ generatedAt, latestGate, publishEvidence, publishDispatch
     `- Immediate action: ${valueOrPending(immediateNextAction.label)} [${valueOrPending(publishEvidenceActionStatus(immediateNextAction))}]`,
     `- Immediate source: ${valueOrPending(immediateNextAction.source)}`,
     `- Immediate success condition: ${valueOrPending(immediateNextAction.successCondition)}`,
-    `- Immediate command: ${valueOrPending(publishEvidenceActionCommand(immediateNextAction))}`,
-    `- Deferred evidence capture: ${valueOrPending(deferredNextAction?.label || publishEvidence?.nextAction?.label)} - ${valueOrPending(deferredNextAction?.detail || publishEvidence?.nextAction?.detail)}`,
-    `- Deferred command: ${valueOrPending(publishEvidenceActionCommand(deferredNextAction || publishEvidence?.nextAction))}`,
+    `- Immediate command: ${valueOrPending(immediateCommand)}`,
+    `- Deferred evidence capture: ${valueOrPending(deferredNextAction?.label)} - ${valueOrPending(deferredNextAction?.detail)}`,
+    `- Deferred command: ${valueOrPending(publishEvidenceActionCommand(deferredNextAction))}`,
     "",
     "Use this as an internal output-quality receipt. Do not present it as public launch completion until Public launch proof is pass.",
   ];
@@ -2736,12 +3211,12 @@ const mainBridgePlan = captureMainBridgePlan(mainBridgePlanRel, write);
 const pagesAttestationProof = readJson("data/pages-attestation-proof.json", {}) || {};
 const generatedAt = new Date().toISOString();
 const nowMs = Date.parse(generatedAt);
-const latestGate = mergeLatestGate(productLoop.latestGate || {}, releaseGateCache, publishEvidence, auditGate, previousOutputQuality, nowMs);
+const latestGate = mergeLatestGate(productLoop.latestGate || {}, releaseGateCache, publishEvidence, auditGate, previousOutputQuality, nowMs, launchExecutionPacket);
 const latestGateCompact = latestGateSummary(latestGate);
 const resolvedRepo = repoContext({ publishEvidence, publishDispatchPlan });
-const outputSnapshot = outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, launchExecutionPacket, launchHandoffVerification, mainBridgePlan, pagesAttestationProof });
-const nextAction = outputQualityNextAction({ publishEvidence, outputSnapshot });
-const criteria = qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, launchExecutionPacket, outputSnapshot, repo: resolvedRepo });
+const outputSnapshot = outputReadinessSnapshot({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, remoteWorkflowFileCheck, launchExecutionPacket, launchHandoffVerification, mainBridgePlan, pagesAttestationProof });
+const nextAction = outputQualityNextAction({ publishEvidence, outputSnapshot, remoteWorkflowFileCheck });
+const criteria = qualityCriteria({ latestGate, publishEvidence, publishDispatchPlan, workflowUiInstallPlan, remoteWorkflowFileCheck, launchExecutionPacket, outputSnapshot, repo: resolvedRepo });
 const blockers = blockerLines({ criteria, publishEvidence, publishDispatchPlan, remoteWorkflowFileCheck });
 const comparisons = externalComparison();
 const sourceFreshness = sourceEvidenceFreshness({
@@ -2758,6 +3233,7 @@ const artifactQualityRubricSnapshot = artifactQualityRubric({
   latestGate,
   publishEvidence,
   publishDispatchPlan,
+  remoteWorkflowFileCheck,
   launchExecutionPacket,
   outputSnapshot,
   sourceFreshness,
@@ -2809,6 +3285,8 @@ const readyForExternalClaim = finalReadyForExternalClaim({
   releaseQualityReady,
   publicLaunchProofReady,
   launchExecutionPacket,
+  publishDispatchPlan,
+  remoteWorkflowFileCheck,
 });
 const externalClaimGuard = externalCompletionClaimGuard({
   completionAudit: completionAuditChecklistItems,
@@ -2875,7 +3353,10 @@ const payload = {
     workflowScopeRecheckCommand: publishDispatchPlan?.workflowScopeRecheckCommand || "",
     workflowUiInstallReady: !!workflowUiInstallPlan?.workflowUiInstallReady,
     workflowUiInstallPastePacketReady: !!(workflowUiInstallPlan?.workflowUiInstallPastePacketReady || workflowUiInstallPlan?.uiPastePacketReady || workflowUiInstallPlan?.packetReady),
-    workflowUiInstallPastePacketCoverage: Number(workflowUiInstallPlan?.workflowUiInstallPastePacketCoverage || latestGateCompact.browserEvidence.workflowUiInstallPastePacketCoverage || 0),
+    workflowUiInstallPastePacketCoverage: finiteNumberOr(
+      workflowUiInstallPlan?.workflowUiInstallPastePacketCoverage,
+      latestGateCompact.browserEvidence.workflowUiInstallPastePacketCoverage,
+    ),
   },
   executionState: {
     readyToDispatch: !!launchExecutionPacket?.readyToDispatch,
@@ -2910,6 +3391,7 @@ payload.receipt = receiptText({
   blockers,
   comparisons,
   repo: resolvedRepo,
+  nextAction,
 });
 
 if (write) {

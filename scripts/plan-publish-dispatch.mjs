@@ -35,6 +35,7 @@ const workflowScopeRefreshCommand = "gh auth refresh -h github.com -s workflow";
 const workflowScopeRefreshClipboardCommand = `${workflowScopeRefreshCommand} --clipboard`;
 const workflowScopeInteractiveApprovalNote = "This is an interactive OAuth device flow; keep the terminal session open until gh reports success. If the browser approval is not completed, gh auth status will still omit workflow.";
 const workflowScopeRecheckCommand = nextVerificationCommand;
+const pagesWorkflowDispatchRef = pagesWorkflowRefFromTemplate();
 
 function workflowDispatchCommand(workflowFile, targetRepo, fields = []) {
   return [workflowDispatchPrefix, targetRepo || "OWNER/REPO", workflowFile, ...fields].join(" ");
@@ -71,6 +72,12 @@ const workflows = [
       "gantt-view.js",
       "team-view.js",
       "workspace-storage.js",
+      "dashboard-storage.js",
+      "dashboard-prioritization.js",
+      "dashboard-evidence-receipts.js",
+      "dashboard-insights-engine.js",
+      "dashboard-autoresearch-loop.js",
+      "dashboard-view.js",
       "storage-status-view.js",
       "settings-view.js",
       "system-status-view.js",
@@ -106,20 +113,56 @@ const workflows = [
   ...workflow,
   dispatchCommand: workflow.key === "drift-watch"
     ? workflowDispatchCommand(workflow.workflowFile, repo, ["-f", "mode=advisory"])
-    : workflowDispatchCommand(workflow.workflowFile, repo),
+    : workflowDispatchCommand(workflow.workflowFile, repo, ["-f", `ref=${pagesWorkflowDispatchRef}`]),
   followupCommand: workflow.key === "drift-watch"
     ? workflowDispatchCommand(workflow.workflowFile, repo, ["-f", "mode=fail-on-drift", "-f", `repo=${commandRepo}`])
     : null,
 }));
 const workflowStageFiles = workflows.map((workflow) => workflow.workflowPath);
+const remoteWorkflowFileCheck = readJson("data/remote-workflow-file-check.json", {});
+const remoteWorkflowFileCheckMatchesTarget = remoteWorkflowFileCheck?.repo === repo &&
+  remoteWorkflowFileCheck?.defaultBranch === defaultBranch.branch;
+const remoteWorkflowFileFixtureReady = !!workflowListFixture;
+const remoteWorkflowFileChecks = remoteWorkflowFileCheckMatchesTarget && Array.isArray(remoteWorkflowFileCheck?.checks)
+  ? remoteWorkflowFileCheck.checks
+  : [];
+const remoteWorkflowFilesChecked = remoteWorkflowFileFixtureReady || (
+  remoteWorkflowFileCheckMatchesTarget &&
+  remoteWorkflowFileCheck?.remoteWorkflowFilesChecked === true
+);
+const remoteWorkflowFilesReady = remoteWorkflowFileFixtureReady || (remoteWorkflowFilesChecked &&
+  remoteWorkflowFileCheck?.remoteWorkflowFilesReady === true);
+
+function readJson(relativePath, fallback = {}) {
+  try {
+    return JSON.parse(readFileSync(join(root, relativePath), "utf-8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function pagesWorkflowRefFromTemplate() {
+  try {
+    const template = readFileSync(join(root, "docs/github-pages-workflow.yml"), "utf-8");
+    return template.match(/default:\s*([^\s#]+)/)?.[1] || "codex/joopark-workspace-release";
+  } catch {
+    return "codex/joopark-workspace-release";
+  }
+}
 const workflowGitAddCommand = `git add ${workflowStageFiles.join(" ")}`;
 const workflowGitCommitCommand = "git commit -m 'Add JooPark publish workflows'";
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function gitRoot() {
@@ -248,11 +291,34 @@ function githubWorkflowUrls(targetRepo, workflowPath) {
   const repoUrl = `https://github.com/${targetRepo.replace(/\.git$/i, "")}`;
   return {
     githubNewFileUrl: `${repoUrl}/new/${encodeURIComponent(defaultBranch.branch)}?filename=${encodeURIComponent(workflowPath)}`,
+    githubEditFileUrl: `${repoUrl}/edit/${encodeURIComponent(defaultBranch.branch)}/${workflowPath}`,
     githubWorkflowUrl: `${repoUrl}/actions/workflows/${workflowPath.split("/").pop()}`,
   };
 }
 
-function workflowUiInstallPlan(entry) {
+function workflowUiInstallAction(remoteFileCheck) {
+  const remediation = remoteFileCheck?.remediation && typeof remoteFileCheck.remediation === "object"
+    ? remoteFileCheck.remediation
+    : {};
+  if (remoteFileCheck?.installAction) return remoteFileCheck.installAction;
+  if (remediation.installAction) return remediation.installAction;
+  if (remoteFileCheck?.remoteExists && remoteFileCheck?.remoteMatchesTemplate) return "verified_remote_matches_template";
+  if (remoteFileCheck?.remoteExists) return "replace_existing_remote_file";
+  if (remoteFileCheck) return "create_missing_remote_file";
+  return "create_missing_remote_file";
+}
+
+function workflowUiInstallInstruction({ installAction, workflowPath, defaultBranch: branch }) {
+  if (installAction === "replace_existing_remote_file") {
+    return `Open the existing GitHub edit-file page for ${workflowPath}, replace the entire file with the copied template, and commit to ${branch}.`;
+  }
+  if (installAction === "verified_remote_matches_template") {
+    return `No GitHub UI edit is required for ${workflowPath}; the remote file already matches the local template.`;
+  }
+  return `Open the GitHub new-file page, set the file name to ${workflowPath}, paste the copied template, and commit to ${branch}.`;
+}
+
+function workflowUiInstallPlan(entry, remoteFileCheck = null) {
   const templatePath = join(root, entry.template);
   const targetPath = join(repositoryRoot, entry.workflowPath);
   const templateDigest = fileDigest(templatePath);
@@ -260,10 +326,21 @@ function workflowUiInstallPlan(entry) {
   const templateText = templateDigest.text;
   const missingTerms = (entry.requiredTerms || []).filter((term) => !templateText.includes(term));
   const urls = githubWorkflowUrls(repoEvidenceReady ? repo : suggestedRepo, entry.workflowPath);
+  const remediation = remoteFileCheck?.remediation && typeof remoteFileCheck.remediation === "object" ? remoteFileCheck.remediation : {};
+  const installAction = workflowUiInstallAction(remoteFileCheck);
   const templateCopyCommand = `pbcopy < ${shellQuote(entry.template)}`;
-  const githubNewFileOpenCommand = urls.githubNewFileUrl ? `open ${shellQuote(urls.githubNewFileUrl)}` : "";
+  const githubNewFileUrl = remediation.githubNewFileUrl || remoteFileCheck?.githubNewFileUrl || urls.githubNewFileUrl;
+  const githubEditFileUrl = remediation.githubEditFileUrl || remoteFileCheck?.githubEditFileUrl || urls.githubEditFileUrl;
+  const githubNewFileOpenCommand = remediation.githubNewFileOpenCommand || remoteFileCheck?.githubNewFileOpenCommand || (githubNewFileUrl ? `open ${shellQuote(githubNewFileUrl)}` : "");
+  const githubEditFileOpenCommand = remediation.githubEditFileOpenCommand || remoteFileCheck?.githubEditFileOpenCommand || (githubEditFileUrl ? `open ${shellQuote(githubEditFileUrl)}` : "");
   const githubWorkflowOpenCommand = urls.githubWorkflowUrl ? `open ${shellQuote(urls.githubWorkflowUrl)}` : "";
   const targetMatchesTemplate = templateDigest.exists && targetDigest.exists && templateDigest.sha256 === targetDigest.sha256;
+  const uiInstallRequired = installAction !== "verified_remote_matches_template";
+  const uiInstallOpenCommand = installAction === "replace_existing_remote_file"
+    ? githubEditFileOpenCommand
+    : installAction === "create_missing_remote_file"
+      ? githubNewFileOpenCommand
+      : "";
   return {
     key: entry.key,
     workflowName: entry.workflowName,
@@ -275,11 +352,19 @@ function workflowUiInstallPlan(entry) {
     repositoryUrl,
     suggestedRepo,
     repoReplacementHint,
-    githubNewFileUrl: urls.githubNewFileUrl,
+    githubNewFileUrl,
+    githubEditFileUrl,
     githubWorkflowUrl: urls.githubWorkflowUrl,
     templateCopyCommand,
     githubNewFileOpenCommand,
+    githubEditFileOpenCommand,
     githubWorkflowOpenCommand,
+    uiInstallOpenCommand,
+    uiInstallCommand: uiInstallOpenCommand,
+    uiInstallRequired,
+    installAction,
+    remoteExists: remoteFileCheck?.remoteExists === true,
+    remoteMatchesTemplate: remoteFileCheck?.remoteMatchesTemplate === true,
     templateExists: templateDigest.exists,
     targetExists: targetDigest.exists,
     templateSha256: templateDigest.sha256,
@@ -298,10 +383,11 @@ function workflowUiInstallPlan(entry) {
     placeholderVerificationCommand,
     manualDispatchRequirement: "workflow_dispatch must be present on the repository default branch before GitHub UI, CLI, or REST dispatch can run it",
     uiSteps: [
-      `Run ${templateCopyCommand} to copy ${entry.template}`,
-      `Run ${githubNewFileOpenCommand || "open the GitHub repository default-branch new-file page"} and create ${entry.workflowPath}`,
-      `Paste the copied template contents from ${entry.template}`,
-      `Commit to default branch ${defaultBranch.branch} with a workflow-scope capable GitHub UI session`,
+      uiInstallRequired ? `Run ${templateCopyCommand} to copy ${entry.template}` : `No copy is required for ${entry.workflowPath} while installAction=${installAction}`,
+      `installAction=${installAction}: ${workflowUiInstallInstruction({ installAction, workflowPath: entry.workflowPath, defaultBranch: defaultBranch.branch })}`,
+      uiInstallRequired ? `Run ${uiInstallOpenCommand || "open the GitHub repository default branch create/edit page"} before committing ${entry.workflowPath}` : `Skip GitHub create/edit pages for ${entry.workflowPath}`,
+      uiInstallRequired ? `Paste the copied template contents from ${entry.template}` : `No paste is required because ${entry.workflowPath} is already verified on ${defaultBranch.branch}`,
+      uiInstallRequired ? `Commit to default branch ${defaultBranch.branch} with a workflow-scope capable GitHub UI session` : `Keep the verified remote file unchanged on ${defaultBranch.branch}`,
       `Run ${githubWorkflowOpenCommand || "open the GitHub Actions workflow page"} and confirm the workflow appears`,
       `Run ${nextVerificationCommand} after the workflow appears in Actions`,
       `Treat ${placeholderVerificationCommand} as a template only if the suggested repo is unavailable or wrong`,
@@ -376,7 +462,10 @@ const remote = workflowList(repo);
 function planWorkflow(entry) {
   const targetPath = join(repositoryRoot, entry.workflowPath);
   const targetDisplayPath = relative(root, targetPath).replaceAll("\\", "/") || entry.workflowPath;
-  const uiInstallPlan = workflowUiInstallPlan(entry);
+  const remoteFileCheck = remoteWorkflowFileChecks.find((check) => check.key === entry.key || check.path === entry.workflowPath) || null;
+  const uiInstallPlan = workflowUiInstallPlan(entry, remoteFileCheck);
+  const installAction = remoteFileCheck?.installAction || remoteFileCheck?.remediation?.installAction || "";
+  const remoteFileReady = remoteWorkflowFileFixtureReady || !!(remoteWorkflowFilesChecked && remoteFileCheck?.remoteExists && remoteFileCheck?.remoteMatchesTemplate);
   const targetExists = uiInstallPlan.targetExists === true;
   const targetMatchesTemplate = uiInstallPlan.targetMatchesTemplate === true;
   const remoteWorkflow = remote.workflows.find((workflow) => {
@@ -387,10 +476,12 @@ function planWorkflow(entry) {
   if (live && !repoEvidenceReady) blockers.push(`${entry.key}: repo placeholder OWNER/REPO must be replaced before live dispatch planning`);
   if (!targetExists) blockers.push(`${entry.key}: workflow file is not installed at repository root`);
   if (targetExists && !targetMatchesTemplate) blockers.push(`${entry.key}: local workflow target differs from template`);
+  if (live && !remoteWorkflowFilesChecked) blockers.push(`${entry.key}: remote workflow file parity was not checked for ${commandRepo}; run node scripts/check-remote-workflow-files.mjs --repo ${commandRepo} --write`);
+  if (live && remoteWorkflowFilesChecked && !remoteFileReady) blockers.push(`${entry.key}: remote workflow file does not match the local template on ${defaultBranch.branch}`);
   if (remote.checked && !remoteWorkflow) blockers.push(`${entry.key}: workflow is not visible in GitHub Actions`);
   if (remoteWorkflow && remoteWorkflow.state === "disabled_manually") blockers.push(`${entry.key}: workflow is disabled in GitHub Actions`);
   if (!remote.checked) blockers.push(`${entry.key}: remote workflow visibility was not checked; pass --live before dispatch`);
-  const dispatchReady = targetExists && targetMatchesTemplate && (remoteReady === null ? false : remoteReady) && blockers.length === 0;
+  const dispatchReady = targetExists && targetMatchesTemplate && remoteFileReady && (remoteReady === null ? false : remoteReady) && blockers.length === 0;
   return {
     key: entry.key,
     workflowName: entry.workflowName,
@@ -402,6 +493,11 @@ function planWorkflow(entry) {
     templateSha256: uiInstallPlan.templateSha256,
     targetMatchesTemplate,
     localTargetParityReady: targetMatchesTemplate,
+    remoteFileChecked: remoteWorkflowFilesChecked,
+    remoteFileReady,
+    installAction,
+    remoteFileSha256: remoteFileCheck?.remoteSha256 || "",
+    remoteFileMatchesTemplate: !!remoteFileCheck?.remoteMatchesTemplate,
     dispatchReady,
     dispatchCommand: entry.dispatchCommand,
     installCommand: entry.installCommand,
@@ -417,6 +513,10 @@ function planWorkflow(entry) {
     checks: {
       targetExists,
       targetMatchesTemplate,
+      remoteFileChecked: remoteWorkflowFilesChecked,
+      remoteFileReady,
+      installAction,
+      remoteFileMatchesTemplate: !!remoteFileCheck?.remoteMatchesTemplate,
       workflowListChecked: remote.checked,
       workflowVisible: remote.checked ? !!remoteWorkflow : null,
       dispatchCommandGuarded: true,
@@ -426,6 +526,21 @@ function planWorkflow(entry) {
 }
 
 const workflowPlans = workflows.map(planWorkflow);
+function workflowScopeFallbackText(plans = []) {
+  const actions = (Array.isArray(plans) ? plans : [])
+    .map((plan) => plan.installAction || plan.checks?.installAction || "")
+    .filter(Boolean);
+  if (actions.some((action) => action === "replace_existing_remote_file")) {
+    return "If browser approval cannot be completed, use each workflow row's installAction: open GitHub edit-file pages for existing mismatched files and new-file pages only for missing files.";
+  }
+  if (actions.some((action) => action === "create_missing_remote_file")) {
+    return "If browser approval cannot be completed, use the GitHub new-file pages only for workflow files that are missing on the default branch.";
+  }
+  if (actions.length > 0 && actions.every((action) => action === "verified_remote_matches_template")) {
+    return "No GitHub UI file change is required; both remote workflow files already match the local templates.";
+  }
+  return "If browser approval cannot be completed, use each workflow row's installAction to choose the GitHub create or edit page before rerunning verification.";
+}
 const pagesPlan = workflowPlans.find((plan) => plan.key === "pages");
 const driftPlan = workflowPlans.find((plan) => plan.key === "drift-watch");
 const blockers = workflowPlans.flatMap((plan) => plan.blockers);
@@ -467,8 +582,8 @@ const workflowScopeApprovalHandoff = {
     "workflowScopeAvailable=true",
     "workflowScopeInstallBlocked=false",
   ],
-  fallback: "If browser approval cannot be completed, use the GitHub UI new-file links to create both workflow files on the default branch.",
-  stopCondition: "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files.",
+  fallback: workflowScopeFallbackText(workflowPlans),
+  stopCondition: "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch.",
 };
 const workflowScopeRefreshHandoff = {
   requiredWhenInstallBlocked: workflowScopeInstallBlocked,
@@ -546,6 +661,8 @@ const payload = {
   workflowScopeAvailable: workflowScope.available,
   workflowScope,
   workflowScopeInstallBlocked,
+  pagesWorkflowDispatchRef,
+  dispatchCommandExplicitRefReady: pagesPlan.dispatchCommand.includes(`-f ref=${pagesWorkflowDispatchRef}`),
   workflowScopeRefreshCommand,
   workflowScopeRecheckCommand,
   workflowScopeRefreshHandoff,
@@ -555,6 +672,11 @@ const payload = {
   workflowListSource: remote.source,
   localWorkflowTargetsReady,
   localTargetParityReady,
+  remoteWorkflowFileCheckSource: remoteWorkflowFileCheckMatchesTarget
+    ? "data/remote-workflow-file-check.json"
+    : "missing_or_mismatched_target",
+  remoteWorkflowFilesChecked,
+  remoteWorkflowFilesReady,
   remoteWorkflowVisibilityReady,
   workflowDefaultBranchHandoff,
   workflowUiInstallReady,

@@ -10,7 +10,14 @@ const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-a11y-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
-const defaultEvaluateTimeoutMs = Number(process.env.SMOKE_RUNTIME_TIMEOUT_MS || 60000);
+const defaultEvaluateTimeoutMs = positiveMsOption(process.env.SMOKE_RUNTIME_TIMEOUT_MS, 60000);
+const routeReadyTimeoutMs = positiveMsOption(process.env.SMOKE_ROUTE_READY_TIMEOUT_MS, 12000);
+
+function positiveMsOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
 
 class CdpClient {
   constructor(wsUrl) {
@@ -174,7 +181,7 @@ async function waitForHome(client) {
           view.hidden === false &&
           view.innerText.trim().length > 0;
         if (ready) resolve(true);
-        else if (Date.now() - started > 6000) reject(new Error("home route not ready"));
+        else if (Date.now() - started > ${routeReadyTimeoutMs}) reject(new Error("home route not ready"));
         else setTimeout(check, 100);
       };
       check();
@@ -297,7 +304,14 @@ async function main() {
       const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(true)));
       const navTo = async (view) => {
         location.hash = view;
-        await waitFor(() => document.body.dataset.view === view, view + " route did not open");
+        await waitFor(() => {
+          const viewEl = document.getElementById("view-" + view);
+          return document.body.dataset.view === view &&
+            viewEl &&
+            viewEl.hidden === false &&
+            !viewEl.querySelector("[data-ops-runtime-loading]") &&
+            viewEl.innerText.trim().length > 0;
+        }, view + " route did not open");
         await nextFrame();
       };
       const hasActionLabel = (selector, term) => {
@@ -635,8 +649,23 @@ async function main() {
             systemSourceSnapshot.querySelectorAll("[data-source-snapshot-row]").length >= 2,
           "system status should expose the source snapshot health region and rows");
         await navTo("pm-portfolio");
+        const referenceToggle = document.querySelector('#view-pm-portfolio [data-action="toggle-reference-projects"]');
+        if (referenceToggle && referenceToggle.dataset.referenceProjectsVisible !== "true") {
+          referenceToggle.click();
+          await waitFor(() => document.querySelector('#view-pm-portfolio [data-action="toggle-reference-projects"]')?.dataset.referenceProjectsVisible === "true", "reference project toggle did not enable candidates before prompt handoff check");
+        }
+        document.querySelector('#view-pm-portfolio [data-action="portfolio-filter"][data-filter="candidates"]')?.click();
+        await waitFor(
+          () => document.querySelector('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]'),
+          "portfolio candidates did not render before prompt handoff check");
+        await waitFor(
+          () => document.querySelector('#view-pm-portfolio [data-action="show-project-prompt-handoff"]'),
+          "portfolio prompt handoff CTA did not render after candidates became visible");
         const promptHandoffCta = document.querySelector('#view-pm-portfolio [data-action="show-project-prompt-handoff"]');
-        if (promptHandoffCta) promptHandoffCta.click();
+        check("portfolio_prompt_handoff_cta_available",
+          !!promptHandoffCta,
+          "portfolio prompt handoff CTA should be available after reference projects are visible");
+        promptHandoffCta.click();
         await waitFor(
           () => document.querySelector('#view-pm-portfolio [data-review-result-status]'),
           "review result validator status did not render after prompt handoff CTA");

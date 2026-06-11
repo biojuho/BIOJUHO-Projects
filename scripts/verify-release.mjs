@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import {
   existsSync,
   readFileSync,
@@ -15,7 +16,15 @@ const releaseDir = process.argv[2] ? resolve(root, process.argv[2]) : join(root,
 const manifestPath = join(releaseDir, "release-manifest.json");
 const provenancePath = join(releaseDir, "release-provenance.json");
 const packageLockDir = `${releaseDir}.packaging.lock`;
-const packageLockTimeoutMs = Number(process.env.RELEASE_PACKAGE_LOCK_TIMEOUT_MS || 60000);
+const packageLockTimeoutMs = positiveMsOption(process.env.RELEASE_PACKAGE_LOCK_TIMEOUT_MS, 60000);
+const packageLockOwnerGraceMs = Math.min(packageLockTimeoutMs, 1000);
+
+function positiveMsOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
 const expectedRuntimeFiles = [
   "404.html",
   "_headers",
@@ -46,6 +55,10 @@ const expectedRuntimeFiles = [
   "project-picker.js",
   "global-search.js",
   "command-palette.js",
+  "keyboard-shortcuts.js",
+  "interaction-setup.js",
+  "event-reminders.js",
+  "footer-clock.js",
   "db-catalog.js",
   "review-handoff.js",
   "review-result-view.js",
@@ -60,10 +73,15 @@ const expectedRuntimeFiles = [
   "review-copy-actions.js",
   "review-submission-copy.js",
   "review-recommendation-export.js",
+  "runtime-error-boundary.js",
   "pwa-runtime.js",
+  "workspace-seed-data.js",
+  "home-view.js",
+  "ops-runtime-loader.js",
   "app.js",
   "sw.js",
   "data/adoption-candidates.json",
+  "data/github-project-discovery.json",
   "data/launch-execution-packet.json",
   "data/launch-readiness-refresh.json",
   "data/output-quality-audit.json",
@@ -88,6 +106,7 @@ const expectedRuntimeFiles = [
   "vendor/fuse.min.js",
   "vendor/marked.umd.js",
   "vendor/purify.min.js",
+
 ];
 const expectedDeploySupportFiles = ["404.html", "_headers", "_redirects", "vercel.json"];
 const expectedRuntimeScriptOrder = [
@@ -112,46 +131,46 @@ const expectedRuntimeScriptOrder = [
   "system-status-view.js",
   "backup-import-guards.js",
   "backup-import-ui.js",
-  "release-status.js",
-  "operations-copy-actions.js",
-  "verify-workspace-summary.js",
   "dialog-shell.js",
   "project-picker.js",
   "global-search.js",
   "command-palette.js",
+  "keyboard-shortcuts.js",
+  "interaction-setup.js",
+  "event-reminders.js",
+  "footer-clock.js",
   "db-catalog.js",
-  "review-handoff.js",
-  "review-result-view.js",
-  "review-execution-checklist.js",
-  "review-issue-payload.js",
-  "review-result-state.js",
-  "review-result-draft-state.js",
-  "review-creation-actions.js",
-  "review-package-view.js",
-  "review-artifact-view.js",
-  "review-artifact-state.js",
-  "review-copy-actions.js",
-  "review-submission-copy.js",
-  "review-recommendation-export.js",
+  "runtime-error-boundary.js",
   "pwa-runtime.js",
+  "workspace-seed-data.js",
+  "home-view.js",
+  "ops-runtime-loader.js",
   "app.js",
+
 ];
 const metadataFiles = new Set(["RELEASE.md", "release-manifest.json", "release-provenance.json"]);
 const provenanceStatementType = "https://in-toto.io/Statement/v1";
 const provenancePredicateType = "https://slsa.dev/provenance/v1";
 const provenanceBuildType = "https://biojuho.local/joopark/static-release/v1";
 const provenanceBuilderId = "https://biojuho.local/joopark/local-release-packager";
+const expectedContentSecurityPolicyMeta = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";
+const expectedContentSecurityPolicyHeader = `${expectedContentSecurityPolicyMeta}; frame-ancestors 'none'`;
 const expectedProvenanceDependencies = [
   "source-tree",
   "index.html",
   "llm-wiki-view.js",
+  "runtime-error-boundary.js",
   "pwa-runtime.js",
+  "workspace-seed-data.js",
+  "home-view.js",
+  "ops-runtime-loader.js",
   "app.js",
   "sw.js",
   "styles.css",
   "README.md",
   "data",
   "vendor",
+
 ];
 const sourceParityFiles = expectedRuntimeFiles.filter((file) => ![
   "404.html",
@@ -166,6 +185,7 @@ const sourceParityFiles = expectedRuntimeFiles.filter((file) => ![
   "data/remote-workflow-file-check.json",
   "data/workflow-ui-install-plan.json",
   "autoresearch-results/release-readiness-summary.json",
+  "autoresearch-results/verify-workspace-summary.json",
   "index.html",
   "vercel.json",
 ].includes(file));
@@ -178,9 +198,67 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+function readPackageLockOwner(path) {
+  try {
+    return JSON.parse(readFileSync(join(path, "owner.json"), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function packageLockOwnerProcess(owner) {
+  const pid = Number(owner?.pid);
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return { alive: false, commandMatches: false, reason: "invalid_owner_pid" };
+  }
+  try {
+    process.kill(pid, 0);
+  } catch (error) {
+    if (error?.code === "EPERM") {
+      return { alive: true, commandMatches: true, reason: "owner_process_permission_denied" };
+    }
+    return { alive: false, commandMatches: false, reason: "owner_process_missing" };
+  }
+  try {
+    const command = execFileSync("ps", ["-p", String(pid), "-o", "command="], {
+      encoding: "utf-8",
+      timeout: 2000,
+    }).trim();
+    const commandMatches = command.includes("scripts/package-release.mjs");
+    return {
+      alive: true,
+      command,
+      commandMatches,
+      reason: commandMatches ? "owner_process_active" : "owner_pid_reused",
+    };
+  } catch {
+    return { alive: true, command: "", commandMatches: true, reason: "owner_process_command_unknown" };
+  }
+}
+
+function packageLockAgeMs(path) {
+  try {
+    return Date.now() - statSync(path).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+function releasePackageLockError(ownerProcess) {
+  return new Error(
+    `Release package lock owner is not active (${ownerProcess.reason}): ${relative(root, packageLockDir)}`,
+  );
+}
+
 function waitForPackageLock() {
   const started = Date.now();
   while (existsSync(packageLockDir)) {
+    const ownerProcess = packageLockOwnerProcess(readPackageLockOwner(packageLockDir));
+    if (ownerProcess.reason === "invalid_owner_pid") {
+      if (packageLockAgeMs(packageLockDir) > packageLockOwnerGraceMs) throw releasePackageLockError(ownerProcess);
+    } else if (!ownerProcess.alive || !ownerProcess.commandMatches) {
+      throw releasePackageLockError(ownerProcess);
+    }
     if (Date.now() - started > packageLockTimeoutMs) {
       throw new Error(`Timed out waiting for release package lock: ${relative(root, packageLockDir)}`);
     }
@@ -280,12 +358,26 @@ function verifyDeploySupport(failures) {
   }
 
   const headers = readFileSync(join(releaseDir, "_headers"), "utf-8");
+  const metaCsp = htmlMetaContentSecurityPolicy(indexHtml);
+  if (!metaCsp) {
+    failures.push("index.html missing Content-Security-Policy meta");
+  } else {
+    if (metaCsp !== expectedContentSecurityPolicyMeta) {
+      failures.push(`index.html Content-Security-Policy meta mismatch: ${metaCsp}`);
+    }
+    if (metaCsp.includes("frame-ancestors")) {
+      failures.push("index.html Content-Security-Policy meta must not include frame-ancestors; keep it in HTTP headers");
+    }
+  }
+  if (/<script\b(?![^>]*\bsrc\s*=)[^>]*>/i.test(indexHtml)) {
+    failures.push("index.html must not contain inline script tags under script-src self CSP");
+  }
   for (const term of [
     "X-Content-Type-Options: nosniff",
     "X-Frame-Options: DENY",
     "Referrer-Policy: strict-origin-when-cross-origin",
     "Permissions-Policy: camera=(), microphone=(), geolocation=()",
-    "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    `Content-Security-Policy: ${expectedContentSecurityPolicyHeader}`,
     "Cache-Control: public, max-age=31536000, immutable",
     "Cache-Control: no-cache",
   ]) {
@@ -312,7 +404,7 @@ function verifyDeploySupport(failures) {
     ["X-Frame-Options", "DENY"],
     ["Referrer-Policy", "strict-origin-when-cross-origin"],
     ["Permissions-Policy", "camera=(), microphone=(), geolocation=()"],
-    ["Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"],
+    ["Content-Security-Policy", expectedContentSecurityPolicyHeader],
     ["Cache-Control", "public, max-age=31536000, immutable"],
     ["Cache-Control", "no-cache"],
   ]) {
@@ -320,6 +412,14 @@ function verifyDeploySupport(failures) {
       failures.push(`vercel.json missing ${pair[0]}=${pair[1]}`);
     }
   }
+}
+
+function htmlMetaContentSecurityPolicy(html) {
+  const metaTags = [...html.matchAll(/<meta\b[^>]*>/gi)].map((match) => match[0]);
+  const cspTag = metaTags.find((tag) => /\bhttp-equiv\s*=\s*(["'])Content-Security-Policy\1/i.test(tag));
+  if (!cspTag) return "";
+  const content = cspTag.match(/\bcontent\s*=\s*(["'])(.*?)\1/i);
+  return content ? content[2] : "";
 }
 
 function duplicateHtmlIds(html) {
@@ -470,9 +570,20 @@ function verifyOfflineServiceWorker(failures) {
     "./review-result-draft-state.js",
     "./review-creation-actions.js",
     "./review-artifact-state.js",
+    "./runtime-error-boundary.js",
     "./pwa-runtime.js",
+    "./workspace-seed-data.js",
+    "./dashboard-storage.js",
+    "./dashboard-prioritization.js",
+    "./dashboard-evidence-receipts.js",
+    "./dashboard-insights-engine.js",
+    "./dashboard-autoresearch-loop.js",
+    "./dashboard-view.js",
+    "./home-view.js",
+    "./ops-runtime-loader.js",
     "./app.js",
     "./data/launch-readiness-refresh.json",
+    "./data/github-project-discovery.json",
     "./data/output-quality-audit.json",
     "./data/pages-attestation-proof.json",
     "./autoresearch-results/verify-workspace-summary.json",

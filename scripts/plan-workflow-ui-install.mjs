@@ -42,6 +42,12 @@ const workflows = [
       "gantt-view.js",
       "team-view.js",
       "workspace-storage.js",
+      "dashboard-storage.js",
+      "dashboard-prioritization.js",
+      "dashboard-evidence-receipts.js",
+      "dashboard-insights-engine.js",
+      "dashboard-autoresearch-loop.js",
+      "dashboard-view.js",
       "storage-status-view.js",
       "settings-view.js",
       "system-status-view.js",
@@ -115,6 +121,14 @@ function fileDigest(path) {
   };
 }
 
+function readJson(path, fallback = null) {
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    return fallback;
+  }
+}
+
 function gitOutput(args) {
   try {
     return execFileSync("git", args, {
@@ -159,6 +173,7 @@ function githubFileUrls(repoUrl, branch, target) {
   if (!repoUrl) {
     return {
       githubNewFileUrl: null,
+      githubEditFileUrl: null,
       githubBlobUrl: null,
       githubWorkflowUrl: null,
     };
@@ -166,6 +181,7 @@ function githubFileUrls(repoUrl, branch, target) {
   const encodedBranch = encodeURIComponent(branch);
   return {
     githubNewFileUrl: `${repoUrl}/new/${encodedBranch}?filename=${encodeURIComponent(target)}`,
+    githubEditFileUrl: `${repoUrl}/edit/${encodedBranch}/${target}`,
     githubBlobUrl: `${repoUrl}/blob/${encodedBranch}/${target}`,
     githubWorkflowUrl: `${repoUrl}/actions/workflows/${target.split("/").pop()}`,
   };
@@ -191,6 +207,50 @@ const placeholderVerificationCommand = "node scripts/plan-publish-dispatch.mjs -
 const nextVerificationCommand = `node scripts/plan-publish-dispatch.mjs --live --repo ${suggestedRepo || "OWNER/REPO"}`;
 const defaultBranch = defaultBranchCandidate(remoteName);
 const actionsUrl = repositoryUrl ? `${repositoryUrl}/actions` : null;
+const remoteWorkflowFileCheckPath = "data/remote-workflow-file-check.json";
+const remoteWorkflowFileCheck = readJson(join(root, remoteWorkflowFileCheckPath), null);
+
+function remoteWorkflowCheckFor(entry) {
+  const checks = Array.isArray(remoteWorkflowFileCheck?.checks) ? remoteWorkflowFileCheck.checks : [];
+  return checks.find((check) => {
+    const remediation = check?.remediation && typeof check.remediation === "object" ? check.remediation : {};
+    return check?.key === entry.key ||
+      check?.path === entry.target ||
+      check?.targetPath === entry.target ||
+      remediation.targetPath === entry.target;
+  }) || null;
+}
+
+function workflowUiInstallAction(remoteFileCheck) {
+  const remediation = remoteFileCheck?.remediation && typeof remoteFileCheck.remediation === "object" ? remoteFileCheck.remediation : {};
+  const action = remoteFileCheck?.installAction || remediation.installAction || "";
+  if (["replace_existing_remote_file", "create_missing_remote_file", "verified_remote_matches_template"].includes(action)) {
+    return action;
+  }
+  if (remoteFileCheck?.remoteExists === true && remoteFileCheck?.remoteMatchesTemplate === true) {
+    return "verified_remote_matches_template";
+  }
+  if (remoteFileCheck?.remoteExists === true) {
+    return "replace_existing_remote_file";
+  }
+  return "create_missing_remote_file";
+}
+
+function workflowUiInstallLabel(action) {
+  if (action === "replace_existing_remote_file") return "Replace existing remote file";
+  if (action === "verified_remote_matches_template") return "No GitHub UI file change required";
+  return "Create missing remote file";
+}
+
+function workflowUiInstallInstruction(plan) {
+  if (plan.installAction === "replace_existing_remote_file") {
+    return `Open the existing GitHub edit-file page for ${plan.targetRepositoryPath}, replace the entire file with the copied template, and commit to ${plan.defaultBranch}.`;
+  }
+  if (plan.installAction === "verified_remote_matches_template") {
+    return `No GitHub UI edit is required for ${plan.targetRepositoryPath}; the remote file already matches the local template.`;
+  }
+  return `Open the GitHub new-file page, set the file name to ${plan.githubFileNameFieldValue}, paste the copied template, and commit to ${plan.defaultBranch}.`;
+}
 
 function workflowPlan(entry) {
   const templatePath = join(root, entry.template);
@@ -200,13 +260,26 @@ function workflowPlan(entry) {
   const templateText = templateDigest.text;
   const missingTerms = entry.requiredTerms.filter((term) => !templateText.includes(term));
   const urls = githubFileUrls(repositoryUrl, defaultBranch.branch, entry.target);
+  const remoteFileCheck = remoteWorkflowCheckFor(entry);
+  const remediation = remoteFileCheck?.remediation && typeof remoteFileCheck.remediation === "object" ? remoteFileCheck.remediation : {};
+  const installAction = workflowUiInstallAction(remoteFileCheck);
+  const githubNewFileUrl = remediation.githubNewFileUrl || remoteFileCheck?.githubNewFileUrl || urls.githubNewFileUrl;
+  const githubEditFileUrl = remediation.githubEditFileUrl || remoteFileCheck?.githubEditFileUrl || urls.githubEditFileUrl;
   const templateCopyCommand = `pbcopy < ${shellQuote(entry.template)}`;
   const localTemplateHashCommand = `shasum -a 256 ${shellQuote(entry.template)}`;
-  const githubNewFileOpenCommand = urls.githubNewFileUrl ? `open ${shellQuote(urls.githubNewFileUrl)}` : "";
+  const githubNewFileOpenCommand = remediation.githubNewFileOpenCommand || remoteFileCheck?.githubNewFileOpenCommand || (githubNewFileUrl ? `open ${shellQuote(githubNewFileUrl)}` : "");
+  const githubEditFileOpenCommand = remediation.githubEditFileOpenCommand || remoteFileCheck?.githubEditFileOpenCommand || (githubEditFileUrl ? `open ${shellQuote(githubEditFileUrl)}` : "");
   const githubWorkflowOpenCommand = urls.githubWorkflowUrl ? `open ${shellQuote(urls.githubWorkflowUrl)}` : "";
   const githubFileNameFieldValue = entry.target;
   const suggestedCommitMessage = entry.commitMessage || `Add ${entry.name} workflow`;
   const targetMatchesTemplate = templateDigest.exists && targetDigest.exists && templateDigest.sha256 === targetDigest.sha256;
+  const uiInstallOpenCommand = installAction === "replace_existing_remote_file"
+    ? githubEditFileOpenCommand
+    : installAction === "create_missing_remote_file"
+      ? githubNewFileOpenCommand
+      : "";
+  const uiInstallRequired = installAction !== "verified_remote_matches_template";
+  const remoteCheckGeneratedAt = remoteWorkflowFileCheck?.generatedAt || "";
   return {
     key: entry.key,
     name: entry.name,
@@ -220,11 +293,20 @@ function workflowPlan(entry) {
     suggestedRepo,
     repoReplacementHint,
     actionsUrl,
-    ...urls,
+    githubNewFileUrl,
+    githubEditFileUrl,
+    githubBlobUrl: urls.githubBlobUrl,
+    githubWorkflowUrl: urls.githubWorkflowUrl,
     templateCopyCommand,
     localTemplateHashCommand,
     githubNewFileOpenCommand,
+    githubEditFileOpenCommand,
     githubWorkflowOpenCommand,
+    uiInstallOpenCommand,
+    uiInstallCommand: uiInstallOpenCommand,
+    uiInstallRequired,
+    uiInstallActionLabel: workflowUiInstallLabel(installAction),
+    uiInstallInstruction: "",
     githubFileNameFieldValue,
     suggestedCommitMessage,
     githubNewFileFormCheck: `GitHub file name field must equal ${githubFileNameFieldValue}; suggested commit message: ${suggestedCommitMessage}`,
@@ -236,17 +318,31 @@ function workflowPlan(entry) {
     targetSha256: targetDigest.sha256,
     targetMatchesTemplate,
     localTargetParityReady: targetMatchesTemplate,
+    remoteWorkflowFileCheckSource: remoteWorkflowFileCheck ? remoteWorkflowFileCheckPath : "",
+    remoteWorkflowFileCheckGeneratedAt: remoteCheckGeneratedAt,
+    remoteWorkflowFilesReadySnapshot: remoteWorkflowFileCheck?.remoteWorkflowFilesReady === true,
+    installAction,
+    remoteExists: remoteFileCheck?.remoteExists === true,
+    remoteMatchesTemplate: remoteFileCheck?.remoteMatchesTemplate === true,
+    remoteSha256: remoteFileCheck?.remoteSha256 || remediation.remoteSha256 || "",
+    remoteBlobSha: remoteFileCheck?.remoteBlobSha || remediation.remoteBlobSha || "",
+    remediationStatus: remediation.status || "",
+    remediationNextStep: remediation.nextStep || "",
     requiredTerms: entry.requiredTerms,
     missingTerms,
     uiInstallReady: templateDigest.exists && missingTerms.length === 0,
     nextVerificationCommand,
     placeholderVerificationCommand,
     uiSteps: [
-      `Run ${templateCopyCommand} to copy ${entry.template}`,
-      `Run ${githubNewFileOpenCommand || "open the GitHub repository default branch new-file page"} and create ${entry.target}`,
-      `Confirm the GitHub file name field is ${githubFileNameFieldValue} and use commit message "${suggestedCommitMessage}"`,
-      `Paste the copied template contents from ${entry.template}`,
-      `Commit to default branch ${defaultBranch.branch} with a workflow-scope capable GitHub UI session`,
+      uiInstallRequired ? `Run ${templateCopyCommand} to copy ${entry.template}` : `No copy is required for ${entry.target} while installAction=${installAction}`,
+      `installAction=${installAction}: ${workflowUiInstallInstruction({
+        installAction,
+        targetRepositoryPath: entry.target,
+        defaultBranch: defaultBranch.branch,
+        githubFileNameFieldValue,
+      })}`,
+      uiInstallRequired ? `Run ${uiInstallOpenCommand || "open the GitHub repository default branch create/edit page"} before committing ${entry.target}` : `Skip GitHub create/edit pages for ${entry.target}`,
+      uiInstallRequired ? `Commit to default branch ${defaultBranch.branch} with a workflow-scope capable GitHub UI session` : `Keep the verified remote file unchanged on ${defaultBranch.branch}`,
       `Run ${githubWorkflowOpenCommand || "open the GitHub Actions workflow page"} and confirm the workflow appears`,
       `Run ${nextVerificationCommand} after the workflow appears in Actions`,
       `Treat ${placeholderVerificationCommand} as a template only if the suggested repo is unavailable or wrong`,
@@ -273,10 +369,18 @@ function workflowUiInstallReceipt(plans) {
   const handoffVerifyCommand = `node scripts/verify-launch-handoff.mjs --repo ${repo} --write --markdown`;
   const postInstallStopCondition = "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.";
   const dispatchGuard = "Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.";
-  const installCommands = plans.flatMap((plan) => [
-    plan.templateCopyCommand,
-    plan.githubNewFileOpenCommand,
-  ]).filter(Boolean);
+  const installRows = plans.map((plan) => ({
+    key: plan.key,
+    target: plan.targetRepositoryPath,
+    installAction: plan.installAction || "create_missing_remote_file",
+    required: plan.uiInstallRequired !== false,
+    templateCopyCommand: plan.templateCopyCommand,
+    openCommand: plan.uiInstallOpenCommand || "",
+    githubNewFileUrl: plan.githubNewFileUrl || "",
+    githubEditFileUrl: plan.githubEditFileUrl || "",
+    instruction: workflowUiInstallInstruction(plan),
+  }));
+  const installCommands = installRows.flatMap((row) => row.required ? [row.templateCopyCommand, row.openCommand] : []).filter(Boolean);
   const verificationCommands = [
     remoteFileCommand,
     workflowListCommand,
@@ -294,7 +398,7 @@ function workflowUiInstallReceipt(plans) {
     "safeToDispatch=true before gh workflow run",
   ];
   const checklist = [
-    "Commit both workflow files to the repository default branch using the GitHub UI new-file pages.",
+    "Use each workflow row's installAction and commit only changed workflow files to the repository default branch using the matching GitHub UI edit-file or new-file page.",
     "Confirm each committed file matches the local template SHA-256.",
     "Run the remote workflow file check until remoteWorkflowFilesReady=true.",
     "Open GitHub Actions and confirm both workflow files are visible.",
@@ -332,6 +436,10 @@ function workflowUiInstallReceipt(plans) {
     githubFileNameFieldValue: plan.githubFileNameFieldValue,
     suggestedCommitMessage: plan.suggestedCommitMessage,
     githubNewFileUrl: plan.githubNewFileUrl,
+    githubEditFileUrl: plan.githubEditFileUrl,
+    githubEditFileOpenCommand: plan.githubEditFileOpenCommand,
+    installAction: plan.installAction,
+    uiInstallOpenCommand: plan.uiInstallOpenCommand,
   }));
   const formFieldCoverage = formFieldChecks.length >= 2 &&
     formFieldChecks.every((item) => item.githubFileNameFieldValue && item.suggestedCommitMessage) ? 1 : 0;
@@ -367,13 +475,16 @@ function workflowUiInstallReceipt(plans) {
     `Repo replacement hint: ${repoReplacementHint}`,
     "",
     "Paste packet:",
-    "Paste exact template content into each GitHub new-file page, commit to the default branch, then rerun the verification sequence before dispatch.",
+    "Paste exact template content into each required GitHub create/edit page according to installAction, skip verified_remote_matches_template rows, commit changed files to the default branch, then rerun the verification sequence before dispatch.",
     "",
     "Install commands:",
-    ...installCommands.map((command, index) => `${index + 1}. ${command}`),
+    ...(installCommands.length ? installCommands.map((command, index) => `${index + 1}. ${command}`) : ["- No GitHub UI file change is required; all remote workflow files already match local templates."]),
+    "",
+    "Install action ledger:",
+    ...installRows.map((row) => `- ${row.key}: installAction=${row.installAction}; required=${row.required}; openCommand=${row.openCommand || "none"}; instruction=${row.instruction}`),
     "",
     "Targets:",
-    ...plans.map((plan) => `- ${plan.key}: ${plan.targetRepositoryPath} from ${plan.template}; templateSha256=${plan.templateSha256}; targetMatchesTemplate=${plan.targetMatchesTemplate}; newFile=${plan.githubNewFileUrl || "unknown"}`),
+    ...plans.map((plan) => `- ${plan.key}: ${plan.targetRepositoryPath} from ${plan.template}; installAction=${plan.installAction}; remoteExists=${plan.remoteExists}; remoteMatchesTemplate=${plan.remoteMatchesTemplate}; templateSha256=${plan.templateSha256}; targetMatchesTemplate=${plan.targetMatchesTemplate}; newFile=${plan.githubNewFileUrl || "unknown"}; editFile=${plan.githubEditFileUrl || "unknown"}; openCommand=${plan.uiInstallOpenCommand || "none"}`),
     "",
     "Template integrity ledger:",
     ...templateIntegrityRows.map((row) => `- ${row.key}: template=${row.template}; target=${row.target}; expectedSha256=${row.expectedSha256}; localTemplateHashCommand=${row.localTemplateHashCommand}; postCommitRemoteCheck=${row.postCommitRemoteCheck}; expectedRemoteSignals=${row.expectedRemoteSignals.join(" | ")}`),
@@ -382,7 +493,8 @@ function workflowUiInstallReceipt(plans) {
     "Run each localTemplateHashCommand before paste and compare the first shasum field with expectedSha256; after commit, run postCommitRemoteCheck and require remoteExists=true, remoteMatchesTemplate=true, and remoteSha256 equals templateSha256 before dispatch.",
     "",
     "GitHub new-file form values:",
-    ...formFieldChecks.map((item) => `- ${item.key}: githubFileNameFieldValue=${item.githubFileNameFieldValue}; suggestedCommitMessage=${item.suggestedCommitMessage}; newFile=${item.githubNewFileUrl || "unknown"}`),
+    "(For create_missing_remote_file rows only; replace_existing_remote_file rows use githubEditFileOpenCommand and verified_remote_matches_template rows require no edit.)",
+    ...formFieldChecks.map((item) => `- ${item.key}: installAction=${item.installAction}; githubFileNameFieldValue=${item.githubFileNameFieldValue}; suggestedCommitMessage=${item.suggestedCommitMessage}; newFile=${item.githubNewFileUrl || "unknown"}; editFile=${item.githubEditFileUrl || "unknown"}; uiInstallOpenCommand=${item.uiInstallOpenCommand || "none"}`),
     "",
     "Post-install verification commands:",
     ...verificationCommands.map((command, index) => `${index + 1}. ${command}`),
@@ -402,7 +514,7 @@ function workflowUiInstallReceipt(plans) {
     postInstallStopCondition,
     dispatchGuard,
     "Do not run gh workflow run until remoteWorkflowFilesReady: true, remoteWorkflowVisibilityReady: true, dispatchReady: true, driftDispatchReady: true, and allDispatchReady: true.",
-    "External benchmark: GitHub UI file creation still requires committing the workflow file to the default branch, and GitHub manual workflow dispatch only appears after a workflow_dispatch workflow exists on the default branch.",
+    "External benchmark: GitHub UI file creation or editing still requires committing the workflow file to the default branch, and GitHub manual workflow dispatch only appears after a workflow_dispatch workflow exists on the default branch.",
   ];
   return {
     key: "github_ui_workflow_install_receipt",
@@ -418,6 +530,9 @@ function workflowUiInstallReceipt(plans) {
     templateIntegrityRows,
     templateIntegrityCoverage,
     templateIntegrityReady: templateIntegrityCoverage === 1,
+    installRows,
+    installActionCoverage: installRows.length >= 2 &&
+      installRows.every((row) => ["replace_existing_remote_file", "create_missing_remote_file", "verified_remote_matches_template"].includes(row.installAction)) ? 1 : 0,
     parserReadyProofFields: parserReadyProofFields.map(([key, placeholder]) => ({ key, placeholder })),
     parserReadyProofFieldCount: parserReadyProofFields.length,
     parserReadyProofFieldCoverage,

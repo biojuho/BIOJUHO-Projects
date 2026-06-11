@@ -18,10 +18,16 @@ const POST_INSTALL_DISPATCH_GUARD = "Do not run gh workflow run until every post
 const POST_INSTALL_STOP_CONDITION = "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.";
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function readJson(path, fallback = {}) {
@@ -96,11 +102,11 @@ function blockerResolutionSummary(checklist) {
     source: source.source || "not_available",
     status: source.status || "not_available",
     activeItemKey: source.activeItemKey || "",
-    itemCount: Number(source.itemCount || items.length),
-    passCount: Number(source.passCount || items.filter((item) => item.status === "pass" || item.status === "ready").length),
-    actionRequiredCount: Number(source.actionRequiredCount || items.filter((item) => item.status === "action_required").length),
-    deferredCount: Number(source.deferredCount || items.filter((item) => String(item.status || "").includes("deferred")).length),
-    proofCommandCount: Number(source.proofCommandCount || items.filter((item) => item.proofCommand).length),
+    itemCount: numberOr(source.itemCount, items.length),
+    passCount: numberOr(source.passCount, items.filter((item) => item.status === "pass" || item.status === "ready").length),
+    actionRequiredCount: numberOr(source.actionRequiredCount, items.filter((item) => item.status === "action_required").length),
+    deferredCount: numberOr(source.deferredCount, items.filter((item) => String(item.status || "").includes("deferred")).length),
+    proofCommandCount: numberOr(source.proofCommandCount, items.filter((item) => item.proofCommand).length),
     dispatchGuard: source.dispatchGuard || "Do not run gh workflow run until every action_required item has passed and verify-launch-handoff reports safeToDispatch=true.",
     items,
   };
@@ -439,6 +445,11 @@ const blockers = unique([
   !remoteWorkflowVisibilityReady ? "remoteWorkflowVisibilityReady=false" : "",
   !allDispatchReady ? "allDispatchReady=false" : "",
 ]);
+const installActionRows = (Array.isArray(publishDispatchPlan.workflowPlans) ? publishDispatchPlan.workflowPlans : [])
+  .map((plan) => `${plan.key || plan.workflowFile || "workflow"}=${plan.installAction || plan.checks?.installAction || "unknown"}`);
+const installActionNextAction = installActionRows.length
+  ? `Apply each workflow row's installAction on the default branch (${installActionRows.join("; ")}), then rerun this verifier.`
+  : "Apply the workflow installAction rows on the default branch, then rerun this verifier.";
 const nextActions = safeToDispatch
   ? [
       "Run the suggested dispatch commands only after confirming the repo and workflow names.",
@@ -446,7 +457,7 @@ const nextActions = safeToDispatch
     ]
   : [
       "Do not run gh workflow run yet.",
-      "Install or update the workflow files on the default branch, then rerun this verifier.",
+      installActionNextAction,
       `If workflow scope is missing, run ${workflowScopeRefreshCommand} first.`,
     ];
 

@@ -4,21 +4,34 @@ import { spawn } from "node:child_process";
 import { createReadStream, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const width = Number(argValue("--width") || process.env.PREVIEW_WIDTH || 1200);
-const height = Number(argValue("--height") || process.env.PREVIEW_HEIGHT || 630);
+const width = positiveIntegerOption(argValue("--width") || process.env.PREVIEW_WIDTH, 1200);
+const height = positiveIntegerOption(argValue("--height") || process.env.PREVIEW_HEIGHT, 630);
 const outPath = resolve(root, argValue("--out") || process.env.PREVIEW_OUT || "social-preview.png");
 const requestedBaseUrl = (argValue("--base-url") || process.env.BASE_URL || "").replace(/\/+$/, "");
 const tmpProfile = join(tmpdir(), `joopark-preview-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
+  if (inline) return inline.slice(name.length + 1);
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
+}
+
 function argValue(name) {
-  const index = args.indexOf(name);
-  return index >= 0 ? args[index + 1] : "";
+  return optionValue(args, name);
+}
+
+function positiveIntegerOption(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallback;
 }
 
 class CdpClient {
@@ -84,13 +97,34 @@ function contentType(pathname) {
   }[extname(pathname)] || "application/octet-stream";
 }
 
+function previewRequestPath(pathname) {
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+  return decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
+}
+
+function previewStaticTarget(pathname) {
+  const requestPath = previewRequestPath(pathname);
+  if (!requestPath) return null;
+  const target = resolve(root, requestPath);
+  const allowedPrefix = `${root}${sep}`;
+  return target === root || target.startsWith(allowedPrefix) ? target : null;
+}
+
 function startStaticServer() {
   const server = createServer((request, response) => {
     const rawPath = new URL(request.url || "/", "http://127.0.0.1").pathname;
-    const decoded = decodeURIComponent(rawPath);
-    const relativePath = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
-    const filePath = resolve(root, relativePath);
-    if (!filePath.startsWith(root) || !existsSync(filePath) || !statSync(filePath).isFile()) {
+    const filePath = previewStaticTarget(rawPath);
+    if (!filePath) {
+      response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end("Forbidden");
+      return;
+    }
+    if (!existsSync(filePath) || !statSync(filePath).isFile()) {
       response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
       response.end("Not found");
       return;

@@ -241,7 +241,8 @@ const deleteUndoExpression = `
     const queryId = marker + "-query";
     dashboard.queries.push({ id: queryId, instance: instanceId, db: "app", text: "select 1", avgMs: 1, p95Ms: 2, count: 3, planHint: "undo smoke", lastRun: "2026-06-08 10:00" });
     commit();
-    deleteQuery(queryId);
+    if (typeof deleteQuery === "function") deleteQuery(queryId);
+    else dbCatalogCall("deleteQuery", queryId);
     assert(!dashboard.queries.some((item) => item.id === queryId), "query was not deleted");
     await clickUndo("쿼리를 삭제했습니다");
     assert(dashboard.queries.some((item) => item.id === queryId && item.planHint === "undo smoke"), "query was not restored");
@@ -249,7 +250,8 @@ const deleteUndoExpression = `
     const migrationId = marker + "-migration";
     dashboard.migrations.push({ id: migrationId, instance: instanceId, title: marker + " migration", status: "pending", scheduledAt: "2026-06-08 02:00" });
     commit();
-    deleteMigration(migrationId);
+    if (typeof deleteMigration === "function") deleteMigration(migrationId);
+    else dbCatalogCall("deleteMigration", migrationId);
     assert(!dashboard.migrations.some((item) => item.id === migrationId), "migration was not deleted");
     await clickUndo("마이그레이션을 삭제했습니다");
     assert(dashboard.migrations.some((item) => item.id === migrationId && item.scheduledAt === "2026-06-08 02:00"), "migration was not restored");
@@ -280,11 +282,12 @@ const deleteUndoExpression = `
         meta: {},
       }],
     };
-    assert(window.JooParkImportGuards && window.JooParkImportGuards.arrayKeys.includes("deletedItems"), "import guards do not expose deletedItems array key");
-    assert(isImportBackupShape(deletedImportShape), "deletedItems-only backup shape was not accepted");
-    assert(importArrayCount(deletedImportShape, "deletedItems") === 1, "deletedItems import count was not detected");
-    assert(importBackupSummaryItems(deletedImportShape).some(([label, count]) => label === "최근 삭제" && count === 1), "deletedItems import summary was missing");
-    const deletedLimitViolations = importRecordLimitViolations({
+    const importGuards = window.JooParkImportGuards;
+    assert(importGuards && importGuards.arrayKeys.includes("deletedItems"), "import guards do not expose deletedItems array key");
+    assert(importGuards.isBackupShape(deletedImportShape), "deletedItems-only backup shape was not accepted");
+    assert(importGuards.importArrayCount(deletedImportShape, "deletedItems") === 1, "deletedItems import count was not detected");
+    assert(importGuards.backupSummaryItems(deletedImportShape).some(([label, count]) => label === "최근 삭제" && count === 1), "deletedItems import summary was missing");
+    const deletedLimitViolations = importGuards.recordLimitViolations({
       deletedItems: Array.from({ length: 41 }, (_, index) => ({ ...deletedImportShape.deletedItems[0], id: marker + "-limit-" + index })),
     });
     assert(deletedLimitViolations.some((violation) => violation.key === "deletedItems" && violation.max === 40 && violation.count === 41), "deletedItems import limit guard did not trigger");
@@ -309,7 +312,7 @@ const deleteUndoExpression = `
     closeSheet({ restoreFocus: false });
     await sleep(8400);
     assert(!Array.from(document.querySelectorAll("#toastRegion [data-toast-action]")).some((button) => button.textContent.includes("되돌리기")), "undo action survived past timeout");
-    openPalette();
+    commandPaletteCall("open");
     await waitFor(() => document.querySelector("#palette.open") && document.querySelector("#paletteInput"), "command palette did not open for recovery command");
     const paletteInput = document.querySelector("#paletteInput");
     paletteInput.value = "최근 삭제";

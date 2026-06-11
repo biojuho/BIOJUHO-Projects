@@ -22,8 +22,15 @@ const outDir = process.env.RELEASE_OUT_DIR
   : join(root, "dist", "release");
 let packageDir = outDir;
 const packageLockDir = `${outDir}.packaging.lock`;
-const packageLockTimeoutMs = Number(process.env.RELEASE_PACKAGE_LOCK_TIMEOUT_MS || 60000);
-const packageLockStaleMs = Number(process.env.RELEASE_PACKAGE_LOCK_STALE_MS || 10 * 60 * 1000);
+const packageLockTimeoutMs = positiveMsOption(process.env.RELEASE_PACKAGE_LOCK_TIMEOUT_MS, 60000);
+const packageLockStaleMs = positiveMsOption(process.env.RELEASE_PACKAGE_LOCK_STALE_MS, 10 * 60 * 1000);
+
+function positiveMsOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
 const sourceEntries = [
   "index.html",
   "search-empty-state.js",
@@ -51,6 +58,10 @@ const sourceEntries = [
   "project-picker.js",
   "global-search.js",
   "command-palette.js",
+  "keyboard-shortcuts.js",
+  "interaction-setup.js",
+  "event-reminders.js",
+  "footer-clock.js",
   "db-catalog.js",
   "review-handoff.js",
   "review-result-view.js",
@@ -65,7 +76,17 @@ const sourceEntries = [
   "review-copy-actions.js",
   "review-submission-copy.js",
   "review-recommendation-export.js",
+  "runtime-error-boundary.js",
   "pwa-runtime.js",
+  "workspace-seed-data.js",
+  "home-view.js",
+  "dashboard-view.js",
+  "dashboard-insights-engine.js",
+  "dashboard-prioritization.js",
+  "dashboard-autoresearch-loop.js",
+  "dashboard-evidence-receipts.js",
+  "dashboard-storage.js",
+  "ops-runtime-loader.js",
   "app.js",
   "sw.js",
   "styles.css",
@@ -75,10 +96,19 @@ const sourceEntries = [
   "social-preview.png",
   "social-preview.svg",
   "README.md",
-  "autoresearch-results/release-readiness-summary.json",
-  "autoresearch-results/verify-workspace-summary.json",
   "data",
   "vendor",
+
+];
+const generatedEvidenceEntries = [
+  {
+    path: "autoresearch-results/release-readiness-summary.json",
+    create: createReleaseReadinessBootstrap,
+  },
+  {
+    path: "autoresearch-results/verify-workspace-summary.json",
+    create: createVerifyWorkspaceBootstrap,
+  },
 ];
 const runtimeAssets = [
   { path: "styles.css", attr: "href" },
@@ -95,40 +125,41 @@ const runtimeAssets = [
   { path: "gantt-view.js", attr: "src" },
   { path: "team-view.js", attr: "src" },
   { path: "workspace-storage.js", attr: "src" },
+  { path: "dashboard-storage.js", attr: "src" },
+  { path: "dashboard-prioritization.js", attr: "src" },
+  { path: "dashboard-evidence-receipts.js", attr: "src" },
+  { path: "dashboard-insights-engine.js", attr: "src" },
+  { path: "dashboard-autoresearch-loop.js", attr: "src" },
+  { path: "dashboard-view.js", attr: "src" },
   { path: "storage-status-view.js", attr: "src" },
   { path: "settings-view.js", attr: "src" },
   { path: "system-status-view.js", attr: "src" },
   { path: "backup-import-guards.js", attr: "src" },
   { path: "backup-import-ui.js", attr: "src" },
-  { path: "release-status.js", attr: "src" },
-  { path: "operations-copy-actions.js", attr: "src" },
-  { path: "verify-workspace-summary.js", attr: "src" },
   { path: "dialog-shell.js", attr: "src" },
   { path: "project-picker.js", attr: "src" },
   { path: "global-search.js", attr: "src" },
   { path: "command-palette.js", attr: "src" },
+  { path: "keyboard-shortcuts.js", attr: "src" },
+  { path: "interaction-setup.js", attr: "src" },
+  { path: "event-reminders.js", attr: "src" },
+  { path: "footer-clock.js", attr: "src" },
   { path: "db-catalog.js", attr: "src" },
-  { path: "review-handoff.js", attr: "src" },
-  { path: "review-result-view.js", attr: "src" },
-  { path: "review-execution-checklist.js", attr: "src" },
-  { path: "review-issue-payload.js", attr: "src" },
-  { path: "review-result-state.js", attr: "src" },
-  { path: "review-result-draft-state.js", attr: "src" },
-  { path: "review-creation-actions.js", attr: "src" },
-  { path: "review-package-view.js", attr: "src" },
-  { path: "review-artifact-view.js", attr: "src" },
-  { path: "review-artifact-state.js", attr: "src" },
-  { path: "review-copy-actions.js", attr: "src" },
-  { path: "review-submission-copy.js", attr: "src" },
-  { path: "review-recommendation-export.js", attr: "src" },
+  { path: "runtime-error-boundary.js", attr: "src" },
   { path: "pwa-runtime.js", attr: "src" },
+  { path: "workspace-seed-data.js", attr: "src" },
+  { path: "home-view.js", attr: "src" },
+  { path: "ops-runtime-loader.js", attr: "src" },
   { path: "app.js", attr: "src" },
+
 ];
 const releaseMetadataFiles = new Set(["RELEASE.md", "release-manifest.json", "release-provenance.json"]);
 const provenanceStatementType = "https://in-toto.io/Statement/v1";
 const provenancePredicateType = "https://slsa.dev/provenance/v1";
 const provenanceBuildType = "https://biojuho.local/joopark/static-release/v1";
 const provenanceBuilderId = "https://biojuho.local/joopark/local-release-packager";
+const contentSecurityPolicyBase = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";
+const contentSecurityPolicyHeader = `${contentSecurityPolicyBase}; frame-ancestors 'none'`;
 
 function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -195,6 +226,120 @@ function copyEntry(entry) {
   }
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(source, target);
+}
+
+function copyOrGenerateEvidenceEntry(entry) {
+  const source = join(root, entry.path);
+  const target = join(packageDir, entry.path);
+  mkdirSync(dirname(target), { recursive: true });
+  if (existsSync(source)) {
+    copyFileSync(source, target);
+    return { path: entry.path, source: "source" };
+  }
+  writeFileSync(target, `${JSON.stringify(entry.create(), null, 2)}\n`, "utf-8");
+  return { path: entry.path, source: "bootstrap" };
+}
+
+function createReleaseReadinessBootstrap() {
+  const generatedAt = new Date().toISOString();
+  return {
+    schemaVersion: "joopark-release-readiness-summary/v1",
+    generatedAt,
+    sourceCommit: process.env.SOURCE_COMMIT || currentCommit(),
+    command: "node scripts/audit-release-readiness.mjs --format=summary",
+    status: "not_run",
+    checks: {
+      pass: 0,
+      fail: 0,
+      notRun: 1,
+      blocked: 0,
+      total: 1,
+    },
+    packagedBrowserGate: {
+      status: "not_run",
+      cached: false,
+      cache: {
+        status: "bootstrap",
+        contextMatched: false,
+        issues: ["release_readiness_summary_missing_from_source"],
+        contextMismatches: [],
+      },
+    },
+    packageBootstrap: {
+      source: "scripts/package-release.mjs",
+      reason: "release readiness summary source was missing in this checkout",
+      repairCommand: "node scripts/audit-release-readiness.mjs --format=summary",
+      validForExternalClaim: false,
+    },
+  };
+}
+
+function createVerifyWorkspaceBootstrap() {
+  const generatedAt = new Date().toISOString();
+  return {
+    schemaVersion: "joopark-verify-workspace/v1",
+    status: "fail",
+    generatedAt,
+    startedAt: generatedAt,
+    durationMs: 0,
+    command: "npm run verify:full",
+    runner: "scripts/package-release.mjs",
+    syncArtifacts: false,
+    evidenceSyncRequired: true,
+    evidenceSyncPass: false,
+    stepResults: [],
+    artifacts: {
+      releaseReadiness: {
+        path: "autoresearch-results/release-readiness-summary.json",
+        status: "not_run",
+        generatedAt: "",
+        summary: "0 pass, 0 fail, 1 not_run, 0 blocked",
+        checks: { pass: 0, fail: 0, notRun: 1, blocked: 0 },
+      },
+      launchReadiness: {
+        path: "data/launch-readiness-refresh.json",
+        status: "missing",
+        generatedAt: "",
+        latestGateSummary: "0 pass, 0 fail, 0 not_run, 0 blocked",
+        safeToDispatch: false,
+        readyForExternalClaim: false,
+        workflowScopeInstallBlocked: false,
+      },
+      outputQuality: {
+        path: "data/output-quality-audit.json",
+        status: "missing",
+        generatedAt: "",
+        releaseQualityReady: false,
+        publicLaunchProofReady: false,
+        readyForExternalClaim: false,
+        latestGateSummary: "0 pass, 0 fail, 0 not_run, 0 blocked",
+      },
+      productLoop: {
+        path: "autoresearch-results/joopark-product-loop.json",
+        status: "missing",
+        generatedAt: "",
+        latestGateSummary: "0 pass, 0 fail, 0 not_run, 0 blocked",
+        latestExperiment: "",
+      },
+      evidenceSync: {
+        status: "fail",
+        productLoopGateParityReady: false,
+        productLoopPublishParityReady: false,
+        summarySyncReady: false,
+        outputQualityGeneratedAt: "",
+        productLoopSummarySyncOutputQualityGeneratedAt: "",
+        source: "scripts/package-release.mjs",
+        fullVerifyCommand: "npm run verify:full",
+      },
+    },
+    packageBootstrap: {
+      source: "scripts/package-release.mjs",
+      reason: "verify workspace summary source was missing in this checkout",
+      repairCommand: "npm run verify:full",
+      validForExternalClaim: false,
+    },
+    externalClaimGuard: "Do not claim readyForExternalClaim until release quality, public launch proof, and external completion claim proof all pass.",
+  };
 }
 
 function versionRuntimeAssetRefs() {
@@ -418,7 +563,7 @@ function writeDeploySupportFiles() {
     "  X-Frame-Options: DENY",
     "  Referrer-Policy: strict-origin-when-cross-origin",
     "  Permissions-Policy: camera=(), microphone=(), geolocation=()",
-    "  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    `  Content-Security-Policy: ${contentSecurityPolicyHeader}`,
     "/vendor/*",
     "  Cache-Control: public, max-age=31536000, immutable",
     "/search-empty-state.js",
@@ -445,6 +590,18 @@ function writeDeploySupportFiles() {
     "  Cache-Control: no-cache",
     "/workspace-storage.js",
     "  Cache-Control: no-cache",
+    "/dashboard-storage.js",
+    "  Cache-Control: no-cache",
+    "/dashboard-prioritization.js",
+    "  Cache-Control: no-cache",
+    "/dashboard-evidence-receipts.js",
+    "  Cache-Control: no-cache",
+    "/dashboard-insights-engine.js",
+    "  Cache-Control: no-cache",
+    "/dashboard-autoresearch-loop.js",
+    "  Cache-Control: no-cache",
+    "/dashboard-view.js",
+    "  Cache-Control: no-cache",
     "/storage-status-view.js",
     "  Cache-Control: no-cache",
     "/settings-view.js",
@@ -468,6 +625,14 @@ function writeDeploySupportFiles() {
     "/global-search.js",
     "  Cache-Control: no-cache",
     "/command-palette.js",
+    "  Cache-Control: no-cache",
+    "/keyboard-shortcuts.js",
+    "  Cache-Control: no-cache",
+    "/interaction-setup.js",
+    "  Cache-Control: no-cache",
+    "/event-reminders.js",
+    "  Cache-Control: no-cache",
+    "/footer-clock.js",
     "  Cache-Control: no-cache",
     "/db-catalog.js",
     "  Cache-Control: no-cache",
@@ -497,7 +662,15 @@ function writeDeploySupportFiles() {
     "  Cache-Control: no-cache",
     "/review-recommendation-export.js",
     "  Cache-Control: no-cache",
+    "/runtime-error-boundary.js",
+    "  Cache-Control: no-cache",
     "/pwa-runtime.js",
+    "  Cache-Control: no-cache",
+    "/workspace-seed-data.js",
+    "  Cache-Control: no-cache",
+    "/home-view.js",
+    "  Cache-Control: no-cache",
+    "/ops-runtime-loader.js",
     "  Cache-Control: no-cache",
     "/app.js",
     "  Cache-Control: no-cache",
@@ -527,7 +700,7 @@ function writeDeploySupportFiles() {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
+          { key: "Content-Security-Policy", value: contentSecurityPolicyHeader },
         ],
       },
       {
@@ -537,7 +710,7 @@ function writeDeploySupportFiles() {
         ],
       },
       {
-        source: "/(search-empty-state.js|home-execution-view.js|calendar-view.js|todo-view.js|notes-view.js|habits-view.js|stats-view.js|llm-wiki-view.js|portfolio-view.js|kanban-view.js|gantt-view.js|team-view.js|workspace-storage.js|storage-status-view.js|settings-view.js|system-status-view.js|backup-import-guards.js|backup-import-ui.js|release-status.js|operations-copy-actions.js|verify-workspace-summary.js|dialog-shell.js|project-picker.js|global-search.js|command-palette.js|db-catalog.js|review-handoff.js|review-result-view.js|review-execution-checklist.js|review-issue-payload.js|review-result-state.js|review-result-draft-state.js|review-creation-actions.js|review-package-view.js|review-artifact-view.js|review-artifact-state.js|review-copy-actions.js|review-submission-copy.js|review-recommendation-export.js|pwa-runtime.js|app.js|sw.js|styles.css|index.html|404.html|autoresearch-results/release-readiness-summary.json|autoresearch-results/verify-workspace-summary.json)",
+        source: "/(search-empty-state.js|home-execution-view.js|calendar-view.js|todo-view.js|notes-view.js|habits-view.js|stats-view.js|llm-wiki-view.js|portfolio-view.js|kanban-view.js|gantt-view.js|team-view.js|workspace-storage.js|dashboard-storage.js|dashboard-prioritization.js|dashboard-evidence-receipts.js|dashboard-insights-engine.js|dashboard-autoresearch-loop.js|dashboard-view.js|storage-status-view.js|settings-view.js|system-status-view.js|backup-import-guards.js|backup-import-ui.js|release-status.js|operations-copy-actions.js|verify-workspace-summary.js|dialog-shell.js|project-picker.js|global-search.js|command-palette.js|keyboard-shortcuts.js|interaction-setup.js|event-reminders.js|footer-clock.js|db-catalog.js|review-handoff.js|review-result-view.js|review-execution-checklist.js|review-issue-payload.js|review-result-state.js|review-result-draft-state.js|review-creation-actions.js|review-package-view.js|review-artifact-view.js|review-artifact-state.js|review-copy-actions.js|review-submission-copy.js|review-recommendation-export.js|runtime-error-boundary.js|pwa-runtime.js|workspace-seed-data.js|home-view.js|ops-runtime-loader.js|app.js|sw.js|styles.css|index.html|404.html|autoresearch-results/release-readiness-summary.json|autoresearch-results/verify-workspace-summary.json)",
         headers: [
           { key: "Cache-Control", value: "no-cache" },
         ],
@@ -550,9 +723,50 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+function readPackageLockOwner(path) {
+  try {
+    return JSON.parse(readFileSync(join(path, "owner.json"), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function packageLockOwnerProcess(owner) {
+  const pid = Number(owner?.pid);
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return { alive: false, commandMatches: false, reason: "invalid_owner_pid" };
+  }
+  try {
+    process.kill(pid, 0);
+  } catch (error) {
+    if (error?.code === "EPERM") {
+      return { alive: true, commandMatches: true, reason: "owner_process_permission_denied" };
+    }
+    return { alive: false, commandMatches: false, reason: "owner_process_missing" };
+  }
+  try {
+    const command = execFileSync("ps", ["-p", String(pid), "-o", "command="], {
+      encoding: "utf-8",
+      timeout: 2000,
+    }).trim();
+    const commandMatches = command.includes("scripts/package-release.mjs");
+    return {
+      alive: true,
+      command,
+      commandMatches,
+      reason: commandMatches ? "owner_process_active" : "owner_pid_reused",
+    };
+  } catch {
+    return { alive: true, command: "", commandMatches: true, reason: "owner_process_command_unknown" };
+  }
+}
+
 function lockIsStale(path) {
   try {
-    return Date.now() - statSync(path).mtimeMs > packageLockStaleMs;
+    const ageMs = Date.now() - statSync(path).mtimeMs;
+    const ownerProcess = packageLockOwnerProcess(readPackageLockOwner(path));
+    if (ownerProcess.alive && ownerProcess.commandMatches) return false;
+    return ageMs > packageLockStaleMs;
   } catch {
     return false;
   }
@@ -608,6 +822,7 @@ function buildRelease() {
   mkdirSync(stagingDir, { recursive: true });
   try {
     for (const entry of sourceEntries) copyEntry(entry);
+    for (const entry of generatedEvidenceEntries) copyOrGenerateEvidenceEntry(entry);
     versionRuntimeAssetRefs();
     writeDeploySupportFiles();
     const manifest = buildManifest();

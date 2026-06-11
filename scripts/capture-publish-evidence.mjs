@@ -18,6 +18,8 @@ const evidenceMaxAgeHours = 24;
 const workflowDispatchPrefix = "gh workflow run --repo";
 const publishDispatchPlan = readJson("data/publish-dispatch-plan.json");
 const launchExecutionPacket = readJson("data/launch-execution-packet.json");
+const launchReadinessRefresh = readJson("data/launch-readiness-refresh.json");
+const pagesWorkflowDispatchRef = pagesWorkflowRefFromTemplate();
 
 function isPlaceholderRepo(value) {
   return !value || value === "OWNER/REPO";
@@ -52,6 +54,15 @@ function readJson(relPath) {
   }
 }
 
+function pagesWorkflowRefFromTemplate() {
+  try {
+    const template = readFileSync(resolve(root, "docs/github-pages-workflow.yml"), "utf-8");
+    return template.match(/default:\s*([^\s#]+)/)?.[1] || "codex/joopark-workspace-release";
+  } catch {
+    return "codex/joopark-workspace-release";
+  }
+}
+
 function publishDispatchSuggestionContext(plan) {
   const allDispatchReady = !!plan?.allDispatchReady;
   return {
@@ -77,7 +88,7 @@ function publishEvidenceCommandSet(targetRepo = "OWNER/REPO") {
     workflowEvidenceCommand("joopark-drift-watch.yml", commandRepo),
   ];
   const dispatchCommands = [
-    workflowDispatchCommand("joopark-pages.yml", commandRepo),
+    workflowDispatchCommand("joopark-pages.yml", commandRepo, ["-f", `ref=${pagesWorkflowDispatchRef}`]),
     workflowDispatchCommand("joopark-drift-watch.yml", commandRepo, ["-f", "mode=advisory"]),
   ];
   return {
@@ -91,7 +102,7 @@ const workflowEvidencePlans = [
     key: "pages",
     workflowName: "Publish JooPark Pages",
     workflowFile: "joopark-pages.yml",
-    dispatchFields: [],
+    dispatchFields: ["-f", `ref=${pagesWorkflowDispatchRef}`],
   },
   {
     key: "drift-watch",
@@ -106,10 +117,16 @@ const workflowEvidencePlans = [
 }));
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function runJson(command, args) {
@@ -127,6 +144,26 @@ function runJson(command, args) {
     return {
       ok: false,
       data: null,
+      stderr: String(error?.stderr || error?.message || error).slice(0, 400),
+    };
+  }
+}
+
+function runText(command, args) {
+  try {
+    const output = execFileSync(command, args, {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return {
+      ok: true,
+      output: String(output || "").trim(),
+      stderr: "",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      output: String(error?.stdout || "").trim(),
       stderr: String(error?.stderr || error?.message || error).slice(0, 400),
     };
   }
@@ -173,12 +210,17 @@ function pageSiteEvidence(targetRepo) {
       command: `gh api repos/${commandRepo}/pages`,
       ready: false,
       site: null,
+      liveUrl: null,
       error: "",
     };
   }
   const result = runJson("gh", ["api", `repos/${targetRepo}/pages`]);
   const site = result.data || null;
-  const ready = !!(result.ok && site?.html_url && site?.status === "built");
+  const liveUrl = site?.html_url ? liveUrlEvidence(site.html_url) : null;
+  const apiStatusReady = site?.status === "built";
+  const liveUrlReady = !!liveUrl?.ready;
+  const statusSource = apiStatusReady ? "pages_api_status" : liveUrlReady ? "live_url_http" : "";
+  const ready = !!(result.ok && site?.html_url && (apiStatusReady || liveUrlReady) && site?.https_enforced !== false);
   return {
     checked: true,
     command: `gh api repos/${targetRepo}/pages`,
@@ -186,9 +228,38 @@ function pageSiteEvidence(targetRepo) {
     site: site ? {
       html_url: site.html_url || "",
       status: site.status || "",
+      statusSource,
       https_enforced: !!site.https_enforced,
       public: typeof site.public === "boolean" ? site.public : null,
     } : null,
+    liveUrl,
+    error: result.ok ? "" : result.stderr,
+  };
+}
+
+function liveUrlEvidence(url) {
+  const command = `curl -L --max-time 20 -sS -o /dev/null -w "%{http_code} %{url_effective} %{content_type}" ${url}`;
+  const result = runText("curl", [
+    "-L",
+    "--max-time",
+    "20",
+    "-sS",
+    "-o",
+    "/dev/null",
+    "-w",
+    "%{http_code} %{url_effective} %{content_type}",
+    url,
+  ]);
+  const [httpStatus = "", effectiveUrl = "", ...contentTypeParts] = result.output.split(/\s+/).filter(Boolean);
+  const statusCode = Number(httpStatus);
+  const ready = !!(result.ok && statusCode >= 200 && statusCode < 400 && effectiveUrl.startsWith("https://"));
+  return {
+    checked: true,
+    command,
+    ready,
+    httpStatus,
+    effectiveUrl,
+    contentType: contentTypeParts.join(" "),
     error: result.ok ? "" : result.stderr,
   };
 }
@@ -236,14 +307,31 @@ function valueOrPending(value) {
   return String(value);
 }
 
+function pageSiteProofSource(pagesSite) {
+  return pagesSite?.site?.statusSource || (pagesSite?.ready ? "pages_evidence_ready" : "");
+}
+
+function pageSiteStatusSummary(pagesSite) {
+  const site = pagesSite?.site || {};
+  const liveUrl = pagesSite?.liveUrl || {};
+  const liveSuffix = liveUrl.checked
+    ? `; live_http=${valueOrPending(liveUrl.httpStatus)}; live_url_ready=${valueOrPending(liveUrl.ready)}`
+    : "";
+  return `${valueOrPending(site.status)}; proof_source=${valueOrPending(pageSiteProofSource(pagesSite))}${liveSuffix}`;
+}
+
 function publishEvidenceDispatchGuardLines(evidence, { includeCommands = true } = {}) {
   const suggestedCommands = Array.isArray(evidence.suggestedCommands) ? evidence.suggestedCommands : [];
   const suggestedDispatchCommands = Array.isArray(evidence.suggestedDispatchCommands) ? evidence.suggestedDispatchCommands : [];
   const withheldDispatchCommands = Array.isArray(evidence.withheldDispatchCommands) ? evidence.withheldDispatchCommands : [];
   const suggestedCommandsSafe = !suggestedCommands.some((command) => command.includes("gh workflow run --repo"));
+  const dispatchState = publishEvidenceDispatchCommandState(evidence);
   const dispatchGuardLines = [
     `Dispatch guard: ${evidence.publishDispatchReady ? "ready" : "withheld"} (${valueOrPending(evidence.dispatchSuggestionStatus)})`,
     `Suggested commands safe: ${suggestedCommandsSafe}; suggested dispatch: ${suggestedDispatchCommands.length}; withheld dispatch: ${withheldDispatchCommands.length}`,
+    `dispatchCommandDisposition: ${dispatchState.dispatchCommandDisposition}`,
+    `activeDispatchCommandCount: ${dispatchState.activeDispatchCommandCount}`,
+    `dispatchCommandReferenceCount: ${dispatchState.dispatchCommandReferenceCount}`,
   ];
   if (includeCommands && withheldDispatchCommands.length) {
     dispatchGuardLines.push(
@@ -253,6 +341,83 @@ function publishEvidenceDispatchGuardLines(evidence, { includeCommands = true } 
     );
   }
   return dispatchGuardLines;
+}
+
+function publishEvidenceDispatchCommandState(evidence) {
+  const suggestedDispatchCommands = Array.isArray(evidence?.suggestedDispatchCommands) ? evidence.suggestedDispatchCommands : [];
+  const withheldDispatchCommands = Array.isArray(evidence?.withheldDispatchCommands) ? evidence.withheldDispatchCommands : [];
+  const proofReady = !!(evidence?.postPublishEvidenceReady && evidence?.evidenceFresh);
+  if (!evidence?.publishDispatchReady) {
+    return {
+      dispatchCommandDisposition: "withheld_until_all_dispatch_ready",
+      activeDispatchCommands: [],
+      activeDispatchCommandCount: 0,
+      dispatchCommandReferenceCount: withheldDispatchCommands.length,
+    };
+  }
+  if (proofReady) {
+    return {
+      dispatchCommandDisposition: "not_applicable_after_launch_proof",
+      activeDispatchCommands: [],
+      activeDispatchCommandCount: 0,
+      dispatchCommandReferenceCount: suggestedDispatchCommands.length,
+    };
+  }
+  if (evidence?.publishDispatchReady) {
+    return {
+      dispatchCommandDisposition: "active_until_launch_proof",
+      activeDispatchCommands: suggestedDispatchCommands,
+      activeDispatchCommandCount: suggestedDispatchCommands.length,
+      dispatchCommandReferenceCount: suggestedDispatchCommands.length,
+    };
+  }
+  return {
+    dispatchCommandDisposition: "withheld_until_all_dispatch_ready",
+    activeDispatchCommands: [],
+    activeDispatchCommandCount: 0,
+    dispatchCommandReferenceCount: withheldDispatchCommands.length,
+  };
+}
+
+function publishEvidenceExternalClaimGuard(evidence) {
+  const publicLaunchProofReady = !!(evidence?.postPublishEvidenceReady && evidence?.evidenceFresh);
+  const allDispatchReady = evidence?.publishDispatchReady === true || publishDispatchPlan?.allDispatchReady === true;
+  const launchPacketReadyForExternalClaim = evidence?.launchPacketReadyForExternalClaim === true || launchExecutionPacket?.readyForExternalClaim === true;
+  const readyForExternalClaim = !!(publicLaunchProofReady && allDispatchReady && launchPacketReadyForExternalClaim);
+  const blockers = [];
+  if (!publicLaunchProofReady) {
+    blockers.push(`publicLaunchProofReady=false (postPublishEvidenceReady=${valueOrPending(evidence?.postPublishEvidenceReady)}; evidenceFresh=${valueOrPending(evidence?.evidenceFresh)})`);
+  }
+  if (!allDispatchReady) blockers.push("allDispatchReady=false");
+  if (!launchPacketReadyForExternalClaim) blockers.push("launchPacketReadyForExternalClaim=false");
+  if (!readyForExternalClaim) blockers.push("readyForExternalClaim=false");
+  return {
+    status: readyForExternalClaim ? "ready_for_external_claim" : "blocked_external_claim",
+    publicLaunchProofReady,
+    allDispatchReady,
+    launchPacketReadyForExternalClaim,
+    readyForExternalClaim,
+    blockers,
+  };
+}
+
+function publishEvidenceExternalClaimBlockerLines(evidence, guard = publishEvidenceExternalClaimGuard(evidence)) {
+  const sourceBlockers = Array.isArray(evidence?.blockers) ? evidence.blockers : [];
+  const blockers = [...sourceBlockers, ...guard.blockers].filter((blocker, index, lines) => blocker && lines.indexOf(blocker) === index);
+  return blockers.length ? blockers.map((blocker) => `- ${blocker}`) : ["- none"];
+}
+
+function publishEvidenceExternalClaimGuardLines(evidence, guard = publishEvidenceExternalClaimGuard(evidence)) {
+  return [
+    "External claim guard:",
+    `Status: ${guard.status}`,
+    `Public launch proof ready: ${valueOrPending(guard.publicLaunchProofReady)}`,
+    `allDispatchReady: ${valueOrPending(guard.allDispatchReady)}`,
+    `Launch packet readyForExternalClaim: ${valueOrPending(guard.launchPacketReadyForExternalClaim)}`,
+    `readyForExternalClaim: ${valueOrPending(guard.readyForExternalClaim)}`,
+    "External claim blockers:",
+    ...publishEvidenceExternalClaimBlockerLines(evidence, guard),
+  ];
 }
 
 function publishEvidenceActionStatus(action) {
@@ -267,20 +432,35 @@ function publishEvidenceActionCommand(action) {
   return "";
 }
 
-function publishEvidenceImmediateNextAction({ launchExecutionPacket, nextAction }) {
+function launchReadinessMatchesRepo(launchReadiness, commandRepo, suggestedRepo) {
+  const launchRepo = String(launchReadiness?.repo || "").trim();
+  if (!launchRepo) return false;
+  return launchRepo === commandRepo || launchRepo === suggestedRepo || (commandRepo === "OWNER/REPO" && launchRepo === suggestedRepo);
+}
+
+function publishEvidenceRepairFirstCommand({ current, launchReadinessRefresh, nextAction, commandRepo, suggestedRepo }) {
+  if (!current || current.stageKey !== "install_workflows") return "";
+  if (!launchReadinessMatchesRepo(launchReadinessRefresh, commandRepo, suggestedRepo)) return "";
+  const repairAction = launchReadinessRefresh?.remoteWorkflowRepairAction || {};
+  const candidate = repairAction.command || launchReadinessRefresh?.nextAction?.command || nextAction?.command || "";
+  return String(candidate || "").includes("github-pages-workflow.yml") ? candidate : "";
+}
+
+function publishEvidenceImmediateNextAction({ launchExecutionPacket, launchReadinessRefresh, nextAction, commandRepo, suggestedRepo }) {
   const current = launchExecutionPacket?.currentAction;
   if (current && launchExecutionPacket?.readyForExternalClaim !== true) {
     const commands = Array.isArray(current.commands) ? current.commands : [];
     const verifyCommands = Array.isArray(current.verifyCommands) ? current.verifyCommands : [];
     const withheldCommands = Array.isArray(current.withheldCommands) ? current.withheldCommands : [];
     const launchInstallPaths = launchInstallPathSnapshot(launchExecutionPacket);
+    const repairFirstCommand = publishEvidenceRepairFirstCommand({ current, launchReadinessRefresh, nextAction, commandRepo, suggestedRepo });
     return {
       key: current.stageKey || "install_workflows",
       label: current.label || "Current launch action",
       status: current.status || "action_required",
       detail: current.detail || "",
       successCondition: current.successCondition || "",
-      command: commands[0] || verifyCommands[0] || nextAction?.command || "",
+      command: repairFirstCommand || commands[0] || verifyCommands[0] || nextAction?.command || "",
       commandCount: Number.isFinite(Number(current.commandCount)) ? Number(current.commandCount) : commands.length,
       withheldCommandCount: Number.isFinite(Number(current.withheldCommandCount)) ? Number(current.withheldCommandCount) : withheldCommands.length,
       launchInstallPaths,
@@ -289,7 +469,7 @@ function publishEvidenceImmediateNextAction({ launchExecutionPacket, nextAction 
   }
   return {
     ...(nextAction || {}),
-    status: nextAction?.status || "action_required",
+    status: nextAction?.status || (nextAction?.key === "share-launch-proof" ? "ready" : "action_required"),
     source: "publish-evidence-next-action",
   };
 }
@@ -366,7 +546,7 @@ function publishEvidenceActionLines(evidence, { includeImmediateCommand = true, 
 
 function publishEvidenceShareUpdate(evidence) {
   const site = evidence.pagesSite?.site || {};
-  const ready = !!evidence.postPublishEvidenceReady;
+  const ready = publishEvidenceExternalClaimGuard(evidence).readyForExternalClaim;
   const repo = repoDisplayContext(evidence);
   const workflowLines = (Array.isArray(evidence.workflowRuns) ? evidence.workflowRuns : []).map((run) => {
     const latest = run.latestRun || {};
@@ -383,7 +563,7 @@ function publishEvidenceShareUpdate(evidence) {
     `Suggested repo: ${valueOrPending(evidence.suggestedRepo)}`,
     `Repo resolution: ${valueOrPending(repo.repoResolution)}`,
     `Pages URL: ${valueOrPending(site.html_url)}`,
-    `Pages status: ${valueOrPending(site.status)}`,
+    `Pages status: ${pageSiteStatusSummary(evidence.pagesSite)}`,
     `Evidence freshness: ${evidence.evidenceFresh ? "fresh" : "stale"} until ${valueOrPending(evidence.evidenceExpiresAt)}`,
     `postPublishEvidenceReady: ${evidence.postPublishEvidenceReady}`,
     ...publishEvidenceDispatchGuardLines(evidence),
@@ -397,7 +577,9 @@ function publishEvidenceShareUpdate(evidence) {
 
 function publishLaunchAnnouncement(evidence) {
   const site = evidence.pagesSite?.site || {};
-  const ready = !!evidence.postPublishEvidenceReady;
+  const claimGuard = publishEvidenceExternalClaimGuard(evidence);
+  const ready = claimGuard.readyForExternalClaim;
+  const proofReady = claimGuard.publicLaunchProofReady;
   const repo = repoDisplayContext(evidence);
   const workflowRuns = Array.isArray(evidence.workflowRuns) ? evidence.workflowRuns : [];
   const runProof = workflowRuns
@@ -406,9 +588,6 @@ function publishLaunchAnnouncement(evidence) {
       return `- ${run.workflowFile}: ${run.ready ? "success" : "not ready"} (${valueOrPending(latest.url)})`;
     });
   if (!ready) {
-    const blockerLines = Array.isArray(evidence.blockers) && evidence.blockers.length
-      ? evidence.blockers.map((blocker) => `- ${blocker}`)
-      : ["- launch proof is not ready"];
     return [
       "JooPark Public Launch Announcement",
       "Status: not ready for public posting",
@@ -417,19 +596,27 @@ function publishLaunchAnnouncement(evidence) {
       `Suggested repo: ${valueOrPending(evidence.suggestedRepo)}`,
       `Repo resolution: ${valueOrPending(repo.repoResolution)}`,
       "Reason:",
-      ...blockerLines,
+      ...publishEvidenceExternalClaimBlockerLines(evidence, claimGuard),
+      ...(proofReady ? [
+        `Live proof available: ${valueOrPending(site.html_url)}`,
+        `Verification: GitHub Pages proof ${pageSiteStatusSummary(evidence.pagesSite)}; publish and drift-watch workflows completed successfully.`,
+        `Evidence fresh until: ${valueOrPending(evidence.evidenceExpiresAt)}`,
+        "Workflow proof:",
+        ...runProof,
+      ] : []),
+      ...publishEvidenceExternalClaimGuardLines(evidence, claimGuard),
       "Dispatch gate:",
       ...publishEvidenceDispatchGuardLines(evidence, { includeCommands: false }),
-      "Do not post or dispatch until allDispatchReady: true and postPublishEvidenceReady: true.",
+      "Do not post or dispatch until allDispatchReady: true, postPublishEvidenceReady: true, and readyForExternalClaim: true.",
       ...publishEvidenceActionLines(evidence),
-      "Do not post a public launch announcement until repoEvidenceReady, evidenceFresh, and postPublishEvidenceReady are all true.",
+      "Do not post a public launch announcement until repoEvidenceReady, evidenceFresh, postPublishEvidenceReady, launchPacketReadyForExternalClaim, allDispatchReady, and readyForExternalClaim are all true.",
     ].join("\n");
   }
   return [
     "JooPark Public Launch Announcement",
     "Status: ready to post",
     `JooPark Workspace is live: ${valueOrPending(site.html_url)}`,
-    `Verification: GitHub Pages status ${valueOrPending(site.status)}; publish and drift-watch workflows completed successfully.`,
+    `Verification: GitHub Pages proof ${pageSiteStatusSummary(evidence.pagesSite)}; publish and drift-watch workflows completed successfully.`,
     `Evidence fresh until: ${valueOrPending(evidence.evidenceExpiresAt)}`,
     `Repo: ${valueOrPending(repo.displayRepo)}`,
     `Evidence repo: ${valueOrPending(repo.evidenceRepo)}${repo.repoPlaceholderResolved ? " (placeholder resolved from suggestedRepo)" : ""}`,
@@ -442,15 +629,16 @@ function publishLaunchAnnouncement(evidence) {
 
 function publishPostLaunchVerificationReceipt(evidence) {
   const site = evidence.pagesSite?.site || {};
-  const ready = !!(evidence.postPublishEvidenceReady && evidence.evidenceFresh);
+  const claimGuard = publishEvidenceExternalClaimGuard(evidence);
+  const ready = claimGuard.readyForExternalClaim;
+  const proofReady = claimGuard.publicLaunchProofReady;
+  const status = ready ? "verified for archive" : "not verified for archive";
   const repo = repoDisplayContext(evidence);
   const workflowLines = (Array.isArray(evidence.workflowRuns) ? evidence.workflowRuns : []).map((run) => {
     const latest = run.latestRun || {};
     return `- ${run.workflowFile}: ready=${run.ready}; status=${valueOrPending(latest.status)}; conclusion=${valueOrPending(latest.conclusion)}; url=${valueOrPending(latest.url)}; headSha=${valueOrPending(latest.headSha)}`;
   });
-  const blockerLines = Array.isArray(evidence.blockers) && evidence.blockers.length
-    ? evidence.blockers.map((blocker) => `- ${blocker}`)
-    : ["- none"];
+  const blockerLines = publishEvidenceExternalClaimBlockerLines(evidence, claimGuard);
   const checklistLines = [
     `- repoEvidenceReady: ${evidence.repoEvidenceReady}`,
     `- pagesEvidenceReady: ${evidence.pagesEvidenceReady}`,
@@ -458,22 +646,26 @@ function publishPostLaunchVerificationReceipt(evidence) {
     `- evidenceFresh: ${evidence.evidenceFresh}`,
     `- postPublishEvidenceReady: ${evidence.postPublishEvidenceReady}`,
     `- publishDispatchReady: ${evidence.publishDispatchReady}`,
+    `- allDispatchReady: ${claimGuard.allDispatchReady}`,
+    `- launchPacketReadyForExternalClaim: ${claimGuard.launchPacketReadyForExternalClaim}`,
+    `- readyForExternalClaim: ${claimGuard.readyForExternalClaim}`,
     `- dispatchSuggestionStatus: ${valueOrPending(evidence.dispatchSuggestionStatus)}`,
   ];
   const receipt = [
     "JooPark Post-Launch Verification Receipt",
-    `Status: ${ready ? "verified for archive" : "not ready to archive"}`,
+    `Status: ${status}`,
     `Repo: ${valueOrPending(repo.displayRepo)}`,
     `Evidence repo: ${valueOrPending(repo.evidenceRepo)}${repo.repoPlaceholderResolved ? " (placeholder resolved from suggestedRepo)" : ""}`,
     `Suggested repo: ${valueOrPending(evidence.suggestedRepo)}`,
     `Repo resolution: ${valueOrPending(repo.repoResolution)}`,
     `Pages URL: ${valueOrPending(site.html_url)}`,
-    `Pages status: ${valueOrPending(site.status)}`,
+    `Pages status: ${pageSiteStatusSummary(evidence.pagesSite)}`,
     `HTTPS enforced: ${valueOrPending(site.https_enforced)}`,
     `Evidence generated: ${valueOrPending(evidence.generatedAt)}`,
     `Evidence fresh until: ${valueOrPending(evidence.evidenceExpiresAt)}`,
     "Verification checklist:",
     ...checklistLines,
+    ...publishEvidenceExternalClaimGuardLines(evidence, claimGuard),
     "Dispatch gate:",
     ...publishEvidenceDispatchGuardLines(evidence),
     "Workflow evidence:",
@@ -484,7 +676,9 @@ function publishPostLaunchVerificationReceipt(evidence) {
   if (!ready) {
     receipt.push(
       ...publishEvidenceActionLines(evidence),
-      "Do not archive this as post-launch verification until repoEvidenceReady, pagesEvidenceReady, workflowEvidenceReady, evidenceFresh, and postPublishEvidenceReady are all true.",
+      proofReady
+        ? "Do not archive this as post-launch verification until readyForExternalClaim=true with allDispatchReady=true and launchPacketReadyForExternalClaim=true."
+        : "Do not archive this as post-launch verification until repoEvidenceReady, pagesEvidenceReady, workflowEvidenceReady, evidenceFresh, and postPublishEvidenceReady are all true.",
     );
     return receipt.join("\n");
   }
@@ -497,21 +691,25 @@ function publishPostLaunchVerificationReceipt(evidence) {
 }
 
 function publishLaunchProofEvidenceFields(evidence) {
+  const pagesSite = evidence.pagesSite || {};
   const site = evidence.pagesSite?.site || {};
   const workflowRuns = Array.isArray(evidence.workflowRuns) ? evidence.workflowRuns : [];
   const pagesRun = workflowRuns.find((run) => run.workflowFile === "joopark-pages.yml") || {};
   const driftRun = workflowRuns.find((run) => run.workflowFile === "joopark-drift-watch.yml") || {};
   const pagesLatest = pagesRun.latestRun || {};
   const driftLatest = driftRun.latestRun || {};
-  const ready = !!(evidence.postPublishEvidenceReady && evidence.evidenceFresh);
+  const claimGuard = publishEvidenceExternalClaimGuard(evidence);
+  const ready = claimGuard.readyForExternalClaim;
+  const proofReady = claimGuard.publicLaunchProofReady;
+  const releaseReceiptStatus = ready ? "verified for archive" : "not verified for archive";
   const displayRepo = repoDisplayContext(evidence).displayRepo;
   return [
     {
       label: "Pages site proof",
-      value: `html_url=${valueOrPending(site.html_url)}; status=${valueOrPending(site.status)}; https_enforced=${valueOrPending(site.https_enforced)}`,
-      required: "GitHub Pages site API must provide html_url, built status, and HTTPS enforcement.",
+      value: `html_url=${valueOrPending(site.html_url)}; status=${pageSiteStatusSummary(pagesSite)}; https_enforced=${valueOrPending(site.https_enforced)}`,
+      required: "GitHub Pages proof must provide html_url, HTTPS enforcement, and either API status=built or live URL HTTP 2xx.",
       command: evidence.pagesSite?.command || `gh api repos/${displayRepo}/pages`,
-      nextAction: `Run gh api repos/${displayRepo}/pages after the Pages workflow succeeds, then paste html_url, status=built, and https_enforced=true.`,
+      nextAction: `Run gh api repos/${displayRepo}/pages and the live URL check after the Pages workflow succeeds, then paste html_url, status or live_http=2xx, and https_enforced=true.`,
     },
     {
       label: "Pages workflow run proof",
@@ -536,14 +734,14 @@ function publishLaunchProofEvidenceFields(evidence) {
     },
     {
       label: "Release receipt proof",
-      value: `postLaunchVerificationReceipt=${evidence.postLaunchVerificationReceipt ? "available" : "missing"}; status=${ready ? "verified for archive" : "not ready to archive"}`,
-      required: "Post-launch verification receipt must be archive-ready only after live Pages and workflow evidence is ready.",
+      value: `postLaunchVerificationReceipt=${evidence.postLaunchVerificationReceipt ? "available" : "missing"}; status=${releaseReceiptStatus}`,
+      required: "Post-launch verification receipt must be archive-ready only after live Pages, workflow evidence, and the external claim guard are ready.",
       command: `node scripts/capture-publish-evidence.mjs --live --repo ${displayRepo} --markdown`,
-      nextAction: `Run node scripts/capture-publish-evidence.mjs --live --repo ${displayRepo} --markdown and paste the archive-ready post-launch verification receipt only after live proof is ready.`,
+      nextAction: `Run node scripts/capture-publish-evidence.mjs --live --repo ${displayRepo} --markdown and paste the archive-ready post-launch verification receipt only after readyForExternalClaim=true.`,
     },
     {
       label: "Public claim guard proof",
-      value: `repoEvidenceReady=${valueOrPending(evidence.repoEvidenceReady)}; pagesEvidenceReady=${valueOrPending(evidence.pagesEvidenceReady)}; workflowEvidenceReady=${valueOrPending(evidence.workflowEvidenceReady)}; readyForExternalClaim=${ready ? "eligible-after-quality-gate" : "false"}`,
+      value: `repoEvidenceReady=${valueOrPending(evidence.repoEvidenceReady)}; pagesEvidenceReady=${valueOrPending(evidence.pagesEvidenceReady)}; workflowEvidenceReady=${valueOrPending(evidence.workflowEvidenceReady)}; allDispatchReady=${valueOrPending(claimGuard.allDispatchReady)}; launchPacketReadyForExternalClaim=${valueOrPending(claimGuard.launchPacketReadyForExternalClaim)}; readyForExternalClaim=${valueOrPending(claimGuard.readyForExternalClaim)}`,
       required: "Public claim remains blocked until release quality, live proof, and launch-packet external-claim guard are all true.",
       command: "copy System Status quality receipt after readyForExternalClaim=true",
       nextAction: "Run node scripts/capture-output-quality-audit.mjs --write after live proof is ready, then paste readyForExternalClaim=true and the external claim guard receipt.",
@@ -552,15 +750,15 @@ function publishLaunchProofEvidenceFields(evidence) {
 }
 
 function publishLaunchProofEvidenceReceipt(evidence) {
-  const ready = !!(evidence.postPublishEvidenceReady && evidence.evidenceFresh);
+  const claimGuard = publishEvidenceExternalClaimGuard(evidence);
+  const ready = claimGuard.readyForExternalClaim;
+  const status = ready ? "ready for public proof review" : "guarded until external claim ready";
   const repo = repoDisplayContext(evidence);
   const fields = publishLaunchProofEvidenceFields(evidence);
-  const blockerLines = Array.isArray(evidence.blockers) && evidence.blockers.length
-    ? evidence.blockers.map((blocker) => `- ${blocker}`)
-    : ["- none"];
+  const blockerLines = publishEvidenceExternalClaimBlockerLines(evidence, claimGuard);
   return [
     "JooPark Launch Proof Evidence Receipt",
-    `Status: ${ready ? "ready for public proof review" : "blocked until live proof"}`,
+    `Status: ${status}`,
     `Repo: ${valueOrPending(repo.displayRepo)}`,
     `Evidence repo: ${valueOrPending(repo.evidenceRepo)}${repo.repoPlaceholderResolved ? " (placeholder resolved from suggestedRepo)" : ""}`,
     `Repo resolution: ${valueOrPending(repo.repoResolution)}`,
@@ -577,10 +775,12 @@ function publishLaunchProofEvidenceReceipt(evidence) {
     "Acceptance criteria:",
     ...fields.map((field) => `- ${field.label}: ${field.required}`),
     "",
+    ...publishEvidenceExternalClaimGuardLines(evidence, claimGuard),
+    "",
     "Blockers:",
     ...blockerLines,
     "",
-    "Stop condition: do not post public launch copy, archive proof, or claim readyForExternalClaim until all six evidence fields are live, fresh, linked, and successful.",
+    "Stop condition: do not post public launch copy, archive proof, or claim readyForExternalClaim until all six evidence fields are live, fresh, linked, successful, and readyForExternalClaim=true.",
   ].join("\n");
 }
 
@@ -641,10 +841,10 @@ function formatPublishEvidenceMarkdown(evidence) {
     ...publishEvidenceInstallPathLines(evidence, immediateNextAction),
     "",
     "### Deferred evidence capture",
-    `- key: ${valueOrPending(deferredNextAction?.key || nextAction.key)}`,
-    `- label: ${valueOrPending(deferredNextAction?.label || nextAction.label)}`,
-    `- detail: ${valueOrPending(deferredNextAction?.detail || nextAction.detail)}`,
-    `- command: ${(deferredNextAction?.command || nextAction.command) ? `\`${deferredNextAction?.command || nextAction.command}\`` : "not available"}`,
+    `- key: ${valueOrPending(deferredNextAction?.key)}`,
+    `- label: ${valueOrPending(deferredNextAction?.label)}`,
+    `- detail: ${valueOrPending(deferredNextAction?.detail)}`,
+    `- command: ${publishEvidenceActionCommand(deferredNextAction) ? `\`${publishEvidenceActionCommand(deferredNextAction)}\`` : "not available"}`,
     "",
     "## Share update",
     "```text",
@@ -671,8 +871,18 @@ function formatPublishEvidenceMarkdown(evidence) {
     `- ready: ${evidence.pagesSite.ready}`,
     `- html_url: ${valueOrPending(site.html_url)}`,
     `- status: ${valueOrPending(site.status)}`,
+    `- proof_source: ${valueOrPending(pageSiteProofSource(evidence.pagesSite))}`,
     `- https_enforced: ${valueOrPending(site.https_enforced)}`,
   ];
+  if (evidence.pagesSite.liveUrl) {
+    lines.push(
+      `- live_url_checked: ${evidence.pagesSite.liveUrl.checked}`,
+      `- live_url_ready: ${evidence.pagesSite.liveUrl.ready}`,
+      `- live_http_status: ${valueOrPending(evidence.pagesSite.liveUrl.httpStatus)}`,
+      `- live_effective_url: ${valueOrPending(evidence.pagesSite.liveUrl.effectiveUrl)}`,
+      `- live_content_type: ${valueOrPending(evidence.pagesSite.liveUrl.contentType)}`,
+    );
+  }
   if (evidence.pagesSite.error) lines.push(`- error: ${evidence.pagesSite.error}`);
 
   lines.push("", "## Workflow runs");
@@ -700,10 +910,12 @@ function formatPublishEvidenceMarkdown(evidence) {
     lines.push("- Safe verification and evidence-capture commands only; this section must not include workflow dispatch commands before readiness.");
     for (const command of evidence.suggestedCommands) lines.push(`- \`${command}\``);
   }
+  lines.push("", "## Suggested dispatch commands");
+  lines.push(`- dispatchSuggestionStatus: ${valueOrPending(evidence.dispatchSuggestionStatus)}`);
   if (Array.isArray(evidence.suggestedDispatchCommands) && evidence.suggestedDispatchCommands.length) {
-    lines.push("", "## Suggested dispatch commands");
-    lines.push(`- dispatchSuggestionStatus: ${valueOrPending(evidence.dispatchSuggestionStatus)}`);
     for (const command of evidence.suggestedDispatchCommands) lines.push(`- \`${command}\``);
+  } else {
+    lines.push("- none until allDispatchReady: true.");
   }
   if (Array.isArray(evidence.withheldDispatchCommands) && evidence.withheldDispatchCommands.length) {
     lines.push("", "## Withheld dispatch commands");
@@ -760,7 +972,7 @@ function publishEvidenceNextAction({ live, repo, repoEvidenceReady, pagesSite, w
     return {
       key: "verify-pages-site",
       label: "Verify GitHub Pages site",
-      detail: "GitHub Pages must expose html_url with status built before launch proof is ready.",
+      detail: "GitHub Pages must expose html_url plus API status=built or live URL HTTP 2xx before launch proof is ready.",
       command: `gh api repos/${commandRepo}/pages`,
     };
   }
@@ -793,6 +1005,7 @@ function publishEvidenceNextAction({ live, repo, repoEvidenceReady, pagesSite, w
   return {
     key: "share-launch-proof",
     label: "Share launch proof",
+    status: "ready",
     detail: "Pages and workflow run evidence are fresh and complete.",
     command: `node scripts/capture-publish-evidence.mjs --live --repo ${commandRepo} --markdown`,
   };
@@ -806,7 +1019,7 @@ const blockers = [];
 if (!live) blockers.push("live evidence was not checked; pass --live after dispatch");
 if (live && !repo) blockers.push("repo was not provided and gh repo view did not resolve nameWithOwner");
 if (live && repo === "OWNER/REPO") blockers.push("repo placeholder OWNER/REPO must be replaced before live evidence capture");
-if (live && repoEvidenceReady && !pagesSite.ready) blockers.push("GitHub Pages site html_url/status evidence is not ready");
+if (live && repoEvidenceReady && !pagesSite.ready) blockers.push("GitHub Pages site html_url/status or live URL evidence is not ready");
 for (const run of workflowRuns) {
   if (live && repoEvidenceReady && !run.latestRun) blockers.push(`${run.key}: latest workflow run was not found`);
   if (live && repoEvidenceReady && run.latestRun && !run.ready) blockers.push(`${run.key}: latest workflow run is not completed with success conclusion`);
@@ -835,7 +1048,13 @@ const proofNextAction = publishEvidenceNextAction({
   suggestedRepo,
   publishDispatchReady: dispatchContext.publishDispatchReady,
 });
-const immediateNextAction = publishEvidenceImmediateNextAction({ launchExecutionPacket, nextAction: proofNextAction });
+const immediateNextAction = publishEvidenceImmediateNextAction({
+  launchExecutionPacket,
+  launchReadinessRefresh,
+  nextAction: proofNextAction,
+  commandRepo,
+  suggestedRepo,
+});
 const deferredNextAction = immediateNextAction?.key && immediateNextAction.key !== proofNextAction.key ? proofNextAction : null;
 const nextAction = immediateNextAction?.key ? immediateNextAction : proofNextAction;
 const launchInstallPaths = immediateNextAction?.launchInstallPaths || launchInstallPathSnapshot(launchExecutionPacket);
@@ -867,6 +1086,8 @@ const payload = {
   blockers,
   publishDispatchPlanSource: dispatchContext.publishDispatchPlanSource,
   publishDispatchReady: dispatchContext.publishDispatchReady,
+  allDispatchReady: dispatchContext.publishDispatchReady,
+  launchPacketReadyForExternalClaim: launchExecutionPacket?.readyForExternalClaim === true,
   dispatchSuggestionStatus: dispatchContext.dispatchSuggestionStatus,
   nextAction,
   immediateNextAction,
@@ -886,10 +1107,23 @@ const payload = {
   withheldDispatchCommandCount: withheldDispatchCommands.length,
   suggestedDispatchCommandCount: suggestedDispatchCommands.length,
   documentationSignals: [
-    "GitHub REST: Get a GitHub Pages site returns html_url and status.",
+    "GitHub REST: Get a GitHub Pages site returns html_url and may include status.",
+    "Workflow-based GitHub Pages proof can use the live html_url HTTP 2xx check when API status is empty.",
     "GitHub REST/CLI workflow run evidence uses status and conclusion.",
   ],
 };
+
+Object.assign(payload, publishEvidenceDispatchCommandState(payload));
+{
+  const externalClaimGuard = publishEvidenceExternalClaimGuard(payload);
+  Object.assign(payload, {
+    publicLaunchProofReady: externalClaimGuard.publicLaunchProofReady,
+    readyForExternalClaim: externalClaimGuard.readyForExternalClaim,
+    externalClaimGuardStatus: externalClaimGuard.status,
+    externalClaimBlockers: externalClaimGuard.blockers,
+    externalClaimGuard,
+  });
+}
 
 payload.shareUpdate = publishEvidenceShareUpdate(payload);
 payload.launchAnnouncement = publishLaunchAnnouncement(payload);

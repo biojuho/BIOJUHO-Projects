@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,15 +16,16 @@ const failOnChange = args.has("--fail-on-change");
 const fromLiveDrift = args.has("--from-live-drift");
 const actionableOnly = args.has("--actionable-only");
 const commitPattern = /^[0-9a-f]{40}$/i;
+const liveDriftOutputTailBytes = 2000;
 const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
 const repoFilter = repoFilters[0] || "";
 
-function collectOptionValues(flag) {
+function collectOptionValues(flag, argsList = rawArgs) {
   const values = [];
-  for (let index = 0; index < rawArgs.length; index += 1) {
-    const item = rawArgs[index];
-    if (item === flag && rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--")) {
-      values.push(rawArgs[index + 1]);
+  for (let index = 0; index < argsList.length; index += 1) {
+    const item = argsList[index];
+    if (item === flag && argsList[index + 1] && !argsList[index + 1].startsWith("--")) {
+      values.push(argsList[index + 1]);
       index += 1;
     } else if (item.startsWith(`${flag}=`)) {
       values.push(item.slice(flag.length + 1));
@@ -38,6 +40,16 @@ function normalizeRepoFilter(value) {
     .replace(/^https:\/\/github\.com\//i, "")
     .replace(/\/+$/g, "")
     .toLowerCase();
+}
+
+function finiteNumberOr(value, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function actionableDriftCountFromPayload(payload) {
+  return finiteNumberOr(payload?.actionableDriftCount, finiteNumberOr(payload?.blockingDriftCount, 0));
 }
 
 function githubRepo(url) {
@@ -140,31 +152,47 @@ function fetchLiveSnapshot(repo) {
 function fetchLiveDriftSnapshot(filters) {
   const commandArgs = ["scripts/check-candidate-freshness-drift.mjs", "--live"];
   for (const filter of filters) commandArgs.push("--repo", filter);
-  const result = spawnSync("node", commandArgs, {
-    cwd: root,
-    encoding: "utf-8",
-    timeout: 60000,
-    killSignal: "SIGKILL",
-  });
+  const tempDir = mkdtempSync(join(tmpdir(), "joopark-live-drift-"));
+  const stdoutPath = join(tempDir, "stdout.json");
+  const stderrPath = join(tempDir, "stderr.log");
+  const stdoutFd = openSync(stdoutPath, "w");
+  const stderrFd = openSync(stderrPath, "w");
+  let result;
+  try {
+    result = spawnSync("node", commandArgs, {
+      cwd: root,
+      timeout: 60000,
+      killSignal: "SIGKILL",
+      stdio: ["ignore", stdoutFd, stderrFd],
+    });
+  } finally {
+    closeSync(stdoutFd);
+    closeSync(stderrFd);
+  }
+  const stdout = readFileSync(stdoutPath, "utf-8");
+  const stderr = readFileSync(stderrPath, "utf-8").trim();
+  rmSync(tempDir, { recursive: true, force: true });
   if (result.status !== 0 || result.error) {
     return {
       ok: false,
-      error: result.error ? result.error.message : result.stderr.trim() || "live drift check failed",
-      stdout: result.stdout.trim(),
-      stderr: result.stderr.trim(),
+      error: result.error ? result.error.message : stderr || "live drift check failed",
+      stdoutLength: stdout.length,
+      stdoutTail: stdout.slice(-liveDriftOutputTailBytes),
+      stderr,
     };
   }
   try {
     return {
       ok: true,
-      payload: JSON.parse(result.stdout),
+      payload: JSON.parse(stdout),
     };
   } catch (error) {
     return {
       ok: false,
       error: error.message,
-      stdout: result.stdout.trim(),
-      stderr: result.stderr.trim(),
+      stdoutLength: stdout.length,
+      stdoutTail: stdout.slice(-liveDriftOutputTailBytes),
+      stderr,
     };
   }
 }
@@ -377,7 +405,8 @@ if (fromLiveDrift) {
   if (!driftSnapshot.ok) {
     finish("blocked", {
       reason: driftSnapshot.error,
-      stdout: driftSnapshot.stdout || "",
+      stdoutLength: driftSnapshot.stdoutLength || 0,
+      stdoutTail: driftSnapshot.stdoutTail || "",
       stderr: driftSnapshot.stderr || "",
     });
   }
@@ -389,7 +418,7 @@ if (fromLiveDrift) {
       generatedAt: snapshot.payload.generatedAt || "",
       driftCount: driftSnapshot.payload?.driftCount || 0,
       blockingDriftCount: driftSnapshot.payload?.blockingDriftCount || 0,
-      actionableDriftCount: driftSnapshot.payload?.actionableDriftCount || driftSnapshot.payload?.blockingDriftCount || 0,
+      actionableDriftCount: actionableDriftCountFromPayload(driftSnapshot.payload),
       advisoryDriftCount: driftSnapshot.payload?.advisoryDriftCount || 0,
       cadenceAdvisoryDriftCount: driftSnapshot.payload?.cadenceAdvisoryDriftCount || 0,
       metadataAdvisoryDriftCount: driftSnapshot.payload?.metadataAdvisoryDriftCount || 0,
@@ -414,7 +443,7 @@ if (fromLiveDrift) {
     generatedAt: batch.changed ? batch.nextPayload.generatedAt : snapshot.payload.generatedAt || "",
     driftCount: driftSnapshot.payload?.driftCount || 0,
     blockingDriftCount: driftSnapshot.payload?.blockingDriftCount || 0,
-    actionableDriftCount: driftSnapshot.payload?.actionableDriftCount || driftSnapshot.payload?.blockingDriftCount || 0,
+    actionableDriftCount: actionableDriftCountFromPayload(driftSnapshot.payload),
     advisoryDriftCount: driftSnapshot.payload?.advisoryDriftCount || 0,
     cadenceAdvisoryDriftCount: driftSnapshot.payload?.cadenceAdvisoryDriftCount || 0,
     metadataAdvisoryDriftCount: driftSnapshot.payload?.metadataAdvisoryDriftCount || 0,
