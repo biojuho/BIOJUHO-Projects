@@ -1,0 +1,534 @@
+{
+  "schemaVersion": "joopark-github-project-discovery/v1",
+  "generatedAt": "2026-06-10T03:50:18.804Z",
+  "status": "pass",
+  "mode": "write",
+  "source": "local-git-scan+gh-repo-list",
+  "sourceCommands": [
+    "node scripts/capture-github-project-discovery.mjs --owner biojuho --local-root .. --max-depth 4 --write --markdown",
+    "gh repo list biojuho --limit 200 --json nameWithOwner,description,isPrivate,updatedAt,pushedAt,url,primaryLanguage,repositoryTopics,stargazerCount,isArchived,isFork"
+  ],
+  "owner": "biojuho",
+  "localRoot": "<local-root>",
+  "localPathMode": "relative-to-local-root",
+  "maxDepth": 4,
+  "localScan": {
+    "status": "pass",
+    "maxDepth": 4,
+    "ignoredDirectoryNames": [
+      "node_modules",
+      "vendor",
+      "dist",
+      "archive",
+      "autoresearch-results",
+      ".Trash"
+    ],
+    "hiddenDirectoryPolicy": "skip-dot-directories-except-root-git-marker",
+    "rootMode": "relative-to-local-root",
+    "reproducibleCommand": "node scripts/capture-github-project-discovery.mjs --owner biojuho --local-root .. --max-depth 4 --write --markdown",
+    "sourceCommandReproducible": true
+  },
+  "counts": {
+    "localGitRepos": 5,
+    "githubRepos": 14,
+    "rankedProjects": 9,
+    "rawRankedProjects": 17,
+    "publicRankedProjects": 9,
+    "privateRankedProjectRowsRedacted": 8,
+    "localDirtyRepos": 5,
+    "githubReposWithPushedAt": 14,
+    "freshGithubRepos": 14,
+    "privateGithubRepos": 8,
+    "privateLocalRemotes": 1,
+    "privateGithubMetadataRedacted": 9
+  },
+  "currentRepo": {
+    "path": "JooPark Project",
+    "localMatch": {
+      "path": "JooPark Project",
+      "relativePath": "JooPark Project",
+      "branch": "main",
+      "remotes": [
+        {
+          "name": "biojuho-projects",
+          "url": "https://github.com/biojuho/BIOJUHO-Projects.git",
+          "repo": {
+            "owner": "biojuho",
+            "name": "BIOJUHO-Projects",
+            "nameWithOwner": "biojuho/BIOJUHO-Projects",
+            "url": "https://github.com/biojuho/BIOJUHO-Projects"
+          }
+        }
+      ],
+      "remoteNames": [
+        "biojuho/BIOJUHO-Projects"
+      ],
+      "dirtyFileCount": 107,
+      "statusAvailable": true,
+      "privateRemoteMetadataRedacted": false,
+      "absolutePathRedacted": true
+    }
+  },
+  "githubList": {
+    "ok": true,
+    "error": ""
+  },
+  "localRepos": [
+    {
+      "path": "Haplnscience/DW 201",
+      "relativePath": "Haplnscience/DW 201",
+      "branch": "feat/e6-citation-traceability",
+      "remotes": [],
+      "remoteNames": [],
+      "dirtyFileCount": 1246,
+      "statusAvailable": true,
+      "privateRemoteMetadataRedacted": false,
+      "absolutePathRedacted": true
+    },
+    {
+      "path": "JooPark Project",
+      "relativePath": "JooPark Project",
+      "branch": "main",
+      "remotes": [
+        {
+          "name": "biojuho-projects",
+          "url": "https://github.com/biojuho/BIOJUHO-Projects.git",
+          "repo": {
+            "owner": "biojuho",
+            "name": "BIOJUHO-Projects",
+            "nameWithOwner": "biojuho/BIOJUHO-Projects",
+            "url": "https://github.com/biojuho/BIOJUHO-Projects"
+          }
+        }
+      ],
+      "remoteNames": [
+        "biojuho/BIOJUHO-Projects"
+      ],
+      "dirtyFileCount": 107,
+      "statusAvailable": true,
+      "privateRemoteMetadataRedacted": false,
+      "absolutePathRedacted": true
+    },
+    {
+      "path": "JooPark Project/autoresearch-skill-system",
+      "relativePath": "JooPark Project/autoresearch-skill-system",
+      "branch": "autoresearch/fallback-scaffold",
+      "remotes": [
+        {
+          "name": "veritas",
+          "url": "https://github.com/Veritas-7/autoresearch-skill-system.git",
+          "repo": {
+            "owner": "Veritas-7",
+            "name": "autoresearch-skill-system",
+            "nameWithOwner": "Veritas-7/autoresearch-skill-system",
+            "url": "https://github.com/Veritas-7/autoresearch-skill-system"
+          }
+        }
+      ],
+      "remoteNames": [
+        "Veritas-7/autoresearch-skill-system"
+      ],
+      "dirtyFileCount": 117,
+      "statusAvailable": true,
+      "privateRemoteMetadataRedacted": false,
+      "absolutePathRedacted": true
+    },
+    {
+      "path": "Joopark",
+      "relativePath": "Joopark",
+      "branch": "release/v0.2.0",
+      "remotes": [],
+      "remoteNames": [],
+      "dirtyFileCount": 14,
+      "statusAvailable": true,
+      "privateRemoteMetadataRedacted": false,
+      "absolutePathRedacted": true
+    },
+    {
+      "path": "Joopark/보류/X",
+      "relativePath": "Joopark/보류/X",
+      "branch": "main",
+      "remotes": [
+        {
+          "name": "origin",
+          "url": "",
+          "repo": {
+            "owner": "private:biojuho",
+            "name": "repo-01",
+            "nameWithOwner": "private:biojuho/repo-01",
+            "url": ""
+          },
+          "privateMetadataRedacted": true
+        }
+      ],
+      "remoteNames": [
+        "private:biojuho/repo-01"
+      ],
+      "dirtyFileCount": 508,
+      "statusAvailable": true,
+      "privateRemoteMetadataRedacted": true,
+      "absolutePathRedacted": true
+    }
+  ],
+  "rankedProjects": [
+    {
+      "nameWithOwner": "biojuho/BIOJUHO-Projects",
+      "url": "https://github.com/biojuho/BIOJUHO-Projects",
+      "description": "AI Projects by BIOJUHO",
+      "private": false,
+      "updatedAt": "2026-06-08T23:12:26Z",
+      "pushedAt": "2026-06-08T23:12:22Z",
+      "primaryLanguage": "Python",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": 1.2,
+        "pushedAgeDays": 1.2,
+        "recencySource": "updatedAt",
+        "recencyAgeDays": 1.2,
+        "freshWithinWindow": true
+      },
+      "relation": "current-release-target",
+      "score": 11,
+      "localCheckout": true,
+      "localPath": "JooPark Project",
+      "dirtyFileCount": 107,
+      "nextAction": "Keep launch proof, Pages workflow parity, and product smoke gates green before any public claim."
+    },
+    {
+      "nameWithOwner": "biojuho/autoresearch-skill-system",
+      "url": "https://github.com/biojuho/autoresearch-skill-system",
+      "description": "Private source-backed AutoResearch skill evolution harness",
+      "private": false,
+      "updatedAt": "2026-06-05T09:17:41Z",
+      "pushedAt": "2026-06-05T09:17:36Z",
+      "primaryLanguage": "Python",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": true,
+      "freshness": {
+        "updatedAgeDays": 4.8,
+        "pushedAgeDays": 4.8,
+        "recencySource": "updatedAt",
+        "recencyAgeDays": 4.8,
+        "freshWithinWindow": true
+      },
+      "relation": "autoresearch-toolchain",
+      "score": 7,
+      "localCheckout": false,
+      "localPath": "",
+      "dirtyFileCount": null,
+      "nextAction": "Use as reference tooling only; do not mix toolchain edits into the product release branch without a separate gate."
+    },
+    {
+      "nameWithOwner": "local:Joopark",
+      "url": "",
+      "description": "Local Git checkout without a GitHub remote.",
+      "private": null,
+      "updatedAt": "",
+      "pushedAt": "",
+      "primaryLanguage": "",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": null,
+        "pushedAgeDays": null,
+        "recencySource": "unknown",
+        "recencyAgeDays": null,
+        "freshWithinWindow": false
+      },
+      "relation": "joopark-product",
+      "score": 7,
+      "localCheckout": true,
+      "localPath": "Joopark",
+      "dirtyFileCount": 14,
+      "nextAction": "Inspect its own WORKLOG and gates before mutating; keep this product release scope separate."
+    },
+    {
+      "nameWithOwner": "biojuho/vibe-coding",
+      "url": "https://github.com/biojuho/vibe-coding",
+      "description": "Vibe Coding - All-in-one AI Assistant Workspace (private backup)",
+      "private": false,
+      "updatedAt": "2026-06-05T09:55:01Z",
+      "pushedAt": "2026-06-05T09:54:57Z",
+      "primaryLanguage": "Python",
+      "topics": [],
+      "stargazerCount": 1,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": 4.7,
+        "pushedAgeDays": 4.7,
+        "recencySource": "updatedAt",
+        "recencyAgeDays": 4.7,
+        "freshWithinWindow": true
+      },
+      "relation": "adjacent-workspace",
+      "score": 6,
+      "localCheckout": false,
+      "localPath": "",
+      "dirtyFileCount": null,
+      "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+    },
+    {
+      "nameWithOwner": "Veritas-7/autoresearch-skill-system",
+      "url": "https://github.com/Veritas-7/autoresearch-skill-system",
+      "description": "Local checkout remote outside the selected GitHub owner list.",
+      "private": null,
+      "updatedAt": "",
+      "pushedAt": "",
+      "primaryLanguage": "",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": null,
+        "pushedAgeDays": null,
+        "recencySource": "unknown",
+        "recencyAgeDays": null,
+        "freshWithinWindow": false
+      },
+      "relation": "autoresearch-toolchain",
+      "score": 6,
+      "localCheckout": true,
+      "localPath": "JooPark Project/autoresearch-skill-system",
+      "dirtyFileCount": 117,
+      "nextAction": "Use as reference tooling only; do not mix toolchain edits into the product release branch without a separate gate."
+    },
+    {
+      "nameWithOwner": "biojuho/joolife",
+      "url": "https://github.com/biojuho/joolife",
+      "description": "JooLife (쥬라프) - 라이프스타일 컨설팅 홈페이지 | joolife.io.kr",
+      "private": false,
+      "updatedAt": "2026-02-24T08:17:17Z",
+      "pushedAt": "2026-06-04T22:08:20Z",
+      "primaryLanguage": "TypeScript",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": 105.8,
+        "pushedAgeDays": 5.2,
+        "recencySource": "pushedAt",
+        "recencyAgeDays": 5.2,
+        "freshWithinWindow": true
+      },
+      "relation": "portfolio-repository",
+      "score": 3,
+      "localCheckout": false,
+      "localPath": "",
+      "dirtyFileCount": null,
+      "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+    },
+    {
+      "nameWithOwner": "biojuho/node-test",
+      "url": "https://github.com/biojuho/node-test",
+      "description": "",
+      "private": false,
+      "updatedAt": "2026-06-04T08:43:13Z",
+      "pushedAt": "2026-06-04T08:42:31Z",
+      "primaryLanguage": "JavaScript",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": 5.8,
+        "pushedAgeDays": 5.8,
+        "recencySource": "updatedAt",
+        "recencyAgeDays": 5.8,
+        "freshWithinWindow": true
+      },
+      "relation": "portfolio-repository",
+      "score": 3,
+      "localCheckout": false,
+      "localPath": "",
+      "dirtyFileCount": null,
+      "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+    },
+    {
+      "nameWithOwner": "biojuho/sajuchain",
+      "url": "https://github.com/biojuho/sajuchain",
+      "description": "Web3 Saju Fortune Platform (Built with Solana & AI)",
+      "private": false,
+      "updatedAt": "2026-02-25T12:30:00Z",
+      "pushedAt": "2026-06-04T07:11:09Z",
+      "primaryLanguage": "TypeScript",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": 104.6,
+        "pushedAgeDays": 5.9,
+        "recencySource": "pushedAt",
+        "recencyAgeDays": 5.9,
+        "freshWithinWindow": true
+      },
+      "relation": "portfolio-repository",
+      "score": 3,
+      "localCheckout": false,
+      "localPath": "",
+      "dirtyFileCount": null,
+      "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+    },
+    {
+      "nameWithOwner": "local:Haplnscience/DW 201",
+      "url": "",
+      "description": "Local Git checkout without a GitHub remote.",
+      "private": null,
+      "updatedAt": "",
+      "pushedAt": "",
+      "primaryLanguage": "",
+      "topics": [],
+      "stargazerCount": 0,
+      "archived": false,
+      "fork": false,
+      "freshness": {
+        "updatedAgeDays": null,
+        "pushedAgeDays": null,
+        "recencySource": "unknown",
+        "recencyAgeDays": null,
+        "freshWithinWindow": false
+      },
+      "relation": "local-checkout",
+      "score": 2,
+      "localCheckout": true,
+      "localPath": "Haplnscience/DW 201",
+      "dirtyFileCount": 1246,
+      "nextAction": "Inspect its own WORKLOG and gates before mutating; keep this product release scope separate."
+    }
+  ],
+  "launchCandidateSummary": {
+    "status": "pass",
+    "source": "rankedProjects",
+    "metric": "githubDiscoveryActionableProjectCoverage",
+    "requiredActionableProjectCoverage": 9,
+    "candidateActionableProjectCoverage": 9,
+    "coverageRatio": 1,
+    "releaseTargetIncluded": true,
+    "topProjectCount": 6,
+    "topProjects": [
+      {
+        "nameWithOwner": "biojuho/BIOJUHO-Projects",
+        "relation": "current-release-target",
+        "localCheckout": true,
+        "pushedAt": "2026-06-08T23:12:22Z",
+        "nextAction": "Keep launch proof, Pages workflow parity, and product smoke gates green before any public claim."
+      },
+      {
+        "nameWithOwner": "biojuho/autoresearch-skill-system",
+        "relation": "autoresearch-toolchain",
+        "localCheckout": false,
+        "pushedAt": "2026-06-05T09:17:36Z",
+        "nextAction": "Use as reference tooling only; do not mix toolchain edits into the product release branch without a separate gate."
+      },
+      {
+        "nameWithOwner": "local:Joopark",
+        "relation": "joopark-product",
+        "localCheckout": true,
+        "pushedAt": "",
+        "nextAction": "Inspect its own WORKLOG and gates before mutating; keep this product release scope separate."
+      },
+      {
+        "nameWithOwner": "biojuho/vibe-coding",
+        "relation": "adjacent-workspace",
+        "localCheckout": false,
+        "pushedAt": "2026-06-05T09:54:57Z",
+        "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+      },
+      {
+        "nameWithOwner": "Veritas-7/autoresearch-skill-system",
+        "relation": "autoresearch-toolchain",
+        "localCheckout": true,
+        "pushedAt": "",
+        "nextAction": "Use as reference tooling only; do not mix toolchain edits into the product release branch without a separate gate."
+      },
+      {
+        "nameWithOwner": "biojuho/joolife",
+        "relation": "portfolio-repository",
+        "localCheckout": false,
+        "pushedAt": "2026-06-04T22:08:20Z",
+        "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+      }
+    ]
+  },
+  "freshnessEvidence": {
+    "status": "pass",
+    "sourceFields": [
+      "updatedAt",
+      "pushedAt",
+      "stargazerCount",
+      "repositoryTopics"
+    ],
+    "recentWindowDays": 30,
+    "githubReposWithPushedAt": 14,
+    "freshGithubRepos": 14,
+    "rankedProjectsWithFreshness": 14,
+    "rankingUsesPushedAt": true,
+    "officialReferences": [
+      "https://cli.github.com/manual/gh_repo_list",
+      "https://docs.github.com/en/search-github/searching-on-github/searching-for-repositories"
+    ]
+  },
+  "releaseTargetReady": true,
+  "privacy": {
+    "publicArtifactSafe": true,
+    "absoluteLocalPathExposure": false,
+    "privateGithubMetadataRedacted": true,
+    "privateGithubMetadataExposure": 0,
+    "privateGithubRowExposure": 0,
+    "privateGithubRepoCount": 8,
+    "privateLocalRemoteCount": 1,
+    "privateRankedProjectRowsRedacted": 8,
+    "localPathMode": "relative-to-local-root",
+    "redactedFields": [
+      "localRoot",
+      "localRepos[].path",
+      "currentRepo.path",
+      "rankedProjects[].localPath",
+      "private rankedProjects[].nameWithOwner",
+      "private rankedProjects[].url",
+      "private rankedProjects[].description",
+      "private localRepos[].remotes[].url",
+      "private localRepos[].remoteNames[]"
+    ]
+  },
+  "abComparison": {
+    "status": "pass",
+    "baseline": "ad_hoc_terminal_search",
+    "candidate": "reproducible_github_project_discovery_artifact",
+    "primaryMetric": "githubDiscoveryActionableProjectCoverage",
+    "baselineActionableProjectCoverage": 0,
+    "candidateActionableProjectCoverage": 9,
+    "requiredActionableProjectCoverage": 9,
+    "candidateReleaseTargetIncluded": 1,
+    "artifactMetric": "githubProjectDiscoveryArtifactCount",
+    "baselineArtifactCount": 0,
+    "candidateArtifactCount": 2,
+    "secondaryMetric": "absoluteLocalPathExposure",
+    "baselineAbsoluteLocalPathExposure": 1,
+    "candidateAbsoluteLocalPathExposure": 0,
+    "privateMetadataMetric": "privateGithubMetadataExposure",
+    "baselinePrivateGithubMetadataExposure": 9,
+    "candidatePrivateGithubMetadataExposure": 0,
+    "privateRowMetric": "privateGithubRowExposure",
+    "baselinePrivateGithubRowExposure": 8,
+    "candidatePrivateGithubRowExposure": 0,
+    "requiredFreshnessEvidenceCoverage": 1,
+    "baselineFreshnessEvidenceCoverage": 0,
+    "candidateFreshnessEvidenceCoverage": 1,
+    "requiredReproducibilityEvidenceCoverage": 1,
+    "baselineReproducibilityEvidenceCoverage": 0,
+    "candidateReproducibilityEvidenceCoverage": 1,
+    "decision": "keep_b"
+  },
+  "guard": "Do not push, deploy, delete branches, edit unrelated repositories, or publish external copy from this discovery artifact without explicit user approval."
+}
