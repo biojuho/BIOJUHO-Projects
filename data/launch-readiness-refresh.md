@@ -2,15 +2,15 @@
 
 - status: pass
 - repo: biojuho/BIOJUHO-Projects
-- generatedAt: 2026-06-11T07:13:56.992Z
+- generatedAt: 2026-06-11T07:26:20.198Z
 - evidenceFreshness: fresh
-- evidenceExpiresAt: 2026-06-12T07:13:56.992Z
+- evidenceExpiresAt: 2026-06-12T07:26:20.198Z
 - refreshRequired: false
 - commandCoverage: 6
 - decision: keep_b
 - sourceArtifactCount: 6
 - sourceArtifactSync: pass
-- outputQualityGeneratedAt: 2026-06-11T07:13:56.951Z
+- outputQualityGeneratedAt: 2026-06-11T07:26:20.160Z
 - outputQualitySourceInputCount: 11
 - latestGate: npm run verify -> 284 pass, 0 fail, 0 not_run, 0 blocked
 - workflowScopeAvailable: true
@@ -34,16 +34,16 @@
 - status: pass
 - primaryMetric: launchReadinessOutputQualityGateTraceability
 - candidate: 1
-- evidence: npm run verify -> 284 pass, 0 fail, 0 not_run, 0 blocked; sourceInputCount=11; generatedAt=2026-06-11T07:13:56.951Z
+- evidence: npm run verify -> 284 pass, 0 fail, 0 not_run, 0 blocked; sourceInputCount=11; generatedAt=2026-06-11T07:26:20.160Z
 
 ## Evidence Freshness
 - freshness: fresh
 - maxAgeHours: 24
-- expiresAt: 2026-06-12T07:13:56.992Z
+- expiresAt: 2026-06-12T07:26:20.198Z
 - refreshRequired: false
 - sourceArtifactCount: 6
 - sourceArtifactSync: pass
-- sourceArtifactSyncOutputQualityGeneratedAt: 2026-06-11T07:13:56.951Z
+- sourceArtifactSyncOutputQualityGeneratedAt: 2026-06-11T07:26:20.160Z
 - policy: Rerun npm run refresh:launch-readiness before workflow dispatch, live publish proof capture, or external completion claim when this artifact is stale.
 - workflow_ui_install_plan: pass - data/workflow-ui-install-plan.json
 - remote_workflow_file_check: pass - data/remote-workflow-file-check.json
