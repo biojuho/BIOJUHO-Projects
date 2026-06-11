@@ -17,7 +17,7 @@
         : null;
     const watchedRegistrations = typeof WeakSet === "function" ? new WeakSet() : null;
     const watchedWorkers = typeof WeakSet === "function" ? new WeakSet() : null;
-    let controllerObserved = !!(rootNavigator.serviceWorker && rootNavigator.serviceWorker.controller);
+    let controllerObserved = !!serviceWorkerController();
     let updateDetected = false;
     let updateToastShown = false;
     let updateReloadRequested = false;
@@ -32,6 +32,10 @@
 
     function serviceWorkerSupported() {
       return "serviceWorker" in rootNavigator;
+    }
+
+    function serviceWorkerController() {
+      return rootNavigator.serviceWorker ? rootNavigator.serviceWorker.controller : null;
     }
 
     function updateCallback(onUpdate) {
@@ -135,7 +139,7 @@
         secureContext: !!rootWindow.isSecureContext,
         localHostContext: localHostContext(),
         serviceWorkerSupported: serviceWorkerSupported(),
-        controller: !!(rootNavigator.serviceWorker && rootNavigator.serviceWorker.controller),
+        controller: !!serviceWorkerController(),
         cachesSupported: !!rootCaches,
         manifestLinked: !!(rootDocument && rootDocument.querySelector('link[rel="manifest"][href$="site.webmanifest"]')),
         standalone: !!(rootWindow.matchMedia && rootWindow.matchMedia("(display-mode: standalone)").matches) || rootNavigator.standalone === true,
@@ -191,7 +195,7 @@
       if (serviceWorkerSupported()) {
         rootNavigator.serviceWorker.addEventListener("controllerchange", () => {
           const hadController = controllerObserved;
-          controllerObserved = !!rootNavigator.serviceWorker.controller;
+          controllerObserved = !!serviceWorkerController();
           refresh();
           if (hadController && updateDetected) showUpdateAppliedToast();
         });
