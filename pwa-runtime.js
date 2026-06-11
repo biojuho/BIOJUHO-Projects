@@ -10,6 +10,17 @@
     const rootNavigator = options.navigator || rootWindow.navigator || {};
     const rootLocation = options.location || rootWindow.location || {};
     const rootCaches = options.caches || rootWindow.caches;
+    const showToast = typeof options.showToast === "function"
+      ? options.showToast
+      : typeof rootWindow.showToast === "function"
+        ? rootWindow.showToast
+        : null;
+    const watchedRegistrations = typeof WeakSet === "function" ? new WeakSet() : null;
+    const watchedWorkers = typeof WeakSet === "function" ? new WeakSet() : null;
+    let controllerObserved = !!(rootNavigator.serviceWorker && rootNavigator.serviceWorker.controller);
+    let updateDetected = false;
+    let updateToastShown = false;
+    let updateReloadRequested = false;
 
     function localHostContext() {
       return rootLocation.hostname === "localhost" || rootLocation.hostname === "127.0.0.1";
@@ -25,6 +36,75 @@
 
     function updateCallback(onUpdate) {
       return typeof onUpdate === "function" ? onUpdate : function () {};
+    }
+
+    function updateReload() {
+      updateReloadRequested = true;
+      const locationRef = rootLocation && typeof rootLocation.reload === "function"
+        ? rootLocation
+        : rootWindow.location;
+      if (locationRef && typeof locationRef.reload === "function") {
+        locationRef.reload();
+        return true;
+      }
+      return false;
+    }
+
+    function showUpdateToast(message) {
+      if (!showToast || updateToastShown) return false;
+      updateToastShown = true;
+      showToast(message, "info", {
+        actionLabel: "새로고침",
+        onAction: updateReload,
+        timeoutMs: 12000,
+      });
+      return true;
+    }
+
+    function showUpdateReadyToast() {
+      return showUpdateToast("새 버전이 준비되었습니다");
+    }
+
+    function showUpdateAppliedToast() {
+      if (updateReloadRequested) return false;
+      return showUpdateToast("새 버전이 적용되었습니다");
+    }
+
+    function registrationHasUpdate(registration, worker) {
+      return !!(controllerObserved && registration && registration.active && worker && registration.active !== worker);
+    }
+
+    function watchWorker(worker, refresh, updateCandidate) {
+      if (!worker || typeof worker.addEventListener !== "function") return false;
+      if (watchedWorkers && watchedWorkers.has(worker)) return true;
+      if (watchedWorkers) watchedWorkers.add(worker);
+      const isUpdateCandidate = !!updateCandidate;
+      worker.addEventListener("statechange", () => {
+        refresh();
+        if (!controllerObserved || (!isUpdateCandidate && !updateDetected)) return;
+        if (worker.state === "installed") showUpdateReadyToast();
+        if (worker.state === "activated") showUpdateAppliedToast();
+      });
+      return true;
+    }
+
+    function watchRegistration(registration, refresh) {
+      if (!registration || typeof registration !== "object") return false;
+      if (registrationHasUpdate(registration, registration.waiting)) {
+        updateDetected = true;
+        showUpdateReadyToast();
+      }
+      watchWorker(registration.installing, refresh, registrationHasUpdate(registration, registration.installing));
+      if (typeof registration.addEventListener !== "function") return false;
+      if (watchedRegistrations && watchedRegistrations.has(registration)) return true;
+      if (watchedRegistrations) watchedRegistrations.add(registration);
+      registration.addEventListener("updatefound", () => {
+        const isUpdateCandidate = registrationHasUpdate(registration, registration.installing);
+        if (isUpdateCandidate) updateDetected = true;
+        watchWorker(registration.installing, refresh, isUpdateCandidate);
+        refresh();
+      });
+      return true;
     }
 
     function statusLabel(runtime) {
@@ -109,8 +189,18 @@
       rootWindow.addEventListener("online", refresh);
       rootWindow.addEventListener("offline", refresh);
       if (serviceWorkerSupported()) {
-        rootNavigator.serviceWorker.addEventListener("controllerchange", refresh);
-        rootNavigator.serviceWorker.ready.then(refresh).catch(refresh);
+        rootNavigator.serviceWorker.addEventListener("controllerchange", () => {
+          const hadController = controllerObserved;
+          controllerObserved = !!rootNavigator.serviceWorker.controller;
+          refresh();
+          if (hadController && updateDetected) showUpdateAppliedToast();
+        });
+        rootNavigator.serviceWorker.ready
+          .then((registration) => {
+            watchRegistration(registration, refresh);
+            refresh();
+          })
+          .catch(refresh);
       }
       refresh();
     }
@@ -121,7 +211,10 @@
       if (!secureEnoughForServiceWorker()) return false;
       rootWindow.addEventListener("load", () => {
         rootNavigator.serviceWorker.register("./sw.js", { scope: "./" })
-          .then(refresh)
+          .then((registration) => {
+            watchRegistration(registration, refresh);
+            refresh();
+          })
           .catch(() => {
             // Registration is an enhancement; static hosting still works without it.
           })

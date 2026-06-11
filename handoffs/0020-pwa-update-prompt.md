@@ -1,9 +1,9 @@
 # 핸드오프 0020 — PWA 새 버전 알림 UI (첫 배포 전 필수)
 
-- **상태:** OPEN
+- **상태:** DONE
 - **기획자:** Claude Code
 - **추천 실행자:** Codex
-- **실행자:** —
+- **실행자:** Codex
 - **작성일:** 2026-06-11
 
 > **선행 조건: 0019(런치 커밋 트레인)가 DONE이어야 착수할 수 있다.** 워크트리가 깨끗한 상태에서 시작해, 완료 즉시 커밋 1개로 끝낸다.
@@ -47,7 +47,7 @@
 
 ## 반환 섹션 (실행자가 채운다)
 
-- **결과:**
-- **실행한 게이트:**
-- **사용자 가시 변화 한 줄:**
-- **남은 것 / 막힌 곳:**
+- **결과:** `pwa-runtime.js`가 기존 active service worker가 있는 상태에서 새 installing/waiting worker를 감지하면 기존 토스트 패턴으로 새 버전 알림을 띄운다. 첫 설치 `controllerchange`는 조용히 지나가도록 판정을 좁혔고, 실제 업데이트에는 "새 버전이 준비되었습니다" 또는 controllerchange fallback의 "새 버전이 적용되었습니다" 토스트와 "새로고침" 액션이 노출된다. `sw.js` 캐시 전략과 `index.html` 스크립트 순서는 바꾸지 않았다.
+- **실행한 게이트:** `node --check pwa-runtime.js`, `node --check scripts/test-pure-helpers.mjs`, `npm run test:unit`, `npm run smoke:cockpit`, `npm test` 모두 pass. 수동 SW 업데이트 시나리오는 로컬 테스트 서버에서 첫 `CACHE_VERSION`(`manual-a`)으로 SW 등록/제어 확인 → 서버가 `sw.js`의 `CACHE_VERSION`을 메모리상 `manual-b`로 제공 → `registration.update()` 후 "새 버전이 준비되었습니다새로고침" 토스트와 액션 노출 확인 → 액션 클릭 확인으로 통과했다. 중복 product smoke lock 프로세스는 테스트 충돌 방지를 위해 정리한 뒤 단일 `npm test`로 최종 pass를 확인했다.
+- **사용자 가시 변화 한 줄:** 배포 후 새 서비스워커 버전이 준비되면 사용자는 토스트에서 새 버전과 새로고침 액션을 확인할 수 있다.
+- **남은 것 / 막힌 곳:** 없음. push/dispatch는 하지 않았다.

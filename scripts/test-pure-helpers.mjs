@@ -104,6 +104,23 @@ function artifactStorageMock(options = {}) {
   };
 }
 
+function eventTargetMock(extra = {}) {
+  const listeners = new Map();
+  return {
+    ...extra,
+    addEventListener(type, callback) {
+      if (!listeners.has(type)) listeners.set(type, []);
+      listeners.get(type).push(callback);
+    },
+    dispatchEventType(type, event = {}) {
+      (listeners.get(type) || []).forEach((callback) => callback(event));
+    },
+    listenerCount(type) {
+      return (listeners.get(type) || []).length;
+    },
+  };
+}
+
 function matches(value, query) {
   if (!query) return true;
   return String(value || "").toLowerCase().includes(String(query || "").toLowerCase());
@@ -642,6 +659,146 @@ function testRuntimeErrorBoundary() {
   invalidDebounceBoundary.handle(new Error("first invalid debounce"));
   invalidDebounceBoundary.handle(new Error("second invalid debounce"));
   assert.equal(invalidDebounceToasts.length, 1);
+}
+
+async function testPwaRuntimeUpdateReadyToast() {
+  const runtime = loadRuntime("pwa-runtime.js");
+  const toasts = [];
+  const reloads = [];
+  const loadCallbacks = [];
+  const worker = eventTargetMock({ state: "installing", scriptURL: "http://127.0.0.1:5178/sw.js" });
+  const registration = eventTargetMock({
+    active: { scriptURL: "http://127.0.0.1:5178/sw.js" },
+    installing: worker,
+    waiting: null,
+    scope: "http://127.0.0.1:5178/",
+  });
+  const serviceWorker = eventTargetMock({
+    controller: { scriptURL: "http://127.0.0.1:5178/sw.js" },
+    ready: Promise.resolve(registration),
+    async register() {
+      return registration;
+    },
+    async getRegistration() {
+      return registration;
+    },
+  });
+  const rootWindow = {
+    isSecureContext: true,
+    addEventListener(type, callback) {
+      if (type === "load") loadCallbacks.push(callback);
+    },
+    location: { reload: () => reloads.push("window") },
+  };
+  const api = runtime.JooParkPwaRuntime.create({
+    window: rootWindow,
+    document: { querySelector: () => ({ href: "./site.webmanifest" }) },
+    navigator: { serviceWorker, onLine: true },
+    location: { hostname: "127.0.0.1", reload: () => reloads.push("location") },
+    showToast(message, tone, options) {
+      toasts.push({ message, tone, options });
+    },
+  });
+
+  assert.equal(api.register(() => {}), true);
+  assert.equal(loadCallbacks.length, 1);
+  loadCallbacks[0]();
+  await Promise.resolve();
+  await Promise.resolve();
+  registration.dispatchEventType("updatefound");
+  assert.equal(worker.listenerCount("statechange"), 1);
+  worker.state = "installed";
+  worker.dispatchEventType("statechange");
+
+  assert.equal(toasts.length, 1);
+  assert.equal(toasts[0].tone, "info");
+  assert.match(toasts[0].message, /새 버전이 준비되었습니다/);
+  assert.equal(toasts[0].options.actionLabel, "새로고침");
+  assert.equal(toasts[0].options.timeoutMs, 12000);
+  toasts[0].options.onAction();
+  assert.deepEqual(reloads, ["location"]);
+}
+
+async function testPwaRuntimeControllerChangeAppliedToast() {
+  const runtime = loadRuntime("pwa-runtime.js");
+  const toasts = [];
+  const refreshes = [];
+  const worker = eventTargetMock({ state: "installing", scriptURL: "http://127.0.0.1:5178/sw.js?v=2" });
+  const activeWorker = { scriptURL: "http://127.0.0.1:5178/sw.js?v=1" };
+  const registration = eventTargetMock({
+    active: activeWorker,
+    installing: worker,
+    waiting: null,
+    scope: "http://127.0.0.1:5178/",
+  });
+  const serviceWorker = eventTargetMock({
+    controller: activeWorker,
+    ready: Promise.resolve(registration),
+    async getRegistration() {
+      return registration;
+    },
+  });
+  const api = runtime.JooParkPwaRuntime.create({
+    window: { isSecureContext: true, addEventListener() {}, location: { reload() {} } },
+    document: { querySelector: () => ({ href: "./site.webmanifest" }) },
+    navigator: { serviceWorker, onLine: true },
+    location: { hostname: "127.0.0.1" },
+    showToast(message, tone, options) {
+      toasts.push({ message, tone, options });
+    },
+  });
+
+  api.setupObservers(() => refreshes.push("refresh"));
+  await Promise.resolve();
+  registration.dispatchEventType("updatefound");
+  serviceWorker.controller = worker;
+  serviceWorker.dispatchEventType("controllerchange");
+
+  assert(refreshes.length >= 2);
+  assert.equal(toasts.length, 1);
+  assert.equal(toasts[0].tone, "info");
+  assert.match(toasts[0].message, /새 버전이 적용되었습니다/);
+  assert.equal(toasts[0].options.actionLabel, "새로고침");
+}
+
+async function testPwaRuntimeFirstInstallStaysQuiet() {
+  const runtime = loadRuntime("pwa-runtime.js");
+  const toasts = [];
+  const refreshes = [];
+  const worker = eventTargetMock({ state: "installing", scriptURL: "http://127.0.0.1:5178/sw.js" });
+  const registration = eventTargetMock({
+    active: null,
+    installing: worker,
+    waiting: null,
+    scope: "http://127.0.0.1:5178/",
+  });
+  const serviceWorker = eventTargetMock({
+    controller: null,
+    ready: Promise.resolve(registration),
+    async getRegistration() {
+      return registration;
+    },
+  });
+  const api = runtime.JooParkPwaRuntime.create({
+    window: { isSecureContext: true, addEventListener() {}, location: { reload() {} } },
+    document: { querySelector: () => ({ href: "./site.webmanifest" }) },
+    navigator: { serviceWorker, onLine: true },
+    location: { hostname: "127.0.0.1" },
+    showToast(message, tone, options) {
+      toasts.push({ message, tone, options });
+    },
+  });
+
+  api.setupObservers(() => refreshes.push("refresh"));
+  await Promise.resolve();
+  registration.dispatchEventType("updatefound");
+  serviceWorker.controller = worker;
+  serviceWorker.dispatchEventType("controllerchange");
+  worker.state = "activated";
+  worker.dispatchEventType("statechange");
+
+  assert(refreshes.length >= 3);
+  assert.equal(toasts.length, 0);
 }
 
 function testCalendarViewModelAndEscapes() {
@@ -5181,6 +5338,9 @@ testStorageStatusRecoveryView();
 testKanbanHelpers();
 testImportGuards();
 testRuntimeErrorBoundary();
+await testPwaRuntimeUpdateReadyToast();
+await testPwaRuntimeControllerChangeAppliedToast();
+await testPwaRuntimeFirstInstallStaysQuiet();
 testCalendarViewModelAndEscapes();
 testTodoViewModelAndEscapes();
 testNotesViewModelAndEscapes();
