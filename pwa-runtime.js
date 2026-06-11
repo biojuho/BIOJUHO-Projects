@@ -2,6 +2,11 @@
   "use strict";
 
   const VERSION = "joopark-pwa-runtime/v1";
+  const UPDATE_READY_TOAST = "새 버전이 준비되었습니다";
+  const UPDATE_APPLIED_TOAST = "새 버전이 적용되었습니다";
+  const UPDATE_TOAST_ACTION = "새로고침";
+  const UPDATE_TOAST_TONE = "info";
+  const UPDATE_TOAST_TIMEOUT_MS = 12000;
 
   function createPwaRuntime(deps) {
     const options = deps || {};
@@ -57,21 +62,21 @@
     function showUpdateToast(message) {
       if (!showToast || updateToastShown) return false;
       updateToastShown = true;
-      showToast(message, "info", {
-        actionLabel: "새로고침",
+      showToast(message, UPDATE_TOAST_TONE, {
+        actionLabel: UPDATE_TOAST_ACTION,
         onAction: updateReload,
-        timeoutMs: 12000,
+        timeoutMs: UPDATE_TOAST_TIMEOUT_MS,
       });
       return true;
     }
 
     function showUpdateReadyToast() {
-      return showUpdateToast("새 버전이 준비되었습니다");
+      return showUpdateToast(UPDATE_READY_TOAST);
     }
 
     function showUpdateAppliedToast() {
       if (updateReloadRequested) return false;
-      return showUpdateToast("새 버전이 적용되었습니다");
+      return showUpdateToast(UPDATE_APPLIED_TOAST);
     }
 
     function registrationHasUpdate(registration, worker) {

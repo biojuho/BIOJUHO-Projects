@@ -338,6 +338,71 @@ function parseJsonFromOutputs(...outputs) {
   return null;
 }
 
+function verifyWorkspaceSummarySemanticSyncReady(
+  verifyWorkspaceSummaryArtifact,
+  launchReadinessRefreshArtifact,
+  outputQualityAuditArtifact,
+  productLoopArtifact,
+) {
+  function numberOr(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+  function bool(value) {
+    return value === true;
+  }
+  function gateSummary(checks = {}) {
+    return `${numberOr(checks.pass)} pass, ${numberOr(checks.fail)} fail, ${numberOr(checks.notRun)} not_run, ${numberOr(checks.blocked)} blocked`;
+  }
+  function latestGateSummary(artifact, fallbackGate = {}) {
+    return artifact?.latestGateSummary || gateSummary(artifact?.latestGate?.checks || fallbackGate?.checks || {});
+  }
+
+  const summary = verifyWorkspaceSummaryArtifact || {};
+  const artifacts = summary.artifacts || {};
+  const launch = artifacts.launchReadiness || {};
+  const output = artifacts.outputQuality || {};
+  const product = artifacts.productLoop || {};
+  const evidenceSync = artifacts.evidenceSync || {};
+  const currentLaunch = launchReadinessRefreshArtifact || {};
+  const currentOutput = outputQualityAuditArtifact || {};
+  const currentProduct = productLoopArtifact || {};
+
+  const statusReady = (summary.status === "pass" || summary.status === "blocked") &&
+    summary.syncArtifacts === true &&
+    summary.evidenceSyncPass === true;
+  const launchReady = launch.status === (currentLaunch.status || "missing") &&
+    launch.latestGateSummary === latestGateSummary(currentLaunch, currentOutput.latestGate) &&
+    bool(launch.safeToDispatch) === bool(currentLaunch.safeToDispatch) &&
+    bool(launch.readyForExternalClaim) === bool(currentLaunch.readyForExternalClaim) &&
+    bool(launch.workflowScopeInstallBlocked) === bool(currentLaunch.workflowScopeInstallBlocked) &&
+    (launch.dispatchCommandDisposition || "") === (currentLaunch.dispatchCommandDisposition || "") &&
+    numberOr(launch.activeDispatchCommandCount) === numberOr(currentLaunch.activeDispatchCommandCount) &&
+    numberOr(launch.dispatchCommandReferenceCount) === numberOr(currentLaunch.dispatchCommandReferenceCount);
+  const outputReady = output.status === (currentOutput.status || "missing") &&
+    output.latestGateSummary === latestGateSummary(currentOutput) &&
+    bool(output.releaseQualityReady) === bool(currentOutput.releaseQualityReady) &&
+    bool(output.publicLaunchProofReady) === bool(currentOutput.publicLaunchProofReady) &&
+    bool(output.readyForExternalClaim) === bool(currentOutput.readyForExternalClaim);
+  const productReady = product.status === (currentProduct.status || "missing") &&
+    product.latestGateSummary === gateSummary(currentProduct.latestGate?.checks || {}) &&
+    (product.latestExperiment || "") === (currentProduct.latestExperiment?.id || "") &&
+    numberOr(product.latestDirectionLoopNumber) === numberOr(currentProduct.latestDirectionLoop?.number) &&
+    (product.latestDirectionExperiment || "") === (currentProduct.summarySync?.latestDirectionExperimentId || "") &&
+    (product.latestDiscoveryExperiment || "") === (currentProduct.summarySync?.latestDiscoveryExperimentId || "") &&
+    numberOr(product.nextCandidateCount) === (Array.isArray(currentProduct.nextCandidates) ? currentProduct.nextCandidates.length : 0);
+  const evidenceReady = evidenceSync.status === "pass" &&
+    evidenceSync.productLoopGateParityReady === true &&
+    evidenceSync.productLoopPublishParityReady === true &&
+    evidenceSync.summarySyncReady === true &&
+    evidenceSync.nextCandidateListReady === true &&
+    evidenceSync.directionLoopSyncReady === true &&
+    evidenceSync.latestDirectionExperimentReady === true &&
+    evidenceSync.latestDiscoveryExperimentReady === true;
+
+  return statusReady && launchReady && outputReady && productReady && evidenceReady;
+}
+
 function read(relPath) {
   return readFileSync(join(root, relPath), "utf-8");
 }
@@ -3031,21 +3096,40 @@ function buildChecklist() {
     { file: "scripts/verify-release.mjs", terms: ["verify-workspace-summary.js", "autoresearch-results/verify-workspace-summary.json", "sourceParityFiles", "./autoresearch-results/verify-workspace-summary.json"] },
     { file: "scripts/smoke-release.mjs", terms: ["verify-workspace-summary.js", "verify_workspace_summary_runtime_cache_no_cache", "autoresearch-results/verify-workspace-summary.json", "verify_workspace_summary_cache_no_cache", "verifyWorkspaceSummary"] },
     { file: "sw.js", terms: ["./verify-workspace-summary.js", "./autoresearch-results/verify-workspace-summary.json"] },
-    { file: "scripts/audit-release-readiness.mjs", terms: ["verify_command_gate_only", "verifyCommandGateOnlyTerms", "verifyWorkspaceSummaryArtifactSync", "verifyWorkspaceSummaryStatusReady", "verifyWorkspaceSummaryLaunchGeneratedAt", "currentLaunchGeneratedAt", "verifyWorkspaceSummaryLatestExperiment", "currentLatestExperiment", "verify:full", "refresh-launch-readiness remains explicit outside default verify", "scripts/verify-workspace.mjs", "autoresearch-results/verify-workspace-summary.json"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["verify_command_gate_only", "verifyCommandGateOnlyTerms", "verifyWorkspaceSummarySemanticSyncReady", "verifyWorkspaceSummaryArtifactExactSyncReady", "verifyWorkspaceSummaryArtifactSemanticSyncReady", "exactGeneratedAtSyncReady", "semanticSyncReady", "verifyWorkspaceSummaryArtifactSync", "verifyWorkspaceSummaryLaunchGeneratedAt", "currentLaunchGeneratedAt", "verifyWorkspaceSummaryLatestExperiment", "currentLatestExperiment", "verify:full", "refresh-launch-readiness remains explicit outside default verify", "scripts/verify-workspace.mjs", "autoresearch-results/verify-workspace-summary.json"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
-  const verifyWorkspaceSummaryStatusReady = verifyWorkspaceSummaryArtifact?.status === "pass" ||
-    verifyWorkspaceSummaryArtifact?.status === "blocked";
-  const verifyWorkspaceSummaryArtifactSyncReady = verifyWorkspaceSummaryStatusReady &&
-    verifyWorkspaceSummaryArtifact.syncArtifacts === true &&
-    verifyWorkspaceSummaryArtifact.evidenceSyncPass === true &&
-    verifyWorkspaceSummaryArtifact.artifacts?.launchReadiness?.generatedAt === launchReadinessRefreshArtifact?.generatedAt &&
-    verifyWorkspaceSummaryArtifact.artifacts?.launchReadiness?.dispatchCommandReferenceCount === launchReadinessRefreshArtifact?.dispatchCommandReferenceCount &&
-    verifyWorkspaceSummaryArtifact.artifacts?.outputQuality?.generatedAt === outputQualityAuditArtifact?.generatedAt &&
-    verifyWorkspaceSummaryArtifact.artifacts?.productLoop?.generatedAt === productLoopArtifact?.generatedAt &&
-    verifyWorkspaceSummaryArtifact.artifacts?.productLoop?.latestExperiment === productLoopArtifact?.latestExperiment?.id;
+  const verifyWorkspaceSummaryArtifactBaseReady = (
+    verifyWorkspaceSummaryArtifact?.status === "pass" ||
+    verifyWorkspaceSummaryArtifact?.status === "blocked"
+  ) &&
+    verifyWorkspaceSummaryArtifact?.syncArtifacts === true &&
+    verifyWorkspaceSummaryArtifact?.evidenceSyncPass === true;
+  const verifyWorkspaceSummaryArtifactExactSyncReady = verifyWorkspaceSummaryArtifactBaseReady &&
+    (
+      verifyWorkspaceSummaryArtifact?.artifacts?.launchReadiness?.generatedAt || ""
+    ) === (launchReadinessRefreshArtifact?.generatedAt || "") &&
+    (
+      verifyWorkspaceSummaryArtifact?.artifacts?.outputQuality?.generatedAt || ""
+    ) === (outputQualityAuditArtifact?.generatedAt || "") &&
+    (
+      verifyWorkspaceSummaryArtifact?.artifacts?.productLoop?.generatedAt || ""
+    ) === (productLoopArtifact?.generatedAt || "") &&
+    (
+      verifyWorkspaceSummaryArtifact?.artifacts?.productLoop?.latestExperiment || ""
+    ) === (productLoopArtifact?.latestExperiment?.id || "") &&
+    Number(verifyWorkspaceSummaryArtifact?.artifacts?.launchReadiness?.dispatchCommandReferenceCount || 0) ===
+      Number(launchReadinessRefreshArtifact?.dispatchCommandReferenceCount || 0);
+  const verifyWorkspaceSummaryArtifactSemanticSyncReady = verifyWorkspaceSummarySemanticSyncReady(
+    verifyWorkspaceSummaryArtifact,
+    launchReadinessRefreshArtifact,
+    outputQualityAuditArtifact,
+    productLoopArtifact,
+  );
   const verifyWorkspaceSummaryArtifactSync = {
-    status: runGates || verifyWorkspaceSummaryArtifactSyncReady ? "pass" : "fail",
+    status: runGates || verifyWorkspaceSummaryArtifactExactSyncReady || verifyWorkspaceSummaryArtifactSemanticSyncReady ? "pass" : "fail",
     skippedDuringRunGates: runGates,
+    exactGeneratedAtSyncReady: verifyWorkspaceSummaryArtifactExactSyncReady,
+    semanticSyncReady: verifyWorkspaceSummaryArtifactSemanticSyncReady,
     summaryGeneratedAt: verifyWorkspaceSummaryArtifact?.generatedAt || "",
     verifyWorkspaceSummaryLaunchGeneratedAt: verifyWorkspaceSummaryArtifact?.artifacts?.launchReadiness?.generatedAt || "",
     currentLaunchGeneratedAt: launchReadinessRefreshArtifact?.generatedAt || "",
@@ -3058,7 +3142,7 @@ function buildChecklist() {
     verifyWorkspaceSummaryDispatchReferenceCount: verifyWorkspaceSummaryArtifact?.artifacts?.launchReadiness?.dispatchCommandReferenceCount,
     currentDispatchReferenceCount: launchReadinessRefreshArtifact?.dispatchCommandReferenceCount,
     repairCommand: "npm run verify:full",
-    requirement: "autoresearch-results/verify-workspace-summary.json must match the current launch-readiness, output-quality, and product-loop artifacts outside the --run-gates repair path.",
+    requirement: "autoresearch-results/verify-workspace-summary.json must match current launch-readiness, output-quality, and product-loop state outside the --run-gates repair path; generatedAt-only drift is allowed when semantic guard state still matches.",
   };
   checklist.push({
     id: "verify_command_gate_only",

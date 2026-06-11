@@ -5219,9 +5219,111 @@ function testFullVerifyRefreshesPackagedBrowserGates() {
   assert.equal(source.includes('if (result.status !== "pass") break;'), false);
   assert.match(source, /releaseReadiness\.status === "blocked"/);
   assert.match(source, /hasBlockedStep \? "blocked" : "pass"/);
-  assert.match(auditSource, /const verifyWorkspaceSummaryStatusReady = verifyWorkspaceSummaryArtifact\?\.status === "pass" \|\|/);
-  assert.match(auditSource, /verifyWorkspaceSummaryArtifact\?\.status === "blocked"/);
-  assert.match(auditSource, /verifyWorkspaceSummaryArtifactSyncReady = verifyWorkspaceSummaryStatusReady &&/);
+  assert.match(auditSource, /function verifyWorkspaceSummarySemanticSyncReady\(/);
+  assert.match(auditSource, /const statusReady = \(summary\.status === "pass" \|\| summary\.status === "blocked"\) &&/);
+  assert.match(auditSource, /const verifyWorkspaceSummaryArtifactBaseReady = \(/);
+  assert.match(auditSource, /const verifyWorkspaceSummaryArtifactExactSyncReady = verifyWorkspaceSummaryArtifactBaseReady &&/);
+  assert.match(auditSource, /const verifyWorkspaceSummaryArtifactSemanticSyncReady = verifyWorkspaceSummarySemanticSyncReady\(/);
+  assert.match(auditSource, /exactGeneratedAtSyncReady: verifyWorkspaceSummaryArtifactExactSyncReady/);
+  assert.match(auditSource, /semanticSyncReady: verifyWorkspaceSummaryArtifactSemanticSyncReady/);
+  assert.match(auditSource, /generatedAt-only drift is allowed when semantic guard state still matches/);
+}
+
+function testVerifyWorkspaceSummarySemanticSyncAllowsGeneratedAtOnlyDrift() {
+  const semanticReady = scriptFunction(
+    "scripts/audit-release-readiness.mjs",
+    "verifyWorkspaceSummarySemanticSyncReady",
+  );
+  const gateSummary = "284 pass, 0 fail, 0 not_run, 0 blocked";
+  const summary = {
+    status: "blocked",
+    syncArtifacts: true,
+    evidenceSyncPass: true,
+    artifacts: {
+      launchReadiness: {
+        status: "pass",
+        latestGateSummary: gateSummary,
+        safeToDispatch: false,
+        readyForExternalClaim: false,
+        workflowScopeInstallBlocked: false,
+        dispatchCommandDisposition: "withheld",
+        activeDispatchCommandCount: 0,
+        dispatchCommandReferenceCount: 2,
+        generatedAt: "old-launch-time",
+      },
+      outputQuality: {
+        status: "pass",
+        latestGateSummary: gateSummary,
+        releaseQualityReady: true,
+        publicLaunchProofReady: true,
+        readyForExternalClaim: false,
+        generatedAt: "old-output-time",
+      },
+      productLoop: {
+        status: "release-quality-ready-public-launch-proof-ready",
+        latestGateSummary: gateSummary,
+        latestExperiment: "loop-207",
+        latestDirectionLoopNumber: 207,
+        latestDirectionExperiment: "loop-207",
+        latestDiscoveryExperiment: "github-project-discovery-artifact",
+        nextCandidateCount: 1,
+        generatedAt: "same-product-time",
+      },
+      evidenceSync: {
+        status: "pass",
+        productLoopGateParityReady: true,
+        productLoopPublishParityReady: true,
+        summarySyncReady: true,
+        nextCandidateListReady: true,
+        directionLoopSyncReady: true,
+        latestDirectionExperimentReady: true,
+        latestDiscoveryExperimentReady: true,
+      },
+    },
+  };
+  const launch = {
+    status: "pass",
+    latestGateSummary: gateSummary,
+    safeToDispatch: false,
+    readyForExternalClaim: false,
+    workflowScopeInstallBlocked: false,
+    dispatchCommandDisposition: "withheld",
+    activeDispatchCommandCount: 0,
+    dispatchCommandReferenceCount: 2,
+    generatedAt: "new-launch-time",
+  };
+  const output = {
+    status: "pass",
+    latestGate: { checks: { pass: 284, fail: 0, notRun: 0, blocked: 0 } },
+    releaseQualityReady: true,
+    publicLaunchProofReady: true,
+    readyForExternalClaim: false,
+    generatedAt: "new-output-time",
+  };
+  const product = {
+    status: "release-quality-ready-public-launch-proof-ready",
+    latestGate: { checks: { pass: 284, fail: 0, notRun: 0, blocked: 0 } },
+    latestExperiment: { id: "loop-207" },
+    latestDirectionLoop: { number: 207 },
+    summarySync: {
+      latestDirectionExperimentId: "loop-207",
+      latestDiscoveryExperimentId: "github-project-discovery-artifact",
+    },
+    nextCandidates: ["github-project-discovery-artifact"],
+    generatedAt: "same-product-time",
+  };
+
+  assert.equal(semanticReady(summary, launch, output, product), true);
+  assert.equal(semanticReady(summary, { ...launch, readyForExternalClaim: true }, output, product), false);
+  assert.equal(
+    semanticReady(
+      summary,
+      launch,
+      { ...output, latestGate: { checks: { pass: 283, fail: 1, notRun: 0, blocked: 0 } } },
+      product,
+    ),
+    false,
+  );
 }
 
 function testPagesAttestationBlankTemplateGuard() {
@@ -5423,6 +5525,7 @@ testCapturePreviewInlineOptions();
 testProductSmokeCloseUnrefsForcedServer();
 testProductSmokeCliExitsAfterFlushedSuccess();
 testFullVerifyRefreshesPackagedBrowserGates();
+testVerifyWorkspaceSummarySemanticSyncAllowsGeneratedAtOnlyDrift();
 testPagesAttestationBlankTemplateGuard();
 testPagesAttestationOptionValueGuard();
 testRefreshCandidateSnapshotLiveDriftBuffer();
