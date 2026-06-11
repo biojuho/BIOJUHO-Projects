@@ -90,6 +90,7 @@ function installSteps(workflowUiInstallPlan, publishDispatchPlan) {
       targetMatchesTemplate: !!plan.targetMatchesTemplate,
       copyCommand: plan.templateCopyCommand || "",
       openNewFileCommand: plan.githubNewFileOpenCommand || "",
+      openEditFileCommand: plan.githubEditFileOpenCommand || "",
       workflowUrl: plan.githubWorkflowUrl || "",
       openWorkflowCommand: plan.githubWorkflowOpenCommand || "",
       cliInstallCommand,
@@ -120,6 +121,21 @@ function workflowUiInstallCommands({ install, remoteWorkflowFileCheck }) {
     }
     const newFileCommand = check.githubNewFileOpenCommand || remediation.githubNewFileOpenCommand || plan.openNewFileCommand || "";
     return [copyCommand, newFileCommand].filter(Boolean);
+  });
+}
+
+function workflowUiInstallPathCommands({ install, remoteWorkflowFileCheck }) {
+  return install.flatMap((plan) => {
+    const check = remoteWorkflowCheckForPlan(plan, remoteWorkflowFileCheck);
+    const remediation = check.remediation || {};
+    const installAction = check.installAction || remediation.installAction || "";
+    const copyCommand = check.templateCopyCommand || remediation.templateCopyCommand || plan.copyCommand || "";
+    const editCommand = check.githubEditFileOpenCommand || remediation.githubEditFileOpenCommand || plan.openEditFileCommand || "";
+    const newFileCommand = check.githubNewFileOpenCommand || remediation.githubNewFileOpenCommand || plan.openNewFileCommand || "";
+    if (installAction === "replace_existing_remote_file" || installAction === "verified_remote_matches_template" || (check.remoteExists && check.remoteMatchesTemplate)) {
+      return copyCommand && editCommand ? [`${copyCommand} && ${editCommand}`] : [copyCommand, editCommand].filter(Boolean);
+    }
+    return copyCommand && newFileCommand ? [`${copyCommand} && ${newFileCommand}`] : [copyCommand, newFileCommand].filter(Boolean);
   });
 }
 
@@ -164,6 +180,7 @@ function remoteWorkflowFileOpenCommand(options) {
 function installPathOptions({ install, publishDispatchPlan, remoteWorkflowFileCheck, remoteFileCommand, remoteInstallerCommand, workflowScopeInstallBlocked, workflowScopeRefreshCommand, workflowScopeRecheckCommand }) {
   const handoff = publishDispatchPlan?.workflowDefaultBranchHandoff || {};
   const githubUiCommands = workflowUiInstallCommands({ install, remoteWorkflowFileCheck });
+  const githubUiPathCommands = workflowUiInstallPathCommands({ install, remoteWorkflowFileCheck });
   return [
     {
       key: "cli_workflow_scope",
@@ -189,6 +206,7 @@ function installPathOptions({ install, publishDispatchPlan, remoteWorkflowFileCh
       label: "GitHub UI path",
       when: "Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch workflow repair.",
       commands: uniq([
+        ...githubUiPathCommands,
         ...githubUiCommands,
         remoteFileCommand,
         publishDispatchPlan?.nextVerificationCommand,
