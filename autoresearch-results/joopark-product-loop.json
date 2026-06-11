@@ -1,35 +1,35 @@
 {
-  "generatedAt": "2026-06-08T22:54:31Z",
+  "generatedAt": "2026-06-11T01:16:18.666Z",
   "project": "JooPark Workspace",
-  "status": "release-quality-ready-public-launch-blocked",
+  "status": "release-quality-ready-public-launch-proof-ready",
   "latestGate": {
     "command": "npm run verify",
     "status": "pass",
     "checks": {
-      "pass": 282,
+      "pass": 284,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 282
+      "total": 284
     },
     "evidenceDowngradeGuard": {
       "source": "previous_output_quality_audit",
       "applied": false,
-      "previousGeneratedAt": "2026-06-08T22:51:55.446Z",
+      "previousGeneratedAt": "2026-06-11T01:16:18.199Z",
       "previousAgeHours": 0,
-      "reason": "previous_output_quality_browser_evidence_ready",
-      "candidateComplete": true,
-      "previousComplete": true
+      "reason": "previous_output_quality_not_pass",
+      "candidateComplete": false,
+      "previousComplete": false
     },
     "browserEvidence": {
       "routes": 17,
       "mobileRoutes": 17,
-      "interactionSteps": 66,
-      "releaseFiles": 76,
-      "releaseBytes": 3127808,
+      "interactionSteps": 67,
+      "releaseFiles": 92,
+      "releaseBytes": 3276817,
       "deploySupportFiles": 4,
       "releaseSourceParity": true,
-      "releaseSourceParityFiles": 57,
+      "releaseSourceParityFiles": 65,
       "publishEvidenceShareUpdate": true,
       "publishLaunchAnnouncement": true,
       "publishPostLaunchReceipt": true,
@@ -54,16 +54,16 @@
       "publishLaunchAnnouncementDispatchGuardCoverage": 1,
       "publishEvidenceInstallPathCopyCoverage": 1,
       "publishEvidenceInstallPathPaths": 2,
-      "publishEvidenceInstallPathCommands": 14,
+      "publishEvidenceInstallPathCommands": 10,
       "publishEvidenceShareUpdateInstallPathCopy": true,
       "publishLaunchAnnouncementInstallPathCopy": true,
       "publishPostLaunchReceiptInstallPathCopy": true,
-      "publishDispatchAuthPreflight": true,
-      "systemStatusWorkflowAuthPreflightFields": 1,
+      "publishDispatchAuthPreflight": false,
+      "systemStatusWorkflowAuthPreflightFields": 0,
       "launchExecutionPacket": true,
       "launchExecutionPacketStages": 5,
-      "launchExecutionPacketCommands": 16,
-      "launchExecutionPacketExternalComparisonSources": 3,
+      "launchExecutionPacketCommands": 11,
+      "launchExecutionPacketExternalComparisonSources": 2,
       "launchPostAuthCheckpointCoverage": 1,
       "launchPostAuthCheckpointCommandCount": 5,
       "launchPostAuthCheckpointExpectedSignals": 6,
@@ -72,7 +72,7 @@
       "launchPostAuthCheckpointDispatchApproval": false,
       "launchPostAuthCheckpointVerificationOnly": true,
       "workflowUiInstallReceiptCoverage": 1,
-      "workflowUiInstallReceiptCommandCount": 8,
+      "workflowUiInstallReceiptCommandCount": 6,
       "workflowUiInstallReceiptChecklistCount": 6,
       "workflowUiInstallPastePacketCopy": true,
       "workflowUiInstallPastePacketCoverage": 1,
@@ -92,16 +92,16 @@
       "postInstallEvidenceIntakeFieldCoverage": 1,
       "postInstallProofParser": true,
       "postInstallProofParserFalsePositiveGuard": true,
-      "postInstallProofParserFields": 6,
-      "postInstallProofParserCoverage": 1,
-      "postInstallProofParserDetectedFields": 6,
+      "postInstallProofParserFields": 0,
+      "postInstallProofParserCoverage": 0,
+      "postInstallProofParserDetectedFields": 0,
       "launchProofEvidenceReceipt": true,
       "launchProofEvidenceFields": 6,
       "launchProofEvidenceFieldCoverage": 1,
-      "outputQualityAuditReceipt": true,
-      "outputQualityExternalClaimGuard": true,
-      "outputQualityExternalComparison": true,
-      "outputQualityExternalComparisonSources": 4,
+      "outputQualityAuditReceipt": false,
+      "outputQualityExternalClaimGuard": false,
+      "outputQualityExternalComparison": false,
+      "outputQualityExternalComparisonSources": 0,
       "reviewPackageReadyToSubmit": true,
       "reviewPackageFinalQualityScore": "6/6",
       "reviewPackageArtifactQualityRubric": true,
@@ -2285,7 +2285,7 @@
         "The Markdown report renders Suggested repo commands, Withheld dispatch commands, and a Do not run until allDispatchReady: true guard",
         "release-status.js exposes data-publish-evidence-suggested-commands-safe=true, suggested dispatch count 0, withheld dispatch count 2, and the command guard DOM",
         "scripts/smoke-interactions.mjs and scripts/audit-release-readiness.mjs verify that Suggested repo commands stay verification-only before allDispatchReady",
-        "data/output-quality-audit.json now includes publishEvidenceCommandGuard in outputReadinessSnapshot, and the quality receipt prints Publish evidence command guard: pass (7 safe suggestions, 0 suggested dispatch, 2 withheld dispatch)"
+        "data/output-quality-audit.json now includes publishEvidenceCommandGuard in outputReadinessSnapshot, and the quality receipt prints Publish evidence command guard: pass (7 safe suggestions, 0 suggested dispatch, 2 withheld dispatch, active=0, reference=2, disposition=withheld_until_all_dispatch_ready)"
       ],
       "externalComparison": {
         "label": "GitHub manual workflow dispatch requires workflow_dispatch on the default branch, so publish evidence keeps dispatch commands withheld until the dispatch plan proves allDispatchReady",
@@ -3645,12 +3645,13 @@
       "baseline": 1,
       "candidate": 2,
       "decision": "keep",
-      "generatedAt": "2026-06-08T22:51:55.871Z",
+      "generatedAt": "2026-06-11T01:16:18.666Z",
       "hypothesis": "The AutoResearch product-loop summary should carry the same latest gate and launch publish blockers as the final output-quality audit so operators do not see stale pass counts or stale external-claim state.",
       "evidence": [
-        "Baseline product-loop latestGate reported 281 pass/281 total while data/output-quality-audit.json reported 282 pass/282 total.",
+        "Baseline product-loop latestGate reported 284 pass/284 total while data/output-quality-audit.json reported 284 pass/284 total.",
         "scripts/sync-product-loop-summary.mjs now updates autoresearch-results/joopark-product-loop.json from data/output-quality-audit.json and records gateParityReady=true plus publishParityReady=true.",
-        "Tracked publish blockers are synchronized: remoteWorkflowFilesReady=false, remoteWorkflowVisibilityReady=false, workflowScopeInstallBlocked=true, postPublishEvidenceReady=false, readyForExternalClaim=false."
+        "Tracked publish blockers are synchronized: remoteWorkflowFilesReady=false, remoteWorkflowVisibilityReady=true, workflowScopeInstallBlocked=false, postPublishEvidenceReady=true, readyForExternalClaim=false.",
+        "Next candidates are synchronized to proof-ready state: nextCandidateCount=6, readyForExternalClaim=false."
       ],
       "externalComparison": {
         "label": "Operational release summaries are only useful when their headline status matches the underlying audit receipt; the sync keeps the product-loop summary aligned with the evidence source before handoff.",
@@ -4393,6 +4394,1589 @@
         "label": "A Pages publish workflow should rebuild when any packaged runtime helper changes; path filters must follow the package manifest rather than an older partial asset list.",
         "urls": []
       }
+    },
+    {
+      "id": "ops-runtime-diagnostics",
+      "primaryMetric": "opsRuntimeDiagnosticsCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T01:55:42.982Z",
+      "hypothesis": "The lazy operations/review runtime should expose group and file load diagnostics so System Status and browser smoke can explain route-gated runtime failures without relying on raw console output.",
+      "evidence": [
+        "Baseline ops-runtime-loader.js only returned loaded file counts and did not preserve pending, failed, group last-load status, or bounded load events.",
+        "Candidate ops-runtime-loader.js now records lastErrors, loadEvents, groupLoads, fileStats, groupStats, failed, pending, lastLoads, and loaded file totals.",
+        "System Status now renders an Ops runtime diagnostics panel with loaded lazy files, ready groups, pending/failed counts, and release/review group rows.",
+        "scripts/smoke-interactions.mjs verifies the System Status ops runtime diagnostics dataset and visible panel copy.",
+        "scripts/audit-release-readiness.mjs now has an ops_runtime_diagnostics checklist item; fresh release gate passed at 283 pass, 0 fail, 0 not_run, 0 blocked."
+      ],
+      "externalComparison": {
+        "label": "Hosted CI and browser runtime systems surface load/failure state near the operator summary; JooPark should do the same locally for lazy release/review scripts.",
+        "urls": [
+          "https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement",
+          "https://web.dev/learn/performance/code-split-javascript",
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary"
+        ]
+      }
+    },
+    {
+      "id": "verify-summary-latest-experiment-receipt",
+      "primaryMetric": "verifyWorkspaceLatestExperimentReceiptCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T02:01:56.224Z",
+      "hypothesis": "The full verify summary and System Status receipt should surface the latest AutoResearch experiment id, not only the latest direction loop, so operators can trace the verified artifact back to the concrete improvement that just landed.",
+      "evidence": [
+        "Baseline verify-workspace-summary.json already carried artifacts.productLoop.latestExperiment, but verify-workspace-summary.js did not require it and the System Status receipt did not display it.",
+        "verify-workspace-summary.js now validates productLoop.latestExperiment and latestDirectionLoop as required summary shape fields.",
+        "release-status.js now exposes data-verify-workspace-summary-latest-experiment and writes latestExperiment into the verify workspace receipt and visible productLoop row.",
+        "scripts/smoke-interactions.mjs now verifies the dataset, visible text, receipt text, and clipboard copy carry the same non-empty latestExperiment value.",
+        "README.md documents that npm run verify:full stores latestExperiment plus latestDirectionLoop in the summary and System Status receipt."
+      ],
+      "externalComparison": {
+        "label": "Experiment tracking and CI summaries should connect the current run to the concrete experiment it verified; JooPark keeps that trace in the local static receipt.",
+        "urls": [
+          "https://mlflow.org/docs/latest/ml/tracking/",
+          "https://www.w3.org/TR/prov-dm/",
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary"
+        ]
+      }
+    },
+    {
+      "id": "share-proof-next-action-ready-status",
+      "primaryMetric": "shareProofNextActionStatusParity",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T02:15:16.852Z",
+      "hypothesis": "The final proof handoff should mark share-launch-proof as ready and avoid duplicating the same command as a deferred action once live launch proof is already complete.",
+      "evidence": [
+        "Baseline data/publish-evidence.json and data/output-quality-audit.json showed share-launch-proof with status action_required even when postPublishEvidenceReady=true and readyForExternalClaim=true.",
+        "scripts/capture-publish-evidence.mjs now assigns status ready to the final share-launch-proof next action.",
+        "scripts/capture-output-quality-audit.mjs now carries the ready status, uses the proof-ready detail instead of a stale workflow-scope approval guard, and leaves deferredKey/deferredCommand empty when no explicit deferred action exists.",
+        "release-status.js, scripts/smoke-interactions.mjs, scripts/audit-release-readiness.mjs, and README.md now check or document the ready next-action state.",
+        "Regenerated data/publish-evidence.json and data/output-quality-audit.json show nextAction.status=ready, nextAction.guard=Pages and workflow run evidence are fresh and complete, deferredKey empty, and readyForExternalClaim=true."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing summaries should distinguish work still required from evidence that is ready to share; JooPark keeps the final receipt state aligned with the proof artifacts instead of preserving stale blocker copy.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://www.w3.org/TR/prov-dm/",
+          "https://mlflow.org/docs/latest/ml/tracking/"
+        ]
+      }
+    },
+    {
+      "id": "release-summary-deferred-proof-none",
+      "primaryMetric": "releaseSummaryDeferredProofAccuracy",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T02:26:53.984Z",
+      "hypothesis": "The release readiness summary should say there is no deferred proof when the final proof action is ready and no explicit deferred action exists.",
+      "evidence": [
+        "Baseline release summary printed Deferred proof: pending - pending after Loop 141 even though output-quality nextAction.deferredKey and deferredCommand were empty.",
+        "scripts/audit-release-readiness.mjs now formats missing deferred proof as Deferred proof: none through deferredProofSummaryLine().",
+        "auditSummaryFormatPlan now requires Deferred proof: none so the summary contract prevents a regression to pending placeholders.",
+        "node scripts/audit-release-readiness.mjs --format=summary passed and printed Next action: share-launch-proof [ready] plus Deferred proof: none."
+      ],
+      "externalComparison": {
+        "label": "Operator summaries should not invent pending work when no deferred action exists; the release summary now mirrors the structured output-quality receipt.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://www.w3.org/TR/prov-dm/"
+        ]
+      }
+    },
+    {
+      "id": "launch-readiness-active-dispatch-disposition",
+      "primaryMetric": "launchReadinessActiveDispatchDispositionCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T02:38:38.359Z",
+      "hypothesis": "The launch-readiness receipt should preserve suggested dispatch commands as reference evidence while exposing zero active dispatch commands after launch proof is ready.",
+      "evidence": [
+        "Baseline data/launch-readiness-refresh.json had readyForExternalClaim=true and nextAction=share_launch_proof but still exposed suggestedDispatchCommandCount=2 without an active/reference distinction.",
+        "scripts/refresh-launch-readiness.mjs now writes dispatchCommandDisposition, activeDispatchCommands, activeDispatchCommandCount, and dispatchCommandReferenceCount while preserving suggestedDispatchCommands for provenance.",
+        "release-status.js now renders launch-readiness and verify-workspace dispatch state from active/reference counts instead of a raw safe/withheld label.",
+        "scripts/smoke-interactions.mjs now verifies proof-ready state with dispatchCommandDisposition=not_applicable_after_launch_proof, activeDispatchCommandCount=0, and dispatchCommandReferenceCount=2.",
+        "Regenerated data/launch-readiness-refresh.json and .md show suggestedDispatchCommandCount=2, activeDispatchCommandCount=0, dispatchCommandReferenceCount=2, and nextAction=share_launch_proof."
+      ],
+      "externalComparison": {
+        "label": "Workflow dispatch commands remain useful provenance, but the operator-facing handoff should name whether any dispatch command is currently active after proof is already ready.",
+        "urls": [
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://www.w3.org/TR/prov-dm/"
+        ]
+      }
+    },
+    {
+      "id": "product-loop-proof-ready-next-candidates",
+      "primaryMetric": "stalePreProofNextCandidates",
+      "baseline": 4,
+      "candidate": 0,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T02:53:20.717Z",
+      "hypothesis": "The product-loop summary should replace pre-proof workflow install and dispatch next candidates once readyForExternalClaim=true so operators see only proof-ready follow-ups.",
+      "evidence": [
+        "Baseline nextCandidates still told operators to land workflows, fill post-install evidence, fill launch proof, and rerun dispatch even though publish.readyForExternalClaim=true.",
+        "scripts/sync-product-loop-summary.mjs now derives nextCandidates from status and publish readiness through nextCandidatesForStatus().",
+        "Proof-ready nextCandidates now start with sharing the launch proof, archiving release and verification receipts, capturing signed attestation proof when available, preparing the main-branch PR bridge, and continuing low-state extraction only after receipts stay green.",
+        "summarySync now records nextCandidatesReady=true, nextCandidateCount=5, and nextCandidatesChanged=true for the adoption sync."
+      ],
+      "externalComparison": {
+        "label": "Post-release handoffs should point operators at share/archive/provenance actions rather than already-completed setup commands.",
+        "urls": [
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases",
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://mlflow.org/docs/latest/ml/tracking/"
+        ]
+      }
+    },
+    {
+      "id": "verify-summary-next-candidate-list-receipt",
+      "primaryMetric": "verifyWorkspaceNextCandidateReceiptCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T03:05:40.117Z",
+      "hypothesis": "The full verify receipt should include the actual proof-ready next candidate list, not only nextCandidatesReady and a count.",
+      "evidence": [
+        "Baseline verify-workspace-summary.json and System Status showed nextCandidatesReady=true and nextCandidateCount=5, but the proof-ready candidate text still required opening autoresearch-results/joopark-product-loop.json.",
+        "scripts/verify-workspace.mjs now snapshots productLoop.nextCandidates into artifacts.productLoop.nextCandidates and requires nextCandidateListReady before evidenceSync passes.",
+        "verify-workspace-summary.js validates nextCandidateCount, the candidate string array, nextCandidatesReady=true, and nextCandidateListReady=true.",
+        "release-status.js renders the proof-ready candidates in the Verify workspace summary panel and copies them into the JooPark Verify Workspace Summary Receipt.",
+        "scripts/smoke-interactions.mjs now checks the visible and copied receipt text for nextCandidateList=true and the share-launch-proof candidate."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing summaries should carry the concrete next actions they certify instead of forcing readers to reconcile a boolean against raw experiment JSON.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases",
+          "https://www.w3.org/TR/prov-dm/"
+        ]
+      }
+    },
+    {
+      "id": "publish-evidence-active-dispatch-disposition",
+      "primaryMetric": "publishEvidenceActiveDispatchDispositionCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T03:22:18.232Z",
+      "hypothesis": "Proof-ready publish evidence receipts should distinguish active dispatch commands from historical suggested dispatch references after launch proof is ready.",
+      "evidence": [
+        "Baseline data/publish-evidence.json was proof-ready, but share and post-launch receipts still showed suggested dispatch 2 and withheld dispatch 0 without active/reference disposition.",
+        "scripts/capture-publish-evidence.mjs now writes dispatchCommandDisposition, activeDispatchCommands, activeDispatchCommandCount, and dispatchCommandReferenceCount while preserving suggestedDispatchCommands as provenance.",
+        "release-status.js renders publish evidence dispatch disposition and active/reference counts in the System Status publish evidence panel.",
+        "scripts/capture-output-quality-audit.mjs now carries publish evidence dispatch disposition and counts into outputReadinessSnapshot and the final output-quality receipt.",
+        "Regenerated publish and output-quality evidence show dispatchCommandDisposition=not_applicable_after_launch_proof, activeDispatchCommandCount=0, and dispatchCommandReferenceCount=2."
+      ],
+      "externalComparison": {
+        "label": "Proof-ready receipts should separate executable dispatch actions from archived command references so operators do not rerun launch workflows after proof is already complete.",
+        "urls": [
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://www.w3.org/TR/prov-dm/"
+        ]
+      }
+    },
+    {
+      "id": "github-project-discovery-artifact",
+      "primaryMetric": "githubDiscoveryActionableProjectCoverage",
+      "baseline": 0,
+      "candidate": 9,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T03:50:18.804Z",
+      "topProjects": [
+        {
+          "nameWithOwner": "biojuho/BIOJUHO-Projects",
+          "relation": "current-release-target",
+          "localCheckout": true,
+          "nextAction": "Keep launch proof, Pages workflow parity, and product smoke gates green before any public claim."
+        },
+        {
+          "nameWithOwner": "biojuho/autoresearch-skill-system",
+          "relation": "autoresearch-toolchain",
+          "localCheckout": false,
+          "nextAction": "Use as reference tooling only; do not mix toolchain edits into the product release branch without a separate gate."
+        },
+        {
+          "nameWithOwner": "local:Joopark",
+          "relation": "joopark-product",
+          "localCheckout": true,
+          "nextAction": "Inspect its own WORKLOG and gates before mutating; keep this product release scope separate."
+        },
+        {
+          "nameWithOwner": "biojuho/vibe-coding",
+          "relation": "adjacent-workspace",
+          "localCheckout": false,
+          "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+        }
+      ],
+      "topProjectCount": 4,
+      "releaseTargetIncluded": true,
+      "hypothesis": "GitHub-related project discovery should be reproducible and ranked instead of relying on one-off terminal searches before product launch decisions.",
+      "evidence": [
+        "Captured 5 local Git checkouts from <local-root>.",
+        "Captured 14 GitHub repositories for owner biojuho.",
+        "Ranked 9 related local and remote projects, including local-only and external-owner remotes.",
+        "Actionable public project coverage 9/9 from rankedProjects; release target included=true.",
+        "Top reusable projects: biojuho/BIOJUHO-Projects, biojuho/autoresearch-skill-system, local:Joopark, biojuho/vibe-coding.",
+        "Release target ready=true; guard=Do not push, deploy, delete branches, edit unrelated repositories, or publish external copy from this discovery artifact without explicit user approval..",
+        "Artifacts: data/github-project-discovery.json and data/github-project-discovery.md; artifactCount=2."
+      ],
+      "externalComparison": {
+        "label": "Launch work that references multiple GitHub projects needs a reusable inventory artifact with explicit guardrails before any cross-repository edits or external actions.",
+        "urls": [
+          "https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages",
+          "https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations"
+        ]
+      }
+    },
+    {
+      "id": "loop-151-public-copy-parity-after-live-publish-evidence-is-fresh",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T14:51:01.810Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-151 from docs/product-direction.md.",
+        "Direction summary: The next product gap is public copy parity after live publish evidence is fresh. Direction check: `postPublishEvidenceReady=true` made the launch announcement, post-launch receipt, and launch proof receipt sound ready for public posting or archive even while `allDispatchReady=false`, `launchPacketReadyForExternalCla...",
+        "Verification summary: Loop 151 changed `scripts/capture-publish-evidence.mjs`, `release-status.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `data/publish-evidence.json`, `data/output-quality-audit.json`, and this direction log. Baseline guarded public copy parity was `0/1` because the launch announcement and archive receipts could say ready while `readyForExternalClaim=false`; candidate parity is `1/1`...",
+        "Output-quality audit generatedAt=2026-06-09T14:51:01.810Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-152-autoresearch-headline-traceability",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T15:23:21.312Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-152 from docs/product-direction.md.",
+        "Direction summary: The next product gap is AutoResearch headline traceability. Direction check: Loop 151 landed a new guarded public-copy A/B result, but `autoresearch-results/joopark-product-loop.json.latestExperiment` still pointed at the older `github-project-discovery-artifact`, so the verified product-loop headline did not identi...",
+        "Verification summary: Loop 152 changed `scripts/sync-product-loop-summary.mjs`, `scripts/verify-workspace.mjs`, `verify-workspace-summary.js`, `release-status.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `README.md`, `autoresearch-results/joopark-product-loop.json`, and this direction log. Baseline latest direction experiment trace coverage was `0/1` because `latestDirectionLoop=loop-151` but `latestExp...",
+        "Output-quality audit generatedAt=2026-06-09T15:23:21.312Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-153-mismatch-aware-remote-workflow-repair",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T15:39:39.063Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-153 from docs/product-direction.md.",
+        "Direction summary: The next product gap is mismatch-aware remote workflow repair. Direction check: the live remote workflow file check can show the Pages workflow exists on the default branch while still failing template parity, but the operator packet previously emphasized new-file creation more than replacing an existing mismatched...",
+        "Verification summary: Loop 153 changed `scripts/check-remote-workflow-files.mjs`, `release-status.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `README.md`, `data/remote-workflow-file-check.json`, `data/launch-readiness-refresh.json`, `data/output-quality-audit.json`, `autoresearch-results/joopark-product-loop.json`, `autoresearch-results/verify-workspace-summary.json`, and this direction log. Baseline m...",
+        "Output-quality audit generatedAt=2026-06-09T15:39:39.063Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-154-repair-first-launch-guidance",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T16:19:19.248Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-154 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 1 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is repair-first launch guidance. Direction check: Loop 153 made the remote workflow mismatch evidence explicit, but the launch-readiness next action and the output-quality external closeout could still lead with generic workflow-scope or refresh commands instead of the concrete Pages edit-file r...",
+        "Verification summary: Loop 154 changed `scripts/refresh-launch-readiness.mjs`, `scripts/capture-output-quality-audit.mjs`, `release-status.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `data/launch-readiness-refresh.json`, `data/launch-readiness-refresh.md`, `data/output-quality-audit.json`, and this direction log. Baseline repair-first next-action coverage was `0/2` because neither the launch-readiness...",
+        "Output-quality audit generatedAt=2026-06-09T16:19:19.248Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-155-source-reference-hygiene-in-the-autoresearch-summary",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T16:45:58.006Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-155 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 1 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is source-reference hygiene in the AutoResearch summary. Direction check: Loop 154 made the repair-first command explicit, but `autoresearch-results/joopark-product-loop.json.latestDirectionLoop.references` also captured the operational GitHub edit URL from that command as if it were an external...",
+        "Verification summary: Loop 155 changed `scripts/sync-product-loop-summary.mjs`, `scripts/audit-release-readiness.mjs`, `docs/product-direction.md`, and `autoresearch-results/joopark-product-loop.json`. Baseline operational reference leakage was `1/1` because the Loop 154 product-loop reference list included `https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml`; candidate leakage is `0/1` with `refe...",
+        "Output-quality audit generatedAt=2026-06-09T16:45:58.006Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-156-launch-readiness-source-artifact-sync",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T17:04:59.490Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-156 from docs/product-direction.md.",
+        "Reference quality: 2 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is launch-readiness source artifact sync. Direction check: Loop 155 kept product-loop references clean, but `data/launch-readiness-refresh.json` could still be temporally fresh while embedding an older `data/output-quality-audit.json.generatedAt`, so the launch panel could report fresh evidence...",
+        "Verification summary: Loop 156 changed `scripts/refresh-launch-readiness.mjs`, `scripts/audit-release-readiness.mjs`, `release-status.js`, `scripts/smoke-interactions.mjs`, `data/launch-readiness-refresh.json`, `data/launch-readiness-refresh.md`, `data/output-quality-audit.json`, and this direction log. Baseline source-artifact sync coverage was `0/1`: after `data/output-quality-audit.json.generatedAt` advanced to `2026-06-09T16:42:08....",
+        "Output-quality audit generatedAt=2026-06-09T17:04:59.490Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-157-release-gate-cache-repair-guidance",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T18:18:13.384Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-157 from docs/product-direction.md.",
+        "Reference quality: 2 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is release-gate cache repair guidance. Direction check: after later runtime edits, `node scripts/audit-release-readiness.mjs --format=summary` correctly reported `packaged_browser_gates` as `not_run` with cache mismatch diagnostics, but the blocker line did not include the exact repair command o...",
+        "Verification summary: Loop 157 changed `scripts/audit-release-readiness.mjs`, `docs/product-direction.md`, `data/launch-readiness-refresh.json`, `data/launch-readiness-refresh.md`, `data/output-quality-audit.json`, and this direction log. Baseline repair guidance coverage was `0/2`: the `packaged_browser_gates` blocker showed `cache=invalid`, `contextMatched=false`, and `firstMismatch=app.js:sha256_mismatch`, but no `Repair command:` o...",
+        "Output-quality audit generatedAt=2026-06-09T18:18:13.384Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-158-repair-command-completeness-in-the-final-output-quality-next-act",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T18:49:17.916Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-158 from docs/product-direction.md.",
+        "Reference quality: 2 source references, 1 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is repair-command completeness in the final output-quality next action. Direction check: Loop 154 already carried the Pages edit-file repair command in launch-readiness and the external claim closeout packet, but `data/output-quality-audit.json.nextAction.command`, the final receipt's `Immediate...",
+        "Verification summary: Loop 158 changed `scripts/capture-output-quality-audit.mjs`, `scripts/audit-release-readiness.mjs`, `docs/product-direction.md`, and `data/output-quality-audit.json`. Baseline next-action command coverage was `1/4`: the external claim proof commands already contained `pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'`, but...",
+        "Output-quality audit generatedAt=2026-06-09T18:49:17.916Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-159-blocker-missing-signal-precision",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T18:59:49.669Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-159 from docs/product-direction.md.",
+        "Reference quality: 1 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is blocker missing-signal precision. Direction check: after Loop 158, the release summary correctly showed the full workflow repair command, but the `external_claim_guard.workflow_installation` blocker still listed `remoteWorkflowVisibilityReady=true` and `workflowScopeInstallBlocked=false` unde...",
+        "Verification summary: Loop 159 changed `scripts/capture-output-quality-audit.mjs`, `docs/product-direction.md`, and `data/output-quality-audit.json`. Baseline missing-signal precision was `1/3`: only `remoteWorkflowFilesReady=false` was actually unresolved, but the blocker also listed `remoteWorkflowVisibilityReady=true` and `workflowScopeInstallBlocked=false`. Candidate precision is `1/1` with both `externalClaimGuard.requirements[].m...",
+        "Output-quality audit generatedAt=2026-06-09T18:59:49.669Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-160-reproducible-github-project-discovery",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T19:09:13.567Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-160 from docs/product-direction.md.",
+        "Reference quality: 2 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is reproducible GitHub project discovery. Direction check: the discovery artifact had freshness and public-path hygiene, but a missing `--max-depth` CLI value was parsed as `0`, so a normal `npm run audit:github-projects` could produce `status=warn`, `localGitRepos=0`, and no current local works...",
+        "Verification summary: Loop 160 changed `scripts/capture-github-project-discovery.mjs`, `system-status-view.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `data/github-project-discovery.json`, `data/github-project-discovery.md`, and this direction log. Baseline local scan coverage was `0/5` after the blank max-depth path produced `maxDepth=0`, `localGitRepos=0`, `rankedProjects=14`, and `status=warn`; cand...",
+        "Output-quality audit generatedAt=2026-06-09T19:09:13.567Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-161-private-github-metadata-hygiene-in-the-public-discovery-artifact",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T19:15:11.266Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-161 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is private GitHub metadata hygiene in the public discovery artifact. Direction check: Loop 160 made discovery reproducible, but authenticated `gh repo list` can return private repositories, and `data/github-project-discovery.json` is packaged as static release content while still marking `privac...",
+        "Verification summary: Loop 161 changed `scripts/capture-github-project-discovery.mjs`, `system-status-view.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `data/github-project-discovery.json`, `data/github-project-discovery.md`, and this direction log. Baseline private metadata exposure was `9`: 8 private GitHub repos plus 1 private local remote appeared in the public discovery JSON/Markdown. Candidate exp...",
+        "Output-quality audit generatedAt=2026-06-09T19:15:11.266Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-162-private-alias-row-exposure-in-the-public-discovery-table",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T19:26:04.164Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-162 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is private alias row exposure in the public discovery table. Direction check: Loop 161 removed raw private repo names, URLs, and descriptions, but public `rankedProjects` and Markdown Top Projects could still show deterministic `private:owner/repo-NN` rows, including 4 private aliases in the top...",
+        "Verification summary: Loop 162 changed `scripts/capture-github-project-discovery.mjs`, `system-status-view.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `data/github-project-discovery.json`, `data/github-project-discovery.md`, and this direction log. Baseline private row exposure was `8/17`, with 4 private alias rows in the top 12; candidate exposure is `0/9` public ranked rows with `rawRankedProjects=17...",
+        "Output-quality audit generatedAt=2026-06-09T19:26:04.164Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-163-github-discovery-experiment-persistence-in-the-verified-product",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T19:45:04.653Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-163 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is GitHub discovery experiment persistence in the verified product-loop receipt. Direction check: Loop 162 correctly made the latest product experiment point to the current direction loop, but `scripts/sync-product-loop-summary.mjs` only printed `latestDiscoveryExperiment` in its CLI payload and...",
+        "Verification summary: Loop 163 changed `scripts/sync-product-loop-summary.mjs`, `scripts/verify-workspace.mjs`, `verify-workspace-summary.js`, `release-status.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, `README.md`, `autoresearch-results/joopark-product-loop.json`, `autoresearch-results/verify-workspace-summary.json`, and this direction log. Baseline latest discovery experiment trace coverage was `1/5`...",
+        "Output-quality audit generatedAt=2026-06-09T19:45:04.653Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-164-structured-completion-audit-state-in-the-release-readiness-json",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T20:03:54.921Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-164 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is structured completion-audit state in the release-readiness JSON. Direction check: completion audits must distinguish \"internal release gates are green\" from \"external launch is complete\", but `scripts/audit-release-readiness.mjs --format=json-pretty` only exposed `status`, `summary`, and `che...",
+        "Verification summary: Loop 164 changed `scripts/audit-release-readiness.mjs`, `README.md`, and this direction log. Baseline completion-audit structured coverage was `0/4` because top-level `externalClaimGuard`, top-level `completionAudit`, boolean `completionAudit.launchCompletionAchieved`, and array `completionAudit.blockedSignals` were absent from JSON output. Candidate coverage is `4/4` with `completionAudit.status=blocked_external_...",
+        "Output-quality audit generatedAt=2026-06-09T20:03:54.921Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-165-completion-audit-visibility-in-the-system-status-release-gate-ca",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T20:33:42.838Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-165 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is completion-audit visibility in the System Status release gate cache. Direction check: Loop 164 made `completionAudit` machine-readable in `autoresearch-results/release-readiness-summary.json`, but the release gate cache panel and copy receipt could still show a green local gate without carryi...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-09T20:33:42.838Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-166-publish-evidence-repair-command-parity",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T21:04:41.450Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-166 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 1 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is publish-evidence repair-command parity. Direction check: Loop 158 promoted the Pages copy-plus-edit repair command into output-quality next actions, but `data/publish-evidence.json` could still render the immediate command as only `pbcopy < 'docs/github-pages-workflow.yml'`, hiding the existi...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-09T21:04:41.450Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-167-repair-aware-github-ui-install-path-parity",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T21:20:33.668Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-167 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 1 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is repair-aware GitHub UI install path parity. Direction check: Loop 166 fixed the headline publish-evidence immediate command, but the nested launch install path options could still tell the operator to open the GitHub `new/main?filename=...joopark-pages.yml` page even when `data/remote-workflo...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-09T21:20:33.668Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-168-repair-aware-file-level-workflow-ledger-parity",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T21:52:00.006Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-168 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 1 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is repair-aware file-level workflow ledger parity. Direction check: Loop 167 fixed the headline GitHub UI install path, but the nested `remoteWorkflowFileAcceptanceLedger.files[]` rows in launch execution and output-quality evidence still kept the Pages `githubNewFileOpenCommand` as the visible...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-09T21:52:00.006Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-169-repair-aware-github-ui-fallback-wording-in-the-remote-workflow-i",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-09T23:55:27.372Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-169 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is repair-aware GitHub UI fallback wording in the remote workflow install packet. Direction check: Loop 168 fixed selected file-level ledger commands, but `data/remote-workflow-file-check.json.workflowScopeApprovalHandoff.fallback` still said to use \"GitHub UI new-file links to create both workf...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-09T23:55:27.372Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-170-testable-repo-option-parsing-for-candidate-snapshot-maintenance",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T00:02:48.807Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-170 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is testable repo-option parsing for candidate snapshot maintenance. Direction check: recent bug loops hardened release scripts against missing option values, but `check-candidate-freshness-drift.mjs` and `refresh-candidate-snapshot.mjs` still had their `--repo` collector only implicitly covered...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T00:02:48.807Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-171-repair-aware-workflow-ui-install-count-traceability",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T00:23:16.283Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-171 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is repair-aware workflow UI install count traceability. Direction check: the current remote state requires a Pages edit-file repair while Drift Watch is already verified, so the GitHub UI paste packet now exposes a compact `6` install/verification command receipt and a `6` item post-install chec...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T00:23:16.283Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-172-actionable-github-discovery-reuse-in-the-product-loop-receipt",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T00:45:58.630Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-172 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is actionable GitHub discovery reuse in the product-loop receipt. Direction check: the public-safe discovery artifact already ranks related local and GitHub projects, but the `latestDiscoveryExperiment` still used `githubProjectDiscoveryArtifactCount`, so the verified product-loop receipt proved...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T00:45:58.630Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-173-capture-preview-missing-value-option-guard-coverage",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T01:10:18.314Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-173 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is capture-preview missing-value option guard coverage. Direction check: prior loops fixed inline preview options and malformed preview server paths, but `scripts/capture-preview.mjs` still used a local `optionValue` that could treat the next flag as a value. That means `npm run capture:preview...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T01:10:18.314Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-174-release-readiness-missing-value-guard-coverage",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T01:15:41.786Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-174 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is release-readiness `--format` missing-value guard coverage. Direction check: `scripts/audit-release-readiness.mjs` already centralized output format parsing, but `--format --run-gates` could still treat the next flag as the format token before falling back to JSON, and the pure helper tests di...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T01:15:41.786Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-175-complete-missing-value-guard-coverage-for-output-quality-evidenc",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T01:26:44.611Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-175 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is complete missing-value guard coverage for output-quality evidence inputs. Direction check: `scripts/capture-output-quality-audit.mjs` already rejects next-token flags for all option values, but the pure helper test only covered `--out` and `--product-loop`. The release-facing audit now depend...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T01:26:44.611Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-176-structured-top-project-traceability-in-the-verified-product-loop",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T04:08:41.177Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-176 from docs/product-direction.md.",
+        "Reference quality: 3 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is structured top-project traceability in the verified product-loop discovery headline. Direction check: `data/github-project-discovery.json` already carries a public-safe `launchCandidateSummary.topProjects[]` list with relation, local checkout, and next action, but `autoresearch-results/joopar...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T04:08:41.177Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-178-preserving-explicit-zero-coverage-in-the-system-status-workflow",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T04:14:48.172Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-178 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero coverage in the System Status workflow UI install panel. Direction check: `release-status.js` already had a local `finiteNumberOr` helper, but the workflow UI install render path still used `Number(value || fallback)` for `workflowUiInstallPastePacketCoverage` and `wo...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T04:14:48.172Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-179-stale-artifact-protection-for-home-and-global-help-launch-claim",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T04:34:45.509Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-179 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is stale-artifact protection for Home and Global Help launch claim readiness. Direction check: Home and Global Help are the first surfaces a launch operator sees, but their readiness labels could still combine launch packet, launch-readiness refresh, and output-quality signals with OR semantics....",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T04:34:45.509Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-180-preserving-explicit-zero-values-in-the-home-launch-proof-accepta",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T05:07:57.292Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-180 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values in the Home launch proof acceptance ledger. Direction check: the remote workflow file ledger already preserves `0` counts, but the adjacent launch proof ledger still used truthy fallback for required, ready, and pending proof counts. A future artifact with `req...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T05:07:57.292Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-181-preserving-explicit-zero-values-in-the-output-quality-release-ga",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T05:21:25.412Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-181 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values in the output-quality release gate browser evidence for the workflow UI install receipt. Direction check: the detailed workflow UI receipt snapshot already uses `finiteNumberOr`, but the higher-level `releaseGateBrowserEvidence` aggregation still used truthy fa...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T05:21:25.412Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-182-preserving-explicit-zero-values-in-the-home-launch-blocker-resol",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T05:38:17.284Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-182 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values in the Home launch blocker resolver counts. Direction check: the underlying output-quality blocker resolution snapshots already preserve explicit zero values, but the Home resolver still rendered `itemCount`, `passCount`, `actionRequiredCount`, `deferredCount`,...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T05:38:17.284Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-183-preserving-explicit-zero-values-in-the-home-post-install-quick-p",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T05:57:49.880Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-183 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values in the Home post-install quick proof receipt. Direction check: output-quality post-install intake snapshots already preserve explicit zero counts, but Home still rendered quick proof step count, quick proof coverage, mapped field count, completed mapped field c...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T05:57:49.880Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-184-preserving-explicit-zero-values-in-the-home-external-claim-guard",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T06:13:32.693Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-184 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values in the Home external claim guard counts. Direction check: the output-quality external claim guard already blocks launch completion, but Home still rendered `requirementCount` and `blockedCount` through truthy fallback expressions. A future guard artifact with `...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T06:13:32.693Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-185-preserving-explicit-zero-values-in-the-system-status-output-qual",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T06:33:36.578Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-185 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values in the System Status output-quality external claim guard counts. Direction check: Home now preserves the authoritative external claim guard counts, but the System Status output-quality panel still rendered `blockedCount` and `requirementCount` with truthy fallb...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T06:33:36.578Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-186-source-backed-recovery-for-the-workflow-ui-install-paste-packet",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T06:53:27.998Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-186 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is source-backed recovery for the workflow UI install paste packet in output-quality gate evidence. Direction check: the current packaged interaction smoke archives legacy launch/proof meta checks by default, so `autoresearch-results/release-readiness-gates.json` can be `pass` while archived `wo...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T06:53:27.998Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-187-preserving-explicit-zero-values-for-post-install-proof-parser-fi",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T07:12:36.452Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-187 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values for post-install proof parser field and coverage counts in release gate browser evidence. Direction check: bug loop 127 already preserved `postInstallProofParserDetectedFields`, but the adjacent `postInstallProofParserFields` and `postInstallProofParserCoverage...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T07:12:36.452Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-188-preserving-source-backed-post-auth-checkpoint-counts-in-release",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T07:48:13.882Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-188 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving source-backed post-auth checkpoint counts in release gate browser evidence. Direction check: `data/launch-execution-packet.json` already carries `postAuthCheckpoint.commandCount`, `expectedSignalCount`, `recheckSequenceCount`, and `sourceArtifactCount`, but `releaseGateBrowserEvide...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T07:48:13.882Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-189-source-backed-post-install-evidence-intake-in-release-gate-brows",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T08:16:22.316Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-189 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is source-backed post-install evidence intake in release gate browser evidence. Direction check: `data/launch-execution-packet.json` now proves `postInstallEvidenceIntake.ready=true`, `fieldCount=6`, and `fieldCoverage=1`, but `releaseGateBrowserEvidence` could still report `postInstallEvidenceI...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T08:16:22.316Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-190-preserving-explicit-zero-values-across-review-package-counts-in",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T08:28:35.493Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-190 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving explicit zero values across review package counts in release gate browser evidence. Direction check: the review package UI and output-quality receipt already prove decision brief, issue summary, comment/note summary, repair plan, submission closeout, operator quick start, artifact...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T08:28:35.493Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-191-tying-release-gate-launch-execution-packet-counts-to-the-source",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T08:52:26.669Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-191 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is tying release gate launch execution packet counts to the source packet instead of fixed defaults. Direction check: `data/launch-execution-packet.json` currently reports `stageCount=5` and `commandCount=11`, but `releaseGateBrowserEvidence` still emitted `launchExecutionPacketCommands=16` and...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T08:52:26.669Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-192-source-backed-post-install-proof-parser-readiness-in-release-gat",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T09:54:21.418Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-192 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is source-backed post-install proof parser readiness in release gate browser evidence. Direction check: the parser UI, smoke guard, and output-readiness snapshot can prove that the local parser is installed and guarded, but the release gate browser evidence still reported parser fields and cover...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T09:54:21.418Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-193-preserving-source-packet-count-fields-in-the-output-readiness-po",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T10:12:45.091Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-193 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is preserving source packet count fields in the output-readiness post-auth checkpoint snapshot. Direction check: `releaseGateBrowserEvidence` now reads post-auth checkpoint count fields, but the richer output-readiness snapshot still rendered recheck, source artifact, expected signal, and blocke...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T10:12:45.091Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-194-aligning-the-system-status-launch-execution-packet-panel-with-th",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T10:29:56.118Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-194 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is aligning the System Status launch execution packet panel with the source-backed post-auth checkpoint counts. Direction check: loop 193 fixed the final output-quality receipt, but `release-status.js` still rendered the launch execution panel's post-auth recheck and source artifact counts from...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T10:29:56.118Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-195-keeping-the-packaged-release-smoke-timeout-aligned-with-the-expa",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T22:22:59.062Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-195 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is keeping the packaged release smoke timeout aligned with the expanded browser smoke surface. Direction check: `scripts/smoke-chrome.mjs` covers 17 desktop routes and `scripts/smoke-mobile.mjs` now covers 17 routes plus mobile search-empty, palette, picker, sheet, modal, and notification checks...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T22:22:59.062Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-196-keeping-release-readiness-summary-cache-diagnostics-consistent-w",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T22:29:29.382Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-196 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is keeping release-readiness summary cache diagnostics consistent with the fresh packaged browser gate evidence collected in the same audit process. Direction check: a concurrent or interrupted gate cache write can leave `autoresearch-results/release-readiness-gates.json` incomplete, and `writeR...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T22:29:29.382Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-197-shrinking-the-app-level-command-palette-wrapper-surface-after-th",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T22:39:08.267Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-197 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is shrinking the app-level command palette wrapper surface after the command palette runtime helper is already authoritative. Direction check: `command-palette.js` owns status, item building, rendering, and indexed execution, but `app.js` still kept unused wrappers for `_palStatusEl`, `setPalett...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T22:39:08.267Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-198-shrinking-the-app-level-global-search-wrapper-surface-after-the",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T22:48:13.321Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-198 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is shrinking the app-level global search wrapper surface after the global search runtime helper is already authoritative. Direction check: `global-search.js` owns inert guidance, live status text, and no-results reveal behavior, but `app.js` still kept unused wrappers for `announceInertSearch`,...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T22:48:13.321Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-199-shrinking-the-app-level-dialog-shell-wrapper-surface-after-the-d",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T22:54:19.400Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-199 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is shrinking the app-level dialog shell wrapper surface after the dialog shell runtime helper is already authoritative for notification sheet accessibility. Direction check: `dialog-shell.js` owns notification trigger expansion when opening and closing sheets, but `app.js` still kept an unused `...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T22:54:19.400Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-200-shrinking-the-app-level-interaction-setup-wrapper-surface-after",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T23:00:11.054Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-200 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is shrinking the app-level interaction setup wrapper surface after `interaction-setup.js` already owns delegated click/submit binding. Direction check: `setupDelegatedInteractions` only forwarded to `interactionSetupCall(\"setup\")` and had exactly one caller inside `setupInteractions()`. Structur...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T23:00:11.054Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-201-shrinking-the-app-level-footer-clock-wrapper-surface-after-foote",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T23:04:21.905Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-201 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is shrinking the app-level footer clock wrapper surface after `footer-clock.js` already owns visibility-change scheduling. Direction check: `setupFooterClockVisibility` only forwarded to `footerClockCall(\"setupVisibility\")` and had exactly one caller in the boot sequence, while the module alread...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T23:04:21.905Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-202-finishing-the-app-level-global-search-wrapper-shrink-after-loop",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T23:11:29.369Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-202 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is finishing the app-level global search wrapper shrink after loop 198 removed the unused inert/status/reveal aliases. Direction check: `global-search.js` owns clear and setup behavior too, but `app.js` still kept `clearGlobalSearch` and `setupGlobalSearch` wrappers with exactly one product call...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T23:11:29.369Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-203-shrinking-the-app-level-event-reminder-wrapper-surface-after-eve",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T23:25:08.078Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-203 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is shrinking the app-level event reminder wrapper surface after `event-reminders.js` already owns browser notification polling. Direction check: `startEventReminders` only forwarded to `eventReminderCall(\"start\")` from the boot sequence and the post-permission action path, while the module alrea...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T23:25:08.078Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-204-finishing-the-app-level-command-palette-close-wrapper-shrink-aft",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T23:35:41.230Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-204 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is finishing the app-level command palette close wrapper shrink after loop 197 removed the unused palette status/render aliases. Direction check: `closePalette` only forwarded to `commandPaletteCall(\"close\")` for the close action and keyboard shortcut callback, while `command-palette.js` already...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T23:35:41.230Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-205-finishing-the-app-level-command-palette-open-wrapper-shrink-afte",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-10T23:58:16.023Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-205 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is finishing the app-level command palette open wrapper shrink after loop 204 removed the close wrapper. Direction check: `openPalette` only forwarded to `commandPaletteCall(\"open\")` for global search, help actions, the open action, and keyboard shortcut callbacks, while `command-palette.js` alr...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-10T23:58:16.023Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-206-shrinking-the-app-level-project-picker-open-state-wrapper-surfac",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-11T00:34:26.432Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-206 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is shrinking the app-level project picker open-state wrapper surface after `project-picker.js` already owns set/open state, body lock, focus restoration, and hidden-input recovery. Direction check: `setProjectPickerOpen` and `projectPickerIsOpen` only forwarded to `projectPickerCall(\"setOpen\")`...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-11T00:34:26.432Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
+    },
+    {
+      "id": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
+      "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep",
+      "generatedAt": "2026-06-11T01:16:18.530Z",
+      "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
+      "evidence": [
+        "Latest direction loop is loop-207 from docs/product-direction.md.",
+        "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
+        "Direction summary: The next product gap is breaking a self-reinforcing full-verify evidence sync loop after product direction changes. Direction check: `npm run verify:full` starts with release-readiness gates and previously stopped on the first failing or blocked step. When release-readiness failed only because `autoresearch-results/...",
+        "Verification summary: not available",
+        "Output-quality audit generatedAt=2026-06-11T01:16:18.530Z; readyForExternalClaim=false."
+      ],
+      "externalComparison": {
+        "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
+        "urls": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary",
+          "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow",
+          "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+        ]
+      }
     }
   ],
   "publish": {
@@ -4403,11 +5987,11 @@
     "draftPr": "blocked",
     "draftPrBlocker": "codex/joopark-workspace-release has no common history with main",
     "repoEvidenceReady": true,
-    "remoteWorkflowVisibilityReady": false,
+    "remoteWorkflowVisibilityReady": true,
     "allDispatchReady": false,
-    "postPublishEvidenceReady": false,
+    "postPublishEvidenceReady": true,
     "remoteWorkflowFilesReady": false,
-    "workflowScopeInstallBlocked": true,
+    "workflowScopeInstallBlocked": false,
     "readyForExternalClaim": false
   },
   "nextCandidates": [
@@ -4419,29 +6003,46 @@
     "Continue extracting low-state navigation/runtime helpers only where accessibility ownership and state mutation stay clear."
   ],
   "summarySync": {
-    "generatedAt": "2026-06-08T22:51:55.871Z",
+    "generatedAt": "2026-06-11T01:16:18.666Z",
     "source": "scripts/sync-product-loop-summary.mjs",
     "productLoopPath": "autoresearch-results/joopark-product-loop.json",
     "outputQualityPath": "data/output-quality-audit.json",
-    "outputQualityGeneratedAt": "2026-06-08T22:51:55.748Z",
+    "directionLogPath": "docs/product-direction.md",
+    "githubDiscoveryPath": "data/github-project-discovery.json",
+    "githubDiscoveryGeneratedAt": "2026-06-10T03:50:18.804Z",
+    "githubDiscoveryExperimentReady": true,
+    "latestDiscoveryExperimentReady": true,
+    "latestDiscoveryExperimentId": "github-project-discovery-artifact",
+    "outputQualityGeneratedAt": "2026-06-11T01:16:18.530Z",
     "gateParityReady": true,
     "publishParityReady": true,
+    "directionLoopReady": true,
+    "latestDirectionLoopNumber": 207,
+    "latestDirectionExperimentReady": true,
+    "latestDirectionExperimentId": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
     "gateChanged": true,
     "latestGateUpdated": true,
+    "directionLoopChanged": false,
+    "directionExperimentChanged": true,
+    "discoveryExperimentMetadataMissing": false,
+    "discoveryExperimentChanged": false,
+    "nextCandidatesChanged": false,
     "changedPublishKeys": [],
     "baselineParityCoverage": 1,
     "candidateParityCoverage": 2,
     "syncExperimentUpdated": true,
+    "nextCandidatesReady": true,
+    "nextCandidateCount": 6,
     "futureDatedExperimentCount": 0,
     "futureDatedExperimentIds": []
   },
   "latestExperiment": {
-    "id": "pages-workflow-runtime-path-filter-parity",
-    "primaryMetric": "pagesWorkflowRuntimePathFilterCoverage",
+    "id": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
+    "primaryMetric": "latestDirectionLoopExperimentTraceCoverage",
     "baseline": 0,
-    "candidate": 2,
+    "candidate": 1,
     "decision": "keep",
-    "generatedAt": "2026-06-08T22:54:31Z"
+    "generatedAt": "2026-06-11T01:16:18.530Z"
   },
   "latestSyncExperiment": {
     "id": "product-loop-summary-gate-parity",
@@ -4449,6 +6050,56 @@
     "baseline": 1,
     "candidate": 2,
     "decision": "keep",
-    "generatedAt": "2026-06-08T22:51:55.871Z"
+    "generatedAt": "2026-06-11T01:16:18.666Z"
+  },
+  "latestDirectionLoop": {
+    "id": "loop-207",
+    "number": 207,
+    "heading": "Loop 207 Decision",
+    "source": "docs/product-direction.md",
+    "summary": "The next product gap is breaking a self-reinforcing full-verify evidence sync loop after product direction changes. Direction check: `npm run verify:full` starts with release-readiness gates and previously stopped on the first failing or blocked step. When release-readiness failed only because `autoresearch-results/...",
+    "verification": "",
+    "referenceCount": 0,
+    "references": [],
+    "rawReferenceCount": 0,
+    "operationalReferenceExcludedCount": 0,
+    "operationalReferenceLeakCount": 0,
+    "referenceQualityReady": true
+  },
+  "latestDiscoveryExperiment": {
+    "id": "github-project-discovery-artifact",
+    "primaryMetric": "githubDiscoveryActionableProjectCoverage",
+    "baseline": 0,
+    "candidate": 9,
+    "decision": "keep",
+    "generatedAt": "2026-06-10T03:50:18.804Z",
+    "topProjects": [
+      {
+        "nameWithOwner": "biojuho/BIOJUHO-Projects",
+        "relation": "current-release-target",
+        "localCheckout": true,
+        "nextAction": "Keep launch proof, Pages workflow parity, and product smoke gates green before any public claim."
+      },
+      {
+        "nameWithOwner": "biojuho/autoresearch-skill-system",
+        "relation": "autoresearch-toolchain",
+        "localCheckout": false,
+        "nextAction": "Use as reference tooling only; do not mix toolchain edits into the product release branch without a separate gate."
+      },
+      {
+        "nameWithOwner": "local:Joopark",
+        "relation": "joopark-product",
+        "localCheckout": true,
+        "nextAction": "Inspect its own WORKLOG and gates before mutating; keep this product release scope separate."
+      },
+      {
+        "nameWithOwner": "biojuho/vibe-coding",
+        "relation": "adjacent-workspace",
+        "localCheckout": false,
+        "nextAction": "No local mutation planned; keep as portfolio/reference unless the user explicitly scopes it."
+      }
+    ],
+    "topProjectCount": 4,
+    "releaseTargetIncluded": true
   }
 }

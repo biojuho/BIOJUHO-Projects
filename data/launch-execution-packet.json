@@ -1,12 +1,12 @@
 {
   "status": "pass",
-  "generatedAt": "2026-06-08T23:02:17.083Z",
+  "generatedAt": "2026-06-11T01:16:17.914Z",
   "source": "data/workflow-ui-install-plan.json + data/publish-dispatch-plan.json + data/remote-workflow-file-check.json + data/publish-evidence.json + data/output-quality-audit.json",
   "repo": "biojuho/BIOJUHO-Projects",
   "suggestedRepo": "biojuho/BIOJUHO-Projects",
   "defaultBranch": "main",
-  "readyToDispatch": true,
-  "remoteWorkflowFilesReady": true,
+  "readyToDispatch": false,
+  "remoteWorkflowFilesReady": false,
   "authPreflight": {
     "checked": true,
     "status": "pass",
@@ -45,8 +45,8 @@
         "workflowScopeAvailable=true",
         "workflowScopeInstallBlocked=false"
       ],
-      "fallback": "If browser approval cannot be completed, use the GitHub UI new-file links to create both workflow files on the default branch.",
-      "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files."
+      "fallback": "If browser approval cannot be completed, use each workflow row's installAction: open GitHub edit-file pages for existing mismatched files and new-file pages only for missing files.",
+      "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch."
     },
     "approvalRequired": false,
     "approvalStatus": "not_required",
@@ -58,7 +58,7 @@
     "approvalSensitiveValuePolicy": "Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.",
     "approvalPostAuthStatusCommand": "gh auth status -h github.com",
     "approvalIncompleteSignal": "Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.",
-    "approvalStopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files."
+    "approvalStopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch."
   },
   "postAuthCheckpoint": {
     "key": "post_auth_checkpoint",
@@ -87,7 +87,7 @@
         "key": "install_workflows",
         "label": "Install workflow files",
         "command": "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify",
-        "expected": "Create/update both default-branch workflow files or use the GitHub UI fallback.",
+        "expected": "Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.",
         "sourceArtifact": "data/remote-workflow-file-check.json",
         "stopCondition": "Stop if remote workflow files are not installed on the default branch."
       },
@@ -142,15 +142,15 @@
     "blockedSignalCount": 4,
     "guard": "Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true."
   },
-  "launchProofReady": false,
+  "launchProofReady": true,
   "readyForExternalClaim": false,
   "stageCount": 5,
-  "commandCount": 14,
+  "commandCount": 11,
   "currentAction": {
-    "status": "action_required_after_dispatch",
-    "stageKey": "capture_launch_proof",
-    "label": "Capture launch proof",
-    "successCondition": "postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.",
+    "status": "action_required",
+    "stageKey": "install_workflows",
+    "label": "Install workflows on the default branch",
+    "successCondition": "remoteWorkflowFilesReady=true and each remote workflow file matches the local template SHA-256.",
     "commandCount": 2,
     "withheldCommandCount": 2,
     "authPreflight": {
@@ -191,8 +191,8 @@
           "workflowScopeAvailable=true",
           "workflowScopeInstallBlocked=false"
         ],
-        "fallback": "If browser approval cannot be completed, use the GitHub UI new-file links to create both workflow files on the default branch.",
-        "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files."
+        "fallback": "If browser approval cannot be completed, use each workflow row's installAction: open GitHub edit-file pages for existing mismatched files and new-file pages only for missing files.",
+        "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch."
       },
       "approvalRequired": false,
       "approvalStatus": "not_required",
@@ -204,7 +204,7 @@
       "approvalSensitiveValuePolicy": "Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.",
       "approvalPostAuthStatusCommand": "gh auth status -h github.com",
       "approvalIncompleteSignal": "Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.",
-      "approvalStopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files."
+      "approvalStopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch."
     },
     "postAuthCheckpoint": {
       "key": "post_auth_checkpoint",
@@ -233,7 +233,7 @@
           "key": "install_workflows",
           "label": "Install workflow files",
           "command": "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify",
-          "expected": "Create/update both default-branch workflow files or use the GitHub UI fallback.",
+          "expected": "Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.",
           "sourceArtifact": "data/remote-workflow-file-check.json",
           "stopCondition": "Stop if remote workflow files are not installed on the default branch."
         },
@@ -301,7 +301,7 @@
       "repositoryContentsDocsUrl": "https://docs.github.com/en/rest/repos/contents#get-repository-content",
       "workflowListCommand": "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
       "requirements": [
-        "Create both workflow YAML files under .github/workflows on the main default branch.",
+        "Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template. Target workflow YAML files live under .github/workflows on the main default branch.",
         "Manual workflow dispatch is available only after workflow_dispatch exists on the default branch.",
         "Remote workflow file check must read the default-branch contents and match each local template SHA-256.",
         "GitHub Actions visibility must be confirmed before gh workflow run commands are suggested."
@@ -325,9 +325,9 @@
       {
         "key": "remote_workflow_file_parity",
         "label": "Remote workflow file parity",
-        "status": "pass",
+        "status": "action_required",
         "required": "Remote default-branch workflow files must exist and match the local template SHA-256 values.",
-        "evidence": "remoteWorkflowFilesReady=true; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
+        "evidence": "remoteWorkflowFilesReady=false; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
       },
       {
         "key": "workflow_visibility",
@@ -340,17 +340,46 @@
         "key": "dispatch_guard",
         "label": "Dispatch guard",
         "status": "pass",
-        "required": "Keep gh workflow run commands withheld until allDispatchReady=true.",
-        "evidence": "allDispatchReady=true; withheldCommands=2"
+        "required": "Keep gh workflow run commands withheld until remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, and allDispatchReady=true.",
+        "evidence": "allDispatchReady=false; withheldCommands=2"
       }
     ],
-    "acceptancePassCount": 5,
-    "acceptancePendingCount": 0,
+    "acceptancePassCount": 4,
+    "acceptancePendingCount": 1,
     "commands": [
-      "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
-      "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"
+      "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+      "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
     ],
-    "installPaths": [],
+    "installPaths": [
+      {
+        "key": "cli_workflow_scope",
+        "label": "CLI path after workflow scope",
+        "when": "Use when the GitHub CLI token already has workflow scope.",
+        "commands": [
+          "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify",
+          "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+          "node scripts/prepare-github-pages-workflow.mjs --write",
+          "node scripts/prepare-github-drift-watch-workflow.mjs --write",
+          "git add .github/workflows/joopark-pages.yml .github/workflows/joopark-drift-watch.yml",
+          "git commit -m 'Add JooPark publish workflows'",
+          "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
+        ],
+        "success": "The workflow files are committed to the default branch, remoteWorkflowFilesReady=true, and GitHub Actions lists both workflows.",
+        "guard": "Do not run dispatch commands just because the local .github/workflows files exist."
+      },
+      {
+        "key": "github_ui",
+        "label": "GitHub UI path",
+        "when": "Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch workflow repair.",
+        "commands": [
+          "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+          "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+          "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
+        ],
+        "success": "Required create_missing_remote_file rows are created, replace_existing_remote_file rows are replaced on main, verified_remote_matches_template rows are skipped, remoteWorkflowFilesReady=true, and workflow visibility is confirmed.",
+        "guard": "Use each file's create or edit URL according to installAction before any dispatch attempt."
+      }
+    ],
     "verifyCommands": [
       "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write",
       "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify",
@@ -358,23 +387,23 @@
       "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
     ],
     "withheldCommands": [
-      "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+      "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
       "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
     ],
-    "packet": "JooPark Launch Current Action Packet\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nCurrent stage: Capture launch proof [action_required_after_dispatch]\nWhy now: After both workflow runs complete, capture Pages URL/status and the latest Pages/Drift workflow run status/conclusion.\nSuccess condition: postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.\n\nAuth preflight:\n- status: pass\n- checked: true\n- source: gh-api-header\n- workflowScopeAvailable: true\n- workflowScopeInstallBlocked: false\n- scopes: gist, read:org, repo, workflow\n- missingScopes: none\n- refresh: gh auth refresh -h github.com -s workflow\n- refreshWithClipboard: gh auth refresh -h github.com -s workflow --clipboard\n- recheck: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- approval: not_required\n- approvalUrl: https://github.com/login/device\n- approvalPrompt: First copy your one-time code, then open https://github.com/login/device to approve the workflow scope; keep the terminal session open until gh reports success.\n- interactiveApprovalRequired: false\n- terminalWaitRequired: false\n- interactiveApprovalNote: This is an interactive OAuth device flow; keep the terminal session open until gh reports success. If the browser approval is not completed, gh auth status will still omit workflow.\n- postApprovalAuthStatus: gh auth status -h github.com\n- incompleteApprovalSignal: Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.\n- sensitiveValuePolicy: Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.\n- approvalStopCondition: Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files.\n\nPost-auth checkpoint:\n- status: pass\n- verificationOnly: true\n- dispatchApproval: false\n- trigger: gh auth refresh -h github.com -s workflow\n- confirm scope: gh auth status -h github.com\n- recheck dispatch plan: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- verify handoff: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- install after pass: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- recheck sequence: 5\n- source artifacts: gh auth status -h github.com; data/remote-workflow-file-check.json; data/publish-dispatch-plan.json; data/launch-handoff-verification.json\n- expected: Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true after installer or GitHub UI commit; remoteWorkflowVisibilityReady=true before dispatch; safeToDispatch=true before gh workflow run\n- still blocked if: workflowScopeInstallBlocked=true; remoteWorkflowFilesReady=false; remoteWorkflowVisibilityReady=false; allDispatchReady=false\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\nRecheck sequence:\n1. confirm_scope: command=gh auth status -h github.com; expected=Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; source=gh auth status -h github.com; stop=Stop if workflow scope is still missing; use GitHub UI fallback or rerun the scope refresh.\n2. install_workflows: command=node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify; expected=Create/update both default-branch workflow files or use the GitHub UI fallback.; source=data/remote-workflow-file-check.json; stop=Stop if remote workflow files are not installed on the default branch.\n3. verify_remote_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; remoteExists=true; remoteMatchesTemplate=true for both workflows; source=data/remote-workflow-file-check.json; stop=Stop if any remote SHA differs from the local template SHA-256.\n4. verify_actions_visibility: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=remoteWorkflowVisibilityReady=true; dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; source=data/publish-dispatch-plan.json; stop=Stop if GitHub Actions does not list both workflows or dispatch commands remain withheld.\n5. verify_handoff_guard: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; every post-install proof field has been filled; source=data/launch-handoff-verification.json; stop=Stop if safeToDispatch=false or post-install proof is incomplete.\n\nDefault-branch requirement proof:\n- source: GitHub manual workflow dispatch docs + GitHub REST repository contents API\n- defaultBranch: main\n- workflowFiles: .github/workflows/joopark-pages.yml, .github/workflows/joopark-drift-watch.yml\n- manual dispatch docs: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow?tool=webui\n- repository contents verification: https://docs.github.com/en/rest/repos/contents#get-repository-content\n- visibility recheck: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- requirement: Create both workflow YAML files under .github/workflows on the main default branch.\n- requirement: Manual workflow dispatch is available only after workflow_dispatch exists on the default branch.\n- requirement: Remote workflow file check must read the default-branch contents and match each local template SHA-256.\n- requirement: GitHub Actions visibility must be confirmed before gh workflow run commands are suggested.\n\nAcceptance checklist: 5/5 pass; pending=0\n- Operator auth path: pass - Use a workflow-scope GitHub CLI token or a workflow-capable GitHub UI session before writing workflow files to the default branch. Evidence: workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- Local template parity: pass - Local repository workflow targets must exist and match the prepared workflow templates before remote installation. Evidence: localTargetParityReady=true\n- Remote workflow file parity: pass - Remote default-branch workflow files must exist and match the local template SHA-256 values. Evidence: remoteWorkflowFilesReady=true; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- Workflow visibility: pass - GitHub Actions must list both workflows before any dispatch command is suggested. Evidence: remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- Dispatch guard: pass - Keep gh workflow run commands withheld until allDispatchReady=true. Evidence: allDispatchReady=true; withheldCommands=2\n\nRun now:\n- node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n- node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n\nVerify after running:\n- node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nDo not run yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n\nGuard: do not publish or archive launch proof until postPublishEvidenceReady=true and readyForExternalClaim=true."
+    "packet": "JooPark Launch Current Action Packet\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nCurrent stage: Install workflows on the default branch [action_required]\nWhy now: Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.\nSuccess condition: remoteWorkflowFilesReady=true and each remote workflow file matches the local template SHA-256.\n\nAuth preflight:\n- status: pass\n- checked: true\n- source: gh-api-header\n- workflowScopeAvailable: true\n- workflowScopeInstallBlocked: false\n- scopes: gist, read:org, repo, workflow\n- missingScopes: none\n- refresh: gh auth refresh -h github.com -s workflow\n- refreshWithClipboard: gh auth refresh -h github.com -s workflow --clipboard\n- recheck: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- approval: not_required\n- approvalUrl: https://github.com/login/device\n- approvalPrompt: First copy your one-time code, then open https://github.com/login/device to approve the workflow scope; keep the terminal session open until gh reports success.\n- interactiveApprovalRequired: false\n- terminalWaitRequired: false\n- interactiveApprovalNote: This is an interactive OAuth device flow; keep the terminal session open until gh reports success. If the browser approval is not completed, gh auth status will still omit workflow.\n- postApprovalAuthStatus: gh auth status -h github.com\n- incompleteApprovalSignal: Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.\n- sensitiveValuePolicy: Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.\n- approvalStopCondition: Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch.\n\nPost-auth checkpoint:\n- status: pass\n- verificationOnly: true\n- dispatchApproval: false\n- trigger: gh auth refresh -h github.com -s workflow\n- confirm scope: gh auth status -h github.com\n- recheck dispatch plan: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- verify handoff: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- install after pass: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- recheck sequence: 5\n- source artifacts: gh auth status -h github.com; data/remote-workflow-file-check.json; data/publish-dispatch-plan.json; data/launch-handoff-verification.json\n- expected: Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true after installer or GitHub UI commit; remoteWorkflowVisibilityReady=true before dispatch; safeToDispatch=true before gh workflow run\n- still blocked if: workflowScopeInstallBlocked=true; remoteWorkflowFilesReady=false; remoteWorkflowVisibilityReady=false; allDispatchReady=false\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\nRecheck sequence:\n1. confirm_scope: command=gh auth status -h github.com; expected=Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; source=gh auth status -h github.com; stop=Stop if workflow scope is still missing; use GitHub UI fallback or rerun the scope refresh.\n2. install_workflows: command=node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify; expected=Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.; source=data/remote-workflow-file-check.json; stop=Stop if remote workflow files are not installed on the default branch.\n3. verify_remote_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; remoteExists=true; remoteMatchesTemplate=true for both workflows; source=data/remote-workflow-file-check.json; stop=Stop if any remote SHA differs from the local template SHA-256.\n4. verify_actions_visibility: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=remoteWorkflowVisibilityReady=true; dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; source=data/publish-dispatch-plan.json; stop=Stop if GitHub Actions does not list both workflows or dispatch commands remain withheld.\n5. verify_handoff_guard: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; every post-install proof field has been filled; source=data/launch-handoff-verification.json; stop=Stop if safeToDispatch=false or post-install proof is incomplete.\n\nDefault-branch requirement proof:\n- source: GitHub manual workflow dispatch docs + GitHub REST repository contents API\n- defaultBranch: main\n- workflowFiles: .github/workflows/joopark-pages.yml, .github/workflows/joopark-drift-watch.yml\n- manual dispatch docs: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow?tool=webui\n- repository contents verification: https://docs.github.com/en/rest/repos/contents#get-repository-content\n- visibility recheck: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- requirement: Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template. Target workflow YAML files live under .github/workflows on the main default branch.\n- requirement: Manual workflow dispatch is available only after workflow_dispatch exists on the default branch.\n- requirement: Remote workflow file check must read the default-branch contents and match each local template SHA-256.\n- requirement: GitHub Actions visibility must be confirmed before gh workflow run commands are suggested.\n\nAcceptance checklist: 4/5 pass; pending=1\n- Operator auth path: pass - Use a workflow-scope GitHub CLI token or a workflow-capable GitHub UI session before writing workflow files to the default branch. Evidence: workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- Local template parity: pass - Local repository workflow targets must exist and match the prepared workflow templates before remote installation. Evidence: localTargetParityReady=true\n- Remote workflow file parity: action_required - Remote default-branch workflow files must exist and match the local template SHA-256 values. Evidence: remoteWorkflowFilesReady=false; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- Workflow visibility: pass - GitHub Actions must list both workflows before any dispatch command is suggested. Evidence: remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- Dispatch guard: pass - Keep gh workflow run commands withheld until remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, and allDispatchReady=true. Evidence: allDispatchReady=false; withheldCommands=2\n\nChoose one install path:\nCLI path after workflow scope:\n- When: Use when the GitHub CLI token already has workflow scope.\n- node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- node scripts/prepare-github-pages-workflow.mjs --write\n- node scripts/prepare-github-drift-watch-workflow.mjs --write\n- git add .github/workflows/joopark-pages.yml .github/workflows/joopark-drift-watch.yml\n- git commit -m 'Add JooPark publish workflows'\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- Success: The workflow files are committed to the default branch, remoteWorkflowFilesReady=true, and GitHub Actions lists both workflows.\n- Guard: Do not run dispatch commands just because the local .github/workflows files exist.\nGitHub UI path:\n- When: Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch workflow repair.\n- pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- Success: Required create_missing_remote_file rows are created, replace_existing_remote_file rows are replaced on main, verified_remote_matches_template rows are skipped, remoteWorkflowFilesReady=true, and workflow visibility is confirmed.\n- Guard: Use each file's create or edit URL according to installAction before any dispatch attempt.\n\nVerify after running:\n- node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nDo not run yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n\nGuard: do not publish or archive launch proof until postPublishEvidenceReady=true and readyForExternalClaim=true."
   },
   "operatorOnePageHandoff": {
     "source": "generated_from_launch_execution_packet",
-    "status": "action_required_after_dispatch",
+    "status": "action_required",
     "ready": true,
     "repo": "biojuho/BIOJUHO-Projects",
     "defaultBranch": "main",
-    "activeItemKey": "launch_proof_capture",
-    "stageKey": "capture_launch_proof",
+    "activeItemKey": "remote_workflow_file_parity",
+    "stageKey": "install_workflows",
     "sectionCount": 8,
-    "commandCount": 7,
+    "commandCount": 10,
     "immediateCommandCount": 1,
-    "fallbackCommandCount": 0,
+    "fallbackCommandCount": 3,
     "proofCommandCount": 4,
     "quickProofStepCount": 4,
     "quickProofCoverage": 1,
@@ -384,7 +413,11 @@
     "immediateCommands": [
       "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
     ],
-    "fallbackCommands": [],
+    "fallbackCommands": [
+      "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+      "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+      "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
+    ],
     "proofCommands": [
       "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
       "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
@@ -398,7 +431,7 @@
         "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "expected": "remoteWorkflowFilesReady=true",
         "evidenceFieldKey": "remote_parity_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Confirm both default-branch workflow files exist and match local templates before checking Actions visibility."
       },
       {
@@ -407,7 +440,7 @@
         "command": "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
         "expected": "remoteWorkflowVisibilityReady=true",
         "evidenceFieldKey": "actions_visibility_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Confirm GitHub Actions lists both workflow files before planning dispatch."
       },
       {
@@ -416,7 +449,7 @@
         "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
         "expected": "allDispatchReady=true",
         "evidenceFieldKey": "dispatch_readiness_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Confirm pages and drift dispatch readiness are both true before final handoff verification."
       },
       {
@@ -425,12 +458,12 @@
         "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
         "expected": "safeToDispatch=true before gh workflow run",
         "evidenceFieldKey": "handoff_verifier_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true."
       }
     ],
     "successSignals": [
-      "workflowScopeAvailable=true or GitHub UI workflow files committed on the default branch",
+      "workflowScopeAvailable=true or GitHub UI installAction rows applied on the default branch",
       "remoteWorkflowFilesReady=true",
       "remoteWorkflowVisibilityReady=true",
       "dispatchReady=true",
@@ -448,63 +481,65 @@
       "Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]"
     ],
     "forbiddenCommands": [
-      "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+      "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
       "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory",
       "Do not post public launch copy.",
       "Do not archive post-launch proof.",
       "Do not claim readyForExternalClaim=true."
     ],
     "stopCondition": "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.",
-    "text": "JooPark Launch Operator One-Page Handoff\nStatus: action_required_after_dispatch\nGenerated: 2026-06-08T23:02:17.083Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\n\nGoal for this pass:\n- Capture launch proof\n- Success: postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.\n- Active blocker: launch_proof_capture (deferred_until_dispatch)\n\nDo first:\n1. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nIf CLI workflow scope is still blocked, use GitHub UI fallback:\n1. Use the GitHub UI workflow install plan and commit both workflow files on the default branch.\n\nProve after install:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install quick proof:\n1. remote_file_parity: expect remoteWorkflowFilesReady=true; paste into remote_parity_proof\n2. actions_visibility: expect remoteWorkflowVisibilityReady=true; paste into actions_visibility_proof\n3. dispatch_readiness: expect allDispatchReady=true; paste into dispatch_readiness_proof\n4. handoff_verifier: expect safeToDispatch=true before gh workflow run; paste into handoff_verifier_proof\n\nSuccess signals:\n- workflowScopeAvailable=true or GitHub UI workflow files committed on the default branch\n- remoteWorkflowFilesReady=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- all six post-install evidence fields are filled\n- safeToDispatch=true before gh workflow run\n\nEvidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nDo not run or claim yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n- Do not post public launch copy.\n- Do not archive post-launch proof.\n- Do not claim readyForExternalClaim=true.\n\nExternal baseline:\n- GitHub workflow_dispatch must exist on the default branch before manual dispatch.\n- GitHub Pages proof must include live Pages status and workflow run status/conclusion evidence.\n\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true."
+    "text": "JooPark Launch Operator One-Page Handoff\nStatus: action_required\nGenerated: 2026-06-11T01:16:17.914Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\n\nGoal for this pass:\n- Install workflows on the default branch\n- Success: remoteWorkflowFilesReady=true and each remote workflow file matches the local template SHA-256.\n- Active blocker: remote_workflow_file_parity (action_required)\n\nDo first:\n1. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nIf CLI workflow scope is still blocked, use GitHub UI fallback:\n1. pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'\n2. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nProve after install:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install quick proof:\n1. remote_file_parity: expect remoteWorkflowFilesReady=true; paste into remote_parity_proof\n2. actions_visibility: expect remoteWorkflowVisibilityReady=true; paste into actions_visibility_proof\n3. dispatch_readiness: expect allDispatchReady=true; paste into dispatch_readiness_proof\n4. handoff_verifier: expect safeToDispatch=true before gh workflow run; paste into handoff_verifier_proof\n\nSuccess signals:\n- workflowScopeAvailable=true or GitHub UI installAction rows applied on the default branch\n- remoteWorkflowFilesReady=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- all six post-install evidence fields are filled\n- safeToDispatch=true before gh workflow run\n\nEvidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nDo not run or claim yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n- Do not post public launch copy.\n- Do not archive post-launch proof.\n- Do not claim readyForExternalClaim=true.\n\nExternal baseline:\n- GitHub workflow_dispatch must exist on the default branch before manual dispatch.\n- GitHub Pages proof must include live Pages status and workflow run status/conclusion evidence.\n\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true."
   },
   "stageTransitionPreview": {
     "source": "generated_from_launch_execution_packet",
-    "status": "ready_after_guard",
-    "currentStageKey": "capture_launch_proof",
-    "currentStageLabel": "Capture launch proof",
-    "currentStageStatus": "action_required_after_dispatch",
-    "nextStageKey": "capture_launch_proof",
-    "nextStageLabel": "Capture launch proof",
-    "readyToAdvance": true,
-    "pendingAcceptanceCount": 0,
-    "passAcceptanceCount": 5,
+    "status": "conditional",
+    "currentStageKey": "install_workflows",
+    "currentStageLabel": "Install workflows on the default branch",
+    "currentStageStatus": "action_required",
+    "nextStageKey": "verify_visibility",
+    "nextStageLabel": "Verify workflow visibility",
+    "readyToAdvance": false,
+    "pendingAcceptanceCount": 1,
+    "passAcceptanceCount": 4,
     "withheldDispatchCommandCount": 2,
     "gateCommand": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
     "requiredSignals": [
-      "safeToDispatch=true",
-      "postPublishEvidenceReady=true after workflow runs"
+      "remoteWorkflowFilesReady=true",
+      "remoteWorkflowVisibilityReady=true",
+      "allDispatchReady=true",
+      "safeToDispatch=true before gh workflow run"
     ],
-    "dispatchGuard": "Run only suggested dispatch commands, then capture launch proof.",
+    "dispatchGuard": "Keep gh workflow run commands withheld until allDispatchReady=true and safeToDispatch=true.",
     "steps": [
       {
         "key": "complete-current-stage",
-        "label": "Capture launch proof",
-        "status": "action_required_after_dispatch",
-        "condition": "postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete."
+        "label": "Install workflows on the default branch",
+        "status": "action_required",
+        "condition": "remoteWorkflowFilesReady=true and each remote workflow file matches the local template SHA-256."
       },
       {
         "key": "unlock-next-stage",
-        "label": "Capture launch proof",
-        "status": "ready_after_guard",
-        "condition": "safeToDispatch=true; capture live publish evidence next."
+        "label": "Verify workflow visibility",
+        "status": "conditional",
+        "condition": "remoteWorkflowFilesReady=true and remoteWorkflowVisibilityReady=true before dispatch."
       },
       {
         "key": "keep-dispatch-withheld",
         "label": "Dispatch only after allDispatchReady",
-        "status": "ready",
-        "condition": "Run only suggestedDispatchCommands, then capture launch proof."
+        "status": "withheld",
+        "condition": "Keep gh workflow run withheld until allDispatchReady=true and safeToDispatch=true."
       }
     ]
   },
   "blockerResolutionChecklist": {
     "source": "generated_from_launch_execution_packet",
-    "status": "deferred_until_dispatch",
+    "status": "action_required",
     "repo": "biojuho/BIOJUHO-Projects",
-    "currentStageKey": "capture_launch_proof",
-    "activeItemKey": "launch_proof_capture",
+    "currentStageKey": "install_workflows",
+    "activeItemKey": "remote_workflow_file_parity",
     "itemCount": 6,
-    "passCount": 5,
-    "actionRequiredCount": 0,
+    "passCount": 4,
+    "actionRequiredCount": 1,
     "deferredCount": 1,
     "proofCommandCount": 6,
     "guard": "Do not run gh workflow run until every action_required item has passed and verify-launch-handoff reports safeToDispatch=true.",
@@ -517,7 +552,7 @@
         "blockedSignal": "workflowScopeAvailable=true; workflowScopeInstallBlocked=false; missingScopes=none",
         "action": "Refresh GitHub CLI with workflow scope, or choose the GitHub UI path with a workflow-capable browser session.",
         "proofCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
-        "expectedValue": "workflowScopeAvailable=true; workflowScopeInstallBlocked=false, or GitHub UI path chosen for default-branch file creation.",
+        "expectedValue": "workflowScopeAvailable=true; workflowScopeInstallBlocked=false, or GitHub UI path chosen to apply each workflow row's installAction on the default branch.",
         "stopCondition": "If workflowScopeInstallBlocked=true remains after recheck, do not run the CLI installer; use the GitHub UI path and keep dispatch withheld.",
         "evidence": "workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow"
       },
@@ -535,13 +570,13 @@
       {
         "key": "remote_workflow_file_parity",
         "label": "Prove remote workflow file parity",
-        "status": "pass",
-        "blockedSignal": "remoteWorkflowFilesReady=true; filesReady=2/2; missing=0; mismatch=0",
-        "action": "Install or update both workflow files on the default branch, then compare remote SHA-256 values against local templates.",
+        "status": "action_required",
+        "blockedSignal": "remoteWorkflowFilesReady=false; filesReady=1/2; missing=0; mismatch=1",
+        "action": "Apply each workflow row's installAction on the default branch, then compare remote SHA-256 values against local templates.",
         "proofCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "expectedValue": "remoteWorkflowFilesReady=true; every workflow file has remoteExists=true and remoteMatchesTemplate=true.",
         "stopCondition": "If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.",
-        "evidence": "remoteWorkflowFilesReady=true; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
+        "evidence": "remoteWorkflowFilesReady=false; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
       },
       {
         "key": "workflow_visibility",
@@ -558,37 +593,37 @@
         "key": "dispatch_guard",
         "label": "Keep dispatch guarded",
         "status": "pass",
-        "blockedSignal": "allDispatchReady=true; safeToDispatch=true; dispatchSuggestionStatus=ready",
+        "blockedSignal": "allDispatchReady=false; safeToDispatch=false; dispatchSuggestionStatus=withheld-until-all-dispatch-ready",
         "action": "Rerun launch handoff verification and use only suggestedDispatchCommands after the guard reports safeToDispatch=true.",
         "proofCommand": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
         "expectedValue": "allDispatchReady=true; safeToDispatch=true before gh workflow run.",
         "stopCondition": "If safeToDispatch=false, gh workflow run commands must stay withheld.",
-        "evidence": "allDispatchReady=true; withheldCommands=2"
+        "evidence": "allDispatchReady=false; withheldCommands=2"
       },
       {
         "key": "launch_proof_capture",
         "label": "Capture live launch proof after dispatch",
         "status": "deferred_until_dispatch",
-        "blockedSignal": "postPublishEvidenceReady=false; proofReady=0/6; pending=6",
+        "blockedSignal": "postPublishEvidenceReady=true; proofReady=5/6; pending=1",
         "action": "After guarded dispatch completes, capture Pages site proof, workflow run proof, freshness, release receipt, and public-claim guard evidence.",
         "proofCommand": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
         "expectedValue": "postPublishEvidenceReady=true; evidenceFresh=true; readyForExternalClaim=true only after live proof is saved.",
         "stopCondition": "Do not post public launch copy, archive proof, or claim readyForExternalClaim until all launch proof fields are live and successful.",
-        "evidence": "deferredUntil=workflow dispatch complete and live evidence saved"
+        "evidence": "deferredUntil=safeToDispatch=true"
       }
     ]
   },
   "postInstallEvidenceIntake": {
     "source": "generated_from_launch_execution_packet",
-    "status": "proof_complete",
+    "status": "collect_post_install_proof",
     "ready": true,
-    "proofComplete": true,
-    "allProofFieldsReady": true,
+    "proofComplete": false,
+    "allProofFieldsReady": false,
     "repo": "biojuho/BIOJUHO-Projects",
     "defaultBranch": "main",
     "fieldCount": 6,
-    "completedFieldCount": 6,
-    "pendingFieldCount": 0,
+    "completedFieldCount": 2,
+    "pendingFieldCount": 4,
     "fieldCoverage": 1,
     "commandCount": 4,
     "signalCount": 8,
@@ -599,9 +634,9 @@
     "quickProofReady": true,
     "quickProofStepCount": 4,
     "quickProofCoverage": 1,
-    "quickProofStatus": "proof_complete",
+    "quickProofStatus": "collect_post_install_proof",
     "quickProofFinalCommand": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
-    "quickProofReceipt": "JooPark Post-Install Quick Proof Receipt\nStatus: proof_complete\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nProof complete: true\nFields complete: 6/6\nQuick proof steps: 4\n\n4-step proof checklist:\n1. remote_file_parity: run node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expect remoteWorkflowFilesReady=true; paste into remote_parity_proof\n2. actions_visibility: run gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expect remoteWorkflowVisibilityReady=true; paste into actions_visibility_proof\n3. dispatch_readiness: run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expect allDispatchReady=true; paste into dispatch_readiness_proof\n4. handoff_verifier: run node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expect safeToDispatch=true before gh workflow run; paste into handoff_verifier_proof\n\nMapped proof fields:\n1. remote_file_parity -> remote_parity_proof: proof_ready; completed=true; current=remoteWorkflowFilesReady=true; filesReady=2/2; missing=0; mismatch=0; expected=remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.\n2. actions_visibility -> actions_visibility_proof: proof_ready; completed=true; current=remoteWorkflowVisibilityReady=true; expected=remoteWorkflowVisibilityReady=true and GitHub Actions lists both workflow files.\n3. dispatch_readiness -> dispatch_readiness_proof: proof_ready; completed=true; current=dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; expected=dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.\n4. handoff_verifier -> handoff_verifier_proof: proof_ready; completed=true; current=safeToDispatch=true; allDispatchReady=true; expected=verify-launch-handoff reports safeToDispatch=true before gh workflow run.\n\nSix evidence fields remain required:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.",
+    "quickProofReceipt": "JooPark Post-Install Quick Proof Receipt\nStatus: collect_post_install_proof\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nProof complete: false\nFields complete: 2/6\nQuick proof steps: 4\n\n4-step proof checklist:\n1. remote_file_parity: run node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expect remoteWorkflowFilesReady=true; paste into remote_parity_proof\n2. actions_visibility: run gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expect remoteWorkflowVisibilityReady=true; paste into actions_visibility_proof\n3. dispatch_readiness: run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expect allDispatchReady=true; paste into dispatch_readiness_proof\n4. handoff_verifier: run node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expect safeToDispatch=true before gh workflow run; paste into handoff_verifier_proof\n\nMapped proof fields:\n1. remote_file_parity -> remote_parity_proof: evidence_required; completed=false; current=remoteWorkflowFilesReady=false; filesReady=1/2; missing=0; mismatch=1; expected=remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.\n2. actions_visibility -> actions_visibility_proof: proof_ready; completed=true; current=remoteWorkflowVisibilityReady=true; expected=remoteWorkflowVisibilityReady=true and GitHub Actions lists both workflow files.\n3. dispatch_readiness -> dispatch_readiness_proof: evidence_required; completed=false; current=dispatchReady=false; driftDispatchReady=true; allDispatchReady=false; expected=dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.\n4. handoff_verifier -> handoff_verifier_proof: evidence_required; completed=false; current=safeToDispatch=false; allDispatchReady=false; expected=verify-launch-handoff reports safeToDispatch=true before gh workflow run.\n\nSix evidence fields remain required:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.",
     "quickProofSteps": [
       {
         "key": "remote_file_parity",
@@ -609,7 +644,7 @@
         "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "expected": "remoteWorkflowFilesReady=true",
         "evidenceFieldKey": "remote_parity_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Confirm both default-branch workflow files exist and match local templates before checking Actions visibility."
       },
       {
@@ -618,7 +653,7 @@
         "command": "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
         "expected": "remoteWorkflowVisibilityReady=true",
         "evidenceFieldKey": "actions_visibility_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Confirm GitHub Actions lists both workflow files before planning dispatch."
       },
       {
@@ -627,7 +662,7 @@
         "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
         "expected": "allDispatchReady=true",
         "evidenceFieldKey": "dispatch_readiness_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Confirm pages and drift dispatch readiness are both true before final handoff verification."
       },
       {
@@ -636,24 +671,24 @@
         "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
         "expected": "safeToDispatch=true before gh workflow run",
         "evidenceFieldKey": "handoff_verifier_proof",
-        "status": "proof_ready",
+        "status": "evidence_required",
         "guard": "Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true."
       }
     ],
     "quickProofFieldMappingReady": true,
     "quickProofFieldMappingCoverage": 1,
     "quickProofMappedFieldCount": 4,
-    "quickProofCompletedMappedFieldCount": 4,
-    "quickProofPendingMappedFieldCount": 0,
+    "quickProofCompletedMappedFieldCount": 1,
+    "quickProofPendingMappedFieldCount": 3,
     "quickProofFieldMappings": [
       {
         "stepKey": "remote_file_parity",
         "stepLabel": "Remote workflow file check",
         "fieldKey": "remote_parity_proof",
         "fieldLabel": "Remote parity proof",
-        "fieldStatus": "proof_ready",
-        "fieldCompleted": true,
-        "currentValue": "remoteWorkflowFilesReady=true; filesReady=2/2; missing=0; mismatch=0",
+        "fieldStatus": "evidence_required",
+        "fieldCompleted": false,
+        "currentValue": "remoteWorkflowFilesReady=false; filesReady=1/2; missing=0; mismatch=1",
         "expectedValue": "remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.",
         "proofCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "stopCondition": "If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch."
@@ -675,9 +710,9 @@
         "stepLabel": "Dispatch readiness plan",
         "fieldKey": "dispatch_readiness_proof",
         "fieldLabel": "Dispatch readiness proof",
-        "fieldStatus": "proof_ready",
-        "fieldCompleted": true,
-        "currentValue": "dispatchReady=true; driftDispatchReady=true; allDispatchReady=true",
+        "fieldStatus": "evidence_required",
+        "fieldCompleted": false,
+        "currentValue": "dispatchReady=false; driftDispatchReady=true; allDispatchReady=false",
         "expectedValue": "dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.",
         "proofCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
         "stopCondition": "If allDispatchReady=false, suggestedDispatchCommands must remain empty."
@@ -687,9 +722,9 @@
         "stepLabel": "Launch handoff verifier",
         "fieldKey": "handoff_verifier_proof",
         "fieldLabel": "Handoff verifier proof",
-        "fieldStatus": "proof_ready",
-        "fieldCompleted": true,
-        "currentValue": "safeToDispatch=true; allDispatchReady=true",
+        "fieldStatus": "evidence_required",
+        "fieldCompleted": false,
+        "currentValue": "safeToDispatch=false; allDispatchReady=false",
         "expectedValue": "verify-launch-handoff reports safeToDispatch=true before gh workflow run.",
         "proofCommand": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
         "stopCondition": "If safeToDispatch=false, gh workflow run commands must stay withheld."
@@ -758,9 +793,9 @@
       {
         "key": "pages_workflow_commit",
         "label": "Pages workflow commit",
-        "status": "proof_ready",
-        "completed": true,
-        "currentValue": ".github/workflows/joopark-pages.yml; status=ready; remoteSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c",
+        "status": "evidence_required",
+        "completed": false,
+        "currentValue": ".github/workflows/joopark-pages.yml; status=sha_mismatch; remoteSha256=8ea83aa0d99b303beb6b42976429acc207492d34de461a2ac9c026fbc4cb7574",
         "expectedValue": ".github/workflows/joopark-pages.yml exists on main and remoteMatchesTemplate=true.",
         "proofCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "stopCondition": "If pages remoteExists=false or remoteMatchesTemplate=false, do not run dispatch.",
@@ -772,7 +807,7 @@
         "label": "Drift Watch workflow commit",
         "status": "proof_ready",
         "completed": true,
-        "currentValue": ".github/workflows/joopark-drift-watch.yml; status=ready; remoteSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+        "currentValue": ".github/workflows/joopark-drift-watch.yml; status=ready; remoteSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
         "expectedValue": ".github/workflows/joopark-drift-watch.yml exists on main and remoteMatchesTemplate=true.",
         "proofCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "stopCondition": "If drift-watch remoteExists=false or remoteMatchesTemplate=false, do not run dispatch.",
@@ -782,9 +817,9 @@
       {
         "key": "remote_parity_proof",
         "label": "Remote parity proof",
-        "status": "proof_ready",
-        "completed": true,
-        "currentValue": "remoteWorkflowFilesReady=true; filesReady=2/2; missing=0; mismatch=0",
+        "status": "evidence_required",
+        "completed": false,
+        "currentValue": "remoteWorkflowFilesReady=false; filesReady=1/2; missing=0; mismatch=1",
         "expectedValue": "remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.",
         "proofCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "stopCondition": "If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.",
@@ -806,9 +841,9 @@
       {
         "key": "dispatch_readiness_proof",
         "label": "Dispatch readiness proof",
-        "status": "proof_ready",
-        "completed": true,
-        "currentValue": "dispatchReady=true; driftDispatchReady=true; allDispatchReady=true",
+        "status": "evidence_required",
+        "completed": false,
+        "currentValue": "dispatchReady=false; driftDispatchReady=true; allDispatchReady=false",
         "expectedValue": "dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.",
         "proofCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
         "stopCondition": "If allDispatchReady=false, suggestedDispatchCommands must remain empty.",
@@ -818,9 +853,9 @@
       {
         "key": "handoff_verifier_proof",
         "label": "Handoff verifier proof",
-        "status": "proof_ready",
-        "completed": true,
-        "currentValue": "safeToDispatch=true; allDispatchReady=true",
+        "status": "evidence_required",
+        "completed": false,
+        "currentValue": "safeToDispatch=false; allDispatchReady=false",
         "expectedValue": "verify-launch-handoff reports safeToDispatch=true before gh workflow run.",
         "proofCommand": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown",
         "stopCondition": "If safeToDispatch=false, gh workflow run commands must stay withheld.",
@@ -831,14 +866,14 @@
   },
   "workflowInstallVerificationMatrix": {
     "source": "generated_from_launch_execution_packet",
-    "status": "ready_to_dispatch",
+    "status": "install_verification_required",
     "repo": "biojuho/BIOJUHO-Projects",
     "defaultBranch": "main",
     "currentStageKey": "install_workflows",
     "nextStageKey": "verify_visibility",
-    "readyToVerifyVisibility": true,
-    "readyToDispatch": true,
-    "installPathCount": 0,
+    "readyToVerifyVisibility": false,
+    "readyToDispatch": false,
+    "installPathCount": 2,
     "requiredSignalCount": 6,
     "verificationCommandCount": 4,
     "remoteFileCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
@@ -854,7 +889,64 @@
       "allDispatchReady=true",
       "safeToDispatch=true before gh workflow run"
     ],
-    "matrixRows": [],
+    "matrixRows": [
+      {
+        "key": "cli_workflow_scope",
+        "label": "CLI path after workflow scope",
+        "status": "ready_to_install",
+        "firstCommand": "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify",
+        "commandCount": 7,
+        "verificationCommands": [
+          "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+          "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
+          "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+          "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"
+        ],
+        "successSignals": [
+          "workflowScopeAvailable=true",
+          "workflowScopeInstallBlocked=false",
+          "remoteWorkflowFilesReady=true",
+          "remoteWorkflowVisibilityReady=true",
+          "allDispatchReady=true",
+          "safeToDispatch=true before gh workflow run"
+        ],
+        "blockedSignals": [
+          "workflowScopeInstallBlocked=true",
+          "remoteWorkflowFilesReady=false",
+          "remoteWorkflowVisibilityReady=false",
+          "allDispatchReady=false"
+        ],
+        "guard": "Do not run dispatch commands just because the local .github/workflows files exist."
+      },
+      {
+        "key": "github_ui",
+        "label": "GitHub UI path",
+        "status": "ready_to_install",
+        "firstCommand": "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+        "commandCount": 3,
+        "verificationCommands": [
+          "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+          "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
+          "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
+          "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"
+        ],
+        "successSignals": [
+          "workflowScopeAvailable=true",
+          "workflowScopeInstallBlocked=false",
+          "remoteWorkflowFilesReady=true",
+          "remoteWorkflowVisibilityReady=true",
+          "allDispatchReady=true",
+          "safeToDispatch=true before gh workflow run"
+        ],
+        "blockedSignals": [
+          "workflowScopeInstallBlocked=true",
+          "remoteWorkflowFilesReady=false",
+          "remoteWorkflowVisibilityReady=false",
+          "allDispatchReady=false"
+        ],
+        "guard": "Use each file's create or edit URL according to installAction before any dispatch attempt."
+      }
+    ],
     "signalChecks": [
       {
         "key": "operator_auth_path",
@@ -875,9 +967,9 @@
       {
         "key": "remote_workflow_file_parity",
         "label": "Remote workflow file parity",
-        "status": "pass",
+        "status": "action_required",
         "required": "Remote default-branch workflow files must exist and match the local template SHA-256 values.",
-        "evidence": "remoteWorkflowFilesReady=true; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
+        "evidence": "remoteWorkflowFilesReady=false; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
       },
       {
@@ -892,25 +984,25 @@
         "key": "dispatch_guard",
         "label": "Dispatch guard",
         "status": "pass",
-        "required": "Keep gh workflow run commands withheld until allDispatchReady=true.",
-        "evidence": "allDispatchReady=true; withheldCommands=2",
+        "required": "Keep gh workflow run commands withheld until remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, and allDispatchReady=true.",
+        "evidence": "allDispatchReady=false; withheldCommands=2",
         "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"
       }
     ]
   },
   "remoteWorkflowFileAcceptanceLedger": {
     "source": "generated_from_remote_workflow_file_check",
-    "status": "remote_files_ready",
+    "status": "remote_file_install_required",
     "repo": "biojuho/BIOJUHO-Projects",
     "defaultBranch": "main",
     "remoteWorkflowFilesChecked": true,
-    "remoteWorkflowFilesReady": true,
+    "remoteWorkflowFilesReady": false,
     "fileCount": 2,
-    "readyCount": 2,
+    "readyCount": 1,
     "missingCount": 0,
-    "mismatchCount": 0,
+    "mismatchCount": 1,
     "notCheckedCount": 0,
-    "commandCount": 6,
+    "commandCount": 5,
     "verifyCommand": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
     "installCommand": "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify",
     "dispatchPlanCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write",
@@ -928,24 +1020,30 @@
         "path": ".github/workflows/joopark-pages.yml",
         "template": "docs/github-pages-workflow.yml",
         "defaultBranch": "main",
-        "status": "ready",
+        "status": "sha_mismatch",
+        "installAction": "replace_existing_remote_file",
         "localTemplateExists": true,
         "localTargetMatchesTemplate": true,
-        "templateSha256": "59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c",
-        "localTargetSha256": "7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471",
+        "templateSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
+        "localTargetSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
         "remoteChecked": true,
         "remoteExists": true,
-        "remoteSha256": "59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c",
-        "remoteMatchesTemplate": true,
-        "githubBlobSha": "923b825e376d33bd67180045f844462a1fb85fd4",
+        "remoteSha256": "8ea83aa0d99b303beb6b42976429acc207492d34de461a2ac9c026fbc4cb7574",
+        "remoteMatchesTemplate": false,
+        "githubBlobSha": "a23c1d4502411242fce30d0fbf184ef0fadd8367",
         "htmlUrl": "https://github.com/biojuho/BIOJUHO-Projects/blob/main/.github/workflows/joopark-pages.yml",
         "workflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml",
         "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml",
+        "githubEditFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml",
         "templateCopyCommand": "pbcopy < 'docs/github-pages-workflow.yml'",
         "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'",
+        "githubEditFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+        "openCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
         "verifyCommand": "gh api --method GET repos/biojuho/BIOJUHO-Projects/contents/.github/workflows/joopark-pages.yml -f ref=main",
-        "evidence": "remoteChecked=true; remoteExists=true; remoteMatchesTemplate=true; templateSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c; remoteSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c",
-        "blockers": []
+        "evidence": "remoteChecked=true; remoteExists=true; remoteMatchesTemplate=false; templateSha256=7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e; remoteSha256=8ea83aa0d99b303beb6b42976429acc207492d34de461a2ac9c026fbc4cb7574",
+        "blockers": [
+          "pages: remote workflow file differs from local template"
+        ]
       },
       {
         "key": "drift-watch",
@@ -954,82 +1052,86 @@
         "template": "docs/github-drift-watch-workflow.yml",
         "defaultBranch": "main",
         "status": "ready",
+        "installAction": "verified_remote_matches_template",
         "localTemplateExists": true,
         "localTargetMatchesTemplate": true,
-        "templateSha256": "c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
-        "localTargetSha256": "c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+        "templateSha256": "1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
+        "localTargetSha256": "1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
         "remoteChecked": true,
         "remoteExists": true,
-        "remoteSha256": "c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+        "remoteSha256": "1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
         "remoteMatchesTemplate": true,
-        "githubBlobSha": "dd4594818484c99b8b4a369f1820a839c2e4f236",
+        "githubBlobSha": "9993158bcf1cb7458acd71d2f91e45539153b0a5",
         "htmlUrl": "https://github.com/biojuho/BIOJUHO-Projects/blob/main/.github/workflows/joopark-drift-watch.yml",
         "workflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml",
         "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml",
+        "githubEditFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-drift-watch.yml",
         "templateCopyCommand": "pbcopy < 'docs/github-drift-watch-workflow.yml'",
         "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'",
+        "githubEditFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-drift-watch.yml'",
+        "openCommand": "",
         "verifyCommand": "gh api --method GET repos/biojuho/BIOJUHO-Projects/contents/.github/workflows/joopark-drift-watch.yml -f ref=main",
-        "evidence": "remoteChecked=true; remoteExists=true; remoteMatchesTemplate=true; templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; remoteSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae",
+        "evidence": "remoteChecked=true; remoteExists=true; remoteMatchesTemplate=true; templateSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2; remoteSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
         "blockers": []
       }
     ]
   },
   "launchProofAcceptanceLedger": {
     "source": "generated_from_launch_execution_packet",
-    "status": "proof_capture_required",
+    "status": "proof_blocked_until_dispatch",
     "repo": "biojuho/BIOJUHO-Projects",
     "currentGate": "capture_launch_proof",
-    "currentGateStatus": "action_required_after_dispatch",
-    "deferredUntil": "workflow dispatch complete and live evidence saved",
-    "safeToDispatch": true,
-    "postPublishEvidenceReady": false,
+    "currentGateStatus": "pass",
+    "deferredUntil": "safeToDispatch=true",
+    "safeToDispatch": false,
+    "postPublishEvidenceReady": true,
     "evidenceFresh": true,
-    "publicLaunchProofReady": false,
+    "publicLaunchProofReady": true,
     "readyForExternalClaim": false,
     "requiredProofCount": 6,
-    "readyProofCount": 0,
-    "pendingProofCount": 6,
+    "readyProofCount": 5,
+    "pendingProofCount": 1,
     "captureMarkdownCommand": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
     "captureWriteCommand": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write",
     "requiredProofs": [
       {
         "key": "pages_site_url",
         "label": "Pages site URL/status",
-        "status": "pending_capture",
+        "status": "ready",
         "required": "Capture GitHub Pages html_url, status, and https_enforced from the live repository.",
-        "evidence": "pages.checked=true; pages.ready=false; site=not available",
+        "evidence": "pages.checked=true; pages.ready=true; site=https://biojuho.github.io/BIOJUHO-Projects/",
         "command": "gh api repos/biojuho/BIOJUHO-Projects/pages"
       },
       {
         "key": "pages_workflow_run",
         "label": "Pages workflow run",
-        "status": "pending_capture",
+        "status": "ready",
         "required": "Capture latest joopark-pages.yml run status, conclusion, URL, and headSha after dispatch.",
-        "evidence": "checked=true; ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216103; headSha=71d31313027055091096d5f8facbc72a44bbb257",
+        "evidence": "checked=true; ready=true; status=completed; conclusion=success; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172911727; headSha=e1f6623c339dc68a19a491f1c9ff85dde871b9b2",
         "command": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
       },
       {
         "key": "drift_workflow_run",
         "label": "Drift Watch workflow run",
-        "status": "pending_capture",
+        "status": "ready",
         "required": "Capture latest joopark-drift-watch.yml run status, conclusion, URL, and headSha after dispatch.",
-        "evidence": "checked=true; ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216127; headSha=71d31313027055091096d5f8facbc72a44bbb257",
+        "evidence": "checked=true; ready=true; status=completed; conclusion=success; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172911738; headSha=e1f6623c339dc68a19a491f1c9ff85dde871b9b2",
         "command": "gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle"
       },
       {
         "key": "evidence_freshness",
         "label": "Evidence freshness",
-        "status": "pending_capture",
+        "status": "ready",
         "required": "Saved publish evidence must be generated after dispatch and still be inside the freshness window.",
-        "evidence": "postPublishEvidenceReady=false; evidenceFresh=true; evidenceExpiresAt=2026-06-09T22:59:10.279Z",
+        "evidence": "postPublishEvidenceReady=true; evidenceFresh=true; evidenceExpiresAt=2026-06-12T01:13:34.611Z",
         "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"
       },
       {
         "key": "release_receipt",
         "label": "Release receipt",
-        "status": "blocked_until_proof",
+        "status": "ready",
         "required": "Archive the post-launch verification receipt only after live Pages and workflow evidence is ready.",
-        "evidence": "postLaunchVerificationReceipt=true; postPublishEvidenceReady=false",
+        "evidence": "postLaunchVerificationReceipt=true; postPublishEvidenceReady=true",
         "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown"
       },
       {
@@ -1037,7 +1139,7 @@
         "label": "Public claim guard",
         "status": "guarded",
         "required": "Keep public launch copy blocked until release quality, public launch proof, and launch packet claim guard are all true.",
-        "evidence": "publicLaunchProofReady=false; readyForExternalClaim=false",
+        "evidence": "publicLaunchProofReady=true; readyForExternalClaim=false",
         "command": "copy System Status quality receipt after readyForExternalClaim=true"
       }
     ],
@@ -1078,13 +1180,10 @@
     {
       "key": "install_workflows",
       "label": "Install workflows on the default branch",
-      "status": "pass",
-      "detail": "Create both workflow files in .github/workflows on the repository default branch using the copied templates.",
+      "status": "action_required",
+      "detail": "Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.",
       "commands": [
-        "pbcopy < 'docs/github-pages-workflow.yml'",
-        "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'",
-        "pbcopy < 'docs/github-drift-watch-workflow.yml'",
-        "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'",
+        "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
         "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
       ],
       "installPaths": [
@@ -1107,17 +1206,14 @@
         {
           "key": "github_ui",
           "label": "GitHub UI path",
-          "when": "Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch file creation.",
+          "when": "Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch workflow repair.",
           "commands": [
-            "pbcopy < 'docs/github-pages-workflow.yml'",
-            "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'",
-            "pbcopy < 'docs/github-drift-watch-workflow.yml'",
-            "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'",
+            "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
             "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
             "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
           ],
-          "success": "Both GitHub new-file pages are committed to main, remoteWorkflowFilesReady=true, and workflow visibility is confirmed.",
-          "guard": "Create the files on the default branch with the exact copied template contents before any dispatch attempt."
+          "success": "Required create_missing_remote_file rows are created, replace_existing_remote_file rows are replaced on main, verified_remote_matches_template rows are skipped, remoteWorkflowFilesReady=true, and workflow visibility is confirmed.",
+          "guard": "Use each file's create or edit URL according to installAction before any dispatch attempt."
         }
       ],
       "evidence": [
@@ -1128,15 +1224,15 @@
         "workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow",
         "workflowScopeRecheckCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
         "localTargetParityReady=true",
-        "remoteWorkflowFilesReady=true",
-        ".github/workflows/joopark-pages.yml templateSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471 targetSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471 targetMatchesTemplate=true",
-        ".github/workflows/joopark-drift-watch.yml templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae targetSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae targetMatchesTemplate=true"
+        "remoteWorkflowFilesReady=false",
+        ".github/workflows/joopark-pages.yml templateSha256=7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e targetSha256=7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e targetMatchesTemplate=true",
+        ".github/workflows/joopark-drift-watch.yml templateSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2 targetSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2 targetMatchesTemplate=true"
       ]
     },
     {
       "key": "verify_visibility",
       "label": "Verify workflow visibility",
-      "status": "pass",
+      "status": "action_required",
       "detail": "Confirm GitHub Actions can see the workflow files before attempting dispatch.",
       "commands": [
         "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
@@ -1149,31 +1245,33 @@
     {
       "key": "dispatch_gate",
       "label": "Dispatch only after allDispatchReady",
-      "status": "ready",
+      "status": "withheld",
       "detail": "Do not run gh workflow run until repoEvidenceReady, dispatchReady, driftDispatchReady, and allDispatchReady are all true.",
       "commands": [
-        "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+        "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
         "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
       ],
       "evidence": [
         "repoEvidenceReady=true",
-        "dispatchReady=true",
+        "remoteWorkflowFilesReady=false",
+        "remoteWorkflowVisibilityReady=true",
+        "dispatchReady=false",
         "driftDispatchReady=true",
-        "allDispatchReady=true",
-        "dispatchSuggestionStatus=ready"
+        "allDispatchReady=false",
+        "dispatchSuggestionStatus=withheld-until-all-dispatch-ready"
       ]
     },
     {
       "key": "capture_launch_proof",
       "label": "Capture launch proof",
-      "status": "action_required_after_dispatch",
+      "status": "pass",
       "detail": "After both workflow runs complete, capture Pages URL/status and the latest Pages/Drift workflow run status/conclusion.",
       "commands": [
         "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
         "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"
       ],
       "evidence": [
-        "postPublishEvidenceReady=false",
+        "postPublishEvidenceReady=true",
         "evidenceFresh=true"
       ]
     },
@@ -1189,7 +1287,7 @@
       ],
       "evidence": [
         "readyForExternalClaim=false",
-        "publicLaunchProofReady=false"
+        "publicLaunchProofReady=true"
       ]
     }
   ],
@@ -1208,11 +1306,12 @@
     }
   ],
   "blockers": [
-    "Capture launch proof: action_required_after_dispatch - After both workflow runs complete, capture Pages URL/status and the latest Pages/Drift workflow run status/conclusion.",
+    "Install workflows on the default branch: action_required - Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.",
+    "Verify workflow visibility: action_required - Confirm GitHub Actions can see the workflow files before attempting dispatch.",
+    "Dispatch only after allDispatchReady: withheld - Do not run gh workflow run until repoEvidenceReady, dispatchReady, driftDispatchReady, and allDispatchReady are all true.",
     "Share or archive only after proof: blocked - Use the public launch announcement or archive receipt only after live launch proof is present.",
-    "Publish evidence: GitHub Pages site html_url/status evidence is not ready",
-    "Publish evidence: pages: latest workflow run is not completed with success conclusion",
-    "Publish evidence: drift-watch: latest workflow run is not completed with success conclusion"
+    "Remote workflow file check: pages: remote workflow file differs from local template",
+    "Publish dispatch: pages: remote workflow file does not match the local template on main"
   ],
-  "packet": "JooPark Launch Execution Packet\nStatus: action required - launch proof not complete\nGenerated: 2026-06-08T23:02:17.083Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\n\nGuard:\n- Do not run dispatch commands until allDispatchReady: true.\n- Do not publish a public launch claim until postPublishEvidenceReady: true and readyForExternalClaim: true.\n\nOperator one-page handoff:\nJooPark Launch Operator One-Page Handoff\nStatus: action_required_after_dispatch\nGenerated: 2026-06-08T23:02:17.083Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\n\nGoal for this pass:\n- Capture launch proof\n- Success: postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.\n- Active blocker: launch_proof_capture (deferred_until_dispatch)\n\nDo first:\n1. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nIf CLI workflow scope is still blocked, use GitHub UI fallback:\n1. Use the GitHub UI workflow install plan and commit both workflow files on the default branch.\n\nProve after install:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install quick proof:\n1. remote_file_parity: expect remoteWorkflowFilesReady=true; paste into remote_parity_proof\n2. actions_visibility: expect remoteWorkflowVisibilityReady=true; paste into actions_visibility_proof\n3. dispatch_readiness: expect allDispatchReady=true; paste into dispatch_readiness_proof\n4. handoff_verifier: expect safeToDispatch=true before gh workflow run; paste into handoff_verifier_proof\n\nSuccess signals:\n- workflowScopeAvailable=true or GitHub UI workflow files committed on the default branch\n- remoteWorkflowFilesReady=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- all six post-install evidence fields are filled\n- safeToDispatch=true before gh workflow run\n\nEvidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nDo not run or claim yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n- Do not post public launch copy.\n- Do not archive post-launch proof.\n- Do not claim readyForExternalClaim=true.\n\nExternal baseline:\n- GitHub workflow_dispatch must exist on the default branch before manual dispatch.\n- GitHub Pages proof must include live Pages status and workflow run status/conclusion evidence.\n\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\n\nAuth preflight:\n- status: pass\n- checked: true\n- source: gh-api-header\n- workflowScopeAvailable: true\n- workflowScopeInstallBlocked: false\n- scopes: gist, read:org, repo, workflow\n- missingScopes: none\n- refresh: gh auth refresh -h github.com -s workflow\n- refreshWithClipboard: gh auth refresh -h github.com -s workflow --clipboard\n- recheck: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- approval: not_required\n- approvalUrl: https://github.com/login/device\n- approvalPrompt: First copy your one-time code, then open https://github.com/login/device to approve the workflow scope; keep the terminal session open until gh reports success.\n- interactiveApprovalRequired: false\n- terminalWaitRequired: false\n- interactiveApprovalNote: This is an interactive OAuth device flow; keep the terminal session open until gh reports success. If the browser approval is not completed, gh auth status will still omit workflow.\n- postApprovalAuthStatus: gh auth status -h github.com\n- incompleteApprovalSignal: Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.\n- sensitiveValuePolicy: Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.\n- approvalStopCondition: Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files.\n\nPost-auth checkpoint:\n- status: pass\n- verificationOnly: true\n- dispatchApproval: false\n- trigger: gh auth refresh -h github.com -s workflow\n- confirm scope: gh auth status -h github.com\n- recheck dispatch plan: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- verify handoff: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- install after pass: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- recheck sequence: 5\n- source artifacts: gh auth status -h github.com; data/remote-workflow-file-check.json; data/publish-dispatch-plan.json; data/launch-handoff-verification.json\n- expected: Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true after installer or GitHub UI commit; remoteWorkflowVisibilityReady=true before dispatch; safeToDispatch=true before gh workflow run\n- still blocked if: workflowScopeInstallBlocked=true; remoteWorkflowFilesReady=false; remoteWorkflowVisibilityReady=false; allDispatchReady=false\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\nRecheck sequence:\n1. confirm_scope: command=gh auth status -h github.com; expected=Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; source=gh auth status -h github.com; stop=Stop if workflow scope is still missing; use GitHub UI fallback or rerun the scope refresh.\n2. install_workflows: command=node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify; expected=Create/update both default-branch workflow files or use the GitHub UI fallback.; source=data/remote-workflow-file-check.json; stop=Stop if remote workflow files are not installed on the default branch.\n3. verify_remote_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; remoteExists=true; remoteMatchesTemplate=true for both workflows; source=data/remote-workflow-file-check.json; stop=Stop if any remote SHA differs from the local template SHA-256.\n4. verify_actions_visibility: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=remoteWorkflowVisibilityReady=true; dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; source=data/publish-dispatch-plan.json; stop=Stop if GitHub Actions does not list both workflows or dispatch commands remain withheld.\n5. verify_handoff_guard: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; every post-install proof field has been filled; source=data/launch-handoff-verification.json; stop=Stop if safeToDispatch=false or post-install proof is incomplete.\n\nCurrent action packet:\nJooPark Launch Current Action Packet\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nCurrent stage: Capture launch proof [action_required_after_dispatch]\nWhy now: After both workflow runs complete, capture Pages URL/status and the latest Pages/Drift workflow run status/conclusion.\nSuccess condition: postPublishEvidenceReady=true and evidenceFresh=true after live workflow runs complete.\n\nAuth preflight:\n- status: pass\n- checked: true\n- source: gh-api-header\n- workflowScopeAvailable: true\n- workflowScopeInstallBlocked: false\n- scopes: gist, read:org, repo, workflow\n- missingScopes: none\n- refresh: gh auth refresh -h github.com -s workflow\n- refreshWithClipboard: gh auth refresh -h github.com -s workflow --clipboard\n- recheck: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- approval: not_required\n- approvalUrl: https://github.com/login/device\n- approvalPrompt: First copy your one-time code, then open https://github.com/login/device to approve the workflow scope; keep the terminal session open until gh reports success.\n- interactiveApprovalRequired: false\n- terminalWaitRequired: false\n- interactiveApprovalNote: This is an interactive OAuth device flow; keep the terminal session open until gh reports success. If the browser approval is not completed, gh auth status will still omit workflow.\n- postApprovalAuthStatus: gh auth status -h github.com\n- incompleteApprovalSignal: Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.\n- sensitiveValuePolicy: Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.\n- approvalStopCondition: Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files.\n\nPost-auth checkpoint:\n- status: pass\n- verificationOnly: true\n- dispatchApproval: false\n- trigger: gh auth refresh -h github.com -s workflow\n- confirm scope: gh auth status -h github.com\n- recheck dispatch plan: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- verify handoff: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- install after pass: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- recheck sequence: 5\n- source artifacts: gh auth status -h github.com; data/remote-workflow-file-check.json; data/publish-dispatch-plan.json; data/launch-handoff-verification.json\n- expected: Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true after installer or GitHub UI commit; remoteWorkflowVisibilityReady=true before dispatch; safeToDispatch=true before gh workflow run\n- still blocked if: workflowScopeInstallBlocked=true; remoteWorkflowFilesReady=false; remoteWorkflowVisibilityReady=false; allDispatchReady=false\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\nRecheck sequence:\n1. confirm_scope: command=gh auth status -h github.com; expected=Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; source=gh auth status -h github.com; stop=Stop if workflow scope is still missing; use GitHub UI fallback or rerun the scope refresh.\n2. install_workflows: command=node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify; expected=Create/update both default-branch workflow files or use the GitHub UI fallback.; source=data/remote-workflow-file-check.json; stop=Stop if remote workflow files are not installed on the default branch.\n3. verify_remote_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; remoteExists=true; remoteMatchesTemplate=true for both workflows; source=data/remote-workflow-file-check.json; stop=Stop if any remote SHA differs from the local template SHA-256.\n4. verify_actions_visibility: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=remoteWorkflowVisibilityReady=true; dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; source=data/publish-dispatch-plan.json; stop=Stop if GitHub Actions does not list both workflows or dispatch commands remain withheld.\n5. verify_handoff_guard: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; every post-install proof field has been filled; source=data/launch-handoff-verification.json; stop=Stop if safeToDispatch=false or post-install proof is incomplete.\n\nDefault-branch requirement proof:\n- source: GitHub manual workflow dispatch docs + GitHub REST repository contents API\n- defaultBranch: main\n- workflowFiles: .github/workflows/joopark-pages.yml, .github/workflows/joopark-drift-watch.yml\n- manual dispatch docs: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow?tool=webui\n- repository contents verification: https://docs.github.com/en/rest/repos/contents#get-repository-content\n- visibility recheck: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- requirement: Create both workflow YAML files under .github/workflows on the main default branch.\n- requirement: Manual workflow dispatch is available only after workflow_dispatch exists on the default branch.\n- requirement: Remote workflow file check must read the default-branch contents and match each local template SHA-256.\n- requirement: GitHub Actions visibility must be confirmed before gh workflow run commands are suggested.\n\nAcceptance checklist: 5/5 pass; pending=0\n- Operator auth path: pass - Use a workflow-scope GitHub CLI token or a workflow-capable GitHub UI session before writing workflow files to the default branch. Evidence: workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- Local template parity: pass - Local repository workflow targets must exist and match the prepared workflow templates before remote installation. Evidence: localTargetParityReady=true\n- Remote workflow file parity: pass - Remote default-branch workflow files must exist and match the local template SHA-256 values. Evidence: remoteWorkflowFilesReady=true; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- Workflow visibility: pass - GitHub Actions must list both workflows before any dispatch command is suggested. Evidence: remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- Dispatch guard: pass - Keep gh workflow run commands withheld until allDispatchReady=true. Evidence: allDispatchReady=true; withheldCommands=2\n\nRun now:\n- node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n- node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n\nVerify after running:\n- node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nDo not run yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n\nGuard: do not publish or archive launch proof until postPublishEvidenceReady=true and readyForExternalClaim=true.\n\nStage transition preview:\n- source: generated_from_launch_execution_packet\n- current: capture_launch_proof (Capture launch proof) [action_required_after_dispatch]\n- next: capture_launch_proof (Capture launch proof) [ready_after_guard]\n- acceptance: 5 pass; pending=0\n- withheld dispatch commands: 2\n- gate command: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- required signals: safeToDispatch=true; postPublishEvidenceReady=true after workflow runs\n- guard: Run only suggested dispatch commands, then capture launch proof.\n\nBlocker resolution checklist:\n- source: generated_from_launch_execution_packet\n- status: deferred_until_dispatch\n- active item: launch_proof_capture\n- items: 5/6 pass; action_required=0; deferred=1\n- guard: Do not run gh workflow run until every action_required item has passed and verify-launch-handoff reports safeToDispatch=true.\n- operator_auth_path: pass; action=Refresh GitHub CLI with workflow scope, or choose the GitHub UI path with a workflow-capable browser session.; proof command: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expectedValue=workflowScopeAvailable=true; workflowScopeInstallBlocked=false, or GitHub UI path chosen for default-branch file creation.; stopCondition=If workflowScopeInstallBlocked=true remains after recheck, do not run the CLI installer; use the GitHub UI path and keep dispatch withheld.; evidence=workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- local_template_parity: pass; action=Regenerate or restage local workflow targets if template parity fails before copying anything to GitHub.; proof command: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expectedValue=localTargetParityReady=true; each local target SHA-256 matches its template SHA-256.; stopCondition=Do not create remote workflow files from stale or mismatched local targets.; evidence=localTargetParityReady=true\n- remote_workflow_file_parity: pass; action=Install or update both workflow files on the default branch, then compare remote SHA-256 values against local templates.; proof command: node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedValue=remoteWorkflowFilesReady=true; every workflow file has remoteExists=true and remoteMatchesTemplate=true.; stopCondition=If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.; evidence=remoteWorkflowFilesReady=true; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- workflow_visibility: pass; action=List repository workflows and rerun the dispatch plan after remote file parity passes.; proof command: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expectedValue=remoteWorkflowVisibilityReady=true; Publish JooPark Pages and Watch JooPark Candidate Drift are visible.; stopCondition=If GitHub Actions does not list both workflows, keep suggestedDispatchCommands empty.; evidence=remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- dispatch_guard: pass; action=Rerun launch handoff verification and use only suggestedDispatchCommands after the guard reports safeToDispatch=true.; proof command: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expectedValue=allDispatchReady=true; safeToDispatch=true before gh workflow run.; stopCondition=If safeToDispatch=false, gh workflow run commands must stay withheld.; evidence=allDispatchReady=true; withheldCommands=2\n- launch_proof_capture: deferred_until_dispatch; action=After guarded dispatch completes, capture Pages site proof, workflow run proof, freshness, release receipt, and public-claim guard evidence.; proof command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write; expectedValue=postPublishEvidenceReady=true; evidenceFresh=true; readyForExternalClaim=true only after live proof is saved.; stopCondition=Do not post public launch copy, archive proof, or claim readyForExternalClaim until all launch proof fields are live and successful.; evidence=deferredUntil=workflow dispatch complete and live evidence saved\n\nPost-install evidence intake:\n- source: generated_from_launch_execution_packet\n- status: proof_complete\n- proofComplete: true; fields=6/6 complete; coverage=1\n- commands: 4; signals=8; checklist=5; sequence=4\n- quick proof: ready=true; steps=4; coverage=1\n- quick proof field mapping: ready=true; mapped=4; completed=4/4; coverage=1\n- guard: Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\n- Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\n- quick proof 1 remote_file_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; evidenceField=remote_parity_proof\n- quick proof 2 actions_visibility: command=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expected=remoteWorkflowVisibilityReady=true; evidenceField=actions_visibility_proof\n- quick proof 3 dispatch_readiness: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=allDispatchReady=true; evidenceField=dispatch_readiness_proof\n- quick proof 4 handoff_verifier: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; evidenceField=handoff_verifier_proof\n- quick proof field 1 remote_file_parity -> remote_parity_proof: proof_ready; completed=true; currentValue=remoteWorkflowFilesReady=true; filesReady=2/2; missing=0; mismatch=0; expectedValue=remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.\n- quick proof field 2 actions_visibility -> actions_visibility_proof: proof_ready; completed=true; currentValue=remoteWorkflowVisibilityReady=true; expectedValue=remoteWorkflowVisibilityReady=true and GitHub Actions lists both workflow files.; proofCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; stopCondition=If GitHub Actions does not list both workflows, keep suggestedDispatchCommands empty.\n- quick proof field 3 dispatch_readiness -> dispatch_readiness_proof: proof_ready; completed=true; currentValue=dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; expectedValue=dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.; proofCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; stopCondition=If allDispatchReady=false, suggestedDispatchCommands must remain empty.\n- quick proof field 4 handoff_verifier -> handoff_verifier_proof: proof_ready; completed=true; currentValue=safeToDispatch=true; allDispatchReady=true; expectedValue=verify-launch-handoff reports safeToDispatch=true before gh workflow run.; proofCommand=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; stopCondition=If safeToDispatch=false, gh workflow run commands must stay withheld.\n- command: node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- command: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- command: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- command: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- sequence 1 remote_file_parity: Remote workflow file check; command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; guard=Confirm both default-branch workflow files exist and match local templates before checking Actions visibility.\n- sequence 2 actions_visibility: Actions visibility check; command=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expected=remoteWorkflowVisibilityReady=true; guard=Confirm GitHub Actions lists both workflow files before planning dispatch.\n- sequence 3 dispatch_readiness: Dispatch readiness plan; command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=allDispatchReady=true; guard=Confirm pages and drift dispatch readiness are both true before final handoff verification.\n- sequence 4 handoff_verifier: Launch handoff verifier; command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; guard=Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\n- expected signal: remoteWorkflowFilesReady=true\n- expected signal: pages remoteExists=true and remoteMatchesTemplate=true\n- expected signal: drift-watch remoteExists=true and remoteMatchesTemplate=true\n- expected signal: remoteWorkflowVisibilityReady=true\n- expected signal: dispatchReady=true\n- expected signal: driftDispatchReady=true\n- expected signal: allDispatchReady=true\n- expected signal: safeToDispatch=true before gh workflow run\n- field pages_workflow_commit: proof_ready; completed=true; currentValue=.github/workflows/joopark-pages.yml; status=ready; remoteSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c; expectedValue=.github/workflows/joopark-pages.yml exists on main and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If pages remoteExists=false or remoteMatchesTemplate=false, do not run dispatch.\n- field drift_workflow_commit: proof_ready; completed=true; currentValue=.github/workflows/joopark-drift-watch.yml; status=ready; remoteSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; expectedValue=.github/workflows/joopark-drift-watch.yml exists on main and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If drift-watch remoteExists=false or remoteMatchesTemplate=false, do not run dispatch.\n- field remote_parity_proof: proof_ready; completed=true; currentValue=remoteWorkflowFilesReady=true; filesReady=2/2; missing=0; mismatch=0; expectedValue=remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.\n- field actions_visibility_proof: proof_ready; completed=true; currentValue=remoteWorkflowVisibilityReady=true; expectedValue=remoteWorkflowVisibilityReady=true and GitHub Actions lists both workflow files.; proofCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; stopCondition=If GitHub Actions does not list both workflows, keep suggestedDispatchCommands empty.\n- field dispatch_readiness_proof: proof_ready; completed=true; currentValue=dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; expectedValue=dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.; proofCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; stopCondition=If allDispatchReady=false, suggestedDispatchCommands must remain empty.\n- field handoff_verifier_proof: proof_ready; completed=true; currentValue=safeToDispatch=true; allDispatchReady=true; expectedValue=verify-launch-handoff reports safeToDispatch=true before gh workflow run.; proofCommand=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; stopCondition=If safeToDispatch=false, gh workflow run commands must stay withheld.\n\nWorkflow install verification matrix:\n- source: generated_from_launch_execution_packet\n- status: ready_to_dispatch\n- gate: install_workflows -> verify_visibility\n- install paths: 0\n- verification commands: 4\n- required signals: workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true; remoteWorkflowVisibilityReady=true; allDispatchReady=true; safeToDispatch=true before gh workflow run\n- signal operator_auth_path: pass; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- signal local_template_parity: pass; localTargetParityReady=true\n- signal remote_workflow_file_parity: pass; remoteWorkflowFilesReady=true; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- signal workflow_visibility: pass; remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- signal dispatch_guard: pass; allDispatchReady=true; withheldCommands=2\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\n\nRemote workflow file acceptance ledger:\n- source: generated_from_remote_workflow_file_check\n- status: remote_files_ready\n- files: 2/2 ready; missing=0; mismatch=0; notChecked=0\n- verify: node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- install: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- required signals: remoteWorkflowFilesChecked=true; remoteWorkflowFilesReady=true; each remoteExists=true; each remoteMatchesTemplate=true; remoteWorkflowVisibilityReady=true after recheck\n- file pages: ready; path=.github/workflows/joopark-pages.yml; templateSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c; remoteSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c; evidence=remoteChecked=true; remoteExists=true; remoteMatchesTemplate=true; templateSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c; remoteSha256=59781dd126494a73f6ac9b067be0746dbe8fa1e9a2adc4c49f6d3a07dc595d1c; copy=pbcopy < 'docs/github-pages-workflow.yml'; open=open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'\n- file drift-watch: ready; path=.github/workflows/joopark-drift-watch.yml; templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; remoteSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; evidence=remoteChecked=true; remoteExists=true; remoteMatchesTemplate=true; templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; remoteSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae; copy=pbcopy < 'docs/github-drift-watch-workflow.yml'; open=open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'\n\nLaunch proof acceptance ledger:\n- source: generated_from_launch_execution_packet\n- status: proof_capture_required\n- current gate: capture_launch_proof [action_required_after_dispatch]\n- deferred until: workflow dispatch complete and live evidence saved\n- proof readiness: 0/6 ready; pending=6\n- capture markdown: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n- capture write: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n- proof pages_site_url: pending_capture; required=Capture GitHub Pages html_url, status, and https_enforced from the live repository. Evidence: pages.checked=true; pages.ready=false; site=not available Command: gh api repos/biojuho/BIOJUHO-Projects/pages\n- proof pages_workflow_run: pending_capture; required=Capture latest joopark-pages.yml run status, conclusion, URL, and headSha after dispatch. Evidence: checked=true; ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216103; headSha=71d31313027055091096d5f8facbc72a44bbb257 Command: gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- proof drift_workflow_run: pending_capture; required=Capture latest joopark-drift-watch.yml run status, conclusion, URL, and headSha after dispatch. Evidence: checked=true; ready=false; status=completed; conclusion=failure; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172216127; headSha=71d31313027055091096d5f8facbc72a44bbb257 Command: gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- proof evidence_freshness: pending_capture; required=Saved publish evidence must be generated after dispatch and still be inside the freshness window. Evidence: postPublishEvidenceReady=false; evidenceFresh=true; evidenceExpiresAt=2026-06-09T22:59:10.279Z Command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n- proof release_receipt: blocked_until_proof; required=Archive the post-launch verification receipt only after live Pages and workflow evidence is ready. Evidence: postLaunchVerificationReceipt=true; postPublishEvidenceReady=false Command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n- proof public_claim_guard: guarded; required=Keep public launch copy blocked until release quality, public launch proof, and launch packet claim guard are all true. Evidence: publicLaunchProofReady=false; readyForExternalClaim=false Command: copy System Status quality receipt after readyForExternalClaim=true\n- external baseline github_pages_site: GitHub Pages site evidence; fields=html_url, status, https_enforced; command=gh api repos/biojuho/BIOJUHO-Projects/pages\n- external baseline github_actions_runs: GitHub Actions workflow run evidence; fields=status, conclusion, url, headSha; command=gh run list --repo biojuho/BIOJUHO-Projects --workflow <workflow-file> --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- external baseline github_actions_job_summary: GitHub Actions job summaries; fields=operator-readable status summary, linked run evidence; command=review workflow summary after the run completes\n\nExecution stages:\n1. Install workflows on the default branch [pass]\n   Detail: Create both workflow files in .github/workflows on the repository default branch using the copied templates.\n   Commands:\n   - pbcopy < 'docs/github-pages-workflow.yml'\n   - open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'\n   - pbcopy < 'docs/github-drift-watch-workflow.yml'\n   - open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'\n   - node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n   Evidence:\n   - workflowScopeAvailable=true\n   - workflowScopeInstallBlocked=false\n   - workflowScope.scopes=gist, read:org, repo, workflow\n   - workflowScopeMissing=none\n   - workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n   - workflowScopeRecheckCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n   - localTargetParityReady=true\n   - remoteWorkflowFilesReady=true\n   - .github/workflows/joopark-pages.yml templateSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471 targetSha256=7f938872bc3a86ec42ff05adf39d4d78350531b052eb6e78d61f6bef5d9e8471 targetMatchesTemplate=true\n   - .github/workflows/joopark-drift-watch.yml templateSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae targetSha256=c837f7ea14aa62ac0278ecddef32f4737823887e6ff9fd746561e2e22b5025ae targetMatchesTemplate=true\n2. Verify workflow visibility [pass]\n   Detail: Confirm GitHub Actions can see the workflow files before attempting dispatch.\n   Commands:\n   - node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n   - gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n   Evidence:\n   - remoteWorkflowVisibilityReady=true\n3. Dispatch only after allDispatchReady [ready]\n   Detail: Do not run gh workflow run until repoEvidenceReady, dispatchReady, driftDispatchReady, and allDispatchReady are all true.\n   Commands:\n   - gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml\n   - gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n   Evidence:\n   - repoEvidenceReady=true\n   - dispatchReady=true\n   - driftDispatchReady=true\n   - allDispatchReady=true\n   - dispatchSuggestionStatus=ready\n4. Capture launch proof [action_required_after_dispatch]\n   Detail: After both workflow runs complete, capture Pages URL/status and the latest Pages/Drift workflow run status/conclusion.\n   Commands:\n   - node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n   - node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n   Evidence:\n   - postPublishEvidenceReady=false\n   - evidenceFresh=true\n5. Share or archive only after proof [blocked]\n   Detail: Use the public launch announcement or archive receipt only after live launch proof is present.\n   Commands:\n   - copy System Status quality receipt\n   - copy publish evidence share update\n   - copy post-launch verification receipt\n   Evidence:\n   - readyForExternalClaim=false\n   - publicLaunchProofReady=false\n\nExternal comparison:\n- GitHub manual workflow dispatch: Manual workflow runs require workflow_dispatch and the workflow file on the default branch, so this packet makes workflow installation and visibility verification the first gate. Source: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow?tool=webui\n- GitHub Pages custom workflows: GitHub Pages custom workflows deploy an uploaded artifact through actions/deploy-pages with pages: write and id-token: write permissions, so this packet verifies the prepared Pages workflow before dispatch. Source: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages\n\nBlockers:\n- Capture launch proof: action_required_after_dispatch - After both workflow runs complete, capture Pages URL/status and the latest Pages/Drift workflow run status/conclusion.\n- Share or archive only after proof: blocked - Use the public launch announcement or archive receipt only after live launch proof is present.\n- Publish evidence: GitHub Pages site html_url/status evidence is not ready\n- Publish evidence: pages: latest workflow run is not completed with success conclusion\n- Publish evidence: drift-watch: latest workflow run is not completed with success conclusion"
+  "packet": "JooPark Launch Execution Packet\nStatus: action required - launch proof not complete\nGenerated: 2026-06-11T01:16:17.914Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\n\nGuard:\n- Do not run dispatch commands until allDispatchReady: true.\n- Do not publish a public launch claim until postPublishEvidenceReady: true and readyForExternalClaim: true.\n\nOperator one-page handoff:\nJooPark Launch Operator One-Page Handoff\nStatus: action_required\nGenerated: 2026-06-11T01:16:17.914Z\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\n\nGoal for this pass:\n- Install workflows on the default branch\n- Success: remoteWorkflowFilesReady=true and each remote workflow file matches the local template SHA-256.\n- Active blocker: remote_workflow_file_parity (action_required)\n\nDo first:\n1. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nIf CLI workflow scope is still blocked, use GitHub UI fallback:\n1. pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'\n2. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nProve after install:\n1. node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n2. gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n3. node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n4. node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n\nPost-install quick proof:\n1. remote_file_parity: expect remoteWorkflowFilesReady=true; paste into remote_parity_proof\n2. actions_visibility: expect remoteWorkflowVisibilityReady=true; paste into actions_visibility_proof\n3. dispatch_readiness: expect allDispatchReady=true; paste into dispatch_readiness_proof\n4. handoff_verifier: expect safeToDispatch=true before gh workflow run; paste into handoff_verifier_proof\n\nSuccess signals:\n- workflowScopeAvailable=true or GitHub UI installAction rows applied on the default branch\n- remoteWorkflowFilesReady=true\n- remoteWorkflowVisibilityReady=true\n- dispatchReady=true\n- driftDispatchReady=true\n- allDispatchReady=true\n- all six post-install evidence fields are filled\n- safeToDispatch=true before gh workflow run\n\nEvidence fields to fill:\n- Pages workflow commit: [paste commit URL or SHA for .github/workflows/joopark-pages.yml on the default branch]\n- Drift Watch workflow commit: [paste commit URL or SHA for .github/workflows/joopark-drift-watch.yml on the default branch]\n- Remote parity proof: [paste generatedAt plus remoteWorkflowFilesReady=true from data/remote-workflow-file-check.json]\n- Actions visibility proof: [paste gh workflow list output showing both workflow paths visible]\n- Dispatch readiness proof: [paste generatedAt plus dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true]\n- Handoff verifier proof: [paste verify-launch-handoff status plus safeToDispatch=true before gh workflow run]\n\nDo not run or claim yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n- Do not post public launch copy.\n- Do not archive post-launch proof.\n- Do not claim readyForExternalClaim=true.\n\nExternal baseline:\n- GitHub workflow_dispatch must exist on the default branch before manual dispatch.\n- GitHub Pages proof must include live Pages status and workflow run status/conclusion evidence.\n\nStop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\n\nAuth preflight:\n- status: pass\n- checked: true\n- source: gh-api-header\n- workflowScopeAvailable: true\n- workflowScopeInstallBlocked: false\n- scopes: gist, read:org, repo, workflow\n- missingScopes: none\n- refresh: gh auth refresh -h github.com -s workflow\n- refreshWithClipboard: gh auth refresh -h github.com -s workflow --clipboard\n- recheck: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- approval: not_required\n- approvalUrl: https://github.com/login/device\n- approvalPrompt: First copy your one-time code, then open https://github.com/login/device to approve the workflow scope; keep the terminal session open until gh reports success.\n- interactiveApprovalRequired: false\n- terminalWaitRequired: false\n- interactiveApprovalNote: This is an interactive OAuth device flow; keep the terminal session open until gh reports success. If the browser approval is not completed, gh auth status will still omit workflow.\n- postApprovalAuthStatus: gh auth status -h github.com\n- incompleteApprovalSignal: Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.\n- sensitiveValuePolicy: Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.\n- approvalStopCondition: Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch.\n\nPost-auth checkpoint:\n- status: pass\n- verificationOnly: true\n- dispatchApproval: false\n- trigger: gh auth refresh -h github.com -s workflow\n- confirm scope: gh auth status -h github.com\n- recheck dispatch plan: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- verify handoff: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- install after pass: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- recheck sequence: 5\n- source artifacts: gh auth status -h github.com; data/remote-workflow-file-check.json; data/publish-dispatch-plan.json; data/launch-handoff-verification.json\n- expected: Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true after installer or GitHub UI commit; remoteWorkflowVisibilityReady=true before dispatch; safeToDispatch=true before gh workflow run\n- still blocked if: workflowScopeInstallBlocked=true; remoteWorkflowFilesReady=false; remoteWorkflowVisibilityReady=false; allDispatchReady=false\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\nRecheck sequence:\n1. confirm_scope: command=gh auth status -h github.com; expected=Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; source=gh auth status -h github.com; stop=Stop if workflow scope is still missing; use GitHub UI fallback or rerun the scope refresh.\n2. install_workflows: command=node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify; expected=Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.; source=data/remote-workflow-file-check.json; stop=Stop if remote workflow files are not installed on the default branch.\n3. verify_remote_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; remoteExists=true; remoteMatchesTemplate=true for both workflows; source=data/remote-workflow-file-check.json; stop=Stop if any remote SHA differs from the local template SHA-256.\n4. verify_actions_visibility: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=remoteWorkflowVisibilityReady=true; dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; source=data/publish-dispatch-plan.json; stop=Stop if GitHub Actions does not list both workflows or dispatch commands remain withheld.\n5. verify_handoff_guard: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; every post-install proof field has been filled; source=data/launch-handoff-verification.json; stop=Stop if safeToDispatch=false or post-install proof is incomplete.\n\nCurrent action packet:\nJooPark Launch Current Action Packet\nRepo: biojuho/BIOJUHO-Projects\nDefault branch: main\nCurrent stage: Install workflows on the default branch [action_required]\nWhy now: Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.\nSuccess condition: remoteWorkflowFilesReady=true and each remote workflow file matches the local template SHA-256.\n\nAuth preflight:\n- status: pass\n- checked: true\n- source: gh-api-header\n- workflowScopeAvailable: true\n- workflowScopeInstallBlocked: false\n- scopes: gist, read:org, repo, workflow\n- missingScopes: none\n- refresh: gh auth refresh -h github.com -s workflow\n- refreshWithClipboard: gh auth refresh -h github.com -s workflow --clipboard\n- recheck: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- approval: not_required\n- approvalUrl: https://github.com/login/device\n- approvalPrompt: First copy your one-time code, then open https://github.com/login/device to approve the workflow scope; keep the terminal session open until gh reports success.\n- interactiveApprovalRequired: false\n- terminalWaitRequired: false\n- interactiveApprovalNote: This is an interactive OAuth device flow; keep the terminal session open until gh reports success. If the browser approval is not completed, gh auth status will still omit workflow.\n- postApprovalAuthStatus: gh auth status -h github.com\n- incompleteApprovalSignal: Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.\n- sensitiveValuePolicy: Do not store, log, or paste the one-time device code into project files; the operator copies it from the local CLI prompt only.\n- approvalStopCondition: Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch.\n\nPost-auth checkpoint:\n- status: pass\n- verificationOnly: true\n- dispatchApproval: false\n- trigger: gh auth refresh -h github.com -s workflow\n- confirm scope: gh auth status -h github.com\n- recheck dispatch plan: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- verify handoff: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- install after pass: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- recheck sequence: 5\n- source artifacts: gh auth status -h github.com; data/remote-workflow-file-check.json; data/publish-dispatch-plan.json; data/launch-handoff-verification.json\n- expected: Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true after installer or GitHub UI commit; remoteWorkflowVisibilityReady=true before dispatch; safeToDispatch=true before gh workflow run\n- still blocked if: workflowScopeInstallBlocked=true; remoteWorkflowFilesReady=false; remoteWorkflowVisibilityReady=false; allDispatchReady=false\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\nRecheck sequence:\n1. confirm_scope: command=gh auth status -h github.com; expected=Token scopes include workflow; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; source=gh auth status -h github.com; stop=Stop if workflow scope is still missing; use GitHub UI fallback or rerun the scope refresh.\n2. install_workflows: command=node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify; expected=Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.; source=data/remote-workflow-file-check.json; stop=Stop if remote workflow files are not installed on the default branch.\n3. verify_remote_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; remoteExists=true; remoteMatchesTemplate=true for both workflows; source=data/remote-workflow-file-check.json; stop=Stop if any remote SHA differs from the local template SHA-256.\n4. verify_actions_visibility: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=remoteWorkflowVisibilityReady=true; dispatchReady=true; driftDispatchReady=true; allDispatchReady=true; source=data/publish-dispatch-plan.json; stop=Stop if GitHub Actions does not list both workflows or dispatch commands remain withheld.\n5. verify_handoff_guard: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; every post-install proof field has been filled; source=data/launch-handoff-verification.json; stop=Stop if safeToDispatch=false or post-install proof is incomplete.\n\nDefault-branch requirement proof:\n- source: GitHub manual workflow dispatch docs + GitHub REST repository contents API\n- defaultBranch: main\n- workflowFiles: .github/workflows/joopark-pages.yml, .github/workflows/joopark-drift-watch.yml\n- manual dispatch docs: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow?tool=webui\n- repository contents verification: https://docs.github.com/en/rest/repos/contents#get-repository-content\n- visibility recheck: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- requirement: Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template. Target workflow YAML files live under .github/workflows on the main default branch.\n- requirement: Manual workflow dispatch is available only after workflow_dispatch exists on the default branch.\n- requirement: Remote workflow file check must read the default-branch contents and match each local template SHA-256.\n- requirement: GitHub Actions visibility must be confirmed before gh workflow run commands are suggested.\n\nAcceptance checklist: 4/5 pass; pending=1\n- Operator auth path: pass - Use a workflow-scope GitHub CLI token or a workflow-capable GitHub UI session before writing workflow files to the default branch. Evidence: workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- Local template parity: pass - Local repository workflow targets must exist and match the prepared workflow templates before remote installation. Evidence: localTargetParityReady=true\n- Remote workflow file parity: action_required - Remote default-branch workflow files must exist and match the local template SHA-256 values. Evidence: remoteWorkflowFilesReady=false; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- Workflow visibility: pass - GitHub Actions must list both workflows before any dispatch command is suggested. Evidence: remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- Dispatch guard: pass - Keep gh workflow run commands withheld until remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, and allDispatchReady=true. Evidence: allDispatchReady=false; withheldCommands=2\n\nChoose one install path:\nCLI path after workflow scope:\n- When: Use when the GitHub CLI token already has workflow scope.\n- node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- node scripts/prepare-github-pages-workflow.mjs --write\n- node scripts/prepare-github-drift-watch-workflow.mjs --write\n- git add .github/workflows/joopark-pages.yml .github/workflows/joopark-drift-watch.yml\n- git commit -m 'Add JooPark publish workflows'\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- Success: The workflow files are committed to the default branch, remoteWorkflowFilesReady=true, and GitHub Actions lists both workflows.\n- Guard: Do not run dispatch commands just because the local .github/workflows files exist.\nGitHub UI path:\n- When: Use when the CLI token still lacks workflow scope or the operator prefers browser-based default-branch workflow repair.\n- pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- Success: Required create_missing_remote_file rows are created, replace_existing_remote_file rows are replaced on main, verified_remote_matches_template rows are skipped, remoteWorkflowFilesReady=true, and workflow visibility is confirmed.\n- Guard: Use each file's create or edit URL according to installAction before any dispatch attempt.\n\nVerify after running:\n- node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n\nDo not run yet:\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release\n- gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n\nGuard: do not publish or archive launch proof until postPublishEvidenceReady=true and readyForExternalClaim=true.\n\nStage transition preview:\n- source: generated_from_launch_execution_packet\n- current: install_workflows (Install workflows on the default branch) [action_required]\n- next: verify_visibility (Verify workflow visibility) [conditional]\n- acceptance: 4 pass; pending=1\n- withheld dispatch commands: 2\n- gate command: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- required signals: remoteWorkflowFilesReady=true; remoteWorkflowVisibilityReady=true; allDispatchReady=true; safeToDispatch=true before gh workflow run\n- guard: Keep gh workflow run commands withheld until allDispatchReady=true and safeToDispatch=true.\n\nBlocker resolution checklist:\n- source: generated_from_launch_execution_packet\n- status: action_required\n- active item: remote_workflow_file_parity\n- items: 4/6 pass; action_required=1; deferred=1\n- guard: Do not run gh workflow run until every action_required item has passed and verify-launch-handoff reports safeToDispatch=true.\n- operator_auth_path: pass; action=Refresh GitHub CLI with workflow scope, or choose the GitHub UI path with a workflow-capable browser session.; proof command: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expectedValue=workflowScopeAvailable=true; workflowScopeInstallBlocked=false, or GitHub UI path chosen to apply each workflow row's installAction on the default branch.; stopCondition=If workflowScopeInstallBlocked=true remains after recheck, do not run the CLI installer; use the GitHub UI path and keep dispatch withheld.; evidence=workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- local_template_parity: pass; action=Regenerate or restage local workflow targets if template parity fails before copying anything to GitHub.; proof command: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expectedValue=localTargetParityReady=true; each local target SHA-256 matches its template SHA-256.; stopCondition=Do not create remote workflow files from stale or mismatched local targets.; evidence=localTargetParityReady=true\n- remote_workflow_file_parity: action_required; action=Apply each workflow row's installAction on the default branch, then compare remote SHA-256 values against local templates.; proof command: node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expectedValue=remoteWorkflowFilesReady=true; every workflow file has remoteExists=true and remoteMatchesTemplate=true.; stopCondition=If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.; evidence=remoteWorkflowFilesReady=false; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- workflow_visibility: pass; action=List repository workflows and rerun the dispatch plan after remote file parity passes.; proof command: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expectedValue=remoteWorkflowVisibilityReady=true; Publish JooPark Pages and Watch JooPark Candidate Drift are visible.; stopCondition=If GitHub Actions does not list both workflows, keep suggestedDispatchCommands empty.; evidence=remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- dispatch_guard: pass; action=Rerun launch handoff verification and use only suggestedDispatchCommands after the guard reports safeToDispatch=true.; proof command: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expectedValue=allDispatchReady=true; safeToDispatch=true before gh workflow run.; stopCondition=If safeToDispatch=false, gh workflow run commands must stay withheld.; evidence=allDispatchReady=false; withheldCommands=2\n- launch_proof_capture: deferred_until_dispatch; action=After guarded dispatch completes, capture Pages site proof, workflow run proof, freshness, release receipt, and public-claim guard evidence.; proof command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write; expectedValue=postPublishEvidenceReady=true; evidenceFresh=true; readyForExternalClaim=true only after live proof is saved.; stopCondition=Do not post public launch copy, archive proof, or claim readyForExternalClaim until all launch proof fields are live and successful.; evidence=deferredUntil=safeToDispatch=true\n\nPost-install evidence intake:\n- source: generated_from_launch_execution_packet\n- status: collect_post_install_proof\n- proofComplete: false; fields=2/6 complete; coverage=1\n- commands: 4; signals=8; checklist=5; sequence=4\n- quick proof: ready=true; steps=4; coverage=1\n- quick proof field mapping: ready=true; mapped=4; completed=1/4; coverage=1\n- guard: Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\n- Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.\n- quick proof 1 remote_file_parity: command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; evidenceField=remote_parity_proof\n- quick proof 2 actions_visibility: command=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expected=remoteWorkflowVisibilityReady=true; evidenceField=actions_visibility_proof\n- quick proof 3 dispatch_readiness: command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=allDispatchReady=true; evidenceField=dispatch_readiness_proof\n- quick proof 4 handoff_verifier: command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; evidenceField=handoff_verifier_proof\n- quick proof field 1 remote_file_parity -> remote_parity_proof: evidence_required; completed=false; currentValue=remoteWorkflowFilesReady=false; filesReady=1/2; missing=0; mismatch=1; expectedValue=remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.\n- quick proof field 2 actions_visibility -> actions_visibility_proof: proof_ready; completed=true; currentValue=remoteWorkflowVisibilityReady=true; expectedValue=remoteWorkflowVisibilityReady=true and GitHub Actions lists both workflow files.; proofCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; stopCondition=If GitHub Actions does not list both workflows, keep suggestedDispatchCommands empty.\n- quick proof field 3 dispatch_readiness -> dispatch_readiness_proof: evidence_required; completed=false; currentValue=dispatchReady=false; driftDispatchReady=true; allDispatchReady=false; expectedValue=dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.; proofCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; stopCondition=If allDispatchReady=false, suggestedDispatchCommands must remain empty.\n- quick proof field 4 handoff_verifier -> handoff_verifier_proof: evidence_required; completed=false; currentValue=safeToDispatch=false; allDispatchReady=false; expectedValue=verify-launch-handoff reports safeToDispatch=true before gh workflow run.; proofCommand=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; stopCondition=If safeToDispatch=false, gh workflow run commands must stay withheld.\n- command: node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- command: gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- command: node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n- command: node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- sequence 1 remote_file_parity: Remote workflow file check; command=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; expected=remoteWorkflowFilesReady=true; guard=Confirm both default-branch workflow files exist and match local templates before checking Actions visibility.\n- sequence 2 actions_visibility: Actions visibility check; command=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; expected=remoteWorkflowVisibilityReady=true; guard=Confirm GitHub Actions lists both workflow files before planning dispatch.\n- sequence 3 dispatch_readiness: Dispatch readiness plan; command=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; expected=allDispatchReady=true; guard=Confirm pages and drift dispatch readiness are both true before final handoff verification.\n- sequence 4 handoff_verifier: Launch handoff verifier; command=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; expected=safeToDispatch=true before gh workflow run; guard=Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.\n- expected signal: remoteWorkflowFilesReady=true\n- expected signal: pages remoteExists=true and remoteMatchesTemplate=true\n- expected signal: drift-watch remoteExists=true and remoteMatchesTemplate=true\n- expected signal: remoteWorkflowVisibilityReady=true\n- expected signal: dispatchReady=true\n- expected signal: driftDispatchReady=true\n- expected signal: allDispatchReady=true\n- expected signal: safeToDispatch=true before gh workflow run\n- field pages_workflow_commit: evidence_required; completed=false; currentValue=.github/workflows/joopark-pages.yml; status=sha_mismatch; remoteSha256=8ea83aa0d99b303beb6b42976429acc207492d34de461a2ac9c026fbc4cb7574; expectedValue=.github/workflows/joopark-pages.yml exists on main and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If pages remoteExists=false or remoteMatchesTemplate=false, do not run dispatch.\n- field drift_workflow_commit: proof_ready; completed=true; currentValue=.github/workflows/joopark-drift-watch.yml; status=ready; remoteSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2; expectedValue=.github/workflows/joopark-drift-watch.yml exists on main and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If drift-watch remoteExists=false or remoteMatchesTemplate=false, do not run dispatch.\n- field remote_parity_proof: evidence_required; completed=false; currentValue=remoteWorkflowFilesReady=false; filesReady=1/2; missing=0; mismatch=1; expectedValue=remoteWorkflowFilesReady=true and every workflow file has remoteExists=true and remoteMatchesTemplate=true.; proofCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write; stopCondition=If any workflow file is missing_on_default_branch or sha_mismatch, do not run dispatch.\n- field actions_visibility_proof: proof_ready; completed=true; currentValue=remoteWorkflowVisibilityReady=true; expectedValue=remoteWorkflowVisibilityReady=true and GitHub Actions lists both workflow files.; proofCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id; stopCondition=If GitHub Actions does not list both workflows, keep suggestedDispatchCommands empty.\n- field dispatch_readiness_proof: evidence_required; completed=false; currentValue=dispatchReady=false; driftDispatchReady=true; allDispatchReady=false; expectedValue=dispatchReady=true, driftDispatchReady=true, and allDispatchReady=true.; proofCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects; stopCondition=If allDispatchReady=false, suggestedDispatchCommands must remain empty.\n- field handoff_verifier_proof: evidence_required; completed=false; currentValue=safeToDispatch=false; allDispatchReady=false; expectedValue=verify-launch-handoff reports safeToDispatch=true before gh workflow run.; proofCommand=node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown; stopCondition=If safeToDispatch=false, gh workflow run commands must stay withheld.\n\nWorkflow install verification matrix:\n- source: generated_from_launch_execution_packet\n- status: install_verification_required\n- gate: install_workflows -> verify_visibility\n- install paths: 2\n- verification commands: 4\n- required signals: workflowScopeAvailable=true; workflowScopeInstallBlocked=false; remoteWorkflowFilesReady=true; remoteWorkflowVisibilityReady=true; allDispatchReady=true; safeToDispatch=true before gh workflow run\n- path cli_workflow_scope: ready_to_install; first=node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify; verify=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write | gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id | node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects | node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- path github_ui: ready_to_install; first=pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'; verify=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write | gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id | node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects | node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown\n- signal operator_auth_path: pass; workflowScopeAvailable=true; workflowScopeInstallBlocked=false; workflowScope.scopes=gist, read:org, repo, workflow; workflowScopeMissing=none; workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n- signal local_template_parity: pass; localTargetParityReady=true\n- signal remote_workflow_file_parity: action_required; remoteWorkflowFilesReady=false; nextVerificationCommand=node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- signal workflow_visibility: pass; remoteWorkflowVisibilityReady=true; workflowListCommand=gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n- signal dispatch_guard: pass; allDispatchReady=false; withheldCommands=2\n- guard: Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true.\n\nRemote workflow file acceptance ledger:\n- source: generated_from_remote_workflow_file_check\n- status: remote_file_install_required\n- files: 1/2 ready; missing=0; mismatch=1; notChecked=0\n- verify: node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n- install: node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify\n- required signals: remoteWorkflowFilesChecked=true; remoteWorkflowFilesReady=true; each remoteExists=true; each remoteMatchesTemplate=true; remoteWorkflowVisibilityReady=true after recheck\n- file pages: sha_mismatch; installAction=replace_existing_remote_file; path=.github/workflows/joopark-pages.yml; templateSha256=7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e; remoteSha256=8ea83aa0d99b303beb6b42976429acc207492d34de461a2ac9c026fbc4cb7574; evidence=remoteChecked=true; remoteExists=true; remoteMatchesTemplate=false; templateSha256=7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e; remoteSha256=8ea83aa0d99b303beb6b42976429acc207492d34de461a2ac9c026fbc4cb7574; copy=pbcopy < 'docs/github-pages-workflow.yml'; open=open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'\n- file drift-watch: ready; installAction=verified_remote_matches_template; path=.github/workflows/joopark-drift-watch.yml; templateSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2; remoteSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2; evidence=remoteChecked=true; remoteExists=true; remoteMatchesTemplate=true; templateSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2; remoteSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2; copy=pbcopy < 'docs/github-drift-watch-workflow.yml'; open=No GitHub file edit required\n\nLaunch proof acceptance ledger:\n- source: generated_from_launch_execution_packet\n- status: proof_blocked_until_dispatch\n- current gate: capture_launch_proof [pass]\n- deferred until: safeToDispatch=true\n- proof readiness: 5/6 ready; pending=1\n- capture markdown: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n- capture write: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n- proof pages_site_url: ready; required=Capture GitHub Pages html_url, status, and https_enforced from the live repository. Evidence: pages.checked=true; pages.ready=true; site=https://biojuho.github.io/BIOJUHO-Projects/ Command: gh api repos/biojuho/BIOJUHO-Projects/pages\n- proof pages_workflow_run: ready; required=Capture latest joopark-pages.yml run status, conclusion, URL, and headSha after dispatch. Evidence: checked=true; ready=true; status=completed; conclusion=success; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172911727; headSha=e1f6623c339dc68a19a491f1c9ff85dde871b9b2 Command: gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- proof drift_workflow_run: ready; required=Capture latest joopark-drift-watch.yml run status, conclusion, URL, and headSha after dispatch. Evidence: checked=true; ready=true; status=completed; conclusion=success; url=https://github.com/biojuho/BIOJUHO-Projects/actions/runs/27172911738; headSha=e1f6623c339dc68a19a491f1c9ff85dde871b9b2 Command: gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-drift-watch.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- proof evidence_freshness: ready; required=Saved publish evidence must be generated after dispatch and still be inside the freshness window. Evidence: postPublishEvidenceReady=true; evidenceFresh=true; evidenceExpiresAt=2026-06-12T01:13:34.611Z Command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n- proof release_receipt: ready; required=Archive the post-launch verification receipt only after live Pages and workflow evidence is ready. Evidence: postLaunchVerificationReceipt=true; postPublishEvidenceReady=true Command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n- proof public_claim_guard: guarded; required=Keep public launch copy blocked until release quality, public launch proof, and launch packet claim guard are all true. Evidence: publicLaunchProofReady=true; readyForExternalClaim=false Command: copy System Status quality receipt after readyForExternalClaim=true\n- external baseline github_pages_site: GitHub Pages site evidence; fields=html_url, status, https_enforced; command=gh api repos/biojuho/BIOJUHO-Projects/pages\n- external baseline github_actions_runs: GitHub Actions workflow run evidence; fields=status, conclusion, url, headSha; command=gh run list --repo biojuho/BIOJUHO-Projects --workflow <workflow-file> --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- external baseline github_actions_job_summary: GitHub Actions job summaries; fields=operator-readable status summary, linked run evidence; command=review workflow summary after the run completes\n\nExecution stages:\n1. Install workflows on the default branch [action_required]\n   Detail: Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.\n   Commands:\n   - pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'\n   - node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write\n   Evidence:\n   - workflowScopeAvailable=true\n   - workflowScopeInstallBlocked=false\n   - workflowScope.scopes=gist, read:org, repo, workflow\n   - workflowScopeMissing=none\n   - workflowScopeRefreshCommand=gh auth refresh -h github.com -s workflow\n   - workflowScopeRecheckCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n   - localTargetParityReady=true\n   - remoteWorkflowFilesReady=false\n   - .github/workflows/joopark-pages.yml templateSha256=7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e targetSha256=7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e targetMatchesTemplate=true\n   - .github/workflows/joopark-drift-watch.yml templateSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2 targetSha256=1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2 targetMatchesTemplate=true\n2. Verify workflow visibility [action_required]\n   Detail: Confirm GitHub Actions can see the workflow files before attempting dispatch.\n   Commands:\n   - node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects\n   - gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id\n   Evidence:\n   - remoteWorkflowVisibilityReady=true\n3. Dispatch only after allDispatchReady [withheld]\n   Detail: Do not run gh workflow run until repoEvidenceReady, dispatchReady, driftDispatchReady, and allDispatchReady are all true.\n   Commands:\n   - gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release\n   - gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory\n   Evidence:\n   - repoEvidenceReady=true\n   - remoteWorkflowFilesReady=false\n   - remoteWorkflowVisibilityReady=true\n   - dispatchReady=false\n   - driftDispatchReady=true\n   - allDispatchReady=false\n   - dispatchSuggestionStatus=withheld-until-all-dispatch-ready\n4. Capture launch proof [pass]\n   Detail: After both workflow runs complete, capture Pages URL/status and the latest Pages/Drift workflow run status/conclusion.\n   Commands:\n   - node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\n   - node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write\n   Evidence:\n   - postPublishEvidenceReady=true\n   - evidenceFresh=true\n5. Share or archive only after proof [blocked]\n   Detail: Use the public launch announcement or archive receipt only after live launch proof is present.\n   Commands:\n   - copy System Status quality receipt\n   - copy publish evidence share update\n   - copy post-launch verification receipt\n   Evidence:\n   - readyForExternalClaim=false\n   - publicLaunchProofReady=true\n\nExternal comparison:\n- GitHub manual workflow dispatch: Manual workflow runs require workflow_dispatch and the workflow file on the default branch, so this packet makes workflow installation and visibility verification the first gate. Source: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow?tool=webui\n- GitHub Pages custom workflows: GitHub Pages custom workflows deploy an uploaded artifact through actions/deploy-pages with pages: write and id-token: write permissions, so this packet verifies the prepared Pages workflow before dispatch. Source: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages\n\nBlockers:\n- Install workflows on the default branch: action_required - Apply each workflow row's installAction on the default branch: replace_existing_remote_file for existing SHA mismatches, create_missing_remote_file only for missing files, and no-op verified_remote_matches_template rows. Current rows: pages=replace_existing_remote_file; drift-watch=verified_remote_matches_template.\n- Verify workflow visibility: action_required - Confirm GitHub Actions can see the workflow files before attempting dispatch.\n- Dispatch only after allDispatchReady: withheld - Do not run gh workflow run until repoEvidenceReady, dispatchReady, driftDispatchReady, and allDispatchReady are all true.\n- Share or archive only after proof: blocked - Use the public launch announcement or archive receipt only after live launch proof is present.\n- Remote workflow file check: pages: remote workflow file differs from local template\n- Publish dispatch: pages: remote workflow file does not match the local template on main"
 }

@@ -8932,3 +8932,144 @@ Generated: 2026-06-08T02:15:03+09:00
 - Direct path filter comparison passed with `missing=[]` for `docs/github-pages-workflow.yml` and `.github/workflows/joopark-pages.yml`.
 - `npm run lint` passed.
 - `node scripts/audit-release-readiness.mjs --format=summary` passed at `282 pass, 0 fail, 0 not_run, 0 blocked`.
+
+## Experiment: Ops runtime diagnostics
+
+- Hypothesis: The lazy operations/review runtime should expose group and file load diagnostics so System Status and browser smoke can explain route-gated runtime failures without relying on raw console output.
+- Primary metric: `opsRuntimeDiagnosticsCoverage`.
+- Baseline: `0/1`; `ops-runtime-loader.js` only returned loaded file counts and did not preserve pending, failed, group last-load status, or bounded load events.
+- Candidate: `1/1`; the loader now records `lastErrors`, `loadEvents`, `groupLoads`, `fileStats`, `groupStats`, `failed`, `pending`, `lastLoads`, and loaded file totals, while System Status renders an `Ops runtime diagnostics` panel.
+- Research: Compared browser script load/error visibility, code-splitting runtime chunk diagnostics, and hosted CI summary patterns; kept the result local-first and smoke-verifiable.
+- Decision: keep.
+
+## Evidence
+
+- `node --check` passed for `ops-runtime-loader.js`, `system-status-view.js`, `app.js`, `scripts/smoke-interactions.mjs`, and `scripts/audit-release-readiness.mjs`.
+- `npm run check:structure` passed with `app.js` at 10,864 lines and `actionDispatchGuard.status=pass`.
+- `npm run check:docs` passed with 29 initial runtime scripts and 16 lazy runtime scripts.
+- `node scripts/audit-release-readiness.mjs --run-gates --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked`, with fresh packaged browser gates cached.
+
+## Experiment: Verify summary latest experiment receipt
+
+- Hypothesis: The full verify summary and System Status receipt should surface the latest AutoResearch experiment id, not only the latest direction loop, so operators can trace the verified artifact back to the concrete improvement that just landed.
+- Primary metric: `verifyWorkspaceLatestExperimentReceiptCoverage`.
+- Baseline: `0/1`; `verify-workspace-summary.json` carried `artifacts.productLoop.latestExperiment`, but the runtime validator and System Status receipt did not require or show it.
+- Candidate: `1/1`; `verify-workspace-summary.js` requires `latestExperiment`, `release-status.js` exposes `data-verify-workspace-summary-latest-experiment` and receipt text, and interaction smoke verifies DOM/clipboard parity.
+- Research: Used experiment-tracking and CI-summary patterns to keep the current run linked to the concrete improvement it verified.
+- Decision: keep.
+
+## Evidence
+
+- `node --check` passed for `verify-workspace-summary.js`, `release-status.js`, `scripts/smoke-interactions.mjs`, and `scripts/audit-release-readiness.mjs`.
+- `npm run check:structure` passed with `app.js` at 10,864 lines and `actionDispatchGuard.status=pass`.
+- `npm run check:docs` passed with 29 initial runtime scripts and 16 lazy runtime scripts.
+- `node scripts/audit-release-readiness.mjs --run-gates --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked`, with fresh packaged browser gates cached.
+- `npm run verify:full` passed with `latestDirectionLoop=loop-140`, `latestExperiment=verify-summary-latest-experiment-receipt`, and `evidenceSync.directionLoopSyncReady=true`.
+
+## Experiment: Share proof next-action ready status
+
+- Hypothesis: The final proof handoff should mark `share-launch-proof` as ready and avoid duplicating the same command as a deferred action once live launch proof is already complete.
+- Primary metric: `shareProofNextActionStatusParity`.
+- Baseline: `0/1`; `data/publish-evidence.json` and `data/output-quality-audit.json` showed `share-launch-proof` with `status=action_required` even when `postPublishEvidenceReady=true` and `readyForExternalClaim=true`.
+- Candidate: `1/1`; final share proof now carries `status=ready`, the output-quality next-action card uses the proof-ready detail instead of a stale workflow-scope approval guard, and `deferredKey`/`deferredCommand` stay empty when no explicit deferred action exists.
+- Research: Compared operator-facing CI summaries, provenance traceability, and experiment-run receipts; kept the fix local and artifact-driven.
+- Decision: keep.
+
+## Evidence
+
+- `node --check` passed for `scripts/capture-publish-evidence.mjs`, `scripts/capture-output-quality-audit.mjs`, `release-status.js`, `scripts/smoke-interactions.mjs`, and `scripts/audit-release-readiness.mjs`.
+- `node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write` regenerated `data/publish-evidence.json` with `nextAction.status=ready`.
+- `node scripts/capture-output-quality-audit.mjs --write` regenerated `data/output-quality-audit.json` with `nextAction.status=ready`, `deferredKey=""`, `deferredCommand=""`, and `readyForExternalClaim=true`.
+- `npm run check:structure` and `npm run check:docs` passed after the next-action contract change.
+- `node scripts/audit-release-readiness.mjs --run-gates --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked`, with `Next action: share-launch-proof [ready]`.
+- `npm run verify:full` passed with `latestDirectionLoop=loop-141`, `latestExperiment=share-proof-next-action-ready-status`, `evidenceSync.directionLoopSyncReady=true`, and `readyForExternalClaim=true`.
+
+## Experiment: Release summary deferred proof none
+
+- Hypothesis: The release readiness summary should say there is no deferred proof when the final proof action is ready and no explicit deferred action exists.
+- Primary metric: `releaseSummaryDeferredProofAccuracy`.
+- Baseline: `0/1`; after Loop 141 the summary printed `Deferred proof: pending - pending` even though the structured output-quality receipt had empty deferred fields.
+- Candidate: `1/1`; `scripts/audit-release-readiness.mjs` now formats missing deferred proof as `Deferred proof: none` and self-checks that wording in the summary-format plan.
+- Research: Compared operator-facing summary patterns and provenance boundaries; kept deferred proof tied only to explicit deferred entities.
+- Decision: keep.
+
+## Evidence
+
+- `node --check scripts/audit-release-readiness.mjs` passed.
+- `node scripts/audit-release-readiness.mjs --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked` and printed `Next action: share-launch-proof [ready]` plus `Deferred proof: none`.
+- `npm run check:docs` passed after the direction-log update.
+- `npm run verify:full` passed with `latestDirectionLoop=loop-142`, `latestExperiment=release-summary-deferred-proof-none`, `evidenceSync.directionLoopSyncReady=true`, and `readyForExternalClaim=true`.
+
+## Experiment: Launch readiness active dispatch disposition
+
+- Hypothesis: The launch-readiness receipt should preserve suggested dispatch commands as reference evidence while exposing zero active dispatch commands after launch proof is ready.
+- Primary metric: `launchReadinessActiveDispatchDispositionCoverage`.
+- Baseline: `0/1`; `data/launch-readiness-refresh.json` showed `readyForExternalClaim=true` and `nextAction=share_launch_proof`, but still exposed `suggestedDispatchCommandCount=2` without saying those dispatch commands were no longer active next actions.
+- Candidate: `1/1`; `dispatchCommandDisposition=not_applicable_after_launch_proof`, `activeDispatchCommandCount=0`, and `dispatchCommandReferenceCount=2` now make the distinction explicit while preserving `suggestedDispatchCommands` for provenance.
+- Research: Compared manual workflow dispatch, operator-facing job summaries, and provenance boundaries so executable next actions and archived command references stay separate.
+- Decision: keep.
+
+## Evidence
+
+- `node --check` passed for `scripts/refresh-launch-readiness.mjs`, `release-status.js`, `scripts/smoke-interactions.mjs`, `scripts/audit-release-readiness.mjs`, and `scripts/verify-workspace.mjs`.
+- `node scripts/refresh-launch-readiness.mjs --repo biojuho/BIOJUHO-Projects --write` regenerated `data/launch-readiness-refresh.json` with `suggestedDispatchCommandCount=2`, `activeDispatchCommandCount=0`, `dispatchCommandReferenceCount=2`, and `dispatchCommandDisposition=not_applicable_after_launch_proof`.
+- `npm run check:structure` and `npm run check:docs` passed after the System Status and audit-contract changes.
+- `node scripts/audit-release-readiness.mjs --run-gates --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked`, with fresh packaged browser gates cached.
+- `npm run verify:full` passed with `latestDirectionLoop=loop-143`, `latestExperiment=launch-readiness-active-dispatch-disposition`, `evidenceSync.directionLoopSyncReady=true`, `activeDispatchCommandCount=0`, and `readyForExternalClaim=true`.
+
+## Experiment: Product-loop proof-ready next candidates
+
+- Hypothesis: The product-loop summary should replace pre-proof workflow install and dispatch next candidates once `readyForExternalClaim=true` so operators see only proof-ready follow-ups.
+- Primary metric: `stalePreProofNextCandidates`.
+- Baseline: `4`; the summary still recommended landing workflows, filling post-install evidence, filling launch proof evidence, and rerunning dispatch even though publish proof was already ready.
+- Candidate: `0`; `nextCandidatesForStatus()` now derives proof-ready follow-ups from publish readiness and keeps setup/dispatch work out of the active candidate list.
+- Research: Compared release handoff, run-summary, and experiment tracking patterns; post-proof candidates now focus on sharing proof, archiving receipts, capturing signed attestation proof when available, PR bridging, and safe low-state extraction.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/sync-product-loop-summary.mjs --write --markdown` reported `nextCandidatesChanged=true`, `nextCandidateCount=5`, and wrote `nextCandidatesReady=true`.
+- `autoresearch-results/joopark-product-loop.json` now has zero pre-proof next candidates while `publish.readyForExternalClaim=true`.
+- `npm run check:structure` and `npm run check:docs` passed after the proof-ready candidate sync.
+- `node scripts/audit-release-readiness.mjs --run-gates --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked`.
+- `npm run verify:full` passed with `latestDirectionLoop=loop-144`, `latestExperiment=product-loop-proof-ready-next-candidates`, `evidenceSync.nextCandidatesReady=true`, and `readyForExternalClaim=true`.
+
+## Experiment: Verify summary next candidate list receipt
+
+- Hypothesis: The full verify receipt should include the actual proof-ready next candidate list, not only `nextCandidatesReady` and a count.
+- Primary metric: `verifyWorkspaceNextCandidateReceiptCoverage`.
+- Baseline: `0/1`; System Status and `autoresearch-results/verify-workspace-summary.json` exposed `nextCandidatesReady=true` and `nextCandidateCount=5`, but not the five candidate strings.
+- Candidate: `1/1`; `verify-workspace-summary.json`, the System Status panel, the receipt text, and clipboard smoke now carry the proof-ready candidate list.
+- Research: Compared operator-facing job summaries, release handoff records, and provenance records; a certified summary should carry the concrete next actions it certifies.
+- Decision: keep.
+
+## Evidence
+
+- `scripts/verify-workspace.mjs` now writes `artifacts.productLoop.nextCandidates` and requires `nextCandidateListReady=true`.
+- `verify-workspace-summary.js` validates `nextCandidateCount`, the candidate list, `nextCandidatesReady=true`, and `nextCandidateListReady=true`.
+- `release-status.js` renders and copies the five proof-ready candidates in the Verify workspace summary receipt.
+- `scripts/smoke-interactions.mjs` checks visible and copied receipt text for `nextCandidateList=true` and `Share the proof-ready launch packet`.
+- `node scripts/sync-product-loop-summary.mjs --write --markdown` set `latestDirectionLoop=loop-145` and `latestExperiment=verify-summary-next-candidate-list-receipt`.
+- `npm run check:structure` and `npm run check:docs` passed after the receipt-list changes.
+- `node scripts/audit-release-readiness.mjs --run-gates --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked`.
+- `npm run verify:full` passed with `evidenceSync.nextCandidateListReady=true`, `latestDirectionLoop=loop-145`, `latestExperiment=verify-summary-next-candidate-list-receipt`, and `readyForExternalClaim=true`.
+
+## Experiment: Publish evidence active dispatch disposition
+
+- Hypothesis: Proof-ready publish evidence receipts should distinguish active dispatch commands from historical suggested dispatch references after launch proof is ready.
+- Primary metric: `publishEvidenceActiveDispatchDispositionCoverage`.
+- Baseline: `0/1`; `data/publish-evidence.json` was proof-ready, but the share and post-launch receipts still showed `suggested dispatch: 2` and `withheld dispatch: 0` without saying those commands were references rather than active next actions.
+- Candidate: `1/1`; publish evidence and output-quality receipts now include `dispatchCommandDisposition=not_applicable_after_launch_proof`, `activeDispatchCommandCount=0`, and `dispatchCommandReferenceCount=2` while preserving `suggestedDispatchCommands` as provenance.
+- Research: Compared manual workflow dispatch, operator-facing job summaries, and provenance boundaries so launch-proof receipts do not imply that archived dispatch commands should be run again.
+- Decision: keep.
+
+## Evidence
+
+- `node --check` passed for `scripts/capture-publish-evidence.mjs`, `scripts/capture-output-quality-audit.mjs`, and `release-status.js`.
+- `node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write` regenerated `data/publish-evidence.json` with `dispatchCommandDisposition=not_applicable_after_launch_proof`, `activeDispatchCommandCount=0`, and `dispatchCommandReferenceCount=2`.
+- `node scripts/capture-output-quality-audit.mjs --write` regenerated `data/output-quality-audit.json` with the publish evidence command guard carrying active/reference/disposition fields.
+- `release-status.js` now renders the publish evidence dispatch disposition, active dispatch count, and reference dispatch count in System Status.
+- `node scripts/sync-product-loop-summary.mjs --write --markdown` set `latestDirectionLoop=loop-146` and `latestExperiment=publish-evidence-active-dispatch-disposition`.
+- `npm run check:structure` and `npm run check:docs` passed after the publish-evidence receipt changes.
+- `node scripts/audit-release-readiness.mjs --run-gates --format=summary` passed at `283 pass, 0 fail, 0 not_run, 0 blocked`, with fresh packaged browser gates cached.
+- `npm run verify:full` passed with `latestDirectionLoop=loop-146`, `latestExperiment=publish-evidence-active-dispatch-disposition`, `evidenceSync.nextCandidateListReady=true`, and `readyForExternalClaim=true`.

@@ -1,7 +1,7 @@
 {
   "status": "pass",
   "mode": "live",
-  "generatedAt": "2026-06-08T23:04:32.109Z",
+  "generatedAt": "2026-06-11T01:16:17.827Z",
   "workflowName": "Publish JooPark Pages",
   "workflowFile": "joopark-pages.yml",
   "workflowPath": ".github/workflows/joopark-pages.yml",
@@ -26,6 +26,8 @@
     "source": "gh-api-header"
   },
   "workflowScopeInstallBlocked": false,
+  "pagesWorkflowDispatchRef": "codex/joopark-workspace-release",
+  "dispatchCommandExplicitRefReady": true,
   "workflowScopeRefreshCommand": "gh auth refresh -h github.com -s workflow",
   "workflowScopeRecheckCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
   "workflowScopeRefreshHandoff": {
@@ -54,8 +56,8 @@
         "workflowScopeAvailable=true",
         "workflowScopeInstallBlocked=false"
       ],
-      "fallback": "If browser approval cannot be completed, use the GitHub UI new-file links to create both workflow files on the default branch.",
-      "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files."
+      "fallback": "If browser approval cannot be completed, use each workflow row's installAction: open GitHub edit-file pages for existing mismatched files and new-file pages only for missing files.",
+      "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch."
     },
     "note": "Run this only as an operator handoff when the current GitHub CLI token lacks workflow scope; it opens the GitHub auth flow, requires browser approval while the terminal waits, and must not be treated as workflow dispatch."
   },
@@ -79,14 +81,17 @@
       "workflowScopeAvailable=true",
       "workflowScopeInstallBlocked=false"
     ],
-    "fallback": "If browser approval cannot be completed, use the GitHub UI new-file links to create both workflow files on the default branch.",
-    "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has installed both workflow files."
+    "fallback": "If browser approval cannot be completed, use each workflow row's installAction: open GitHub edit-file pages for existing mismatched files and new-file pages only for missing files.",
+    "stopCondition": "Do not run install-remote-workflow-files.mjs, gh workflow run, publish copy, or archive proof until the recheck reports workflowScopeAvailable=true or the GitHub UI path has applied each workflow row's installAction on the default branch."
   },
   "workflowListCommand": "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id",
   "workflowListFixture": null,
   "workflowListSource": "gh-workflow-list",
   "localWorkflowTargetsReady": true,
   "localTargetParityReady": true,
+  "remoteWorkflowFileCheckSource": "data/remote-workflow-file-check.json",
+  "remoteWorkflowFilesChecked": true,
+  "remoteWorkflowFilesReady": false,
   "remoteWorkflowVisibilityReady": true,
   "workflowDefaultBranchHandoff": {
     "localStageReady": true,
@@ -117,14 +122,22 @@
       "suggestedRepo": "biojuho/BIOJUHO-Projects",
       "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
       "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml",
+      "githubEditFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml",
       "githubWorkflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml",
       "templateCopyCommand": "pbcopy < 'docs/github-pages-workflow.yml'",
       "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'",
+      "githubEditFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
       "githubWorkflowOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml'",
+      "uiInstallOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+      "uiInstallCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+      "uiInstallRequired": true,
+      "installAction": "replace_existing_remote_file",
+      "remoteExists": true,
+      "remoteMatchesTemplate": false,
       "templateExists": true,
       "targetExists": true,
-      "templateSha256": "a6647226f9a1fe3340bfdced89e2433f1e6b4f9996cd461afd20463396d8b948",
-      "targetSha256": "a6647226f9a1fe3340bfdced89e2433f1e6b4f9996cd461afd20463396d8b948",
+      "templateSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
+      "targetSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
       "targetMatchesTemplate": true,
       "localTargetParityReady": true,
       "requiredTerms": [
@@ -149,6 +162,12 @@
         "gantt-view.js",
         "team-view.js",
         "workspace-storage.js",
+        "dashboard-storage.js",
+        "dashboard-prioritization.js",
+        "dashboard-evidence-receipts.js",
+        "dashboard-insights-engine.js",
+        "dashboard-autoresearch-loop.js",
+        "dashboard-view.js",
         "storage-status-view.js",
         "settings-view.js",
         "system-status-view.js",
@@ -174,7 +193,8 @@
       "manualDispatchRequirement": "workflow_dispatch must be present on the repository default branch before GitHub UI, CLI, or REST dispatch can run it",
       "uiSteps": [
         "Run pbcopy < 'docs/github-pages-workflow.yml' to copy docs/github-pages-workflow.yml",
-        "Run open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml' and create .github/workflows/joopark-pages.yml",
+        "installAction=replace_existing_remote_file: Open the existing GitHub edit-file page for .github/workflows/joopark-pages.yml, replace the entire file with the copied template, and commit to main.",
+        "Run open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml' before committing .github/workflows/joopark-pages.yml",
         "Paste the copied template contents from docs/github-pages-workflow.yml",
         "Commit to default branch main with a workflow-scope capable GitHub UI session",
         "Run open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml' and confirm the workflow appears",
@@ -194,10 +214,18 @@
       "suggestedRepo": "biojuho/BIOJUHO-Projects",
       "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
       "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml",
+      "githubEditFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-drift-watch.yml",
       "githubWorkflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml",
       "templateCopyCommand": "pbcopy < 'docs/github-drift-watch-workflow.yml'",
       "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'",
+      "githubEditFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-drift-watch.yml'",
       "githubWorkflowOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml'",
+      "uiInstallOpenCommand": "",
+      "uiInstallCommand": "",
+      "uiInstallRequired": false,
+      "installAction": "verified_remote_matches_template",
+      "remoteExists": true,
+      "remoteMatchesTemplate": true,
       "templateExists": true,
       "targetExists": true,
       "templateSha256": "1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
@@ -223,10 +251,11 @@
       "placeholderVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO",
       "manualDispatchRequirement": "workflow_dispatch must be present on the repository default branch before GitHub UI, CLI, or REST dispatch can run it",
       "uiSteps": [
-        "Run pbcopy < 'docs/github-drift-watch-workflow.yml' to copy docs/github-drift-watch-workflow.yml",
-        "Run open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml' and create .github/workflows/joopark-drift-watch.yml",
-        "Paste the copied template contents from docs/github-drift-watch-workflow.yml",
-        "Commit to default branch main with a workflow-scope capable GitHub UI session",
+        "No copy is required for .github/workflows/joopark-drift-watch.yml while installAction=verified_remote_matches_template",
+        "installAction=verified_remote_matches_template: No GitHub UI edit is required for .github/workflows/joopark-drift-watch.yml; the remote file already matches the local template.",
+        "Skip GitHub create/edit pages for .github/workflows/joopark-drift-watch.yml",
+        "No paste is required because .github/workflows/joopark-drift-watch.yml is already verified on main",
+        "Keep the verified remote file unchanged on main",
         "Run open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml' and confirm the workflow appears",
         "Run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects after the workflow appears in Actions",
         "Treat node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO as a template only if the suggested repo is unavailable or wrong"
@@ -236,10 +265,10 @@
   "nextVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
   "placeholderVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO",
   "targetExists": true,
-  "dispatchReady": true,
+  "dispatchReady": false,
   "driftDispatchReady": true,
-  "allDispatchReady": true,
-  "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+  "allDispatchReady": false,
+  "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
   "driftDispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory",
   "driftFollowupCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=fail-on-drift -f repo=biojuho/BIOJUHO-Projects",
   "remoteWorkflow": {
@@ -256,12 +285,17 @@
       "workflowPath": ".github/workflows/joopark-pages.yml",
       "target": ".github/workflows/joopark-pages.yml",
       "targetExists": true,
-      "targetSha256": "a6647226f9a1fe3340bfdced89e2433f1e6b4f9996cd461afd20463396d8b948",
-      "templateSha256": "a6647226f9a1fe3340bfdced89e2433f1e6b4f9996cd461afd20463396d8b948",
+      "targetSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
+      "templateSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
       "targetMatchesTemplate": true,
       "localTargetParityReady": true,
-      "dispatchReady": true,
-      "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+      "remoteFileChecked": true,
+      "remoteFileReady": false,
+      "installAction": "replace_existing_remote_file",
+      "remoteFileSha256": "8ea83aa0d99b303beb6b42976429acc207492d34de461a2ac9c026fbc4cb7574",
+      "remoteFileMatchesTemplate": false,
+      "dispatchReady": false,
+      "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
       "installCommand": "node scripts/prepare-github-pages-workflow.mjs --write",
       "scopeCheckCommand": "node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope",
       "uiInstallPlan": {
@@ -276,14 +310,22 @@
         "suggestedRepo": "biojuho/BIOJUHO-Projects",
         "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
         "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml",
+        "githubEditFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml",
         "githubWorkflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml",
         "templateCopyCommand": "pbcopy < 'docs/github-pages-workflow.yml'",
         "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml'",
+        "githubEditFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
         "githubWorkflowOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml'",
+        "uiInstallOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+        "uiInstallCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
+        "uiInstallRequired": true,
+        "installAction": "replace_existing_remote_file",
+        "remoteExists": true,
+        "remoteMatchesTemplate": false,
         "templateExists": true,
         "targetExists": true,
-        "templateSha256": "a6647226f9a1fe3340bfdced89e2433f1e6b4f9996cd461afd20463396d8b948",
-        "targetSha256": "a6647226f9a1fe3340bfdced89e2433f1e6b4f9996cd461afd20463396d8b948",
+        "templateSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
+        "targetSha256": "7d47ffeb39201dacff42a52825e7988d20aa28e81d2d54dfcf628a3c1e39619e",
         "targetMatchesTemplate": true,
         "localTargetParityReady": true,
         "requiredTerms": [
@@ -308,6 +350,12 @@
           "gantt-view.js",
           "team-view.js",
           "workspace-storage.js",
+          "dashboard-storage.js",
+          "dashboard-prioritization.js",
+          "dashboard-evidence-receipts.js",
+          "dashboard-insights-engine.js",
+          "dashboard-autoresearch-loop.js",
+          "dashboard-view.js",
           "storage-status-view.js",
           "settings-view.js",
           "system-status-view.js",
@@ -333,7 +381,8 @@
         "manualDispatchRequirement": "workflow_dispatch must be present on the repository default branch before GitHub UI, CLI, or REST dispatch can run it",
         "uiSteps": [
           "Run pbcopy < 'docs/github-pages-workflow.yml' to copy docs/github-pages-workflow.yml",
-          "Run open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml' and create .github/workflows/joopark-pages.yml",
+          "installAction=replace_existing_remote_file: Open the existing GitHub edit-file page for .github/workflows/joopark-pages.yml, replace the entire file with the copied template, and commit to main.",
+          "Run open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml' before committing .github/workflows/joopark-pages.yml",
           "Paste the copied template contents from docs/github-pages-workflow.yml",
           "Commit to default branch main with a workflow-scope capable GitHub UI session",
           "Run open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-pages.yml' and confirm the workflow appears",
@@ -351,11 +400,17 @@
       "checks": {
         "targetExists": true,
         "targetMatchesTemplate": true,
+        "remoteFileChecked": true,
+        "remoteFileReady": false,
+        "installAction": "replace_existing_remote_file",
+        "remoteFileMatchesTemplate": false,
         "workflowListChecked": true,
         "workflowVisible": true,
         "dispatchCommandGuarded": true
       },
-      "blockers": []
+      "blockers": [
+        "pages: remote workflow file does not match the local template on main"
+      ]
     },
     {
       "key": "drift-watch",
@@ -368,6 +423,11 @@
       "templateSha256": "1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
       "targetMatchesTemplate": true,
       "localTargetParityReady": true,
+      "remoteFileChecked": true,
+      "remoteFileReady": true,
+      "installAction": "verified_remote_matches_template",
+      "remoteFileSha256": "1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
+      "remoteFileMatchesTemplate": true,
       "dispatchReady": true,
       "dispatchCommand": "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory",
       "installCommand": "node scripts/prepare-github-drift-watch-workflow.mjs --write",
@@ -384,10 +444,18 @@
         "suggestedRepo": "biojuho/BIOJUHO-Projects",
         "repoReplacementHint": "Replace OWNER/REPO with biojuho/BIOJUHO-Projects",
         "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml",
+        "githubEditFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-drift-watch.yml",
         "githubWorkflowUrl": "https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml",
         "templateCopyCommand": "pbcopy < 'docs/github-drift-watch-workflow.yml'",
         "githubNewFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml'",
+        "githubEditFileOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-drift-watch.yml'",
         "githubWorkflowOpenCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml'",
+        "uiInstallOpenCommand": "",
+        "uiInstallCommand": "",
+        "uiInstallRequired": false,
+        "installAction": "verified_remote_matches_template",
+        "remoteExists": true,
+        "remoteMatchesTemplate": true,
         "templateExists": true,
         "targetExists": true,
         "templateSha256": "1e6f0ed82323d4762a9bd78dfff01f18ec5e2b4882ee346acabed4542e5d46f2",
@@ -413,10 +481,11 @@
         "placeholderVerificationCommand": "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO",
         "manualDispatchRequirement": "workflow_dispatch must be present on the repository default branch before GitHub UI, CLI, or REST dispatch can run it",
         "uiSteps": [
-          "Run pbcopy < 'docs/github-drift-watch-workflow.yml' to copy docs/github-drift-watch-workflow.yml",
-          "Run open 'https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-drift-watch.yml' and create .github/workflows/joopark-drift-watch.yml",
-          "Paste the copied template contents from docs/github-drift-watch-workflow.yml",
-          "Commit to default branch main with a workflow-scope capable GitHub UI session",
+          "No copy is required for .github/workflows/joopark-drift-watch.yml while installAction=verified_remote_matches_template",
+          "installAction=verified_remote_matches_template: No GitHub UI edit is required for .github/workflows/joopark-drift-watch.yml; the remote file already matches the local template.",
+          "Skip GitHub create/edit pages for .github/workflows/joopark-drift-watch.yml",
+          "No paste is required because .github/workflows/joopark-drift-watch.yml is already verified on main",
+          "Keep the verified remote file unchanged on main",
           "Run open 'https://github.com/biojuho/BIOJUHO-Projects/actions/workflows/joopark-drift-watch.yml' and confirm the workflow appears",
           "Run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects after the workflow appears in Actions",
           "Treat node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO as a template only if the suggested repo is unavailable or wrong"
@@ -432,6 +501,10 @@
       "checks": {
         "targetExists": true,
         "targetMatchesTemplate": true,
+        "remoteFileChecked": true,
+        "remoteFileReady": true,
+        "installAction": "verified_remote_matches_template",
+        "remoteFileMatchesTemplate": true,
         "workflowListChecked": true,
         "workflowVisible": true,
         "dispatchCommandGuarded": true
@@ -442,15 +515,22 @@
   "checks": {
     "targetExists": true,
     "targetMatchesTemplate": true,
+    "remoteFileChecked": true,
+    "remoteFileReady": false,
+    "installAction": "replace_existing_remote_file",
+    "remoteFileMatchesTemplate": false,
     "workflowListChecked": true,
     "workflowVisible": true,
     "dispatchCommandGuarded": true
   },
-  "blockers": [],
+  "blockers": [
+    "pages: remote workflow file does not match the local template on main"
+  ],
   "nextActions": [
-    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
-    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory",
-    "Capture launch proof with node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown and --write."
+    "Push or commit the staged repository-root workflows to the default branch with a workflow-scope token or GitHub UI session.",
+    "Local handoff: git add .github/workflows/joopark-pages.yml .github/workflows/joopark-drift-watch.yml then git commit -m 'Add JooPark publish workflows'.",
+    "Run node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects until GitHub Actions lists both workflows and allDispatchReady is true.",
+    "Dispatch only after every workflow plan reports dispatchReady: true."
   ],
   "commands": [
     "node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope",
@@ -464,25 +544,23 @@
     "git add .github/workflows/joopark-pages.yml .github/workflows/joopark-drift-watch.yml",
     "git commit -m 'Add JooPark publish workflows'",
     "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO",
-    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
     "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory",
     "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=fail-on-drift -f repo=biojuho/BIOJUHO-Projects"
   ],
   "suggestedVerificationCommands": [
     "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
   ],
-  "suggestedDispatchCommands": [
-    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
+  "suggestedDispatchCommands": [],
+  "withheldDispatchCommands": [
+    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
     "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
   ],
-  "withheldDispatchCommands": [],
-  "suggestedDispatchCommandCount": 2,
-  "withheldDispatchCommandCount": 0,
-  "dispatchSuggestionStatus": "ready",
+  "suggestedDispatchCommandCount": 0,
+  "withheldDispatchCommandCount": 2,
+  "dispatchSuggestionStatus": "withheld-until-all-dispatch-ready",
   "suggestedCommands": [
-    "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects",
-    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml",
-    "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
+    "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"
   ],
   "writtenTo": "data/publish-dispatch-plan.json"
 }

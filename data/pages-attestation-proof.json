@@ -1,7 +1,7 @@
 {
   "schemaVersion": "joopark-pages-attestation-proof/v1",
   "status": "pass",
-  "generatedAt": "2026-06-08T06:42:27.001Z",
+  "generatedAt": "2026-06-09T21:36:08.282Z",
   "source": "operator proof input not provided",
   "sourceProofInput": "",
   "repo": "biojuho/BIOJUHO-Projects",
@@ -90,7 +90,7 @@
     "gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects --format json --jq '.[].verificationResult.statement.predicateType'"
   ],
   "commandCount": 4,
-  "falsePositiveGuard": false,
+  "falsePositiveGuard": true,
   "falsePositiveGuardDetail": "Blank parser-ready template fields are not treated as completed attestation proof.",
   "guard": "Do not claim signed GitHub artifact attestation proof, archive proof, public launch complete, or readyForExternalClaim=true until all required attestation proof fields are valid, both gh attestation verify commands pass, and publish evidence plus launch handoff proof gates are ready.",
   "nextAction": {
@@ -112,5 +112,5 @@
       "detail": "Capture attestation-id, attestation-url, and bundle-path from the action outputs."
     }
   ],
-  "receipt": "# JooPark Pages Attestation Proof Capture\n\nStatus: blocked; not signed proof yet\nRepo: biojuho/BIOJUHO-Projects\nWorkflow: joopark-pages.yml\nProof complete: false\nSigned proof ready: false\nCompleted fields: 0/6\nFalse positive guard: false\n\nParser-ready proof block:\npages_workflow_run:\nattestation_url:\nattestation_id:\nmanifest_verify:\nindex_verify:\npredicate_type:\nbundle_path:\n\nVerification commands:\n- gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects\n- gh attestation verify dist/release/index.html -R biojuho/BIOJUHO-Projects\n- gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects --format json --jq '.[].verificationResult.statement.predicateType'\n\nMissing fields:\n- pages_workflow_run\n- attestation_url\n- attestation_id\n- manifest_verify\n- index_verify\n- predicate_type\n\nGuard:\nDo not claim signed GitHub artifact attestation proof, archive proof, public launch complete, or readyForExternalClaim=true until all required attestation proof fields are valid, both gh attestation verify commands pass, and publish evidence plus launch handoff proof gates are ready."
+  "receipt": "# JooPark Pages Attestation Proof Capture\n\nStatus: blocked; not signed proof yet\nRepo: biojuho/BIOJUHO-Projects\nWorkflow: joopark-pages.yml\nProof complete: false\nSigned proof ready: false\nCompleted fields: 0/6\nFalse positive guard: true\n\nParser-ready proof block:\npages_workflow_run:\nattestation_url:\nattestation_id:\nmanifest_verify:\nindex_verify:\npredicate_type:\nbundle_path:\n\nVerification commands:\n- gh run list --repo biojuho/BIOJUHO-Projects --workflow joopark-pages.yml --limit 1 --json databaseId,status,conclusion,url,headSha,createdAt,updatedAt,event,displayTitle\n- gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects\n- gh attestation verify dist/release/index.html -R biojuho/BIOJUHO-Projects\n- gh attestation verify dist/release/release-manifest.json -R biojuho/BIOJUHO-Projects --format json --jq '.[].verificationResult.statement.predicateType'\n\nMissing fields:\n- pages_workflow_run\n- attestation_url\n- attestation_id\n- manifest_verify\n- index_verify\n- predicate_type\n\nGuard:\nDo not claim signed GitHub artifact attestation proof, archive proof, public launch complete, or readyForExternalClaim=true until all required attestation proof fields are valid, both gh attestation verify commands pass, and publish evidence plus launch handoff proof gates are ready."
 }

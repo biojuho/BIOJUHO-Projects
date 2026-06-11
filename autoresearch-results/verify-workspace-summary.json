@@ -1,26 +1,50 @@
 {
   "schemaVersion": "joopark-verify-workspace/v1",
-  "status": "fail",
-  "generatedAt": "2026-06-08T23:04:11.295Z",
-  "startedAt": "2026-06-08T22:59:08.060Z",
-  "durationMs": 303235,
-  "command": "npm run verify",
+  "status": "blocked",
+  "generatedAt": "2026-06-11T01:16:18.682Z",
+  "startedAt": "2026-06-11T01:13:29.652Z",
+  "durationMs": 169030,
+  "command": "npm run verify:full",
   "runner": "scripts/verify-workspace.mjs",
-  "syncArtifacts": false,
-  "evidenceSyncRequired": false,
+  "syncArtifacts": true,
+  "evidenceSyncRequired": true,
   "evidenceSyncPass": true,
   "stepResults": [
     {
       "id": "release_readiness_gates",
       "command": "node scripts/audit-release-readiness.mjs --run-gates --format=summary",
-      "status": "fail",
+      "status": "blocked",
       "code": 1,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-08T22:59:08.062Z",
-      "finishedAt": "2026-06-08T23:04:11.292Z",
-      "durationMs": 303230,
+      "startedAt": "2026-06-11T01:13:29.653Z",
+      "finishedAt": "2026-06-11T01:16:12.568Z",
+      "durationMs": 162913,
       "timeoutMs": 720000
+    },
+    {
+      "id": "launch_readiness_refresh",
+      "command": "node scripts/refresh-launch-readiness.mjs --repo biojuho/BIOJUHO-Projects --write",
+      "status": "pass",
+      "code": 0,
+      "signal": "",
+      "error": "",
+      "startedAt": "2026-06-11T01:16:12.568Z",
+      "finishedAt": "2026-06-11T01:16:18.588Z",
+      "durationMs": 6020,
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product_loop_summary_sync",
+      "command": "node scripts/sync-product-loop-summary.mjs --write --markdown",
+      "status": "pass",
+      "code": 0,
+      "signal": "",
+      "error": "",
+      "startedAt": "2026-06-11T01:16:18.588Z",
+      "finishedAt": "2026-06-11T01:16:18.677Z",
+      "durationMs": 89,
+      "timeoutMs": 60000
     }
   ],
   "auditLockBefore": {
@@ -42,50 +66,74 @@
   "artifacts": {
     "releaseReadiness": {
       "path": "autoresearch-results/release-readiness-summary.json",
-      "status": "fail",
-      "generatedAt": "2026-06-08T23:04:11.262Z",
-      "summary": "263 pass, 19 fail, 0 not_run, 0 blocked",
+      "status": "blocked",
+      "generatedAt": "2026-06-11T01:16:12.556Z",
+      "summary": "283 pass, 0 fail, 0 not_run, 1 blocked",
       "checks": {
-        "pass": 263,
-        "fail": 19,
+        "pass": 283,
+        "fail": 0,
         "notRun": 0,
-        "blocked": 0,
-        "total": 282
+        "blocked": 1,
+        "total": 284
       }
     },
     "launchReadiness": {
       "path": "data/launch-readiness-refresh.json",
       "status": "pass",
-      "generatedAt": "2026-06-08T22:51:55.789Z",
-      "latestGateSummary": "282 pass, 0 fail, 0 not_run, 0 blocked",
+      "generatedAt": "2026-06-11T01:16:18.580Z",
+      "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
       "safeToDispatch": false,
       "readyForExternalClaim": false,
-      "workflowScopeInstallBlocked": true
+      "workflowScopeInstallBlocked": false,
+      "dispatchCommandDisposition": "withheld",
+      "activeDispatchCommandCount": 0,
+      "dispatchCommandReferenceCount": 2
     },
     "outputQuality": {
       "path": "data/output-quality-audit.json",
       "status": "pass",
-      "generatedAt": "2026-06-08T23:02:17.329Z",
+      "generatedAt": "2026-06-11T01:16:18.530Z",
       "releaseQualityReady": true,
-      "publicLaunchProofReady": false,
+      "publicLaunchProofReady": true,
       "readyForExternalClaim": false,
-      "latestGateSummary": "282 pass, 0 fail, 0 not_run, 0 blocked"
+      "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked"
     },
     "productLoop": {
       "path": "autoresearch-results/joopark-product-loop.json",
-      "status": "release-quality-ready-public-launch-blocked",
-      "generatedAt": "2026-06-08T22:54:31Z",
-      "latestGateSummary": "282 pass, 0 fail, 0 not_run, 0 blocked",
-      "latestExperiment": "pages-workflow-runtime-path-filter-parity"
+      "status": "release-quality-ready-public-launch-proof-ready",
+      "generatedAt": "2026-06-11T01:16:18.666Z",
+      "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
+      "latestExperiment": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
+      "latestDirectionLoop": "loop-207",
+      "latestDirectionLoopNumber": 207,
+      "latestDirectionExperiment": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
+      "latestDiscoveryExperiment": "github-project-discovery-artifact",
+      "nextCandidateCount": 6,
+      "nextCandidates": [
+        "Land .github/workflows/joopark-pages.yml and .github/workflows/joopark-drift-watch.yml on the default branch with workflow scope or GitHub UI.",
+        "Fill the six post-install evidence intake fields from commit, parity, Actions visibility, dispatch readiness, and verify-launch-handoff proof before any dispatch.",
+        "Fill the six launch proof evidence receipt fields from live Pages site, Pages workflow, Drift Watch workflow, evidence freshness, release receipt, and public claim guard proof before external launch copy.",
+        "Fill the Pages attestation proof intake with attestation-url, attestation-id, and gh attestation verify results after the remote Pages workflow run.",
+        "Rerun node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects until allDispatchReady is true, then dispatch Pages and Drift Watch and capture live publish evidence.",
+        "Continue extracting low-state navigation/runtime helpers only where accessibility ownership and state mutation stay clear."
+      ]
     },
     "evidenceSync": {
-      "status": "fail",
-      "productLoopGateParityReady": false,
-      "productLoopPublishParityReady": false,
-      "summarySyncReady": false,
-      "outputQualityGeneratedAt": "2026-06-08T23:02:17.329Z",
-      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-08T22:51:55.748Z",
+      "status": "pass",
+      "productLoopGateParityReady": true,
+      "productLoopPublishParityReady": true,
+      "summarySyncReady": true,
+      "nextCandidatesReady": true,
+      "nextCandidateListReady": true,
+      "directionLoopSyncReady": true,
+      "latestDirectionExperimentReady": true,
+      "latestDiscoveryExperimentReady": true,
+      "latestDirectionLoopNumber": 207,
+      "productLoopLatestDirectionLoopNumber": 207,
+      "outputQualityGeneratedAt": "2026-06-11T01:16:18.530Z",
+      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-11T01:16:18.530Z",
       "source": "scripts/sync-product-loop-summary.mjs",
+      "directionLogPath": "docs/product-direction.md",
       "fullVerifyCommand": "npm run verify:full"
     }
   },
