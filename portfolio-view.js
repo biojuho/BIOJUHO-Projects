@@ -76,8 +76,10 @@
       const portfolioFilter = data.portfolioFilter || "all";
       const portfolioActionFilter = data.portfolioActionFilter || "all";
       const portfolioBenchmarkFilter = data.portfolioBenchmarkFilter || "all";
+      const showReferenceProjects = data.showReferenceProjects === true;
       const candidateCount = projects.filter((project) => project.sourceKind === "adoption-candidate").length;
       const ownedCount = projects.length - candidateCount;
+      const visibleProjects = showReferenceProjects ? projects : projects.filter((project) => project.sourceKind !== "adoption-candidate");
       const benchmarkFocusCount = projects.filter((project) => project.sourceKind === "adoption-candidate" && projectBenchmarkFocus(project)).length;
       const actionCounts = projects
         .filter((project) => project.sourceKind === "adoption-candidate")
@@ -86,12 +88,12 @@
           acc[key] = (acc[key] || 0) + 1;
           return acc;
         }, {});
-      const list = sortPortfolioProjects(projects
+      const list = sortPortfolioProjects(visibleProjects
         .filter((project) => portfolioMatchesFilter(project, portfolioFilter))
         .filter((project) => portfolioMatchesActionFilter(project, portfolioActionFilter))
         .filter((project) => portfolioMatchesBenchmarkFilter(project, portfolioBenchmarkFilter))
         .filter((project) => matches(projectSearchText(project), query)));
-      const stats = portfolioStats(projects);
+      const stats = portfolioStats(visibleProjects);
       const kpis = [
         { title: "프로젝트", value: String(stats.total), unit: "개", color: "#2387ff", badge: "▦", delta: "" },
         { title: "평균 진행률", value: String(stats.avg), unit: "%", color: "#17d983", badge: "✺", delta: "▲ 4%p" },
@@ -101,11 +103,13 @@
 
       return {
         projects,
+        visibleProjects,
         query,
         list,
         portfolioFilter,
         portfolioActionFilter,
         portfolioBenchmarkFilter,
+        showReferenceProjects,
         candidateCount,
         ownedCount,
         benchmarkFocusCount,
@@ -116,7 +120,7 @@
 
     function filterChips(model) {
       return portfolioFilters.map((filter) => {
-        const count = filter.key === "owned" ? model.ownedCount : filter.key === "candidates" ? model.candidateCount : model.projects.length;
+        const count = filter.key === "owned" ? model.ownedCount : filter.key === "candidates" ? model.candidateCount : model.visibleProjects.length;
         return html`<button type="button" class="seg-chip ${raw(model.portfolioFilter === filter.key ? "is-active" : "")}" data-action="portfolio-filter" data-filter="${filter.key}" aria-pressed="${raw(model.portfolioFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
       }).join("");
     }
@@ -202,24 +206,30 @@
 
     function renderPortfolioHTML(input) {
       const model = portfolioViewModel(input);
+      const referenceToggleLabel = model.showReferenceProjects ? "참고 자료 숨기기" : `참고 자료 보기 ${model.candidateCount}`;
       return html`
         <section class="kpis">${raw(model.kpis.map((kpi) => kpiCard(kpi)).join(""))}</section>
         <div class="portfolio-toolbar">
           <div class="seg-control" aria-label="포트폴리오 필터">${raw(filterChips(model))}</div>
-          <button type="button" class="primary-btn" data-action="project-add">+ 새 프로젝트</button>
+          <div class="portfolio-toolbar-actions">
+            <button type="button" class="seg-chip" data-action="toggle-reference-projects" data-reference-projects-visible="${model.showReferenceProjects ? "true" : "false"}" aria-pressed="${model.showReferenceProjects ? "true" : "false"}">${referenceToggleLabel}</button>
+            <button type="button" class="primary-btn" data-action="project-add">+ 새 프로젝트</button>
+          </div>
         </div>
-        <div class="portfolio-action-filter" data-candidate-action-filter-panel>
-          <div class="seg-control" aria-label="후보 액션 필터">${raw(actionFilterChips(model))}</div>
-        </div>
-        <div class="portfolio-benchmark-filter" data-candidate-benchmark-filter-panel>
-          <div class="seg-control" aria-label="후보 벤치 필터">${raw(benchmarkFilterChips(model))}</div>
-        </div>
-        ${raw(candidateActionQueueSummary(model.projects, model.portfolioActionFilter))}
-        ${raw(candidateBenchmarkQueueSummary(model.projects, model.portfolioBenchmarkFilter))}
-        ${raw(candidateBenchmarkRubric(model.projects, model.portfolioBenchmarkFilter))}
-        ${raw(candidateWorkspaceRubric(model.projects, model.portfolioBenchmarkFilter))}
-        ${raw(candidateKnowledgeBaseRubric(model.projects, model.portfolioBenchmarkFilter))}
-        ${raw(candidateBenchmarkReviewQueue(model.projects, model.portfolioBenchmarkFilter))}
+        ${model.showReferenceProjects ? raw(html`
+          <div class="portfolio-action-filter" data-candidate-action-filter-panel>
+            <div class="seg-control" aria-label="후보 액션 필터">${raw(actionFilterChips(model))}</div>
+          </div>
+          <div class="portfolio-benchmark-filter" data-candidate-benchmark-filter-panel>
+            <div class="seg-control" aria-label="후보 벤치 필터">${raw(benchmarkFilterChips(model))}</div>
+          </div>
+          ${raw(candidateActionQueueSummary(model.projects, model.portfolioActionFilter))}
+          ${raw(candidateBenchmarkQueueSummary(model.projects, model.portfolioBenchmarkFilter))}
+          ${raw(candidateBenchmarkRubric(model.projects, model.portfolioBenchmarkFilter))}
+          ${raw(candidateWorkspaceRubric(model.projects, model.portfolioBenchmarkFilter))}
+          ${raw(candidateKnowledgeBaseRubric(model.projects, model.portfolioBenchmarkFilter))}
+          ${raw(candidateBenchmarkReviewQueue(model.projects, model.portfolioBenchmarkFilter))}
+        `) : ""}
         ${raw(portfolioGridHTML(model))}
       `;
     }

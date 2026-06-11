@@ -2,6 +2,13 @@
   "use strict";
 
   const VERSION = "joopark-todo-view/v1";
+  const DEFAULT_TODO_RENDER_LIMIT = 160;
+  const DEFAULT_TODO_BUCKET_RENDER_LIMIT = 80;
+
+  function renderLimitOption(value, fallback, minimum) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(minimum, Math.trunc(parsed)) : fallback;
+  }
 
   function createTodoView(deps) {
     const options = deps || {};
@@ -17,6 +24,8 @@
     const formatKoreanShort = typeof options.formatKoreanShort === "function" ? options.formatKoreanShort : function (value) { return value || ""; };
     const kpiCard = typeof options.kpiCard === "function" ? options.kpiCard : function () { return ""; };
     const searchEmptyState = typeof options.searchEmptyState === "function" ? options.searchEmptyState : function () { return ""; };
+    const todoRenderLimit = renderLimitOption(options.todoRenderLimit, DEFAULT_TODO_RENDER_LIMIT, 40);
+    const todoBucketRenderLimit = renderLimitOption(options.todoBucketRenderLimit, DEFAULT_TODO_BUCKET_RENDER_LIMIT, 20);
 
     if (typeof html !== "function" || typeof raw !== "function") {
       throw new Error("todo view requires html and raw helpers");
@@ -141,6 +150,17 @@
           `;
       }
 
+      function todoVirtualNote(total, rendered, scope) {
+        const hidden = total - rendered;
+        if (hidden <= 0) return "";
+        return html`
+          <div class="virtual-list-note todo-virtual-note" role="status" data-todo-virtualized="true" data-todo-virtual-scope="${scope}" data-todo-virtual-rendered="${rendered}" data-todo-virtual-total="${total}">
+            <strong>${hidden}개 더 있음</strong>
+            <span>검색어·상태·출처 필터를 좁히면 숨겨진 할 일을 바로 찾을 수 있습니다.</span>
+          </div>
+        `;
+      }
+
       if (model.filter === "active") {
         const today = model.today;
         const buckets = [
@@ -152,12 +172,19 @@
         return buckets.map((bucket) => html`
           <div class="todo-group">
             <p class="todo-group-head">${bucket.label} <span>${bucket.items.length}</span></p>
-            ${raw(bucket.items.map((todo) => todoRow(todo)).join(""))}
+            ${raw(bucket.items.slice(0, todoBucketRenderLimit).map((todo) => todoRow(todo)).join(""))}
+            ${raw(todoVirtualNote(bucket.items.length, Math.min(bucket.items.length, todoBucketRenderLimit), bucket.label))}
           </div>
         `).join("");
       }
 
-      return html`<div class="todo-group">${raw(filtered.map((todo) => todoRow(todo)).join(""))}</div>`;
+      const visible = filtered.length > todoRenderLimit ? filtered.slice(0, todoRenderLimit) : filtered;
+      return html`
+        <div class="todo-group">
+          ${raw(visible.map((todo) => todoRow(todo)).join(""))}
+          ${raw(todoVirtualNote(filtered.length, visible.length, "all"))}
+        </div>
+      `;
     }
 
     function todoFilterChipsHTML(activeFilter) {
@@ -207,6 +234,7 @@
       todoMatchesFilter,
       todoMatchesSourceFilter,
       todoSourceReturnButton,
+      renderLimitOption,
       todoRow,
       todoViewModel,
       todoListHTML,

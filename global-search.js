@@ -45,6 +45,58 @@
       refs.searchClear.hidden = isInertView() || !state.query;
     }
 
+    function resetQueryValue() {
+      state.query = "";
+      if (refs.query) refs.query.value = "";
+    }
+
+    function setSearchCount(message) {
+      if (refs.searchCount) refs.searchCount.textContent = message;
+    }
+
+    function setQueryAffordance(inert) {
+      if (!refs.query) return;
+      refs.query.placeholder = inert ? SEARCH_INERT_PLACEHOLDER : SEARCH_VIEW_PLACEHOLDER;
+      refs.query.setAttribute("aria-label", inert ? SEARCH_INERT_LABEL : SEARCH_VIEW_LABEL);
+      refs.query.setAttribute("aria-readonly", inert ? "true" : "false");
+      refs.query.readOnly = inert;
+    }
+
+    function setShellAffordance(shell, inert) {
+      if (!shell) return;
+      shell.classList.toggle("is-inert", inert);
+      shell.dataset.searchScope = inert ? "command" : "view";
+      shell.title = inert ? SEARCH_INERT_HINT : "현재 화면의 항목을 필터링합니다.";
+    }
+
+    function isPlainPrintableKey(event) {
+      return Boolean(event.key && event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey);
+    }
+
+    function isScrollableMain(main) {
+      if (!main) return false;
+      const mainStyle = windowRef.getComputedStyle(main);
+      return Boolean(main.scrollHeight > main.clientHeight + 1 && mainStyle && mainStyle.overflowY !== "visible");
+    }
+
+    function searchRevealOffset() {
+      return Math.min(128, Math.max(72, Math.round(windowRef.innerHeight * 0.22)));
+    }
+
+    function scrollEmptyIntoMain(empty, main, targetOffset) {
+      const mainRect = main.getBoundingClientRect();
+      const emptyRect = empty.getBoundingClientRect();
+      const targetTop = Math.max(0, main.scrollTop + emptyRect.top - mainRect.top - targetOffset);
+      main.scrollTo({ top: targetTop, behavior: "auto" });
+    }
+
+    function scrollEmptyIntoWindow(empty, targetOffset) {
+      const emptyRect = empty.getBoundingClientRect();
+      const targetTop = Math.max(0, windowRef.scrollY + emptyRect.top - targetOffset);
+      windowRef.scrollTo({ top: targetTop, behavior: "auto" });
+      empty.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    }
+
     function status() {
       if (!state.query || isInertView()) return "";
       const view = currentViewNode();
@@ -59,22 +111,10 @@
     function syncAffordance({ announce = false } = {}) {
       const inert = isInertView();
       const shell = refs.query ? refs.query.closest(".search") : null;
-      if (shell) {
-        shell.classList.toggle("is-inert", inert);
-        shell.dataset.searchScope = inert ? "command" : "view";
-        shell.title = inert ? SEARCH_INERT_HINT : "현재 화면의 항목을 필터링합니다.";
-      }
-      if (refs.query) {
-        refs.query.placeholder = inert ? SEARCH_INERT_PLACEHOLDER : SEARCH_VIEW_PLACEHOLDER;
-        refs.query.setAttribute("aria-label", inert ? SEARCH_INERT_LABEL : SEARCH_VIEW_LABEL);
-        refs.query.setAttribute("aria-readonly", inert ? "true" : "false");
-        refs.query.readOnly = inert;
-        if (inert && refs.query.value) refs.query.value = "";
-      }
-      if (inert && state.query) state.query = "";
-      if (refs.searchCount) {
-        refs.searchCount.textContent = inert && announce ? SEARCH_INERT_HINT : status();
-      }
+      setShellAffordance(shell, inert);
+      setQueryAffordance(inert);
+      if (inert && (state.query || (refs.query && refs.query.value))) resetQueryValue();
+      setSearchCount(inert && announce ? SEARCH_INERT_HINT : status());
       clearControl();
     }
 
@@ -82,26 +122,23 @@
       if (isInertView()) syncAffordance({ announce: true });
     }
 
+    function resetInertSearch() {
+      resetQueryValue();
+      syncAffordance({ announce: true });
+    }
+
     function revealEmptyIfNeeded() {
       if (!state.query || isInertView()) return;
       const empty = searchEmptyNode();
       if (!empty) return;
       const reveal = () => {
-        const targetOffset = Math.min(128, Math.max(72, Math.round(windowRef.innerHeight * 0.22)));
+        const targetOffset = searchRevealOffset();
         const main = documentRef.querySelector(".main");
-        const mainStyle = main ? windowRef.getComputedStyle(main) : null;
-        const mainScrollable = main && main.scrollHeight > main.clientHeight + 1 && mainStyle && mainStyle.overflowY !== "visible";
-        if (mainScrollable) {
-          const mainRect = main.getBoundingClientRect();
-          const emptyRect = empty.getBoundingClientRect();
-          const targetTop = Math.max(0, main.scrollTop + emptyRect.top - mainRect.top - targetOffset);
-          main.scrollTo({ top: targetTop, behavior: "auto" });
+        if (isScrollableMain(main)) {
+          scrollEmptyIntoMain(empty, main, targetOffset);
           return;
         }
-        const emptyRect = empty.getBoundingClientRect();
-        const targetTop = Math.max(0, windowRef.scrollY + emptyRect.top - targetOffset);
-        windowRef.scrollTo({ top: targetTop, behavior: "auto" });
-        empty.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+        scrollEmptyIntoWindow(empty, targetOffset);
       };
       reveal();
       windowRef.requestAnimationFrame(reveal);
@@ -109,56 +146,54 @@
 
     const onSearchInput = debounce(() => {
       if (isInertView()) {
-        state.query = "";
-        if (refs.query) refs.query.value = "";
-        syncAffordance({ announce: true });
+        resetInertSearch();
         return;
       }
       clearControl();
       renderCurrentView();
-      if (refs.searchCount) refs.searchCount.textContent = status();
+      setSearchCount(status());
       revealEmptyIfNeeded();
     }, 140);
 
     function clear() {
-      state.query = "";
-      if (refs.query) refs.query.value = "";
+      resetQueryValue();
       const inert = isInertView();
       if (!inert) renderCurrentView();
-      if (refs.searchCount) refs.searchCount.textContent = "";
+      setSearchCount("");
       clearControl();
       if (refs.query) refs.query.focus();
       if (inert) announceInert();
+    }
+
+    function handleQueryKeydown(event) {
+      if (isInertView()) {
+        if (!isPlainPrintableKey(event)) return;
+        event.preventDefault();
+        openPalette();
+        return;
+      }
+      if (event.key !== "Escape" || !state.query) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clear();
+    }
+
+    function handleQueryInput(event) {
+      if (isInertView()) {
+        resetInertSearch();
+        return;
+      }
+      state.query = event.target.value;
+      clearControl();
+      onSearchInput();
     }
 
     function setup() {
       if (!refs.query || refs.query.dataset.globalSearchBound === "true") return;
       refs.query.dataset.globalSearchBound = "true";
       refs.query.addEventListener("focus", announceInert);
-      refs.query.addEventListener("keydown", (event) => {
-        if (!isInertView()) return;
-        const printable = event.key && event.key.length === 1;
-        if (!printable || event.metaKey || event.ctrlKey || event.altKey) return;
-        event.preventDefault();
-        openPalette();
-      });
-      refs.query.addEventListener("keydown", (event) => {
-        if (isInertView() || event.key !== "Escape" || !state.query) return;
-        event.preventDefault();
-        event.stopPropagation();
-        clear();
-      });
-      refs.query.addEventListener("input", (event) => {
-        if (isInertView()) {
-          event.target.value = "";
-          state.query = "";
-          syncAffordance({ announce: true });
-          return;
-        }
-        state.query = event.target.value;
-        clearControl();
-        onSearchInput();
-      });
+      refs.query.addEventListener("keydown", handleQueryKeydown);
+      refs.query.addEventListener("input", handleQueryInput);
     }
 
     return {

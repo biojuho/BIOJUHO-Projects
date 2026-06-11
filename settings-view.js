@@ -508,6 +508,7 @@
           query: deletedRecoveryQuery,
           kind: deletedRecoveryKind,
         },
+        showReferenceProjects: settings.showReferenceProjects === true,
         deletedKinds,
         counts: {
           events: countOf(dashboard.events),
@@ -571,6 +572,15 @@
             <button type="button" class="theme-opt ${raw(model.theme === "dark" ? "is-active" : "")}" data-action="set-theme" data-theme="dark" aria-pressed="${model.theme === "dark" ? "true" : "false"}">🌙 다크</button>
             <button type="button" class="theme-opt ${raw(model.theme === "light" ? "is-active" : "")}" data-action="set-theme" data-theme="light" aria-pressed="${model.theme === "light" ? "true" : "false"}">☀️ 라이트</button>
           </div>
+        </section>
+      `;
+    }
+
+    function referenceProjectsPanelHTML(model) {
+      return html`
+        <section class="panel settings-reference-projects" data-settings-reference-projects data-reference-projects-visible="${model.showReferenceProjects ? "true" : "false"}">
+          <div class="panel-head"><div><h2>참고 자료</h2></div></div>
+          <button type="button" class="primary-btn" data-action="toggle-reference-projects" aria-pressed="${model.showReferenceProjects ? "true" : "false"}">${model.showReferenceProjects ? "숨기기" : "보기"}</button>
         </section>
       `;
     }
@@ -894,6 +904,7 @@
         ${raw(settingsKpisHTML(model))}
         ${raw(profilePanelHTML(model))}
         ${raw(themePanelHTML(model))}
+        ${raw(referenceProjectsPanelHTML(model))}
         ${raw(backupPanelHTML(model))}
         ${raw(recentlyDeletedPanelHTML(model))}
         ${raw(handoffPanelHTML(model))}

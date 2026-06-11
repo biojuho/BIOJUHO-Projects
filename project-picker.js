@@ -76,29 +76,24 @@
       };
     }
 
+    function setAttributes(node, attrs) {
+      if (!node) return;
+      Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, value));
+    }
+
+    function bindOnce(node, key, bind) {
+      if (!node || node.dataset[key]) return;
+      node.dataset[key] = "true";
+      bind(node);
+    }
+
     function normalizeAccessibility() {
-      if (refs.projectPicker) {
-        refs.projectPicker.setAttribute("role", "dialog");
-        refs.projectPicker.setAttribute("aria-labelledby", "projectSelectLabel");
-      }
-      if (refs.projectSelect) {
-        refs.projectSelect.setAttribute("aria-haspopup", "dialog");
-        refs.projectSelect.setAttribute("aria-controls", "projectPicker");
-      }
+      setAttributes(refs.projectPicker, { role: "dialog", "aria-labelledby": "projectSelectLabel" });
+      setAttributes(refs.projectSelect, { "aria-haspopup": "dialog", "aria-controls": "projectPicker" });
       const current = elements();
-      if (current.searchInput) {
-        current.searchInput.setAttribute("aria-controls", "projectPickerList");
-        current.searchInput.setAttribute("aria-describedby", "projectPickerStatus");
-      }
-      if (current.list) {
-        current.list.setAttribute("role", "listbox");
-        current.list.setAttribute("aria-label", "프로젝트 목록");
-      }
-      if (current.statusEl) {
-        current.statusEl.setAttribute("role", "status");
-        current.statusEl.setAttribute("aria-live", "polite");
-        current.statusEl.setAttribute("aria-atomic", "true");
-      }
+      setAttributes(current.searchInput, { "aria-controls": "projectPickerList", "aria-describedby": "projectPickerStatus" });
+      setAttributes(current.list, { role: "listbox", "aria-label": "프로젝트 목록" });
+      setAttributes(current.statusEl, { role: "status", "aria-live": "polite", "aria-atomic": "true" });
       return current;
     }
 
@@ -114,6 +109,28 @@
       const optionsForStatus = config || {};
       node.textContent = text;
       node.classList.toggle("is-visible", Boolean(optionsForStatus.visible && text));
+    }
+
+    function clearInputValue(input) {
+      if (input) input.value = "";
+    }
+
+    function resetPickerQuery(input) {
+      state.query = "";
+      clearInputValue(input);
+    }
+
+    function focusProjectSelect() {
+      if (refs.projectSelect) refs.projectSelect.focus();
+    }
+
+    function isPickerHidden() {
+      return Boolean(refs.projectPicker && refs.projectPicker.hasAttribute("hidden"));
+    }
+
+    function shouldRestoreHiddenSearchFocus() {
+      const active = documentRef.activeElement;
+      return Boolean(refs.projectSelect && (!active || active === documentRef.body || refs.projectPicker.contains(active)));
     }
 
     function projectOptionHTML(project, index) {
@@ -134,11 +151,19 @@
       `;
     }
 
+    function projectList() {
+      return Array.isArray(dashboard.projects) ? dashboard.projects : [];
+    }
+
+    function projectMatchesQuery(project, query) {
+      return matches(projectSearchText(project), query);
+    }
+
     function renderOptions() {
       const list = projectPickerNode("#projectPickerList");
       if (!list) return;
       const query = state.query;
-      const filtered = (Array.isArray(dashboard.projects) ? dashboard.projects : []).filter((project) => matches(projectSearchText(project), query));
+      const filtered = projectList().filter((project) => projectMatchesQuery(project, query));
       if (filtered.length === 0) {
         setHTML(list, "");
         setStatus(NO_RESULTS_TEXT, { visible: true });
@@ -150,16 +175,51 @@
 
     function restoreFocus() {
       if (!refs.projectSelect) return;
-      refs.projectSelect.focus();
-      root.setTimeout(() => {
-        if (refs.projectPicker && refs.projectPicker.hasAttribute("hidden")) refs.projectSelect.focus();
-      }, 0);
-      root.setTimeout(() => {
-        if (refs.projectPicker && refs.projectPicker.hasAttribute("hidden")) refs.projectSelect.focus();
-      }, 80);
-      root.setTimeout(() => {
-        if (refs.projectPicker && refs.projectPicker.hasAttribute("hidden")) refs.projectSelect.focus();
-      }, 180);
+      focusProjectSelect();
+      [0, 80, 180].forEach((delay) => {
+        root.setTimeout(() => {
+          if (isPickerHidden()) focusProjectSelect();
+        }, delay);
+      });
+    }
+
+    function handleSearchKeydown(event) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+    }
+
+    function handleSearchInput(event) {
+      if (isPickerHidden()) {
+        resetPickerQuery(event.target);
+        setStatus("");
+        if (shouldRestoreHiddenSearchFocus()) {
+          focusProjectSelect();
+        }
+        return;
+      }
+      state.query = event.target.value;
+      renderOptions();
+    }
+
+    function handlePickerFocusout(event) {
+      const next = event.relatedTarget;
+      if (!next) return;
+      if (containsPickerTarget(next)) return;
+      setOpen(false);
+    }
+
+    function setPickerShellOpen(open) {
+      if (open) {
+        refs.projectPicker.removeAttribute("hidden");
+        if (body) body.classList.add("project-picker-open");
+        refs.projectSelect.setAttribute("aria-expanded", "true");
+      } else {
+        if (body) body.classList.remove("project-picker-open");
+        refs.projectPicker.setAttribute("hidden", "");
+        refs.projectSelect.setAttribute("aria-expanded", "false");
+      }
     }
 
     function ensureScaffold() {
@@ -174,38 +234,13 @@
         <div id="projectPickerStatus" class="project-picker-status" role="status" aria-live="polite" aria-atomic="true"></div>
       `);
       const current = normalizeAccessibility();
-      if (current.searchInput && !current.searchInput.dataset.projectPickerInputBound) {
-        current.searchInput.dataset.projectPickerInputBound = "true";
-        current.searchInput.addEventListener("keydown", (event) => {
-          if (event.key !== "Escape") return;
-          event.preventDefault();
-          event.stopPropagation();
-          setOpen(false);
-        });
-        current.searchInput.addEventListener("input", (event) => {
-          if (refs.projectPicker && refs.projectPicker.hasAttribute("hidden")) {
-            event.target.value = "";
-            state.query = "";
-            setStatus("");
-            if (refs.projectSelect && (!documentRef.activeElement || documentRef.activeElement === documentRef.body || refs.projectPicker.contains(documentRef.activeElement))) {
-              refs.projectSelect.focus();
-            }
-            return;
-          }
-          state.query = event.target.value;
-          renderOptions();
-        });
-      }
-      if (!refs.projectPicker.dataset.projectPickerFocusoutBound) {
-        refs.projectPicker.dataset.projectPickerFocusoutBound = "true";
-        refs.projectPicker.addEventListener("focusout", (event) => {
-          const next = event.relatedTarget;
-          if (!next) return;
-          if (refs.projectPicker.contains(next)) return;
-          if (refs.projectSelect && refs.projectSelect.contains(next)) return;
-          setOpen(false);
-        });
-      }
+      bindOnce(current.searchInput, "projectPickerInputBound", (searchInput) => {
+        searchInput.addEventListener("keydown", handleSearchKeydown);
+        searchInput.addEventListener("input", handleSearchInput);
+      });
+      bindOnce(refs.projectPicker, "projectPickerFocusoutBound", (projectPicker) => {
+        projectPicker.addEventListener("focusout", handlePickerFocusout);
+      });
       initialized = true;
     }
 
@@ -213,42 +248,39 @@
       if (!refs.projectPicker || !refs.projectSelect) return;
       if (open) {
         ensureScaffold();
-        state.query = "";
         const searchInput = projectPickerNode("#projectPickerSearch");
-        if (searchInput) searchInput.value = "";
+        resetPickerQuery(searchInput);
         renderOptions();
-        refs.projectPicker.removeAttribute("hidden");
-        if (body) body.classList.add("project-picker-open");
-        refs.projectSelect.setAttribute("aria-expanded", "true");
+        setPickerShellOpen(true);
         if (searchInput) searchInput.focus();
       } else {
         const restore = refs.projectPicker.contains(documentRef.activeElement);
         const current = normalizeAccessibility();
-        state.query = "";
-        if (current.searchInput) current.searchInput.value = "";
+        resetPickerQuery(current.searchInput);
         if (current.list) setHTML(current.list, "");
-        if (restore) refs.projectSelect.focus();
+        if (restore) focusProjectSelect();
         setStatus("");
-        if (body) body.classList.remove("project-picker-open");
-        refs.projectPicker.setAttribute("hidden", "");
-        refs.projectSelect.setAttribute("aria-expanded", "false");
+        setPickerShellOpen(false);
         if (restore) restoreFocus();
       }
     }
 
     function isOpen() {
-      return Boolean(refs.projectPicker && !refs.projectPicker.hasAttribute("hidden"));
+      return Boolean(refs.projectPicker && !isPickerHidden());
+    }
+
+    function containsPickerTarget(target) {
+      return Boolean(target && ((refs.projectPicker && refs.projectPicker.contains(target)) || (refs.projectSelect && refs.projectSelect.contains(target))));
     }
 
     function toggle() {
       if (!refs.projectPicker) return;
-      setOpen(refs.projectPicker.hasAttribute("hidden"));
+      setOpen(!isOpen());
     }
 
     function closeIfOutside(target) {
       if (!isOpen()) return false;
-      if (refs.projectPicker.contains(target)) return false;
-      if (refs.projectSelect && refs.projectSelect.contains(target)) return false;
+      if (containsPickerTarget(target)) return false;
       setOpen(false);
       return true;
     }

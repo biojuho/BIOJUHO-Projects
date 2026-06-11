@@ -2,6 +2,7 @@
   "use strict";
 
   const VERSION = "joopark-backup-import-ui/v1";
+  const DEFAULT_MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
   function fallbackRaw(value) {
     return { __raw: true, value: value == null ? "" : String(value) };
@@ -34,8 +35,8 @@
   function createBackupImportUi(deps = {}) {
     const html = typeof deps.html === "function" ? deps.html : fallbackHtml;
     const raw = typeof deps.raw === "function" ? deps.raw : fallbackRaw;
-    const dashboard = deps.dashboard && typeof deps.dashboard === "object" ? deps.dashboard : {};
-    const guards = deps.importGuards && typeof deps.importGuards === "object" ? deps.importGuards : {};
+    const dashboard = isObjectValue(deps.dashboard) ? deps.dashboard : {};
+    const guards = isObjectValue(deps.importGuards) ? deps.importGuards : {};
     const showToast = typeof deps.showToast === "function" ? deps.showToast : (() => {});
     const openModal = typeof deps.openModal === "function" ? deps.openModal : (() => {});
     const formatBytes = typeof deps.formatBytes === "function" ? deps.formatBytes : ((value) => `${value} bytes`);
@@ -45,6 +46,14 @@
     const fileReaderFactory = typeof deps.fileReaderFactory === "function"
       ? deps.fileReaderFactory
       : () => new global.FileReader();
+
+    function isObjectValue(value) {
+      return Boolean(value && typeof value === "object");
+    }
+
+    function isPlainObject(value) {
+      return Boolean(isObjectValue(value) && !Array.isArray(value));
+    }
 
     function isImportBackupShape(obj) {
       return typeof guards.isBackupShape === "function" ? guards.isBackupShape(obj) : false;
@@ -62,9 +71,28 @@
       return typeof guards.recordLimitMessage === "function" ? guards.recordLimitMessage(violations) : "가져오기 항목 수가 너무 많습니다";
     }
 
+    function validateImportPayload(obj) {
+      return typeof guards.validateImportPayload === "function"
+        ? guards.validateImportPayload(obj)
+        : { ok: true, normalized: obj, violations: [] };
+    }
+
+    function importValidationMessage(violations) {
+      return typeof guards.importValidationMessage === "function"
+        ? guards.importValidationMessage(violations)
+        : "가져오기 데이터 검증 실패";
+    }
+
     function rejectImportFile(input, message) {
       showToast(message, "error");
       if (input) input.value = "";
+    }
+
+    function maxImportBytesOption(value, fallback = DEFAULT_MAX_IMPORT_BYTES) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+      const fallbackNumber = Number(fallback);
+      return Number.isFinite(fallbackNumber) && fallbackNumber > 0 ? fallbackNumber : 0;
     }
 
     function importBackupSummaryHTML(obj) {
@@ -77,24 +105,34 @@
       if (Array.isArray(obj[key])) dashboard[key] = obj[key];
     }
 
+    function importObjectField(obj, key) {
+      if (isObjectValue(obj[key])) dashboard[key] = obj[key];
+    }
+
     function applyImported(obj) {
       if (!isImportBackupShape(obj)) {
         showToast("백업 형식이 아닙니다", "error");
         return;
       }
-      ["events", "todos", "notes"].forEach((key) => importArrayField(obj, key));
-      if (Array.isArray(obj.deletedItems)) dashboard.deletedItems = obj.deletedItems;
-      ["reviewResults", "reviewIssueDraftOverrides"].forEach((key) => importArrayField(obj, key));
-      if (obj.settings && typeof obj.settings === "object") {
-        dashboard.settings = { ...dashboard.settings, ...obj.settings };
+      const validation = validateImportPayload(obj);
+      if (!validation.ok) {
+        showToast(importValidationMessage(validation.violations), "error");
+        return;
       }
-      ["habits", "projects", "issues"].forEach((key) => importArrayField(obj, key));
-      if (obj.gantt && typeof obj.gantt === "object" && !Array.isArray(obj.gantt)) dashboard.gantt = obj.gantt;
-      ["team", "dbInstances", "schemas", "queries"].forEach((key) => importArrayField(obj, key));
-      if (Array.isArray(obj.backups)) dashboard.backups = obj.backups;
-      importArrayField(obj, "migrations");
-      if (obj.ui && typeof obj.ui === "object") dashboard.ui = obj.ui;
-      if (obj.imports && typeof obj.imports === "object") dashboard.imports = obj.imports;
+      const source = validation.normalized || obj;
+      ["events", "todos", "notes"].forEach((key) => importArrayField(source, key));
+      importArrayField(source, "deletedItems");
+      ["reviewResults", "reviewIssueDraftOverrides"].forEach((key) => importArrayField(source, key));
+      ["dashboardInsights", "dashboardResearchLoops", "dashboardImprovementCandidates", "dashboardDecisionReceipts", "dashboardEvidenceSnapshots", "dashboardHealthChecks"].forEach((key) => importArrayField(source, key));
+      if (isObjectValue(source.settings)) {
+        dashboard.settings = { ...dashboard.settings, ...source.settings };
+      }
+      ["habits", "projects", "issues"].forEach((key) => importArrayField(source, key));
+      if (isPlainObject(source.gantt)) dashboard.gantt = source.gantt;
+      ["team", "dbInstances", "schemas", "queries"].forEach((key) => importArrayField(source, key));
+      importArrayField(source, "backups");
+      importArrayField(source, "migrations");
+      ["ui", "imports"].forEach((key) => importObjectField(source, key));
       normalizeAllData();
       rebuildIndexes();
       commit();
@@ -104,11 +142,10 @@
     function handleImportFile(event) {
       const input = event.target;
       const file = input.files && input.files[0];
-      const maxImportBytes = Number(guards.maxImportBytes || 0);
+      const maxImportBytes = maxImportBytesOption(guards.maxImportBytes);
       if (!file) return;
       if (Number.isFinite(file.size) && maxImportBytes > 0 && file.size > maxImportBytes) {
-        showToast(`가져오기 파일은 ${formatBytes(maxImportBytes)} 이하만 지원합니다`, "error");
-        input.value = "";
+        rejectImportFile(input, `가져오기 파일은 ${formatBytes(maxImportBytes)} 이하만 지원합니다`);
         return;
       }
       const reader = fileReaderFactory();
@@ -129,20 +166,25 @@
           rejectImportFile(input, importRecordLimitMessage(recordViolations));
           return;
         }
+        const validation = validateImportPayload(obj);
+        if (!validation.ok) {
+          rejectImportFile(input, importValidationMessage(validation.violations));
+          return;
+        }
+        const source = validation.normalized || obj;
         openModal("백업 가져오기", html`
           <div class="modal-confirm-body">
-            <p data-import-summary>가져올 데이터 — ${raw(importBackupSummaryHTML(obj))}</p>
+            <p data-import-summary>가져올 데이터 — ${raw(importBackupSummaryHTML(source))}</p>
             <p class="muted-note">현재 저장된 워크스페이스 데이터가 가져온 항목으로 <strong>대체</strong>됩니다. 되돌릴 수 없으니, 필요하면 먼저 내보내기로 백업하세요.</p>
           </div>
         `, () => {
-          applyImported(obj);
+          applyImported(source);
           return true;
         });
         input.value = "";
       };
       reader.onerror = () => {
-        showToast("파일 읽기 실패", "error");
-        input.value = "";
+        rejectImportFile(input, "파일 읽기 실패");
       };
       reader.readAsText(file);
     }
@@ -152,6 +194,7 @@
       importBackupSummaryHTML,
       applyImported,
       handleImportFile,
+      maxImportBytesOption,
     });
   }
 

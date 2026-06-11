@@ -28,6 +28,13 @@
     review: "◐",
     done: "✓",
   };
+  const DEFAULT_COLUMN_RENDER_LIMIT = 80;
+
+  function renderLimitOption(value, fallback = DEFAULT_COLUMN_RENDER_LIMIT, minimum = 20) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(minimum, Math.trunc(parsed));
+  }
 
   function createKanbanView(deps) {
     const options = deps || {};
@@ -46,6 +53,7 @@
     const priorityLabels = options.priorityLabels || DEFAULT_PRIORITY_LABELS;
     const statusOrder = Array.isArray(options.statusOrder) ? options.statusOrder : DEFAULT_STATUS_ORDER;
     const priorityOrder = Array.isArray(options.priorityOrder) ? options.priorityOrder : DEFAULT_PRIORITY_ORDER;
+    const columnRenderLimit = renderLimitOption(options.columnRenderLimit);
 
     if (typeof html !== "function" || typeof raw !== "function") {
       throw new Error("kanban view requires html and raw helpers");
@@ -128,6 +136,7 @@
     }
 
     function issueMatches(issue, query) {
+      if (!query) return true;
       const source = issueSourceDescriptor(issue);
       return matches(`${issue.id} ${issue.title} ${issue.assignee} ${safeLabels(issue).join(" ")} ${source.label} ${source.fullLabel}`, query);
     }
@@ -150,6 +159,17 @@
       return issueSourceDescriptor(issue).tone === sourceFilter;
     }
 
+    function issueMatchesPreparedSourceFilter(entry, sourceFilter) {
+      if (sourceFilter === "all") return true;
+      if (sourceFilter === "workspace-review") return entry.sourceKey.startsWith("workspace-review:");
+      if (sourceFilter === "kb-ia-review") return entry.sourceKey.startsWith("kb-ia-review:");
+      if (sourceFilter === "benchmark-review") return entry.sourceKey.startsWith("benchmark-review:");
+      return entry.source.tone === sourceFilter;
+    }
+
+    const nextStatusByStatus = nextStatusMap();
+    const prevStatusByStatus = prevStatusMap();
+
     function kanbanViewModel(input) {
       const data = input || {};
       const issues = Array.isArray(data.issues) ? data.issues : [];
@@ -158,25 +178,38 @@
       const filter = data.filter || "";
       const sourceFilter = normalizeSourceFilter(data.sourceFilter);
       const density = data.density === "compact" ? "compact" : "comfortable";
-      const baseEntries = issues
-        .map((issue, index) => ({ issue, index }))
-        .filter((entry) => entry.issue.project === currentProjectId)
-        .filter((entry) => !filter || entry.issue.priority === filter)
-        .filter((entry) => issueMatches(entry.issue, query));
       const sourceCounts = SOURCE_FILTER_OPTIONS.reduce((acc, option) => {
-        acc[option.key] = option.key === "all"
-          ? baseEntries.length
-          : baseEntries.filter((entry) => issueMatchesSourceFilter(entry.issue, option.key)).length;
+        acc[option.key] = 0;
         return acc;
       }, {});
-      const all = baseEntries
-        .filter((entry) => issueMatchesSourceFilter(entry.issue, sourceFilter))
-        .sort(compareIssueEntries)
-        .map((entry) => entry.issue);
+      const selectedEntries = issues.slice(0, 0);
+      for (let index = 0; index < issues.length; index += 1) {
+        const issue = issues[index];
+        if (!issue || issue.project !== currentProjectId) continue;
+        if (filter && issue.priority !== filter) continue;
+        if (!issueMatches(issue, query)) continue;
+        const entry = {
+          issue,
+          index,
+          source: issueSourceDescriptor(issue),
+          sourceKey: String(issue.sourceKey || "").trim(),
+        };
+        sourceCounts.all += 1;
+        for (const option of SOURCE_FILTER_OPTIONS) {
+          if (option.key !== "all" && issueMatchesPreparedSourceFilter(entry, option.key)) {
+            sourceCounts[option.key] += 1;
+          }
+        }
+        if (issueMatchesPreparedSourceFilter(entry, sourceFilter)) selectedEntries.push(entry);
+      }
+      const all = selectedEntries.sort(compareIssueEntries).map((entry) => entry.issue);
       const counts = statusOrder.reduce((acc, status) => {
-        acc[status] = all.filter((issue) => issue.status === status).length;
+        acc[status] = 0;
         return acc;
       }, {});
+      all.forEach((issue) => {
+        counts[issue.status] = (counts[issue.status] || 0) + 1;
+      });
       const kpis = statusOrder.map((status) => ({
         title: statusLabels[status],
         value: String(counts[status] || 0),
@@ -196,8 +229,8 @@
         all,
         counts,
         kpis,
-        nextStatus: nextStatusMap(),
-        prevStatus: prevStatusMap(),
+        nextStatus: { ...nextStatusByStatus },
+        prevStatus: { ...prevStatusByStatus },
       };
     }
 
@@ -315,11 +348,21 @@
 
     function kanbanColumn(status, model) {
       const items = model.all.filter((issue) => issue.status === status);
+      const visibleItems = items.length > columnRenderLimit ? items.slice(0, columnRenderLimit) : items;
+      const hiddenCount = items.length - visibleItems.length;
       const body = items.length === 0
         ? html`<div class="kanban-empty" data-kanban-drop="${status}">없음</div>`
-        : items.map((issue) => issueCard(issue, model)).join("");
+        : html`
+          ${raw(visibleItems.map((issue) => issueCard(issue, model)).join(""))}
+          ${hiddenCount > 0 ? raw(html`
+            <div class="virtual-list-note kanban-virtual-note" role="status" data-kanban-virtualized="true" data-kanban-virtual-status="${status}" data-kanban-virtual-rendered="${visibleItems.length}" data-kanban-virtual-total="${items.length}">
+              <strong>${hiddenCount}개 더 있음</strong>
+              <span>검색·출처·우선순위 필터를 좁히면 숨겨진 이슈를 바로 찾을 수 있습니다.</span>
+            </div>
+          `) : ""}
+        `;
       return html`
-        <div class="kanban-col" data-kanban-col="${status}" role="region" aria-label="${statusLabels[status]} 컬럼, ${items.length}개 이슈">
+        <div class="kanban-col" data-kanban-col="${status}" data-kanban-rendered-count="${visibleItems.length}" data-kanban-total-count="${items.length}" role="region" aria-label="${statusLabels[status]} 컬럼, ${items.length}개 이슈">
           <div class="kanban-col-head">
             <strong>${statusLabels[status]}</strong>
             <div class="kanban-col-head-right">
@@ -402,6 +445,7 @@
       kanbanColumn,
       kanbanBoardHTML,
       renderKanbanHTML,
+      renderLimitOption,
     };
   }
 

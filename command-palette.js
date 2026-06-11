@@ -47,13 +47,24 @@
     return Array.isArray(value) ? value : [];
   }
 
+  function uniqueByIdentity(list) {
+    return safeArray(list).filter((item, itemIndex, allItems) => allItems.indexOf(item) === itemIndex);
+  }
+
   function noop() {}
 
   function createCommandPalette(deps = {}) {
     const doc = deps.document || global.document;
     const matches = typeof deps.matches === "function" ? deps.matches : fallbackMatches;
     const escape = typeof deps.escapeHtml === "function" ? deps.escapeHtml : escapeHtml;
-    const maxHits = Number.isFinite(Number(deps.maxHits)) ? Number(deps.maxHits) : DEFAULT_MAX_HITS;
+    const clampInteger = typeof deps.clampInteger === "function"
+      ? deps.clampInteger
+      : function (value, min, max = Number.POSITIVE_INFINITY, fallback = 0) {
+        const parsed = Number(value);
+        const safeParsed = Number.isFinite(parsed) ? parsed : fallback;
+        return Math.min(max, Math.max(min, Math.trunc(safeParsed)));
+      };
+    const maxHits = clampInteger(deps.maxHits, 1, Number.POSITIVE_INFINITY, DEFAULT_MAX_HITS);
     const getDashboard = typeof deps.getDashboard === "function" ? deps.getDashboard : () => ({});
     const getFuse = typeof deps.getFuse === "function" ? deps.getFuse : () => global.Fuse;
     const getPreviousFocus = typeof deps.getPreviousFocus === "function" ? deps.getPreviousFocus : () => null;
@@ -106,7 +117,11 @@
     }
 
     function paletteOptionIndex(button) {
-      return parseInt(button.dataset.palIndex, 10);
+      return optionalPaletteIndex(button && button.dataset ? button.dataset.palIndex : null);
+    }
+
+    function paletteOptionId(optionIndex) {
+      return `pal-option-${optionIndex}`;
     }
 
     function isOpen() {
@@ -126,9 +141,15 @@
       return String(fallbackKind || "").includes("review") ? "Review" : "";
     }
 
+    function sourceFields(record) {
+      return {
+        sourceKey: String(record && record.sourceKey || ""),
+        sourceKind: String(record && record.sourceKind || ""),
+      };
+    }
+
     function issueSourceName(issue) {
-      const sourceKey = String(issue && issue.sourceKey || "");
-      const sourceKind = String(issue && issue.sourceKind || "");
+      const { sourceKey, sourceKind } = sourceFields(issue);
       if (sourceKind === "llm-wiki-action" || sourceKey.startsWith("llm-wiki:issue:")) return "LLM Wiki";
       if (sourceKind === "db-catalog-stale-review" || sourceKey === "db-catalog:stale-sample-review") return "DB Catalog";
       const reviewName = reviewSourceName(sourceKey, sourceKind);
@@ -157,14 +178,12 @@
     function issueSourceSearchText(issue) {
       const name = issueSourceName(issue);
       if (!name) return "";
-      const sourceKey = String(issue && issue.sourceKey || "");
-      const sourceKind = String(issue && issue.sourceKind || "");
+      const { sourceKey, sourceKind } = sourceFields(issue);
       return `${name} ${sourceAliasText(name)} ${sourceKey} ${sourceKind}`;
     }
 
     function recordSourceName(record, kind) {
-      const sourceKey = String(record && record.sourceKey || "");
-      const sourceKind = String(record && record.sourceKind || "");
+      const { sourceKey, sourceKind } = sourceFields(record);
       if (sourceKey.startsWith(`llm-wiki:${kind}:`)) return "LLM Wiki";
       const reviewName = reviewSourceName(sourceKey, sourceKind);
       if (reviewName) return reviewName;
@@ -177,8 +196,7 @@
     }
 
     function recordSourceSearchText(record, kind) {
-      const sourceKey = String(record && record.sourceKey || "");
-      const sourceKind = String(record && record.sourceKind || "");
+      const { sourceKey, sourceKind } = sourceFields(record);
       const name = recordSourceName(record, kind);
       if (!name) return "";
       return `${name} ${sourceAliasText(name)} ${sourceKey} ${sourceKind}`;
@@ -192,18 +210,53 @@
       status.classList.toggle("is-visible", Boolean(options.visible && text));
     }
 
+    function setPaletteShellOpen(palette, nextOpen) {
+      if (!palette) return;
+      palette.classList.toggle("open", nextOpen);
+      palette.setAttribute("aria-hidden", nextOpen ? "false" : "true");
+      if (doc && doc.body) doc.body.classList.toggle("palette-open", nextOpen);
+    }
+
+    function setPaletteInputExpanded(input, expanded) {
+      if (input) input.setAttribute("aria-expanded", expanded ? "true" : "false");
+    }
+
+    function setPaletteActiveDescendant(input, optionId) {
+      if (!input) return;
+      if (optionId) input.setAttribute("aria-activedescendant", optionId);
+      else input.removeAttribute("aria-activedescendant");
+    }
+
+    function clampPaletteIndex(nextIndex) {
+      if (!items.length) return 0;
+      return clampInteger(nextIndex, 0, items.length - 1, index);
+    }
+
+    function optionalPaletteIndex(value) {
+      if (!items.length) return null;
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < 0 || parsed >= items.length) return null;
+      return parsed;
+    }
+
+    function normalizePaletteText(value) {
+      return String(value || "").toLowerCase().replace(/\s+/g, " ");
+    }
+
+    function paletteQueryTokens(query) {
+      return String(query || "").split(/\s+/).map((token) => token.trim()).filter(Boolean);
+    }
+
     function close() {
       if (!open) return;
       setOpen(false);
       const palette = paletteEl();
       if (!palette) return;
-      palette.classList.remove("open");
-      palette.setAttribute("aria-hidden", "true");
-      if (doc && doc.body) doc.body.classList.remove("palette-open");
+      setPaletteShellOpen(palette, false);
       const input = inputEl();
       if (input) {
-        input.setAttribute("aria-expanded", "false");
-        input.removeAttribute("aria-activedescendant");
+        setPaletteInputExpanded(input, false);
+        setPaletteActiveDescendant(input, "");
       }
       setStatus("");
       const previousFocus = getPreviousFocus();
@@ -219,13 +272,11 @@
       const palette = paletteEl();
       if (!palette) return;
       setPreviousFocus(doc.activeElement);
-      palette.classList.add("open");
-      palette.setAttribute("aria-hidden", "false");
-      if (doc && doc.body) doc.body.classList.add("palette-open");
+      setPaletteShellOpen(palette, true);
       const input = inputEl();
       if (input) {
         input.value = "";
-        input.setAttribute("aria-expanded", "true");
+        setPaletteInputExpanded(input, true);
         input.focus();
       }
       render("");
@@ -239,19 +290,26 @@
         close();
         fn();
       };
+      const queryTokens = paletteQueryTokens(q);
+      const dashboardList = (key) => safeArray(dashboard[key]);
       const commandMatches = (command) => {
         if (!q) return true;
         const haystack = [command.label, command.sub, command.terms, command.key ? `source:${command.key}` : ""].join(" ");
         if (matches(haystack, q)) return true;
-        const tokens = q.split(/\s+/).map((token) => token.trim()).filter(Boolean);
-        return tokens.length > 0 && tokens.every((token) => matches(haystack, token));
+        return queryTokens.length > 0 && queryTokens.every((token) => matches(haystack, token));
       };
-      const normalizedQuery = q.toLowerCase().replace(/\s+/g, " ");
+      const normalizedQuery = normalizePaletteText(q);
       const commandPriorityMatches = (command) => {
-        if (String(command.label || "").toLowerCase().replace(/\s+/g, " ") === normalizedQuery) return true;
+        if (normalizePaletteText(command.label) === normalizedQuery) return true;
         return safeArray(command.priorityQueries)
-          .some((query) => String(query || "").toLowerCase().replace(/\s+/g, " ") === normalizedQuery);
+          .some((query) => normalizePaletteText(query) === normalizedQuery);
       };
+      const simpleCommandMatches = (command) => !q || matches(command.label, q) || matches(command.sub, q);
+      const paletteGroupItem = (command, group) => ({ ...command, iconCls: command.cls, group });
+      const paletteRunnableItem = (command, group, run) => ({
+        ...paletteGroupItem(command, group),
+        run: closeAnd(run),
+      });
       const mapNavCommand = (command) => ({
         icon: command.icon,
         iconCls: command.cls,
@@ -278,10 +336,10 @@
         { icon: "▣", cls: "pal-icon-issue", label: "새 이슈", sub: "이슈 추가", run: closeAnd(() => openIssueModal(null)) },
       ];
       const createItems = createDefs
-        .filter((command) => !q || matches(command.label, q) || matches(command.sub, q))
-        .map((command) => ({ ...command, iconCls: command.cls, group: "새로 만들기" }));
+        .filter(simpleCommandMatches)
+        .map((command) => paletteGroupItem(command, "새로 만들기"));
 
-      const deletedCount = safeArray(dashboard.deletedItems).length;
+      const deletedCount = dashboardList("deletedItems").length;
       const miscDefs = [
         { icon: "⬇", cls: "pal-icon-misc", label: "데이터 내보내기", sub: "JSON 파일로 저장", run: closeAnd(exportData) },
         { icon: "↩", cls: "pal-icon-misc", label: "최근 삭제 복구", sub: deletedCount > 0 ? `${deletedCount}개 복구/폐기` : "Settings 복구함 열기", run: closeAnd(openDeletedRecoveryPanel) },
@@ -289,8 +347,8 @@
         { icon: "?", cls: "pal-icon-misc", label: "단축키 도움말", sub: "키보드 단축키 목록 보기", run: closeAnd(openShortcutHelp) },
       ];
       const miscItems = miscDefs
-        .filter((command) => !q || matches(command.label, q) || matches(command.sub, q))
-        .map((command) => ({ ...command, iconCls: command.cls, group: "기타" }));
+        .filter(simpleCommandMatches)
+        .map((command) => paletteGroupItem(command, "기타"));
 
       const kanbanSourceDefs = [
         { key: "all", icon: "▣", cls: "pal-icon-issue", label: "Kanban: 전체 출처 보기", sub: "source filter · all", terms: "kanban 칸반 source all 전체 출처" },
@@ -304,12 +362,7 @@
       ];
       const kanbanSourceItems = kanbanSourceDefs
         .filter(commandMatches)
-        .map((command) => ({
-          ...command,
-          iconCls: command.cls,
-          group: "Kanban 필터",
-          run: closeAnd(() => openKanbanSourceFilter(command.key)),
-        }));
+        .map((command) => paletteRunnableItem(command, "Kanban 필터", () => openKanbanSourceFilter(command.key)));
 
       const personalSourceDefs = [
         { key: "all", view: "todo", setFilter: setTodoSourceFilter, icon: "☑", cls: "pal-icon-todo", label: "할 일: 전체 출처 보기", sub: "source filter · all", terms: "todo task source all 전체 출처 할 일" },
@@ -323,14 +376,9 @@
       ];
       const personalSourceItems = personalSourceDefs
         .filter(commandMatches)
-        .map((command) => ({
-          ...command,
-          iconCls: command.cls,
-          group: "개인 출처 필터",
-          run: closeAnd(() => {
-            setView(command.view);
-            command.setFilter(command.key);
-          }),
+        .map((command) => paletteRunnableItem(command, "개인 출처 필터", () => {
+          setView(command.view);
+          command.setFilter(command.key);
         }));
 
       const wikiContext = getLlmWikiContext() || null;
@@ -357,14 +405,14 @@
           run: closeAnd(() => createLlmWikiIssueDraft(wikiContext.category.id, wikiContext.article.id)),
         },
       ]
-        .filter((command) => !q || matches(command.label, q) || matches(command.sub, q) || matches(wikiContext.category.title, q))
-        .map((command) => ({ ...command, iconCls: command.cls, group: "위키 실행" }))
+        .filter((command) => simpleCommandMatches(command) || matches(wikiContext.category.title, q))
+        .map((command) => paletteGroupItem(command, "위키 실행"))
         : [];
 
       let hitItems = [];
       if (q) {
         const records = [];
-        safeArray(dashboard.events).forEach((event) => records.push({
+        dashboardList("events").forEach((event) => records.push({
           label: event.title || "",
           aux: event.location || "",
           icon: "◷",
@@ -373,7 +421,7 @@
           group: "검색 결과",
           run: closeAnd(() => openEventModal(event)),
         }));
-        safeArray(dashboard.todos).forEach((todo) => records.push({
+        dashboardList("todos").forEach((todo) => records.push({
           label: todo.text || todo.title || "(할 일)",
           aux: `${todo.category || ""} ${todo.memo || ""} ${recordSourceSearchText(todo, "todo")}`,
           icon: "☑",
@@ -382,7 +430,7 @@
           group: "검색 결과",
           run: closeAnd(() => openTodoRecord(todo)),
         }));
-        safeArray(dashboard.notes).forEach((note) => records.push({
+        dashboardList("notes").forEach((note) => records.push({
           label: note.title || "(제목 없음)",
           aux: `${note.body || ""} ${recordSourceSearchText(note, "note")}`,
           icon: "✎",
@@ -391,7 +439,7 @@
           group: "검색 결과",
           run: closeAnd(() => openNoteRecord(note)),
         }));
-        safeArray(dashboard.habits).forEach((habit) => records.push({
+        dashboardList("habits").forEach((habit) => records.push({
           label: habit.name || "",
           aux: "",
           icon: "◉",
@@ -403,7 +451,7 @@
             openHabitModal(habit);
           }),
         }));
-        safeArray(dashboard.projects).forEach((project) => records.push({
+        dashboardList("projects").forEach((project) => records.push({
           label: project.name || "",
           aux: project.owner || "",
           icon: "▦",
@@ -415,7 +463,7 @@
             openProjectModal(project);
           }),
         }));
-        safeArray(dashboard.issues).forEach((issue) => records.push({
+        dashboardList("issues").forEach((issue) => records.push({
           label: issue.title || "",
           aux: `${issue.id || ""} ${safeArray(issue.labels).join(" ")} ${issueSourceSearchText(issue)} ${issue.body || ""}`,
           icon: "▣",
@@ -424,7 +472,6 @@
           group: "검색 결과",
           run: closeAnd(() => openIssueRecord(issue)),
         }));
-        const queryTokens = q.split(/\s+/).map((token) => token.trim()).filter(Boolean);
         const recordMatchesQuery = (record) => {
           const haystack = [record.label, record.aux, record.sub].join(" ");
           if (matches(record.label, q) || matches(record.aux, q) || matches(record.sub, q)) return true;
@@ -442,9 +489,7 @@
             includeScore: true,
           });
           const fuseHits = fuse.search(q, { limit: maxHits }).map((result) => result.item);
-          hitItems = [...exactTokenHits, ...fuseHits]
-            .filter((item, itemIndex, list) => list.indexOf(item) === itemIndex)
-            .slice(0, maxHits);
+          hitItems = uniqueByIdentity([...exactTokenHits, ...fuseHits]).slice(0, maxHits);
         } else {
           hitItems = records
             .filter(recordMatchesQuery)
@@ -470,7 +515,7 @@
       if (items.length === 0) {
         results.innerHTML = "";
         setStatus("검색 결과가 없습니다. 다른 검색어를 입력하세요.", { visible: true });
-        if (input) input.removeAttribute("aria-activedescendant");
+        setPaletteActiveDescendant(input, "");
         return;
       }
 
@@ -480,25 +525,17 @@
       items.forEach((item, itemIndex) => {
         if (item.group !== currentGroup) {
           currentGroup = item.group;
-          output += `<div class="pal-group">${escape(currentGroup)}</div>`;
+          output += paletteGroupHTML(currentGroup);
         }
-        const active = itemIndex === 0 ? " is-active" : "";
-        output += `<button type="button" id="pal-option-${itemIndex}" class="pal-item${active}" data-pal-index="${itemIndex}" role="option" aria-selected="${itemIndex === 0}">`;
-        output += `<span class="pal-icon ${escape(item.iconCls || "pal-icon-misc")}">${escape(item.icon)}</span>`;
-        output += `<span class="pal-text">`;
-        output += `<span class="pal-label">${escape(item.label)}</span>`;
-        if (item.sub) output += `<span class="pal-sub">${escape(item.sub)}</span>`;
-        output += `</span></button>`;
+        output += paletteItemHTML(item, itemIndex);
       });
       results.innerHTML = output;
-      if (input) input.setAttribute("aria-activedescendant", "pal-option-0");
+      setPaletteActiveDescendant(input, paletteOptionId(0));
     }
 
     function setIndex(nextIndex) {
       if (!items.length) return;
-      if (nextIndex < 0) nextIndex = 0;
-      if (nextIndex >= items.length) nextIndex = items.length - 1;
-      index = nextIndex;
+      index = clampPaletteIndex(nextIndex);
 
       const results = resultsEl();
       const input = inputEl();
@@ -509,53 +546,81 @@
         button.classList.toggle("is-active", active);
         button.setAttribute("aria-selected", String(active));
         if (active) {
-          if (input && button.id) input.setAttribute("aria-activedescendant", button.id);
+          if (button.id) setPaletteActiveDescendant(input, button.id);
           button.scrollIntoView({ block: "nearest" });
         }
       });
     }
 
     function runIndex(runAt) {
-      const item = items[runAt];
+      const nextIndex = optionalPaletteIndex(runAt);
+      if (nextIndex === null) return;
+      const item = items[nextIndex];
       if (item && typeof item.run === "function") item.run();
+    }
+
+    function paletteGroupHTML(group) {
+      return `<div class="pal-group">${escape(group)}</div>`;
+    }
+
+    function paletteItemHTML(item, itemIndex) {
+      const active = itemIndex === 0 ? " is-active" : "";
+      let output = `<button type="button" id="${paletteOptionId(itemIndex)}" class="pal-item${active}" data-pal-index="${itemIndex}" role="option" aria-selected="${itemIndex === 0}">`;
+      output += `<span class="pal-icon ${escape(item.iconCls || "pal-icon-misc")}">${escape(item.icon)}</span>`;
+      output += `<span class="pal-text">`;
+      output += `<span class="pal-label">${escape(item.label)}</span>`;
+      if (item.sub) output += `<span class="pal-sub">${escape(item.sub)}</span>`;
+      output += `</span></button>`;
+      return output;
+    }
+
+    function handleInputChange(event) {
+      render(event && event.target ? event.target.value : "");
+    }
+
+    function handleInputKeydown(event) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setIndex(index + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setIndex(index - 1);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        runIndex(index);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      }
+    }
+
+    function handleResultClick(event) {
+      const button = paletteOptionButton(event);
+      if (!button) return;
+      const nextIndex = paletteOptionIndex(button);
+      if (nextIndex === null) return;
+      runIndex(nextIndex);
+    }
+
+    function handleResultMousemove(event) {
+      const button = paletteOptionButton(event);
+      if (!button) return;
+      const nextIndex = paletteOptionIndex(button);
+      if (nextIndex === null) return;
+      if (nextIndex !== index) setIndex(nextIndex);
     }
 
     function setup() {
       const input = inputEl();
       if (input) {
-        input.addEventListener("input", () => {
-          render(input.value);
-        });
-        input.addEventListener("keydown", (event) => {
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setIndex(index + 1);
-          } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            setIndex(index - 1);
-          } else if (event.key === "Enter") {
-            event.preventDefault();
-            runIndex(index);
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            close();
-          }
-        });
+        input.addEventListener("input", handleInputChange);
+        input.addEventListener("keydown", handleInputKeydown);
       }
 
       const results = resultsEl();
       if (results) {
-        results.addEventListener("click", (event) => {
-          const button = paletteOptionButton(event);
-          if (!button) return;
-          runIndex(paletteOptionIndex(button));
-        });
-        results.addEventListener("mousemove", (event) => {
-          const button = paletteOptionButton(event);
-          if (!button) return;
-          const nextIndex = paletteOptionIndex(button);
-          if (nextIndex !== index) setIndex(nextIndex);
-        });
+        results.addEventListener("click", handleResultClick);
+        results.addEventListener("mousemove", handleResultMousemove);
       }
     }
 
