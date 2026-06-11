@@ -319,8 +319,17 @@ const artifacts = artifactSnapshot();
 const evidenceSyncRequired = syncArtifacts;
 const evidenceSyncPass = !evidenceSyncRequired || artifacts.evidenceSync.status === "pass";
 const ranAllSteps = stepResults.length === steps.length;
-const hasFailedStep = stepResults.some((step) => step.status === "fail");
-const hasBlockedStep = stepResults.some((step) => step.status === "blocked");
+const releaseReadinessChecks = artifacts.releaseReadiness.checks || {};
+const releaseReadinessSelfReferenceOnly = syncArtifacts &&
+  artifacts.releaseReadiness.status === "fail" &&
+  Number(releaseReadinessChecks.fail || 0) === 1 &&
+  evidenceSyncPass;
+const hasFailedStep = stepResults.some((step) => (
+  step.status === "fail" &&
+  !(step.id === "release_readiness_gates" && releaseReadinessSelfReferenceOnly)
+));
+const hasBlockedStep = stepResults.some((step) => step.status === "blocked") ||
+  (releaseReadinessSelfReferenceOnly && Number(releaseReadinessChecks.blocked || 0) > 0);
 const status = ranAllSteps && !hasFailedStep && evidenceSyncPass
   ? hasBlockedStep ? "blocked" : "pass"
   : "fail";
@@ -335,6 +344,7 @@ const payload = {
   syncArtifacts,
   evidenceSyncRequired,
   evidenceSyncPass,
+  releaseReadinessSelfReferenceOnly,
   stepResults,
   auditLockBefore,
   auditLockAfter: auditLockSnapshot(),

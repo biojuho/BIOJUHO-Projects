@@ -2428,6 +2428,27 @@ function testOutputQualityWorkflowUiReceiptCountsPreserveExplicitZero() {
   assert.equal(readyReceipt.commandCount, 6);
   assert.equal(readyReceipt.checklistCount, 6);
   assert.equal(readyReceipt.expectedSignalCount, 8);
+  const noopReadyReceipt = workflowUiInstallReceiptSnapshot({
+    latestGate: { browserEvidence: {} },
+    workflowUiInstallPlan: {
+      workflowUiInstallPastePacketCoverage: 1,
+      workflowUiInstallPastePacketReady: true,
+      installReceipt: {
+        ready: true,
+        commandCount: 4,
+        checklistCount: 6,
+        expectedSignalCount: 8,
+        installRows: [
+          { installAction: "verified_remote_matches_template", required: false },
+          { installAction: "verified_remote_matches_template", required: false },
+        ],
+        text: receiptText,
+      },
+    },
+  });
+  assert.equal(noopReadyReceipt.ready, true);
+  assert.equal(noopReadyReceipt.commandCount, 4);
+  assert.match(source, /noopInstallReceiptReady/);
   assert.match(source, /const packetCoverage = finiteNumberOr\(/);
   assert.match(source, /const commandCount = finiteNumberOr\(receipt\.commandCount, evidence\.workflowUiInstallReceiptCommandCount\)/);
   assert.match(source, /const checklistCount = finiteNumberOr\(receipt\.checklistCount, evidence\.workflowUiInstallReceiptChecklistCount\)/);
@@ -3989,8 +4010,9 @@ function testOutputQualityPreviousEvidenceAccessSurfaceCountsPreserveExplicitZer
 function testHomeLaunchActionCountsPreserveExplicitZero() {
   const source = readFileSync(join(root, "home-view.js"), "utf8");
   assert.match(source, /function firstClampedCount\(values, fallback = 0\)/);
-  assert.match(source, /const currentLaunchActionCommandCount = firstClampedCount\(\[/);
+  assert.match(source, /const declaredLaunchActionCommandCount = firstClampedCount\(\[/);
   assert.match(source, /currentLaunchAction\?\.commandCount,\s+outputImmediateAction\?\.commandCount,\s+currentLaunchActionCommand \? 1 : 0,/);
+  assert.match(source, /const currentLaunchActionCommandCount = currentLaunchActionCommand\s+\? Math\.max\(1, declaredLaunchActionCommandCount\)\s+: declaredLaunchActionCommandCount;/);
   assert.match(source, /const currentLaunchWithheldCount = firstClampedCount\(\[/);
   assert.match(source, /currentLaunchAction\?\.withheldCommandCount,\s+outputImmediateAction\?\.withheldCommandCount,\s+outputAudit\?\.outputReadinessSnapshot\?\.publishEvidenceCommandGuard\?\.withheldDispatchCommands,/);
   assert.equal(source.includes("currentLaunchAction?.commandCount || outputImmediateAction?.commandCount || (currentLaunchActionCommand ? 1 : 0)"), false);
@@ -4110,10 +4132,11 @@ function testReleaseStatusWorkflowUiInstallCoveragePreservesExplicitZero() {
   assert.equal(source.includes("Number(data?.workflowUiInstallFormFieldCoverage || installReceipt.formFieldCoverage || 0)"), false);
 }
 
-function testAppWorkflowUiInstallLoaderAcceptsSixReceiptCommands() {
+function testAppWorkflowUiInstallLoaderAcceptsNoopReceiptCommands() {
   const source = readFileSync(join(root, "app.js"), "utf8");
   assert.match(source, /function loadWorkflowUiInstallPlan\(\)/);
-  assert.match(source, /Number\(plan\.installReceipt\.commandCount \|\| 0\) >= 6/);
+  assert.match(source, /const noopInstallReceiptReady = installRows\.length > 0 &&/);
+  assert.match(source, /Number\(plan\.installReceipt\.commandCount \|\| 0\) >= \(noopInstallReceiptReady \? 4 : 6\)/);
   assert.equal(source.includes("Number(plan.installReceipt.commandCount || 0) >= 8"), false);
 }
 
@@ -4132,7 +4155,7 @@ function testOutputQualitySmokeAllowsBlockedWorkflowAuthPreflight() {
   assert.match(source, /\["true", "false"\]\.includes\(outputQuality\.dataset\.outputQualityAuditWorkflowAuthPreflight \|\| ""\)/);
   assert.match(source, /\["true", "false"\]\.includes\(outputQuality\.dataset\.outputQualityAuditWorkflowAuthPreflightUiVerified \|\| ""\)/);
   assert.match(source, /Number\(outputQuality\.dataset\.outputQualityAuditWorkflowAuthPreflightFields \|\| 0\) >= 0/);
-  assert.match(source, /Number\(outputQuality\.dataset\.outputQualityAuditWorkflowUiInstallReceiptCommandCount \|\| 0\) >= 6/);
+  assert.match(source, /Number\(outputQuality\.dataset\.outputQualityAuditWorkflowUiInstallReceiptCommandCount \|\| 0\) >= 4/);
   assert.equal(source.includes('outputQuality.dataset.outputQualityAuditWorkflowAuthPreflight === "true"'), false);
   assert.equal(source.includes('outputQuality.dataset.outputQualityAuditWorkflowUiInstallReceiptCommandCount === "8"'), false);
 }
@@ -4198,6 +4221,7 @@ function testReleaseAuditLaunchReadinessRefreshAcceptsCurrentGuardedEvidence() {
   assert(jsonTerms.includes(": 11"));
   assert(jsonTerms.includes("dispatchCommandDisposition"));
   assert(jsonTerms.includes("withheld"));
+  assert(source.includes('\\"dispatchCommandDisposition\\": \\"not_applicable_after_launch_proof\\"'));
   assert(jsonTerms.includes("suggestedDispatchCommandCount"));
   assert(jsonTerms.includes("activeDispatchCommandCount"));
   assert(jsonTerms.includes("dispatchCommandReferenceCount"));
@@ -4209,6 +4233,9 @@ function testReleaseAuditLaunchReadinessRefreshAcceptsCurrentGuardedEvidence() {
   assert(markdownTerms.includes("sourceArtifactSync: pass"));
   assert(markdownTerms.includes("dispatchCommandDisposition:"));
   assert(markdownTerms.includes("installAction: replace_existing_remote_file"));
+  assert(source.includes("installAction: not required"));
+  assert(source.includes("installAction: verified_remote_matches_template"));
+  assert(source.includes("No GitHub UI file change is required for workflow files that already match the local templates."));
   assert(readmeTerms.includes("every action_required refresh checklist item has passed"));
   assert(readmeTerms.includes("verify-launch-handoff reports safeToDispatch=true"));
   assert(source.includes('const archivedFullReadmeRel = "archive/meta-machine/README.full-before-slim.md"'));
@@ -5707,7 +5734,7 @@ testHomeLaunchBlockerResolverCountsPreserveExplicitZero();
 testHomePostInstallQuickProofCountsPreserveExplicitZero();
 testHomeExternalClaimGuardCountsPreserveExplicitZero();
 testReleaseStatusWorkflowUiInstallCoveragePreservesExplicitZero();
-testAppWorkflowUiInstallLoaderAcceptsSixReceiptCommands();
+testAppWorkflowUiInstallLoaderAcceptsNoopReceiptCommands();
 testLegacyWorkflowReceiptSmokeUsesRepairAwarePlan();
 testOutputQualitySmokeAllowsBlockedWorkflowAuthPreflight();
 testOutputQualitySmokeAcceptsGuardedZeroProofParserReceipt();

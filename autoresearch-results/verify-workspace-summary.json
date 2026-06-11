@@ -1,14 +1,15 @@
 {
   "schemaVersion": "joopark-verify-workspace/v1",
   "status": "blocked",
-  "generatedAt": "2026-06-11T06:46:47.730Z",
-  "startedAt": "2026-06-11T06:38:27.821Z",
-  "durationMs": 499909,
+  "generatedAt": "2026-06-11T08:45:30.713Z",
+  "startedAt": "2026-06-11T08:43:22.965Z",
+  "durationMs": 127748,
   "command": "npm run verify:full",
   "runner": "scripts/verify-workspace.mjs",
   "syncArtifacts": true,
   "evidenceSyncRequired": true,
   "evidenceSyncPass": true,
+  "releaseReadinessSelfReferenceOnly": false,
   "stepResults": [
     {
       "id": "release_readiness_gates",
@@ -17,9 +18,9 @@
       "code": 1,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T06:38:27.824Z",
-      "finishedAt": "2026-06-11T06:46:40.064Z",
-      "durationMs": 492239,
+      "startedAt": "2026-06-11T08:43:22.966Z",
+      "finishedAt": "2026-06-11T08:45:24.946Z",
+      "durationMs": 121979,
       "timeoutMs": 720000
     },
     {
@@ -29,9 +30,9 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T06:46:40.064Z",
-      "finishedAt": "2026-06-11T06:46:47.598Z",
-      "durationMs": 7534,
+      "startedAt": "2026-06-11T08:45:24.946Z",
+      "finishedAt": "2026-06-11T08:45:30.626Z",
+      "durationMs": 5680,
       "timeoutMs": 180000
     },
     {
@@ -41,19 +42,19 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T06:46:47.598Z",
-      "finishedAt": "2026-06-11T06:46:47.724Z",
-      "durationMs": 126,
+      "startedAt": "2026-06-11T08:45:30.626Z",
+      "finishedAt": "2026-06-11T08:45:30.709Z",
+      "durationMs": 83,
       "timeoutMs": 60000
     }
   ],
   "auditLockBefore": {
     "path": "dist/.release-readiness-audit.lock",
-    "exists": true,
-    "ownerExists": true,
-    "ownerPid": 74693,
-    "ownerCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node project-root/scripts/audit-release-readiness.mjs --run-gates --format=summary",
-    "ownerStartedAt": "2026-06-11T06:35:04.027Z"
+    "exists": false,
+    "ownerExists": false,
+    "ownerPid": null,
+    "ownerCommand": "",
+    "ownerStartedAt": ""
   },
   "auditLockAfter": {
     "path": "dist/.release-readiness-audit.lock",
@@ -67,7 +68,7 @@
     "releaseReadiness": {
       "path": "autoresearch-results/release-readiness-summary.json",
       "status": "blocked",
-      "generatedAt": "2026-06-11T06:46:40.052Z",
+      "generatedAt": "2026-06-11T08:45:24.932Z",
       "summary": "283 pass, 0 fail, 0 not_run, 1 blocked",
       "checks": {
         "pass": 283,
@@ -80,42 +81,41 @@
     "launchReadiness": {
       "path": "data/launch-readiness-refresh.json",
       "status": "pass",
-      "generatedAt": "2026-06-11T06:46:47.589Z",
+      "generatedAt": "2026-06-11T08:45:30.620Z",
       "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
-      "safeToDispatch": false,
-      "readyForExternalClaim": false,
+      "safeToDispatch": true,
+      "readyForExternalClaim": true,
       "workflowScopeInstallBlocked": false,
-      "dispatchCommandDisposition": "withheld",
+      "dispatchCommandDisposition": "not_applicable_after_launch_proof",
       "activeDispatchCommandCount": 0,
       "dispatchCommandReferenceCount": 2
     },
     "outputQuality": {
       "path": "data/output-quality-audit.json",
       "status": "pass",
-      "generatedAt": "2026-06-11T06:46:47.542Z",
+      "generatedAt": "2026-06-11T08:45:30.582Z",
       "releaseQualityReady": true,
       "publicLaunchProofReady": true,
-      "readyForExternalClaim": false,
+      "readyForExternalClaim": true,
       "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked"
     },
     "productLoop": {
       "path": "autoresearch-results/joopark-product-loop.json",
-      "status": "release-quality-ready-public-launch-proof-ready",
-      "generatedAt": "2026-06-11T06:46:47.706Z",
+      "status": "ready-for-external-claim",
+      "generatedAt": "2026-06-11T08:45:30.698Z",
       "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
       "latestExperiment": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
       "latestDirectionLoop": "loop-207",
       "latestDirectionLoopNumber": 207,
       "latestDirectionExperiment": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
       "latestDiscoveryExperiment": "github-project-discovery-artifact",
-      "nextCandidateCount": 6,
+      "nextCandidateCount": 5,
       "nextCandidates": [
-        "Land .github/workflows/joopark-pages.yml and .github/workflows/joopark-drift-watch.yml on the default branch with workflow scope or GitHub UI.",
-        "Fill the six post-install evidence intake fields from commit, parity, Actions visibility, dispatch readiness, and verify-launch-handoff proof before any dispatch.",
-        "Fill the six launch proof evidence receipt fields from live Pages site, Pages workflow, Drift Watch workflow, evidence freshness, release receipt, and public claim guard proof before external launch copy.",
-        "Fill the Pages attestation proof intake with attestation-url, attestation-id, and gh attestation verify results after the remote Pages workflow run.",
-        "Rerun node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects until allDispatchReady is true, then dispatch Pages and Drift Watch and capture live publish evidence.",
-        "Continue extracting low-state navigation/runtime helpers only where accessibility ownership and state mutation stay clear."
+        "Share the proof-ready launch packet with `node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown`.",
+        "Archive the release-readiness, launch-readiness, output-quality, publish-evidence, and verify-workspace receipts together with activeDispatchCommandCount=0.",
+        "Capture signed GitHub artifact attestation proof only after attestation-url, attestation-id, and gh attestation verify results are available from the remote Pages workflow.",
+        "Prepare the main-branch PR bridge under apps/joopark-workspace because the release branch still has no common history with main.",
+        "Continue extracting low-state navigation/runtime helpers only after proof-ready launch receipts remain green."
       ]
     },
     "evidenceSync": {
@@ -130,8 +130,8 @@
       "latestDiscoveryExperimentReady": true,
       "latestDirectionLoopNumber": 207,
       "productLoopLatestDirectionLoopNumber": 207,
-      "outputQualityGeneratedAt": "2026-06-11T06:46:47.542Z",
-      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-11T06:46:47.542Z",
+      "outputQualityGeneratedAt": "2026-06-11T08:45:30.582Z",
+      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-11T08:45:30.582Z",
       "source": "scripts/sync-product-loop-summary.mjs",
       "directionLogPath": "docs/product-direction.md",
       "fullVerifyCommand": "npm run verify:full"

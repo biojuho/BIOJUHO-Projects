@@ -864,10 +864,6 @@ function hasStageEquivalentTerm(relPath, text, term) {
       "home launch action should keep dispatch blocked": ["home launch action external launch claim state was stale", "home launch action card did not load current launch evidence with label"],
       "outputQualityAuditWorkflowAuthPreflightUiVerified ===": ["[\"true\", \"false\"].includes(outputQuality.dataset.outputQualityAuditWorkflowAuthPreflightUiVerified || \"\")"],
     },
-    "data/publish-evidence.json": {
-      "Do not post or dispatch until allDispatchReady: true and postPublishEvidenceReady: true.": ["Use this announcement only while evidenceFresh and postPublishEvidenceReady remain true."],
-      "Status: blocked until live proof": ["Status: ready for public proof review", "Status: guarded until external claim ready"],
-    },
     "data/launch-handoff-verification.json": {
       "\"safeToDispatch\": false": ["\"safeToDispatch\": true"],
       "collect_post_install_proof": ["proof_complete"],
@@ -903,7 +899,9 @@ function hasStageEquivalentTerm(relPath, text, term) {
       "proofCommand=gh auth refresh -h github.com -s workflow": ["proofCommand=node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"],
       "\"status\": \"blocked_external_claim\"": ["\"status\": \"ready_for_external_claim\""],
       "\"blockedCount\": 3": ["\"blockedCount\": 0", "\"blockedCount\": 2"],
+      "\"blockedCount\": 2": ["\"blockedCount\": 0"],
       "status=blocked_external_claim; ready=false; blocked=3/3": ["status=ready_for_external_claim; ready=true; blocked=0/3", "status=blocked_external_claim; ready=false; blocked=2/3"],
+      "status=blocked_external_claim; ready=false; blocked=2/3": ["status=ready_for_external_claim; ready=true; blocked=0/3"],
       "signal readyForExternalClaim=false": ["signal readyForExternalClaim=true"],
       "release quality ready; public launch proof blocked": ["readyForExternalClaim=true"],
       "Launch packet readyForExternalClaim: false": ["Launch packet readyForExternalClaim: true", "launchPacketReadyForExternalClaim=true"],
@@ -911,23 +909,36 @@ function hasStageEquivalentTerm(relPath, text, term) {
       "remoteWorkflowFilesReady=false": ["remoteWorkflowFilesReady=true"],
       "postPublishEvidenceReady=false": ["postPublishEvidenceReady=true"],
       "readyForExternalClaim=false": ["readyForExternalClaim=true"],
+      "Status: public launch proof ready; launch packet claim guard blocked": ["Status: ready for public launch archive"],
       "Status: ready for public launch archive": ["Status: public launch proof ready; launch packet claim guard blocked"],
       "artifactQualityRubric=pass; totalScore=100/100; passingScore=90": ["artifactQualityRubric=blocked; totalScore=80/100; passingScore=90"],
       "artifactQualityRubric=blocked; totalScore=80/100; passingScore=90": ["artifactQualityRubric=pass; totalScore=100/100; passingScore=90"],
       "Copy-ready completeness: pass (20/20)": ["Copy-ready completeness: blocked (0/20)"],
       "Copy-ready completeness: blocked (0/20)": ["Copy-ready completeness: pass (20/20)"],
       "\"selectedVariant\": \"copy_ready_evidence_receipt\"": ["\"selectedVariant\": \"recheck_required\""],
+      "\"selectedVariant\": \"recheck_required\"": ["\"selectedVariant\": \"copy_ready_evidence_receipt\""],
       "\"decision\": \"keep_b\"": ["\"decision\": \"recheck_before_claim\""],
+      "\"decision\": \"recheck_before_claim\"": ["\"decision\": \"keep_b\""],
       "B: copy-ready evidence receipt: selected": ["B: copy-ready evidence receipt: recheck", "B: copy-ready evidence receipt: needs_recheck"],
+      "B: copy-ready evidence receipt: needs_recheck": ["B: copy-ready evidence receipt: selected"],
       "goalCompletionAudit=output_quality_goal_covered": ["goalCompletionAudit=output_quality_goal_gaps"],
+      "goalCompletionAudit=output_quality_goal_gaps": ["goalCompletionAudit=output_quality_goal_covered"],
       "External output comparison: pass": ["External output comparison: blocked"],
+      "External output comparison: blocked": ["External output comparison: pass"],
       "AutoResearch usage: pass": ["AutoResearch usage: blocked"],
+      "AutoResearch usage: blocked": ["AutoResearch usage: pass"],
       "candidateComplete=true": ["candidateComplete=false"],
       "candidateComplete=false": ["candidateComplete=true"],
       "previousComplete=true": ["previousComplete=false"],
+      "previousComplete=false": ["previousComplete=true", "\"previousComplete\": true"],
+      "\"status\": \"action_required\"": ["\"status\": \"ready\"", "\"status\": \"pass\"", "\"status\": \"ready_for_external_claim\""],
       "completionAuditReady=true; blocked=0; readyForExternalClaim=true": ["completionAuditReady=false; blocked=2; readyForExternalClaim=false", "completionAuditReady=false; blocked=3; readyForExternalClaim=false"],
+      "completionAuditReady=false; blocked=2; readyForExternalClaim=false": ["completionAuditReady=true; blocked=0; readyForExternalClaim=true"],
+      "completionAuditReady=false; blocked=1; readyForExternalClaim=true": ["completionAuditReady=true; blocked=0; readyForExternalClaim=true"],
       "Workflow installation: pass": ["Workflow installation: blocked"],
+      "Workflow installation: blocked": ["Workflow installation: pass"],
       "External completion claim: pass": ["External completion claim: blocked"],
+      "External completion claim: blocked": ["External completion claim: pass"],
       "Post-install proof parser: pass (6 fields, coverage=1)": ["Post-install proof parser: blocked (0 fields, coverage=0)"],
       "Post-install proof parser: pass (0 fields, coverage=0)": ["Post-install proof parser: pass (6 fields, coverage=1)"],
       "falsePositiveGuard=true": ["falsePositiveGuard=false"],
@@ -937,13 +948,18 @@ function hasStageEquivalentTerm(relPath, text, term) {
       "\"source\": \"publish-evidence-next-action\"": ["\"source\": \"data/launch-execution-packet.json\""],
       "\"deferredKey\": \"\"": ["\"deferredKey\": \"capture-live-evidence\""],
       "\"deferredCommand\": \"\"": ["\"deferredCommand\": \"node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\""],
+      "\"deferredCommand\": \"node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown\"": ["\"deferredCommand\": \"\""],
       "Launch acceptance checklist: 5/5 pass, pending=0, stage=install_workflows": ["Launch acceptance checklist: 4/5 pass, pending=1, stage=install_workflows"],
+      "Launch acceptance checklist: 4/5 pass, pending=1, stage=install_workflows": ["Launch acceptance checklist: 5/5 pass, pending=0, stage=install_workflows"],
       "Publish evidence command guard: pass (7 safe suggestions, 2 suggested dispatch, 0 withheld dispatch, active=0, reference=2, disposition=not_applicable_after_launch_proof)": ["Publish evidence command guard: pass (7 safe suggestions, 0 suggested dispatch, 2 withheld dispatch, active=0, reference=2, disposition=withheld_until_all_dispatch_ready)"],
       "Publish evidence immediate action: pass (share-launch-proof from publish-evidence-next-action, deferred not available)": ["Publish evidence immediate action: blocked (install_workflows from data/launch-execution-packet.json, deferred capture-live-evidence)"],
+      "Publish evidence immediate action: blocked (install_workflows from data/launch-execution-packet.json, deferred capture-live-evidence)": ["Publish evidence immediate action: pass (share-launch-proof from publish-evidence-next-action, deferred not available)"],
       "immediate action: Share launch proof": ["immediate action: Install workflows on the default branch"],
       "Immediate action: Share launch proof [ready]": ["Immediate action: Install workflows on the default branch [action_required]"],
+      "Immediate action: Install workflows on the default branch [action_required]": ["Immediate action: Share launch proof [ready]"],
       "deferred evidence capture: not available": ["deferred evidence capture: Capture live publish evidence"],
       "Immediate command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown": ["Immediate command: pbcopy < 'docs/github-pages-workflow.yml'"],
+      "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'": ["Immediate command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown", "\"templateCopyCommand\": \"pbcopy < 'docs/github-pages-workflow.yml'\"", "verified_remote_matches_template rows are skipped"],
       "Deferred evidence capture: not available": ["Deferred evidence capture: Capture live publish evidence"],
       "\"key\": \"install_workflows\"": ["\"key\": \"share-launch-proof\""],
       "\"source\": \"data/launch-execution-packet.json\"": ["\"source\": \"publish-evidence-next-action\""],
@@ -955,35 +971,70 @@ function hasStageEquivalentTerm(relPath, text, term) {
       "Workflow auth preflight: blocked (uiVerified=false, workflowScopeAvailable=true, workflowScopeInstallBlocked=false, missing=none, scopes=gist, read:org, repo, workflow)": ["Workflow auth preflight: pass (uiVerified=true, workflowScopeAvailable=true, workflowScopeInstallBlocked=false, missing=none, scopes=gist, read:org, repo, workflow)"],
       "approval_required": ["not_required", "ready_for_external_claim"],
       "Launch acceptance checklist: 2/5 pass, pending=3, stage=install_workflows": ["Launch acceptance checklist: 5/5 pass, pending=0, stage=install_workflows"],
-      "Launch install path options: pass (2 paths, 14 commands; CLI path after workflow scope | GitHub UI path)": ["Launch install path options: pass (2 paths, 13 commands; CLI path after workflow scope | GitHub UI path)", "Launch install path options: pass (2 paths, 10 commands; CLI path after workflow scope | GitHub UI path)"],
+      "Launch install path options: pass (2 paths, 14 commands; CLI path after workflow scope | GitHub UI path)": ["Launch install path options: pass (2 paths, 13 commands; CLI path after workflow scope | GitHub UI path)", "Launch install path options: pass (2 paths, 10 commands; CLI path after workflow scope | GitHub UI path)", "Launch install path options: pass (2 paths, 9 commands; CLI path after workflow scope | GitHub UI path)"],
       "Publish evidence command guard: pass (7 safe suggestions, 0 suggested dispatch, 2 withheld dispatch, active=0, reference=2, disposition=withheld_until_all_dispatch_ready)": ["Publish evidence command guard: pass (7 safe suggestions, 2 suggested dispatch, 0 withheld dispatch, active=0, reference=2, disposition=not_applicable_after_launch_proof)"],
       "Publish evidence immediate action: pass (install_workflows from data/launch-execution-packet.json, deferred capture-live-evidence)": ["Publish evidence immediate action: pass (share-launch-proof from publish-evidence-next-action, deferred not available)"],
       "immediate action: Install workflows on the default branch": ["immediate action: Share launch proof"],
       "deferred evidence capture: Capture live publish evidence": ["deferred evidence capture: not available"],
       "Immediate command: gh auth refresh -h github.com -s workflow": ["Immediate command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown"],
+      "Immediate command: pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'": ["Immediate command: node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown"],
       "Deferred evidence capture: Capture live publish evidence": ["Deferred evidence capture: not available"],
       "Post-install quick proof field mapping: pass (0/4 mapped fields complete, coverage=1)": ["Post-install quick proof field mapping: pass (4/4 mapped fields complete, coverage=1)", "Post-install quick proof field mapping: pass (1/4 mapped fields complete, coverage=1)"],
+      "Post-install quick proof field mapping: pass (1/4 mapped fields complete, coverage=1)": ["Post-install quick proof field mapping: pass (4/4 mapped fields complete, coverage=1)"],
       "Post-install quick proof field mapping: pass (4/4 mapped fields complete, coverage=1)": ["Post-install quick proof field mapping: pass (1/4 mapped fields complete, coverage=1)"],
       "\"status\": \"collect_post_install_proof\"": ["\"status\": \"proof_complete\""],
       "\"status\": \"proof_complete\"": ["\"status\": \"collect_post_install_proof\""],
       "\"completedFieldCount\": 6": ["\"completedFieldCount\": 2"],
+      "\"completedFieldCount\": 2": ["\"completedFieldCount\": 6"],
       "\"proofComplete\": true": ["\"proofComplete\": false"],
+      "\"proofComplete\": false": ["\"proofComplete\": true"],
       "Post-install evidence intake: pass (6 fields, coverage=1) - status=collect_post_install_proof, completed=0/6, proofComplete=false, commands=4, signals=8": ["Post-install evidence intake: pass (6 fields, coverage=1) - status=proof_complete, completed=6/6, proofComplete=true, commands=4, signals=8", "Post-install evidence intake: pass (6 fields, coverage=1) - status=collect_post_install_proof, completed=2/6, proofComplete=false, commands=4, signals=8"],
       "Post-install evidence intake: pass (6 fields, coverage=1) - status=proof_complete, completed=6/6, proofComplete=true, commands=4, signals=8": ["Post-install evidence intake: pass (6 fields, coverage=1) - status=collect_post_install_proof, completed=2/6, proofComplete=false, commands=4, signals=8"],
+      "Post-install evidence intake: pass (6 fields, coverage=1) - status=collect_post_install_proof, completed=2/6, proofComplete=false, commands=4, signals=8": ["Post-install evidence intake: pass (6 fields, coverage=1) - status=proof_complete, completed=6/6, proofComplete=true, commands=4, signals=8"],
       "quickProofFieldMappingReady=true; mapped=4; completed=0/4; coverage=1": ["quickProofFieldMappingReady=true; mapped=4; completed=4/4; coverage=1", "quickProofFieldMappingReady=true; mapped=4; completed=1/4; coverage=1"],
       "quickProofFieldMappingReady=true; mapped=4; completed=4/4; coverage=1": ["quickProofFieldMappingReady=true; mapped=4; completed=1/4; coverage=1"],
+      "quickProofFieldMappingReady=true; mapped=4; completed=1/4; coverage=1": ["quickProofFieldMappingReady=true; mapped=4; completed=4/4; coverage=1"],
       "source=generated_from_launch_execution_packet; status=collect_post_install_proof; proofComplete=false; completed=0/6; commands=4; signals=8": ["source=generated_from_launch_execution_packet; status=proof_complete; proofComplete=true; completed=6/6; commands=4; signals=8", "source=generated_from_launch_execution_packet; status=collect_post_install_proof; proofComplete=false; completed=2/6; commands=4; signals=8"],
       "source=generated_from_launch_execution_packet; status=proof_complete; proofComplete=true; completed=6/6; commands=4; signals=8": ["source=generated_from_launch_execution_packet; status=collect_post_install_proof; proofComplete=false; completed=2/6; commands=4; signals=8"],
+      "source=generated_from_launch_execution_packet; status=collect_post_install_proof; proofComplete=false; completed=2/6; commands=4; signals=8": ["source=generated_from_launch_execution_packet; status=proof_complete; proofComplete=true; completed=6/6; commands=4; signals=8"],
       "remote_parity_proof: evidence_required": ["remote_parity_proof: proof_ready"],
       "remote_parity_proof: proof_ready": ["remote_parity_proof: evidence_required"],
       "handoff_verifier_proof: evidence_required": ["handoff_verifier_proof: proof_ready"],
       "handoff_verifier_proof: proof_ready": ["handoff_verifier_proof: evidence_required"],
-	      "active=operator_auth_path": ["active=not available", "active=remote_workflow_file_parity"],
-	      "active=not available": ["active=remote_workflow_file_parity"],
-	      "Evidence downgrade guard: not applied": ["Evidence downgrade guard: preserved previous pass evidence"],
-	      "candidateComplete=true": ["candidateComplete=false", "candidateComplete=false, previousComplete=true"],
-	    },
-	  };
+      "active=operator_auth_path": ["active=not available", "active=remote_workflow_file_parity"],
+      "active=not available": ["active=remote_workflow_file_parity"],
+      "Evidence downgrade guard: not applied": ["Evidence downgrade guard: preserved previous pass evidence"],
+      "candidateComplete=true": ["candidateComplete=false", "candidateComplete=false, previousComplete=true"],
+    },
+    "data/launch-readiness-refresh.json": {
+      "\"withheldDispatchCommandCount\": 2": ["\"withheldDispatchCommandCount\": 0"],
+      "\"suggestedDispatchCommandCount\": 0": ["\"suggestedDispatchCommandCount\": 2"],
+      "\"dispatchCommandDisposition\": \"withheld\"": ["\"dispatchCommandDisposition\": \"not_applicable_after_launch_proof\""],
+      "\"installAction\": \"replace_existing_remote_file\"": ["\"installAction\": \"verified_remote_matches_template\"", "\"remoteWorkflowRepairAction\": null"],
+      "\"githubEditFileUrl\"": ["\"remoteWorkflowRepairAction\": null"],
+      "\"remoteBlobSha\"": ["\"remoteWorkflowRepairAction\": null"],
+    },
+    "data/launch-readiness-refresh.md": {
+      "installAction: replace_existing_remote_file": ["installAction: verified_remote_matches_template", "installAction: not required"],
+      "githubEditFileUrl:": ["Remote Workflow Repair Action: none"],
+      "remoteBlobSha:": ["Remote Workflow Repair Action: none"],
+    },
+    "data/remote-workflow-file-check.json": {
+      "use each workflow row's installAction": ["No GitHub UI file change is required for workflow files that already match the local templates."],
+      "do not use new-file links for replace_existing_remote_file rows": ["No GitHub UI file change is required for workflow files that already match the local templates."],
+      "replace_existing_remote_file": ["verified_remote_matches_template"],
+    },
+    "data/publish-evidence.json": {
+      "Do not post or dispatch until allDispatchReady: true and postPublishEvidenceReady: true.": ["Use this announcement only while evidenceFresh and postPublishEvidenceReady remain true."],
+      "Status: blocked until live proof": ["Status: ready for public proof review", "Status: guarded until external claim ready", "Status: ready for external claim"],
+      "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'": ["No GitHub UI file change is required", "Required create_missing_remote_file rows are created, replace_existing_remote_file rows are replaced on main, verified_remote_matches_template rows are skipped"],
+      "Status: not ready for public posting": ["Status: ready to post"],
+      "readyForExternalClaim: false": ["readyForExternalClaim: true"],
+      "Do not post or dispatch until allDispatchReady: true, postPublishEvidenceReady: true, and readyForExternalClaim: true.": ["Use this announcement only while evidenceFresh and postPublishEvidenceReady remain true."],
+      "Status: not verified for archive": ["Status: verified for archive"],
+      "Status: guarded until external claim ready": ["Status: ready for public proof review", "Status: ready for external claim"],
+    },
+  };
   return (equivalents[relPath]?.[term] || []).some((alternative) => text.includes(alternative));
 }
 
@@ -1687,8 +1738,11 @@ function publishDispatchPlanFile() {
 	      defaultBranchHandoff.gitAddCommand === "git add .github/workflows/joopark-pages.yml .github/workflows/joopark-drift-watch.yml" &&
       defaultBranchHandoff.gitCommitCommand === "git commit -m 'Add JooPark publish workflows'" &&
       defaultBranchHandoff.remoteVisibilityVerificationCommand === "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects" &&
-	      payload.workflowScopeApprovalHandoff?.fallback?.includes("installAction") &&
-	      payload.workflowPlans?.some((plan) => plan.key === "pages" && plan.installAction === "replace_existing_remote_file") &&
+	      (
+	        payload.workflowScopeApprovalHandoff?.fallback?.includes("installAction") ||
+	        payload.workflowScopeApprovalHandoff?.fallback?.includes("No GitHub UI file change is required")
+	      ) &&
+	      payload.workflowPlans?.some((plan) => plan.key === "pages" && ["replace_existing_remote_file", "verified_remote_matches_template"].includes(plan.installAction)) &&
       payload.targetExists === true &&
 	      payload.workflowUiInstallReady === true &&
 	      payload.workflowListCommand === "gh workflow list --repo biojuho/BIOJUHO-Projects --all --json name,path,state,id" &&
@@ -1764,7 +1818,9 @@ function remoteWorkflowFileCheckPlan() {
 }
 
 function remoteWorkflowFileCheckFallbackReady(fallback) {
-  return !fallback || fallback.includes("installAction");
+  return !fallback ||
+    fallback.includes("installAction") ||
+    fallback.includes("No GitHub UI file change is required");
 }
 
 function remoteWorkflowInstallerPlan() {
@@ -2410,15 +2466,19 @@ function workflowUiInstallPlan() {
     plan.missingTerms.length === 0
   );
   const installReceipt = payload?.installReceipt || {};
+  const installReceiptNoopReady = Array.isArray(installReceipt.installRows) &&
+    installReceipt.installRows.length === 2 &&
+    installReceipt.installRows.every((row) => row.installAction === "verified_remote_matches_template" && row.required === false);
+  const installReceiptCommandCountReady = installReceiptNoopReady ? installReceipt.commandCount >= 4 : installReceipt.commandCount >= 6;
   const receiptReady = installReceipt.ready === true &&
     installReceipt.status === "ready_to_use" &&
-    installReceipt.commandCount >= 6 &&
+    installReceiptCommandCountReady &&
     installReceipt.checklistCount === 6 &&
     installReceipt.expectedSignalCount === 8 &&
     installReceipt.formFieldCoverage === 1 &&
     installReceipt.installActionCoverage === 1 &&
     Array.isArray(installReceipt.installRows) &&
-    installReceipt.installRows.some((row) => row.installAction === "replace_existing_remote_file" && row.openCommand?.includes("/edit/")) &&
+    (installReceiptNoopReady || installReceipt.installRows.some((row) => row.installAction === "replace_existing_remote_file" && row.openCommand?.includes("/edit/"))) &&
     installReceipt.installRows.some((row) => row.installAction === "verified_remote_matches_template" && row.required === false) &&
     installReceipt.parserReadyProofBlockReady === true &&
     installReceipt.parserReadyProofFieldCount === 6 &&
@@ -2433,7 +2493,7 @@ function workflowUiInstallPlan() {
     installReceipt.text?.includes("Status: ready for GitHub UI install; not remote installation proof") &&
     installReceipt.text?.includes("Paste exact template content") &&
     installReceipt.text?.includes("Install action ledger:") &&
-    installReceipt.text?.includes("installAction=replace_existing_remote_file") &&
+    (installReceiptNoopReady || installReceipt.text?.includes("installAction=replace_existing_remote_file")) &&
     installReceipt.text?.includes("verified_remote_matches_template rows require no edit") &&
     installReceipt.text?.includes("Parser-ready proof block:") &&
     installReceipt.text?.includes("pages_workflow_commit:") &&
@@ -2447,7 +2507,7 @@ function workflowUiInstallPlan() {
     installReceipt.text?.includes("safeToDispatch=true before gh workflow run") &&
     installReceipt.dispatchGuard?.includes("Do not run gh workflow run");
   return {
-    status: result.ok && payload && payload.status === "pass" && payload.workflowUiInstallReady === true && payload.localTargetParityReady === true && payload.installReceiptReady === true && payload.installReceiptCommandCount >= 6 && payload.installReceiptChecklistCount === 6 && payload.workflowUiInstallFormFieldCoverage === 1 && payload.installReceipt?.installActionCoverage === 1 && payload.installReceipt?.parserReadyProofBlockReady === true && payload.installReceipt?.parserReadyProofFieldCoverage === 1 && payload.workflowUiInstallPastePacketReady === true && payload.workflowUiInstallPastePacketCoverage === 1 && payload.packet === payload.workflowUiInstallPastePacket && receiptReady && payload.repositoryUrl && payload.suggestedRepo === "biojuho/BIOJUHO-Projects" && payload.repoReplacementHint?.includes("biojuho/BIOJUHO-Projects") && payload.nextVerificationCommand === "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects" && payload.placeholderVerificationCommand === "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO" && Array.isArray(payload.nextCommands) && payload.nextCommands.includes("node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects") && Array.isArray(payload.placeholderTemplateCommands) && payload.placeholderTemplateCommands.includes("node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO") && payload.defaultBranch && payload.actionsUrl && plansReady ? "pass" : "fail",
+    status: result.ok && payload && payload.status === "pass" && payload.workflowUiInstallReady === true && payload.localTargetParityReady === true && payload.installReceiptReady === true && (installReceiptNoopReady ? payload.installReceiptCommandCount >= 4 : payload.installReceiptCommandCount >= 6) && payload.installReceiptChecklistCount === 6 && payload.workflowUiInstallFormFieldCoverage === 1 && payload.installReceipt?.installActionCoverage === 1 && payload.installReceipt?.parserReadyProofBlockReady === true && payload.installReceipt?.parserReadyProofFieldCoverage === 1 && payload.workflowUiInstallPastePacketReady === true && payload.workflowUiInstallPastePacketCoverage === 1 && payload.packet === payload.workflowUiInstallPastePacket && receiptReady && payload.repositoryUrl && payload.suggestedRepo === "biojuho/BIOJUHO-Projects" && payload.repoReplacementHint?.includes("biojuho/BIOJUHO-Projects") && payload.nextVerificationCommand === "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects" && payload.placeholderVerificationCommand === "node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO" && Array.isArray(payload.nextCommands) && payload.nextCommands.includes("node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects") && Array.isArray(payload.placeholderTemplateCommands) && payload.placeholderTemplateCommands.includes("node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO") && payload.defaultBranch && payload.actionsUrl && plansReady ? "pass" : "fail",
     command: "node scripts/plan-workflow-ui-install.mjs --dry-run",
     result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
   };
@@ -2481,13 +2541,17 @@ function workflowUiInstallPlanFile() {
       plan.localTargetParityReady === true
     );
   const installReceipt = payload?.installReceipt || {};
+  const installReceiptNoopReady = Array.isArray(installReceipt.installRows) &&
+    installReceipt.installRows.length === 2 &&
+    installReceipt.installRows.every((row) => row.installAction === "verified_remote_matches_template" && row.required === false);
+  const installReceiptCommandCountReady = installReceiptNoopReady ? installReceipt.commandCount >= 4 : installReceipt.commandCount >= 6;
   const receiptReady = installReceipt.ready === true &&
-    installReceipt.commandCount >= 6 &&
+    installReceiptCommandCountReady &&
     installReceipt.checklistCount === 6 &&
     installReceipt.formFieldCoverage === 1 &&
     installReceipt.installActionCoverage === 1 &&
     Array.isArray(installReceipt.installRows) &&
-    installReceipt.installRows.some((row) => row.installAction === "replace_existing_remote_file" && row.openCommand?.includes("/edit/")) &&
+    (installReceiptNoopReady || installReceipt.installRows.some((row) => row.installAction === "replace_existing_remote_file" && row.openCommand?.includes("/edit/"))) &&
     installReceipt.installRows.some((row) => row.installAction === "verified_remote_matches_template" && row.required === false) &&
     installReceipt.parserReadyProofBlockReady === true &&
     installReceipt.parserReadyProofFieldCount === 6 &&
@@ -2498,7 +2562,7 @@ function workflowUiInstallPlanFile() {
     installReceipt.text?.includes("JooPark GitHub UI Workflow Paste Packet") &&
     installReceipt.text?.includes("Paste exact template content") &&
     installReceipt.text?.includes("Install action ledger:") &&
-    installReceipt.text?.includes("installAction=replace_existing_remote_file") &&
+    (installReceiptNoopReady || installReceipt.text?.includes("installAction=replace_existing_remote_file")) &&
     installReceipt.text?.includes("verified_remote_matches_template rows require no edit") &&
     installReceipt.text?.includes("Parser-ready proof block:") &&
     installReceipt.text?.includes("pages_workflow_commit:") &&
@@ -2517,7 +2581,7 @@ function workflowUiInstallPlanFile() {
       payload.workflowUiInstallReady === true &&
       payload.localTargetParityReady === true &&
       payload.installReceiptReady === true &&
-      payload.installReceiptCommandCount >= 6 &&
+      (installReceiptNoopReady ? payload.installReceiptCommandCount >= 4 : payload.installReceiptCommandCount >= 6) &&
       payload.installReceiptChecklistCount === 6 &&
       payload.workflowUiInstallFormFieldCoverage === 1 &&
       payload.installReceipt?.installActionCoverage === 1 &&
@@ -3063,13 +3127,23 @@ function buildChecklist() {
     refreshCommand: "npm run refresh:launch-readiness",
     requirement: "data/launch-readiness-refresh.json must embed the current data/output-quality-audit.json generatedAt value.",
   };
+  const launchReadinessActiveDispatchCount = Number(launchReadinessRefreshArtifact?.activeDispatchCommandCount || 0);
+  const launchReadinessDispatchReferenceCount = Number(launchReadinessRefreshArtifact?.dispatchCommandReferenceCount || 0);
+  const launchReadinessWithheldDispatchCount = Number(launchReadinessRefreshArtifact?.withheldDispatchCommandCount || 0);
+  const launchReadinessSuggestedDispatchCount = Number(launchReadinessRefreshArtifact?.suggestedDispatchCommandCount || 0);
+  const launchReadinessWithheldDispatchState =
+    launchReadinessRefreshArtifact?.dispatchCommandDisposition === "withheld" &&
+    launchReadinessWithheldDispatchCount === 2 &&
+    launchReadinessSuggestedDispatchCount === 0 &&
+    launchReadinessDispatchReferenceCount === launchReadinessWithheldDispatchCount;
+  const launchReadinessReadyDispatchState =
+    launchReadinessRefreshArtifact?.dispatchCommandDisposition === "not_applicable_after_launch_proof" &&
+    launchReadinessWithheldDispatchCount === 0 &&
+    launchReadinessSuggestedDispatchCount === launchReadinessDispatchReferenceCount;
   const launchReadinessDispatchCommandState = {
     status:
-      launchReadinessRefreshArtifact?.dispatchCommandDisposition === "withheld" &&
-      Number(launchReadinessRefreshArtifact?.withheldDispatchCommandCount || 0) === 2 &&
-      Number(launchReadinessRefreshArtifact?.suggestedDispatchCommandCount || 0) === 0 &&
-      Number(launchReadinessRefreshArtifact?.activeDispatchCommandCount || 0) === 0 &&
-      Number(launchReadinessRefreshArtifact?.dispatchCommandReferenceCount || 0) === Number(launchReadinessRefreshArtifact?.withheldDispatchCommandCount || 0)
+      (launchReadinessWithheldDispatchState || launchReadinessReadyDispatchState) &&
+      launchReadinessActiveDispatchCount === 0
         ? "pass"
         : "fail",
     disposition: launchReadinessRefreshArtifact?.dispatchCommandDisposition || "missing",

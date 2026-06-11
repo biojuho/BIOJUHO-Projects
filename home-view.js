@@ -678,11 +678,14 @@
         outputImmediateAction?.detail ||
         outputImmediateAction?.deferredDetail ||
         "System Status에서 현재 blocker와 다음 검증 명령을 확인합니다.";
-      const currentLaunchActionCommandCount = firstClampedCount([
+      const declaredLaunchActionCommandCount = firstClampedCount([
         currentLaunchAction?.commandCount,
         outputImmediateAction?.commandCount,
         currentLaunchActionCommand ? 1 : 0,
       ]);
+      const currentLaunchActionCommandCount = currentLaunchActionCommand
+        ? Math.max(1, declaredLaunchActionCommandCount)
+        : declaredLaunchActionCommandCount;
       const currentLaunchWithheldCount = firstClampedCount([
         currentLaunchAction?.withheldCommandCount,
         outputImmediateAction?.withheldCommandCount,

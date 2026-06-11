@@ -1293,12 +1293,16 @@ function workflowUiInstallReceiptSnapshot({ latestGate, workflowUiInstallPlan })
   );
   const receiptCommandCount = finiteNumberOr(receipt.commandCount, 0);
   const receiptChecklistCount = finiteNumberOr(receipt.checklistCount, 0);
+  const installRows = Array.isArray(receipt.installRows) ? receipt.installRows : [];
+  const noopInstallReceiptReady = installRows.length === 2 &&
+    installRows.every((row) => row.installAction === "verified_remote_matches_template" && row.required === false);
+  const receiptCommandCountReady = noopInstallReceiptReady ? receiptCommandCount >= 4 : receiptCommandCount >= 6;
   const commandCount = finiteNumberOr(receipt.commandCount, evidence.workflowUiInstallReceiptCommandCount);
   const checklistCount = finiteNumberOr(receipt.checklistCount, evidence.workflowUiInstallReceiptChecklistCount);
   const ready = !!(
     receipt.ready &&
     packetCoverage === 1 &&
-    receiptCommandCount >= 6 &&
+    receiptCommandCountReady &&
     receiptChecklistCount >= 6 &&
     packetText.includes("JooPark GitHub UI Workflow Install Receipt") &&
     packetText.includes("JooPark GitHub UI Workflow Paste Packet") &&

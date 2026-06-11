@@ -1,16 +1,16 @@
 {
   "status": "pass",
   "mode": "write",
-  "generatedAt": "2026-06-11T07:30:34.898Z",
+  "generatedAt": "2026-06-11T08:45:30.620Z",
   "decision": "keep_b",
   "sourceArtifactCount": 6,
   "evidenceFreshnessStatus": "fresh",
   "evidenceMaxAgeHours": 24,
-  "evidenceExpiresAt": "2026-06-12T07:30:34.898Z",
+  "evidenceExpiresAt": "2026-06-12T08:45:30.620Z",
   "evidenceFreshness": {
     "status": "fresh",
-    "generatedAt": "2026-06-11T07:30:34.898Z",
-    "expiresAt": "2026-06-12T07:30:34.898Z",
+    "generatedAt": "2026-06-11T08:45:30.620Z",
+    "expiresAt": "2026-06-12T08:45:30.620Z",
     "maxAgeHours": 24,
     "refreshRequired": false,
     "sourceArtifactCount": 6,
@@ -20,42 +20,42 @@
         "path": "data/workflow-ui-install-plan.json",
         "command": "node scripts/plan-workflow-ui-install.mjs --dry-run --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T07:30:34.898Z"
+        "refreshedAt": "2026-06-11T08:45:30.620Z"
       },
       {
         "key": "remote_workflow_file_check",
         "path": "data/remote-workflow-file-check.json",
         "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T07:30:34.898Z"
+        "refreshedAt": "2026-06-11T08:45:30.620Z"
       },
       {
         "key": "publish_dispatch_plan",
         "path": "data/publish-dispatch-plan.json",
         "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T07:30:34.898Z"
+        "refreshedAt": "2026-06-11T08:45:30.620Z"
       },
       {
         "key": "launch_execution_packet",
         "path": "data/launch-execution-packet.json",
         "command": "node scripts/capture-launch-execution-packet.mjs --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T07:30:34.898Z"
+        "refreshedAt": "2026-06-11T08:45:30.620Z"
       },
       {
         "key": "launch_handoff_verification",
         "path": "data/launch-handoff-verification.json",
         "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T07:30:34.898Z"
+        "refreshedAt": "2026-06-11T08:45:30.620Z"
       },
       {
         "key": "output_quality_audit",
         "path": "data/output-quality-audit.json",
         "command": "node scripts/capture-output-quality-audit.mjs --write",
         "status": "pass",
-        "refreshedAt": "2026-06-11T07:30:34.898Z"
+        "refreshedAt": "2026-06-11T08:45:30.620Z"
       }
     ],
     "policy": "Rerun npm run refresh:launch-readiness before workflow dispatch, live publish proof capture, or external completion claim when this artifact is stale."
@@ -66,10 +66,10 @@
     "baseline": 0,
     "candidate": 1,
     "decision": "keep",
-    "outputQualityGeneratedAt": "2026-06-11T07:30:34.857Z",
-    "latestGateGeneratedAt": "2026-06-11T07:30:34.857Z",
+    "outputQualityGeneratedAt": "2026-06-11T08:45:30.582Z",
+    "latestGateGeneratedAt": "2026-06-11T08:45:30.582Z",
     "source": "data/output-quality-audit.json",
-    "evidence": "launch readiness embedded outputQualityGeneratedAt=2026-06-11T07:30:34.857Z"
+    "evidence": "launch readiness embedded outputQualityGeneratedAt=2026-06-11T08:45:30.582Z"
   },
   "repo": "biojuho/BIOJUHO-Projects",
   "source": "data/launch-readiness-refresh.json",
@@ -115,7 +115,7 @@
       "error": ""
     }
   ],
-  "outputQualityGeneratedAt": "2026-06-11T07:30:34.857Z",
+  "outputQualityGeneratedAt": "2026-06-11T08:45:30.582Z",
   "outputQualitySourceInputCount": 11,
   "latestGate": {
     "command": "npm run verify",
@@ -127,7 +127,7 @@
       "blocked": 0,
       "total": 284
     },
-    "generatedAt": "2026-06-11T07:30:34.857Z",
+    "generatedAt": "2026-06-11T08:45:30.582Z",
     "source": "data/output-quality-audit.json",
     "sourceInputCount": 11
   },
@@ -140,7 +140,7 @@
     "candidate": 1,
     "decision": "keep",
     "source": "data/output-quality-audit.json",
-    "evidence": "npm run verify -> 284 pass, 0 fail, 0 not_run, 0 blocked; sourceInputCount=11; generatedAt=2026-06-11T07:30:34.857Z",
+    "evidence": "npm run verify -> 284 pass, 0 fail, 0 not_run, 0 blocked; sourceInputCount=11; generatedAt=2026-06-11T08:45:30.582Z",
     "externalComparison": "GitHub Actions job summaries surface important run results on the workflow summary page so readers do not need to inspect raw logs; this receipt mirrors that pattern by carrying the latest gate summary in the operator handoff."
   },
   "abComparison": {
@@ -154,43 +154,30 @@
   },
   "workflowScopeAvailable": true,
   "workflowScopeInstallBlocked": false,
-  "remoteWorkflowFilesReady": false,
+  "remoteWorkflowFilesReady": true,
   "remoteWorkflowVisibilityReady": true,
-  "allDispatchReady": false,
-  "safeToDispatch": false,
+  "allDispatchReady": true,
+  "safeToDispatch": true,
   "releaseQualityReady": true,
   "publicLaunchProofReady": true,
-  "readyForExternalClaim": false,
-  "withheldDispatchCommandCount": 2,
-  "suggestedDispatchCommandCount": 0,
+  "readyForExternalClaim": true,
+  "withheldDispatchCommandCount": 0,
+  "suggestedDispatchCommandCount": 2,
   "dispatchCommandReferenceCount": 2,
   "activeDispatchCommandCount": 0,
   "activeDispatchCommands": [],
-  "dispatchCommandDisposition": "withheld",
-  "suggestedDispatchCommands": [],
-  "withheldDispatchCommands": [
+  "dispatchCommandDisposition": "not_applicable_after_launch_proof",
+  "suggestedDispatchCommands": [
     "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-pages.yml -f ref=codex/joopark-workspace-release",
     "gh workflow run --repo biojuho/BIOJUHO-Projects joopark-drift-watch.yml -f mode=advisory"
   ],
-  "remoteWorkflowRepairAction": {
-    "key": "pages",
-    "label": "Publish JooPark Pages",
-    "installAction": "replace_existing_remote_file",
-    "command": "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
-    "copyCommand": "pbcopy < 'docs/github-pages-workflow.yml'",
-    "openCommand": "open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
-    "templatePath": "docs/github-pages-workflow.yml",
-    "targetPath": ".github/workflows/joopark-pages.yml",
-    "remoteBlobSha": "a23c1d4502411242fce30d0fbf184ef0fadd8367",
-    "githubEditFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml",
-    "githubNewFileUrl": "https://github.com/biojuho/BIOJUHO-Projects/new/main?filename=.github%2Fworkflows%2Fjoopark-pages.yml",
-    "nextStep": "Open the existing workflow file editor, replace the entire file with the local template contents, commit to the default branch, then rerun the remote workflow file check."
-  },
+  "withheldDispatchCommands": [],
+  "remoteWorkflowRepairAction": null,
   "nextAction": {
-    "key": "install_workflows",
-    "status": "action_required",
-    "command": "pbcopy < 'docs/github-pages-workflow.yml' && open 'https://github.com/biojuho/BIOJUHO-Projects/edit/main/.github/workflows/joopark-pages.yml'",
-    "detail": "replace_existing_remote_file: Open the existing workflow file editor, replace the entire file with the local template contents, commit to the default branch, then rerun the remote workflow file check. Do not run gh workflow run until every action_required refresh checklist item has passed and verify-launch-handoff reports safeToDispatch=true."
+    "key": "share_launch_proof",
+    "status": "ready",
+    "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "detail": "Live launch proof is fresh, workflows succeeded, and readyForExternalClaim=true."
   },
   "refreshChecklist": [
     {
@@ -203,22 +190,22 @@
     {
       "key": "remote_workflow_files",
       "label": "Remote workflow files",
-      "status": "action_required",
-      "evidence": "remoteWorkflowFilesReady=false",
+      "status": "pass",
+      "evidence": "remoteWorkflowFilesReady=true",
       "command": "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"
     },
     {
       "key": "workflow_visibility",
       "label": "Workflow visibility and dispatch plan",
-      "status": "action_required",
-      "evidence": "remoteWorkflowVisibilityReady=true; allDispatchReady=false",
+      "status": "pass",
+      "evidence": "remoteWorkflowVisibilityReady=true; allDispatchReady=true",
       "command": "node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write"
     },
     {
       "key": "handoff_verifier",
       "label": "Launch handoff verifier",
       "status": "pass",
-      "evidence": "safeToDispatch=false; artifactCoverage=2",
+      "evidence": "safeToDispatch=true; artifactCoverage=2",
       "command": "node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write"
     },
     {
@@ -231,18 +218,12 @@
     {
       "key": "external_claim",
       "label": "External completion claim",
-      "status": "action_required",
-      "evidence": "readyForExternalClaim=false",
+      "status": "pass",
+      "evidence": "readyForExternalClaim=true",
       "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"
     }
   ],
-  "blockers": [
-    "Remote workflow file check: pages: remote workflow file differs from local template",
-    "Publish dispatch: pages: remote workflow file does not match the local template on main",
-    "remoteWorkflowFilesReady=false",
-    "allDispatchReady=false",
-    "readyForExternalClaim=false"
-  ],
+  "blockers": [],
   "guard": "Do not run gh workflow run, archive proof, or claim readyForExternalClaim until every action_required refresh checklist item has passed, verify-launch-handoff reports safeToDispatch=true, postPublishEvidenceReady=true, and readyForExternalClaim=true.",
   "artifacts": {
     "workflowUiInstallPlan": "data/workflow-ui-install-plan.json",

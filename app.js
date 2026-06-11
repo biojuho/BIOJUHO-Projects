@@ -9950,6 +9950,9 @@ async function loadWorkflowUiInstallPlan() {
     invalidMessage: "invalid workflow install plan shape",
     validate: (plan) => {
       const plans = Array.isArray(plan?.plans) ? plan.plans : [];
+      const installRows = Array.isArray(plan?.installReceipt?.installRows) ? plan.installReceipt.installRows : [];
+      const noopInstallReceiptReady = installRows.length > 0 &&
+        installRows.every((row) => row.installAction === "verified_remote_matches_template" && row.required === false);
       const pastePacketText = plan?.workflowUiInstallPastePacket || plan?.uiPastePacket || plan?.packet || plan?.installReceipt?.text || "";
       const pastePacketReady = plan?.workflowUiInstallPastePacketReady === true || plan?.uiPastePacketReady === true || plan?.packetReady === true || plan?.installReceipt?.ready === true;
       return plan &&
@@ -9968,7 +9971,7 @@ async function loadWorkflowUiInstallPlan() {
         pastePacketText.includes("remoteWorkflowVisibilityReady=true") &&
         Number(plan.workflowUiInstallPastePacketCoverage || 0) >= 1 &&
         Number(plan.workflowUiInstallFormFieldCoverage || 0) >= 1 &&
-        Number(plan.installReceipt.commandCount || 0) >= 6 &&
+        Number(plan.installReceipt.commandCount || 0) >= (noopInstallReceiptReady ? 4 : 6) &&
         plans.length >= 2 &&
         plans.every((item) => item.githubNewFileUrl && item.githubWorkflowUrl && item.templateCopyCommand && item.githubNewFileOpenCommand && item.githubWorkflowOpenCommand && item.githubFileNameFieldValue && item.suggestedCommitMessage);
     },
