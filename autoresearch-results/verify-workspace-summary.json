@@ -1,9 +1,9 @@
 {
   "schemaVersion": "joopark-verify-workspace/v1",
   "status": "blocked",
-  "generatedAt": "2026-06-11T05:12:57.087Z",
-  "startedAt": "2026-06-11T05:09:56.399Z",
-  "durationMs": 180688,
+  "generatedAt": "2026-06-11T05:19:57.985Z",
+  "startedAt": "2026-06-11T05:13:22.141Z",
+  "durationMs": 395844,
   "command": "npm run verify:full",
   "runner": "scripts/verify-workspace.mjs",
   "syncArtifacts": true,
@@ -17,9 +17,9 @@
       "code": 1,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T05:09:56.401Z",
-      "finishedAt": "2026-06-11T05:12:49.246Z",
-      "durationMs": 172844,
+      "startedAt": "2026-06-11T05:13:22.142Z",
+      "finishedAt": "2026-06-11T05:19:51.860Z",
+      "durationMs": 389717,
       "timeoutMs": 720000
     },
     {
@@ -29,9 +29,9 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T05:12:49.246Z",
-      "finishedAt": "2026-06-11T05:12:56.981Z",
-      "durationMs": 7735,
+      "startedAt": "2026-06-11T05:19:51.860Z",
+      "finishedAt": "2026-06-11T05:19:57.885Z",
+      "durationMs": 6025,
       "timeoutMs": 180000
     },
     {
@@ -41,9 +41,9 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-06-11T05:12:56.981Z",
-      "finishedAt": "2026-06-11T05:12:57.082Z",
-      "durationMs": 101,
+      "startedAt": "2026-06-11T05:19:57.885Z",
+      "finishedAt": "2026-06-11T05:19:57.980Z",
+      "durationMs": 95,
       "timeoutMs": 60000
     }
   ],
@@ -67,7 +67,7 @@
     "releaseReadiness": {
       "path": "autoresearch-results/release-readiness-summary.json",
       "status": "blocked",
-      "generatedAt": "2026-06-11T05:12:49.233Z",
+      "generatedAt": "2026-06-11T05:19:51.852Z",
       "summary": "283 pass, 0 fail, 0 not_run, 1 blocked",
       "checks": {
         "pass": 283,
@@ -80,7 +80,7 @@
     "launchReadiness": {
       "path": "data/launch-readiness-refresh.json",
       "status": "pass",
-      "generatedAt": "2026-06-11T05:12:56.973Z",
+      "generatedAt": "2026-06-11T05:19:57.878Z",
       "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
       "safeToDispatch": false,
       "readyForExternalClaim": false,
@@ -92,7 +92,7 @@
     "outputQuality": {
       "path": "data/output-quality-audit.json",
       "status": "pass",
-      "generatedAt": "2026-06-11T05:12:56.916Z",
+      "generatedAt": "2026-06-11T05:19:57.822Z",
       "releaseQualityReady": true,
       "publicLaunchProofReady": true,
       "readyForExternalClaim": false,
@@ -101,7 +101,7 @@
     "productLoop": {
       "path": "autoresearch-results/joopark-product-loop.json",
       "status": "release-quality-ready-public-launch-proof-ready",
-      "generatedAt": "2026-06-11T05:12:57.070Z",
+      "generatedAt": "2026-06-11T05:19:57.968Z",
       "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
       "latestExperiment": "loop-207-breaking-a-self-reinforcing-full-verify-evidence-sync-loop-after",
       "latestDirectionLoop": "loop-207",
@@ -130,8 +130,8 @@
       "latestDiscoveryExperimentReady": true,
       "latestDirectionLoopNumber": 207,
       "productLoopLatestDirectionLoopNumber": 207,
-      "outputQualityGeneratedAt": "2026-06-11T05:12:56.916Z",
-      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-11T05:12:56.916Z",
+      "outputQualityGeneratedAt": "2026-06-11T05:19:57.822Z",
+      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-06-11T05:19:57.822Z",
       "source": "scripts/sync-product-loop-summary.mjs",
       "directionLogPath": "docs/product-direction.md",
       "fullVerifyCommand": "npm run verify:full"
