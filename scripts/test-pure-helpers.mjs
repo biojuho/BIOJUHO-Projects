@@ -121,6 +121,69 @@ function eventTargetMock(extra = {}) {
   };
 }
 
+const PWA_TEST_ORIGIN = "http://127.0.0.1:5178";
+const PWA_TEST_SW_URL = `${PWA_TEST_ORIGIN}/sw.js`;
+
+function pwaRuntimeFixture(options = {}) {
+  const runtime = loadRuntime("pwa-runtime.js");
+  const toasts = [];
+  const reloads = [];
+  const refreshes = [];
+  const loadCallbacks = [];
+  const hasActiveWorker = Object.prototype.hasOwnProperty.call(options, "activeWorker");
+  const activeWorker = hasActiveWorker
+    ? options.activeWorker
+    : { scriptURL: `${PWA_TEST_SW_URL}?v=1` };
+  const worker = options.worker || eventTargetMock({
+    state: options.workerState || "installing",
+    scriptURL: options.workerScriptURL || PWA_TEST_SW_URL,
+  });
+  const registration = options.registration || eventTargetMock({
+    active: activeWorker,
+    installing: worker,
+    waiting: null,
+    scope: `${PWA_TEST_ORIGIN}/`,
+  });
+  const hasController = Object.prototype.hasOwnProperty.call(options, "controller");
+  const serviceWorker = options.serviceWorker || eventTargetMock({
+    controller: hasController ? options.controller : activeWorker,
+    ready: Promise.resolve(registration),
+    async register() {
+      return registration;
+    },
+    async getRegistration() {
+      return registration;
+    },
+  });
+  const rootWindow = {
+    isSecureContext: true,
+    addEventListener(type, callback) {
+      if (type === "load") loadCallbacks.push(callback);
+    },
+    location: { reload: () => reloads.push("window") },
+  };
+  const api = runtime.JooParkPwaRuntime.create({
+    window: rootWindow,
+    document: { querySelector: () => ({ href: "./site.webmanifest" }) },
+    navigator: { serviceWorker, onLine: true },
+    location: { hostname: "127.0.0.1", reload: () => reloads.push("location") },
+    showToast(message, tone, toastOptions) {
+      toasts.push({ message, tone, options: toastOptions });
+    },
+  });
+  return {
+    api,
+    activeWorker,
+    loadCallbacks,
+    refreshes,
+    registration,
+    reloads,
+    serviceWorker,
+    toasts,
+    worker,
+  };
+}
+
 function matches(value, query) {
   if (!query) return true;
   return String(value || "").toLowerCase().includes(String(query || "").toLowerCase());
@@ -662,42 +725,9 @@ function testRuntimeErrorBoundary() {
 }
 
 async function testPwaRuntimeUpdateReadyToast() {
-  const runtime = loadRuntime("pwa-runtime.js");
-  const toasts = [];
-  const reloads = [];
-  const loadCallbacks = [];
-  const worker = eventTargetMock({ state: "installing", scriptURL: "http://127.0.0.1:5178/sw.js" });
-  const registration = eventTargetMock({
-    active: { scriptURL: "http://127.0.0.1:5178/sw.js" },
-    installing: worker,
-    waiting: null,
-    scope: "http://127.0.0.1:5178/",
-  });
-  const serviceWorker = eventTargetMock({
-    controller: { scriptURL: "http://127.0.0.1:5178/sw.js" },
-    ready: Promise.resolve(registration),
-    async register() {
-      return registration;
-    },
-    async getRegistration() {
-      return registration;
-    },
-  });
-  const rootWindow = {
-    isSecureContext: true,
-    addEventListener(type, callback) {
-      if (type === "load") loadCallbacks.push(callback);
-    },
-    location: { reload: () => reloads.push("window") },
-  };
-  const api = runtime.JooParkPwaRuntime.create({
-    window: rootWindow,
-    document: { querySelector: () => ({ href: "./site.webmanifest" }) },
-    navigator: { serviceWorker, onLine: true },
-    location: { hostname: "127.0.0.1", reload: () => reloads.push("location") },
-    showToast(message, tone, options) {
-      toasts.push({ message, tone, options });
-    },
+  const { api, loadCallbacks, registration, reloads, toasts, worker } = pwaRuntimeFixture({
+    activeWorker: { scriptURL: PWA_TEST_SW_URL },
+    controller: { scriptURL: PWA_TEST_SW_URL },
   });
 
   assert.equal(api.register(() => {}), true);
@@ -720,32 +750,8 @@ async function testPwaRuntimeUpdateReadyToast() {
 }
 
 async function testPwaRuntimeControllerChangeAppliedToast() {
-  const runtime = loadRuntime("pwa-runtime.js");
-  const toasts = [];
-  const refreshes = [];
-  const worker = eventTargetMock({ state: "installing", scriptURL: "http://127.0.0.1:5178/sw.js?v=2" });
-  const activeWorker = { scriptURL: "http://127.0.0.1:5178/sw.js?v=1" };
-  const registration = eventTargetMock({
-    active: activeWorker,
-    installing: worker,
-    waiting: null,
-    scope: "http://127.0.0.1:5178/",
-  });
-  const serviceWorker = eventTargetMock({
-    controller: activeWorker,
-    ready: Promise.resolve(registration),
-    async getRegistration() {
-      return registration;
-    },
-  });
-  const api = runtime.JooParkPwaRuntime.create({
-    window: { isSecureContext: true, addEventListener() {}, location: { reload() {} } },
-    document: { querySelector: () => ({ href: "./site.webmanifest" }) },
-    navigator: { serviceWorker, onLine: true },
-    location: { hostname: "127.0.0.1" },
-    showToast(message, tone, options) {
-      toasts.push({ message, tone, options });
-    },
+  const { api, refreshes, registration, serviceWorker, toasts, worker } = pwaRuntimeFixture({
+    workerScriptURL: `${PWA_TEST_SW_URL}?v=2`,
   });
 
   api.setupObservers(() => refreshes.push("refresh"));
@@ -762,31 +768,9 @@ async function testPwaRuntimeControllerChangeAppliedToast() {
 }
 
 async function testPwaRuntimeFirstInstallStaysQuiet() {
-  const runtime = loadRuntime("pwa-runtime.js");
-  const toasts = [];
-  const refreshes = [];
-  const worker = eventTargetMock({ state: "installing", scriptURL: "http://127.0.0.1:5178/sw.js" });
-  const registration = eventTargetMock({
-    active: null,
-    installing: worker,
-    waiting: null,
-    scope: "http://127.0.0.1:5178/",
-  });
-  const serviceWorker = eventTargetMock({
+  const { api, refreshes, registration, serviceWorker, toasts, worker } = pwaRuntimeFixture({
+    activeWorker: null,
     controller: null,
-    ready: Promise.resolve(registration),
-    async getRegistration() {
-      return registration;
-    },
-  });
-  const api = runtime.JooParkPwaRuntime.create({
-    window: { isSecureContext: true, addEventListener() {}, location: { reload() {} } },
-    document: { querySelector: () => ({ href: "./site.webmanifest" }) },
-    navigator: { serviceWorker, onLine: true },
-    location: { hostname: "127.0.0.1" },
-    showToast(message, tone, options) {
-      toasts.push({ message, tone, options });
-    },
   });
 
   api.setupObservers(() => refreshes.push("refresh"));
