@@ -61,7 +61,18 @@
     }
 
     function draftEstimate(draftNode) {
-      return draftNode && Number(draftNode.dataset.issueDraftEstimate) > 0 ? Number(draftNode.dataset.issueDraftEstimate) : 4;
+      const parsed = Number(draftNode && draftNode.dataset ? draftNode.dataset.issueDraftEstimate : "");
+      return Number.isFinite(parsed) && parsed > 0 ? Math.min(999, parsed) : 4;
+    }
+
+    function reviewNoteDefaults(handoff) {
+      const isKnowledgeBase = !!(handoff && handoff.closest("[data-knowledge-base-review-handoff]"));
+      const isBenchmark = !!(handoff && handoff.closest("[data-benchmark-review-handoff]"));
+      return {
+        titlePrefix: isBenchmark ? "[PM Bench Review]" : isKnowledgeBase ? "[KB/IA Review]" : "[Workspace Review]",
+        sourceKind: isBenchmark ? "benchmark-review-note" : isKnowledgeBase ? "knowledge-base-review-note" : "workspace-review-note",
+        color: isBenchmark ? "#a970ff" : isKnowledgeBase ? "#84cc16" : "#22d3ee",
+      };
     }
 
     function createBenchmarkReviewIssue(target) {
@@ -139,11 +150,10 @@
       if (existing) {
         return openNoteInNotesView(existing, { toast: `이미 발행된 review note를 열었습니다: ${existing.title}` });
       }
-      const isKnowledgeBase = !!handoff.closest("[data-knowledge-base-review-handoff]");
-      const isBenchmark = !!handoff.closest("[data-benchmark-review-handoff]");
-      const titlePrefix = target.dataset.reviewNoteTitlePrefix || (isBenchmark ? "[PM Bench Review]" : isKnowledgeBase ? "[KB/IA Review]" : "[Workspace Review]");
-      const sourceKind = target.dataset.reviewNoteKind || (isBenchmark ? "benchmark-review-note" : isKnowledgeBase ? "knowledge-base-review-note" : "workspace-review-note");
-      const color = target.dataset.reviewNoteColor || (isBenchmark ? "#a970ff" : isKnowledgeBase ? "#84cc16" : "#22d3ee");
+      const defaults = reviewNoteDefaults(handoff);
+      const titlePrefix = target.dataset.reviewNoteTitlePrefix || defaults.titlePrefix;
+      const sourceKind = target.dataset.reviewNoteKind || defaults.sourceKind;
+      const color = target.dataset.reviewNoteColor || defaults.color;
       const handoffText = nodeText(handoff, HANDOFF_TEXT_SELECTOR);
       const draftNode = reviewIssueDraftNode(handoff);
       const projectName = draftNode ? draftNode.dataset.issueDraftProject || "" : "";

@@ -36,17 +36,26 @@
       return panel.querySelector(config.textSelector || "")?.textContent || "";
     }
 
+    function copyFeedback(copied, config) {
+      return {
+        state: copied ? "true" : "false",
+        statusText: copied ? config.successStatus : config.failureStatus,
+        toastText: copied ? config.successToast : config.failureToast,
+        toastTone: copied ? "info" : "error",
+      };
+    }
+
     function copyConfiguredText(target, data) {
       const config = data || {};
       const panel = closestPanel(target, config.panelSelector || "");
       const status = panelStatus(panel, config.statusSelector || "");
       const text = panelText(target, panel, config);
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, config.targetDatasetKeys, state);
-        setDataset(panel, config.panelDatasetKeys, state);
-        if (status) status.textContent = copied ? config.successStatus : config.failureStatus;
-        showToast(copied ? config.successToast : config.failureToast, copied ? "info" : "error");
+        const feedback = copyFeedback(copied, config);
+        setDataset(target, config.targetDatasetKeys, feedback.state);
+        setDataset(panel, config.panelDatasetKeys, feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 

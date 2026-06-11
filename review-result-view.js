@@ -24,6 +24,13 @@
           .map((item) => clampText(item, maxChars))
           .filter(Boolean);
       };
+    const clampInteger = typeof options.clampInteger === "function"
+      ? options.clampInteger
+      : function (value, min, max, fallback) {
+        const parsed = Number(value);
+        const safeParsed = Number.isFinite(parsed) ? parsed : fallback || 0;
+        return Math.min(max, Math.max(min, Math.trunc(safeParsed)));
+      };
     const formatLocalDateTime = typeof options.formatLocalDateTime === "function"
       ? options.formatLocalDateTime
       : function (value) { return value || ""; };
@@ -104,7 +111,7 @@
         reviewType,
         project: clampText(primaryDecision.project || "", 120),
         status: clampText(primaryDecision.status || "", 80),
-        score: Math.max(0, Math.min(100, parseInt(primaryDecision.score || "0", 10) || 0)),
+        score: clampInteger(primaryDecision.score, 0, 100),
         recommendedAction: result && result.recommendedAction || "defer",
         confidence: result && result.confidence || "low",
         summary: clampText(uiArtifacts.markdownSummary || "", 1200),
@@ -114,7 +121,7 @@
         packageChecksum: clampText(manifest.packageChecksum || "", 80),
         packageManifestStatus: clampText(manifest.packageManifestStatus || "", 40),
         packageSourceFreshness: clampText(manifest.packageSourceFreshness || "", 40),
-        packageSourceCount: Number(manifest.packageSourceCount || 0) || 0,
+        packageSourceCount: clampInteger(manifest.packageSourceCount, 0, 20),
         savedAt: nowISO(),
         resultJson: clampText(JSON.stringify(result || {}, null, 2), 20000),
       };
@@ -146,8 +153,8 @@
         "## Repair Evidence",
         "- Source: JooPark Review Result Post-Repair Receipt",
         `- Previous state: ${evidence.previousState || "unknown"}`,
-        `- Previous failure count: ${Number(evidence.previousFailureCount || failures.length) || 0}`,
-        `- Previous warning count: ${Number(evidence.previousWarningCount || warnings.length) || 0}`,
+        `- Previous failure count: ${clampInteger(evidence.previousFailureCount, 0, 999, failures.length)}`,
+        `- Previous warning count: ${clampInteger(evidence.previousWarningCount, 0, 999, warnings.length)}`,
         `- Repaired at: ${formatLocalDateTime(evidence.repairedAt || data.savedAt)}`,
         `- Post-repair receipt checksum: ${evidence.checksum || data.packageChecksum || "missing"}`,
         `- Post-repair primary key: ${evidence.primaryKey || data.key || "missing"}`,

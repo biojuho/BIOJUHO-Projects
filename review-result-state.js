@@ -147,36 +147,61 @@
       }));
     }
 
+    function repairCopyRequest({
+      text,
+      target,
+      panel,
+      status,
+      datasetKey,
+      copiedStatusText,
+      failedStatusText,
+      copiedToast,
+      failedToast,
+    }) {
+      return {
+        text,
+        datasetKey,
+        targets: [target, panel],
+        status,
+        copiedStatusText,
+        failedStatusText,
+        copiedToast,
+        failedToast,
+      };
+    }
+
     function copyRepair(target) {
       const repair = target.closest("[data-review-result-repair]");
       const status = nodeQuery(repair, "[data-review-result-repair-copy-status]");
       const text = nodeText(repair, "[data-review-result-repair-text]");
-      copyTextWithStatus({
+      copyTextWithStatus(repairCopyRequest({
         text,
+        target,
+        panel: repair,
         datasetKey: "reviewResultRepairCopied",
-        targets: [target, repair],
         status,
         copiedStatusText: "repair packet 복사됨",
         failedStatusText: "repair packet 복사 실패",
         copiedToast: "repair packet을 복사했습니다",
         failedToast: "repair packet 복사 실패",
-      });
+      }));
     }
 
     function copyRepairReceipt(target) {
       const receipt = target.closest("[data-review-result-repair-receipt]");
       const status = nodeQuery(receipt, "[data-review-result-repair-receipt-copy-status]");
       const text = nodeText(receipt, "[data-review-result-repair-receipt-text]");
-      copyTextWithStatus({
+      copyTextWithStatus(repairCopyRequest({
         text,
+        target,
+        panel: receipt,
         datasetKey: "reviewResultRepairReceiptCopied",
-        targets: [target, receipt],
         status,
         copiedStatusText: "post-repair receipt 복사됨",
         failedStatusText: "post-repair receipt 복사 실패",
         copiedToast: "post-repair receipt를 복사했습니다",
         failedToast: "post-repair receipt 복사 실패",
-      });
+      }));
     }
 
     return {

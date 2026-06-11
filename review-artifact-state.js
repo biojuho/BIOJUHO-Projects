@@ -89,6 +89,14 @@
       return nodeText(panel, "[data-review-artifact-receipt-text]");
     }
 
+    function receiptCompareCounts(checks) {
+      return {
+        count: checks.length,
+        passCount: checks.filter((check) => check.status === "pass").length,
+        repairCount: checks.filter((check) => check.status !== "pass" && check.repair).length,
+      };
+    }
+
     function repairPreview(target) {
       const panel = diffNode(target);
       const repair = repairTarget(panel);
@@ -166,16 +174,15 @@
       if (!panel || !compare) return;
       const status = nodeQuery(compare, "[data-review-artifact-receipt-compare-status]");
       const output = nodeQuery(compare, "[data-review-artifact-receipt-compare-output]");
-      const passCount = checks.filter((check) => check.status === "pass").length;
-      const repairCount = checks.filter((check) => check.status !== "pass" && check.repair).length;
+      const counts = receiptCompareCounts(checks);
       panel.dataset.reviewArtifactReceiptCompareState = state;
-      panel.dataset.reviewArtifactReceiptCompareCount = String(checks.length);
-      panel.dataset.reviewArtifactReceiptComparePassCount = String(passCount);
-      panel.dataset.reviewArtifactReceiptRepairCount = String(repairCount);
+      panel.dataset.reviewArtifactReceiptCompareCount = String(counts.count);
+      panel.dataset.reviewArtifactReceiptComparePassCount = String(counts.passCount);
+      panel.dataset.reviewArtifactReceiptRepairCount = String(counts.repairCount);
       compare.dataset.reviewArtifactReceiptCompareState = state;
-      compare.dataset.reviewArtifactReceiptCompareCount = String(checks.length);
-      compare.dataset.reviewArtifactReceiptComparePassCount = String(passCount);
-      compare.dataset.reviewArtifactReceiptRepairCount = String(repairCount);
+      compare.dataset.reviewArtifactReceiptCompareCount = String(counts.count);
+      compare.dataset.reviewArtifactReceiptComparePassCount = String(counts.passCount);
+      compare.dataset.reviewArtifactReceiptRepairCount = String(counts.repairCount);
       if (status) status.textContent = message;
       if (!output) return;
       setHTML(output, state === "empty" ? "" : reviewArtifactReceiptCompareOutput(checks));

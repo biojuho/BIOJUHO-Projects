@@ -99,6 +99,10 @@
         .join(" ");
     }
 
+    function boolAttr(value) {
+      return value ? "true" : "false";
+    }
+
     function hrefFor(markdown) {
       return `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown || "")}`;
     }
@@ -158,7 +162,7 @@
       if (model.config.countAttr) pairs.push([model.config.countAttr, model.decisions.length]);
       if (model.config.primaryKeyAttr) pairs.push([model.config.primaryKeyAttr, model.primaryKey]);
       if (model.config.note) {
-        pairs.push([model.config.note.createdAttr, model.noteCreated ? "true" : "false"]);
+        pairs.push([model.config.note.createdAttr, boolAttr(model.noteCreated)]);
         pairs.push([model.config.note.idAttr, model.noteCreated ? model.existingNote.id : ""]);
       }
       return attrs(pairs);
@@ -191,9 +195,9 @@
           ["data-review-note-kind", note.kind || false],
           ["data-review-note-title-prefix", note.titlePrefix || false],
           ["data-review-note-color", note.color || false],
-          ["data-review-note-created", model.noteCreated ? "true" : "false"],
+          ["data-review-note-created", boolAttr(model.noteCreated)],
           ["data-review-note-id", model.noteCreated ? model.existingNote.id : ""],
-          ["data-review-note-existing", model.noteCreated ? "true" : "false"],
+          ["data-review-note-existing", boolAttr(model.noteCreated)],
         ]))}>${model.noteCreated ? "노트 열기" : "노트 발행"}</button>
       `;
     }

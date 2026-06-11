@@ -135,6 +135,16 @@
       : defaultFormatLocalDateTime;
     const dateNow = typeof deps.dateNow === "function" ? deps.dateNow : () => Date.now();
 
+    function finiteNumberOr(value, fallback) {
+      if (value === null || value === undefined || value === "") return fallback;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : fallback;
+    }
+
+    function installPathItemCommandCount(item) {
+      return finiteNumberOr(item?.commandCount, Array.isArray(item?.commands) ? item.commands.length : 0);
+    }
+
     function publishReadinessItems() {
       return READINESS_ITEMS.map(cloneItem);
     }
@@ -168,7 +178,7 @@
       return [
         "## Dispatch safety gate",
         "1. Do not run `Publish JooPark Pages`, `Watch JooPark Candidate Drift`, or any `gh workflow run --repo` command until `remoteWorkflowFilesReady: true`, `dispatchReady: true`, `driftDispatchReady: true`, and `allDispatchReady: true` are all confirmed.",
-        "2. If `dispatchSuggestionStatus: withheld-until-all-dispatch-ready` or `suggestedDispatchCommands: []` appears, keep using verification commands only.",
+        "2. If `dispatchSuggestionStatus: withheld-until-all-dispatch-ready` or `suggestedDispatchCommands: []` appears, keep using verification commands only. Do not run until allDispatchReady: true.",
         "3. Inspect `workflowScope.scopes`, `workflowScopeAvailable`, and `workflowScopeInstallBlocked` in `data/publish-dispatch-plan.json`; if the scopes omit `workflow` or install is blocked, run `gh auth refresh -h github.com -s workflow`, then rerun `node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects`, or use GitHub UI for workflow file installation.",
         "4. Treat `gh auth refresh -h github.com -s workflow` as an auth preflight only; do not treat it as workflow installation, dispatch, or launch proof.",
         "5. When ready, run only the repo-scoped commands returned under `suggestedDispatchCommands`, then capture live evidence with `node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown` and `--write`.",
@@ -201,9 +211,9 @@
         ...publishDispatchGateGuardLines(),
         "",
         "## GitHub UI 설치 경로",
-        "1. Pages plan의 `templateCopyCommand`로 `docs/github-pages-workflow.yml`을 복사하고 `githubNewFileOpenCommand`로 repository default branch new-file page를 열어 `.github/workflows/joopark-pages.yml`을 만듭니다.",
-        "2. Drift Watch plan의 `templateCopyCommand`로 `docs/github-drift-watch-workflow.yml`을 복사하고 `githubNewFileOpenCommand`로 `.github/workflows/joopark-drift-watch.yml`을 만듭니다.",
-        "3. `node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write`로 default branch remote workflow file의 `remoteWorkflowFilesReady`와 `remoteMatchesTemplate`를 확인하고, `Remote workflow install packet` 또는 `install packet 복사`로 GitHub new-file page와 template copy 절차를 공유합니다.",
+        "1. `Remote workflow install packet` 또는 `install packet 복사`의 각 workflow row에서 `installAction`을 확인합니다: `replace_existing_remote_file`은 edit-file page, `create_missing_remote_file`은 new-file page, `verified_remote_matches_template`는 no-op입니다.",
+        "2. 변경이 필요한 row만 `templateCopyCommand`로 YAML을 복사하고, 해당 row의 GitHub edit/new-file open command로 default branch 파일을 갱신합니다.",
+        "3. `node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write`로 default branch remote workflow file의 `remoteWorkflowFilesReady`와 `remoteMatchesTemplate`를 확인합니다.",
         "4. plan의 `githubWorkflowOpenCommand` 또는 `githubWorkflowUrl`에서 두 workflow가 Actions에 보이는지 확인합니다.",
         "5. plan의 `nextVerificationCommand`가 `node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects`이면 그 repo-specific 명령을 먼저 실행하고, `node scripts/plan-publish-dispatch.mjs --live --repo OWNER/REPO`는 suggested repo가 틀릴 때만 템플릿으로 사용합니다.",
         "6. `remoteWorkflowFilesReady: true`, `dispatchReady: true`, `driftDispatchReady: true`, `allDispatchReady: true`가 모두 확인된 뒤에만 Actions 또는 `suggestedDispatchCommands`로 `Publish JooPark Pages`와 `Watch JooPark Candidate Drift`를 실행합니다.",
@@ -245,8 +255,8 @@
       const installReceipt = data?.installReceipt || {};
       const installReceiptText = data?.workflowUiInstallPastePacket || data?.uiPastePacket || installReceipt.text || data?.packet || "";
       const pastePacketReady = data?.workflowUiInstallPastePacketReady === true || data?.uiPastePacketReady === true || data?.packetReady === true || installReceipt.ready === true;
-      const pastePacketCoverage = Number(data?.workflowUiInstallPastePacketCoverage || (pastePacketReady ? 1 : 0));
-      const formFieldCoverage = Number(data?.workflowUiInstallFormFieldCoverage || installReceipt.formFieldCoverage || 0);
+      const pastePacketCoverage = finiteNumberOr(data?.workflowUiInstallPastePacketCoverage, pastePacketReady ? 1 : 0);
+      const formFieldCoverage = finiteNumberOr(data?.workflowUiInstallFormFieldCoverage, finiteNumberOr(installReceipt.formFieldCoverage, 0));
       const parserReadyProofFieldCoverage = Number(installReceipt.parserReadyProofFieldCoverage || 0);
       const parserReadyProofBlockReady = installReceipt.parserReadyProofBlockReady === true;
       const pagesPlan = plans.find((plan) => plan.key === "pages" || String(plan.targetRepositoryPath || "").includes("joopark-pages.yml")) || {};
@@ -260,22 +270,42 @@
       const postInstallDispatchGuard = installReceipt.dispatchGuard || "Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.";
       const postInstallStopCondition = installReceipt.postInstallStopCondition || "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.";
       const dispatchGuard = postInstallDispatchGuard;
+      const planInstallAction = (plan) => plan.installAction || (plan.remoteExists && plan.remoteMatchesTemplate ? "verified_remote_matches_template" : plan.remoteExists ? "replace_existing_remote_file" : "create_missing_remote_file");
+      const planInstallRequired = (plan) => plan.uiInstallRequired !== false && planInstallAction(plan) !== "verified_remote_matches_template";
+      const planOpenCommand = (plan, fallbackIndex) => plan.uiInstallOpenCommand || (planInstallAction(plan) === "replace_existing_remote_file" ? plan.githubEditFileOpenCommand : plan.githubNewFileOpenCommand) || installCommands[fallbackIndex] || "";
+      const planOpenUrl = (plan) => {
+        const action = planInstallAction(plan);
+        if (action === "replace_existing_remote_file") return plan.githubEditFileUrl || plan.githubNewFileUrl || "";
+        if (action === "verified_remote_matches_template") return plan.githubBlobUrl || plan.githubWorkflowUrl || plan.githubEditFileUrl || "";
+        return plan.githubNewFileUrl || plan.githubEditFileUrl || "";
+      };
+      const planInstallDetail = (plan, fallbackTarget, fallbackCommit) => {
+        const action = planInstallAction(plan);
+        const target = plan.targetRepositoryPath || fallbackTarget;
+        if (action === "replace_existing_remote_file") {
+          return `installAction=replace_existing_remote_file: open the GitHub edit-file page for ${target}, replace the entire file with the copied YAML, and commit.`;
+        }
+        if (action === "verified_remote_matches_template") {
+          return `installAction=verified_remote_matches_template: no GitHub UI edit is required for ${target}; keep the verified remote file unchanged.`;
+        }
+        return `installAction=create_missing_remote_file: paste the copied YAML, confirm file name ${plan.githubFileNameFieldValue || target}, and commit with "${plan.suggestedCommitMessage || fallbackCommit}".`;
+      };
       const runbookSteps = [
         {
           key: "copy-pages-template",
           label: "Copy Pages template",
           target: pagesPlan.targetRepositoryPath || ".github/workflows/joopark-pages.yml",
           command: pagesPlan.templateCopyCommand || installCommands[0] || "",
-          detail: `Copy ${pagesPlan.template || "docs/github-pages-workflow.yml"} before opening the GitHub new-file page.`,
+          detail: planInstallRequired(pagesPlan) ? `Copy ${pagesPlan.template || "docs/github-pages-workflow.yml"} before opening the GitHub create/edit page.` : "No copy is required while the remote Pages workflow already matches the template.",
           proof: `templateSha256=${pagesPlan.templateSha256 || pagesPlan.sha256 || "missing"}`,
         },
         {
-          key: "create-pages-workflow",
-          label: "Create Pages workflow",
+          key: "apply-pages-workflow",
+          label: pagesPlan.uiInstallActionLabel || (planInstallAction(pagesPlan) === "replace_existing_remote_file" ? "Replace Pages workflow" : "Create Pages workflow"),
           target: pagesPlan.targetRepositoryPath || ".github/workflows/joopark-pages.yml",
-          command: pagesPlan.githubNewFileOpenCommand || installCommands[1] || "",
-          url: pagesPlan.githubNewFileUrl || "",
-          detail: `Paste the copied YAML, confirm file name ${pagesPlan.githubFileNameFieldValue || pagesPlan.targetRepositoryPath || ".github/workflows/joopark-pages.yml"}, and commit with "${pagesPlan.suggestedCommitMessage || "Add JooPark Pages publish workflow"}".`,
+          command: planOpenCommand(pagesPlan, 1) || "no-op: remote workflow file already matches template",
+          url: planOpenUrl(pagesPlan),
+          detail: planInstallDetail(pagesPlan, ".github/workflows/joopark-pages.yml", "Add JooPark Pages publish workflow"),
           proof: "pages remoteExists=true and remoteMatchesTemplate=true",
         },
         {
@@ -283,16 +313,16 @@
           label: "Copy Drift Watch template",
           target: driftPlan.targetRepositoryPath || ".github/workflows/joopark-drift-watch.yml",
           command: driftPlan.templateCopyCommand || installCommands[2] || "",
-          detail: `Copy ${driftPlan.template || "docs/github-drift-watch-workflow.yml"} before opening the GitHub new-file page.`,
+          detail: planInstallRequired(driftPlan) ? `Copy ${driftPlan.template || "docs/github-drift-watch-workflow.yml"} before opening the GitHub create/edit page.` : "No copy is required while the remote Drift Watch workflow already matches the template.",
           proof: `templateSha256=${driftPlan.templateSha256 || driftPlan.sha256 || "missing"}`,
         },
         {
-          key: "create-drift-workflow",
-          label: "Create Drift Watch workflow",
+          key: "apply-drift-workflow",
+          label: driftPlan.uiInstallActionLabel || (planInstallAction(driftPlan) === "verified_remote_matches_template" ? "Verify Drift Watch workflow" : "Create Drift Watch workflow"),
           target: driftPlan.targetRepositoryPath || ".github/workflows/joopark-drift-watch.yml",
-          command: driftPlan.githubNewFileOpenCommand || installCommands[3] || "",
-          url: driftPlan.githubNewFileUrl || "",
-          detail: `Paste the copied YAML, confirm file name ${driftPlan.githubFileNameFieldValue || driftPlan.targetRepositoryPath || ".github/workflows/joopark-drift-watch.yml"}, and commit with "${driftPlan.suggestedCommitMessage || "Add JooPark candidate drift watch workflow"}".`,
+          command: planOpenCommand(driftPlan, 3) || "no-op: remote workflow file already matches template",
+          url: planOpenUrl(driftPlan),
+          detail: planInstallDetail(driftPlan, ".github/workflows/joopark-drift-watch.yml", "Add JooPark candidate drift watch workflow"),
           proof: "drift-watch remoteExists=true and remoteMatchesTemplate=true",
         },
         {
@@ -530,7 +560,7 @@
             <strong>GitHub UI workflow install plan</strong>
             <span class="publish-state">${ready ? "ready" : "check required"}</span>
           </div>
-          <p class="settings-note">GitHub 공식 workflow는 repository root의 <code>.github/workflows</code>에 YAML 파일로 저장되어야 하고, 수동 실행은 default branch의 <code>workflow_dispatch</code> workflow에서만 가능합니다. 아래 plan은 두 workflow를 GitHub UI에서 만들기 위한 링크, 복사 명령, 확인 URL을 고정합니다.</p>
+          <p class="settings-note">GitHub 공식 workflow는 repository root의 <code>.github/workflows</code>에 YAML 파일로 저장되어야 하고, 수동 실행은 default branch의 <code>workflow_dispatch</code> workflow에서만 가능합니다. 아래 plan은 각 workflow의 <code>installAction</code>에 따라 GitHub UI create/edit/no-op 경로, 복사 명령, 확인 URL을 고정합니다.</p>
           <div class="workflow-ui-install-runbook" data-workflow-ui-install-runbook data-workflow-ui-install-runbook-ready="${runbookReady ? "true" : "false"}" data-workflow-ui-install-runbook-step-count="${runbookSteps.length}" data-workflow-ui-install-runbook-expected-signal-count="${expectedSignals.length}" data-workflow-ui-install-runbook-dispatch-guard="${dispatchGuard}">
             <div class="workflow-ui-install-runbook-head">
               <span>default branch runbook</span>
@@ -660,20 +690,25 @@
           ${source?.error ? raw(html`<p class="settings-note storage-error">workflow install plan load error: ${source.error}</p>`) : ""}
           <div class="workflow-ui-install-cards">
             ${plans.map((plan) => raw(html`
-              <article class="workflow-ui-install-card" data-workflow-ui-install-card data-workflow-ui-install-key="${plan.key}" data-workflow-ui-install-target="${plan.targetRepositoryPath || ""}" data-workflow-ui-install-file-name-field="${plan.githubFileNameFieldValue || ""}" data-workflow-ui-install-commit-message="${plan.suggestedCommitMessage || ""}" data-workflow-ui-install-ready="${plan.uiInstallReady ? "true" : "false"}" data-workflow-ui-install-target-matches-template="${plan.targetMatchesTemplate ? "true" : "false"}">
+              <article class="workflow-ui-install-card" data-workflow-ui-install-card data-workflow-ui-install-key="${plan.key}" data-workflow-ui-install-target="${plan.targetRepositoryPath || ""}" data-workflow-ui-install-file-name-field="${plan.githubFileNameFieldValue || ""}" data-workflow-ui-install-commit-message="${plan.suggestedCommitMessage || ""}" data-workflow-ui-install-ready="${plan.uiInstallReady ? "true" : "false"}" data-workflow-ui-install-target-matches-template="${plan.targetMatchesTemplate ? "true" : "false"}" data-workflow-ui-install-action="${planInstallAction(plan)}" data-workflow-ui-install-required="${planInstallRequired(plan) ? "true" : "false"}" data-workflow-ui-install-open-command="${plan.uiInstallOpenCommand || ""}" data-workflow-ui-install-edit-url="${plan.githubEditFileUrl || ""}">
                 <div>
                   <span>${plan.key}</span>
                   <strong>${plan.name || plan.workflowName || plan.targetRepositoryPath}</strong>
                   <p>${plan.targetRepositoryPath}</p>
                 </div>
                 <dl>
+                  <div><dt>installAction</dt><dd>${planInstallAction(plan)}</dd></div>
                   <div><dt>template</dt><dd><code>${plan.template || ""}</code></dd></div>
                   <div><dt>sha256</dt><dd><code>${plan.sha256 || plan.templateSha256 || "missing"}</code></dd></div>
                   <div><dt>targetSha256</dt><dd><code>${plan.targetSha256 || "missing"}</code></dd></div>
                   <div><dt>targetMatchesTemplate</dt><dd>${plan.targetMatchesTemplate ? "true" : "false"}</dd></div>
+                  <div><dt>remoteMatchesTemplate</dt><dd>${plan.remoteMatchesTemplate ? "true" : "false"}</dd></div>
                   <div><dt>templateCopyCommand</dt><dd><code>${plan.templateCopyCommand || ""}</code></dd></div>
                   <div><dt>create</dt><dd>${plan.githubNewFileUrl ? raw(html`<a href="${plan.githubNewFileUrl}" target="_blank" rel="noopener" data-workflow-ui-install-new-file>githubNewFileUrl</a>`) : "new file URL 대기"}</dd></div>
+                  <div><dt>edit</dt><dd>${plan.githubEditFileUrl ? raw(html`<a href="${plan.githubEditFileUrl}" target="_blank" rel="noopener" data-workflow-ui-install-edit-file>githubEditFileUrl</a>`) : "edit file URL 대기"}</dd></div>
                   <div><dt>githubNewFileOpenCommand</dt><dd><code>${plan.githubNewFileOpenCommand || ""}</code></dd></div>
+                  <div><dt>githubEditFileOpenCommand</dt><dd><code>${plan.githubEditFileOpenCommand || ""}</code></dd></div>
+                  <div><dt>uiInstallOpenCommand</dt><dd><code>${plan.uiInstallOpenCommand || "no GitHub UI command required"}</code></dd></div>
                   <div><dt>githubFileNameFieldValue</dt><dd><code>${plan.githubFileNameFieldValue || plan.targetRepositoryPath || ""}</code></dd></div>
                   <div><dt>suggestedCommitMessage</dt><dd><code>${plan.suggestedCommitMessage || ""}</code></dd></div>
                   <div><dt>confirm</dt><dd>${plan.githubWorkflowUrl ? raw(html`<a href="${plan.githubWorkflowUrl}" target="_blank" rel="noopener" data-workflow-ui-install-workflow-url>githubWorkflowUrl</a>`) : "workflow URL 대기"}</dd></div>
@@ -757,6 +792,7 @@
       const workflowScopeTerminalWaitRequired = workflowScopeApprovalHandoff.terminalWaitRequired ?? workflowScopeInstallBlocked;
       const workflowScopeIncompleteApprovalSignal = workflowScopeApprovalHandoff.incompleteApprovalSignal || "Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.";
       const workflowScopeDeviceCodePolicy = workflowScopeApprovalHandoff.sensitiveValuePolicy || "Do not store, log, or paste the one-time device code into project files.";
+      const workflowScopeApprovalFallback = workflowScopeApprovalHandoff.fallback || "Use each workflow row's installAction to choose the GitHub edit-file or new-file page, and skip rows already verified on the default branch.";
       const workflowScopeApprovalStopCondition = workflowScopeApprovalHandoff.stopCondition || "Do not run install, dispatch, publish copy, or archive proof until workflow scope or GitHub UI installation is verified.";
       const workflowScopePacketText = [
         "# JooPark Workflow Scope Refresh Packet",
@@ -785,8 +821,8 @@
         `Stop condition: ${workflowScopeApprovalStopCondition}`,
         "",
         "GitHub UI fallback:",
-        "1. Use the GitHub new-file links in the GitHub UI workflow install plan.",
-        "2. Commit both workflow files to the repository default branch.",
+        `1. ${workflowScopeApprovalFallback}`,
+        "2. Commit only changed workflow files to the repository default branch.",
         "3. Rerun the recheck command until remoteWorkflowVisibilityReady and allDispatchReady are true.",
         "",
         "Dispatch guard:",
@@ -938,7 +974,7 @@
           <div class="publish-dispatch-next" data-publish-dispatch-dispatch-command-guard>
             <span>suggestedDispatchCommands</span>
             ${suggestedDispatchCommands.length
-              ? raw(suggestedDispatchCommands.map((command) => html`<code>${command}</code>`).join(""))
+              ? raw(html`<p>ready dispatch commands; run only repo-scoped suggestedDispatchCommands after allDispatchReady=true.</p>${suggestedDispatchCommands.map((command) => html`<code>${command}</code>`).join("")}`)
               : raw(html`<code>withheld until allDispatchReady: true</code>`)}
           </div>
           <div class="publish-dispatch-next" data-publish-dispatch-withheld-dispatch-commands data-publish-dispatch-withheld-dispatch-count="${withheldDispatchCommandCount}">
@@ -974,12 +1010,14 @@
       const workflowScopeTerminalWaitRequired = workflowScopeApprovalHandoff.terminalWaitRequired ?? workflowScopeInstallBlocked;
       const workflowScopeIncompleteApprovalSignal = workflowScopeApprovalHandoff.incompleteApprovalSignal || "Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.";
       const workflowScopeApprovalPolicy = workflowScopeApprovalHandoff.sensitiveValuePolicy || "Do not store, log, or paste the one-time device code into project files.";
-      const workflowScopeApprovalFallback = workflowScopeApprovalHandoff.fallback || "If browser approval cannot be completed, use the GitHub UI new-file links.";
+      const workflowScopeApprovalFallback = workflowScopeApprovalHandoff.fallback || "If browser approval cannot be completed, use each workflow row's installAction to choose the GitHub edit-file or new-file page, and skip rows already verified on the default branch.";
       const workflowScopeApprovalStopCondition = workflowScopeApprovalHandoff.stopCondition || "Do not run install, dispatch, publish copy, or archive proof until workflow scope or GitHub UI installation is verified.";
+      const remediationSummary = data?.remediationSummary && typeof data.remediationSummary === "object" ? data.remediationSummary : {};
+      const remediationAction = remediationSummary.currentAction || (ready ? "verified_remote_matches_template" : "create_or_update_remote_workflow_file");
       const generatedAt = data?.generatedAt ? formatLocalDateTime(data.generatedAt) : "대기 중";
       const stateLabel = ready ? "remote files ready" : checked ? "action required" : "repo check required";
       return html`
-        <div class="publish-dispatch-plan" data-system-remote-workflow-file-check data-remote-workflow-file-source="${source?.source || "data/remote-workflow-file-check.json"}" data-remote-workflow-file-loaded="${loaded ? "true" : "false"}" data-remote-workflow-file-checked="${checked ? "true" : "false"}" data-remote-workflow-file-ready="${ready ? "true" : "false"}" data-remote-workflow-file-repo-ready="${repoReady ? "true" : "false"}" data-remote-workflow-file-check-count="${checks.length}" data-remote-workflow-file-blocker-count="${blockers.length}" data-remote-workflow-file-next-command="${data?.nextVerificationCommand || "node scripts/check-remote-workflow-files.mjs --repo OWNER/REPO --write"}" data-remote-workflow-file-workflow-scope-available="${workflowScopeAvailable ? "true" : "false"}" data-remote-workflow-file-workflow-scope-install-blocked="${workflowScopeInstallBlocked ? "true" : "false"}" data-remote-workflow-file-workflow-scope-approval-status="${workflowScopeApprovalStatus}" data-remote-workflow-file-workflow-scope-approval-url="${workflowScopeApprovalUrl}">
+        <div class="publish-dispatch-plan" data-system-remote-workflow-file-check data-remote-workflow-file-source="${source?.source || "data/remote-workflow-file-check.json"}" data-remote-workflow-file-loaded="${loaded ? "true" : "false"}" data-remote-workflow-file-checked="${checked ? "true" : "false"}" data-remote-workflow-file-ready="${ready ? "true" : "false"}" data-remote-workflow-file-repo-ready="${repoReady ? "true" : "false"}" data-remote-workflow-file-check-count="${checks.length}" data-remote-workflow-file-blocker-count="${blockers.length}" data-remote-workflow-file-remediation-action="${remediationAction}" data-remote-workflow-file-remediation-edit-count="${remediationSummary.editCount || 0}" data-remote-workflow-file-remediation-create-count="${remediationSummary.createCount || 0}" data-remote-workflow-file-next-command="${data?.nextVerificationCommand || "node scripts/check-remote-workflow-files.mjs --repo OWNER/REPO --write"}" data-remote-workflow-file-workflow-scope-available="${workflowScopeAvailable ? "true" : "false"}" data-remote-workflow-file-workflow-scope-install-blocked="${workflowScopeInstallBlocked ? "true" : "false"}" data-remote-workflow-file-workflow-scope-approval-status="${workflowScopeApprovalStatus}" data-remote-workflow-file-workflow-scope-approval-url="${workflowScopeApprovalUrl}">
           <div class="publish-evidence-head">
             <strong>Remote workflow file check</strong>
             <span class="publish-state" data-remote-workflow-file-state-label>${stateLabel}</span>
@@ -993,6 +1031,7 @@
             <div><dt>repoEvidenceReady</dt><dd>${repoReady ? "true" : "false"}</dd></div>
             <div><dt>remoteWorkflowFilesChecked</dt><dd>${checked ? "true" : "false"}</dd></div>
             <div><dt>remoteWorkflowFilesReady</dt><dd>${ready ? "true" : "false"}</dd></div>
+            <div><dt>remediationAction</dt><dd>${remediationAction}</dd></div>
             <div><dt>workflowScopeAvailable</dt><dd>${workflowScopeAvailable ? "true" : "false"}</dd></div>
             <div><dt>workflowScopeInstallBlocked</dt><dd>${workflowScopeInstallBlocked ? "true" : "false"}</dd></div>
             <div><dt>blockers</dt><dd>${blockers.length}</dd></div>
@@ -1016,7 +1055,7 @@
           ${source?.error ? raw(html`<p class="settings-note storage-error">remote workflow file check load error: ${source.error}</p>`) : ""}
           <div class="publish-dispatch-cards">
             ${checks.map((check) => raw(html`
-              <article class="publish-dispatch-card" data-remote-workflow-file-card data-remote-workflow-file-key="${check.key}" data-remote-workflow-file-path="${check.path || ""}" data-remote-workflow-file-exists="${check.remoteExists ? "true" : "false"}" data-remote-workflow-file-matches-template="${check.remoteMatchesTemplate ? "true" : "false"}">
+              <article class="publish-dispatch-card" data-remote-workflow-file-card data-remote-workflow-file-key="${check.key}" data-remote-workflow-file-path="${check.path || ""}" data-remote-workflow-file-exists="${check.remoteExists ? "true" : "false"}" data-remote-workflow-file-matches-template="${check.remoteMatchesTemplate ? "true" : "false"}" data-remote-workflow-file-install-action="${check.installAction || check.remediation?.installAction || ""}" data-remote-workflow-file-edit-url="${check.githubEditFileUrl || check.remediation?.githubEditFileUrl || ""}">
                 <div>
                   <span>${check.key}</span>
                   <strong>${check.name || check.path}</strong>
@@ -1025,14 +1064,18 @@
                 <dl>
                   <div><dt>templateSha256</dt><dd><code>${check.templateSha256 || "missing"}</code></dd></div>
                   <div><dt>remoteSha256</dt><dd><code>${check.remoteSha256 || "missing"}</code></dd></div>
+                  <div><dt>remoteBlobSha</dt><dd><code>${check.remoteBlobSha || check.githubBlobSha || "missing"}</code></dd></div>
                   <div><dt>remoteExists</dt><dd>${check.remoteExists ? "true" : "false"}</dd></div>
                   <div><dt>remoteMatchesTemplate</dt><dd>${check.remoteMatchesTemplate ? "true" : "false"}</dd></div>
+                  <div><dt>installAction</dt><dd>${check.installAction || check.remediation?.installAction || "pending"}</dd></div>
                   <div><dt>error</dt><dd>${check.error || "none"}</dd></div>
                   <div><dt>copy</dt><dd><code>${check.templateCopyCommand || ""}</code></dd></div>
                   <div><dt>create</dt><dd>${check.githubNewFileUrl ? raw(html`<a href="${check.githubNewFileUrl}" target="_blank" rel="noopener" data-remote-workflow-file-new-file>githubNewFileUrl</a>`) : "new-file URL 대기"}</dd></div>
+                  <div><dt>edit</dt><dd>${check.githubEditFileUrl ? raw(html`<a href="${check.githubEditFileUrl}" target="_blank" rel="noopener" data-remote-workflow-file-edit-file>githubEditFileUrl</a>`) : "edit URL 대기"}</dd></div>
                   <div><dt>command</dt><dd><code>${check.command || ""}</code></dd></div>
                   <div><dt>workflow</dt><dd>${check.workflowUrl ? raw(html`<a href="${check.workflowUrl}" target="_blank" rel="noopener">Actions workflow</a>`) : "workflow URL 대기"}</dd></div>
                 </dl>
+                ${check.remediation?.nextStep ? raw(html`<p class="settings-note">${check.remediation.nextStep}</p>`) : ""}
                 ${Array.isArray(check.blockers) && check.blockers.length ? raw(html`
                   <ul class="publish-dispatch-blockers">
                     ${check.blockers.map((blocker) => raw(html`<li>${blocker}</li>`))}
@@ -1089,12 +1132,24 @@
       const stageTransition = data?.stageTransitionPreview && typeof data.stageTransitionPreview === "object" ? data.stageTransitionPreview : {};
       const blockerResolution = data?.blockerResolutionChecklist && typeof data.blockerResolutionChecklist === "object" ? data.blockerResolutionChecklist : {};
       const blockerResolutionItems = Array.isArray(blockerResolution.items) ? blockerResolution.items : [];
+      const blockerResolutionItemCount = finiteNumberOr(blockerResolution.itemCount, blockerResolutionItems.length);
+      const blockerResolutionPassCount = finiteNumberOr(blockerResolution.passCount, 0);
+      const blockerResolutionActionRequiredCount = finiteNumberOr(blockerResolution.actionRequiredCount, 0);
+      const blockerResolutionDeferredCount = finiteNumberOr(blockerResolution.deferredCount, 0);
+      const blockerResolutionProofCommandCount = finiteNumberOr(blockerResolution.proofCommandCount, 0);
       const installMatrix = data?.workflowInstallVerificationMatrix && typeof data.workflowInstallVerificationMatrix === "object" ? data.workflowInstallVerificationMatrix : {};
       const installMatrixRows = Array.isArray(installMatrix.matrixRows) ? installMatrix.matrixRows : [];
       const installMatrixSignals = Array.isArray(installMatrix.signalChecks) ? installMatrix.signalChecks : [];
       const installMatrixCommands = Array.isArray(installMatrixRows[0]?.verificationCommands) ? installMatrixRows[0].verificationCommands : [];
+      const installMatrixPathCount = finiteNumberOr(installMatrix.installPathCount, installMatrixRows.length);
+      const installMatrixSignalCount = finiteNumberOr(installMatrix.requiredSignalCount, installMatrixSignals.length);
+      const installMatrixVerificationCommandCount = finiteNumberOr(installMatrix.verificationCommandCount, installMatrixCommands.length);
       const remoteFileLedger = data?.remoteWorkflowFileAcceptanceLedger && typeof data.remoteWorkflowFileAcceptanceLedger === "object" ? data.remoteWorkflowFileAcceptanceLedger : {};
       const remoteFileLedgerItems = Array.isArray(remoteFileLedger.files) ? remoteFileLedger.files : [];
+      const remoteFileLedgerFileCount = finiteNumberOr(remoteFileLedger.fileCount, remoteFileLedgerItems.length);
+      const remoteFileLedgerReadyCount = finiteNumberOr(remoteFileLedger.readyCount, 0);
+      const remoteFileLedgerMissingCount = finiteNumberOr(remoteFileLedger.missingCount, 0);
+      const remoteFileLedgerMismatchCount = finiteNumberOr(remoteFileLedger.mismatchCount, 0);
       const proofLedger = data?.launchProofAcceptanceLedger && typeof data.launchProofAcceptanceLedger === "object" ? data.launchProofAcceptanceLedger : {};
       const proofLedgerItems = Array.isArray(proofLedger.requiredProofs) ? proofLedger.requiredProofs : [];
       const postInstallIntake = data?.postInstallEvidenceIntake && typeof data.postInstallEvidenceIntake === "object" ? data.postInstallEvidenceIntake : {};
@@ -1104,6 +1159,21 @@
       const postInstallIntakeSequence = Array.isArray(postInstallIntake.verificationSequence) ? postInstallIntake.verificationSequence : [];
       const postInstallQuickProofSteps = Array.isArray(postInstallIntake.quickProofSteps) ? postInstallIntake.quickProofSteps : [];
       const postInstallQuickProofFieldMappings = Array.isArray(postInstallIntake.quickProofFieldMappings) ? postInstallIntake.quickProofFieldMappings : [];
+      const postInstallIntakeFieldCount = finiteNumberOr(postInstallIntake.fieldCount, postInstallIntakeFields.length);
+      const postInstallIntakeCompletedCount = finiteNumberOr(postInstallIntake.completedFieldCount, 0);
+      const postInstallIntakeCommandCount = finiteNumberOr(postInstallIntake.commandCount, postInstallIntakeCommands.length);
+      const postInstallIntakeSignalCount = finiteNumberOr(postInstallIntake.signalCount, postInstallIntakeSignals.length);
+      const postInstallIntakeFieldCoverage = finiteNumberOr(postInstallIntake.fieldCoverage, 0);
+      const postInstallIntakeSequenceCount = finiteNumberOr(postInstallIntake.verificationSequenceCount, postInstallIntakeSequence.length);
+      const postInstallQuickProofStepCount = finiteNumberOr(postInstallIntake.quickProofStepCount, postInstallQuickProofSteps.length);
+      const postInstallQuickProofCoverage = finiteNumberOr(postInstallIntake.quickProofCoverage, 0);
+      const postInstallQuickProofFieldMappingCoverage = finiteNumberOr(postInstallIntake.quickProofFieldMappingCoverage, 0);
+      const postInstallQuickProofMappedFieldCount = finiteNumberOr(postInstallIntake.quickProofMappedFieldCount, postInstallQuickProofFieldMappings.length);
+      const postInstallQuickProofCompletedMappedFieldCount = finiteNumberOr(postInstallIntake.quickProofCompletedMappedFieldCount, 0);
+      const postInstallIntakePendingFieldCount = finiteNumberOr(
+        postInstallIntake.pendingFieldCount,
+        Math.max(postInstallIntakeFieldCount - postInstallIntakeCompletedCount, 0),
+      );
       const postInstallDispatchGuard = postInstallIntake.dispatchGuard || installMatrix.dispatchGuard || "Do not run gh workflow run until every post-install evidence field has been filled, remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, dispatchReady=true, driftDispatchReady=true, allDispatchReady=true, and verify-launch-handoff reports safeToDispatch=true.";
       const postInstallStopCondition = postInstallIntake.stopCondition || "Stop condition: do not run gh workflow run, archive proof, or claim launch until all six post-install evidence fields are filled and verify-launch-handoff reports safeToDispatch=true.";
       const authPreflight = data?.authPreflight || currentAction?.authPreflight || {};
@@ -1120,6 +1190,15 @@
       const postAuthBlockedSignals = Array.isArray(postAuthCheckpoint.blockedSignals) && postAuthCheckpoint.blockedSignals.length ? postAuthCheckpoint.blockedSignals : defaultPostAuthBlockedSignals;
       const postAuthRecheckSequence = Array.isArray(postAuthCheckpoint.recheckSequence) ? postAuthCheckpoint.recheckSequence : [];
       const postAuthSourceArtifacts = Array.isArray(postAuthCheckpoint.sourceArtifacts) ? postAuthCheckpoint.sourceArtifacts : [];
+      const postAuthCommandCount = finiteNumberOr(postAuthCheckpoint.commandCount, 0);
+      const postAuthRecheckSequenceCount = finiteNumberOr(postAuthCheckpoint.recheckSequenceCount, postAuthRecheckSequence.length);
+      const postAuthSourceArtifactCount = finiteNumberOr(postAuthCheckpoint.sourceArtifactCount, postAuthSourceArtifacts.length);
+      const postAuthExpectedSignalCount = finiteNumberOr(postAuthCheckpoint.expectedSignalCount, postAuthExpectedSignals.length);
+      const postAuthBlockedSignalCount = finiteNumberOr(postAuthCheckpoint.blockedSignalCount, postAuthBlockedSignals.length);
+      const postAuthExpectedSignalDisplay = postAuthExpectedSignalCount > 0 ? postAuthExpectedSignals.slice(0, postAuthExpectedSignalCount) : [];
+      const postAuthBlockedSignalDisplay = postAuthBlockedSignalCount > 0 ? postAuthBlockedSignals.slice(0, postAuthBlockedSignalCount) : [];
+      const postAuthRecheckSequenceDisplay = postAuthRecheckSequenceCount > 0 ? postAuthRecheckSequence.slice(0, postAuthRecheckSequenceCount) : [];
+      const postAuthSourceArtifactDisplay = postAuthSourceArtifactCount > 0 ? postAuthSourceArtifacts.slice(0, postAuthSourceArtifactCount) : [];
       const readyToDispatch = !!data?.readyToDispatch;
       const launchProofReady = !!data?.launchProofReady;
       const externalReady = !!data?.readyForExternalClaim;
@@ -1171,8 +1250,17 @@
           condition: readyToDispatch ? "Run only suggestedDispatchCommands, then capture launch proof." : "Keep gh workflow run withheld until allDispatchReady=true and safeToDispatch=true.",
         },
       ];
+      const proofLedgerRequiredCount = Number.isFinite(Number(proofLedger.requiredProofCount))
+        ? Number(proofLedger.requiredProofCount)
+        : (proofLedgerItems.length || 0);
+      const proofLedgerReadyCount = Number.isFinite(Number(proofLedger.readyProofCount))
+        ? Number(proofLedger.readyProofCount)
+        : 0;
+      const proofLedgerPendingCount = Number.isFinite(Number(proofLedger.pendingProofCount))
+        ? Number(proofLedger.pendingProofCount)
+        : Math.max(0, proofLedgerRequiredCount - proofLedgerReadyCount);
       return html`
-        <div class="launch-execution-packet" data-system-launch-execution-packet data-launch-execution-source="${source?.source || "data/launch-execution-packet.json"}" data-launch-execution-loaded="${loaded ? "true" : "false"}" data-launch-execution-ready-to-dispatch="${readyToDispatch ? "true" : "false"}" data-launch-execution-proof-ready="${launchProofReady ? "true" : "false"}" data-launch-execution-external-ready="${externalReady ? "true" : "false"}" data-launch-execution-stage-count="${stages.length}" data-launch-execution-command-count="${data?.commandCount || 0}" data-launch-execution-comparison-count="${comparisons.length}" data-launch-execution-blocker-count="${blockers.length}" data-launch-execution-auth-preflight-status="${authPreflight.status || ""}" data-launch-execution-auth-preflight-checked="${authPreflight.checked ? "true" : "false"}" data-launch-execution-auth-workflow-scope-available="${authPreflight.workflowScopeAvailable ? "true" : "false"}" data-launch-execution-auth-workflow-scope-install-blocked="${authPreflight.workflowScopeInstallBlocked ? "true" : "false"}" data-launch-execution-auth-scope-count="${authScopes.length}" data-launch-execution-auth-scope-list="${authScopeList}" data-launch-execution-auth-missing-scopes="${authMissingList}" data-launch-execution-auth-refresh-command="${authPreflight.refreshCommand || ""}" data-launch-execution-auth-recheck-command="${authPreflight.recheckCommand || ""}" data-launch-execution-auth-approval-status="${authApprovalStatus}" data-launch-execution-auth-approval-url="${authApprovalUrl}" data-launch-execution-post-auth-checkpoint-status="${postAuthCheckpoint.status || ""}" data-launch-execution-post-auth-checkpoint-command-count="${postAuthCheckpoint.commandCount || 0}" data-launch-execution-post-auth-checkpoint-recheck-count="${postAuthRecheckSequence.length}" data-launch-execution-post-auth-checkpoint-source-artifact-count="${postAuthSourceArtifacts.length}" data-launch-execution-post-auth-checkpoint-dispatch-approval="${postAuthCheckpoint.dispatchApproval ? "true" : "false"}" data-launch-execution-post-auth-checkpoint-verification-only="${postAuthCheckpoint.verificationOnly ? "true" : "false"}" data-launch-execution-post-auth-checkpoint-trigger-command="${postAuthCheckpoint.triggerCommand || ""}" data-launch-execution-post-auth-checkpoint-verify-command="${postAuthCheckpoint.verifyCommand || ""}" data-launch-execution-post-auth-checkpoint-install-command="${postAuthCheckpoint.installCommand || ""}" data-launch-execution-current-action-stage="${currentAction?.stageKey || ""}" data-launch-execution-current-action-status="${currentAction?.status || ""}" data-launch-execution-current-action-command-count="${currentAction?.commandCount || 0}" data-launch-execution-current-action-withheld-count="${currentAction?.withheldCommandCount || 0}" data-launch-execution-current-action-acceptance-count="${currentAcceptance.length}" data-launch-execution-current-action-acceptance-pass-count="${currentAction?.acceptancePassCount || 0}" data-launch-execution-current-action-acceptance-pending-count="${currentAction?.acceptancePendingCount || 0}" data-launch-execution-current-action-verify-count="${currentVerifyCommands.length}" data-launch-execution-transition-source="${stageTransition.source || "ui-fallback"}" data-launch-execution-transition-current-stage="${currentStageKey}" data-launch-execution-transition-next-stage="${transitionNextStageKey}" data-launch-execution-transition-ready="${transitionReady ? "true" : "false"}" data-launch-execution-transition-pending-count="${transitionPendingCount}" data-launch-execution-transition-pass-count="${transitionPassCount}" data-launch-execution-transition-withheld-count="${transitionWithheldCount}" data-launch-execution-transition-gate-command="${transitionGateCommand}" data-launch-execution-blocker-resolution-source="${blockerResolution.source || "missing"}" data-launch-execution-blocker-resolution-status="${blockerResolution.status || "missing"}" data-launch-execution-blocker-resolution-active="${blockerResolution.activeItemKey || ""}" data-launch-execution-blocker-resolution-item-count="${blockerResolution.itemCount || blockerResolutionItems.length}" data-launch-execution-blocker-resolution-action-required-count="${blockerResolution.actionRequiredCount || 0}" data-launch-execution-blocker-resolution-deferred-count="${blockerResolution.deferredCount || 0}" data-launch-execution-install-matrix-source="${installMatrix.source || "missing"}" data-launch-execution-install-matrix-path-count="${installMatrix.installPathCount || installMatrixRows.length}" data-launch-execution-install-matrix-signal-count="${installMatrix.requiredSignalCount || installMatrixSignals.length}" data-launch-execution-install-matrix-verification-command-count="${installMatrix.verificationCommandCount || installMatrixCommands.length}" data-launch-execution-install-matrix-ready-to-dispatch="${installMatrix.readyToDispatch ? "true" : "false"}" data-launch-post-install-evidence-intake-source="${postInstallIntake.source || "missing"}" data-launch-post-install-evidence-intake-status="${postInstallIntake.status || "missing"}" data-launch-post-install-evidence-intake-ready="${postInstallIntake.ready ? "true" : "false"}" data-launch-post-install-evidence-intake-proof-complete="${postInstallIntake.proofComplete ? "true" : "false"}" data-launch-post-install-evidence-intake-field-count="${postInstallIntake.fieldCount || postInstallIntakeFields.length}" data-launch-post-install-evidence-intake-completed-count="${postInstallIntake.completedFieldCount || 0}" data-launch-post-install-evidence-intake-command-count="${postInstallIntake.commandCount || postInstallIntakeCommands.length}" data-launch-post-install-evidence-intake-signal-count="${postInstallIntake.signalCount || postInstallIntakeSignals.length}" data-launch-post-install-evidence-intake-field-coverage="${postInstallIntake.fieldCoverage || 0}" data-launch-post-install-evidence-intake-sequence-count="${postInstallIntake.verificationSequenceCount || postInstallIntakeSequence.length}" data-launch-post-install-evidence-intake-sequence-ready="${postInstallIntake.verificationSequenceReady ? "true" : "false"}" data-launch-post-install-evidence-intake-final-command="${postInstallIntake.finalVerificationCommand || postInstallIntakeSequence[postInstallIntakeSequence.length - 1]?.command || ""}" data-launch-post-install-quick-proof-ready="${postInstallIntake.quickProofReady ? "true" : "false"}" data-launch-post-install-quick-proof-step-count="${postInstallIntake.quickProofStepCount || postInstallQuickProofSteps.length}" data-launch-post-install-quick-proof-coverage="${postInstallIntake.quickProofCoverage || 0}" data-launch-post-install-quick-proof-final-command="${postInstallIntake.quickProofFinalCommand || postInstallIntake.finalVerificationCommand || ""}" data-launch-post-install-quick-proof-field-mapping-ready="${postInstallIntake.quickProofFieldMappingReady ? "true" : "false"}" data-launch-post-install-quick-proof-field-mapping-coverage="${postInstallIntake.quickProofFieldMappingCoverage || 0}" data-launch-post-install-quick-proof-mapped-field-count="${postInstallIntake.quickProofMappedFieldCount || postInstallQuickProofFieldMappings.length}" data-launch-post-install-quick-proof-completed-mapped-field-count="${postInstallIntake.quickProofCompletedMappedFieldCount || 0}" data-remote-workflow-file-ledger-source="${remoteFileLedger.source || "missing"}" data-remote-workflow-file-ledger-status="${remoteFileLedger.status || "missing"}" data-remote-workflow-file-ledger-file-count="${remoteFileLedger.fileCount || remoteFileLedgerItems.length}" data-remote-workflow-file-ledger-ready-count="${remoteFileLedger.readyCount || 0}" data-remote-workflow-file-ledger-missing-count="${remoteFileLedger.missingCount || 0}" data-remote-workflow-file-ledger-mismatch-count="${remoteFileLedger.mismatchCount || 0}" data-launch-proof-ledger-source="${proofLedger.source || "missing"}" data-launch-proof-ledger-status="${proofLedger.status || "missing"}" data-launch-proof-ledger-required-count="${proofLedger.requiredProofCount || proofLedgerItems.length}" data-launch-proof-ledger-ready-count="${proofLedger.readyProofCount || 0}" data-launch-proof-ledger-pending-count="${proofLedger.pendingProofCount || proofLedgerItems.length}" data-launch-proof-ledger-current-gate="${proofLedger.currentGate || "capture_launch_proof"}" data-launch-proof-ledger-capture-command="${proofLedger.captureWriteCommand || ""}">
+        <div class="launch-execution-packet" data-system-launch-execution-packet data-launch-execution-source="${source?.source || "data/launch-execution-packet.json"}" data-launch-execution-loaded="${loaded ? "true" : "false"}" data-launch-execution-ready-to-dispatch="${readyToDispatch ? "true" : "false"}" data-launch-execution-proof-ready="${launchProofReady ? "true" : "false"}" data-launch-execution-external-ready="${externalReady ? "true" : "false"}" data-launch-execution-stage-count="${stages.length}" data-launch-execution-command-count="${data?.commandCount || 0}" data-launch-execution-comparison-count="${comparisons.length}" data-launch-execution-blocker-count="${blockers.length}" data-launch-execution-auth-preflight-status="${authPreflight.status || ""}" data-launch-execution-auth-preflight-checked="${authPreflight.checked ? "true" : "false"}" data-launch-execution-auth-workflow-scope-available="${authPreflight.workflowScopeAvailable ? "true" : "false"}" data-launch-execution-auth-workflow-scope-install-blocked="${authPreflight.workflowScopeInstallBlocked ? "true" : "false"}" data-launch-execution-auth-scope-count="${authScopes.length}" data-launch-execution-auth-scope-list="${authScopeList}" data-launch-execution-auth-missing-scopes="${authMissingList}" data-launch-execution-auth-refresh-command="${authPreflight.refreshCommand || ""}" data-launch-execution-auth-recheck-command="${authPreflight.recheckCommand || ""}" data-launch-execution-auth-approval-status="${authApprovalStatus}" data-launch-execution-auth-approval-url="${authApprovalUrl}" data-launch-execution-post-auth-checkpoint-status="${postAuthCheckpoint.status || ""}" data-launch-execution-post-auth-checkpoint-command-count="${postAuthCommandCount}" data-launch-execution-post-auth-checkpoint-expected-count="${postAuthExpectedSignalCount}" data-launch-execution-post-auth-checkpoint-blocked-count="${postAuthBlockedSignalCount}" data-launch-execution-post-auth-checkpoint-recheck-count="${postAuthRecheckSequenceCount}" data-launch-execution-post-auth-checkpoint-source-artifact-count="${postAuthSourceArtifactCount}" data-launch-execution-post-auth-checkpoint-dispatch-approval="${postAuthCheckpoint.dispatchApproval ? "true" : "false"}" data-launch-execution-post-auth-checkpoint-verification-only="${postAuthCheckpoint.verificationOnly ? "true" : "false"}" data-launch-execution-post-auth-checkpoint-trigger-command="${postAuthCheckpoint.triggerCommand || ""}" data-launch-execution-post-auth-checkpoint-verify-command="${postAuthCheckpoint.verifyCommand || ""}" data-launch-execution-post-auth-checkpoint-install-command="${postAuthCheckpoint.installCommand || ""}" data-launch-execution-current-action-stage="${currentAction?.stageKey || ""}" data-launch-execution-current-action-status="${currentAction?.status || ""}" data-launch-execution-current-action-command-count="${currentAction?.commandCount || 0}" data-launch-execution-current-action-withheld-count="${currentAction?.withheldCommandCount || 0}" data-launch-execution-current-action-acceptance-count="${currentAcceptance.length}" data-launch-execution-current-action-acceptance-pass-count="${currentAction?.acceptancePassCount || 0}" data-launch-execution-current-action-acceptance-pending-count="${currentAction?.acceptancePendingCount || 0}" data-launch-execution-current-action-verify-count="${currentVerifyCommands.length}" data-launch-execution-transition-source="${stageTransition.source || "ui-fallback"}" data-launch-execution-transition-current-stage="${currentStageKey}" data-launch-execution-transition-next-stage="${transitionNextStageKey}" data-launch-execution-transition-ready="${transitionReady ? "true" : "false"}" data-launch-execution-transition-pending-count="${transitionPendingCount}" data-launch-execution-transition-pass-count="${transitionPassCount}" data-launch-execution-transition-withheld-count="${transitionWithheldCount}" data-launch-execution-transition-gate-command="${transitionGateCommand}" data-launch-execution-blocker-resolution-source="${blockerResolution.source || "missing"}" data-launch-execution-blocker-resolution-status="${blockerResolution.status || "missing"}" data-launch-execution-blocker-resolution-active="${blockerResolution.activeItemKey || ""}" data-launch-execution-blocker-resolution-item-count="${blockerResolutionItemCount}" data-launch-execution-blocker-resolution-action-required-count="${blockerResolutionActionRequiredCount}" data-launch-execution-blocker-resolution-deferred-count="${blockerResolutionDeferredCount}" data-launch-execution-install-matrix-source="${installMatrix.source || "missing"}" data-launch-execution-install-matrix-path-count="${installMatrixPathCount}" data-launch-execution-install-matrix-signal-count="${installMatrixSignalCount}" data-launch-execution-install-matrix-verification-command-count="${installMatrixVerificationCommandCount}" data-launch-execution-install-matrix-ready-to-dispatch="${installMatrix.readyToDispatch ? "true" : "false"}" data-launch-post-install-evidence-intake-source="${postInstallIntake.source || "missing"}" data-launch-post-install-evidence-intake-status="${postInstallIntake.status || "missing"}" data-launch-post-install-evidence-intake-ready="${postInstallIntake.ready ? "true" : "false"}" data-launch-post-install-evidence-intake-proof-complete="${postInstallIntake.proofComplete ? "true" : "false"}" data-launch-post-install-evidence-intake-field-count="${postInstallIntakeFieldCount}" data-launch-post-install-evidence-intake-completed-count="${postInstallIntakeCompletedCount}" data-launch-post-install-evidence-intake-command-count="${postInstallIntakeCommandCount}" data-launch-post-install-evidence-intake-signal-count="${postInstallIntakeSignalCount}" data-launch-post-install-evidence-intake-field-coverage="${postInstallIntakeFieldCoverage}" data-launch-post-install-evidence-intake-sequence-count="${postInstallIntakeSequenceCount}" data-launch-post-install-evidence-intake-sequence-ready="${postInstallIntake.verificationSequenceReady ? "true" : "false"}" data-launch-post-install-evidence-intake-final-command="${postInstallIntake.finalVerificationCommand || postInstallIntakeSequence[postInstallIntakeSequence.length - 1]?.command || ""}" data-launch-post-install-quick-proof-ready="${postInstallIntake.quickProofReady ? "true" : "false"}" data-launch-post-install-quick-proof-step-count="${postInstallQuickProofStepCount}" data-launch-post-install-quick-proof-coverage="${postInstallQuickProofCoverage}" data-launch-post-install-quick-proof-final-command="${postInstallIntake.quickProofFinalCommand || postInstallIntake.finalVerificationCommand || ""}" data-launch-post-install-quick-proof-field-mapping-ready="${postInstallIntake.quickProofFieldMappingReady ? "true" : "false"}" data-launch-post-install-quick-proof-field-mapping-coverage="${postInstallQuickProofFieldMappingCoverage}" data-launch-post-install-quick-proof-mapped-field-count="${postInstallQuickProofMappedFieldCount}" data-launch-post-install-quick-proof-completed-mapped-field-count="${postInstallQuickProofCompletedMappedFieldCount}" data-remote-workflow-file-ledger-source="${remoteFileLedger.source || "missing"}" data-remote-workflow-file-ledger-status="${remoteFileLedger.status || "missing"}" data-remote-workflow-file-ledger-file-count="${remoteFileLedgerFileCount}" data-remote-workflow-file-ledger-ready-count="${remoteFileLedgerReadyCount}" data-remote-workflow-file-ledger-missing-count="${remoteFileLedgerMissingCount}" data-remote-workflow-file-ledger-mismatch-count="${remoteFileLedgerMismatchCount}" data-launch-proof-ledger-source="${proofLedger.source || "missing"}" data-launch-proof-ledger-status="${proofLedger.status || "missing"}" data-launch-proof-ledger-required-count="${proofLedgerRequiredCount}" data-launch-proof-ledger-ready-count="${proofLedgerReadyCount}" data-launch-proof-ledger-pending-count="${proofLedgerPendingCount}" data-launch-proof-ledger-current-gate="${proofLedger.currentGate || "capture_launch_proof"}" data-launch-proof-ledger-capture-command="${proofLedger.captureWriteCommand || ""}">
           <div class="publish-evidence-head">
             <strong>Launch execution packet</strong>
             <span class="publish-state" data-launch-execution-state-label>${stateLabel}</span>
@@ -1254,24 +1342,27 @@
                 <div><dt>confirm scope</dt><dd>${postAuthCheckpoint.authStatusCommand || "gh auth status -h github.com"}</dd></div>
                 <div><dt>verify handoff</dt><dd>${postAuthCheckpoint.verifyCommand || "node scripts/verify-launch-handoff.mjs --repo OWNER/REPO --write --markdown"}</dd></div>
                 <div><dt>install after pass</dt><dd>${postAuthCheckpoint.installCommand || "node scripts/install-remote-workflow-files.mjs --repo OWNER/REPO --write --verify"}</dd></div>
-                <div><dt>recheck sequence</dt><dd>${postAuthRecheckSequence.length}</dd></div>
-                <div><dt>source artifacts</dt><dd>${postAuthSourceArtifacts.length}</dd></div>
+                <div><dt>commands</dt><dd>${postAuthCommandCount}</dd></div>
+                <div><dt>expected signals</dt><dd>${postAuthExpectedSignalCount}</dd></div>
+                <div><dt>blocked signals</dt><dd>${postAuthBlockedSignalCount}</dd></div>
+                <div><dt>recheck sequence</dt><dd>${postAuthRecheckSequenceCount}</dd></div>
+                <div><dt>source artifacts</dt><dd>${postAuthSourceArtifactCount}</dd></div>
                 <div><dt>verification only</dt><dd>${postAuthCheckpoint.verificationOnly ? "true" : "false"}</dd></div>
                 <div><dt>dispatch approval</dt><dd>${postAuthCheckpoint.dispatchApproval ? "true" : "false"}</dd></div>
               </dl>
-              <div class="launch-execution-commands">
+              <div class="launch-execution-commands" data-launch-post-auth-expected-signals data-launch-post-auth-expected-count="${postAuthExpectedSignalCount}">
                 <span>Expected signals</span>
-                ${postAuthExpectedSignals.map((signal) => raw(html`<code>${signal}</code>`))}
+                ${postAuthExpectedSignalDisplay.map((signal) => raw(html`<code>${signal}</code>`))}
               </div>
-              <div class="launch-execution-commands">
+              <div class="launch-execution-commands" data-launch-post-auth-blocked-signals data-launch-post-auth-blocked-count="${postAuthBlockedSignalCount}">
                 <span>Still blocked if</span>
-                ${postAuthBlockedSignals.map((signal) => raw(html`<code>${signal}</code>`))}
+                ${postAuthBlockedSignalDisplay.map((signal) => raw(html`<code>${signal}</code>`))}
               </div>
-              ${postAuthRecheckSequence.length ? raw(html`
-                <div class="launch-execution-commands" data-launch-post-auth-recheck-sequence data-launch-post-auth-recheck-count="${postAuthRecheckSequence.length}">
+              ${postAuthRecheckSequenceDisplay.length ? raw(html`
+                <div class="launch-execution-commands" data-launch-post-auth-recheck-sequence data-launch-post-auth-recheck-count="${postAuthRecheckSequenceCount}">
                   <span>Ordered recheck sequence</span>
                   <ol>
-                    ${postAuthRecheckSequence.map((step, index) => raw(html`
+                    ${postAuthRecheckSequenceDisplay.map((step, index) => raw(html`
                       <li data-launch-post-auth-recheck-step data-launch-post-auth-recheck-index="${index + 1}" data-launch-post-auth-recheck-key="${step.key || ""}" data-launch-post-auth-recheck-command="${step.command || ""}" data-launch-post-auth-recheck-source="${step.sourceArtifact || ""}" data-launch-post-auth-recheck-expected="${step.expected || ""}" data-launch-post-auth-recheck-stop="${step.stopCondition || ""}">
                         <strong>${index + 1}. ${step.label || step.key || "recheck"}</strong>
                         <code>${step.command || "not available"}</code>
@@ -1281,10 +1372,10 @@
                   </ol>
                 </div>
               `) : ""}
-              ${postAuthSourceArtifacts.length ? raw(html`
-                <div class="launch-execution-commands" data-launch-post-auth-source-artifacts data-launch-post-auth-source-artifact-count="${postAuthSourceArtifacts.length}">
+              ${postAuthSourceArtifactDisplay.length ? raw(html`
+                <div class="launch-execution-commands" data-launch-post-auth-source-artifacts data-launch-post-auth-source-artifact-count="${postAuthSourceArtifactCount}">
                   <span>Source artifacts</span>
-                  ${postAuthSourceArtifacts.map((artifact) => raw(html`<code data-launch-post-auth-source-artifact="${artifact}">${artifact}</code>`))}
+                  ${postAuthSourceArtifactDisplay.map((artifact) => raw(html`<code data-launch-post-auth-source-artifact="${artifact}">${artifact}</code>`))}
                 </div>
               `) : ""}
               <p>${postAuthCheckpoint.guard || "Do not run gh workflow run until every action_required post-auth checkpoint item has passed and verify-launch-handoff reports safeToDispatch=true."}</p>
@@ -1361,7 +1452,7 @@
             </article>
           `) : ""}
           ${blockerResolutionItems.length ? raw(html`
-            <article class="launch-blocker-resolution-checklist" data-launch-blocker-resolution-checklist data-launch-blocker-resolution-source="${blockerResolution.source || "missing"}" data-launch-blocker-resolution-status="${blockerResolution.status || "missing"}" data-launch-blocker-resolution-active="${blockerResolution.activeItemKey || ""}" data-launch-blocker-resolution-item-count="${blockerResolution.itemCount || blockerResolutionItems.length}" data-launch-blocker-resolution-pass-count="${blockerResolution.passCount || 0}" data-launch-blocker-resolution-action-required-count="${blockerResolution.actionRequiredCount || 0}" data-launch-blocker-resolution-deferred-count="${blockerResolution.deferredCount || 0}" data-launch-blocker-resolution-proof-command-count="${blockerResolution.proofCommandCount || 0}" data-launch-blocker-resolution-guard="${blockerResolution.guard || blockerResolution.dispatchGuard || ""}">
+            <article class="launch-blocker-resolution-checklist" data-launch-blocker-resolution-checklist data-launch-blocker-resolution-source="${blockerResolution.source || "missing"}" data-launch-blocker-resolution-status="${blockerResolution.status || "missing"}" data-launch-blocker-resolution-active="${blockerResolution.activeItemKey || ""}" data-launch-blocker-resolution-item-count="${blockerResolutionItemCount}" data-launch-blocker-resolution-pass-count="${blockerResolutionPassCount}" data-launch-blocker-resolution-action-required-count="${blockerResolutionActionRequiredCount}" data-launch-blocker-resolution-deferred-count="${blockerResolutionDeferredCount}" data-launch-blocker-resolution-proof-command-count="${blockerResolutionProofCommandCount}" data-launch-blocker-resolution-guard="${blockerResolution.guard || blockerResolution.dispatchGuard || ""}">
               <div>
                 <span>Blocker resolution checklist</span>
                 <strong>${blockerResolution.activeItemKey || "no active blocker"}</strong>
@@ -1369,10 +1460,10 @@
               </div>
               <p>현재 막힌 launch 신호를 조치, 증명 명령, 기대값, 중단 조건으로 나눕니다. <code>safeToDispatch=true</code> 전에는 dispatch와 public claim을 계속 보류합니다.</p>
               <dl class="storage-grid">
-                <div><dt>pass</dt><dd>${blockerResolution.passCount || 0}/${blockerResolution.itemCount || blockerResolutionItems.length}</dd></div>
-                <div><dt>action required</dt><dd>${blockerResolution.actionRequiredCount || 0}</dd></div>
-                <div><dt>deferred</dt><dd>${blockerResolution.deferredCount || 0}</dd></div>
-                <div><dt>proof commands</dt><dd>${blockerResolution.proofCommandCount || 0}</dd></div>
+                <div><dt>pass</dt><dd>${blockerResolutionPassCount}/${blockerResolutionItemCount}</dd></div>
+                <div><dt>action required</dt><dd>${blockerResolutionActionRequiredCount}</dd></div>
+                <div><dt>deferred</dt><dd>${blockerResolutionDeferredCount}</dd></div>
+                <div><dt>proof commands</dt><dd>${blockerResolutionProofCommandCount}</dd></div>
               </dl>
               <ul class="launch-execution-acceptance" data-launch-blocker-resolution-list>
                 ${blockerResolutionItems.map((item) => raw(html`
@@ -1390,7 +1481,7 @@
             </article>
           `) : ""}
           ${installMatrixRows.length ? raw(html`
-            <article class="launch-install-verification-matrix" data-launch-install-verification-matrix data-launch-install-verification-source="${installMatrix.source || "missing"}" data-launch-install-verification-status="${installMatrix.status || "unknown"}" data-launch-install-verification-path-count="${installMatrix.installPathCount || installMatrixRows.length}" data-launch-install-verification-signal-count="${installMatrix.requiredSignalCount || installMatrixSignals.length}" data-launch-install-verification-command-count="${installMatrix.verificationCommandCount || installMatrixCommands.length}" data-launch-install-verification-next-stage="${installMatrix.nextStageKey || "verify_visibility"}" data-launch-install-verification-ready-to-dispatch="${installMatrix.readyToDispatch ? "true" : "false"}">
+            <article class="launch-install-verification-matrix" data-launch-install-verification-matrix data-launch-install-verification-source="${installMatrix.source || "missing"}" data-launch-install-verification-status="${installMatrix.status || "unknown"}" data-launch-install-verification-path-count="${installMatrixPathCount}" data-launch-install-verification-signal-count="${installMatrixSignalCount}" data-launch-install-verification-command-count="${installMatrixVerificationCommandCount}" data-launch-install-verification-next-stage="${installMatrix.nextStageKey || "verify_visibility"}" data-launch-install-verification-ready-to-dispatch="${installMatrix.readyToDispatch ? "true" : "false"}">
               <div>
                 <span>Workflow install verification matrix</span>
                 <strong>${installMatrix.currentStageKey || "install_workflows"} -> ${installMatrix.nextStageKey || "verify_visibility"}</strong>
@@ -1422,25 +1513,25 @@
             </article>
           `) : ""}
           ${postInstallIntakeFields.length ? raw(html`
-            <article class="launch-post-install-evidence-intake" data-launch-post-install-evidence-intake data-launch-post-install-evidence-intake-source="${postInstallIntake.source || "missing"}" data-launch-post-install-evidence-intake-status="${postInstallIntake.status || "missing"}" data-launch-post-install-evidence-intake-ready="${postInstallIntake.ready ? "true" : "false"}" data-launch-post-install-evidence-intake-proof-complete="${postInstallIntake.proofComplete ? "true" : "false"}" data-launch-post-install-evidence-intake-field-count="${postInstallIntake.fieldCount || postInstallIntakeFields.length}" data-launch-post-install-evidence-intake-completed-count="${postInstallIntake.completedFieldCount || 0}" data-launch-post-install-evidence-intake-command-count="${postInstallIntake.commandCount || postInstallIntakeCommands.length}" data-launch-post-install-evidence-intake-signal-count="${postInstallIntake.signalCount || postInstallIntakeSignals.length}" data-launch-post-install-evidence-intake-field-coverage="${postInstallIntake.fieldCoverage || 0}" data-launch-post-install-evidence-intake-sequence-count="${postInstallIntake.verificationSequenceCount || postInstallIntakeSequence.length}" data-launch-post-install-evidence-intake-sequence-ready="${postInstallIntake.verificationSequenceReady ? "true" : "false"}" data-launch-post-install-evidence-intake-final-command="${postInstallIntake.finalVerificationCommand || postInstallIntakeSequence[postInstallIntakeSequence.length - 1]?.command || ""}" data-launch-post-install-quick-proof-ready="${postInstallIntake.quickProofReady ? "true" : "false"}" data-launch-post-install-quick-proof-step-count="${postInstallIntake.quickProofStepCount || postInstallQuickProofSteps.length}" data-launch-post-install-quick-proof-coverage="${postInstallIntake.quickProofCoverage || 0}" data-launch-post-install-quick-proof-final-command="${postInstallIntake.quickProofFinalCommand || postInstallIntake.finalVerificationCommand || ""}" data-launch-post-install-quick-proof-field-mapping-ready="${postInstallIntake.quickProofFieldMappingReady ? "true" : "false"}" data-launch-post-install-quick-proof-field-mapping-coverage="${postInstallIntake.quickProofFieldMappingCoverage || 0}" data-launch-post-install-quick-proof-mapped-field-count="${postInstallIntake.quickProofMappedFieldCount || postInstallQuickProofFieldMappings.length}" data-launch-post-install-quick-proof-completed-mapped-field-count="${postInstallIntake.quickProofCompletedMappedFieldCount || 0}">
+            <article class="launch-post-install-evidence-intake" data-launch-post-install-evidence-intake data-launch-post-install-evidence-intake-source="${postInstallIntake.source || "missing"}" data-launch-post-install-evidence-intake-status="${postInstallIntake.status || "missing"}" data-launch-post-install-evidence-intake-ready="${postInstallIntake.ready ? "true" : "false"}" data-launch-post-install-evidence-intake-proof-complete="${postInstallIntake.proofComplete ? "true" : "false"}" data-launch-post-install-evidence-intake-field-count="${postInstallIntakeFieldCount}" data-launch-post-install-evidence-intake-completed-count="${postInstallIntakeCompletedCount}" data-launch-post-install-evidence-intake-command-count="${postInstallIntakeCommandCount}" data-launch-post-install-evidence-intake-signal-count="${postInstallIntakeSignalCount}" data-launch-post-install-evidence-intake-field-coverage="${postInstallIntakeFieldCoverage}" data-launch-post-install-evidence-intake-sequence-count="${postInstallIntakeSequenceCount}" data-launch-post-install-evidence-intake-sequence-ready="${postInstallIntake.verificationSequenceReady ? "true" : "false"}" data-launch-post-install-evidence-intake-final-command="${postInstallIntake.finalVerificationCommand || postInstallIntakeSequence[postInstallIntakeSequence.length - 1]?.command || ""}" data-launch-post-install-quick-proof-ready="${postInstallIntake.quickProofReady ? "true" : "false"}" data-launch-post-install-quick-proof-step-count="${postInstallQuickProofStepCount}" data-launch-post-install-quick-proof-coverage="${postInstallQuickProofCoverage}" data-launch-post-install-quick-proof-final-command="${postInstallIntake.quickProofFinalCommand || postInstallIntake.finalVerificationCommand || ""}" data-launch-post-install-quick-proof-field-mapping-ready="${postInstallIntake.quickProofFieldMappingReady ? "true" : "false"}" data-launch-post-install-quick-proof-field-mapping-coverage="${postInstallQuickProofFieldMappingCoverage}" data-launch-post-install-quick-proof-mapped-field-count="${postInstallQuickProofMappedFieldCount}" data-launch-post-install-quick-proof-completed-mapped-field-count="${postInstallQuickProofCompletedMappedFieldCount}">
               <div>
                 <span>Post-install evidence intake</span>
-                <strong>${postInstallIntake.completedFieldCount || 0}/${postInstallIntake.fieldCount || postInstallIntakeFields.length} proof fields complete</strong>
+                <strong>${postInstallIntakeCompletedCount}/${postInstallIntakeFieldCount} proof fields complete</strong>
                 <small>${postInstallIntake.status || "collect_post_install_proof"} · proofComplete=${postInstallIntake.proofComplete ? "true" : "false"}</small>
               </div>
               <p>GitHub UI 또는 workflow-scope CLI 설치 직후 commit, remote parity, Actions visibility, dispatch readiness, handoff verifier 증거를 한 객체로 모읍니다. 이 ledger가 copy-ready여도 <code>proofComplete=false</code>이면 dispatch는 계속 보류합니다.</p>
               <dl class="storage-grid">
-                <div><dt>coverage</dt><dd>${postInstallIntake.fieldCoverage || 0}</dd></div>
-                <div><dt>commands</dt><dd>${postInstallIntake.commandCount || postInstallIntakeCommands.length}</dd></div>
-                <div><dt>signals</dt><dd>${postInstallIntake.signalCount || postInstallIntakeSignals.length}</dd></div>
-                <div><dt>pending</dt><dd>${postInstallIntake.pendingFieldCount || Math.max((postInstallIntake.fieldCount || postInstallIntakeFields.length) - (postInstallIntake.completedFieldCount || 0), 0)}</dd></div>
-                <div><dt>quickProofCoverage</dt><dd>${postInstallIntake.quickProofCoverage || 0}</dd></div>
-                <div><dt>quickProofSteps</dt><dd>${postInstallIntake.quickProofStepCount || postInstallQuickProofSteps.length}</dd></div>
-                <div><dt>quickProofFieldMappingCoverage</dt><dd>${postInstallIntake.quickProofFieldMappingCoverage || 0}</dd></div>
-                <div><dt>mappedFields</dt><dd>${postInstallIntake.quickProofCompletedMappedFieldCount || 0}/${postInstallIntake.quickProofMappedFieldCount || postInstallQuickProofFieldMappings.length}</dd></div>
+                <div><dt>coverage</dt><dd>${postInstallIntakeFieldCoverage}</dd></div>
+                <div><dt>commands</dt><dd>${postInstallIntakeCommandCount}</dd></div>
+                <div><dt>signals</dt><dd>${postInstallIntakeSignalCount}</dd></div>
+                <div><dt>pending</dt><dd>${postInstallIntakePendingFieldCount}</dd></div>
+                <div><dt>quickProofCoverage</dt><dd>${postInstallQuickProofCoverage}</dd></div>
+                <div><dt>quickProofSteps</dt><dd>${postInstallQuickProofStepCount}</dd></div>
+                <div><dt>quickProofFieldMappingCoverage</dt><dd>${postInstallQuickProofFieldMappingCoverage}</dd></div>
+                <div><dt>mappedFields</dt><dd>${postInstallQuickProofCompletedMappedFieldCount}/${postInstallQuickProofMappedFieldCount}</dd></div>
               </dl>
               ${postInstallQuickProofSteps.length ? raw(html`
-                <div class="post-install-quick-proof" data-launch-post-install-quick-proof data-launch-post-install-quick-proof-ready="${postInstallIntake.quickProofReady ? "true" : "false"}" data-launch-post-install-quick-proof-step-count="${postInstallIntake.quickProofStepCount || postInstallQuickProofSteps.length}" data-launch-post-install-quick-proof-coverage="${postInstallIntake.quickProofCoverage || 0}">
+                <div class="post-install-quick-proof" data-launch-post-install-quick-proof data-launch-post-install-quick-proof-ready="${postInstallIntake.quickProofReady ? "true" : "false"}" data-launch-post-install-quick-proof-step-count="${postInstallQuickProofStepCount}" data-launch-post-install-quick-proof-coverage="${postInstallQuickProofCoverage}">
                   <span>Quick proof</span>
                   <ol>
                     ${postInstallQuickProofSteps.map((step, index) => raw(html`
@@ -1454,7 +1545,7 @@
                 </div>
               `) : ""}
               ${postInstallQuickProofFieldMappings.length ? raw(html`
-                <div class="post-install-quick-proof-map" data-launch-post-install-quick-proof-field-map data-launch-post-install-quick-proof-field-mapping-ready="${postInstallIntake.quickProofFieldMappingReady ? "true" : "false"}" data-launch-post-install-quick-proof-field-mapping-coverage="${postInstallIntake.quickProofFieldMappingCoverage || 0}" data-launch-post-install-quick-proof-mapped-field-count="${postInstallIntake.quickProofMappedFieldCount || postInstallQuickProofFieldMappings.length}" data-launch-post-install-quick-proof-completed-mapped-field-count="${postInstallIntake.quickProofCompletedMappedFieldCount || 0}">
+                <div class="post-install-quick-proof-map" data-launch-post-install-quick-proof-field-map data-launch-post-install-quick-proof-field-mapping-ready="${postInstallIntake.quickProofFieldMappingReady ? "true" : "false"}" data-launch-post-install-quick-proof-field-mapping-coverage="${postInstallQuickProofFieldMappingCoverage}" data-launch-post-install-quick-proof-mapped-field-count="${postInstallQuickProofMappedFieldCount}" data-launch-post-install-quick-proof-completed-mapped-field-count="${postInstallQuickProofCompletedMappedFieldCount}">
                   <span>Mapped fields</span>
                   <ol>
                     ${postInstallQuickProofFieldMappings.map((item, index) => raw(html`
@@ -1472,7 +1563,7 @@
 	                ${postInstallIntakeCommands.map((command) => raw(html`<code data-launch-post-install-evidence-intake-command>${command}</code>`))}
 	              </div>
               ${postInstallIntakeSequence.length ? raw(html`
-                <div class="post-install-evidence-intake-sequence" data-launch-post-install-evidence-intake-sequence data-launch-post-install-evidence-intake-sequence-count="${postInstallIntake.verificationSequenceCount || postInstallIntakeSequence.length}" data-launch-post-install-evidence-intake-sequence-ready="${postInstallIntake.verificationSequenceReady ? "true" : "false"}">
+                <div class="post-install-evidence-intake-sequence" data-launch-post-install-evidence-intake-sequence data-launch-post-install-evidence-intake-sequence-count="${postInstallIntakeSequenceCount}" data-launch-post-install-evidence-intake-sequence-ready="${postInstallIntake.verificationSequenceReady ? "true" : "false"}">
                   <span>Verification sequence</span>
                   <ol>
                     ${postInstallIntakeSequence.map((step, index) => raw(html`
@@ -1503,13 +1594,13 @@
             </article>
           `) : ""}
           ${remoteFileLedgerItems.length ? raw(html`
-            <article class="remote-workflow-file-acceptance-ledger" data-remote-workflow-file-acceptance-ledger data-remote-workflow-file-ledger-source="${remoteFileLedger.source || "missing"}" data-remote-workflow-file-ledger-status="${remoteFileLedger.status || "missing"}" data-remote-workflow-file-ledger-file-count="${remoteFileLedger.fileCount || remoteFileLedgerItems.length}" data-remote-workflow-file-ledger-ready-count="${remoteFileLedger.readyCount || 0}" data-remote-workflow-file-ledger-missing-count="${remoteFileLedger.missingCount || 0}" data-remote-workflow-file-ledger-mismatch-count="${remoteFileLedger.mismatchCount || 0}" data-remote-workflow-file-ledger-verify-command="${remoteFileLedger.verifyCommand || ""}">
+            <article class="remote-workflow-file-acceptance-ledger" data-remote-workflow-file-acceptance-ledger data-remote-workflow-file-ledger-source="${remoteFileLedger.source || "missing"}" data-remote-workflow-file-ledger-status="${remoteFileLedger.status || "missing"}" data-remote-workflow-file-ledger-file-count="${remoteFileLedgerFileCount}" data-remote-workflow-file-ledger-ready-count="${remoteFileLedgerReadyCount}" data-remote-workflow-file-ledger-missing-count="${remoteFileLedgerMissingCount}" data-remote-workflow-file-ledger-mismatch-count="${remoteFileLedgerMismatchCount}" data-remote-workflow-file-ledger-verify-command="${remoteFileLedger.verifyCommand || ""}">
               <div>
                 <span>Remote workflow file acceptance ledger</span>
-                <strong>${remoteFileLedger.readyCount || 0}/${remoteFileLedger.fileCount || remoteFileLedgerItems.length} files ready</strong>
+                <strong>${remoteFileLedgerReadyCount}/${remoteFileLedgerFileCount} files ready</strong>
                 <small>${remoteFileLedger.status || "remote_file_install_required"}</small>
               </div>
-              <p>default branch에 설치되어야 하는 workflow 파일을 파일 단위로 검증합니다. 각 row는 template SHA, remote SHA, GitHub new-file URL, remoteExists, remoteMatchesTemplate를 함께 보여줍니다.</p>
+              <p>default branch에 설치되어야 하는 workflow 파일을 파일 단위로 검증합니다. 각 row는 template SHA, remote SHA, installAction, GitHub create/edit command, remoteExists, remoteMatchesTemplate를 함께 보여줍니다.</p>
               <div class="launch-execution-commands" data-remote-workflow-file-ledger-commands>
                 <span>Verify after install</span>
                 <code>${remoteFileLedger.verifyCommand || "node scripts/check-remote-workflow-files.mjs --repo OWNER/REPO --write"}</code>
@@ -1520,26 +1611,26 @@
                   <li data-remote-workflow-file-ledger-item data-remote-workflow-file-key="${file.key || ""}" data-remote-workflow-file-status="${file.status || ""}" data-remote-workflow-file-remote-exists="${file.remoteExists ? "true" : "false"}" data-remote-workflow-file-remote-matches="${file.remoteMatchesTemplate ? "true" : "false"}">
                     <div><strong>${file.name || file.key}</strong><span>${file.status || "pending"}</span></div>
                     <p>${file.path || ""}</p>
-                    <small>templateSha256=${file.templateSha256 || "not available"} · remoteSha256=${file.remoteSha256 || "not available"} · ${file.evidence || ""}</small>
+                    <small>installAction=${file.installAction || "pending"} · templateSha256=${file.templateSha256 || "not available"} · remoteSha256=${file.remoteSha256 || "not available"} · ${file.evidence || ""}</small>
                     <code>${file.templateCopyCommand || "copy template"}</code>
-                    <code>${file.githubNewFileOpenCommand || file.githubNewFileUrl || "open GitHub new-file page"}</code>
+                    <code>${file.openCommand || (file.installAction === "verified_remote_matches_template" ? "No GitHub file edit required" : file.githubNewFileOpenCommand || file.githubNewFileUrl || "open GitHub file page")}</code>
                   </li>
                 `))}
               </ul>
             </article>
           `) : ""}
           ${proofLedgerItems.length ? raw(html`
-            <article class="launch-proof-acceptance-ledger" data-launch-proof-acceptance-ledger data-launch-proof-ledger-source="${proofLedger.source || "missing"}" data-launch-proof-ledger-status="${proofLedger.status || "missing"}" data-launch-proof-ledger-required-count="${proofLedger.requiredProofCount || proofLedgerItems.length}" data-launch-proof-ledger-ready-count="${proofLedger.readyProofCount || 0}" data-launch-proof-ledger-pending-count="${proofLedger.pendingProofCount || proofLedgerItems.length}" data-launch-proof-ledger-current-gate="${proofLedger.currentGate || "capture_launch_proof"}" data-launch-proof-ledger-current-gate-status="${proofLedger.currentGateStatus || ""}" data-launch-proof-ledger-deferred-until="${proofLedger.deferredUntil || "safeToDispatch=true"}" data-launch-proof-ledger-capture-command="${proofLedger.captureWriteCommand || ""}">
+            <article class="launch-proof-acceptance-ledger" data-launch-proof-acceptance-ledger data-launch-proof-ledger-source="${proofLedger.source || "missing"}" data-launch-proof-ledger-status="${proofLedger.status || "missing"}" data-launch-proof-ledger-required-count="${proofLedgerRequiredCount}" data-launch-proof-ledger-ready-count="${proofLedgerReadyCount}" data-launch-proof-ledger-pending-count="${proofLedgerPendingCount}" data-launch-proof-ledger-current-gate="${proofLedger.currentGate || "capture_launch_proof"}" data-launch-proof-ledger-current-gate-status="${proofLedger.currentGateStatus || ""}" data-launch-proof-ledger-deferred-until="${proofLedger.deferredUntil || "safeToDispatch=true"}" data-launch-proof-ledger-capture-command="${proofLedger.captureWriteCommand || ""}">
               <div>
                 <span>Launch proof acceptance ledger</span>
-                <strong>${proofLedger.readyProofCount || 0}/${proofLedger.requiredProofCount || proofLedgerItems.length} proofs ready</strong>
+                <strong>${proofLedgerReadyCount}/${proofLedgerRequiredCount} proofs ready</strong>
                 <small>${proofLedger.status || "proof_blocked_until_dispatch"}</small>
               </div>
               <p>dispatch 후 public launch proof로 인정할 필드를 한 곳에 고정합니다. <code>Pages html_url/status</code>, 두 workflow run의 <code>status/conclusion/url/headSha</code>, freshness, receipt, public claim guard가 모두 준비되기 전에는 외부 완료 claim을 막습니다.</p>
               <dl class="storage-grid">
                 <div><dt>current gate</dt><dd>${proofLedger.currentGate || "capture_launch_proof"}</dd></div>
                 <div><dt>deferred until</dt><dd>${proofLedger.deferredUntil || "safeToDispatch=true"}</dd></div>
-                <div><dt>pending</dt><dd>${proofLedger.pendingProofCount || proofLedgerItems.length}</dd></div>
+                <div><dt>pending</dt><dd>${proofLedgerPendingCount}</dd></div>
                 <div><dt>readyForExternalClaim</dt><dd>${proofLedger.readyForExternalClaim ? "true" : "false"}</dd></div>
               </dl>
               <div class="launch-execution-commands" data-launch-proof-acceptance-capture-commands>
@@ -1647,19 +1738,50 @@
         expiresAt: Number.isFinite(expiresMs) ? new Date(expiresMs).toISOString() : "",
         expiresAtLabel: Number.isFinite(expiresMs) ? formatLocalDateTime(new Date(expiresMs).toISOString()) : "not available",
         sourceArtifacts,
-        sourceArtifactCount: Number(freshness.sourceArtifactCount || sourceArtifacts.length || 0),
+        sourceArtifactCount: finiteNumberOr(freshness.sourceArtifactCount, sourceArtifacts.length),
         policy: freshness.policy || "Rerun npm run refresh:launch-readiness before dispatch or external claim when this evidence is stale.",
+      };
+    }
+
+    function launchReadinessDispatchCommandState(data, ready, safeToDispatch) {
+      const suggestedCommands = Array.isArray(data?.suggestedDispatchCommands) ? data.suggestedDispatchCommands : [];
+      const activeCommands = Array.isArray(data?.activeDispatchCommands) ? data.activeDispatchCommands : [];
+      const suggestedCount = Number.isFinite(Number(data?.suggestedDispatchCommandCount))
+        ? Number(data.suggestedDispatchCommandCount)
+        : suggestedCommands.length;
+      const referenceCount = Number.isFinite(Number(data?.dispatchCommandReferenceCount))
+        ? Number(data.dispatchCommandReferenceCount)
+        : suggestedCount;
+      const activeCount = Number.isFinite(Number(data?.activeDispatchCommandCount))
+        ? Number(data.activeDispatchCommandCount)
+        : ready ? 0 : safeToDispatch ? suggestedCount || activeCommands.length : 0;
+      const disposition = data?.dispatchCommandDisposition || (ready
+        ? "not_applicable_after_launch_proof"
+        : safeToDispatch ? "active" : "withheld");
+      const label = disposition === "not_applicable_after_launch_proof"
+        ? "not applicable after proof"
+        : disposition === "active" ? "active" : "withheld";
+      return {
+        disposition,
+        label,
+        activeCount,
+        referenceCount,
+        suggestedCount,
+        detail: `${label} · active ${activeCount} / reference ${referenceCount}`,
       };
     }
 
     function launchReadinessRefreshReceiptText(data, freshness) {
       const ready = data?.readyForExternalClaim === true;
       const safeToDispatch = data?.safeToDispatch === true;
+      const dispatchState = launchReadinessDispatchCommandState(data, ready, safeToDispatch);
       const ab = data?.abComparison || {};
       const nextAction = data?.nextAction || {};
       const latestGate = data?.latestGate || {};
       const latestGateChecks = latestGate.checks || {};
       const latestGateLine = `${latestGate.command || "not available"} -> ${Number(latestGateChecks.pass || 0)} pass, ${Number(latestGateChecks.fail || 0)} fail, ${Number(latestGateChecks.notRun || 0)} not_run, ${Number(latestGateChecks.blocked || 0)} blocked`;
+      const repairAction = data?.remoteWorkflowRepairAction || {};
+      const sourceSync = data?.sourceArtifactSync || {};
       const checklist = Array.isArray(data?.refreshChecklist) ? data.refreshChecklist : [];
       const commands = Array.isArray(data?.commandRuns) ? data.commandRuns : [];
       const blockers = Array.isArray(data?.blockers) ? data.blockers : [];
@@ -1673,6 +1795,8 @@
         `refreshRequired: ${freshness?.refreshRequired ? "true" : "false"}`,
         `evidenceMaxAgeHours: ${freshness?.maxAgeHours || 24}`,
         `sourceArtifactCount: ${freshness?.sourceArtifactCount || 0}`,
+        `sourceArtifactSync: ${sourceSync.status || "missing"}`,
+        `sourceArtifactSyncOutputQualityGeneratedAt: ${sourceSync.outputQualityGeneratedAt || "not available"}`,
         `commandCoverage: ${data?.commandCoverage || 0}`,
         `A/B decision: ${ab.decision || "not checked"}`,
         `outputQualityGeneratedAt: ${data?.outputQualityGeneratedAt || "not available"}`,
@@ -1690,12 +1814,22 @@
         `readyForExternalClaim: ${ready}`,
         `suggestedDispatchCommandCount: ${data?.suggestedDispatchCommandCount || 0}`,
         `withheldDispatchCommandCount: ${data?.withheldDispatchCommandCount || 0}`,
+        `dispatchCommandDisposition: ${dispatchState.disposition}`,
+        `activeDispatchCommandCount: ${dispatchState.activeCount}`,
+        `dispatchCommandReferenceCount: ${dispatchState.referenceCount}`,
         "",
         "## Next Action",
         `key: ${nextAction.key || "not available"}`,
         `status: ${nextAction.status || "not available"}`,
         `command: ${nextAction.command || "npm run refresh:launch-readiness"}`,
         `detail: ${nextAction.detail || "Do not run gh workflow run until every action_required refresh checklist item has passed and verify-launch-handoff reports safeToDispatch=true."}`,
+        "",
+        "## Remote Workflow Repair Action",
+        `installAction: ${repairAction.installAction || "not required"}`,
+        `target: ${repairAction.targetPath || "not available"}`,
+        `command: ${repairAction.command || "not available"}`,
+        `remoteBlobSha: ${repairAction.remoteBlobSha || "not available"}`,
+        `githubEditFileUrl: ${repairAction.githubEditFileUrl || "not available"}`,
         "",
         "## Guard",
         data?.guard || "Do not run gh workflow run until every action_required refresh checklist item has passed and verify-launch-handoff reports safeToDispatch=true.",
@@ -1730,14 +1864,17 @@
       const generatedAt = data?.generatedAt ? formatLocalDateTime(data.generatedAt) : "대기 중";
       const freshness = launchReadinessFreshness(data);
       const statusLabel = ready ? "external ready" : safeToDispatch ? "dispatch ready" : loaded ? "refresh complete" : "not loaded";
+      const dispatchState = launchReadinessDispatchCommandState(data, ready, safeToDispatch);
+      const repairAction = data?.remoteWorkflowRepairAction || {};
+      const sourceSync = data?.sourceArtifactSync || {};
       const receiptText = launchReadinessRefreshReceiptText(data, freshness);
       return html`
-        <div class="launch-readiness-refresh" data-system-launch-readiness-refresh data-launch-readiness-refresh-source="${source?.source || "data/launch-readiness-refresh.json"}" data-launch-readiness-refresh-loaded="${loaded ? "true" : "false"}" data-launch-readiness-refresh-status="${data?.status || "missing"}" data-launch-readiness-refresh-command-coverage="${data?.commandCoverage || 0}" data-launch-readiness-refresh-safe-to-dispatch="${safeToDispatch ? "true" : "false"}" data-launch-readiness-refresh-external-ready="${ready ? "true" : "false"}" data-launch-readiness-refresh-workflow-scope-available="${data?.workflowScopeAvailable ? "true" : "false"}" data-launch-readiness-refresh-workflow-scope-install-blocked="${data?.workflowScopeInstallBlocked ? "true" : "false"}" data-launch-readiness-refresh-remote-files-ready="${data?.remoteWorkflowFilesReady ? "true" : "false"}" data-launch-readiness-refresh-remote-visible="${data?.remoteWorkflowVisibilityReady ? "true" : "false"}" data-launch-readiness-refresh-all-dispatch-ready="${data?.allDispatchReady ? "true" : "false"}" data-launch-readiness-refresh-ready-for-external-claim="${ready ? "true" : "false"}" data-launch-readiness-refresh-withheld-count="${data?.withheldDispatchCommandCount || 0}" data-launch-readiness-refresh-suggested-dispatch-count="${data?.suggestedDispatchCommandCount || 0}" data-launch-readiness-refresh-next-action="${nextAction.key || ""}" data-launch-readiness-refresh-next-command="${nextAction.command || ""}" data-launch-readiness-refresh-ab-decision="${ab.decision || ""}" data-launch-readiness-refresh-freshness-status="${freshness.status}" data-launch-readiness-refresh-fresh="${freshness.fresh ? "true" : "false"}" data-launch-readiness-refresh-refresh-required="${freshness.refreshRequired ? "true" : "false"}" data-launch-readiness-refresh-max-age-hours="${freshness.maxAgeHours}" data-launch-readiness-refresh-evidence-expires-at="${freshness.expiresAt}" data-launch-readiness-refresh-source-artifact-count="${freshness.sourceArtifactCount}" data-launch-readiness-refresh-output-quality-gate-traceability="${data?.outputQualityGateTraceability?.status || "missing"}" data-launch-readiness-refresh-latest-gate-status="${latestGate.status || "missing"}" data-launch-readiness-refresh-latest-gate-pass="${Number(latestGateChecks.pass || 0)}" data-launch-readiness-refresh-latest-gate-total="${Number(latestGateChecks.total || 0)}" data-launch-readiness-refresh-output-quality-source-input-count="${data?.outputQualitySourceInputCount || 0}">
+        <div class="launch-readiness-refresh" data-system-launch-readiness-refresh data-launch-readiness-refresh-source="${source?.source || "data/launch-readiness-refresh.json"}" data-launch-readiness-refresh-loaded="${loaded ? "true" : "false"}" data-launch-readiness-refresh-status="${data?.status || "missing"}" data-launch-readiness-refresh-command-coverage="${data?.commandCoverage || 0}" data-launch-readiness-refresh-safe-to-dispatch="${safeToDispatch ? "true" : "false"}" data-launch-readiness-refresh-external-ready="${ready ? "true" : "false"}" data-launch-readiness-refresh-workflow-scope-available="${data?.workflowScopeAvailable ? "true" : "false"}" data-launch-readiness-refresh-workflow-scope-install-blocked="${data?.workflowScopeInstallBlocked ? "true" : "false"}" data-launch-readiness-refresh-remote-files-ready="${data?.remoteWorkflowFilesReady ? "true" : "false"}" data-launch-readiness-refresh-remote-visible="${data?.remoteWorkflowVisibilityReady ? "true" : "false"}" data-launch-readiness-refresh-all-dispatch-ready="${data?.allDispatchReady ? "true" : "false"}" data-launch-readiness-refresh-ready-for-external-claim="${ready ? "true" : "false"}" data-launch-readiness-refresh-withheld-count="${data?.withheldDispatchCommandCount || 0}" data-launch-readiness-refresh-suggested-dispatch-count="${data?.suggestedDispatchCommandCount || 0}" data-launch-readiness-refresh-active-dispatch-count="${dispatchState.activeCount}" data-launch-readiness-refresh-reference-dispatch-count="${dispatchState.referenceCount}" data-launch-readiness-refresh-dispatch-command-disposition="${dispatchState.disposition}" data-launch-readiness-refresh-next-action="${nextAction.key || ""}" data-launch-readiness-refresh-next-command="${nextAction.command || ""}" data-launch-readiness-refresh-repair-action="${repairAction.installAction || ""}" data-launch-readiness-refresh-repair-command="${repairAction.command || ""}" data-launch-readiness-refresh-repair-edit-url="${repairAction.githubEditFileUrl || ""}" data-launch-readiness-refresh-ab-decision="${ab.decision || ""}" data-launch-readiness-refresh-freshness-status="${freshness.status}" data-launch-readiness-refresh-fresh="${freshness.fresh ? "true" : "false"}" data-launch-readiness-refresh-refresh-required="${freshness.refreshRequired ? "true" : "false"}" data-launch-readiness-refresh-max-age-hours="${freshness.maxAgeHours}" data-launch-readiness-refresh-evidence-expires-at="${freshness.expiresAt}" data-launch-readiness-refresh-source-artifact-count="${freshness.sourceArtifactCount}" data-launch-readiness-refresh-source-artifact-sync="${sourceSync.status || "missing"}" data-launch-readiness-refresh-source-artifact-sync-output-quality-generated-at="${sourceSync.outputQualityGeneratedAt || ""}" data-launch-readiness-refresh-output-quality-gate-traceability="${data?.outputQualityGateTraceability?.status || "missing"}" data-launch-readiness-refresh-latest-gate-status="${latestGate.status || "missing"}" data-launch-readiness-refresh-latest-gate-pass="${Number(latestGateChecks.pass || 0)}" data-launch-readiness-refresh-latest-gate-total="${Number(latestGateChecks.total || 0)}" data-launch-readiness-refresh-output-quality-source-input-count="${data?.outputQualitySourceInputCount || 0}">
           <div class="publish-evidence-head">
             <strong>Launch readiness refresh</strong>
             <span class="publish-state" data-launch-readiness-refresh-state-label>${statusLabel} · ${freshness.status}</span>
           </div>
-          <p class="settings-note">workflow UI plan, remote file check, dispatch plan, launch packet, handoff verifier, output quality audit을 한 번에 갱신한 결과입니다. 이 패널은 dispatch를 실행하지 않고 <code>safeToDispatch=true</code> 전까지 withheld 상태를 유지합니다.</p>
+          <p class="settings-note">workflow UI plan, remote file check, dispatch plan, launch packet, handoff verifier, output quality audit을 한 번에 갱신한 결과입니다. 이 패널은 dispatch를 실행하지 않고 active dispatch command와 reference command를 분리합니다.</p>
           <dl class="storage-grid">
             <div><dt>source</dt><dd>${source?.source || "data/launch-readiness-refresh.json"}</dd></div>
             <div><dt>generated</dt><dd>${generatedAt}</dd></div>
@@ -1747,9 +1884,10 @@
             <div><dt>A/B</dt><dd>${ab.decision || "not checked"}</dd></div>
             <div><dt>latest gate</dt><dd>${latestGateLine}</dd></div>
             <div><dt>quality inputs</dt><dd>${data?.outputQualitySourceInputCount || 0} sources</dd></div>
+            <div><dt>source sync</dt><dd>${sourceSync.status || "missing"} · ${sourceSync.outputQualityGeneratedAt || "not available"}</dd></div>
             <div><dt>workflow scope</dt><dd>${data?.workflowScopeAvailable ? "available" : data?.workflowScopeInstallBlocked ? "blocked" : "not checked"}</dd></div>
             <div><dt>remote files</dt><dd>${data?.remoteWorkflowFilesReady ? "ready" : "blocked"}</dd></div>
-            <div><dt>dispatch</dt><dd>${safeToDispatch ? "safe" : "withheld"}</dd></div>
+            <div><dt>dispatch</dt><dd>${dispatchState.detail}</dd></div>
             <div><dt>external claim</dt><dd>${ready ? "ready" : "blocked"}</dd></div>
           </dl>
           <div class="publish-dispatch-commands" data-launch-readiness-refresh-next-action>
@@ -1758,6 +1896,12 @@
             <code>npm run refresh:launch-readiness</code>
             <small>${nextAction.detail || "Refresh launch readiness evidence before dispatch."}</small>
             <small data-launch-readiness-refresh-freshness-policy>${freshness.policy}</small>
+          </div>
+          <div class="publish-dispatch-commands" data-launch-readiness-refresh-repair-action>
+            <strong>Remote workflow repair</strong>
+            <code>${repairAction.installAction || "not required"}</code>
+            <code>${repairAction.command || "not available"}</code>
+            <small>${repairAction.githubEditFileUrl || repairAction.targetPath || "remote repair action 대기"}</small>
           </div>
           <div class="launch-execution-copy" data-launch-readiness-refresh-receipt data-launch-readiness-refresh-receipt-copy-ready="${loaded ? "true" : "false"}">
             <pre data-launch-readiness-refresh-receipt-text>${receiptText}</pre>
@@ -1812,6 +1956,9 @@
       const productLoop = artifacts.productLoop || {};
       const evidenceSync = artifacts.evidenceSync || {};
       const steps = Array.isArray(data?.stepResults) ? data.stepResults : [];
+      const nextCandidates = Array.isArray(productLoop.nextCandidates) ? productLoop.nextCandidates : [];
+      const nextCandidateCount = finiteNumberOr(productLoop.nextCandidateCount, nextCandidates.length);
+      const dispatchState = launchReadinessDispatchCommandState(launchReadiness, launchReadiness.readyForExternalClaim === true, launchReadiness.safeToDispatch === true);
       return [
         "# JooPark Verify Workspace Summary Receipt",
         "",
@@ -1829,8 +1976,12 @@
         `releaseReadiness: ${releaseReadiness.status || "missing"} - ${releaseReadiness.summary || "not available"}`,
         `launchReadiness: ${launchReadiness.status || "missing"} - ${launchReadiness.latestGateSummary || "not available"}`,
         `outputQuality: ${outputQuality.status || "missing"} - ${outputQuality.latestGateSummary || "not available"}`,
-        `productLoop: ${productLoop.status || "missing"} - ${productLoop.latestGateSummary || "not available"}`,
-        `evidenceSync: ${evidenceSync.status || "missing"} - gateParity=${evidenceSync.productLoopGateParityReady === true}; publishParity=${evidenceSync.productLoopPublishParityReady === true}; summarySync=${evidenceSync.summarySyncReady === true}`,
+        `productLoop: ${productLoop.status || "missing"} - ${productLoop.latestGateSummary || "not available"}; latestExperiment=${productLoop.latestExperiment || "not available"}; latestDirectionLoop=${productLoop.latestDirectionLoop || "not available"}; latestDirectionExperiment=${productLoop.latestDirectionExperiment || "not available"}; latestDiscoveryExperiment=${productLoop.latestDiscoveryExperiment || "not available"}`,
+        `evidenceSync: ${evidenceSync.status || "missing"} - gateParity=${evidenceSync.productLoopGateParityReady === true}; publishParity=${evidenceSync.productLoopPublishParityReady === true}; summarySync=${evidenceSync.summarySyncReady === true}; nextCandidates=${evidenceSync.nextCandidatesReady === true}; nextCandidateList=${evidenceSync.nextCandidateListReady === true}; directionLoop=${evidenceSync.directionLoopSyncReady === true}; directionExperiment=${evidenceSync.latestDirectionExperimentReady === true}; discoveryExperiment=${evidenceSync.latestDiscoveryExperimentReady === true}`,
+        `nextCandidateCount: ${nextCandidateCount}`,
+        "",
+        "## Next Candidates",
+        ...(nextCandidates.length ? nextCandidates.map((candidate, index) => `${index + 1}. ${candidate}`) : ["not available"]),
         "",
         "## Steps",
         ...(steps.length ? steps.map((step) => `- ${step.id}: ${step.status}; ${durationSeconds(step.durationMs)}s; ${step.command}`) : ["- not available"]),
@@ -1838,6 +1989,9 @@
         "## Dispatch Guard",
         `safeToDispatch: ${launchReadiness.safeToDispatch === true}`,
         `readyForExternalClaim: ${launchReadiness.readyForExternalClaim === true}`,
+        `dispatchCommandDisposition: ${dispatchState.disposition}`,
+        `activeDispatchCommandCount: ${dispatchState.activeCount}`,
+        `dispatchCommandReferenceCount: ${dispatchState.referenceCount}`,
         data?.externalClaimGuard || "Do not claim readyForExternalClaim until release quality, public launch proof, and external completion claim proof all pass.",
       ].join("\n");
     }
@@ -1852,15 +2006,18 @@
       const productLoop = artifacts.productLoop || {};
       const evidenceSync = artifacts.evidenceSync || {};
       const steps = loaded && Array.isArray(data.stepResults) ? data.stepResults : [];
+      const nextCandidates = Array.isArray(productLoop.nextCandidates) ? productLoop.nextCandidates : [];
+      const nextCandidateCount = finiteNumberOr(productLoop.nextCandidateCount, nextCandidates.length);
       const stepIds = new Set(steps.map((step) => step.id));
       const missingStepCount = VERIFY_WORKSPACE_SUMMARY_REQUIRED_STEPS.filter((id) => !stepIds.has(id)).length;
       const generatedAt = data?.generatedAt ? formatLocalDateTime(data.generatedAt) : "대기 중";
       const duration = durationSeconds(data?.durationMs);
       const evidenceSyncPass = loaded && data.evidenceSyncPass === true && evidenceSync.status === "pass";
       const statusLabel = loaded && data.status === "pass" && evidenceSyncPass ? "full verify pass" : loaded ? "review required" : "not loaded";
+      const dispatchState = launchReadinessDispatchCommandState(launchReadiness, launchReadiness.readyForExternalClaim === true, launchReadiness.safeToDispatch === true);
       const receiptText = verifyWorkspaceSummaryReceiptText(data);
       return html`
-        <div class="verify-workspace-summary" data-system-verify-workspace-summary data-verify-workspace-summary-source="${source?.source || "autoresearch-results/verify-workspace-summary.json"}" data-verify-workspace-summary-loaded="${loaded ? "true" : "false"}" data-verify-workspace-summary-status="${data?.status || "missing"}" data-verify-workspace-summary-command="${data?.command || "npm run verify:full"}" data-verify-workspace-summary-sync-artifacts="${data?.syncArtifacts ? "true" : "false"}" data-verify-workspace-summary-evidence-sync-pass="${evidenceSyncPass ? "true" : "false"}" data-verify-workspace-summary-step-count="${steps.length}" data-verify-workspace-summary-required-step-missing-count="${missingStepCount}" data-verify-workspace-summary-duration-seconds="${duration}" data-verify-workspace-summary-release-readiness="${releaseReadiness.status || "missing"}" data-verify-workspace-summary-launch-readiness="${launchReadiness.status || "missing"}" data-verify-workspace-summary-output-quality="${outputQuality.status || "missing"}" data-verify-workspace-summary-product-loop="${productLoop.status || "missing"}" data-verify-workspace-summary-evidence-sync="${evidenceSync.status || "missing"}" data-verify-workspace-summary-safe-to-dispatch="${launchReadiness.safeToDispatch ? "true" : "false"}" data-verify-workspace-summary-ready-for-external-claim="${launchReadiness.readyForExternalClaim ? "true" : "false"}">
+        <div class="verify-workspace-summary" data-system-verify-workspace-summary data-verify-workspace-summary-source="${source?.source || "autoresearch-results/verify-workspace-summary.json"}" data-verify-workspace-summary-loaded="${loaded ? "true" : "false"}" data-verify-workspace-summary-status="${data?.status || "missing"}" data-verify-workspace-summary-command="${data?.command || "npm run verify:full"}" data-verify-workspace-summary-sync-artifacts="${data?.syncArtifacts ? "true" : "false"}" data-verify-workspace-summary-evidence-sync-pass="${evidenceSyncPass ? "true" : "false"}" data-verify-workspace-summary-step-count="${steps.length}" data-verify-workspace-summary-required-step-missing-count="${missingStepCount}" data-verify-workspace-summary-duration-seconds="${duration}" data-verify-workspace-summary-release-readiness="${releaseReadiness.status || "missing"}" data-verify-workspace-summary-launch-readiness="${launchReadiness.status || "missing"}" data-verify-workspace-summary-output-quality="${outputQuality.status || "missing"}" data-verify-workspace-summary-product-loop="${productLoop.status || "missing"}" data-verify-workspace-summary-latest-experiment="${productLoop.latestExperiment || ""}" data-verify-workspace-summary-latest-direction-loop="${productLoop.latestDirectionLoop || ""}" data-verify-workspace-summary-latest-direction-experiment="${productLoop.latestDirectionExperiment || ""}" data-verify-workspace-summary-latest-discovery-experiment="${productLoop.latestDiscoveryExperiment || ""}" data-verify-workspace-summary-direction-loop-sync="${evidenceSync.directionLoopSyncReady ? "true" : "false"}" data-verify-workspace-summary-direction-experiment-sync="${evidenceSync.latestDirectionExperimentReady ? "true" : "false"}" data-verify-workspace-summary-discovery-experiment-sync="${evidenceSync.latestDiscoveryExperimentReady ? "true" : "false"}" data-verify-workspace-summary-next-candidate-list="${evidenceSync.nextCandidateListReady ? "true" : "false"}" data-verify-workspace-summary-next-candidate-count="${nextCandidateCount}" data-verify-workspace-summary-evidence-sync="${evidenceSync.status || "missing"}" data-verify-workspace-summary-safe-to-dispatch="${launchReadiness.safeToDispatch ? "true" : "false"}" data-verify-workspace-summary-ready-for-external-claim="${launchReadiness.readyForExternalClaim ? "true" : "false"}" data-verify-workspace-summary-dispatch-command-disposition="${dispatchState.disposition}" data-verify-workspace-summary-active-dispatch-count="${dispatchState.activeCount}" data-verify-workspace-summary-reference-dispatch-count="${dispatchState.referenceCount}">
           <div class="publish-evidence-head">
             <strong>Verify workspace summary</strong>
             <span class="publish-state" data-verify-workspace-summary-state-label>${statusLabel}</span>
@@ -1874,9 +2031,10 @@
             <div><dt>releaseReadiness</dt><dd>${releaseReadiness.status || "missing"} · ${releaseReadiness.summary || ""}</dd></div>
             <div><dt>launchReadiness</dt><dd>${launchReadiness.status || "missing"} · ${launchReadiness.latestGateSummary || ""}</dd></div>
             <div><dt>outputQuality</dt><dd>${outputQuality.status || "missing"} · ${outputQuality.latestGateSummary || ""}</dd></div>
-            <div><dt>productLoop</dt><dd>${productLoop.status || "missing"}</dd></div>
-            <div><dt>evidenceSync</dt><dd>${evidenceSync.status || "missing"} · gate ${evidenceSync.productLoopGateParityReady === true ? "pass" : "missing"} · publish ${evidenceSync.productLoopPublishParityReady === true ? "pass" : "missing"} · summary ${evidenceSync.summarySyncReady === true ? "pass" : "missing"}</dd></div>
-            <div><dt>dispatch</dt><dd>${launchReadiness.safeToDispatch ? "safe" : "withheld"}</dd></div>
+            <div><dt>productLoop</dt><dd>${productLoop.status || "missing"} · experiment ${productLoop.latestExperiment || "no experiment"} · ${productLoop.latestDirectionLoop || "no direction loop"} · direction experiment ${productLoop.latestDirectionExperiment || "no direction experiment"} · discovery experiment ${productLoop.latestDiscoveryExperiment || "no discovery experiment"}</dd></div>
+            <div><dt>evidenceSync</dt><dd>${evidenceSync.status || "missing"} · gate ${evidenceSync.productLoopGateParityReady === true ? "pass" : "missing"} · publish ${evidenceSync.productLoopPublishParityReady === true ? "pass" : "missing"} · summary ${evidenceSync.summarySyncReady === true ? "pass" : "missing"} · next ${evidenceSync.nextCandidatesReady === true ? "pass" : "missing"} · candidate list ${evidenceSync.nextCandidateListReady === true ? "pass" : "missing"} · direction ${evidenceSync.directionLoopSyncReady === true ? "pass" : "missing"} · direction experiment ${evidenceSync.latestDirectionExperimentReady === true ? "pass" : "missing"} · discovery experiment ${evidenceSync.latestDiscoveryExperimentReady === true ? "pass" : "missing"}</dd></div>
+            <div><dt>next candidates</dt><dd>${nextCandidateCount}</dd></div>
+            <div><dt>dispatch</dt><dd>${dispatchState.detail}</dd></div>
             <div><dt>external claim</dt><dd>${launchReadiness.readyForExternalClaim ? "ready" : "blocked"}</dd></div>
             <div><dt>steps</dt><dd>${steps.length}</dd></div>
           </dl>
@@ -1888,6 +2046,15 @@
                 </li>
               `))}
             </ul>
+          `) : ""}
+          ${nextCandidates.length ? raw(html`
+            <ol class="settings-info" data-verify-workspace-summary-next-candidates>
+              ${nextCandidates.map((candidate, index) => raw(html`
+                <li data-verify-workspace-summary-next-candidate data-verify-workspace-summary-next-candidate-index="${index + 1}">
+                  ${candidate}
+                </li>
+              `))}
+            </ol>
           `) : ""}
           <div class="launch-execution-copy" data-verify-workspace-summary-receipt data-verify-workspace-summary-receipt-copy-ready="${loaded ? "true" : "false"}">
             <pre data-verify-workspace-summary-receipt-text>${receiptText}</pre>
@@ -1902,6 +2069,8 @@
       const gate = data?.packagedBrowserGate || data?.packagedBrowserGates || {};
       const cache = gate.cache || {};
       const checks = data?.checks || {};
+      const completionAudit = data?.completionAudit || {};
+      const blockedSignals = Array.isArray(completionAudit.blockedSignals) ? completionAudit.blockedSignals : [];
       const issues = Array.isArray(cache.issues) ? cache.issues : [];
       const mismatches = Array.isArray(cache.contextMismatches) ? cache.contextMismatches : [];
       const contextMatched = cache.contextMatched !== false;
@@ -1916,6 +2085,10 @@
         `status: ${data?.status || "missing"}`,
         `generatedAt: ${data?.generatedAt || "not available"}`,
         `summary: ${Number(checks.pass || 0)} pass, ${Number(checks.fail || 0)} fail, ${Number(checks.notRun || 0)} not_run, ${Number(checks.blocked || 0)} blocked`,
+        `completionAudit: ${completionAudit.status || "missing"}`,
+        `launchCompletionAchieved: ${completionAudit.launchCompletionAchieved === true}`,
+        `readyForExternalClaim: ${completionAudit.readyForExternalClaim === true}`,
+        `blockedSignals: ${blockedSignals.length ? blockedSignals.join("; ") : "none"}`,
         `packagedBrowserGate.status: ${gate.status || "missing"}`,
         `packagedBrowserGate.cached: ${gate.cached === true}`,
         `cache.status: ${cache.status || (contextMatched ? "valid" : "invalid")}`,
@@ -1948,6 +2121,8 @@
       const gate = data?.packagedBrowserGate || data?.packagedBrowserGates || {};
       const cache = gate.cache || {};
       const checks = data?.checks || {};
+      const completionAudit = data?.completionAudit || {};
+      const blockedSignals = Array.isArray(completionAudit.blockedSignals) ? completionAudit.blockedSignals : [];
       const issues = Array.isArray(cache.issues) ? cache.issues : [];
       const mismatches = Array.isArray(cache.contextMismatches) ? cache.contextMismatches : [];
       const contextMatched = loaded && cache.contextMatched !== false;
@@ -1973,7 +2148,7 @@
       const recheckCommand = "node scripts/audit-release-readiness.mjs --format=summary";
       const repairText = releaseGateCacheRepairText(data, source);
       return html`
-        <div class="release-gate-cache" data-system-release-gate-cache data-release-gate-cache-source="${source?.source || "autoresearch-results/release-readiness-summary.json"}" data-release-gate-cache-loaded="${loaded ? "true" : "false"}" data-release-gate-cache-status="${gate.status || "missing"}" data-release-gate-cache-summary-status="${data?.status || "missing"}" data-release-gate-cache-cached="${cacheAvailable ? "true" : "false"}" data-release-gate-cache-context-matched="${contextMatched ? "true" : "false"}" data-release-gate-cache-ready="${cacheReady ? "true" : "false"}" data-release-gate-cache-cache-status="${cacheStatus}" data-release-gate-cache-cached-evidence-status="${cachedEvidenceStatus}" data-release-gate-cache-cached-result-status="${cachedResultStatus}" data-release-gate-cache-age-minutes="${Number(cache.ageMinutes || 0)}" data-release-gate-cache-input-files="${Number(cache.inputFiles || 0)}" data-release-gate-cache-issue-count="${issues.length}" data-release-gate-cache-mismatch-count="${mismatches.length}" data-release-gate-cache-pass="${Number(checks.pass || 0)}" data-release-gate-cache-fail="${Number(checks.fail || 0)}" data-release-gate-cache-not-run="${Number(checks.notRun || 0)}" data-release-gate-cache-blocked="${Number(checks.blocked || 0)}" data-release-gate-cache-repair-command="${repairCommand}" data-release-gate-cache-recheck-command="${recheckCommand}">
+        <div class="release-gate-cache" data-system-release-gate-cache data-release-gate-cache-source="${source?.source || "autoresearch-results/release-readiness-summary.json"}" data-release-gate-cache-loaded="${loaded ? "true" : "false"}" data-release-gate-cache-status="${gate.status || "missing"}" data-release-gate-cache-summary-status="${data?.status || "missing"}" data-release-gate-cache-cached="${cacheAvailable ? "true" : "false"}" data-release-gate-cache-context-matched="${contextMatched ? "true" : "false"}" data-release-gate-cache-ready="${cacheReady ? "true" : "false"}" data-release-gate-cache-cache-status="${cacheStatus}" data-release-gate-cache-cached-evidence-status="${cachedEvidenceStatus}" data-release-gate-cache-cached-result-status="${cachedResultStatus}" data-release-gate-cache-age-minutes="${Number(cache.ageMinutes || 0)}" data-release-gate-cache-input-files="${Number(cache.inputFiles || 0)}" data-release-gate-cache-issue-count="${issues.length}" data-release-gate-cache-mismatch-count="${mismatches.length}" data-release-gate-cache-pass="${Number(checks.pass || 0)}" data-release-gate-cache-fail="${Number(checks.fail || 0)}" data-release-gate-cache-not-run="${Number(checks.notRun || 0)}" data-release-gate-cache-blocked="${Number(checks.blocked || 0)}" data-release-gate-cache-completion-audit="${completionAudit.status || "missing"}" data-release-gate-cache-launch-completion-achieved="${completionAudit.launchCompletionAchieved === true ? "true" : "false"}" data-release-gate-cache-ready-for-external-claim="${completionAudit.readyForExternalClaim === true ? "true" : "false"}" data-release-gate-cache-completion-blocked-signals="${blockedSignals.join("; ")}" data-release-gate-cache-repair-command="${repairCommand}" data-release-gate-cache-recheck-command="${recheckCommand}">
           <div class="publish-evidence-head">
             <strong>Release gate cache</strong>
             <span class="publish-state" data-release-gate-cache-state-label>${stateLabel}</span>
@@ -1981,6 +2156,8 @@
           <p class="settings-note">빠른 audit summary가 재사용하는 packaged browser gate cache의 fingerprint 상태입니다. <code>contextMatched=false</code>, <code>cachedEvidenceStatus</code>/<code>cachedResultStatus</code>가 pass가 아니거나 <code>context_mismatch</code>, <code>not_run</code>이 보이면 <code>${repairCommand}</code>로 fresh packaged browser gate를 만든 뒤 summary를 다시 확인합니다.</p>
           <dl class="storage-grid">
             <div><dt>summary</dt><dd>${Number(checks.pass || 0)} pass / ${Number(checks.fail || 0)} fail / ${Number(checks.notRun || 0)} not_run</dd></div>
+            <div><dt>completion audit</dt><dd>${completionAudit.status || "missing"} · launchCompletionAchieved=${completionAudit.launchCompletionAchieved === true ? "true" : "false"}</dd></div>
+            <div><dt>blocked signals</dt><dd>${blockedSignals.length ? blockedSignals.join("; ") : "none"}</dd></div>
             <div><dt>packaged gate</dt><dd>${gate.status || "missing"}${gate.cached ? " · cached" : ""}</dd></div>
             <div><dt>context</dt><dd>${contextMatched ? "matched" : "mismatch"}</dd></div>
             <div><dt>cache</dt><dd>${cacheStatus} · age ${Number(cache.ageMinutes || 0)}m</dd></div>
@@ -2254,7 +2431,9 @@
       const loaded = !!(source?.loaded && data);
       const capturedReady = !!data?.postPublishEvidenceReady;
       const evidenceFresh = loaded ? publishEvidenceFresh(data) : false;
-      const launchProofReady = capturedReady && evidenceFresh;
+      const readyForExternalClaim = data?.readyForExternalClaim === true;
+      const launchProofCaptured = capturedReady && evidenceFresh;
+      const launchProofReady = launchProofCaptured && readyForExternalClaim;
       const mode = data?.mode || "not loaded";
       const repoReady = !!data?.repoEvidenceReady;
       const pagesReady = !!data?.pagesEvidenceReady;
@@ -2275,10 +2454,22 @@
       const deferredNextAction = data?.deferredNextAction && typeof data.deferredNextAction === "object" ? data.deferredNextAction : null;
       const launchInstallPaths = data?.launchInstallPaths || immediateNextAction?.launchInstallPaths || {};
       const launchInstallPathItems = Array.isArray(launchInstallPaths.paths) ? launchInstallPaths.paths : [];
+      const launchInstallPathItemCommandCount = launchInstallPathItems.reduce(
+        (total, item) => total + installPathItemCommandCount(item),
+        0,
+      );
+      const launchInstallPathCount = finiteNumberOr(launchInstallPaths.count, launchInstallPathItems.length);
+      const launchInstallPathCommandCount = finiteNumberOr(launchInstallPaths.commandCount, launchInstallPathItemCommandCount);
       const suggestedCommands = Array.isArray(data?.suggestedCommands) ? data.suggestedCommands : [];
       const suggestedDispatchCommands = Array.isArray(data?.suggestedDispatchCommands) ? data.suggestedDispatchCommands : [];
       const withheldDispatchCommands = Array.isArray(data?.withheldDispatchCommands) ? data.withheldDispatchCommands : [];
       const publishDispatchReady = !!data?.publishDispatchReady;
+      const publishDispatchDisposition = data?.dispatchCommandDisposition || (launchProofReady ? "not_applicable_after_launch_proof" : publishDispatchReady ? "active_until_launch_proof" : "withheld_until_all_dispatch_ready");
+      const publishActiveDispatchCount = finiteNumberOr(data?.activeDispatchCommandCount, 0);
+      const publishReferenceDispatchCount = finiteNumberOr(
+        data?.dispatchCommandReferenceCount,
+        launchProofReady ? suggestedDispatchCommands.length : withheldDispatchCommands.length,
+      );
       const dispatchSuggestionStatus = data?.dispatchSuggestionStatus || "";
       const suggestedCommandsSafe = !suggestedCommands.some((command) => command.includes("gh workflow run --repo"));
       const shareUpdate = data?.shareUpdate || "";
@@ -2289,9 +2480,9 @@
       const launchProofEvidenceFieldLabels = ["Pages site proof", "Pages workflow run proof", "Drift Watch workflow run proof", "Evidence freshness proof", "Release receipt proof", "Public claim guard proof"];
       const launchProofEvidenceDisplayFields = launchProofEvidenceFields.length ? launchProofEvidenceFields : launchProofEvidenceFieldLabels.map((label) => ({ label, value: "not available" }));
       const launchProofEvidenceFieldCoverage = Number(data?.launchProofEvidenceFieldCoverage || (launchProofEvidenceDisplayFields.length >= 6 ? 1 : 0));
-      const stateLabel = launchProofReady ? "launch proof ready" : capturedReady && !evidenceFresh ? "stale evidence" : loaded && mode === "dry-run" ? "dry-run evidence" : "action required";
+      const stateLabel = launchProofReady ? "launch proof ready" : launchProofCaptured ? "external claim guarded" : capturedReady && !evidenceFresh ? "stale evidence" : loaded && mode === "dry-run" ? "dry-run evidence" : "action required";
       return html`
-        <div class="publish-evidence" data-system-publish-evidence data-publish-evidence-source="${source?.source || "data/publish-evidence.json"}" data-publish-evidence-loaded="${loaded ? "true" : "false"}" data-publish-evidence-ready="${launchProofReady ? "true" : "false"}" data-publish-evidence-launch-proof-ready="${launchProofReady ? "true" : "false"}" data-publish-evidence-mode="${mode}" data-publish-evidence-fresh="${evidenceFresh ? "true" : "false"}" data-publish-evidence-repo-ready="${repoReady ? "true" : "false"}" data-publish-evidence-pages-ready="${pagesReady ? "true" : "false"}" data-publish-evidence-workflows-ready="${workflowReady ? "true" : "false"}" data-publish-evidence-display-repo="${displayRepo}" data-publish-evidence-evidence-repo="${evidenceRepo}" data-publish-evidence-repo-resolution="${repoResolution}" data-publish-evidence-repo-placeholder-resolved="${repoPlaceholderResolved ? "true" : "false"}" data-publish-evidence-suggested-repo="${suggestedRepo}" data-publish-evidence-next-action="${nextAction?.key || ""}" data-publish-evidence-next-command="${nextAction?.command || ""}" data-publish-evidence-immediate-action="${immediateNextAction?.key || ""}" data-publish-evidence-immediate-action-status="${immediateNextAction?.status || ""}" data-publish-evidence-immediate-action-source="${immediateNextAction?.source || ""}" data-publish-evidence-immediate-command="${publishEvidenceActionCommand(immediateNextAction)}" data-publish-evidence-immediate-command-count="${Number(immediateNextAction?.commandCount || 0)}" data-publish-evidence-immediate-withheld-command-count="${Number(immediateNextAction?.withheldCommandCount || 0)}" data-publish-evidence-install-paths-ready="${launchInstallPaths.ready ? "true" : "false"}" data-publish-evidence-install-path-count="${launchInstallPaths.count || launchInstallPathItems.length || 0}" data-publish-evidence-install-path-command-count="${launchInstallPaths.commandCount || 0}" data-publish-evidence-deferred-action="${deferredNextAction?.key || ""}" data-publish-evidence-deferred-command="${deferredNextAction?.command || ""}" data-publish-evidence-dispatch-ready="${publishDispatchReady ? "true" : "false"}" data-publish-evidence-dispatch-suggestion-status="${dispatchSuggestionStatus}" data-publish-evidence-suggested-commands-safe="${suggestedCommandsSafe ? "true" : "false"}" data-publish-evidence-suggested-dispatch-count="${suggestedDispatchCommands.length}" data-publish-evidence-withheld-dispatch-count="${withheldDispatchCommands.length}" data-publish-evidence-share-update-ready="${shareUpdate ? "true" : "false"}" data-publish-evidence-launch-announcement-ready="${launchAnnouncement ? "true" : "false"}" data-publish-evidence-post-launch-receipt-ready="${postLaunchVerificationReceipt ? "true" : "false"}" data-publish-evidence-launch-proof-receipt-ready="${launchProofEvidenceReceipt ? "true" : "false"}" data-publish-evidence-launch-proof-field-count="${launchProofEvidenceDisplayFields.length}" data-publish-evidence-launch-proof-field-coverage="${launchProofEvidenceFieldCoverage}">
+        <div class="publish-evidence" data-system-publish-evidence data-publish-evidence-source="${source?.source || "data/publish-evidence.json"}" data-publish-evidence-loaded="${loaded ? "true" : "false"}" data-publish-evidence-ready="${launchProofReady ? "true" : "false"}" data-publish-evidence-launch-proof-ready="${launchProofReady ? "true" : "false"}" data-publish-evidence-mode="${mode}" data-publish-evidence-fresh="${evidenceFresh ? "true" : "false"}" data-publish-evidence-repo-ready="${repoReady ? "true" : "false"}" data-publish-evidence-pages-ready="${pagesReady ? "true" : "false"}" data-publish-evidence-workflows-ready="${workflowReady ? "true" : "false"}" data-publish-evidence-display-repo="${displayRepo}" data-publish-evidence-evidence-repo="${evidenceRepo}" data-publish-evidence-repo-resolution="${repoResolution}" data-publish-evidence-repo-placeholder-resolved="${repoPlaceholderResolved ? "true" : "false"}" data-publish-evidence-suggested-repo="${suggestedRepo}" data-publish-evidence-next-action="${nextAction?.key || ""}" data-publish-evidence-next-command="${nextAction?.command || ""}" data-publish-evidence-immediate-action="${immediateNextAction?.key || ""}" data-publish-evidence-immediate-action-status="${immediateNextAction?.status || ""}" data-publish-evidence-immediate-action-source="${immediateNextAction?.source || ""}" data-publish-evidence-immediate-command="${publishEvidenceActionCommand(immediateNextAction)}" data-publish-evidence-immediate-command-count="${Number(immediateNextAction?.commandCount || 0)}" data-publish-evidence-immediate-withheld-command-count="${Number(immediateNextAction?.withheldCommandCount || 0)}" data-publish-evidence-install-paths-ready="${launchInstallPaths.ready ? "true" : "false"}" data-publish-evidence-install-path-count="${launchInstallPathCount}" data-publish-evidence-install-path-command-count="${launchInstallPathCommandCount}" data-publish-evidence-deferred-action="${deferredNextAction?.key || ""}" data-publish-evidence-deferred-command="${deferredNextAction?.command || ""}" data-publish-evidence-dispatch-ready="${publishDispatchReady ? "true" : "false"}" data-publish-evidence-dispatch-suggestion-status="${dispatchSuggestionStatus}" data-publish-evidence-dispatch-command-disposition="${publishDispatchDisposition}" data-publish-evidence-active-dispatch-count="${publishActiveDispatchCount}" data-publish-evidence-reference-dispatch-count="${publishReferenceDispatchCount}" data-publish-evidence-suggested-commands-safe="${suggestedCommandsSafe ? "true" : "false"}" data-publish-evidence-suggested-dispatch-count="${suggestedDispatchCommands.length}" data-publish-evidence-withheld-dispatch-count="${withheldDispatchCommands.length}" data-publish-evidence-share-update-ready="${shareUpdate ? "true" : "false"}" data-publish-evidence-launch-announcement-ready="${launchAnnouncement ? "true" : "false"}" data-publish-evidence-post-launch-receipt-ready="${postLaunchVerificationReceipt ? "true" : "false"}" data-publish-evidence-launch-proof-receipt-ready="${launchProofEvidenceReceipt ? "true" : "false"}" data-publish-evidence-launch-proof-field-count="${launchProofEvidenceDisplayFields.length}" data-publish-evidence-launch-proof-field-coverage="${launchProofEvidenceFieldCoverage}">
           <div class="publish-evidence-head">
             <strong>Post-dispatch evidence</strong>
             <span class="publish-state" data-publish-evidence-state-label>${stateLabel}</span>
@@ -2305,7 +2496,7 @@
               ${launchInstallPathItems.length ? raw(html`
                 <div class="publish-evidence-command-list" data-publish-evidence-install-paths>
                   <span>Choose one install path</span>
-                  ${launchInstallPathItems.map((item) => raw(html`<p data-publish-evidence-install-path-item data-publish-evidence-install-path-key="${item.key || ""}"><strong>${item.label || "Install path"}</strong> · ${item.commandCount || (Array.isArray(item.commands) ? item.commands.length : 0)} commands · ${item.when || ""} ${Array.isArray(item.commands) ? item.commands.join(" | ") : ""}</p>`))}
+                  ${launchInstallPathItems.map((item) => raw(html`<p data-publish-evidence-install-path-item data-publish-evidence-install-path-key="${item.key || ""}"><strong>${item.label || "Install path"}</strong> · ${installPathItemCommandCount(item)} commands · ${item.when || ""} ${Array.isArray(item.commands) ? item.commands.join(" | ") : ""}</p>`))}
                 </div>
               `) : ""}
               ${deferredNextAction ? raw(html`
@@ -2322,8 +2513,8 @@
             <div class="publish-evidence-command-guard" data-publish-evidence-command-guard>
               <div>
                 <span>Dispatch command guard</span>
-                <strong>${publishDispatchReady ? "dispatch commands ready" : "dispatch commands withheld"}</strong>
-                <p>Do not run until allDispatchReady: true. dispatchSuggestionStatus: ${dispatchSuggestionStatus || "not available"}</p>
+                <strong>${launchProofReady ? "dispatch commands archived" : publishDispatchReady ? "dispatch commands ready" : "dispatch commands withheld"}</strong>
+                <p>dispatchCommandDisposition: ${publishDispatchDisposition}; activeDispatchCommandCount: ${publishActiveDispatchCount}; dispatchCommandReferenceCount: ${publishReferenceDispatchCount}; dispatchSuggestionStatus: ${dispatchSuggestionStatus || "not available"}</p>
               </div>
               ${suggestedCommands.length ? raw(html`
                 <div class="publish-evidence-command-list" data-publish-evidence-suggested-commands>
@@ -2467,6 +2658,12 @@
       const blockerResolution = snapshot.blockerResolutionChecklist || {};
       const launchInstallPaths = snapshot.launchInstallPaths || data?.launchInstallPathSnapshot || {};
       const launchInstallPathItems = Array.isArray(launchInstallPaths.paths) ? launchInstallPaths.paths : [];
+      const launchInstallPathItemCommandCount = launchInstallPathItems.reduce(
+        (total, item) => total + installPathItemCommandCount(item),
+        0,
+      );
+      const launchInstallPathCount = finiteNumberOr(launchInstallPaths.count, launchInstallPathItems.length);
+      const launchInstallPathCommandCount = finiteNumberOr(launchInstallPaths.commandCount, launchInstallPathItemCommandCount);
       const launchInstallInstallerCommand = launchInstallPaths.installerCommand || "node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify";
       const executionState = data?.executionState || {};
       const sourceFreshness = data?.sourceEvidenceFreshness || {};
@@ -2476,7 +2673,7 @@
       const externalReady = !!data?.readyForExternalClaim;
       const launchPacketExternalReady = !!executionState.readyForExternalClaim;
       const sourceEvidenceFresh = !!data?.sourceEvidenceFresh;
-      const sourceEvidenceStaleCount = Number(data?.sourceEvidenceStaleCount || sourceFreshness.staleCount || 0);
+      const sourceEvidenceStaleCount = finiteNumberOr(data?.sourceEvidenceStaleCount, sourceFreshness.staleCount || 0);
       const goalCompletionReady = !!goalCompletionAudit.ready;
       const goalCompletionBlockedCount = Number(goalCompletionAudit.blockedCount || 0);
       const completionAuditReady = !!data?.completionAuditReady;
@@ -2487,11 +2684,17 @@
       const externalClaimGuardCommands = Array.isArray(externalClaimGuard.proofCommands) ? externalClaimGuard.proofCommands : [];
       const externalClaimGuardText = externalClaimGuard.text || "";
       const externalClaimGuardReady = !!externalClaimGuard.ready;
+      const externalClaimGuardBlockedCount = finiteNumberOr(externalClaimGuard.blockedCount, 0);
+      const externalClaimGuardRequirementCount = finiteNumberOr(externalClaimGuard.requirementCount, externalClaimGuardRequirements.length);
       const externalClaimCloseout = externalClaimGuard.closeoutPacket || {};
       const externalClaimCloseoutSteps = Array.isArray(externalClaimCloseout.steps) ? externalClaimCloseout.steps : [];
       const externalClaimCloseoutFields = Array.isArray(externalClaimCloseout.proofFields) ? externalClaimCloseout.proofFields : [];
       const externalClaimAllowedClaims = Array.isArray(externalClaimCloseout.allowedClaims) ? externalClaimCloseout.allowedClaims : [];
       const externalClaimForbiddenClaims = Array.isArray(externalClaimCloseout.forbiddenClaims) ? externalClaimCloseout.forbiddenClaims : [];
+      const externalClaimCloseoutStepCount = finiteNumberOr(externalClaimCloseout.stepCount, externalClaimCloseoutSteps.length);
+      const externalClaimCloseoutFieldCount = finiteNumberOr(externalClaimCloseout.proofFieldCount, externalClaimCloseoutFields.length);
+      const externalClaimCloseoutAllowedCount = finiteNumberOr(externalClaimCloseout.allowedClaimCount, externalClaimAllowedClaims.length);
+      const externalClaimCloseoutForbiddenCount = finiteNumberOr(externalClaimCloseout.forbiddenClaimCount, externalClaimForbiddenClaims.length);
       const publishState = data?.publishState || {};
       const resolvedRepo = publishState.repo || publishState.suggestedRepo || "";
       const evidenceRepo = publishState.evidenceRepo || "";
@@ -2503,7 +2706,7 @@
       const outputNextActionDeferredCommand = outputNextAction.deferredCommand || "";
       const stateLabel = externalReady ? "external claim ready" : releaseReady ? "quality ready; launch blocked" : "quality action required";
       return html`
-        <div class="output-quality-audit" data-system-output-quality-audit data-output-quality-audit-source="${source?.source || "data/output-quality-audit.json"}" data-output-quality-audit-loaded="${loaded ? "true" : "false"}" data-output-quality-audit-release-ready="${releaseReady ? "true" : "false"}" data-output-quality-audit-external-ready="${externalReady ? "true" : "false"}" data-output-quality-audit-launch-packet-external-ready="${launchPacketExternalReady ? "true" : "false"}" data-output-quality-audit-source-evidence-fresh="${sourceEvidenceFresh ? "true" : "false"}" data-output-quality-audit-source-evidence-count="${sourceFreshnessSources.length}" data-output-quality-audit-source-evidence-stale-count="${sourceEvidenceStaleCount}" data-output-quality-audit-artifact-rubric-status="${artifactRubric.status || "unknown"}" data-output-quality-audit-artifact-rubric-score="${artifactRubric.totalScore || 0}" data-output-quality-audit-artifact-rubric-max-score="${artifactRubric.maxScore || 0}" data-output-quality-audit-artifact-rubric-passing-score="${artifactRubric.passingScore || 0}" data-output-quality-audit-artifact-rubric-item-count="${artifactRubricItems.length}" data-output-quality-audit-variant-status="${variantComparison.status || "unknown"}" data-output-quality-audit-variant-decision="${variantComparison.decision || ""}" data-output-quality-audit-variant-selected="${variantComparison.selectedVariant || ""}" data-output-quality-audit-variant-score="${variantComparison.winnerScore || 0}" data-output-quality-audit-variant-baseline-score="${variantComparison.baselineScore || 0}" data-output-quality-audit-variant-max-score="${variantComparison.maxScore || 0}" data-output-quality-audit-variant-count="${variantComparisonItems.length}" data-output-quality-audit-variant-criteria-count="${variantComparisonCriteria.length}" data-output-quality-audit-criteria-count="${criteria.length}" data-output-quality-audit-goal-count="${promptChecklist.length}" data-output-quality-audit-goal-ready="${goalCompletionReady ? "true" : "false"}" data-output-quality-audit-goal-blocked-count="${goalCompletionBlockedCount}" data-output-quality-audit-completion-count="${completionAudit.length}" data-output-quality-audit-completion-ready="${completionAuditReady ? "true" : "false"}" data-output-quality-audit-completion-blocked-count="${completionAuditBlockedCount}" data-output-quality-audit-external-claim-guard-ready="${externalClaimGuardReady ? "true" : "false"}" data-output-quality-audit-external-claim-guard-status="${externalClaimGuard.status || "not_available"}" data-output-quality-audit-external-claim-guard-blocked-count="${externalClaimGuard.blockedCount || 0}" data-output-quality-audit-external-claim-guard-requirement-count="${externalClaimGuard.requirementCount || externalClaimGuardRequirements.length || 0}" data-output-quality-audit-external-claim-guard-command-count="${externalClaimGuardCommands.length}" data-output-quality-audit-comparison-count="${comparisons.length}" data-output-quality-audit-blocker-count="${blockers.length}" data-output-quality-audit-repo="${resolvedRepo}" data-output-quality-audit-evidence-repo="${evidenceRepo}" data-output-quality-audit-repo-resolution="${repoResolution}" data-output-quality-audit-repo-placeholder-resolved="${repoPlaceholderResolved ? "true" : "false"}" data-output-quality-audit-next-action-ready="${outputNextActionReady ? "true" : "false"}" data-output-quality-audit-next-action-key="${outputNextAction.key || ""}" data-output-quality-audit-next-action-status="${outputNextAction.status || ""}" data-output-quality-audit-next-action-source="${outputNextAction.source || ""}" data-output-quality-audit-next-action-command="${outputNextActionCommand}" data-output-quality-audit-next-action-deferred-key="${outputNextAction.deferredKey || ""}" data-output-quality-audit-next-action-deferred-command="${outputNextActionDeferredCommand}" data-output-quality-audit-snapshot-status="${snapshot.status || "unknown"}" data-output-quality-audit-review-ready="${snapshot.reviewPackageReadyToSubmit ? "true" : "false"}" data-output-quality-audit-issue-decision-summary="${issueDecisionSummary.ready ? "true" : "false"}" data-output-quality-audit-issue-decision-summary-fields="${issueDecisionSummary.fields || 0}" data-output-quality-audit-comment-note-decision-summary="${commentNoteDecisionSummary.ready ? "true" : "false"}" data-output-quality-audit-comment-note-decision-summary-fields="${commentNoteDecisionSummary.fields || 0}" data-output-quality-audit-repair-action-plan="${repairActionPlan.ready ? "true" : "false"}" data-output-quality-audit-repair-action-plan-fields="${repairActionPlan.fields || 0}" data-output-quality-audit-submission-closeout-summary="${submissionCloseoutSummary.ready ? "true" : "false"}" data-output-quality-audit-submission-closeout-summary-fields="${submissionCloseoutSummary.fields || 0}" data-output-quality-audit-tracker-form-payload-count="${trackerFormPayloads.count || 0}" data-output-quality-audit-tracker-form-payload-checksums="${trackerFormPayloads.checksumsReady ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight="${workflowAuthPreflight.ready ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-ui-verified="${workflowAuthPreflight.uiVerified ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-fields="${workflowAuthPreflight.fieldCoverage || 0}" data-output-quality-audit-workflow-auth-preflight-available="${workflowAuthPreflight.workflowScopeAvailable ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-install-blocked="${workflowAuthPreflight.workflowScopeInstallBlocked ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-scope-count="${workflowAuthPreflight.scopeCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint="${launchPostAuthCheckpoint.ready ? "true" : "false"}" data-output-quality-audit-launch-post-auth-checkpoint-command-count="${launchPostAuthCheckpoint.commandCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-expected-count="${launchPostAuthCheckpoint.expectedSignalCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-blocked-count="${launchPostAuthCheckpoint.blockedSignalCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-recheck-count="${launchPostAuthCheckpoint.recheckSequenceCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-source-artifact-count="${launchPostAuthCheckpoint.sourceArtifactCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-dispatch-approval="${launchPostAuthCheckpoint.dispatchApproval ? "true" : "false"}" data-output-quality-audit-launch-post-auth-checkpoint-verification-only="${launchPostAuthCheckpoint.verificationOnly ? "true" : "false"}" data-output-quality-audit-launch-post-auth-checkpoint-verify-command="${launchPostAuthCheckpoint.verifyCommand || ""}" data-output-quality-audit-workflow-ui-install-receipt="${workflowUiInstallReceipt.ready ? "true" : "false"}" data-output-quality-audit-workflow-ui-install-receipt-command-count="${workflowUiInstallReceipt.commandCount || 0}" data-output-quality-audit-workflow-ui-install-receipt-checklist-count="${workflowUiInstallReceipt.checklistCount || 0}" data-output-quality-audit-workflow-ui-install-receipt-verify-command="${workflowUiInstallReceipt.verifyCommand || ""}" data-output-quality-audit-workflow-ui-install-paste-packet="${copyReadyArtifacts.workflowUiInstallPastePacket ? "true" : "false"}" data-output-quality-audit-workflow-ui-install-paste-packet-coverage="${workflowUiInstallReceipt.pastePacketCoverage || 0}" data-output-quality-audit-handoff-verifier-artifact="${handoffVerifierArtifact.ready ? "true" : "false"}" data-output-quality-audit-handoff-verifier-artifact-coverage="${handoffVerifierArtifact.artifactCoverage || 0}" data-output-quality-audit-handoff-verifier-safe-to-dispatch="${handoffVerifierArtifact.safeToDispatch ? "true" : "false"}" data-output-quality-audit-handoff-verifier-json-path="${handoffVerifierArtifact.jsonPath || ""}" data-output-quality-audit-handoff-verifier-markdown-path="${handoffVerifierArtifact.markdownPath || ""}" data-output-quality-audit-post-install-evidence-intake="${postInstallEvidenceIntake.ready ? "true" : "false"}" data-output-quality-audit-post-install-evidence-intake-source="${postInstallEvidenceIntake.source || ""}" data-output-quality-audit-post-install-evidence-intake-status="${postInstallEvidenceIntake.status || ""}" data-output-quality-audit-post-install-evidence-intake-fields="${postInstallEvidenceIntake.fields || 0}" data-output-quality-audit-post-install-evidence-intake-coverage="${postInstallEvidenceIntake.coverage || 0}" data-output-quality-audit-post-install-evidence-intake-completed-count="${postInstallEvidenceIntake.completedFieldCount || 0}" data-output-quality-audit-post-install-evidence-intake-proof-complete="${postInstallEvidenceIntake.proofComplete ? "true" : "false"}" data-output-quality-audit-post-install-evidence-intake-command-count="${postInstallEvidenceIntake.commandCount || 0}" data-output-quality-audit-post-install-evidence-intake-signal-count="${postInstallEvidenceIntake.signalCount || 0}" data-output-quality-audit-launch-proof-evidence-receipt="${launchProofEvidenceReceipt.ready ? "true" : "false"}" data-output-quality-audit-launch-proof-evidence-fields="${launchProofEvidenceReceipt.fields || 0}" data-output-quality-audit-launch-proof-evidence-coverage="${launchProofEvidenceReceipt.coverage || 0}" data-output-quality-audit-publish-evidence-command-guard="${publishCommandGuard.ready ? "true" : "false"}" data-output-quality-audit-publish-evidence-immediate-action="${publishImmediateAction.ready ? "true" : "false"}" data-output-quality-audit-publish-evidence-immediate-action-key="${publishImmediateAction.key || ""}" data-output-quality-audit-publish-evidence-suggested-dispatch-count="${publishCommandGuard.suggestedDispatchCommands || 0}" data-output-quality-audit-publish-evidence-withheld-dispatch-count="${publishCommandGuard.withheldDispatchCommands || 0}" data-output-quality-audit-launch-acceptance-total="${launchAcceptance.total || 0}" data-output-quality-audit-launch-acceptance-pass="${launchAcceptance.pass || 0}" data-output-quality-audit-launch-acceptance-pending="${launchAcceptance.pending || 0}" data-output-quality-audit-launch-acceptance-stage="${launchAcceptance.stageKey || ""}" data-output-quality-audit-blocker-resolution="${blockerResolution.ready ? "true" : "false"}" data-output-quality-audit-blocker-resolution-active="${blockerResolution.activeItemKey || ""}" data-output-quality-audit-blocker-resolution-item-count="${blockerResolution.itemCount || 0}" data-output-quality-audit-blocker-resolution-action-required-count="${blockerResolution.actionRequiredCount || 0}" data-output-quality-audit-blocker-resolution-deferred-count="${blockerResolution.deferredCount || 0}" data-output-quality-audit-blocker-resolution-proof-command-count="${blockerResolution.proofCommandCount || 0}" data-output-quality-audit-install-paths-ready="${launchInstallPaths.ready ? "true" : "false"}" data-output-quality-audit-install-path-count="${launchInstallPaths.count || launchInstallPathItems.length || 0}" data-output-quality-audit-install-path-command-count="${launchInstallPaths.commandCount || 0}">
+        <div class="output-quality-audit" data-system-output-quality-audit data-output-quality-audit-source="${source?.source || "data/output-quality-audit.json"}" data-output-quality-audit-loaded="${loaded ? "true" : "false"}" data-output-quality-audit-release-ready="${releaseReady ? "true" : "false"}" data-output-quality-audit-external-ready="${externalReady ? "true" : "false"}" data-output-quality-audit-launch-packet-external-ready="${launchPacketExternalReady ? "true" : "false"}" data-output-quality-audit-source-evidence-fresh="${sourceEvidenceFresh ? "true" : "false"}" data-output-quality-audit-source-evidence-count="${sourceFreshnessSources.length}" data-output-quality-audit-source-evidence-stale-count="${sourceEvidenceStaleCount}" data-output-quality-audit-artifact-rubric-status="${artifactRubric.status || "unknown"}" data-output-quality-audit-artifact-rubric-score="${artifactRubric.totalScore || 0}" data-output-quality-audit-artifact-rubric-max-score="${artifactRubric.maxScore || 0}" data-output-quality-audit-artifact-rubric-passing-score="${artifactRubric.passingScore || 0}" data-output-quality-audit-artifact-rubric-item-count="${artifactRubricItems.length}" data-output-quality-audit-variant-status="${variantComparison.status || "unknown"}" data-output-quality-audit-variant-decision="${variantComparison.decision || ""}" data-output-quality-audit-variant-selected="${variantComparison.selectedVariant || ""}" data-output-quality-audit-variant-score="${variantComparison.winnerScore || 0}" data-output-quality-audit-variant-baseline-score="${variantComparison.baselineScore || 0}" data-output-quality-audit-variant-max-score="${variantComparison.maxScore || 0}" data-output-quality-audit-variant-count="${variantComparisonItems.length}" data-output-quality-audit-variant-criteria-count="${variantComparisonCriteria.length}" data-output-quality-audit-criteria-count="${criteria.length}" data-output-quality-audit-goal-count="${promptChecklist.length}" data-output-quality-audit-goal-ready="${goalCompletionReady ? "true" : "false"}" data-output-quality-audit-goal-blocked-count="${goalCompletionBlockedCount}" data-output-quality-audit-completion-count="${completionAudit.length}" data-output-quality-audit-completion-ready="${completionAuditReady ? "true" : "false"}" data-output-quality-audit-completion-blocked-count="${completionAuditBlockedCount}" data-output-quality-audit-external-claim-guard-ready="${externalClaimGuardReady ? "true" : "false"}" data-output-quality-audit-external-claim-guard-status="${externalClaimGuard.status || "not_available"}" data-output-quality-audit-external-claim-guard-blocked-count="${externalClaimGuardBlockedCount}" data-output-quality-audit-external-claim-guard-requirement-count="${externalClaimGuardRequirementCount}" data-output-quality-audit-external-claim-guard-command-count="${externalClaimGuardCommands.length}" data-output-quality-audit-comparison-count="${comparisons.length}" data-output-quality-audit-blocker-count="${blockers.length}" data-output-quality-audit-repo="${resolvedRepo}" data-output-quality-audit-evidence-repo="${evidenceRepo}" data-output-quality-audit-repo-resolution="${repoResolution}" data-output-quality-audit-repo-placeholder-resolved="${repoPlaceholderResolved ? "true" : "false"}" data-output-quality-audit-next-action-ready="${outputNextActionReady ? "true" : "false"}" data-output-quality-audit-next-action-key="${outputNextAction.key || ""}" data-output-quality-audit-next-action-status="${outputNextAction.status || ""}" data-output-quality-audit-next-action-source="${outputNextAction.source || ""}" data-output-quality-audit-next-action-command="${outputNextActionCommand}" data-output-quality-audit-next-action-deferred-key="${outputNextAction.deferredKey || ""}" data-output-quality-audit-next-action-deferred-command="${outputNextActionDeferredCommand}" data-output-quality-audit-snapshot-status="${snapshot.status || "unknown"}" data-output-quality-audit-review-ready="${snapshot.reviewPackageReadyToSubmit ? "true" : "false"}" data-output-quality-audit-issue-decision-summary="${issueDecisionSummary.ready ? "true" : "false"}" data-output-quality-audit-issue-decision-summary-fields="${issueDecisionSummary.fields || 0}" data-output-quality-audit-comment-note-decision-summary="${commentNoteDecisionSummary.ready ? "true" : "false"}" data-output-quality-audit-comment-note-decision-summary-fields="${commentNoteDecisionSummary.fields || 0}" data-output-quality-audit-repair-action-plan="${repairActionPlan.ready ? "true" : "false"}" data-output-quality-audit-repair-action-plan-fields="${repairActionPlan.fields || 0}" data-output-quality-audit-submission-closeout-summary="${submissionCloseoutSummary.ready ? "true" : "false"}" data-output-quality-audit-submission-closeout-summary-fields="${submissionCloseoutSummary.fields || 0}" data-output-quality-audit-tracker-form-payload-count="${trackerFormPayloads.count || 0}" data-output-quality-audit-tracker-form-payload-checksums="${trackerFormPayloads.checksumsReady ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight="${workflowAuthPreflight.ready ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-ui-verified="${workflowAuthPreflight.uiVerified ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-fields="${workflowAuthPreflight.fieldCoverage || 0}" data-output-quality-audit-workflow-auth-preflight-available="${workflowAuthPreflight.workflowScopeAvailable ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-install-blocked="${workflowAuthPreflight.workflowScopeInstallBlocked ? "true" : "false"}" data-output-quality-audit-workflow-auth-preflight-scope-count="${workflowAuthPreflight.scopeCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint="${launchPostAuthCheckpoint.ready ? "true" : "false"}" data-output-quality-audit-launch-post-auth-checkpoint-command-count="${launchPostAuthCheckpoint.commandCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-expected-count="${launchPostAuthCheckpoint.expectedSignalCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-blocked-count="${launchPostAuthCheckpoint.blockedSignalCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-recheck-count="${launchPostAuthCheckpoint.recheckSequenceCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-source-artifact-count="${launchPostAuthCheckpoint.sourceArtifactCount || 0}" data-output-quality-audit-launch-post-auth-checkpoint-dispatch-approval="${launchPostAuthCheckpoint.dispatchApproval ? "true" : "false"}" data-output-quality-audit-launch-post-auth-checkpoint-verification-only="${launchPostAuthCheckpoint.verificationOnly ? "true" : "false"}" data-output-quality-audit-launch-post-auth-checkpoint-verify-command="${launchPostAuthCheckpoint.verifyCommand || ""}" data-output-quality-audit-workflow-ui-install-receipt="${workflowUiInstallReceipt.ready ? "true" : "false"}" data-output-quality-audit-workflow-ui-install-receipt-command-count="${workflowUiInstallReceipt.commandCount || 0}" data-output-quality-audit-workflow-ui-install-receipt-checklist-count="${workflowUiInstallReceipt.checklistCount || 0}" data-output-quality-audit-workflow-ui-install-receipt-verify-command="${workflowUiInstallReceipt.verifyCommand || ""}" data-output-quality-audit-workflow-ui-install-paste-packet="${copyReadyArtifacts.workflowUiInstallPastePacket ? "true" : "false"}" data-output-quality-audit-workflow-ui-install-paste-packet-coverage="${workflowUiInstallReceipt.pastePacketCoverage || 0}" data-output-quality-audit-handoff-verifier-artifact="${handoffVerifierArtifact.ready ? "true" : "false"}" data-output-quality-audit-handoff-verifier-artifact-coverage="${handoffVerifierArtifact.artifactCoverage || 0}" data-output-quality-audit-handoff-verifier-safe-to-dispatch="${handoffVerifierArtifact.safeToDispatch ? "true" : "false"}" data-output-quality-audit-handoff-verifier-json-path="${handoffVerifierArtifact.jsonPath || ""}" data-output-quality-audit-handoff-verifier-markdown-path="${handoffVerifierArtifact.markdownPath || ""}" data-output-quality-audit-post-install-evidence-intake="${postInstallEvidenceIntake.ready ? "true" : "false"}" data-output-quality-audit-post-install-evidence-intake-source="${postInstallEvidenceIntake.source || ""}" data-output-quality-audit-post-install-evidence-intake-status="${postInstallEvidenceIntake.status || ""}" data-output-quality-audit-post-install-evidence-intake-fields="${postInstallEvidenceIntake.fields || 0}" data-output-quality-audit-post-install-evidence-intake-coverage="${postInstallEvidenceIntake.coverage || 0}" data-output-quality-audit-post-install-evidence-intake-completed-count="${postInstallEvidenceIntake.completedFieldCount || 0}" data-output-quality-audit-post-install-evidence-intake-proof-complete="${postInstallEvidenceIntake.proofComplete ? "true" : "false"}" data-output-quality-audit-post-install-evidence-intake-command-count="${postInstallEvidenceIntake.commandCount || 0}" data-output-quality-audit-post-install-evidence-intake-signal-count="${postInstallEvidenceIntake.signalCount || 0}" data-output-quality-audit-launch-proof-evidence-receipt="${launchProofEvidenceReceipt.ready ? "true" : "false"}" data-output-quality-audit-launch-proof-evidence-fields="${launchProofEvidenceReceipt.fields || 0}" data-output-quality-audit-launch-proof-evidence-coverage="${launchProofEvidenceReceipt.coverage || 0}" data-output-quality-audit-publish-evidence-command-guard="${publishCommandGuard.ready ? "true" : "false"}" data-output-quality-audit-publish-evidence-immediate-action="${publishImmediateAction.ready ? "true" : "false"}" data-output-quality-audit-publish-evidence-immediate-action-key="${publishImmediateAction.key || ""}" data-output-quality-audit-publish-evidence-suggested-dispatch-count="${publishCommandGuard.suggestedDispatchCommands || 0}" data-output-quality-audit-publish-evidence-withheld-dispatch-count="${publishCommandGuard.withheldDispatchCommands || 0}" data-output-quality-audit-launch-acceptance-total="${launchAcceptance.total || 0}" data-output-quality-audit-launch-acceptance-pass="${launchAcceptance.pass || 0}" data-output-quality-audit-launch-acceptance-pending="${launchAcceptance.pending || 0}" data-output-quality-audit-launch-acceptance-stage="${launchAcceptance.stageKey || ""}" data-output-quality-audit-blocker-resolution="${blockerResolution.ready ? "true" : "false"}" data-output-quality-audit-blocker-resolution-active="${blockerResolution.activeItemKey || ""}" data-output-quality-audit-blocker-resolution-item-count="${blockerResolution.itemCount || 0}" data-output-quality-audit-blocker-resolution-action-required-count="${blockerResolution.actionRequiredCount || 0}" data-output-quality-audit-blocker-resolution-deferred-count="${blockerResolution.deferredCount || 0}" data-output-quality-audit-blocker-resolution-proof-command-count="${blockerResolution.proofCommandCount || 0}" data-output-quality-audit-install-paths-ready="${launchInstallPaths.ready ? "true" : "false"}" data-output-quality-audit-install-path-count="${launchInstallPathCount}" data-output-quality-audit-install-path-command-count="${launchInstallPathCommandCount}">
           <div class="publish-evidence-head">
             <strong>Final output quality audit</strong>
             <span class="publish-state" data-output-quality-audit-state-label>${stateLabel}</span>
@@ -2513,7 +2716,7 @@
             <section class="publish-evidence-next-action output-quality-next-action" data-output-quality-audit-next-action data-output-quality-audit-next-action-ready="${outputNextActionReady ? "true" : "false"}" data-output-quality-audit-next-action-key="${outputNextAction.key || ""}" data-output-quality-audit-next-action-status="${outputNextAction.status || ""}" data-output-quality-audit-next-action-source="${outputNextAction.source || ""}" data-output-quality-audit-next-action-command="${outputNextActionCommand}" data-output-quality-audit-next-action-deferred-key="${outputNextAction.deferredKey || ""}" data-output-quality-audit-next-action-deferred-command="${outputNextActionDeferredCommand}">
               <span>Structured next action</span>
               <strong>${outputNextAction.label || outputNextAction.key}</strong>
-              <p>${outputNextAction.successCondition ? `Success condition: ${outputNextAction.successCondition}` : outputNextAction.guard || "Keep public launch claims blocked until proof is complete."}</p>
+              <p>${outputNextAction.successCondition ? `Success condition: ${outputNextAction.successCondition}` : outputNextAction.detail || outputNextAction.guard || "Keep public launch claims blocked until proof is complete."}</p>
               <code>${outputNextActionCommand || "not available"}</code>
               ${outputNextActionDeferredCommand ? raw(html`<small>Deferred: ${outputNextAction.deferredLabel || outputNextAction.deferredKey} · ${outputNextActionDeferredCommand}</small>`) : ""}
             </section>
@@ -2561,7 +2764,7 @@
               <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="launch-proof-evidence-receipt"><strong>Launch proof evidence receipt</strong><span>${launchProofEvidenceReceipt.ready ? "pass" : "check"}</span><p>${launchProofEvidenceReceipt.fields || 0} fields · coverage ${launchProofEvidenceReceipt.coverage || 0}</p></li>
               <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="launch-acceptance-checklist"><strong>Launch acceptance checklist</strong><span>${launchAcceptance.pending === 0 && launchAcceptance.total ? "pass" : "pending"}</span><p>${launchAcceptance.pass || 0}/${launchAcceptance.total || 0} pass · ${launchAcceptance.pending || 0} pending · stage ${launchAcceptance.stageKey || "not available"}</p></li>
               <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="blocker-resolution-checklist" data-output-quality-audit-blocker-resolution-guard="${blockerResolution.guard || ""}"><strong>Blocker resolution checklist</strong><span>${blockerResolution.ready ? "pass" : "check"}</span><p>active ${blockerResolution.activeItemKey || "not available"} · ${blockerResolution.passCount || 0}/${blockerResolution.itemCount || 0} pass · actionRequired ${blockerResolution.actionRequiredCount || 0} · deferred ${blockerResolution.deferredCount || 0} · proofCommands ${blockerResolution.proofCommandCount || 0} · guard ${blockerResolution.guard || "not available"}</p></li>
-              <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="launch-install-path-options"><strong>Launch install path options</strong><span>${launchInstallPaths.ready ? "pass" : "check"}</span><p>${launchInstallPaths.count || launchInstallPathItems.length || 0} paths · ${launchInstallPaths.commandCount || 0} commands · ${(launchInstallPaths.labels || []).join(" | ") || "labels pending"} · installer ${launchInstallInstallerCommand}</p></li>
+              <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="launch-install-path-options"><strong>Launch install path options</strong><span>${launchInstallPaths.ready ? "pass" : "check"}</span><p>${launchInstallPathCount} paths · ${launchInstallPathCommandCount} commands · ${(launchInstallPaths.labels || []).join(" | ") || "labels pending"} · installer ${launchInstallInstallerCommand}</p></li>
               <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="publish-evidence-command-guard"><strong>Publish evidence command guard</strong><span>${publishCommandGuard.ready ? "pass" : "check"}</span><p>${publishCommandGuard.suggestedVerificationCommands || 0} safe suggestions · ${publishCommandGuard.suggestedDispatchCommands || 0} suggested dispatch · ${publishCommandGuard.withheldDispatchCommands || 0} withheld dispatch</p></li>
               <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="publish-evidence-immediate-action"><strong>Publish evidence immediate action</strong><span>${publishImmediateAction.ready ? "pass" : "check"}</span><p>${publishImmediateAction.key || "pending"} from ${publishImmediateAction.source || "not available"} · deferred ${publishImmediateAction.deferredKey || "not available"}</p></li>
               <li data-output-quality-audit-snapshot-item data-output-quality-audit-snapshot-key="copy-ready-artifacts"><strong>Copy-ready artifacts</strong><span>${copyReadyArtifacts.launchExecutionPacket && copyReadyArtifacts.workflowUiInstallPastePacket && copyReadyArtifacts.handoffVerifierArtifact && copyReadyArtifacts.mainBridgePlan && copyReadyArtifacts.operatorOnePageHandoff ? "ready" : "check"}</span><p>share/update/launch/receipt packet evidence retained · workflow UI paste packet ${copyReadyArtifacts.workflowUiInstallPastePacket ? "ready" : "pending"} · handoff verifier artifact ${copyReadyArtifacts.handoffVerifierArtifact ? "ready" : "pending"} · main bridge plan ${copyReadyArtifacts.mainBridgePlan ? "ready" : "pending"} · operator one-page ${copyReadyArtifacts.operatorOnePageHandoff ? "ready" : "pending"}</p></li>
@@ -2569,7 +2772,7 @@
           `) : ""}
           ${launchInstallPathItems.length ? raw(html`
             <ul class="output-quality-snapshot" data-output-quality-audit-install-paths>
-              ${launchInstallPathItems.map((item) => raw(html`<li data-output-quality-audit-install-path-item data-output-quality-audit-install-path-key="${item.key || ""}"><strong>${item.label || "Install path"}</strong><span>${item.commandCount || (Array.isArray(item.commands) ? item.commands.length : 0)} commands</span><p>${item.when || ""} ${Array.isArray(item.commands) ? item.commands.join(" | ") : ""}</p></li>`))}
+              ${launchInstallPathItems.map((item) => raw(html`<li data-output-quality-audit-install-path-item data-output-quality-audit-install-path-key="${item.key || ""}"><strong>${item.label || "Install path"}</strong><span>${installPathItemCommandCount(item)} commands</span><p>${item.when || ""} ${Array.isArray(item.commands) ? item.commands.join(" | ") : ""}</p></li>`))}
             </ul>
           `) : ""}
           ${criteria.length ? raw(html`
@@ -2599,11 +2802,11 @@
             </section>
           `) : ""}
           ${externalClaimGuardText ? raw(html`
-            <section class="output-quality-external-claim-guard" data-output-quality-audit-external-claim-guard data-output-quality-audit-external-claim-guard-ready="${externalClaimGuardReady ? "true" : "false"}" data-output-quality-audit-external-claim-guard-status="${externalClaimGuard.status || "not_available"}" data-output-quality-audit-external-claim-guard-blocked-count="${externalClaimGuard.blockedCount || 0}" data-output-quality-audit-external-claim-guard-requirement-count="${externalClaimGuard.requirementCount || externalClaimGuardRequirements.length || 0}" data-output-quality-audit-external-claim-guard-command-count="${externalClaimGuardCommands.length}">
+            <section class="output-quality-external-claim-guard" data-output-quality-audit-external-claim-guard data-output-quality-audit-external-claim-guard-ready="${externalClaimGuardReady ? "true" : "false"}" data-output-quality-audit-external-claim-guard-status="${externalClaimGuard.status || "not_available"}" data-output-quality-audit-external-claim-guard-blocked-count="${externalClaimGuardBlockedCount}" data-output-quality-audit-external-claim-guard-requirement-count="${externalClaimGuardRequirementCount}" data-output-quality-audit-external-claim-guard-command-count="${externalClaimGuardCommands.length}">
               <div>
                 <span>External completion claim guard</span>
                 <strong>${externalClaimGuardReady ? "외부 완료 주장 가능" : "외부 완료 주장 차단"}</strong>
-                <p>${externalClaimGuard.status || "not_available"} · blocked ${externalClaimGuard.blockedCount || 0}/${externalClaimGuard.requirementCount || externalClaimGuardRequirements.length || 0}</p>
+                <p>${externalClaimGuard.status || "not_available"} · blocked ${externalClaimGuardBlockedCount}/${externalClaimGuardRequirementCount}</p>
               </div>
               <ul class="output-quality-criteria" data-output-quality-audit-external-claim-guard-requirements>
                 ${externalClaimGuardRequirements.map((item) => raw(html`<li data-output-quality-audit-external-claim-guard-item data-output-quality-audit-external-claim-guard-key="${item.key}" data-output-quality-audit-external-claim-guard-item-status="${item.status}"><strong>${item.label}</strong><span>${item.status}</span><p>${item.detail}${Array.isArray(item.missing) && item.missing.length ? ` Missing: ${item.missing.join("; ")}` : ""}</p></li>`))}
@@ -2615,7 +2818,7 @@
                 ${externalClaimGuardCommands.map((command) => raw(html`<code data-output-quality-audit-external-claim-guard-command>${command}</code>`))}
               </div>
               ${externalClaimCloseout.text ? raw(html`
-                <section class="output-quality-completion" data-output-quality-audit-external-claim-closeout data-output-quality-audit-external-claim-closeout-ready="${externalClaimCloseout.ready ? "true" : "false"}" data-output-quality-audit-external-claim-closeout-status="${externalClaimCloseout.status || "unknown"}" data-output-quality-audit-external-claim-closeout-step-count="${externalClaimCloseout.stepCount || externalClaimCloseoutSteps.length || 0}" data-output-quality-audit-external-claim-closeout-field-count="${externalClaimCloseout.proofFieldCount || externalClaimCloseoutFields.length || 0}" data-output-quality-audit-external-claim-closeout-allowed-count="${externalClaimCloseout.allowedClaimCount || externalClaimAllowedClaims.length || 0}" data-output-quality-audit-external-claim-closeout-forbidden-count="${externalClaimCloseout.forbiddenClaimCount || externalClaimForbiddenClaims.length || 0}">
+                <section class="output-quality-completion" data-output-quality-audit-external-claim-closeout data-output-quality-audit-external-claim-closeout-ready="${externalClaimCloseout.ready ? "true" : "false"}" data-output-quality-audit-external-claim-closeout-status="${externalClaimCloseout.status || "unknown"}" data-output-quality-audit-external-claim-closeout-step-count="${externalClaimCloseoutStepCount}" data-output-quality-audit-external-claim-closeout-field-count="${externalClaimCloseoutFieldCount}" data-output-quality-audit-external-claim-closeout-allowed-count="${externalClaimCloseoutAllowedCount}" data-output-quality-audit-external-claim-closeout-forbidden-count="${externalClaimCloseoutForbiddenCount}">
                   <strong>External claim closeout packet</strong>
                   <p class="settings-note">default branch workflow_dispatch, workflow run summary, and Release-note archive claim proof fields required before external completion claims.</p>
                   <ol class="output-quality-criteria" data-output-quality-audit-external-claim-closeout-steps>

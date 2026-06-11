@@ -221,9 +221,18 @@
       return suggestions[checkId] || "Review the archived receipt against the current artifact, then replace whichever side is no longer authoritative.";
     }
 
+    function reviewArtifactReceiptCheckSignature(checks) {
+      return (checks || []).map((check) => `${check.label}:${check.status}`).join("\n");
+    }
+
+    function reviewArtifactReceiptChecksPass(checks) {
+      const rows = Array.isArray(checks) ? checks : [];
+      return rows.length > 0 && rows.every((check) => check.status === "pass");
+    }
+
     function reviewArtifactReceiptComparison(receipt, current) {
-      const sameCheckRows = (receipt.checks || []).map((check) => `${check.label}:${check.status}`).join("\n") === (current.checks || []).map((check) => `${check.label}:${check.status}`).join("\n");
-      const currentChecksPass = (current.checks || []).length > 0 && current.checks.every((check) => check.status === "pass");
+      const sameCheckRows = reviewArtifactReceiptCheckSignature(receipt.checks) === reviewArtifactReceiptCheckSignature(current.checks);
+      const currentChecksPass = reviewArtifactReceiptChecksPass(current.checks);
       const rows = [
         {
           id: "receipt_present",
@@ -284,7 +293,7 @@
 
     function reviewArtifactReceiptCompareOutput(checks) {
       const rows = Array.isArray(checks) ? checks : [];
-      const pass = rows.length > 0 && rows.every((check) => check.status === "pass");
+      const pass = reviewArtifactReceiptChecksPass(rows);
       const repairs = rows.filter((check) => check.status !== "pass" && check.repair);
       const archivedBodyRepair = repairs.some((check) => check.id === "body_match")
         ? rows.find((check) => check.id === "body_match")?.receiptBody || ""
