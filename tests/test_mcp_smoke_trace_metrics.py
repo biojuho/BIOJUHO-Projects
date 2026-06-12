@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import importlib.util
 import json
 import subprocess
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -490,3 +490,46 @@ def test_cli_posts_otel_json_and_writes_submit_report(tmp_path: Path) -> None:
     assert report["ok"] is True
     assert report["status_code"] == 202
     assert report["response_body_preview"] == '{"queued":true}'
+
+
+def test_format_otel_json_sets_span_timestamps_from_source_generated_at(tmp_path: Path) -> None:
+    from datetime import datetime
+
+    metrics_module = load_metrics_module()
+    payload = smoke_payload(
+        [
+            result("first", "python -m pytest tests -q", duration_seconds=0.25),
+            result("second", "npm.cmd run test", returncode=1, ok=False),
+        ]
+    )
+
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+    spans = metrics_module.format_otel_json(metrics)["resourceSpans"][0]["scopeSpans"][0]["spans"]
+
+    base_ns = int(datetime.fromisoformat("2026-06-05T00:00:00+00:00").timestamp() * 1_000_000_000)
+    root, first, second = spans
+    assert int(root["startTimeUnixNano"]) == base_ns
+    assert int(first["startTimeUnixNano"]) == base_ns
+    assert int(first["endTimeUnixNano"]) == base_ns + 250_000_000
+    assert int(second["startTimeUnixNano"]) == int(first["endTimeUnixNano"])
+    assert int(second["endTimeUnixNano"]) > int(second["startTimeUnixNano"])
+    assert int(root["endTimeUnixNano"]) == int(second["endTimeUnixNano"])
+
+
+def test_otel_trace_id_distinguishes_runs_by_generated_at(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    source_path = tmp_path / "smoke.json"
+
+    def trace_id_for(generated_at: str) -> str:
+        payload = smoke_payload([result("first", "python -m pytest tests -q")])
+        payload["generated_at"] = generated_at
+        metrics = metrics_module.build_metrics(payload, source_path=source_path)
+        otel = metrics_module.format_otel_json(metrics)
+        return otel["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["traceId"]
+
+    first_run = trace_id_for("2026-06-05T00:00:00+00:00")
+    identical_rerun = trace_id_for("2026-06-05T00:00:00+00:00")
+    next_run = trace_id_for("2026-06-06T00:00:00+00:00")
+
+    assert first_run == identical_rerun
+    assert first_run != next_run

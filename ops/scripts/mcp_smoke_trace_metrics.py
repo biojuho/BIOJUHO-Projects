@@ -8,10 +8,11 @@ import hashlib
 import html
 import json
 import re
-import sys
+import time
 import urllib.error
 import urllib.request
 from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -442,33 +443,52 @@ def format_html(metrics: dict[str, Any]) -> str:
 """
 
 
+_NANOS_PER_SECOND = 1_000_000_000
+# Floor so zero/unknown-duration spans still render with visible extent in collectors.
+_MIN_SPAN_DURATION_NS = 1_000_000
+
+
+def _otel_base_epoch_ns(metrics: dict[str, Any]) -> int:
+    generated_at = metrics.get("source_generated_at")
+    if generated_at:
+        try:
+            parsed = datetime.fromisoformat(str(generated_at).replace("Z", "+00:00"))
+        except ValueError:
+            pass
+        else:
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            return int(parsed.timestamp() * _NANOS_PER_SECOND)
+    return time.time_ns()
+
+
+def _span_duration_ns(duration_seconds: Any) -> int:
+    if isinstance(duration_seconds, (int, float)) and not isinstance(duration_seconds, bool) and duration_seconds > 0:
+        return max(int(duration_seconds * _NANOS_PER_SECOND), _MIN_SPAN_DURATION_NS)
+    return _MIN_SPAN_DURATION_NS
+
+
+def _otel_time_fields(start_ns: int, end_ns: int) -> dict[str, str]:
+    return {"startTimeUnixNano": str(start_ns), "endTimeUnixNano": str(end_ns)}
+
+
 def format_otel_json(metrics: dict[str, Any]) -> dict[str, Any]:
-    trace_id = _stable_hex(f"{metrics['source_path']}:{metrics['scope']}", 32)
-    root_span = metrics["span_tree"]["root"]
-    spans = [
-        {
-            "traceId": trace_id,
-            "spanId": _stable_hex(root_span["span_id"], 16),
-            "name": root_span["name"],
-            "kind": "SPAN_KIND_INTERNAL",
-            "status": {"code": _otel_status(root_span["status"])},
-            "attributes": _otel_attributes(
-                {
-                    "mcp.scope": metrics["scope"],
-                    "mcp.source_path": metrics["source_path"],
-                    "mcp.source_status": metrics.get("source_status"),
-                    "mcp.child_spans": metrics["span_tree"]["summary"]["spans"],
-                }
-            ),
-        }
-    ]
+    # Mix the source report's generation time into the trace id so each smoke run
+    # submits a distinct trace; identical resubmits of one report stay idempotent.
+    discriminator = metrics.get("source_generated_at") or ""
+    trace_id = _stable_hex(f"{discriminator}:{metrics['source_path']}:{metrics['scope']}", 32)
+    base_ns = _otel_base_epoch_ns(metrics)
+    children: list[dict[str, Any]] = []
+    cursor_ns = base_ns
     for span in metrics["span_tree"]["spans"]:
-        spans.append(
+        duration_ns = _span_duration_ns(span.get("duration_seconds"))
+        children.append(
             {
                 "traceId": trace_id,
                 "spanId": _stable_hex(span["span_id"], 16),
                 "parentSpanId": _stable_hex(span["parent_id"], 16),
                 "name": span["name"],
+                **_otel_time_fields(cursor_ns, cursor_ns + duration_ns),
                 "kind": "SPAN_KIND_INTERNAL",
                 "status": {"code": _otel_status(span["status"])},
                 "attributes": _otel_attributes(
@@ -483,6 +503,28 @@ def format_otel_json(metrics: dict[str, Any]) -> dict[str, Any]:
                 ),
             }
         )
+        cursor_ns += duration_ns
+    root_span = metrics["span_tree"]["root"]
+    root_end_ns = max(cursor_ns, base_ns + _MIN_SPAN_DURATION_NS)
+    spans = [
+        {
+            "traceId": trace_id,
+            "spanId": _stable_hex(root_span["span_id"], 16),
+            "name": root_span["name"],
+            **_otel_time_fields(base_ns, root_end_ns),
+            "kind": "SPAN_KIND_INTERNAL",
+            "status": {"code": _otel_status(root_span["status"])},
+            "attributes": _otel_attributes(
+                {
+                    "mcp.scope": metrics["scope"],
+                    "mcp.source_path": metrics["source_path"],
+                    "mcp.source_status": metrics.get("source_status"),
+                    "mcp.child_spans": metrics["span_tree"]["summary"]["spans"],
+                }
+            ),
+        },
+        *children,
+    ]
     return {
         "resourceSpans": [
             {
