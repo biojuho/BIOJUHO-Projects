@@ -10,6 +10,7 @@ import json
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import Counter
 from datetime import UTC, datetime
@@ -249,7 +250,8 @@ def format_markdown(metrics: dict[str, Any]) -> str:
         f"- Usage observed: {usage['observed_checks']} observed, {usage['missing_checks']} missing",
         f"- Total tokens: {_markdown_value(usage['total_tokens'])}",
         f"- Cost USD: {_markdown_value(usage['cost_usd'])}",
-        f"- Costliest check: {_markdown_value(usage['costliest_check'])} ({_markdown_value(usage['max_cost_usd'])} USD)",
+        f"- Costliest check: {_markdown_value(usage['costliest_check'])} "
+        f"({_markdown_value(usage['max_cost_usd'])} USD)",
         f"- Max cwd depth: {path_depth['max_cwd_depth']}",
         f"- Max command path depth: {path_depth['max_command_path_depth']}",
         f"- Command path tokens: {path_depth['command_path_tokens']}",
@@ -333,6 +335,9 @@ def format_markdown(metrics: dict[str, Any]) -> str:
 
 
 def format_html(metrics: dict[str, Any]) -> str:
+    integrity_ok = metrics["trace_integrity"]["ok"]
+    integrity_class = "ok" if integrity_ok else "fail"
+    integrity_text = str(integrity_ok).lower()
     summary = metrics["summary"]
     timing = summary["timing"]
     usage = summary["usage"]
@@ -416,7 +421,8 @@ def format_html(metrics: dict[str, Any]) -> str:
   </table>
   <h2>Checks</h2>
   <table>
-    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Total tokens</th><th>Cost USD</th><th>Command path depth</th></tr></thead>
+    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th>
+      <th>Total tokens</th><th>Cost USD</th><th>Command path depth</th></tr></thead>
     <tbody>
 {check_rows}
     </tbody>
@@ -434,7 +440,7 @@ def format_html(metrics: dict[str, Any]) -> str:
     </tbody>
   </table>
   <h2>Trace Integrity</h2>
-  <p class="{'ok' if metrics['trace_integrity']['ok'] else 'fail'}">OK: {str(metrics['trace_integrity']['ok']).lower()}</p>
+  <p class="{integrity_class}">OK: {integrity_text}</p>
   <ul>
 {issue_items}
   </ul>
@@ -575,8 +581,14 @@ def submit_otel_json(
         "error": None,
     }
 
+    endpoint_scheme = urllib.parse.urlparse(endpoint).scheme
+    if endpoint_scheme not in ("http", "https"):
+        report["error"] = f"unsupported endpoint scheme: {endpoint_scheme or '(none)'}"
+        return report
+
     try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        # nosec B310 - scheme restricted to http(s) above
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:  # nosec
             response_body = response.read(4096)
             report["status_code"] = response.status
             report["ok"] = 200 <= response.status < 300
@@ -878,11 +890,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--html-out", help="Optional output path for a standalone HTML metrics report.")
     parser.add_argument("--otel-json-out", help="Optional output path for an OTEL-style JSON span export.")
     parser.add_argument("--otel-submit-url", help="Optional OTLP/HTTP JSON traces endpoint to POST the OTEL export.")
-    parser.add_argument("--otel-submit-timeout-seconds", type=float, default=10.0, help="Timeout for OTEL submission. Defaults to 10.")
-    parser.add_argument("--otel-submit-header", action="append", default=[], help="Extra OTEL submit header as NAME=VALUE. May be repeated.")
+    parser.add_argument(
+        "--otel-submit-timeout-seconds",
+        type=float,
+        default=10.0,
+        help="Timeout for OTEL submission. Defaults to 10.",
+    )
+    parser.add_argument(
+        "--otel-submit-header",
+        action="append",
+        default=[],
+        help="Extra OTEL submit header as NAME=VALUE. May be repeated.",
+    )
     parser.add_argument("--otel-submit-report-out", help="Optional JSON report path for OTEL submit result.")
-    parser.add_argument("--allow-otel-submit-failure", action="store_true", help="Return success even when OTEL submission fails.")
-    parser.add_argument("--allow-issues", action="store_true", help="Return success even when trace integrity issues exist.")
+    parser.add_argument(
+        "--allow-otel-submit-failure",
+        action="store_true",
+        help="Return success even when OTEL submission fails.",
+    )
+    parser.add_argument(
+        "--allow-issues",
+        action="store_true",
+        help="Return success even when trace integrity issues exist.",
+    )
     args = parser.parse_args(argv)
     if args.otel_submit_report_out and not args.otel_submit_url:
         parser.error("--otel-submit-report-out requires --otel-submit-url")
@@ -901,7 +931,9 @@ def main(argv: list[str] | None = None) -> int:
     otel_payload = format_otel_json(metrics) if args.otel_json_out or args.otel_submit_url else None
     if args.otel_json_out and otel_payload is not None:
         Path(args.otel_json_out).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.otel_json_out).write_text(json.dumps(otel_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        Path(args.otel_json_out).write_text(
+            json.dumps(otel_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
     submit_report: dict[str, Any] | None = None
     if args.otel_submit_url and otel_payload is not None:
         submit_report = submit_otel_json(

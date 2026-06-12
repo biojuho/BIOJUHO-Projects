@@ -533,3 +533,16 @@ def test_otel_trace_id_distinguishes_runs_by_generated_at(tmp_path: Path) -> Non
 
     assert first_run == identical_rerun
     assert first_run != next_run
+
+
+def test_submit_otel_json_rejects_non_http_endpoint(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    payload = smoke_payload([result("first", "python -m pytest tests -q")])
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+    otel = metrics_module.format_otel_json(metrics)
+
+    report = metrics_module.submit_otel_json(otel, "file:///etc/passwd", timeout_seconds=1.0)
+
+    assert report["ok"] is False
+    assert report["error"] == "unsupported endpoint scheme: file"
+    assert report["status_code"] is None

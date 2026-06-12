@@ -455,7 +455,12 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("mcp", "github-mcp compile", ".", compile_command(python_exe, f"{github_mcp}/scripts")),
         Check("mcp", "DailyNews unit tests", dailynews, [python_exe, "-m", "pytest", "tests/unit", "-q"]),
         Check("getdaytrends", "getdaytrends compile", ".", compile_command(python_exe, getdaytrends)),
-        Check("getdaytrends", "getdaytrends tests", getdaytrends, [python_exe, "-m", "pytest", "-c", "pytest.ini", "tests", "-q"]),
+        Check(
+            "getdaytrends",
+            "getdaytrends tests",
+            getdaytrends,
+            [python_exe, "-m", "pytest", "-c", "pytest.ini", "tests", "-q"],
+        ),
         Check("cie", "cie compile", ".", compile_command(python_exe, cie)),
         Check("cie", "cie tests", cie, [python_exe, "-m", "pytest", "tests", "-q"]),
     ]
@@ -598,7 +603,9 @@ def should_retry(check: Check, result: Result) -> bool:
     if check.name == TRANSIENT_RETRY_CHECK and any(pattern in combined_output for pattern in TRANSIENT_RETRY_PATTERNS):
         return True
 
-    return result.command.startswith("uv run ") and any(pattern in combined_output for pattern in UV_TRANSIENT_RETRY_PATTERNS)
+    return result.command.startswith("uv run ") and any(
+        pattern in combined_output for pattern in UV_TRANSIENT_RETRY_PATTERNS
+    )
 
 
 def run_check(root: Path, item: Check) -> Result:
@@ -642,7 +649,8 @@ def main() -> int:
         print("[smoke] warning: pytest is not installed for selected Python; pytest-based checks may fail")
 
     print(
-        "[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var"
+        "[smoke] excluded directories for python compile checks: "
+        ".agent, .agents, venv, __pycache__, output, archive, var"
     )
 
     results: list[Result] = []
@@ -665,7 +673,8 @@ def main() -> int:
         try:
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_text(
-                json.dumps([result_payload(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8"
+                json.dumps([result_payload(result) for result in results], indent=2, ensure_ascii=False),
+                encoding="utf-8",
             )
             print(f"[smoke] json written: {out_path}")
         except OSError as exc:
