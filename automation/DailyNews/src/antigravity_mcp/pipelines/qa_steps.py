@@ -19,6 +19,19 @@ def _has_generic_cta(text: str) -> bool:
     return not bool(re.search(r"(오늘|이번|주|개월|30일|48시간|까지)", text))
 
 
+_PROHIBITED_ANALOGY_PATTERNS = (
+    re.compile(r"마치\s+[^\n.]{1,80}?\s*같(다|이|은|을|던|네|소|아|음)", re.UNICODE),
+    re.compile(r"\b(?:as\s+if|as\s+though)\b", re.IGNORECASE),
+    re.compile(r"\blike\s+(?:a|an|the)\s+\w+", re.IGNORECASE),
+)
+
+
+def _has_prohibited_analogy(text: str) -> bool:
+    if not text:
+        return False
+    return any(pattern.search(text) for pattern in _PROHIBITED_ANALOGY_PATTERNS)
+
+
 def _collect_evidence_quality_warnings(parser_meta: dict[str, Any]) -> list[str]:
     if parser_meta.get("format") != "v2":
         return []
@@ -43,6 +56,8 @@ def _quality_review_warnings(ctx: ReportAssemblyContext, draft_text: str, parser
         warnings.append("Generic CTA detected without timeframe.")
     if any("..." in insight for insight in ctx.insights):
         warnings.append("Truncated insight text detected.")
+    if _has_prohibited_analogy("\n".join(ctx.summary_lines + ctx.insights) + "\n" + draft_text):
+        warnings.append("Prohibited analogy/metaphor phrasing detected.")
     warnings.extend(_collect_evidence_quality_warnings(parser_meta))
     return warnings
 
