@@ -49,6 +49,8 @@ smoke_*.json
 final_smoke.json
 test-results/
 .pytest_cache/
+.pytest-root/
+.deepeval/
 .coverage
 *_out.txt
 *_out*.txt
