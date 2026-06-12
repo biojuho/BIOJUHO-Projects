@@ -197,7 +197,7 @@ QA_PRO_PROMPT = """\
 {{
   "scores": {{
     "hook": 점수, "fact": 점수, "tone": 점수, "kick": 점수, "angle": 점수,
-    "regulation": 점수, "algorithm": ���수,
+    "regulation": 점수, "algorithm": 점수,
     "reader_value": 점수, "originality": 점수, "credibility": 점수
   }},
   "diagnostics": {{
