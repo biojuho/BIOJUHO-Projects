@@ -26,6 +26,13 @@ from workspace_paths import find_workspace_root, rel_unit_path
 
 EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output|archive|var)([\\/]|$)"
 TAIL_LINE_COUNT = 20
+WORKSPACE_SMOKE_USAGE_ENV = "WORKSPACE_SMOKE_USAGE_OUT"
+USAGE_FIELD_ALIASES: dict[str, tuple[str, ...]] = {
+    "input_tokens": ("input_tokens", "prompt_tokens", "tokens_input"),
+    "output_tokens": ("output_tokens", "completion_tokens", "tokens_output"),
+    "total_tokens": ("total_tokens", "tokens"),
+    "cost_usd": ("cost_usd", "estimated_cost_usd", "usd_cost"),
+}
 TRANSIENT_RETRY_CHECK = "desci frontend unit tests"
 TRANSIENT_RETRY_PATTERNS = (
     "Failed to start threads worker",
@@ -124,6 +131,11 @@ class Result:
     ok: bool
     stdout_tail: str
     stderr_tail: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    cost_usd: float | None = None
+    usage_error: str | None = None
 
 
 def format_command(command: Sequence[str]) -> str:
@@ -150,6 +162,45 @@ def tail_lines(text: str, line_count: int = TAIL_LINE_COUNT) -> str:
     if len(lines) <= line_count:
         return text
     return "\n".join(lines[-line_count:])
+
+
+def _first_usage_number(container: dict, aliases: tuple[str, ...], *, integer: bool) -> int | float | None:
+    for alias in aliases:
+        value = container.get(alias)
+        if isinstance(value, bool):
+            continue
+        if not isinstance(value, (int, float)) or value < 0:
+            continue
+        if integer:
+            return int(value)
+        return round(float(value), 6)
+    return None
+
+
+def result_payload(result: Result) -> dict:
+    return {key: value for key, value in asdict(result).items() if value is not None}
+
+
+def read_usage_sidecar(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"usage_error": f"could not read usage sidecar: {exc}"}
+    if not isinstance(payload, dict):
+        return {"usage_error": "usage sidecar must contain a JSON object"}
+
+    usage = payload.get("usage")
+    container = usage if isinstance(usage, dict) else payload
+    result: dict[str, object] = {}
+    for canonical_field, aliases in USAGE_FIELD_ALIASES.items():
+        value = _first_usage_number(container, aliases, integer=canonical_field != "cost_usd")
+        if value is not None:
+            result[canonical_field] = value
+    if "total_tokens" not in result and "input_tokens" in result and "output_tokens" in result:
+        result["total_tokens"] = int(result["input_tokens"]) + int(result["output_tokens"])
+    return result
 
 
 def compile_command(python_exe: str, *targets: str) -> list[str]:
@@ -424,6 +475,10 @@ def reset_temp_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def usage_sidecar_path(temp_dir: Path) -> Path:
+    return temp_dir / "usage.json"
+
+
 def command_for_check(item: Check, temp_dir: Path) -> list[str]:
     command = list(item.command)
     if is_pytest_command(command) and "--basetemp" not in command:
@@ -452,6 +507,8 @@ def run_one(root: Path, item: Check) -> Result:
     env["UV_CACHE_DIR"] = str(uv_cache_dir)
     env["npm_config_cache"] = str(npm_cache_dir)
     env["NPM_CONFIG_CACHE"] = str(npm_cache_dir)
+    usage_path = usage_sidecar_path(temp_dir)
+    env[WORKSPACE_SMOKE_USAGE_ENV] = str(usage_path)
     command = command_for_check(item, temp_dir)
     if not is_pytest_command(command):
         env["TMP"] = str(temp_dir)
@@ -485,6 +542,7 @@ def run_one(root: Path, item: Check) -> Result:
         ok=proc.returncode == 0,
         stdout_tail=tail_lines(stdout_text),
         stderr_tail=tail_lines(stderr_text),
+        **read_usage_sidecar(usage_path),
     )
 
 
@@ -563,7 +621,7 @@ def main() -> int:
         try:
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_text(
-                json.dumps([asdict(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8"
+                json.dumps([result_payload(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8"
             )
             print(f"[smoke] json written: {out_path}")
         except OSError as exc:
