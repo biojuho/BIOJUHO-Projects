@@ -182,17 +182,61 @@ def result_payload(result: Result) -> dict:
 
 
 def read_usage_sidecar(path: Path) -> dict[str, object]:
+    records = _read_usage_sidecar_records(path)
+    if isinstance(records, dict):
+        return records
+    totals: dict[str, object] = {}
+    for record in records:
+        fields = _usage_fields_from_record(record)
+        for key, value in fields.items():
+            totals[key] = totals.get(key, 0) + value
+    cost = totals.get("cost_usd")
+    if isinstance(cost, float):
+        totals["cost_usd"] = round(cost, 6)
+    return totals
+
+
+def _read_usage_sidecar_records(path: Path) -> list[dict[str, object]] | dict[str, object]:
+    """Return parsed sidecar records, {} when absent, or a usage_error dict.
+
+    Accepts either a single JSON document (legacy format) or JSONL with one
+    record per LLM call (a check may issue several calls; totals are summed).
+    """
     if not path.exists():
         return {}
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
         return {"usage_error": f"could not read usage sidecar: {exc}"}
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return _parse_usage_sidecar_lines(text)
     if not isinstance(payload, dict):
         return {"usage_error": "usage sidecar must contain a JSON object"}
+    return [payload]
 
-    usage = payload.get("usage")
-    container = usage if isinstance(usage, dict) else payload
+
+def _parse_usage_sidecar_lines(text: str) -> list[dict[str, object]] | dict[str, object]:
+    records: list[dict[str, object]] = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as exc:
+            return {"usage_error": f"could not read usage sidecar: {exc}"}
+        if not isinstance(record, dict):
+            return {"usage_error": "usage sidecar must contain a JSON object"}
+        records.append(record)
+    if not records:
+        return {"usage_error": "could not read usage sidecar: empty document"}
+    return records
+
+
+def _usage_fields_from_record(record: dict[str, object]) -> dict[str, object]:
+    usage = record.get("usage")
+    container = usage if isinstance(usage, dict) else record
     result: dict[str, object] = {}
     for canonical_field, aliases in USAGE_FIELD_ALIASES.items():
         value = _first_usage_number(container, aliases, integer=canonical_field != "cost_usd")

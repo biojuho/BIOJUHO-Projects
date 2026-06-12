@@ -82,3 +82,37 @@ def test_json_report_includes_observed_usage_without_empty_fields(tmp_path) -> N
     assert results[1]["output_tokens"] == 5
     assert results[1]["total_tokens"] == 17
     assert results[1]["cost_usd"] == 0.0007
+
+
+def test_read_usage_sidecar_sums_jsonl_records(tmp_path) -> None:
+    smoke = load_smoke_module()
+    sidecar = tmp_path / "usage.json"
+    sidecar.write_text(
+        json.dumps({"usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15, "cost_usd": 0.001}})
+        + "\n"
+        + json.dumps({"usage": {"input_tokens": 20, "output_tokens": 7, "total_tokens": 27}})
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert smoke.read_usage_sidecar(sidecar) == {
+        "input_tokens": 30,
+        "output_tokens": 12,
+        "total_tokens": 42,
+        "cost_usd": 0.001,
+    }
+
+
+def test_read_usage_sidecar_still_accepts_single_document(tmp_path) -> None:
+    smoke = load_smoke_module()
+    sidecar = tmp_path / "usage.json"
+    sidecar.write_text(
+        json.dumps({"usage": {"input_tokens": 10, "output_tokens": 5}}, indent=2),
+        encoding="utf-8",
+    )
+
+    assert smoke.read_usage_sidecar(sidecar) == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+    }

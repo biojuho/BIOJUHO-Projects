@@ -110,7 +110,10 @@ def _emit_workspace_smoke_usage(meta: dict[str, Any], *, cache_scope: str) -> No
     try:
         path = Path(out_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8")
+        # Append one JSONL record per LLM call: a smoke check may issue several
+        # calls and write_text would keep only the last one (undercount + race).
+        with path.open("a", encoding="utf-8") as sidecar:
+            sidecar.write(json.dumps(payload, ensure_ascii=False) + "\n")
     except OSError as exc:
         logger.warning("failed to write workspace smoke usage sidecar: %s", exc)
 
