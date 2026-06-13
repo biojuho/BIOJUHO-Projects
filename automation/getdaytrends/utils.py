@@ -45,7 +45,7 @@ def sanitize_keyword(keyword: str, max_len: int = 200) -> str:
 _PY314_SHUTDOWN_TIMEOUT_MSG = "Timeout should be used inside a task"
 
 
-async def _run_with_pool_cleanup(coro):
+async def _run_with_pool_cleanup(coro) -> object:
     """루프 종료 전에 해당 루프에 바인딩된 asyncpg pool을 정리한다."""
     try:
         return await coro
@@ -58,7 +58,7 @@ async def _run_with_pool_cleanup(coro):
             pass
 
 
-def _run_coroutine_in_new_loop(coro):
+def _run_coroutine_in_new_loop(coro) -> object:
     """
     새 이벤트 루프에서 코루틴 실행.
 
@@ -96,7 +96,7 @@ def _run_coroutine_in_new_loop(coro):
         loop.close()
 
 
-def run_async(coro):
+def run_async(coro) -> None:
     """
     코루틴을 동기 컨텍스트에서 실행.
 

@@ -1,10 +1,11 @@
 """Tests for analyzer parsing, scoring helpers, and batch isolation."""
 
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from analyzer import _parse_json, _parse_json_array
+from analyzer import _apply_scored_trend_metadata, _parse_json, _parse_json_array
 from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
 
 
@@ -86,6 +87,34 @@ class TestDefaultScoredTrend(unittest.TestCase):
         self.assertEqual(trend.keyword, "test")
         self.assertEqual(trend.viral_potential, 0)
         self.assertEqual(trend.rank, 0)
+
+
+class TestApplyScoredTrendMetadata(unittest.TestCase):
+    def test_applies_raw_metadata_and_filters_missing_source_markers(self):
+        scored = [
+            ScoredTrend(
+                keyword="AI",
+                rank=0,
+                context=MultiSourceContext(
+                    twitter_insight="live signal",
+                    reddit_insight="없음",
+                    news_insight="confirmed coverage",
+                ),
+            )
+        ]
+        raw_trends = [
+            RawTrend(name="AI", source=TrendSource.GETDAYTRENDS, volume_numeric=1200, country="japan")
+        ]
+        config = SimpleNamespace(country="korea")
+
+        _apply_scored_trend_metadata(scored, raw_trends, config)
+
+        self.assertEqual(scored[0].rank, 1200)
+        self.assertEqual(scored[0].country, "japan")
+        self.assertEqual(
+            scored[0].sources,
+            [TrendSource.GETDAYTRENDS, TrendSource.TWITTER, TrendSource.GOOGLE_NEWS],
+        )
 
 
 class TestDetectTrendPatterns(unittest.IsolatedAsyncioTestCase):
@@ -607,6 +636,58 @@ class TestBatchScoreIsolation(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].keyword, "trendrepair")
         self.assertGreater(results[0].viral_potential, 0)
+
+
+class TestOperatorLogText(unittest.TestCase):
+    def test_batch_scoring_operator_logs_use_plain_ascii_labels(self):
+        source = (Path(__file__).resolve().parents[1] / "analyzer.py").read_text(encoding="utf-8")
+
+        expected_labels = [
+            "Batch scoring item fallback",
+            "Batch scoring item fallback failed",
+            "Batch scoring parse failed; falling back to per-item scoring",
+            "Batch scoring start:",
+            "Batch scoring batch exception",
+            "[cluster-hint]",
+            "[category-hint]",
+            "[Phase4 joongyeon kick]",
+        ]
+        for label in expected_labels:
+            self.assertIn(label, source)
+
+        stale_fragments = [
+            "諛곗튂 ?ㅼ퐫?대쭅",
+            "獄쏄퀣",
+            "移댄뀒怨좊━",
+            "愿???몃젋",
+        ]
+        for fragment in stale_fragments:
+            self.assertNotIn(fragment, source)
+
+    def test_category_reference_texts_use_readable_canonical_labels(self):
+        from analyzer import _category_reference_texts
+
+        refs = _category_reference_texts()
+
+        self.assertEqual(
+            list(refs.keys()),
+            ["정치", "경제", "테크", "사회", "스포츠", "연예", "국제", "날씨", "음식", "게임", "기타"],
+        )
+        joined = "\n".join(refs.keys()) + "\n" + "\n".join(refs.values())
+        for fragment in ["?뚰겕", "寃쎌젣", "援?젣", "移댄뀒怨좊━"]:
+            self.assertNotIn(fragment, joined)
+
+    def test_cluster_hint_text_is_readable(self):
+        from analyzer import _inject_cluster_hints
+
+        contexts = {"AI": MultiSourceContext(news_insight="base")}
+        clusters = [SimpleNamespace(representative="AI", members=["AI", "ChatGPT", "OpenAI"])]
+
+        _inject_cluster_hints(contexts, clusters)
+
+        self.assertIn("[Related trends cluster]: ChatGPT, OpenAI.", contexts["AI"].news_insight)
+        self.assertIn("adjacent search angles", contexts["AI"].news_insight)
+        self.assertNotIn("愿???몃젋", contexts["AI"].news_insight)
 
 
 if __name__ == "__main__":

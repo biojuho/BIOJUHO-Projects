@@ -126,6 +126,17 @@ _COMPARISON_PATTERN = re.compile(
 )
 
 # 고유명사 패턴 (기관/기업/인물)
+_COMPARISON_PATTERN = re.compile(
+    r"(\S+)\s*(?:보다|대비|비해|대신|반면|달리|than|versus|vs\.?)\s+(\S+)"
+    r"|(\S+)\s*(?:대|vs\.?)\s*(\S+)"
+    r"|(\S+)\s*(?:보다|대비|비해)\s*(\d+(?:\.\d+)?)\s*배",
+    re.IGNORECASE,
+)
+_COMPARISON_SPLIT_RE = re.compile(
+    r"\s*(?:보다|대비|비해|대신|반면|달리|than|versus|vs\.?|대)\s*",
+    re.IGNORECASE,
+)
+
 _ENTITY_PATTERN = re.compile(
     r"[A-Z][A-Za-z0-9&.\-]{1,}"  # 영문 고유명사
     r"|[가-힣A-Za-z0-9·]+(?:부|청|원|처|시|군|구|일보|뉴스|위원회|협회|센터|"
@@ -178,107 +189,78 @@ _COMMON_ENTITIES = {
 }
 
 
+def _claim_sentences(text: str) -> list[str]:
+    return [sentence.strip() for sentence in re.split(r"[.!?\n]+", text) if len(sentence.strip()) >= 5]
+
+
+def _add_claim(
+    claims: list[Claim],
+    seen_values: set[str],
+    claim_type: ClaimType,
+    value: str,
+    context: str,
+    *,
+    min_len: int = 1,
+) -> None:
+    value = value.strip()
+    if not value or len(value) < min_len or value in seen_values:
+        return
+    seen_values.add(value)
+    claims.append(Claim(claim_type=claim_type, value=value, context=context))
+
+
+def _extract_number_claims(sentence: str, claims: list[Claim], seen_values: set[str]) -> None:
+    for match in _NUMBER_PATTERN.finditer(sentence):
+        _add_claim(claims, seen_values, ClaimType.NUMBER, match.group(0), sentence)
+
+
+def _extract_percentage_claims(sentence: str, claims: list[Claim], seen_values: set[str]) -> None:
+    for match in re.finditer(r"[+-]?\d+(?:\.\d+)?%", sentence):
+        _add_claim(claims, seen_values, ClaimType.PERCENTAGE, match.group(0), sentence)
+
+
+def _extract_date_claims(sentence: str, claims: list[Claim], seen_values: set[str]) -> None:
+    for match in _DATE_PATTERN.finditer(sentence):
+        _add_claim(claims, seen_values, ClaimType.DATE, match.group(0), sentence)
+
+
+def _extract_quote_claims(sentence: str, claims: list[Claim], seen_values: set[str]) -> None:
+    for match in _QUOTE_PATTERN.finditer(sentence):
+        _add_claim(claims, seen_values, ClaimType.QUOTE, match.group(1) or match.group(2) or "", sentence, min_len=6)
+
+
+def _extract_entity_claims(sentence: str, claims: list[Claim], seen_values: set[str]) -> None:
+    for match in _ENTITY_PATTERN.finditer(sentence):
+        value = match.group(0).strip()
+        if value.casefold() in _COMMON_ENTITIES:
+            continue
+        _add_claim(claims, seen_values, ClaimType.ENTITY, value, sentence, min_len=2)
+
+
+def _extract_comparison_claims(sentence: str, claims: list[Claim], seen_values: set[str]) -> None:
+    for match in _COMPARISON_PATTERN.finditer(sentence):
+        _add_claim(claims, seen_values, ClaimType.COMPARISON, match.group(0), sentence, min_len=6)
+
+
 def extract_claims(text: str) -> list[Claim]:
-    """생성된 콘텐츠에서 검증 가능한 주장을 추출."""
+    """Extract verifiable claims from generated content."""
     if not text:
         return []
 
     claims: list[Claim] = []
     seen_values: set[str] = set()
-
-    # 문장 단위로 분리
-    sentences = re.split(r"[.!?\n]+", text)
-
-    for sentence in sentences:
-        sentence = sentence.strip()
-        if len(sentence) < 5:
-            continue
-
-        # 1. 숫자/통계 추출
-        for m in _NUMBER_PATTERN.finditer(sentence):
-            value = m.group(0).strip()
-            if value not in seen_values:
-                seen_values.add(value)
-                claims.append(
-                    Claim(
-                        claim_type=ClaimType.NUMBER,
-                        value=value,
-                        context=sentence,
-                    )
-                )
-
-        # 2. 백분율 추출 (NUMBER와 별도)
-        for m in re.finditer(r"[+-]?\d+(?:\.\d+)?%", sentence):
-            value = m.group(0)
-            if value not in seen_values:
-                seen_values.add(value)
-                claims.append(
-                    Claim(
-                        claim_type=ClaimType.PERCENTAGE,
-                        value=value,
-                        context=sentence,
-                    )
-                )
-
-        # 3. 날짜 추출
-        for m in _DATE_PATTERN.finditer(sentence):
-            value = m.group(0).strip()
-            if value not in seen_values:
-                seen_values.add(value)
-                claims.append(
-                    Claim(
-                        claim_type=ClaimType.DATE,
-                        value=value,
-                        context=sentence,
-                    )
-                )
-
-        # 4. 인용 추출
-        for m in _QUOTE_PATTERN.finditer(sentence):
-            value = (m.group(1) or m.group(2) or "").strip()
-            if value and value not in seen_values and len(value) > 5:
-                seen_values.add(value)
-                claims.append(
-                    Claim(
-                        claim_type=ClaimType.QUOTE,
-                        value=value,
-                        context=sentence,
-                    )
-                )
-
-        # 5. 고유명사 추출 (일반적인 것 제외)
-        for m in _ENTITY_PATTERN.finditer(sentence):
-            value = m.group(0).strip()
-            if value.casefold() not in _COMMON_ENTITIES and value not in seen_values and len(value) >= 2:
-                seen_values.add(value)
-                claims.append(
-                    Claim(
-                        claim_type=ClaimType.ENTITY,
-                        value=value,
-                        context=sentence,
-                    )
-                )
-
-        # 6. 비교 추출
-        for m in _COMPARISON_PATTERN.finditer(sentence):
-            value = m.group(0).strip()
-            if value not in seen_values and len(value) > 5:
-                seen_values.add(value)
-                claims.append(
-                    Claim(
-                        claim_type=ClaimType.COMPARISON,
-                        value=value,
-                        context=sentence,
-                    )
-                )
-
+    extractors = (
+        _extract_number_claims,
+        _extract_percentage_claims,
+        _extract_date_claims,
+        _extract_quote_claims,
+        _extract_entity_claims,
+        _extract_comparison_claims,
+    )
+    for sentence in _claim_sentences(text):
+        for extractor in extractors:
+            extractor(sentence, claims, seen_values)
     return claims
-
-
-# ══════════════════════════════════════════════════════
-#  Cross-Reference Verification
-# ══════════════════════════════════════════════════════
-
 
 def _build_source_corpus(trend: ScoredTrend) -> str:
     """트렌드의 모든 소스 데이터를 하나의 검색 가능한 텍스트로 결합."""
@@ -339,11 +321,113 @@ def _normalize_number(text: str) -> float | None:
     return num
 
 
+def _mark_verified(claim: Claim, confidence: float, source_match: str = "") -> None:
+    claim.verified = True
+    claim.confidence = confidence
+    if source_match:
+        claim.source_match = source_match
+
+
+def _verify_number_claim(claim: Claim, source_corpus: str) -> None:
+    if claim.value in source_corpus:
+        _mark_verified(claim, 1.0, _find_context_around(source_corpus, claim.value))
+        return
+
+    num = re.search(r"\d+(?:[,.]?\d+)*", claim.value)
+    if num and num.group(0) in source_corpus:
+        _mark_verified(claim, 0.8, _find_context_around(source_corpus, num.group(0)))
+        return
+
+    claim_num = _normalize_number(claim.value)
+    if claim_num is None:
+        return
+
+    for match in _NUMBER_PATTERN.finditer(source_corpus):
+        source_num = _normalize_number(match.group(0))
+        if source_num is not None and source_num > 0:
+            ratio = claim_num / source_num
+            if 0.8 <= ratio <= 1.2:
+                _mark_verified(claim, 0.6, match.group(0))
+                break
+
+
+def _verify_percentage_claim(claim: Claim, source_corpus: str) -> None:
+    if claim.value in source_corpus:
+        _mark_verified(claim, 1.0, _find_context_around(source_corpus, claim.value))
+        return
+
+    pct_num = re.search(r"(\d+(?:\.\d+)?)", claim.value)
+    if not pct_num:
+        return
+
+    for match in re.finditer(r"(\d+(?:\.\d+)?)%", source_corpus):
+        if pct_num.group(1) == match.group(1):
+            _mark_verified(claim, 0.9, match.group(0))
+            break
+
+
+def _verify_date_claim(claim: Claim, source_corpus: str, source_lower: str, value_lower: str) -> None:
+    if value_lower in source_lower:
+        _mark_verified(claim, 1.0, _find_context_around(source_corpus, claim.value))
+        return
+
+    date_nums = re.findall(r"\d+", claim.value)
+    if date_nums and any(n in source_corpus for n in date_nums if len(n) >= 2):
+        _mark_verified(claim, 0.5)
+
+
+def _verify_entity_claim(claim: Claim, source_corpus: str, source_lower: str, value_lower: str) -> None:
+    if value_lower in source_lower:
+        _mark_verified(claim, 1.0, _find_context_around(source_corpus, claim.value))
+        return
+
+    if len(claim.value) < 3:
+        return
+
+    for segment_len in range(len(claim.value), max(2, len(claim.value) // 2 - 1), -1):
+        segment = claim.value[:segment_len]
+        if segment.lower() in source_lower:
+            _mark_verified(claim, 0.5, segment)
+            break
+
+
+def _verify_quote_claim(claim: Claim, source_corpus: str, source_lower: str, value_lower: str) -> None:
+    if value_lower in source_lower:
+        _mark_verified(claim, 1.0, _find_context_around(source_corpus, claim.value))
+        return
+
+    words = [w for w in claim.value.split() if len(w) >= 2]
+    if words:
+        matched = sum(1 for w in words if w.lower() in source_lower)
+        if matched / len(words) >= 0.7:
+            _mark_verified(claim, 0.4, "(?듭떖 ?⑥뼱 遺遺?留ㅼ묶)")
+
+
+def _verify_comparison_claim(claim: Claim, source_corpus: str, source_lower: str, value_lower: str) -> None:
+    if value_lower in source_lower:
+        _mark_verified(claim, 1.0, _find_context_around(source_corpus, claim.value))
+        return
+
+    parts = _COMPARISON_SPLIT_RE.split(claim.value)
+    if len(parts) >= 2:
+        matched = sum(1 for p in parts if p.strip().lower() in source_lower)
+        if matched >= 1:
+            _mark_verified(claim, 0.5)
+    return
+
+    if value_lower in source_lower:
+        _mark_verified(claim, 1.0, _find_context_around(source_corpus, claim.value))
+        return
+
+    parts = re.split(r"蹂대떎|?鍮?鍮꾪빐|諛섎㈃", claim.value)
+    if len(parts) >= 2:
+        matched = sum(1 for p in parts if p.strip().lower() in source_lower)
+        if matched >= 1:
+            _mark_verified(claim, 0.5)
+
+
 def verify_claim_against_source(claim: Claim, source_corpus: str) -> Claim:
-    """
-    개별 주장을 소스 코퍼스와 대조하여 검증.
-    검증 결과를 claim 객체에 반영.
-    """
+    """Verify a single claim against the source corpus and mutate the claim."""
     if not source_corpus:
         claim.confidence = 0.0
         return claim
@@ -352,108 +436,19 @@ def verify_claim_against_source(claim: Claim, source_corpus: str) -> Claim:
     value_lower = claim.value.lower()
 
     if claim.claim_type == ClaimType.NUMBER:
-        # 숫자 검증: 정확 매칭 또는 유사 범위 매칭
-        if claim.value in source_corpus:
-            claim.verified = True
-            claim.confidence = 1.0
-            claim.source_match = _find_context_around(source_corpus, claim.value)
-        else:
-            # 숫자 부분만 추출해서 소스에 존재하는지 확인
-            num = re.search(r"\d+(?:[,.]?\d+)*", claim.value)
-            if num and num.group(0) in source_corpus:
-                claim.verified = True
-                claim.confidence = 0.8
-                claim.source_match = _find_context_around(source_corpus, num.group(0))
-            else:
-                # 정규화된 숫자 비교 (±20% 범위)
-                claim_num = _normalize_number(claim.value)
-                if claim_num is not None:
-                    for m in _NUMBER_PATTERN.finditer(source_corpus):
-                        source_num = _normalize_number(m.group(0))
-                        if source_num is not None and source_num > 0:
-                            ratio = claim_num / source_num
-                            if 0.8 <= ratio <= 1.2:
-                                claim.verified = True
-                                claim.confidence = 0.6
-                                claim.source_match = m.group(0)
-                                break
-
+        _verify_number_claim(claim, source_corpus)
     elif claim.claim_type == ClaimType.PERCENTAGE:
-        if claim.value in source_corpus:
-            claim.verified = True
-            claim.confidence = 1.0
-            claim.source_match = _find_context_around(source_corpus, claim.value)
-        else:
-            # % 숫자 부분만 비교
-            pct_num = re.search(r"(\d+(?:\.\d+)?)", claim.value)
-            if pct_num:
-                for m in re.finditer(r"(\d+(?:\.\d+)?)%", source_corpus):
-                    if pct_num.group(1) == m.group(1):
-                        claim.verified = True
-                        claim.confidence = 0.9
-                        claim.source_match = m.group(0)
-                        break
-
+        _verify_percentage_claim(claim, source_corpus)
     elif claim.claim_type == ClaimType.DATE:
-        if value_lower in source_lower:
-            claim.verified = True
-            claim.confidence = 1.0
-            claim.source_match = _find_context_around(source_corpus, claim.value)
-        else:
-            # 날짜 구성 요소 부분 매칭
-            date_nums = re.findall(r"\d+", claim.value)
-            if date_nums and any(n in source_corpus for n in date_nums if len(n) >= 2):
-                claim.verified = True
-                claim.confidence = 0.5  # 부분 매칭이므로 낮은 확신도
-
+        _verify_date_claim(claim, source_corpus, source_lower, value_lower)
     elif claim.claim_type == ClaimType.ENTITY:
-        if value_lower in source_lower:
-            claim.verified = True
-            claim.confidence = 1.0
-            claim.source_match = _find_context_around(source_corpus, claim.value)
-        else:
-            # 부분 매칭 (긴 고유명사의 일부)
-            if len(claim.value) >= 3:
-                for segment_len in range(len(claim.value), max(2, len(claim.value) // 2 - 1), -1):
-                    segment = claim.value[:segment_len]
-                    if segment.lower() in source_lower:
-                        claim.verified = True
-                        claim.confidence = 0.5
-                        claim.source_match = segment
-                        break
-
+        _verify_entity_claim(claim, source_corpus, source_lower, value_lower)
     elif claim.claim_type == ClaimType.QUOTE:
-        # 인용은 정확 매칭만 허용 (가장 엄격)
-        if value_lower in source_lower:
-            claim.verified = True
-            claim.confidence = 1.0
-            claim.source_match = _find_context_around(source_corpus, claim.value)
-        else:
-            # 핵심 단어 기반 부분 매칭
-            words = [w for w in claim.value.split() if len(w) >= 2]
-            if words:
-                matched = sum(1 for w in words if w.lower() in source_lower)
-                if matched / len(words) >= 0.7:
-                    claim.verified = True
-                    claim.confidence = 0.4
-                    claim.source_match = "(핵심 단어 부분 매칭)"
-
+        _verify_quote_claim(claim, source_corpus, source_lower, value_lower)
     elif claim.claim_type == ClaimType.COMPARISON:
-        if value_lower in source_lower:
-            claim.verified = True
-            claim.confidence = 1.0
-            claim.source_match = _find_context_around(source_corpus, claim.value)
-        else:
-            # 비교 대상이 소스에 있는지 확인
-            parts = re.split(r"보다|대비|비해|반면", claim.value)
-            if len(parts) >= 2:
-                matched = sum(1 for p in parts if p.strip().lower() in source_lower)
-                if matched >= 1:
-                    claim.verified = True
-                    claim.confidence = 0.5
+        _verify_comparison_claim(claim, source_corpus, source_lower, value_lower)
 
     return claim
-
 
 def _find_context_around(corpus: str, needle: str, window: int = 50) -> str:
     """소스 코퍼스에서 매칭된 값 주변 텍스트를 추출."""
@@ -472,85 +467,55 @@ def _find_context_around(corpus: str, needle: str, window: int = 50) -> str:
 # ══════════════════════════════════════════════════════
 
 
-def verify_content(
-    text: str,
-    trend: ScoredTrend,
-    *,
-    strict_mode: bool = False,
-    min_accuracy: float = 0.6,
-) -> FactCheckResult:
-    """
-    생성된 콘텐츠의 정보 정확성을 검증.
-
-    Args:
-        text: 검증할 생성 콘텐츠
-        trend: 소스 데이터가 포함된 ScoredTrend
-        strict_mode: True면 인용/비교도 엄격 검증
-        min_accuracy: 통과 기준 정확도 (0~1)
-
-    Returns:
-        FactCheckResult with pass/fail and details
-    """
-    result = FactCheckResult()
-
-    if not text or not text.strip():
-        result.passed = True  # 빈 텍스트는 검증 대상 아님
-        return result
-
-    # 1. 주장 추출
-    claims = extract_claims(text)
-    result.total_claims = len(claims)
-
-    if not claims:
-        result.passed = True
-        result.accuracy_score = 1.0
-        return result
-
-    # 2. 소스 코퍼스 구축
-    source_corpus = _build_source_corpus(trend)
-
-    # 3. 출처 신뢰도 산출
+def _source_credibility_for_trend(trend: ScoredTrend) -> float:
     news_insight = ""
     if trend.context and trend.context.news_insight:
         news_insight = trend.context.news_insight
-    result.source_credibility = compute_source_credibility_score(news_insight)
+    return compute_source_credibility_score(news_insight)
 
-    # 4. 각 주장 교차 검증
+
+def _classify_verified_claims(
+    claims: list[Claim],
+    source_corpus: str,
+    *,
+    strict_mode: bool,
+) -> tuple[int, int, int, list[str]]:
     verified = 0
     hallucinated = 0
     unverified = 0
+    issues: list[str] = []
 
     for claim in claims:
         verify_claim_against_source(claim, source_corpus)
-
         if claim.verified:
             verified += 1
         elif claim.claim_type in (ClaimType.QUOTE, ClaimType.ENTITY):
-            # 인용과 고유명사는 소스 미확인 시 환각으로 간주
             hallucinated += 1
-            result.issues.append(f"[환각 의심] {claim.claim_type.value}: '{claim.value}' - 소스에서 확인 불가")
+            issues.append(f"[?섍컖 ?섏떖] {claim.claim_type.value}: '{claim.value}' - ?뚯뒪?먯꽌 ?뺤씤 遺덇?")
         elif claim.claim_type == ClaimType.NUMBER and not strict_mode:
-            # 숫자는 LLM 추론으로 생성될 수 있으므로 경고만
             unverified += 1
-            result.issues.append(f"[미검증 수치] '{claim.value}' - 소스에서 직접 확인 불가")
+            issues.append(f"[誘멸?利??섏튂] '{claim.value}' - ?뚯뒪?먯꽌 吏곸젒 ?뺤씤 遺덇?")
         else:
             unverified += 1
 
+    return verified, hallucinated, unverified, issues
+
+
+def _apply_claim_counts(
+    result: FactCheckResult,
+    claims: list[Claim],
+    counts: tuple[int, int, int, list[str]],
+) -> None:
+    verified, hallucinated, unverified, issues = counts
     result.claims = claims
     result.verified_claims = verified
-    result.unverified_claims = unverified
     result.hallucinated_claims = hallucinated
+    result.unverified_claims = unverified
+    result.issues.extend(issues)
+    result.accuracy_score = round(verified / result.total_claims, 2) if result.total_claims > 0 else 1.0
 
-    # 5. 정확도 계산
-    if result.total_claims > 0:
-        result.accuracy_score = round(verified / result.total_claims, 2)
-    else:
-        result.accuracy_score = 1.0
 
-    # 6. 통과/실패 판정
-    result.passed = result.hallucinated_claims == 0 and result.accuracy_score >= min_accuracy
-
-    # [Phase 3] DeepEval 보조 평가 — 규칙 기반 검증을 LLM 기반으로 보완
+def _apply_deepeval_check(result: FactCheckResult, text: str, trend: ScoredTrend) -> None:
     try:
         try:
             from .quality_eval import evaluate_content as deepeval_check
@@ -562,15 +527,44 @@ def verify_content(
         if not eval_result.passed:
             for issue in eval_result.issues:
                 result.issues.append(f"[DeepEval] {issue}")
-            # DeepEval이 환각을 감지했으면 규칙 기반이 통과여도 실패 처리
             if eval_result.hallucination_score > 0.7:
                 result.passed = False
-                log.warning(f"[DeepEval] '{trend.keyword}' 환각 점수 높음: {eval_result.hallucination_score:.2f}")
+                log.warning(f"[DeepEval] '{trend.keyword}' ?섍컖 ?먯닔 ?믪쓬: {eval_result.hallucination_score:.2f}")
     except ImportError:
-        pass  # DeepEval 미설치 시 기존 동작 유지
+        pass
     except Exception as e:
-        log.debug(f"[DeepEval] 보조 평가 스킵: {e}")
+        log.debug(f"[DeepEval] 蹂댁“ ?됯? ?ㅽ궢: {e}")
 
+
+def verify_content(
+    text: str,
+    trend: ScoredTrend,
+    *,
+    strict_mode: bool = False,
+    min_accuracy: float = 0.6,
+) -> FactCheckResult:
+    """Verify generated content against the source data carried by a scored trend."""
+    result = FactCheckResult()
+    if not text or not text.strip():
+        result.passed = True
+        return result
+
+    claims = extract_claims(text)
+    result.total_claims = len(claims)
+    if not claims:
+        result.passed = True
+        result.accuracy_score = 1.0
+        return result
+
+    source_corpus = _build_source_corpus(trend)
+    result.source_credibility = _source_credibility_for_trend(trend)
+    _apply_claim_counts(
+        result,
+        claims,
+        _classify_verified_claims(claims, source_corpus, strict_mode=strict_mode),
+    )
+    result.passed = result.hallucinated_claims == 0 and result.accuracy_score >= min_accuracy
+    _apply_deepeval_check(result, text, trend)
     return result
 
 
@@ -628,10 +622,91 @@ def verify_batch(
 # ══════════════════════════════════════════════════════
 
 
+def _consistency_result(
+    consistent: bool,
+    agreement_score: float,
+    conflicts: list[str] | None = None,
+    shared_claims: list[str] | None = None,
+) -> dict:
+    return {
+        "consistent": consistent,
+        "agreement_score": agreement_score,
+        "conflicts": conflicts or [],
+        "shared_claims": shared_claims or [],
+    }
+
+
+def _active_consistency_sources(trend: ScoredTrend) -> dict[str, str]:
+    if not trend.context:
+        return {}
+
+    sources = {
+        "twitter": trend.context.twitter_insight or "",
+        "reddit": trend.context.reddit_insight or "",
+        "news": trend.context.news_insight or "",
+    }
+    return {name: text for name, text in sources.items() if text and len(text) > 20}
+
+
+def _extract_consistency_terms(active_sources: dict[str, str]) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    source_entities: dict[str, set[str]] = {}
+    source_numbers: dict[str, set[str]] = {}
+
+    for name, text in active_sources.items():
+        source_entities[name] = {
+            entity.casefold()
+            for match in _ENTITY_PATTERN.finditer(text)
+            if (entity := match.group(0).strip()).casefold() not in _COMMON_ENTITIES and len(entity) >= 2
+        }
+        source_numbers[name] = {match.group(0).strip() for match in _NUMBER_PATTERN.finditer(text)}
+
+    return source_entities, source_numbers
+
+
+def _shared_and_union_entities(source_entities: dict[str, set[str]]) -> tuple[set[str], set[str]]:
+    entity_sets = list(source_entities.values())
+    if not entity_sets:
+        return set(), set()
+
+    shared_entities = set.intersection(*entity_sets) if len(entity_sets) >= 2 else set()
+    union_entities = set.union(*entity_sets)
+    return shared_entities, union_entities
+
+
+def _entity_agreement_score(shared_entities: set[str], union_entities: set[str]) -> float:
+    if not union_entities:
+        return 0.5
+    return round(len(shared_entities) / len(union_entities), 2)
+
+
+def _normalized_numbers(numbers: set[str]) -> dict[str, float]:
+    normalized: dict[str, float] = {}
+    for number in numbers:
+        value = _normalize_number(number)
+        if value is not None and value > 0:
+            normalized[number] = value
+    return normalized
+
+
+def _number_conflicts(source_numbers: dict[str, set[str]]) -> list[str]:
+    conflicts: list[str] = []
+    normalized_by_source = {name: _normalized_numbers(numbers) for name, numbers in source_numbers.items()}
+    source_names = sorted(normalized_by_source)
+
+    for index, name in enumerate(source_names):
+        for other_name in source_names[index + 1 :]:
+            for number, value in normalized_by_source[name].items():
+                for other_number, other_value in normalized_by_source[other_name].items():
+                    ratio = max(value, other_value) / min(value, other_value)
+                    if 1.5 < ratio < 100:
+                        conflicts.append(f"{name}({number}) vs {other_name}({other_number})")
+
+    return conflicts
+
+
 def check_cross_source_consistency(trend: ScoredTrend) -> dict:
     """
-    멀티소스 간 정보 일관성 검증.
-    X, Reddit, News 소스의 핵심 주장이 서로 일치하는지 확인.
+    Validate that core claims agree across Twitter, Reddit, and News context.
 
     Returns:
         {
@@ -641,93 +716,22 @@ def check_cross_source_consistency(trend: ScoredTrend) -> dict:
             "shared_claims": list[str],
         }
     """
+    active_sources = _active_consistency_sources(trend)
     if not trend.context:
-        return {"consistent": True, "agreement_score": 0.0, "conflicts": [], "shared_claims": []}
-
-    sources = {
-        "twitter": trend.context.twitter_insight or "",
-        "reddit": trend.context.reddit_insight or "",
-        "news": trend.context.news_insight or "",
-    }
-
-    # 빈 소스 제거
-    active_sources = {k: v for k, v in sources.items() if v and len(v) > 20}
+        return _consistency_result(True, 0.0)
     if len(active_sources) < 2:
-        return {"consistent": True, "agreement_score": 0.5, "conflicts": [], "shared_claims": []}
+        return _consistency_result(True, 0.5)
 
-    # 각 소스에서 핵심 엔터티/숫자 추출
-    source_entities: dict[str, set[str]] = {}
-    source_numbers: dict[str, set[str]] = {}
+    source_entities, source_numbers = _extract_consistency_terms(active_sources)
+    shared_entities, union_entities = _shared_and_union_entities(source_entities)
+    conflicts = _number_conflicts(source_numbers)
 
-    for name, text in active_sources.items():
-        entities = set()
-        for m in _ENTITY_PATTERN.finditer(text):
-            entity = m.group(0).strip()
-            if entity.casefold() not in _COMMON_ENTITIES and len(entity) >= 2:
-                entities.add(entity.casefold())
-        source_entities[name] = entities
-
-        numbers = set()
-        for m in _NUMBER_PATTERN.finditer(text):
-            numbers.add(m.group(0).strip())
-        source_numbers[name] = numbers
-
-    # 소스 간 엔터티 교집합 계산
-    all_entity_sets = list(source_entities.values())
-    if len(all_entity_sets) >= 2:
-        shared_entities = all_entity_sets[0]
-        for s in all_entity_sets[1:]:
-            shared_entities = shared_entities & s
-    else:
-        shared_entities = set()
-
-    # 소스 간 합집합
-    union_entities = set()
-    for s in all_entity_sets:
-        union_entities |= s
-
-    # 일치도 계산
-    if union_entities:
-        agreement_score = round(len(shared_entities) / len(union_entities), 2)
-    else:
-        agreement_score = 0.5  # 엔터티 없으면 중립
-
-    # 충돌 감지: 한 소스에만 있는 강한 주장 (숫자 포함)
-    conflicts: list[str] = []
-    for name, nums in source_numbers.items():
-        for other_name, other_nums in source_numbers.items():
-            if name >= other_name:
-                continue
-            # 같은 엔터티에 대해 다른 숫자가 언급된 경우
-            for n in nums:
-                normalized = _normalize_number(n)
-                if normalized is None:
-                    continue
-                for on in other_nums:
-                    other_normalized = _normalize_number(on)
-                    if other_normalized is None:
-                        continue
-                    # 같은 규모인데 값이 다른 경우
-                    if normalized > 0 and other_normalized > 0:
-                        ratio = max(normalized, other_normalized) / min(normalized, other_normalized)
-                        if 1.5 < ratio < 100:  # 1.5배 이상 차이나면 충돌
-                            conflicts.append(f"{name}({n}) vs {other_name}({on})")
-
-    # 충돌이 없으면 일관적으로 판정 (엔터티 교집합이 작아도 충돌 없으면 OK)
-    consistent = len(conflicts) == 0
-
-    return {
-        "consistent": consistent,
-        "agreement_score": agreement_score,
-        "conflicts": conflicts[:5],  # 최대 5개
-        "shared_claims": sorted(shared_entities)[:10],
-    }
-
-
-# ══════════════════════════════════════════════════════
-#  Enhanced Cross-Source Confidence
-# ══════════════════════════════════════════════════════
-
+    return _consistency_result(
+        len(conflicts) == 0,
+        _entity_agreement_score(shared_entities, union_entities),
+        conflicts[:5],
+        sorted(shared_entities)[:10],
+    )
 
 def compute_enhanced_confidence(
     volume_numeric: int,
@@ -735,30 +739,27 @@ def compute_enhanced_confidence(
     news_insight: str = "",
 ) -> tuple[int, float]:
     """
-    강화된 교차 소스 신뢰도 점수.
-
-    기존 0~4 점수에 출처 신뢰도 가중치를 적용.
+    Compute cross-source confidence and weighted source credibility.
 
     Returns:
         (cross_source_confidence: int 0~4, weighted_credibility: float 0~1)
     """
-
-    score = 0
-    if volume_numeric > 0:
-        score += 1
-
-    if context:
-        if context.twitter_insight and len(context.twitter_insight) > 20:
-            if "없음" not in context.twitter_insight and "오류" not in context.twitter_insight:
-                score += 1
-        if context.news_insight and len(context.news_insight) > 20:
-            if "없음" not in context.news_insight:
-                score += 1
-        if context.reddit_insight and len(context.reddit_insight) > 20:
-            if "없음" not in context.reddit_insight and "제한" not in context.reddit_insight:
-                score += 1
-
-    # 출처 신뢰도 가중치
+    score = int(volume_numeric > 0) + _context_confidence_signal_count(context)
     credibility = compute_source_credibility_score(news_insight or (context.news_insight if context else ""))
-
     return score, credibility
+
+
+def _context_confidence_signal_count(context: "MultiSourceContext | None") -> int:
+    if not context:
+        return 0
+    return sum(
+        (
+            _usable_context_signal(context.twitter_insight, ("?놁쓬", "?ㅻ쪟")),
+            _usable_context_signal(context.news_insight, ("?놁쓬",)),
+            _usable_context_signal(context.reddit_insight, ("?놁쓬", "?쒗븳")),
+        )
+    )
+
+
+def _usable_context_signal(value: str, blocked_markers: tuple[str, ...]) -> bool:
+    return bool(value and len(value) > 20 and not any(marker in value for marker in blocked_markers))

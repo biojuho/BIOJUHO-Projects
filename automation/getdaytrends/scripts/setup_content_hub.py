@@ -1,160 +1,93 @@
-"""
-Content Hub Notion DB 자동 생성 스크립트 (v12.0)
+"""Create the Notion Content Hub database used by getdaytrends."""
 
-멀티플랫폼 콘텐츠 관리를 위한 Notion 데이터베이스를 자동으로 생성합니다.
+from __future__ import annotations
 
-사용법:
-    python scripts/setup_content_hub.py
-
-필수 환경변수:
-    NOTION_TOKEN        - Notion Integration Token
-    NOTION_DATABASE_ID  - 기존 DB ID (같은 부모 페이지에 Content Hub 생성)
-
-생성되는 DB 속성 (v13 표준 스키마):
-    - Name (제목), Status (셀렉트), Category (셀렉트)
-    - Date (날짜), Tags (멀티셀렉트), Score (숫자)
-    - Platform (멀티셀렉트), URL (url)
-"""
-
+import argparse
 import os
+from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-# 프로젝트 루트를 경로에 추가
 from dotenv import load_dotenv
 
-# 프로젝트 .env + 루트 .env 순서대로 로드
-_project_root = Path(__file__).resolve().parents[1]
-_workspace_root = Path(__file__).resolve().parents[3]
-load_dotenv(_project_root / ".env")
-load_dotenv(_workspace_root / ".env", override=True)
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+load_dotenv(_PROJECT_ROOT / ".env")
+load_dotenv(_WORKSPACE_ROOT / ".env", override=True)
+
+CONTENT_HUB_TITLE = "Content Hub - Multiplatform Content Management"
+TARGET_PLATFORMS = "x,threads,naver_blog"
 
 
-def main():
-    try:
-        from notion_client import Client as NotionClient
-    except ImportError:
-        print("❌ notion-client 패키지가 필요합니다: pip install notion-client")
-        return
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Create the Notion Content Hub database used by getdaytrends.")
+    parser.add_argument(
+        "--parent-page-id",
+        default="",
+        help="Parent Notion page ID. If omitted, the script tries NOTION_DATABASE_ID's parent or prompts.",
+    )
+    return parser.parse_args(argv)
 
-    token = os.getenv("NOTION_TOKEN", "")
-    existing_db_id = os.getenv("NOTION_DATABASE_ID", "")
 
-    if not token or "your_" in token:
-        print("❌ NOTION_TOKEN이 설정되지 않았습니다.")
-        print("   → .env 파일에 NOTION_TOKEN=<notion-integration-token> 형태로 설정해주세요")
-        return
-
-    notion = NotionClient(auth=token)
-
-    # 기존 DB의 부모 페이지 ID 가져오기
-    parent_page_id = None
-    if existing_db_id:
-        try:
-            db_info = notion.databases.retrieve(database_id=existing_db_id)
-            parent = db_info.get("parent", {})
-            if parent.get("type") == "page_id":
-                parent_page_id = parent["page_id"]
-            elif parent.get("type") == "workspace":
-                parent_page_id = None  # workspace level
-            print(f"✅ 기존 DB 확인: {db_info.get('title', [{}])[0].get('text', {}).get('content', 'Untitled')}")
-        except Exception as e:
-            print(f"⚠️ 기존 DB 조회 실패: {e}")
-            print("   Content Hub를 단독 생성합니다.")
-
-    if not parent_page_id:
-        # 검색으로 작업 공간 페이지 찾기
-        print("\n부모 페이지 ID를 입력해주세요 (Notion 페이지 URL에서 복사):")
-        print("  예: https://notion.so/MyPage-abc123def456 → abc123def456")
-        parent_page_id = input("  → 페이지 ID: ").strip().replace("-", "")
-        if not parent_page_id:
-            print("❌ 부모 페이지 ID가 필요합니다.")
-            return
-
-    # Content Hub DB 속성 정의
-    # v13 표준 스키마 — 8개 속성으로 통합
-    properties = {
+def _content_hub_properties() -> dict[str, Any]:
+    return {
         "Name": {"title": {}},
-        "Status": {
-            "select": {
-                "options": [
-                    {"name": "Draft", "color": "gray"},
-                    {"name": "Ready", "color": "yellow"},
-                    {"name": "Approved", "color": "blue"},
-                    {"name": "Published", "color": "green"},
-                    {"name": "Rejected", "color": "red"},
-                    {"name": "Expired", "color": "orange"},
-                    {"name": "Archived", "color": "brown"},
-                ]
-            }
-        },
-        "Feedback State": {
-            "select": {
-                "options": [
-                    {"name": "Need Review", "color": "yellow"},
-                    {"name": "Need Revision", "color": "red"},
-                    {"name": "Recheck", "color": "blue"},
-                    {"name": "Approved", "color": "green"},
-                    {"name": "Parked", "color": "gray"},
-                ]
-            }
-        },
-        "Next Action": {
-            "select": {
-                "options": [
-                    {"name": "Review Copy", "color": "blue"},
-                    {"name": "Revise Draft", "color": "orange"},
-                    {"name": "Approve Publish", "color": "green"},
-                    {"name": "Wait Metrics", "color": "gray"},
-                    {"name": "Archive", "color": "brown"},
-                ]
-            }
-        },
-        "Priority": {
-            "select": {
-                "options": [
-                    {"name": "High", "color": "red"},
-                    {"name": "Medium", "color": "yellow"},
-                    {"name": "Low", "color": "gray"},
-                ]
-            }
-        },
-        "Category": {
-            "select": {
-                "options": [
-                    {"name": "테크", "color": "blue"},
-                    {"name": "AI", "color": "purple"},
-                    {"name": "경제", "color": "green"},
-                    {"name": "사회", "color": "orange"},
-                    {"name": "과학", "color": "pink"},
-                    {"name": "국제", "color": "red"},
-                    {"name": "기타", "color": "gray"},
-                ]
-            }
-        },
+        "Status": _select_property(
+            [
+                ("Draft", "gray"),
+                ("Ready", "yellow"),
+                ("Approved", "blue"),
+                ("Published", "green"),
+                ("Rejected", "red"),
+                ("Expired", "orange"),
+                ("Archived", "brown"),
+            ]
+        ),
+        "Feedback State": _select_property(
+            [
+                ("Need Review", "yellow"),
+                ("Need Revision", "red"),
+                ("Recheck", "blue"),
+                ("Approved", "green"),
+                ("Parked", "gray"),
+            ]
+        ),
+        "Next Action": _select_property(
+            [
+                ("Review Copy", "blue"),
+                ("Revise Draft", "orange"),
+                ("Approve Publish", "green"),
+                ("Wait Metrics", "gray"),
+                ("Archive", "brown"),
+            ]
+        ),
+        "Priority": _select_property([("High", "red"), ("Medium", "yellow"), ("Low", "gray")]),
+        "Category": _select_property(
+            [
+                ("Tech", "blue"),
+                ("AI", "purple"),
+                ("Economy", "green"),
+                ("Society", "orange"),
+                ("Science", "pink"),
+                ("Global", "red"),
+                ("Other", "gray"),
+            ]
+        ),
         "Date": {"date": {}},
         "Due Date": {"date": {}},
         "Created Time": {"created_time": {}},
-        "Tags": {
-            "multi_select": {
-                "options": [
-                    {"name": "Trend", "color": "blue"},
-                    {"name": "Breaking", "color": "red"},
-                    {"name": "Evergreen", "color": "green"},
-                    {"name": "Manual", "color": "gray"},
-                    {"name": "Revised", "color": "orange"},
-                ]
-            }
-        },
+        "Tags": _multi_select_property(
+            [
+                ("Trend", "blue"),
+                ("Breaking", "red"),
+                ("Evergreen", "green"),
+                ("Manual", "gray"),
+                ("Revised", "orange"),
+            ]
+        ),
         "Score": {"number": {"format": "number"}},
-        "Platform": {
-            "multi_select": {
-                "options": [
-                    {"name": "X", "color": "blue"},
-                    {"name": "Threads", "color": "purple"},
-                    {"name": "NaverBlog", "color": "green"},
-                ]
-            }
-        },
+        "Platform": _multi_select_property([("X", "blue"), ("Threads", "purple"), ("NaverBlog", "green")]),
         "Reviewer": {"people": {}},
         "Owner": {"people": {}},
         "Feedback Notes": {"rich_text": {}},
@@ -169,93 +102,189 @@ def main():
         "Receipt ID": {"rich_text": {}},
     }
 
-    print("\n🔨 Content Hub DB 생성 중...")
+
+def _select_property(options: list[tuple[str, str]]) -> dict[str, Any]:
+    return {"select": {"options": [_option(name, color) for name, color in options]}}
+
+
+def _multi_select_property(options: list[tuple[str, str]]) -> dict[str, Any]:
+    return {"multi_select": {"options": [_option(name, color) for name, color in options]}}
+
+
+def _option(name: str, color: str) -> dict[str, str]:
+    return {"name": name, "color": color}
+
+
+def _valid_notion_token(token: str) -> bool:
+    return bool(token and "your_" not in token)
+
+
+def _parent_page_from_database(notion, existing_db_id: str) -> str | None:
+    if not existing_db_id:
+        return None
+    try:
+        db_info = notion.databases.retrieve(database_id=existing_db_id)
+    except Exception as exc:
+        print(f"Existing DB lookup failed: {exc}")
+        print("Creating Content Hub from a manually supplied parent page.")
+        return None
+
+    parent = db_info.get("parent", {})
+    if parent.get("type") == "page_id":
+        return parent["page_id"]
+    return None
+
+
+def _prompt_parent_page_id() -> str | None:
+    print("\nEnter a parent Notion page ID from a page URL:")
+    print("  Example: https://notion.so/MyPage-abc123def456 -> abc123def456")
+    parent_page_id = input("  Page ID: ").strip().replace("-", "")
+    if not parent_page_id:
+        print("Parent page ID is required.")
+        return None
+    return parent_page_id
+
+
+def _create_content_hub_database(notion, parent_page_id: str) -> dict[str, Any]:
+    return notion.databases.create(
+        parent={"type": "page_id", "page_id": parent_page_id},
+        title=[{"type": "text", "text": {"content": CONTENT_HUB_TITLE}}],
+        properties=_content_hub_properties(),
+        is_inline=True,
+    )
+
+
+def _env_lines(new_db_id: str) -> list[str]:
+    return [
+        "",
+        "",
+        "# [v12.0] Multiplatform Content Hub (created by setup_content_hub.py)",
+        "ENABLE_CONTENT_HUB=true",
+        f"CONTENT_HUB_DATABASE_ID={new_db_id}",
+        f"TARGET_PLATFORMS={TARGET_PLATFORMS}",
+        "BLOG_MIN_SCORE=70",
+    ]
+
+
+def _append_env_settings(env_path: Path, new_db_id: str) -> bool:
+    if not env_path.exists():
+        return False
+    with env_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n".join(_env_lines(new_db_id)) + "\n")
+    return True
+
+
+def _sample_page_payload(new_db_id: str) -> dict[str, Any]:
+    return {
+        "parent": {"database_id": new_db_id},
+        "properties": {
+            "Name": {"title": [{"text": {"content": "[X] Content Hub smoke test"}}]},
+            "Status": {"select": {"name": "Draft"}},
+            "Feedback State": {"select": {"name": "Need Review"}},
+            "Next Action": {"select": {"name": "Review Copy"}},
+            "Priority": {"select": {"name": "High"}},
+            "Category": {"select": {"name": "Tech"}},
+            "Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
+            "Score": {"number": 85},
+            "Platform": {"multi_select": [{"name": "X"}]},
+            "Tags": {"multi_select": [{"name": "Manual"}]},
+        },
+        "children": [
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "✅"},
+                    "rich_text": [
+                        {
+                            "type": "text",
+                            "text": {
+                                "content": (
+                                    "Content Hub was created successfully.\n"
+                                    "Remove this smoke-test page before running production pipelines."
+                                )
+                            },
+                        }
+                    ],
+                    "color": "green_background",
+                },
+            }
+        ],
+    }
+
+
+def _create_sample_page(notion, new_db_id: str) -> dict[str, Any]:
+    return notion.pages.create(**_sample_page_payload(new_db_id))
+
+
+def _print_env_instructions(new_db_id: str) -> None:
+    print("\nAdd these settings to .env:")
+    for line in _env_lines(new_db_id):
+        if line:
+            print(f"   {line}")
+
+
+def _maybe_append_env(new_db_id: str, env_path: Path) -> None:
+    if input("\nAppend these settings to .env automatically? (y/n): ").strip().lower() != "y":
+        return
+    if _append_env_settings(env_path, new_db_id):
+        print("   .env updated.")
+    else:
+        print(f"   .env not found: {env_path}")
+        print("   Add the settings manually.")
+
+
+def _maybe_create_sample_page(notion, new_db_id: str) -> None:
+    if input("\nCreate a sample test page? (y/n): ").strip().lower() != "y":
+        return
+    sample = _create_sample_page(notion, new_db_id)
+    print(f"   Sample page created: {sample.get('url', '')}")
+
+
+def _setup_content_hub(notion, parent_page_id: str, env_path: Path) -> dict[str, Any]:
+    print("\nCreating Content Hub DB...")
+    new_db = _create_content_hub_database(notion, parent_page_id)
+    new_db_id = new_db["id"]
+    print("\nContent Hub DB created.")
+    print(f"   DB ID: {new_db_id}")
+    print(f"   URL: {new_db.get('url', '')}")
+    _print_env_instructions(new_db_id)
+    _maybe_append_env(new_db_id, env_path)
+    _maybe_create_sample_page(notion, new_db_id)
+    print("\nSetup complete. Future pipeline runs can save to Content Hub.")
+    return new_db
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = parse_args(argv)
 
     try:
-        new_db = notion.databases.create(
-            parent={"type": "page_id", "page_id": parent_page_id},
-            title=[{"type": "text", "text": {"content": "📋 Content Hub — 멀티플랫폼 콘텐츠 관리"}}],
-            properties=properties,
-            is_inline=True,
-        )
+        from notion_client import Client as NotionClient
+    except ImportError:
+        print("notion-client is required: pip install notion-client")
+        return
 
-        new_db_id = new_db["id"]
-        db_url = new_db.get("url", "")
+    token = os.getenv("NOTION_TOKEN", "")
+    if not _valid_notion_token(token):
+        print("NOTION_TOKEN is not configured.")
+        print("   Add NOTION_TOKEN=<notion-integration-token> to .env")
+        return
 
-        print("\n✅ Content Hub DB 생성 완료!")
-        print(f"   📎 DB ID: {new_db_id}")
-        print(f"   🔗 URL: {db_url}")
+    notion = NotionClient(auth=token)
+    parent_page_id = args.parent_page_id.strip().replace("-", "")
+    parent_page_id = parent_page_id or _parent_page_from_database(notion, os.getenv("NOTION_DATABASE_ID", ""))
+    parent_page_id = parent_page_id or _prompt_parent_page_id()
+    if not parent_page_id:
+        return
 
-        # .env 파일에 자동 추가 제안
-        env_path = Path(__file__).resolve().parents[1] / ".env"
-        print("\n📝 .env 파일에 다음을 추가하세요:")
-        print("   ENABLE_CONTENT_HUB=true")
-        print(f"   CONTENT_HUB_DATABASE_ID={new_db_id}")
-        print("   TARGET_PLATFORMS=x,threads,naver_blog")
-
-        # 자동 추가 옵션
-        auto_add = input("\n.env에 자동으로 추가할까요? (y/n): ").strip().lower()
-        if auto_add == "y" and env_path.exists():
-            with open(env_path, "a", encoding="utf-8") as f:
-                f.write("\n\n# [v12.0] 멀티플랫폼 Content Hub (자동 생성: setup_content_hub.py)\n")
-                f.write("ENABLE_CONTENT_HUB=true\n")
-                f.write(f"CONTENT_HUB_DATABASE_ID={new_db_id}\n")
-                f.write("TARGET_PLATFORMS=x,threads,naver_blog\n")
-                f.write("BLOG_MIN_SCORE=70\n")
-            print("   ✅ .env 업데이트 완료!")
-        elif auto_add == "y":
-            print(f"   ⚠️ .env 파일을 찾을 수 없습니다: {env_path}")
-            print("   수동으로 추가해주세요.")
-
-        # 샘플 페이지 생성 (동작 확인용)
-        create_sample = input("\n테스트용 샘플 페이지를 생성할까요? (y/n): ").strip().lower()
-        if create_sample == "y":
-            from datetime import datetime
-
-            sample = notion.pages.create(
-                parent={"database_id": new_db_id},
-                properties={
-                    "Name": {"title": [{"text": {"content": "🐦 [X] 테스트 — Content Hub 정상 동작 확인"}}]},
-                    "Status": {"select": {"name": "Draft"}},
-                    "Feedback State": {"select": {"name": "Need Review"}},
-                    "Next Action": {"select": {"name": "Review Copy"}},
-                    "Priority": {"select": {"name": "High"}},
-                    "Category": {"select": {"name": "테크"}},
-                    "Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
-                    "Score": {"number": 85},
-                    "Platform": {"multi_select": [{"name": "X"}]},
-                    "Tags": {"multi_select": [{"name": "테스트"}]},
-                },
-                children=[
-                    {
-                        "object": "block",
-                        "type": "callout",
-                        "callout": {
-                            "icon": {"type": "emoji", "emoji": "✅"},
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {
-                                        "content": "Content Hub가 정상적으로 생성되었습니다!\n"
-                                        "이 테스트 페이지를 삭제하고 파이프라인을 실행하세요."
-                                    },
-                                }
-                            ],
-                            "color": "green_background",
-                        },
-                    }
-                ],
-            )
-            print(f"   ✅ 샘플 페이지 생성 완료: {sample.get('url', '')}")
-
-        print("\n🎉 Setup 완료! 다음 파이프라인 실행부터 Content Hub에 자동 저장됩니다.")
-
-    except Exception as e:
-        print(f"\n❌ DB 생성 실패: {e}")
-        print("   가능한 원인:")
-        print("   - Notion Integration이 해당 페이지에 연결되지 않음")
-        print("   - 부모 페이지 ID가 올바르지 않음")
-        print("   - API 권한 부족")
+    try:
+        _setup_content_hub(notion, parent_page_id, _PROJECT_ROOT / ".env")
+    except Exception as exc:
+        print(f"\nDB creation failed: {exc}")
+        print("Possible causes:")
+        print("   - Notion integration is not connected to the parent page")
+        print("   - Parent page ID is invalid")
+        print("   - API permissions are insufficient")
 
 
 if __name__ == "__main__":

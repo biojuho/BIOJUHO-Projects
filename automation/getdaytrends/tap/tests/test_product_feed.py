@@ -12,6 +12,7 @@ def _make_opportunity(
     viral_score: int = 80,
     priority: float = 70.0,
     time_gap_hours: float = 2.5,
+    source_evidence: str = "",
 ) -> ArbitrageOpportunity:
     return ArbitrageOpportunity(
         keyword=keyword,
@@ -20,6 +21,7 @@ def _make_opportunity(
         viral_score=viral_score,
         priority=priority,
         time_gap_hours=time_gap_hours,
+        source_evidence=source_evidence,
     )
 
 
@@ -64,6 +66,22 @@ class TestTapBoardBuilder:
         assert "naver_blog" in item.recommended_platforms
         assert item.publish_window is not None
         assert item.revenue_play is not None
+
+    def test_source_evidence_is_packaged_as_first_execution_note(self):
+        builder = TapBoardBuilder()
+        board = builder.build(
+            [
+                _make_opportunity(
+                    "Evidence signal",
+                    source_evidence="Two national outlets covered the launch within one hour.",
+                )
+            ],
+            target_country="united-states",
+        )
+
+        assert board.items[0].execution_notes[0] == (
+            "Source signal: Two national outlets covered the launch within one hour."
+        )
 
 
 def test_empty_board_is_schema_stable():

@@ -13,6 +13,14 @@ def _env_flag(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_list(name: str, default: str) -> list[str]:
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+def _env_int(name: str, default: str) -> int:
+    return int(os.getenv(name, default))
+
+
 def storage_env() -> dict:
     """Storage 관련 환경변수 로딩."""
     return dict(
@@ -22,6 +30,7 @@ def storage_env() -> dict:
         google_sheet_id=os.getenv("GOOGLE_SHEET_ID", ""),
         storage_type=os.getenv("STORAGE_TYPE", "notion").lower(),
         db_path=os.getenv("DB_PATH", "data/getdaytrends.db"),
+        allow_sqlite_fallback=_env_flag("ALLOW_SQLITE_FALLBACK", True),
         database_url=os.getenv("DATABASE_URL", ""),
         cache_volume_bucket=int(os.getenv("CACHE_VOLUME_BUCKET", "5000")),
         data_retention_days=int(os.getenv("DATA_RETENTION_DAYS", "90")),
@@ -31,11 +40,16 @@ def storage_env() -> dict:
 
 def schedule_env() -> dict:
     """스케줄/병렬처리 관련 환경변수 로딩."""
+    countries = _env_list("DEFAULT_COUNTRIES", "")
+    country = os.getenv("DEFAULT_COUNTRY", "korea").strip() or "korea"
+    if countries:
+        country = countries[0]
     return dict(
         schedule_minutes=int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "360")),
         enable_parallel_countries=os.getenv("ENABLE_PARALLEL_COUNTRIES", "true").lower() == "true",
         country_parallel_limit=int(os.getenv("COUNTRY_PARALLEL_LIMIT", "3")),
-        country=os.getenv("DEFAULT_COUNTRY", "korea"),
+        country=country,
+        countries=countries,
         limit=int(os.getenv("DEFAULT_LIMIT", "10")),
         dedupe_window_hours=int(os.getenv("DEDUPE_WINDOW_HOURS", "6")),
         max_workers=int(os.getenv("MAX_WORKERS", "10")),
@@ -198,54 +212,40 @@ def scoring_env() -> dict:
 
 
 def platform_env() -> dict:
-    """플랫폼/콘텐츠 관련 환경변수 로딩."""
+    """Load platform/content environment settings."""
     return dict(
         tone=os.getenv("TONE", "biojuho"),
         editorial_profile=os.getenv("EDITORIAL_PROFILE", "biojuho").lower(),
-        target_languages=[lang.strip() for lang in os.getenv("TARGET_LANGUAGES", "ko").split(",") if lang.strip()],
+        target_languages=_env_list("TARGET_LANGUAGES", "ko"),
         account_niche=os.getenv("ACCOUNT_NICHE", "bio/systems/content engineering/investing/saju"),
         target_audience=os.getenv("TARGET_AUDIENCE", "founders, researchers, operators, system thinkers"),
-        enable_persona_filter=os.getenv("ENABLE_PERSONA_FILTER", "true").lower() == "true",
-        persona_axes=[
-            axis.strip()
-            for axis in os.getenv("PERSONA_AXES", "bio,systems,content_engineering,investing,saju").split(",")
-            if axis.strip()
-        ],
-        persona_min_matches=int(os.getenv("PERSONA_MIN_MATCHES", "1")),
-        enforce_min_context_sources=os.getenv("ENFORCE_MIN_CONTEXT_SOURCES", "true").lower() == "true",
-        min_context_sources=int(os.getenv("MIN_CONTEXT_SOURCES", "2")),
-        enforce_source_diversity_gate=os.getenv("ENFORCE_SOURCE_DIVERSITY_GATE", "true").lower() == "true",
-        required_source_combinations=[
-            combo.strip()
-            for combo in os.getenv(
-                "REQUIRED_SOURCE_COMBINATIONS",
-                "twitter+news,reddit+news,twitter+reddit",
-            ).split(",")
-            if combo.strip()
-        ],
-        enforce_hard_drop_policy=os.getenv("ENFORCE_HARD_DROP_POLICY", "true").lower() == "true",
-        hard_drop_topic_keywords=[
-            keyword.strip()
-            for keyword in os.getenv(
-                "HARD_DROP_TOPIC_KEYWORDS",
-                "fursuit,fursuitfriday,cosplay,lol,league of legends,viego,patch notes,buff,nerf,hair trend,haircut,beauty trend,fashion trend,meme,shitpost",
-            ).split(",")
-            if keyword.strip()
-        ],
-        target_platforms=[p.strip() for p in os.getenv("TARGET_PLATFORMS", "x").split(",") if p.strip()],
+        enable_persona_filter=_env_flag("ENABLE_PERSONA_FILTER", True),
+        persona_axes=_env_list("PERSONA_AXES", "bio,systems,content_engineering,investing,saju"),
+        persona_min_matches=_env_int("PERSONA_MIN_MATCHES", "1"),
+        enforce_min_context_sources=_env_flag("ENFORCE_MIN_CONTEXT_SOURCES", True),
+        min_context_sources=_env_int("MIN_CONTEXT_SOURCES", "2"),
+        enforce_source_diversity_gate=_env_flag("ENFORCE_SOURCE_DIVERSITY_GATE", True),
+        required_source_combinations=_env_list(
+            "REQUIRED_SOURCE_COMBINATIONS",
+            "twitter+news,reddit+news,twitter+reddit",
+        ),
+        enforce_hard_drop_policy=_env_flag("ENFORCE_HARD_DROP_POLICY", True),
+        hard_drop_topic_keywords=_env_list(
+            "HARD_DROP_TOPIC_KEYWORDS",
+            "fursuit,fursuitfriday,cosplay,lol,league of legends,viego,patch notes,buff,nerf,hair trend,haircut,beauty trend,fashion trend,meme,shitpost",
+        ),
+        target_platforms=_env_list("TARGET_PLATFORMS", "x"),
         content_hub_database_id=os.getenv("CONTENT_HUB_DATABASE_ID", ""),
-        blog_min_score=int(os.getenv("BLOG_MIN_SCORE", "70")),
-        blog_min_words=int(os.getenv("BLOG_MIN_WORDS", "2000")),
-        blog_max_words=int(os.getenv("BLOG_MAX_WORDS", "5000")),
-        blog_seo_keywords_count=int(os.getenv("BLOG_SEO_KEYWORDS_COUNT", "5")),
-        news_rss_max_items=int(os.getenv("NEWS_RSS_MAX_ITEMS", "5")),
-        exclude_categories=[
-            c.strip() for c in os.getenv("EXCLUDE_CATEGORIES", "\uc815\uce58,\uc5f0\uc608").split(",") if c.strip()
-        ],
-        niche_categories=[c.strip() for c in os.getenv("NICHE_CATEGORIES", "AI,\ud14c\ud06c").split(",") if c.strip()],
-        watchlist_keywords=[k.strip() for k in os.getenv("WATCHLIST_KEYWORDS", "").split(",") if k.strip()],
-        content_diversity_hours=int(os.getenv("CONTENT_DIVERSITY_HOURS", "24")),
+        blog_min_score=_env_int("BLOG_MIN_SCORE", "70"),
+        blog_min_words=_env_int("BLOG_MIN_WORDS", "2000"),
+        blog_max_words=_env_int("BLOG_MAX_WORDS", "5000"),
+        blog_seo_keywords_count=_env_int("BLOG_SEO_KEYWORDS_COUNT", "5"),
+        news_rss_max_items=_env_int("NEWS_RSS_MAX_ITEMS", "5"),
+        exclude_categories=_env_list("EXCLUDE_CATEGORIES", "정치,연예"),
+        niche_categories=_env_list("NICHE_CATEGORIES", "AI,테크"),
+        watchlist_keywords=_env_list("WATCHLIST_KEYWORDS", ""),
+        content_diversity_hours=_env_int("CONTENT_DIVERSITY_HOURS", "24"),
         generation_mode_override=os.getenv("GENERATION_MODE", ""),
         persona_rotation=os.getenv("PERSONA_ROTATION", "fixed"),
-        persona_pool=[p.strip() for p in os.getenv("PERSONA_POOL", "biojuho").split(",") if p.strip()],
+        persona_pool=_env_list("PERSONA_POOL", "biojuho"),
     )

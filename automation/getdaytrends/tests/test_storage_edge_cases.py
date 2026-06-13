@@ -54,6 +54,23 @@ def _make_batch(topic: str = "테스트 키워드") -> TweetBatch:
     return TweetBatch(topic=topic, tweets=tweets, thread=None)
 
 
+def _legacy_schema() -> dict:
+    return {
+        "제목": {},
+        "주제": {},
+        "순위": {},
+        "생성시각": {},
+        "상태": {},
+        "바이럴점수": {},
+        "공감유도형": {},
+        "꿀팁형": {},
+        "찬반질문형": {},
+        "명언형": {},
+        "유머밈형": {},
+        "쓰레드": {},
+    }
+
+
 class FakeAPIResponseError(Exception):
     """Notion APIResponseError 시뮬레이션."""
 
@@ -369,6 +386,8 @@ class TestSaveToNotion:
     def test_duplicate_detection_skips_save(self):
         """오늘 같은 토픽이 이미 있으면 True 반환하고 생성 안 함."""
         mock_notion = MagicMock()
+        mock_notion.databases.retrieve.return_value = {"properties": _legacy_schema()}
+        mock_notion.databases.query.return_value = {"results": [{"id": "existing-page"}]}
         cfg = AppConfig()
         cfg.notion_token = "secret"
         cfg.notion_database_id = "db-123"
@@ -376,7 +395,6 @@ class TestSaveToNotion:
         with (
             patch("storage.NOTION_AVAILABLE", True),
             patch("storage.NotionClient", return_value=mock_notion),
-            patch("storage._notion_page_exists", return_value=True),
         ):
             result = save_to_notion(_make_batch(), _make_trend(), cfg)
         assert result is True
@@ -399,6 +417,9 @@ class TestSaveToNotion:
         batch = _make_batch()
         batch.thread = long_thread
         mock_notion = MagicMock()
+        mock_notion.databases.retrieve.return_value = {"properties": _legacy_schema()}
+        mock_notion.databases.query.return_value = {"results": []}
+        mock_notion.pages.create.return_value = {"id": "new-page"}
         cfg = AppConfig()
         cfg.notion_token = "secret"
         cfg.notion_database_id = "db-123"
@@ -406,15 +427,12 @@ class TestSaveToNotion:
         with (
             patch("storage.NOTION_AVAILABLE", True),
             patch("storage.NotionClient", return_value=mock_notion),
-            patch("storage._notion_page_exists", return_value=False),
             patch("storage._build_notion_body", return_value=[]),
-            patch("storage._retry_notion_call") as mock_retry,
         ):
             save_to_notion(batch, _make_trend(), cfg)
 
         # properties 인수 확인
-        call_kwargs = mock_retry.call_args
-        properties = call_kwargs.kwargs.get("properties") or call_kwargs[1].get("properties", {})
+        properties = mock_notion.pages.create.call_args.kwargs["properties"]
         if "쓰레드" in properties:
             thread_content = properties["쓰레드"]["rich_text"][0]["text"]["content"]
             assert len(thread_content) <= 1900
@@ -433,6 +451,9 @@ class TestSaveToNotion:
             thread=GeneratedThread(tweets=["스레드 첫줄", "스레드 둘째줄"]),
         )
         mock_notion = MagicMock()
+        mock_notion.databases.retrieve.return_value = {"properties": _legacy_schema()}
+        mock_notion.databases.query.return_value = {"results": []}
+        mock_notion.pages.create.return_value = {"id": "new-page"}
         cfg = AppConfig()
         cfg.notion_token = "secret"
         cfg.notion_database_id = "db-123"
@@ -440,13 +461,11 @@ class TestSaveToNotion:
         with (
             patch("storage.NOTION_AVAILABLE", True),
             patch("storage.NotionClient", return_value=mock_notion),
-            patch("storage._notion_page_exists", return_value=False),
             patch("storage._build_notion_body", return_value=[]),
-            patch("storage._retry_notion_call") as mock_retry,
         ):
             assert save_to_notion(batch, _make_trend(), cfg) is True
 
-        properties = mock_retry.call_args.kwargs["properties"]
+        properties = mock_notion.pages.create.call_args.kwargs["properties"]
         assert "제목" in properties
         assert "주제" in properties
         assert "순위" in properties
@@ -459,3 +478,28 @@ class TestSaveToNotion:
         assert properties["명언형"]["rich_text"][0]["text"]["content"] == "데이터 트윗"
         assert properties["유머밈형"]["rich_text"][0]["text"]["content"] == "반전 트윗"
         assert properties["상태"]["select"]["name"] == "대기중"
+
+    def test_current_notion_api_uses_database_child_data_source(self):
+        mock_notion = MagicMock()
+        mock_notion.databases.retrieve.return_value = {
+            "data_sources": [{"id": "data-source-123", "name": "Getdaytrends"}]
+        }
+        mock_notion.data_sources.retrieve.return_value = {"properties": _legacy_schema()}
+        mock_notion.data_sources.query.return_value = {"results": []}
+        mock_notion.pages.create.return_value = {"id": "new-page"}
+        cfg = AppConfig()
+        cfg.notion_token = "secret"
+        cfg.notion_database_id = "database-123"
+
+        with (
+            patch("storage.NOTION_AVAILABLE", True),
+            patch("storage.NotionClient", return_value=mock_notion),
+            patch("storage._build_notion_body", return_value=[]),
+        ):
+            assert save_to_notion(_make_batch(), _make_trend(), cfg) is True
+
+        mock_notion.data_sources.query.assert_called_once()
+        assert mock_notion.pages.create.call_args.kwargs["parent"] == {
+            "type": "data_source_id",
+            "data_source_id": "data-source-123",
+        }

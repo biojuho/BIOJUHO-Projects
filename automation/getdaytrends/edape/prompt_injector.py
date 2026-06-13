@@ -20,7 +20,7 @@ from typing import Any
 from loguru import logger as log
 
 
-async def _maybe_await(value):
+async def _maybe_await(value) -> object:
     """Support both async tracker APIs and older synchronous test doubles."""
     if inspect.isawaitable(value):
         return await value
@@ -87,63 +87,65 @@ class AdaptiveContext:
         """데이터가 충분한지 확인. 비어있으면 프롬프트 주입 스킵."""
         return not self.top_angles and not self.golden_snippets and not self.persona_hint
 
+    def _prompt_header_lines(self) -> list[str]:
+        return [
+            "\n══ [ADAPTIVE CONTEXT - performance based style] ══",
+            f"analysis period: last {self.data_period_days} days | tracked tweets: {self.total_tracked_tweets}\n",
+        ]
+
+    def _top_pattern_lines(self) -> list[str]:
+        lines: list[str] = []
+        if self.top_angles:
+            lines.append("recommended high-performing angle patterns:")
+            for pattern in self.top_angles:
+                lines.append(
+                    f"  - {pattern.name}: ER {pattern.avg_engagement_rate:.4%}, "
+                    f"avg impressions {pattern.avg_impressions:.0f}, weight {pattern.weight:.2f}"
+                )
+        if self.top_hooks:
+            lines.append("\nhigh-performing hook patterns:")
+            lines.extend(f"  - {pattern.name}: ER {pattern.avg_engagement_rate:.4%}" for pattern in self.top_hooks)
+        if self.top_kicks:
+            lines.append("\nhigh-performing ending patterns:")
+            lines.extend(f"  - {pattern.name}: ER {pattern.avg_engagement_rate:.4%}" for pattern in self.top_kicks)
+        return lines
+
+    def _suppressed_pattern_lines(self) -> list[str]:
+        suppressed: list[str] = []
+        suppressed.extend(f"[angle] {angle}" for angle in self.suppressed_angles)
+        suppressed.extend(f"[hook] {hook}" for hook in self.suppressed_hooks)
+        suppressed.extend(f"[kick] {kick}" for kick in self.suppressed_kicks)
+        if not suppressed:
+            return []
+        return ["\nunderperforming patterns to avoid:", *[f"  - {item}" for item in suppressed]]
+
+    def _golden_snippet_lines(self) -> list[str]:
+        if not self.golden_snippets:
+            return []
+        lines = ["\ngolden reference snippets for style and structure, not copying:"]
+        for index, snippet in enumerate(self.golden_snippets, 1):
+            preview = snippet.content[:200].replace("\n", " ")
+            lines.append(f'  [{index}] ({snippet.angle_type}, ER {snippet.engagement_rate:.4%}) "{preview}..."')
+        return lines
+
+    def _persona_lines(self) -> list[str]:
+        if not self.persona_hint:
+            return []
+        return [f"\ncurrent temporal persona: {self.persona_hint}"]
+
+
     def to_prompt_block(self) -> str:
-        """
-        System prompt에 삽입할 텍스트 블록 생성.
-        비어있으면 빈 문자열 반환 → 기존 프롬프트 동작 유지.
-        """
+        """Build the adaptive context block for system prompt injection."""
         if self.is_empty:
             return ""
 
         lines: list[str] = []
-        lines.append("\n═══ [ADAPTIVE CONTEXT — 성과 기반 자동 튜닝] ═══")
-        lines.append(f"분석 기간: 최근 {self.data_period_days}일 | 추적 트윗: {self.total_tracked_tweets}건\n")
-
-        # 1. 추천 패턴
-        if self.top_angles:
-            lines.append("▶ 최근 고성과 앵글 패턴 (우선 사용):")
-            for p in self.top_angles:
-                lines.append(
-                    f"  • {p.name} — ER {p.avg_engagement_rate:.4%}, "
-                    f"노출 평균 {p.avg_impressions:.0f}, 가중치 {p.weight:.2f}"
-                )
-
-        if self.top_hooks:
-            lines.append("\n▶ 최근 고성과 훅 패턴:")
-            for p in self.top_hooks:
-                lines.append(f"  • {p.name} — ER {p.avg_engagement_rate:.4%}")
-
-        if self.top_kicks:
-            lines.append("\n▶ 최근 고성과 킥 패턴:")
-            for p in self.top_kicks:
-                lines.append(f"  • {p.name} — ER {p.avg_engagement_rate:.4%}")
-
-        # 2. 금지 패턴
-        suppressed = []
-        if self.suppressed_angles:
-            suppressed.extend(f"[앵글] {a}" for a in self.suppressed_angles)
-        if self.suppressed_hooks:
-            suppressed.extend(f"[훅] {h}" for h in self.suppressed_hooks)
-        if self.suppressed_kicks:
-            suppressed.extend(f"[킥] {k}" for k in self.suppressed_kicks)
-
-        if suppressed:
-            lines.append("\n▶ 성과 부진 패턴 (사용 금지):")
-            for s in suppressed:
-                lines.append(f"  ✗ {s}")
-
-        # 3. 골든 레퍼런스
-        if self.golden_snippets:
-            lines.append("\n▶ 과거 히트 트윗 레퍼런스 (문체·구조 참고, 복사 금지):")
-            for i, gs in enumerate(self.golden_snippets, 1):
-                preview = gs.content[:200].replace("\n", " ")
-                lines.append(f'  [{i}] ({gs.angle_type}, ER {gs.engagement_rate:.4%}) "{preview}..."')
-
-        # 4. 시간대 페르소나
-        if self.persona_hint:
-            lines.append(f"\n▶ 현재 시간대 페르소나: {self.persona_hint}")
-
-        lines.append("═══════════════════════════════════════════════\n")
+        lines.extend(self._prompt_header_lines())
+        lines.extend(self._top_pattern_lines())
+        lines.extend(self._suppressed_pattern_lines())
+        lines.extend(self._golden_snippet_lines())
+        lines.extend(self._persona_lines())
+        lines.append("════════════════════════\n")
         return "\n".join(lines)
 
 
@@ -168,6 +170,8 @@ class PromptInjector:
     def __init__(self, config: Any) -> None:
         self._config = config
         self._db_path: str = getattr(config, "db_path", "data/getdaytrends.db")
+        self._database_url: str = getattr(config, "database_url", "")
+        self._allow_sqlite_fallback: bool = getattr(config, "allow_sqlite_fallback", True)
         self._bearer_token: str = getattr(config, "twitter_bearer_token", "")
         self._lookback_days: int = getattr(config, "edape_lookback_days", self.DEFAULT_LOOKBACK_DAYS)
         self._max_golden: int = getattr(config, "edape_max_golden_refs", self.MAX_GOLDEN_REFS)
@@ -214,7 +218,7 @@ class PromptInjector:
 
     # ── Internal ──
 
-    async def _get_tracker(self):
+    async def _get_tracker(self) -> object:
         """PerformanceTracker 인스턴스 반환. import 실패 시 None."""
         try:
             from performance_tracker import PerformanceTracker
@@ -227,6 +231,8 @@ class PromptInjector:
         tracker = PerformanceTracker(
             db_path=self._db_path,
             bearer_token=self._bearer_token,
+            database_url=self._database_url,
+            allow_sqlite_fallback=self._allow_sqlite_fallback,
         )
         await _maybe_await(tracker.init_table())
         return tracker

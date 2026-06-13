@@ -189,6 +189,15 @@ class TestCrossReferenceVerification:
 # ══════════════════════════════════════════════════════
 
 
+    def test_comparison_claim_does_not_raise_pattern_error(self):
+        claim = Claim(claim_type=ClaimType.COMPARISON, value="Samsung vs TSMC", context="Samsung vs TSMC")
+        source = "Samsung and TSMC were both discussed in the source context."
+
+        result = verify_claim_against_source(claim, source)
+
+        assert result.verified is True
+
+
 class TestContentVerification:
     def test_verified_content_passes(self):
         """소스에 있는 정보만 사용한 콘텐츠는 통과."""

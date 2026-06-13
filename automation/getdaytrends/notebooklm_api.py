@@ -187,7 +187,7 @@ class XPublishResponse(BaseModel):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> object:
     """Check NotebookLM availability on startup."""
     if NOTEBOOKLM_AVAILABLE and check_availability is not None:
         available = await check_availability()
@@ -230,7 +230,7 @@ except ImportError:
 
 
 @app.get("/health", response_model=HealthResponse)
-async def get_health():
+async def get_health() -> object:
     """Return API and auth health."""
     if health_check is None:
         raise HTTPException(503, "health_check is unavailable")
@@ -244,7 +244,7 @@ async def get_health():
 
 
 @app.post("/notebook", response_model=NotebookResponse)
-async def create_notebook(req: NotebookRequest):
+async def create_notebook(req: NotebookRequest) -> object:
     """Create a NotebookLM notebook for one trend."""
     if not NOTEBOOKLM_AVAILABLE or trend_to_notebook is None:
         raise HTTPException(503, "notebooklm-py unavailable")
@@ -264,54 +264,69 @@ async def create_notebook(req: NotebookRequest):
 
 
 @app.post("/content-factory", response_model=ContentFactoryResponse)
-async def run_content_factory(req: ContentFactoryRequest):
+async def run_content_factory(req: ContentFactoryRequest) -> None:
     """Generate NotebookLM content artifacts and optional publishing outputs."""
     if not NOTEBOOKLM_AVAILABLE or content_factory is None:
         raise HTTPException(503, "notebooklm-py unavailable")
 
     try:
-        urls = req.urls
-        if not urls and auto_discover_sources is not None:
-            sources = await auto_discover_sources(req.keyword, max_total=8)
-            urls = [source["url"] for source in sources]
-
-        result = await content_factory(
-            keyword=req.keyword,
-            urls=urls,
-            category=req.category,
-            context_text=req.context_text,
-        )
-
-        notion_url = ""
-        if req.notion_api_key and req.notion_database_id and publish_to_notion is not None:
-            try:
-                notion_result = await publish_to_notion(
-                    factory_result={**result, "keyword": req.keyword, "category": req.category},
-                    notion_api_key=req.notion_api_key,
-                    database_id=req.notion_database_id,
-                )
-                notion_url = notion_result.get("notion_url", "")
-            except Exception as exc:
-                print(f"[API] Notion publish failed, continuing: {exc}")
-
-        response = ContentFactoryResponse(**result, notion_url=notion_url)
-        response_dict = response.model_dump()
-
-        if req.x_access_token and result.get("tweet_draft") and post_tweet is not None:
-            try:
-                x_result = await post_tweet(text=result["tweet_draft"], access_token=req.x_access_token)
-                if x_result.get("ok"):
-                    response_dict["tweet_url"] = f"https://x.com/i/status/{x_result['tweet_id']}"
-            except Exception as exc:
-                print(f"[API] X publish failed, continuing: {exc}")
-
+        urls = await _content_factory_urls(req)
+        result = await _run_notebooklm_content_factory(req, urls)
+        response_dict = _content_factory_response(result, await _publish_content_factory_to_notion(req, result))
+        await _publish_content_factory_to_x(req, result, response_dict)
         return response_dict
     except Exception as exc:
         raise HTTPException(500, f"Content factory failed: {exc}")
 
 
+async def _content_factory_urls(req: ContentFactoryRequest) -> list[str]:
+    if req.urls or auto_discover_sources is None:
+        return req.urls
+    sources = await auto_discover_sources(req.keyword, max_total=8)
+    return [source["url"] for source in sources]
+
+
+async def _run_notebooklm_content_factory(req: ContentFactoryRequest, urls: list[str]) -> dict:
+    return await content_factory(
+        keyword=req.keyword,
+        urls=urls,
+        category=req.category,
+        context_text=req.context_text,
+    )
+
+
+async def _publish_content_factory_to_notion(req: ContentFactoryRequest, result: dict) -> str:
+    if not (req.notion_api_key and req.notion_database_id and publish_to_notion is not None):
+        return ""
+    try:
+        notion_result = await publish_to_notion(
+            factory_result={**result, "keyword": req.keyword, "category": req.category},
+            notion_api_key=req.notion_api_key,
+            database_id=req.notion_database_id,
+        )
+        return notion_result.get("notion_url", "")
+    except Exception as exc:
+        print(f"[API] Notion publish failed, continuing: {exc}")
+        return ""
+
+
+def _content_factory_response(result: dict, notion_url: str) -> dict:
+    return ContentFactoryResponse(**result, notion_url=notion_url).model_dump()
+
+
+async def _publish_content_factory_to_x(req: ContentFactoryRequest, result: dict, response_dict: dict) -> None:
+    if not (req.x_access_token and result.get("tweet_draft") and post_tweet is not None):
+        return
+    try:
+        x_result = await post_tweet(text=result["tweet_draft"], access_token=req.x_access_token)
+        if x_result.get("ok"):
+            response_dict["tweet_url"] = f"https://x.com/i/status/{x_result['tweet_id']}"
+    except Exception as exc:
+        print(f"[API] X publish failed, continuing: {exc}")
+
+
 @app.post("/research", response_model=ResearchResponse)
-async def run_research(req: ResearchRequest):
+async def run_research(req: ResearchRequest) -> None:
     """Run NotebookLM research mode."""
     if not NOTEBOOKLM_AVAILABLE or research_tool is None:
         raise HTTPException(503, "notebooklm-py unavailable")
@@ -333,7 +348,7 @@ async def run_research(req: ResearchRequest):
 
 
 @app.post("/bio-analyze", response_model=BioAnalyzeResponse)
-async def run_bio_analyze(req: BioAnalyzeRequest):
+async def run_bio_analyze(req: BioAnalyzeRequest) -> None:
     """Run a biotech company analysis with NotebookLM."""
     if not NOTEBOOKLM_AVAILABLE or analyze_bio_company is None:
         raise HTTPException(503, "notebooklm-py unavailable")
@@ -354,7 +369,7 @@ async def run_bio_analyze(req: BioAnalyzeRequest):
 
 
 @app.post("/publish-notion")
-async def run_publish_notion(req: NotionPublishRequest):
+async def run_publish_notion(req: NotionPublishRequest) -> None:
     """Publish a content-factory result to Notion."""
     if publish_to_notion is None:
         raise HTTPException(503, "Notion publisher unavailable")
@@ -401,7 +416,7 @@ async def _record_x_publish_result(req: XPublishRequest, tweet_id: str) -> tuple
 
 
 @app.post("/publish-x", response_model=XPublishResponse)
-async def run_publish_x(req: XPublishRequest):
+async def run_publish_x(req: XPublishRequest) -> None:
     """Publish a tweet to X and sync the local GetDayTrends row when possible."""
     if post_tweet is None:
         raise HTTPException(503, "X publisher unavailable")
@@ -437,7 +452,7 @@ async def run_publish_x(req: XPublishRequest):
 
 
 @app.get("/auth/status")
-async def get_auth_status():
+async def get_auth_status() -> object:
     """Return auth status and recent refresh history."""
     if check_auth_status is None or get_refresh_history is None:
         raise HTTPException(503, "Auth helpers unavailable")
@@ -447,7 +462,7 @@ async def get_auth_status():
 
 
 @app.post("/auth/refresh", response_model=AuthRefreshResponse)
-async def run_auth_refresh():
+async def run_auth_refresh() -> None:
     """Attempt an auth refresh immediately."""
     if refresh_auth is None or check_auth_status is None:
         raise HTTPException(503, "Auth refresh unavailable")
@@ -463,7 +478,7 @@ async def run_auth_refresh():
 
 
 @app.post("/auth/proactive-refresh", response_model=ProactiveRefreshResponse)
-async def run_proactive_refresh():
+async def run_proactive_refresh() -> None:
     """Refresh auth only if the helper decides it is needed."""
     if proactive_refresh is None:
         raise HTTPException(503, "Proactive refresh unavailable")

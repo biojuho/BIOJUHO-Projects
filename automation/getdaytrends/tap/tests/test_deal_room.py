@@ -129,6 +129,23 @@ def test_builder_applies_segment_pricing_experiment():
     assert "recovery mode" in room.offers[0].learning_note.lower()
 
 
+def test_performance_learning_note_selects_first_matching_signal():
+    builder = TapDealRoomBuilder()
+
+    assert "High-intent" in builder._performance_learning_note(
+        {"purchases": 3, "purchase_rate": 0.25, "clicks": 10, "ctr": 0.2}
+    )
+    assert "conversion is weak" in builder._performance_learning_note(
+        {"clicks": 5, "purchases": 0, "views": 50, "ctr": 0.2}
+    )
+    assert "Teaser underperforms" in builder._performance_learning_note(
+        {"views": 20, "ctr": 0.01}
+    )
+    assert "Hook is resonating" in builder._performance_learning_note(
+        {"views": 5, "ctr": 0.2}
+    )
+
+
 @pytest.mark.asyncio
 async def test_service_builds_room_from_tap_board_snapshot():
     board = _sample_board()

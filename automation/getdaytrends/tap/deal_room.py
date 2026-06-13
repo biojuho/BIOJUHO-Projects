@@ -133,6 +133,44 @@ class TapDealRoomBuilder:
         "sponsor_fit",
     )
 
+    def _resolve_request(self, board: TapBoard, request: DealRoomRequest | None) -> DealRoomRequest:
+        return request or DealRoomRequest(
+            target_country=board.target_country,
+            teaser_count=board.teaser_count,
+            limit=len(board.items),
+        )
+
+    def _project_items(self, board: TapBoard, request: DealRoomRequest) -> list[TapBoardItem]:
+        projected_items = board.items[: max(0, request.limit)]
+        if request.include_public_teasers:
+            return projected_items
+        return [item for item in projected_items if item.paywall_tier is not OpportunityTier.FREE_TEASER]
+
+    def _build_offers(
+        self,
+        items: list[TapBoardItem],
+        *,
+        request: DealRoomRequest,
+        funnel_stats_map: dict[str, dict] | None,
+        checkout_summary: dict[str, Any] | None,
+    ) -> list[DealRoomOffer]:
+        offers: list[DealRoomOffer] = []
+        for item in items:
+            tier = "teaser" if item.paywall_tier is OpportunityTier.FREE_TEASER else "premium"
+            stats_key = f"{self._stats_keyword(item.keyword)}::{tier}"
+            stats = dict((funnel_stats_map or {}).get(stats_key, {}))
+            offer = self._build_offer(
+                item,
+                request=request,
+                funnel_stats=stats,
+                checkout_summary=checkout_summary or {},
+            )
+            if stats:
+                offer.funnel_stats = stats
+            offer.learning_note = self._learning_note(stats, offer.pricing_context)
+            offers.append(offer)
+        return offers
+
     def build(
         self,
         board: TapBoard,
@@ -141,31 +179,14 @@ class TapDealRoomBuilder:
         funnel_stats_map: dict[str, dict] | None = None,
         checkout_summary: dict[str, Any] | None = None,
     ) -> TapDealRoom:
-        resolved = request or DealRoomRequest(
-            target_country=board.target_country,
-            teaser_count=board.teaser_count,
-            limit=len(board.items),
+        resolved = self._resolve_request(board, request)
+        projected_items = self._project_items(board, resolved)
+        offers = self._build_offers(
+            projected_items,
+            request=resolved,
+            funnel_stats_map=funnel_stats_map,
+            checkout_summary=checkout_summary,
         )
-
-        projected_items = board.items[: max(0, resolved.limit)]
-        if not resolved.include_public_teasers:
-            projected_items = [item for item in projected_items if item.paywall_tier is not OpportunityTier.FREE_TEASER]
-
-        offers: list[DealRoomOffer] = []
-        for item in projected_items:
-            tier = "teaser" if item.paywall_tier is OpportunityTier.FREE_TEASER else "premium"
-            stats_key = f"{self._stats_keyword(item.keyword)}::{tier}"
-            stats = dict((funnel_stats_map or {}).get(stats_key, {}))
-            offer = self._build_offer(
-                item,
-                request=resolved,
-                funnel_stats=stats,
-                checkout_summary=checkout_summary or {},
-            )
-            if stats:
-                offer.funnel_stats = stats
-            offer.learning_note = self._learning_note(stats, offer.pricing_context)
-            offers.append(offer)
 
         return TapDealRoom(
             generated_at=datetime.utcnow().isoformat(),
@@ -285,6 +306,62 @@ class TapDealRoomBuilder:
             "brazil": 0.9,
         }.get(normalized, 1.0)
 
+    def _pricing_stats(
+        self, funnel_stats: dict[str, Any], checkout_summary: dict[str, Any]
+    ) -> dict[str, int | float]:
+        return {
+            "views": int(funnel_stats.get("views", 0) or 0),
+            "clicks": int(funnel_stats.get("clicks", 0) or 0),
+            "purchases": int(funnel_stats.get("purchases", 0) or 0),
+            "purchase_rate": float(funnel_stats.get("purchase_rate", 0.0) or 0.0),
+            "checkout_completion_rate": float((checkout_summary.get("totals") or {}).get("completion_rate", 0.0) or 0.0),
+        }
+
+    def _pricing_experiment(self, stats: dict[str, int | float]) -> tuple[float, str]:
+        clicks = int(stats["clicks"])
+        purchases = int(stats["purchases"])
+        views = int(stats["views"])
+        purchase_rate = float(stats["purchase_rate"])
+        checkout_completion_rate = float(stats["checkout_completion_rate"])
+        if clicks >= 5 and purchases == 0:
+            return 0.85, "recovery"
+        if checkout_completion_rate >= 0.45 and (purchase_rate >= 0.2 or purchases >= 2):
+            return 1.15, "expansion"
+        if checkout_completion_rate <= 0.18 and clicks >= 3:
+            return 0.8, "friction_reset"
+        if checkout_completion_rate >= 0.35 and views >= 20:
+            return 1.08, "confidence_lift"
+        return 1.0, "baseline"
+
+    def _pricing_variant(self, request: DealRoomRequest, package_tier: str, experiment_strategy: str) -> str:
+        normalized_country = (request.normalized_target_country or "global").replace("-", "_")
+        normalized_segment = (request.audience_segment or "creator").strip().lower() or "creator"
+        normalized_package = package_tier.replace("-", "_")
+        return f"{normalized_country}__{normalized_segment}__{normalized_package}__{experiment_strategy}_v1"
+
+    def _pricing_context(
+        self,
+        *,
+        base_price: float,
+        audience_multiplier: float,
+        country_multiplier: float,
+        experiment_multiplier: float,
+        experiment_strategy: str,
+        stats: dict[str, int | float],
+    ) -> dict[str, int | float | str]:
+        return {
+            "base_price": base_price,
+            "audience_multiplier": audience_multiplier,
+            "country_multiplier": country_multiplier,
+            "experiment_multiplier": experiment_multiplier,
+            "experiment_strategy": experiment_strategy,
+            "checkout_completion_rate": stats["checkout_completion_rate"],
+            "offer_purchase_rate": stats["purchase_rate"],
+            "views": stats["views"],
+            "clicks": stats["clicks"],
+            "purchases": stats["purchases"],
+        }
+
     def _price_decision(
         self,
         item: TapBoardItem,
@@ -298,52 +375,23 @@ class TapDealRoomBuilder:
         base_price = self._base_price(item, package_tier)
         audience_multiplier = self._audience_multiplier(request.audience_segment)
         country_multiplier = self._country_multiplier(request.normalized_target_country)
-        experiment_multiplier = 1.0
-        experiment_strategy = "baseline"
-
-        views = int(funnel_stats.get("views", 0) or 0)
-        clicks = int(funnel_stats.get("clicks", 0) or 0)
-        purchases = int(funnel_stats.get("purchases", 0) or 0)
-        purchase_rate = float(funnel_stats.get("purchase_rate", 0.0) or 0.0)
-        checkout_completion_rate = float((checkout_summary.get("totals") or {}).get("completion_rate", 0.0) or 0.0)
-
-        if clicks >= 5 and purchases == 0:
-            experiment_multiplier = 0.85
-            experiment_strategy = "recovery"
-        elif checkout_completion_rate >= 0.45 and (purchase_rate >= 0.2 or purchases >= 2):
-            experiment_multiplier = 1.15
-            experiment_strategy = "expansion"
-        elif checkout_completion_rate <= 0.18 and clicks >= 3:
-            experiment_multiplier = 0.8
-            experiment_strategy = "friction_reset"
-        elif checkout_completion_rate >= 0.35 and views >= 20:
-            experiment_multiplier = 1.08
-            experiment_strategy = "confidence_lift"
+        stats = self._pricing_stats(funnel_stats, checkout_summary)
+        experiment_multiplier, experiment_strategy = self._pricing_experiment(stats)
 
         raw_price = base_price * audience_multiplier * country_multiplier * experiment_multiplier
         snapped_price = self._snap_price(raw_price)
-        normalized_country = (request.normalized_target_country or "global").replace("-", "_")
-        normalized_segment = (request.audience_segment or "creator").strip().lower() or "creator"
-        normalized_package = package_tier.replace("-", "_")
-        pricing_variant = f"{normalized_country}__{normalized_segment}__{normalized_package}__{experiment_strategy}_v1"
-
-        pricing_context = {
-            "base_price": base_price,
-            "audience_multiplier": audience_multiplier,
-            "country_multiplier": country_multiplier,
-            "experiment_multiplier": experiment_multiplier,
-            "experiment_strategy": experiment_strategy,
-            "checkout_completion_rate": checkout_completion_rate,
-            "offer_purchase_rate": purchase_rate,
-            "views": views,
-            "clicks": clicks,
-            "purchases": purchases,
-        }
         return {
             "price_value": snapped_price,
             "price_anchor": self._price_anchor(snapped_price, currency),
-            "pricing_variant": pricing_variant,
-            "pricing_context": pricing_context,
+            "pricing_variant": self._pricing_variant(request, package_tier, experiment_strategy),
+            "pricing_context": self._pricing_context(
+                base_price=base_price,
+                audience_multiplier=audience_multiplier,
+                country_multiplier=country_multiplier,
+                experiment_multiplier=experiment_multiplier,
+                experiment_strategy=experiment_strategy,
+                stats=stats,
+            ),
         }
 
     def _cta_label(self, tier: str, request: DealRoomRequest) -> str:
@@ -385,31 +433,56 @@ class TapDealRoomBuilder:
             base.append("seo partner")
         return base
 
+    def _performance_metrics(self, stats: dict[str, Any]) -> dict[str, float | int]:
+        return {
+            "purchases": int(stats.get("purchases", 0) or 0),
+            "clicks": int(stats.get("clicks", 0) or 0),
+            "views": int(stats.get("views", 0) or 0),
+            "ctr": float(stats.get("ctr", 0.0) or 0.0),
+            "purchase_rate": float(stats.get("purchase_rate", 0.0) or 0.0),
+        }
+
+    def _performance_learning_rules(self, metrics: dict[str, float | int]) -> list[tuple[bool, str]]:
+        return [
+            (
+                metrics["purchases"] >= 3 and metrics["purchase_rate"] >= 0.2,
+                "High-intent bundle. Keep the offer structure stable.",
+            ),
+            (
+                metrics["clicks"] >= 5 and metrics["purchases"] == 0,
+                "Interest exists but conversion is weak. Test pricing or checkout friction.",
+            ),
+            (
+                metrics["views"] >= 20 and metrics["ctr"] < 0.05,
+                "Teaser underperforms. Refresh the top-line hook.",
+            ),
+            (
+                metrics["ctr"] >= 0.15,
+                "Hook is resonating. Drive more exposure into this lane.",
+            ),
+        ]
+
+    def _performance_learning_note(self, stats: dict[str, Any]) -> str:
+        for matched, note in self._performance_learning_rules(self._performance_metrics(stats)):
+            if matched:
+                return note
+        return ""
+
+    def _pricing_learning_note(self, pricing_context: dict[str, Any] | None = None) -> str:
+        strategy = str((pricing_context or {}).get("experiment_strategy", "") or "")
+        return {
+            "recovery": "Price is running in recovery mode to reduce checkout drop-off.",
+            "expansion": "Price is holding a premium lift because recent completion is strong.",
+            "friction_reset": "Price is temporarily softened to test checkout friction reset.",
+            "confidence_lift": "Price is slightly elevated on a strong segment close rate.",
+        }.get(strategy, "")
+
     def _learning_note(self, stats: dict[str, Any], pricing_context: dict[str, Any] | None = None) -> str:
         notes: list[str] = []
-        views = int(stats.get("views", 0) or 0)
-        clicks = int(stats.get("clicks", 0) or 0)
-        purchases = int(stats.get("purchases", 0) or 0)
-        ctr = float(stats.get("ctr", 0.0) or 0.0)
-        purchase_rate = float(stats.get("purchase_rate", 0.0) or 0.0)
-        if purchases >= 3 and purchase_rate >= 0.2:
-            notes.append("High-intent bundle. Keep the offer structure stable.")
-        elif clicks >= 5 and purchases == 0:
-            notes.append("Interest exists but conversion is weak. Test pricing or checkout friction.")
-        elif views >= 20 and ctr < 0.05:
-            notes.append("Teaser underperforms. Refresh the top-line hook.")
-        elif ctr >= 0.15:
-            notes.append("Hook is resonating. Drive more exposure into this lane.")
-
-        strategy = str((pricing_context or {}).get("experiment_strategy", "") or "")
-        if strategy == "recovery":
-            notes.append("Price is running in recovery mode to reduce checkout drop-off.")
-        elif strategy == "expansion":
-            notes.append("Price is holding a premium lift because recent completion is strong.")
-        elif strategy == "friction_reset":
-            notes.append("Price is temporarily softened to test checkout friction reset.")
-        elif strategy == "confidence_lift":
-            notes.append("Price is slightly elevated on a strong segment close rate.")
+        if performance_note := self._performance_learning_note(stats):
+            notes.append(performance_note)
+        if pricing_note := self._pricing_learning_note(pricing_context):
+            notes.append(pricing_note)
         return " ".join(notes).strip()
 
 

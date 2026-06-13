@@ -157,50 +157,92 @@ def _batch_from_cache(topic: str, rows: list[dict]) -> TweetBatch:
 
 
 async def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | None, str]:
-    """Adaptive Voice 패턴 가중치 + 골든 레퍼런스 + EDAPE 적응형 컨텍스트 로드."""
-    golden_refs = None
-    pattern_weights = None
-    edape_block = ""
-
-    if getattr(config, "enable_edape", True):
-        try:
-            from edape import build_adaptive_context_async
-
-            adaptive_ctx = await build_adaptive_context_async(config)
-            edape_block = adaptive_ctx.to_prompt_block()
-            if edape_block:
-                log.info(
-                    f"  [EDAPE] 적응형 프롬프트 주입 준비 완료 "
-                    f"(angles={len(adaptive_ctx.top_angles)} "
-                    f"golden={len(adaptive_ctx.golden_snippets)} "
-                    f"suppressed={len(adaptive_ctx.suppressed_angles) + len(adaptive_ctx.suppressed_hooks) + len(adaptive_ctx.suppressed_kicks)})"
-                )
-        except Exception as _edape_err:
-            log.debug(f"  [EDAPE] 로드 실패 (무시, 기존 경로 사용): {type(_edape_err).__name__}: {_edape_err}")
-    else:
-        log.debug("  [EDAPE] 비활성화 상태 (config.enable_edape=False)")
-
-    if not (getattr(config, "enable_adaptive_voice", False) or getattr(config, "enable_golden_reference_qa", False)):
-        return golden_refs, pattern_weights, edape_block
-    if PerformanceTracker is None:
-        log.debug("  성과 데이터 로드 실패 (무시): PerformanceTracker 미설치")
-        return golden_refs, pattern_weights, edape_block
-    try:
-        tracker = PerformanceTracker(db_path=config.db_path, bearer_token=config.twitter_bearer_token)
-        if getattr(config, "enable_adaptive_voice", False):
-            pattern_weights = await tracker.get_optimal_pattern_weights(
-                days=getattr(config, "pattern_weight_days", 30),
-                min_samples=getattr(config, "pattern_weight_min_samples", 3),
-            )
-            angle_w = pattern_weights.get("angle_weights", {})
-            top_angle = max(angle_w, key=angle_w.get, default="-") if angle_w else "-"
-            log.info(f"  [Adaptive Voice] 패턴 가중치 로드 완료 (최우선 앵글: {top_angle})")
-        if getattr(config, "enable_golden_reference_qa", False):
-            golden_refs = await tracker.get_golden_references(limit=getattr(config, "golden_reference_limit", 3))
-            log.info(f"  [Benchmark QA] 골든 레퍼런스 {len(golden_refs)}개 로드")
-    except (RuntimeError, ValueError) as _e:
-        log.debug(f"  성과 데이터 로드 실패 (무시): {type(_e).__name__}: {_e}")
+    """Load EDAPE context, adaptive voice weights, and golden references."""
+    edape_block = await _load_edape_block(config)
+    if not _needs_voice_tracker(config):
+        return None, None, edape_block
+    tracker = _voice_tracker(config)
+    if tracker is None:
+        return None, None, edape_block
+    pattern_weights, golden_refs = await _load_voice_assets(config, tracker)
     return golden_refs, pattern_weights, edape_block
+
+
+async def _load_edape_block(config: AppConfig) -> str:
+    if not getattr(config, "enable_edape", True):
+        log.debug("  [EDAPE] disabled (config.enable_edape=False)")
+        return ""
+    try:
+        from edape import build_adaptive_context_async
+
+        adaptive_ctx = await build_adaptive_context_async(config)
+        edape_block = adaptive_ctx.to_prompt_block()
+        _log_edape_block(adaptive_ctx, edape_block)
+        return edape_block
+    except Exception as exc:
+        log.debug(f"  [EDAPE] load failed, continuing with legacy prompt path: {type(exc).__name__}: {exc}")
+        return ""
+
+
+def _log_edape_block(adaptive_ctx, edape_block: str) -> None:
+    if not edape_block:
+        return
+    log.info(
+        f"  [EDAPE] adaptive prompt context ready "
+        f"(angles={len(adaptive_ctx.top_angles)} "
+        f"golden={len(adaptive_ctx.golden_snippets)} "
+        f"suppressed={len(adaptive_ctx.suppressed_angles) + len(adaptive_ctx.suppressed_hooks) + len(adaptive_ctx.suppressed_kicks)})"
+    )
+
+
+def _needs_voice_tracker(config: AppConfig) -> bool:
+    return bool(getattr(config, "enable_adaptive_voice", False) or getattr(config, "enable_golden_reference_qa", False))
+
+
+def _voice_tracker(config: AppConfig) -> object:
+    if PerformanceTracker is None:
+        log.debug("  performance data load skipped: PerformanceTracker unavailable")
+        return None
+    try:
+        return PerformanceTracker(
+            db_path=config.db_path,
+            bearer_token=config.twitter_bearer_token,
+            database_url=config.database_url,
+            allow_sqlite_fallback=config.allow_sqlite_fallback,
+        )
+    except (RuntimeError, ValueError) as exc:
+        log.debug(f"  performance tracker init failed: {type(exc).__name__}: {exc}")
+        return None
+
+
+async def _load_voice_assets(config: AppConfig, tracker) -> tuple[dict | None, list | None]:
+    pattern_weights = None
+    golden_refs = None
+    try:
+        if getattr(config, "enable_adaptive_voice", False):
+            pattern_weights = await _load_pattern_weights(config, tracker)
+        if getattr(config, "enable_golden_reference_qa", False):
+            golden_refs = await _load_golden_references(config, tracker)
+    except (RuntimeError, ValueError) as exc:
+        log.debug(f"  performance data load failed: {type(exc).__name__}: {exc}")
+    return pattern_weights, golden_refs
+
+
+async def _load_pattern_weights(config: AppConfig, tracker) -> dict:
+    pattern_weights = await tracker.get_optimal_pattern_weights(
+        days=getattr(config, "pattern_weight_days", 30),
+        min_samples=getattr(config, "pattern_weight_min_samples", 3),
+    )
+    angle_w = pattern_weights.get("angle_weights", {})
+    top_angle = max(angle_w, key=angle_w.get, default="-") if angle_w else "-"
+    log.info(f"  [Adaptive Voice] pattern weights loaded (top angle: {top_angle})")
+    return pattern_weights
+
+
+async def _load_golden_references(config: AppConfig, tracker) -> list:
+    golden_refs = await tracker.get_golden_references(limit=getattr(config, "golden_reference_limit", 3))
+    log.info(f"  [Benchmark QA] golden references loaded: {len(golden_refs)}")
+    return golden_refs
 
 
 async def _try_cache_hit(trend, config: AppConfig, conn) -> TweetBatch | None:
@@ -295,49 +337,73 @@ async def _run_qa_pipeline(
     recent_tweets: list[str],
     approved_post_bank: list[dict],
 ) -> tuple[TweetBatch, dict]:
-    """QA 검사 + 미달 시 재생성."""
+    """Run content QA and regenerate failed groups once."""
     if _should_skip_qa(trend, is_cached, config):
-        log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
+        log.debug(f"  [QA skip] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
         return primary, _build_empty_qa(trend)
 
     qa = await audit_generated_content(primary, trend, config, client)
-    final_qa = qa
+    _record_first_pass_qa(primary, qa)
     failed_groups = qa.get("failed_groups", []) if qa else []
+    if not failed_groups:
+        return primary, qa
 
+    primary = await _regenerate_failed_qa_groups(
+        primary,
+        trend,
+        effective_config,
+        client,
+        failed_groups,
+        qa,
+        recent_tweets,
+        approved_post_bank,
+    )
+    qa_after = await audit_generated_content(primary, trend, config, client)
+    _log_remaining_qa_failures(trend, qa_after)
+    return primary, qa_after or qa
+
+
+def _record_first_pass_qa(primary: TweetBatch, qa: dict) -> None:
     if not hasattr(primary, "metadata") or primary.metadata is None:
         primary.metadata = {}
     primary.metadata["qa_report_first_pass"] = qa
 
-    if failed_groups:
-        details = qa.get("group_results", {})
-        failed_summary = ", ".join(_format_qa_failure_summary(group, details.get(group, {})) for group in failed_groups)
-        qa_feedback = build_regeneration_feedback(qa_summary=qa)
-        log.warning(
-            f"  [QA 미달] '{trend.keyword}' → {failed_summary} (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성"
-        )
-        primary = await regenerate_content_groups(
-            primary,
-            trend,
-            effective_config,
-            client,
-            failed_groups,
-            recent_tweets=recent_tweets,
-            approved_post_bank=approved_post_bank,
-            qa_feedback=qa_feedback,
-        )
-        qa_after = await audit_generated_content(primary, trend, config, client)
-        final_qa = qa_after or qa
-        if qa_after and qa_after.get("failed_groups"):
-            qa_after_details = qa_after.get("group_results", {})
-            failed_after_summary = ", ".join(
-                _format_qa_failure_summary(group, qa_after_details.get(group, {}))
-                for group in qa_after["failed_groups"]
-            )
-            log.warning(
-                f"  [QA 재검사 미달] '{trend.keyword}' {failed_after_summary} (사유: {qa_after.get('reason', '-')})"
-            )
 
-    return primary, final_qa
+async def _regenerate_failed_qa_groups(
+    primary: TweetBatch,
+    trend,
+    effective_config: AppConfig,
+    client,
+    failed_groups: list,
+    qa: dict,
+    recent_tweets: list[str],
+    approved_post_bank: list[dict],
+) -> TweetBatch:
+    details = qa.get("group_results", {})
+    failed_summary = _qa_failure_summary(failed_groups, details)
+    qa_feedback = build_regeneration_feedback(qa_summary=qa)
+    log.warning(f"  [QA failed] '{trend.keyword}' -> {failed_summary} (reason: {qa.get('reason', '-')}); regenerating failed groups")
+    return await regenerate_content_groups(
+        primary,
+        trend,
+        effective_config,
+        client,
+        failed_groups,
+        recent_tweets=recent_tweets,
+        approved_post_bank=approved_post_bank,
+        qa_feedback=qa_feedback,
+    )
+
+
+def _qa_failure_summary(failed_groups: list, details: dict) -> str:
+    return ", ".join(_format_qa_failure_summary(group, details.get(group, {})) for group in failed_groups)
+
+
+def _log_remaining_qa_failures(trend, qa_after: dict | None) -> None:
+    if not qa_after or not qa_after.get("failed_groups"):
+        return
+    failed_summary = _qa_failure_summary(qa_after["failed_groups"], qa_after.get("group_results", {}))
+    log.warning(f"  [QA retry failed] '{trend.keyword}' {failed_summary} (reason: {qa_after.get('reason', '-')})")
 
 
 def _run_cross_source_check(trend) -> None:
@@ -357,6 +423,75 @@ def _run_cross_source_check(trend) -> None:
         log.debug(f"  [CrossSource] 실행 실패 (무시): {type(_csc_err).__name__}: {_csc_err}")
 
 
+def _fact_check_results(primary: TweetBatch, trend, effective_config: AppConfig) -> dict:
+    return verify_fact_batch(
+        primary,
+        trend,
+        strict_mode=getattr(effective_config, "fact_check_strict_mode", False),
+        min_accuracy=getattr(effective_config, "fact_check_min_accuracy", 0.6),
+    )
+
+
+def _store_fact_check_report(primary: TweetBatch, fc_results: dict) -> None:
+    if not hasattr(primary, "metadata") or primary.metadata is None:
+        primary.metadata = {}
+    primary.metadata["fact_check_report"] = {
+        k: {
+            "passed": v.passed,
+            "hallucinated_claims": v.hallucinated_claims,
+            "accuracy_score": v.accuracy_score,
+            "issues": v.issues,
+        }
+        for k, v in fc_results.items()
+    }
+
+
+def _apply_fact_check_results(trend, fc_results: dict) -> bool:
+    any_failed = False
+    for group_name, fc_result in fc_results.items():
+        if not fc_result.passed:
+            any_failed = True
+            log.warning(
+                f"  [FactCheck 실패] '{trend.keyword}' "
+                f"{_format_fact_check_failure_summary(group_name, fc_result)}: {fc_result.summary}"
+            )
+        trend.fact_check_score = min(trend.fact_check_score, fc_result.accuracy_score)
+        trend.source_credibility = max(trend.source_credibility, fc_result.source_credibility)
+        if fc_result.hallucinated_claims > 0:
+            trend.hallucination_flags.extend(f"[{group_name}] {issue}" for issue in fc_result.issues if "환각" in issue)
+    return any_failed
+
+
+def _hallucinated_fact_check_groups(fc_results: dict) -> list:
+    return [group_name for group_name, result in fc_results.items() if result.hallucinated_claims > 0]
+
+
+async def _regenerate_hallucinated_groups(
+    primary: TweetBatch,
+    trend,
+    effective_config: AppConfig,
+    client,
+    recent_tweets: list[str],
+    approved_post_bank: list[dict],
+    fc_results: dict,
+) -> TweetBatch:
+    halluc_groups = _hallucinated_fact_check_groups(fc_results)
+    if not halluc_groups:
+        return primary
+    fact_check_feedback = build_regeneration_feedback(fact_check_results=fc_results)
+    log.warning(f"  [FactCheck regenerate] '{trend.keyword}' hallucination groups: {', '.join(halluc_groups)}")
+    return await regenerate_content_groups(
+        primary,
+        trend,
+        effective_config,
+        client,
+        halluc_groups,
+        recent_tweets=recent_tweets,
+        approved_post_bank=approved_post_bank,
+        fact_check_feedback=fact_check_feedback,
+    )
+
+
 async def _run_fact_check(
     primary: TweetBatch,
     trend,
@@ -371,55 +506,19 @@ async def _run_fact_check(
     if verify_fact_batch is None:
         return primary
     try:
-        fc_results = verify_fact_batch(
-            primary,
-            trend,
-            strict_mode=getattr(effective_config, "fact_check_strict_mode", False),
-            min_accuracy=getattr(effective_config, "fact_check_min_accuracy", 0.6),
-        )
-        any_failed = False
-        fact_check_feedback = build_regeneration_feedback(fact_check_results=fc_results)
-
-        if not hasattr(primary, "metadata") or primary.metadata is None:
-            primary.metadata = {}
-        primary.metadata["fact_check_report"] = {
-            k: {
-                "passed": v.passed,
-                "hallucinated_claims": v.hallucinated_claims,
-                "accuracy_score": v.accuracy_score,
-                "issues": v.issues,
-            }
-            for k, v in fc_results.items()
-        }
-
-        for group_name, fc_result in fc_results.items():
-            if not fc_result.passed:
-                any_failed = True
-                log.warning(
-                    f"  [FactCheck 실패] '{trend.keyword}' "
-                    f"{_format_fact_check_failure_summary(group_name, fc_result)}: {fc_result.summary}"
-                )
-            trend.fact_check_score = min(trend.fact_check_score, fc_result.accuracy_score)
-            trend.source_credibility = max(trend.source_credibility, fc_result.source_credibility)
-            if fc_result.hallucinated_claims > 0:
-                trend.hallucination_flags.extend(
-                    f"[{group_name}] {issue}" for issue in fc_result.issues if "환각" in issue
-                )
-
+        fc_results = _fact_check_results(primary, trend, effective_config)
+        _store_fact_check_report(primary, fc_results)
+        any_failed = _apply_fact_check_results(trend, fc_results)
         if any_failed and getattr(effective_config, "hallucination_zero_tolerance", True):
-            halluc_groups = [gn for gn, r in fc_results.items() if r.hallucinated_claims > 0]
-            if halluc_groups:
-                log.warning(f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}")
-                primary = await regenerate_content_groups(
-                    primary,
-                    trend,
-                    effective_config,
-                    client,
-                    halluc_groups,
-                    recent_tweets=recent_tweets,
-                    approved_post_bank=approved_post_bank,
-                    fact_check_feedback=fact_check_feedback,
-                )
+            primary = await _regenerate_hallucinated_groups(
+                primary,
+                trend,
+                effective_config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                fc_results,
+            )
     except (RuntimeError, ConnectionError, TimeoutError, ValueError) as _fc_err:
         log.debug(f"  [FactCheck] 실행 실패 (무시): {type(_fc_err).__name__}: {_fc_err}")
     return primary
@@ -441,78 +540,90 @@ def _attach_generation_metadata(primary: TweetBatch, trend, final_qa: dict) -> N
 # ══════════════════════════════════════════════════════
 
 
+def _detect_duplicate_tweet_indices(vectors: list, threshold: float) -> tuple[set[int], list[str]]:
+    dupe_indices: set[int] = set()
+    dupes_log: list[str] = []
+    for i in range(len(vectors)):
+        for j in range(i + 1, len(vectors)):
+            sim = _cosine_similarity(vectors[i], vectors[j])
+            if sim > threshold:
+                dupes_log.append(f"tweet {i + 1} vs {j + 1} (similarity={sim:.2f})")
+                dupe_indices.add(j)
+    return dupe_indices, dupes_log
+
+
+def _record_diversity_warning(batch: TweetBatch, trend, threshold: float, dupes_log: list[str]) -> None:
+    log.warning(f"[Diversity QA] '{trend.keyword}' duplicate threshold {threshold} exceeded: " + ", ".join(dupes_log))
+    if not hasattr(batch, "metadata") or batch.metadata is None:
+        batch.metadata = {}
+    qa_report = batch.metadata.setdefault("qa_report", {})
+    warnings = qa_report.setdefault("warnings", [])
+    warnings.append(f"diversity rewrite: {trend.keyword} ({len(dupes_log)} pairs)")
+
+
+def _rewrite_context_for_index(batch: TweetBatch, idx: int, dupe_indices: set[int]) -> tuple[str, str]:
+    original_tweet = batch.tweets[idx].content
+    other_tweets = [batch.tweets[k].content for k in range(len(batch.tweets)) if k != idx and k not in dupe_indices]
+    others_text = "\n".join(f"- {other}" for other in other_tweets)
+    return original_tweet, others_text
+
+
+def _diversity_rewrite_prompt(original_tweet: str, others_text: str, trend, lang: str) -> str:
+    return (
+        "The following tweet overlaps too much with the other drafts in angle or wording.\n"
+        "Rewrite it with a clearly different hook, emotion, rhythm, and framing while preserving the factual topic.\n\n"
+        f"[Keyword]: {trend.keyword}\n"
+        f"[Other drafts]:\n{others_text}\n\n"
+        f"[Original]:\n{original_tweet}\n\n"
+        f"Write only the rewritten tweet in {lang}. Maximum 280 characters."
+    )
+
+
+async def _rewrite_duplicate_tweet(batch: TweetBatch, trend, config: AppConfig, client, idx: int, dupe_indices: set[int]) -> None:
+    from shared.llm import TaskTier
+
+    lang = config.target_languages[0] if getattr(config, "target_languages", None) else "ko"
+    original_tweet, others_text = _rewrite_context_for_index(batch, idx, dupe_indices)
+    prompt = _diversity_rewrite_prompt(original_tweet, others_text, trend, lang)
+    try:
+        resp = await client.acreate(
+            tier=TaskTier.LIGHTWEIGHT,
+            system="Rewrite social drafts to improve diversity without changing the factual topic.",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+        )
+        rewritten = resp.text.strip().strip("\"'")
+        if rewritten and len(rewritten) > 10:
+            log.info(f"  [Diversity rewrite] '{trend.keyword}' tweet {idx + 1} complete")
+            batch.tweets[idx].content = rewritten
+    except Exception as exc:
+        log.warning(f"  [Diversity rewrite failed] {type(exc).__name__}: {exc}")
+
+
+async def _rewrite_duplicate_tweets(batch: TweetBatch, trend, config: AppConfig, client, dupe_indices: set[int]) -> None:
+    if not dupe_indices:
+        return
+    log.info(f"  [Diversity rewrite] rewriting {len(dupe_indices)} duplicate tweets")
+    await asyncio.gather(*[_rewrite_duplicate_tweet(batch, trend, config, client, idx, dupe_indices) for idx in dupe_indices])
+
+
 async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfig, client) -> None:
-    """생성물 다양성 판단 및 강제 재작성 (코사인 유사도 기반)."""
+    """Detect highly similar generated tweets and rewrite later duplicates."""
     if len(batch.tweets) < 2 or _embed_texts is None or _cosine_similarity is None:
         return
     try:
         threshold = getattr(config, "diversity_sim_threshold", 0.85)
-        vectors = _embed_texts([t.content for t in batch.tweets], task_type="SEMANTIC_SIMILARITY")
+        vectors = _embed_texts([tweet.content for tweet in batch.tweets], task_type="SEMANTIC_SIMILARITY")
         if not vectors:
             return
+        dupe_indices, dupes_log = _detect_duplicate_tweet_indices(vectors, threshold)
+        if not dupes_log:
+            return
+        _record_diversity_warning(batch, trend, threshold, dupes_log)
+        await _rewrite_duplicate_tweets(batch, trend, config, client, dupe_indices)
+    except (RuntimeError, ConnectionError, ValueError) as exc:
+        log.debug(f"[Diversity QA error] {type(exc).__name__}: {exc}")
 
-        dupe_indices = set()
-        dupes_log = []
-        for i in range(len(vectors)):
-            for j in range(i + 1, len(vectors)):
-                sim = _cosine_similarity(vectors[i], vectors[j])
-                if sim > threshold:
-                    dupes_log.append(f"트윗{i + 1}↔트윗{j + 1} (유사도={sim:.2f})")
-                    dupe_indices.add(j)
-
-        if dupes_log:
-            log.warning(f"[다양성 QA] '{trend.keyword}' 유사도 임계치({threshold}) 초과 감지: " + ", ".join(dupes_log))
-
-            if not hasattr(batch, "metadata") or batch.metadata is None:
-                batch.metadata = {}
-            if "qa_report" not in batch.metadata:
-                batch.metadata["qa_report"] = {}
-            if "warnings" not in batch.metadata["qa_report"]:
-                batch.metadata["qa_report"]["warnings"] = []
-            batch.metadata["qa_report"]["warnings"].append(f"다양성 재작성: {trend.keyword} ({len(dupes_log)}쌍)")
-
-            from shared.llm import TaskTier
-
-            lang = config.target_languages[0] if getattr(config, "target_languages", None) else "ko"
-
-            async def _rewrite_tweet(idx: int):
-                original_tweet = batch.tweets[idx].content
-                other_tweets = [
-                    batch.tweets[k].content for k in range(len(batch.tweets)) if k != idx and k not in dupe_indices
-                ]
-                others_text = "\n".join(f"- {o}" for o in other_tweets)
-
-                prompt = (
-                    f"다음 트윗은 다른 시안들과 겹치는 시각/문체가 너무 많습니다.\n"
-                    f"아래의 '피해야 할 시안들'에서 사용된 구조(hook), 감정, 리듬을 피해서 완전히 180도 다른 분위기로 재작성해 주세요.\n\n"
-                    f"[키워드]: {trend.keyword}\n"
-                    f"[피해야 할 시안들]:\n{others_text}\n\n"
-                    f"[원래 내용]:\n{original_tweet}\n\n"
-                    f"반드시 {lang} 언어로 작성하고, 다른 설명 없이 재작성된 텍스트만 출력하세요. 최대 280자."
-                )
-                try:
-                    resp = await client.acreate(
-                        tier=TaskTier.LIGHTWEIGHT,
-                        system="당신은 트윗 프레이밍을 다르게 비틀어 재작성하는 숙련된 소셜 에디터입니다.",
-                        messages=[{"role": "user", "content": prompt}],
-                        max_tokens=300,
-                    )
-                    rewritten = resp.text.strip().strip("\"'")
-                    if rewritten and len(rewritten) > 10:
-                        log.info(f"  [다양성 재작성] '{trend.keyword}' 트윗{idx + 1} 완료")
-                        batch.tweets[idx].content = rewritten
-                except Exception as e:
-                    log.warning(f"  [다양성 재작성 실패] {type(e).__name__}: {e}")
-
-            if dupe_indices:
-                log.info(f"  [다양성 실행] 중복도 높은 {len(dupe_indices)}개 트윗에 대해 강제 재작성 진행")
-                await asyncio.gather(*[_rewrite_tweet(idx) for idx in dupe_indices])
-
-    except (RuntimeError, ConnectionError, ValueError) as e:
-        log.debug(f"[다양성 QA 오류] {type(e).__name__}: {e}")
-
-
-# ══════════════════════════════════════════════════════
 #  Main Step 3: Generate
 # ══════════════════════════════════════════════════════
 
@@ -547,7 +658,7 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
 
     db_lock = asyncio.Lock()
 
-    async def _get_or_generate(trend):
+    async def _get_or_generate(trend) -> object:
         """콘텐츠 캐시 히트 시 LLM 건너뜀."""
         async with db_lock:
             cached_batch = await _try_cache_hit(trend, config, conn)

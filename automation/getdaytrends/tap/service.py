@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 
-def _load_db_funcs():
+def _load_db_funcs() -> object:
     """Lazy import to break db <-> tap circular dependency."""
     try:
         from ..db import enqueue_tap_alerts, get_latest_tap_board_snapshot, save_tap_board_snapshot
@@ -23,7 +23,7 @@ def _load_db_funcs():
     return get_latest_tap_board_snapshot, save_tap_board_snapshot, enqueue_tap_alerts
 
 
-def _load_alert_queue_funcs():
+def _load_alert_queue_funcs() -> object:
     """Lazy import for TAP alert queue delivery helpers."""
 
     try:
@@ -33,7 +33,7 @@ def _load_alert_queue_funcs():
     return get_tap_alert_delivery_batch, update_tap_alert_delivery_status
 
 
-def _load_alert_sender():
+def _load_alert_sender() -> object:
     """Lazy import for channel fan-out to keep import surfaces small."""
 
     try:
@@ -184,6 +184,47 @@ async def build_tap_board_snapshot(
     )
 
 
+def _tap_refresh_request(config, target_country: str, snapshot_source: str) -> TapBoardRequest:
+    return TapBoardRequest(
+        target_country=target_country,
+        limit=max(1, int(getattr(config, "tap_board_limit", 10) or 10)),
+        teaser_count=max(0, int(getattr(config, "tap_teaser_count", 3) or 3)),
+        prefer_saved_snapshot=False,
+        persist_snapshot=True,
+        force_refresh=True,
+        snapshot_max_age_minutes=max(0, int(getattr(config, "tap_snapshot_max_age_minutes", 30) or 30)),
+        snapshot_source=snapshot_source,
+    )
+
+
+async def _enqueue_tap_alerts_if_enabled(conn, config, board, target_country: str, enqueue_alerts) -> int:
+    if not getattr(config, "enable_tap_alert_queue", True):
+        return 0
+    return await enqueue_alerts(
+        conn,
+        board,
+        target_country=target_country,
+        top_k=max(0, int(getattr(config, "tap_alert_top_k", 3) or 3)),
+        min_priority=float(getattr(config, "tap_alert_min_priority", 80.0) or 80.0),
+        min_viral_score=max(0, int(getattr(config, "tap_alert_min_viral_score", 75) or 75)),
+        cooldown_minutes=max(0, int(getattr(config, "tap_alert_cooldown_minutes", 180) or 180)),
+    )
+
+
+def _record_tap_refresh_market(summary: TapRefreshSummary, board, target_country: str, queued: int) -> None:
+    summary.snapshots_built += 1
+    summary.alerts_queued += queued
+    summary.total_detected += board.total_detected
+    summary.markets.append(
+        {
+            "target_country": target_country,
+            "snapshot_id": board.snapshot_id,
+            "detected": board.total_detected,
+            "queued": queued,
+        }
+    )
+
+
 async def refresh_tap_market_surfaces(
     conn,
     config,
@@ -203,43 +244,39 @@ async def refresh_tap_market_surfaces(
         board = await build_tap_board_snapshot(
             conn,
             config,
-            TapBoardRequest(
-                target_country=target_country,
-                limit=max(1, int(getattr(config, "tap_board_limit", 10) or 10)),
-                teaser_count=max(0, int(getattr(config, "tap_teaser_count", 3) or 3)),
-                prefer_saved_snapshot=False,
-                persist_snapshot=True,
-                force_refresh=True,
-                snapshot_max_age_minutes=max(0, int(getattr(config, "tap_snapshot_max_age_minutes", 30) or 30)),
-                snapshot_source=snapshot_source,
-            ),
+            _tap_refresh_request(config, target_country, snapshot_source),
         )
 
-        queued = 0
-        if getattr(config, "enable_tap_alert_queue", True):
-            queued = await enqueue_alerts(
-                conn,
-                board,
-                target_country=target_country,
-                top_k=max(0, int(getattr(config, "tap_alert_top_k", 3) or 3)),
-                min_priority=float(getattr(config, "tap_alert_min_priority", 80.0) or 80.0),
-                min_viral_score=max(0, int(getattr(config, "tap_alert_min_viral_score", 75) or 75)),
-                cooldown_minutes=max(0, int(getattr(config, "tap_alert_cooldown_minutes", 180) or 180)),
-            )
-
-        summary.snapshots_built += 1
-        summary.alerts_queued += queued
-        summary.total_detected += board.total_detected
-        summary.markets.append(
-            {
-                "target_country": target_country,
-                "snapshot_id": board.snapshot_id,
-                "detected": board.total_detected,
-                "queued": queued,
-            }
-        )
+        queued = await _enqueue_tap_alerts_if_enabled(conn, config, board, target_country, enqueue_alerts)
+        _record_tap_refresh_market(summary, board, target_country, queued)
 
     return summary
+
+
+def _tap_dispatch_batch_limit(config, limit: int | None) -> int:
+    return int(limit or getattr(config, "tap_alert_dispatch_batch_size", 5) or 5)
+
+
+def _tap_dispatch_summary(config, target_country: str, dry_run: bool) -> TapAlertDispatchSummary:
+    return TapAlertDispatchSummary(
+        target_country=target_country,
+        dry_run=dry_run,
+        channels=_configured_alert_channels(config),
+    )
+
+
+async def _dispatch_tap_alert_items(conn, config, queued_items: list[dict], update_status, send_alert) -> tuple[int, int, list[dict]]:
+    dispatched = 0
+    failed = 0
+    results = []
+    for item in queued_items:
+        item_result = await _dispatch_tap_alert_item(conn, item, config, update_status, send_alert)
+        if item_result["status"] == "dispatched":
+            dispatched += 1
+        else:
+            failed += 1
+        results.append(item_result)
+    return dispatched, failed, results
 
 
 async def dispatch_tap_alert_queue(
@@ -253,12 +290,8 @@ async def dispatch_tap_alert_queue(
     """Deliver queued TAP alerts to configured notification channels."""
 
     resolved_country = (target_country or "").strip().lower()
-    batch_limit = int(limit or getattr(config, "tap_alert_dispatch_batch_size", 5) or 5)
-    summary = TapAlertDispatchSummary(
-        target_country=resolved_country,
-        dry_run=dry_run,
-        channels=_configured_alert_channels(config),
-    )
+    batch_limit = _tap_dispatch_batch_limit(config, limit)
+    summary = _tap_dispatch_summary(config, resolved_country, dry_run)
     if batch_limit <= 0:
         return summary
 
@@ -273,97 +306,121 @@ async def dispatch_tap_alert_queue(
         return summary
 
     if dry_run or getattr(config, "no_alerts", False) or not summary.channels:
-        reason = "dry_run" if dry_run else "no_channels"
-        if getattr(config, "no_alerts", False):
-            reason = "alerts_disabled"
-        summary.skipped = len(queued_items)
-        summary.attempted = len(queued_items) if dry_run else 0
-        summary.items = [
-            {
-                "alert_id": item["alert_id"],
-                "keyword": item["keyword"],
-                "status": reason,
-            }
-            for item in queued_items
-        ]
+        _mark_tap_dispatch_skipped(summary, queued_items, _tap_dispatch_skip_reason(config, dry_run), dry_run)
         return summary
 
     send_alert = _load_alert_sender()
-
-    for item in queued_items:
-        summary.attempted += 1
-        channel_results = send_alert(item["alert_message"], config)
-        successful_channels = [
-            channel for channel, result in channel_results.items() if isinstance(result, dict) and result.get("ok")
-        ]
-        failed_channels = [
-            channel
-            for channel, result in channel_results.items()
-            if not (isinstance(result, dict) and result.get("ok"))
-        ]
-        attempted_at = datetime.utcnow().isoformat()
-        failure_reason = "; ".join(
-            f"{channel}: {result.get('error', 'unknown error')}"
-            for channel, result in channel_results.items()
-            if isinstance(result, dict) and not result.get("ok")
-        )
-
-        if successful_channels:
-            metadata_patch = {
-                "last_delivery": {
-                    "status": "dispatched",
-                    "attempted_at": attempted_at,
-                    "successful_channels": successful_channels,
-                    "failed_channels": failed_channels,
-                    "channels": successful_channels or list(channel_results.keys()),
-                    "failure_reason": failure_reason,
-                    "channel_results": channel_results,
-                }
-            }
-            await update_status(
-                conn,
-                alert_id=item["alert_id"],
-                lifecycle_status="dispatched",
-                dispatched_at=attempted_at,
-                last_attempt_at=attempted_at,
-                metadata_patch=metadata_patch,
-            )
-            summary.dispatched += 1
-            status = "dispatched"
-        else:
-            metadata_patch = {
-                "last_delivery": {
-                    "status": "failed",
-                    "attempted_at": attempted_at,
-                    "successful_channels": successful_channels,
-                    "failed_channels": failed_channels,
-                    "channels": list(channel_results.keys()),
-                    "failure_reason": failure_reason,
-                    "channel_results": channel_results,
-                }
-            }
-            await update_status(
-                conn,
-                alert_id=item["alert_id"],
-                lifecycle_status="failed",
-                last_attempt_at=attempted_at,
-                metadata_patch=metadata_patch,
-            )
-            summary.failed += 1
-            status = "failed"
-
-        summary.items.append(
-            {
-                "alert_id": item["alert_id"],
-                "keyword": item["keyword"],
-                "status": status,
-                "channels": successful_channels or list(channel_results.keys()),
-                "channel_results": channel_results,
-                "failure_reason": failure_reason,
-            }
-        )
+    summary.attempted = len(queued_items)
+    summary.dispatched, summary.failed, summary.items = await _dispatch_tap_alert_items(
+        conn, config, queued_items, update_status, send_alert
+    )
 
     return summary
+
+def _tap_dispatch_skip_reason(config, dry_run: bool) -> str:
+    if dry_run:
+        return "dry_run"
+    if getattr(config, "no_alerts", False):
+        return "alerts_disabled"
+    return "no_channels"
+
+
+def _mark_tap_dispatch_skipped(summary: TapAlertDispatchSummary, queued_items: list[dict], reason: str, dry_run: bool) -> None:
+    summary.skipped = len(queued_items)
+    summary.attempted = len(queued_items) if dry_run else 0
+    summary.items = [
+        {
+            "alert_id": item["alert_id"],
+            "keyword": item["keyword"],
+            "status": reason,
+        }
+        for item in queued_items
+    ]
+
+
+def _tap_channel_results(channel_results: dict) -> tuple[list[str], list[str], str]:
+    successful_channels = [
+        channel for channel, result in channel_results.items() if isinstance(result, dict) and result.get("ok")
+    ]
+    failed_channels = [
+        channel for channel, result in channel_results.items() if not (isinstance(result, dict) and result.get("ok"))
+    ]
+    failure_reason = "; ".join(
+        f"{channel}: {result.get('error', 'unknown error')}"
+        for channel, result in channel_results.items()
+        if isinstance(result, dict) and not result.get("ok")
+    )
+    return successful_channels, failed_channels, failure_reason
+
+
+def _tap_delivery_metadata(
+    status: str,
+    attempted_at: str,
+    successful_channels: list[str],
+    failed_channels: list[str],
+    failure_reason: str,
+    channel_results: dict,
+) -> dict:
+    return {
+        "last_delivery": {
+            "status": status,
+            "attempted_at": attempted_at,
+            "successful_channels": successful_channels,
+            "failed_channels": failed_channels,
+            "channels": successful_channels or list(channel_results.keys()),
+            "failure_reason": failure_reason,
+            "channel_results": channel_results,
+        }
+    }
+
+
+async def _dispatch_tap_alert_item(conn, item: dict, config, update_status, send_alert) -> dict:
+    channel_results = send_alert(item["alert_message"], config)
+    successful_channels, failed_channels, failure_reason = _tap_channel_results(channel_results)
+    attempted_at = datetime.utcnow().isoformat()
+
+    if successful_channels:
+        await update_status(
+            conn,
+            alert_id=item["alert_id"],
+            lifecycle_status="dispatched",
+            dispatched_at=attempted_at,
+            last_attempt_at=attempted_at,
+            metadata_patch=_tap_delivery_metadata(
+                "dispatched",
+                attempted_at,
+                successful_channels,
+                failed_channels,
+                failure_reason,
+                channel_results,
+            ),
+        )
+        status = "dispatched"
+    else:
+        await update_status(
+            conn,
+            alert_id=item["alert_id"],
+            lifecycle_status="failed",
+            last_attempt_at=attempted_at,
+            metadata_patch=_tap_delivery_metadata(
+                "failed",
+                attempted_at,
+                successful_channels,
+                failed_channels,
+                failure_reason,
+                channel_results,
+            ),
+        )
+        status = "failed"
+
+    return {
+        "alert_id": item["alert_id"],
+        "keyword": item["keyword"],
+        "status": status,
+        "channels": successful_channels or list(channel_results.keys()),
+        "channel_results": channel_results,
+        "failure_reason": failure_reason,
+    }
 
 
 def _resolve_target_country(resolved: TapBoardRequest, config) -> str:

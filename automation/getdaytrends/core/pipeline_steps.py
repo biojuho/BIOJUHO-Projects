@@ -46,36 +46,43 @@ from .steps_save import (  # noqa: F401
 # ══════════════════════════════════════════════════════
 
 
-async def _adjust_schedule(scored_trends, config: AppConfig, schedule_callback=None):
-    """적응형 스케줄링 — 평균 점수 기반 간격 조정."""
+def _schedule_decision(scored_trends, schedule_minutes: int) -> tuple[int, str, float, int]:
+    hot = [t for t in scored_trends if t.viral_potential >= 90 and _is_accelerating(t.trend_acceleration)]
+    avg_score = sum(t.viral_potential for t in scored_trends) / len(scored_trends) if scored_trends else 0
+    if hot:
+        return max(schedule_minutes // 4, 15), "hot", avg_score, len(hot)
+    if avg_score >= 75:
+        return max(int(schedule_minutes * 0.85), 30), "high_average", avg_score, 0
+    if 0 < avg_score < 55:
+        return min(int(schedule_minutes * 1.25), 180), "low_average", avg_score, 0
+    return schedule_minutes, "default", avg_score, 0
+
+
+def _schedule_message(reason: str, interval: int, avg_score: float, hot_count: int) -> str:
+    if reason == "hot":
+        return f"  Hot trends detected: {hot_count}; next run in {interval} minutes"
+    if reason == "high_average":
+        return f"  Average score {avg_score:.0f}; next run in {interval} minutes"
+    if reason == "low_average":
+        return f"  Average score {avg_score:.0f}; next run in {interval} minutes"
+    return f"  Next run: {interval} minutes"
+
+
+def _schedule_next_run(interval: int, callback) -> None:
+    schedule.clear()
+    schedule.every(interval).minutes.do(callback)
+
+
+async def _adjust_schedule(scored_trends, config: AppConfig, schedule_callback=None) -> object:
+    """Adjust the next run interval from current trend scores."""
     if not (config.smart_schedule and not config.one_shot):
         if not config.one_shot:
-            print(f"  다음 실행: {config.schedule_minutes}분 후")
+            print(f"  Next run: {config.schedule_minutes} minutes")
         return
 
     callback = schedule_callback or (lambda: None)
-    hot = [t for t in scored_trends if t.viral_potential >= 90 and _is_accelerating(t.trend_acceleration)]
-    avg_score = sum(t.viral_potential for t in scored_trends) / len(scored_trends) if scored_trends else 0
-
-    if hot:
-        fast_interval = max(config.schedule_minutes // 4, 15)
-        print(f"  핫 트렌드 {len(hot)}건 감지 → 다음 실행 {fast_interval}분 후")
-        schedule.clear()
-        schedule.every(fast_interval).minutes.do(callback)
-    elif avg_score >= 75:
-        faster = max(int(config.schedule_minutes * 0.85), 30)
-        print(f"  평균 {avg_score:.0f}점 (고품질) → 다음 실행 {faster}분 후")
-        schedule.clear()
-        schedule.every(faster).minutes.do(callback)
-    elif 0 < avg_score < 55:
-        slower = min(int(config.schedule_minutes * 1.25), 180)
-        print(f"  평균 {avg_score:.0f}점 (저품질) → 다음 실행 {slower}분 후")
-        schedule.clear()
-        schedule.every(slower).minutes.do(callback)
-    else:
-        schedule.clear()
-        schedule.every(config.schedule_minutes).minutes.do(callback)
-        print(f"  다음 실행: {config.schedule_minutes}분 후")
-
+    interval, reason, avg_score, hot_count = _schedule_decision(scored_trends, config.schedule_minutes)
+    print(_schedule_message(reason, interval, avg_score, hot_count))
+    _schedule_next_run(interval, callback)
 
 # ══════════════════════════════════════════════════════

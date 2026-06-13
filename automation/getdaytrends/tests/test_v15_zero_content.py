@@ -138,6 +138,41 @@ class TestZeroContentPrevention:
         categories = {t.category for t in result}
         assert "연예" not in categories
 
+    def test_persona_source_gates_restore_safe_candidate(self):
+        """If persona/source gates remove everything, restore one safe publishable candidate."""
+        func = self._get_quality_func()
+        config = self._make_config(
+            min_viral_score=70,
+            enable_persona_filter=True,
+            persona_axes=["ai"],
+            persona_min_matches=1,
+            enforce_min_context_sources=True,
+            min_context_sources=2,
+            enforce_source_diversity_gate=True,
+            required_source_combinations=["twitter+news"],
+        )
+
+        trends = [_make_scored_trend("일반트렌드", viral=34, category="테크", publishable=True)]
+
+        result = func(trends, config)
+
+        assert len(result) == 1
+        assert result[0].keyword == "일반트렌드"
+
+    def test_persona_source_gates_respect_prevention_disabled(self):
+        """When prevention is disabled, persona/source gates may still return zero."""
+        func = self._get_quality_func()
+        config = self._make_config(
+            enable_zero_content_prevention=False,
+            enable_persona_filter=True,
+            persona_axes=["ai"],
+            persona_min_matches=1,
+        )
+
+        trends = [_make_scored_trend("일반트렌드", viral=90, category="테크", publishable=True)]
+
+        assert func(trends, config) == []
+
 
 # ═══════════════════════════════════════════════
 #  A-2: Niche-First Scoring

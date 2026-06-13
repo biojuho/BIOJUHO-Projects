@@ -37,7 +37,7 @@ CHECKLISTS = {
 }
 
 
-def _get_notion_client():
+def _get_notion_client() -> object:
     try:
         from notion_client import Client as NotionClient
     except ImportError:
@@ -67,18 +67,64 @@ def _property_title(props: dict) -> str:
 
 
 def _rich_text_value(props: dict, name: str) -> str:
-    values = props.get(name, {}).get("rich_text", [])
+    prop = props.get(name, {})
+    if not isinstance(prop, dict):
+        return ""
+    values = prop.get("rich_text", [])
     if not values:
         return ""
     return "".join(item.get("plain_text") or item.get("text", {}).get("content", "") for item in values)
 
 
 def _status_value(props: dict) -> str:
-    return props.get("Status", {}).get("select", {}).get("name", "")
+    status_prop = props.get("Status", {})
+    if not isinstance(status_prop, dict):
+        return ""
+    select = status_prop.get("select")
+    return select.get("name", "") if isinstance(select, dict) else ""
 
 
 def _platform_names(props: dict) -> list[str]:
-    return [item.get("name", "") for item in props.get("Platform", {}).get("multi_select", []) if item.get("name")]
+    platform_prop = props.get("Platform", {})
+    if not isinstance(platform_prop, dict):
+        return []
+    options = platform_prop.get("multi_select") or []
+    return [item.get("name", "") for item in options if isinstance(item, dict) and item.get("name")]
+
+
+def _first_data_source_id(database_payload: dict) -> str:
+    data_sources = database_payload.get("data_sources") or []
+    if not data_sources:
+        return ""
+    first = data_sources[0]
+    return first.get("id", "") if isinstance(first, dict) else ""
+
+
+def _query_hub_pages(notion: object, hub_id: str, **kwargs) -> dict:
+    data_sources = getattr(notion, "data_sources", None)
+    data_sources_query = getattr(data_sources, "query", None)
+    databases = getattr(notion, "databases", None)
+    databases_query = getattr(databases, "query", None)
+
+    if callable(data_sources_query):
+        data_source_id = ""
+        retrieve_database = getattr(databases, "retrieve", None)
+        if callable(retrieve_database):
+            try:
+                database = retrieve_database(database_id=hub_id)
+                if isinstance(database, dict):
+                    data_source_id = _first_data_source_id(database)
+            except Exception:
+                data_source_id = hub_id
+        else:
+            data_source_id = hub_id
+        if data_source_id:
+            return data_sources_query(data_source_id=data_source_id, **kwargs)
+
+    if callable(databases_query):
+        return databases_query(database_id=hub_id, **kwargs)
+
+    raise RuntimeError("Notion client does not expose data_sources.query or databases.query")
 
 
 def _published_property_updates(props: dict, published_url: str, published_at: str, receipt_id: str) -> dict:
@@ -102,8 +148,9 @@ def add_checklists_to_ready_pages() -> None:
     if not notion or not db_id:
         return
 
-    results = notion.databases.query(
-        database_id=db_id,
+    results = _query_hub_pages(
+        notion,
+        db_id,
         filter={"property": "Status", "select": {"equals": "Ready"}},
         page_size=100,
     )
@@ -152,8 +199,9 @@ def promote_drafts_to_ready(min_viral_score: int = 60) -> None:
     if not notion or not db_id:
         return
 
-    results = notion.databases.query(
-        database_id=db_id,
+    results = _query_hub_pages(
+        notion,
+        db_id,
         filter={
             "and": [
                 {"property": "Status", "select": {"equals": "Draft"}},
@@ -194,8 +242,9 @@ def sync_approved_from_notion(db_path: str, database_url: str = "") -> None:
     if not notion or not db_id:
         return
 
-    results = notion.databases.query(
-        database_id=db_id,
+    results = _query_hub_pages(
+        notion,
+        db_id,
         filter={"property": "Status", "select": {"equals": "Approved"}},
         page_size=100,
     )
@@ -343,7 +392,7 @@ def show_dashboard() -> None:
     if not notion or not db_id:
         return
 
-    results = notion.databases.query(database_id=db_id, page_size=100)
+    results = _query_hub_pages(notion, db_id, page_size=100)
     pages = results.get("results", [])
     counts: dict[str, int] = {}
     for page in pages:

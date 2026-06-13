@@ -72,7 +72,7 @@ except ImportError:
 
 # ── Orchestrator (scraper.py) ──
 # NOTE: lazy import to avoid circular dependency (scraper → collectors.sources → collectors/__init__ → scraper)
-def __getattr__(name):
+def __getattr__(name) -> object:
     if name in ("collect_trends", "collect_contexts"):
         try:
             from .. import scraper as _scraper

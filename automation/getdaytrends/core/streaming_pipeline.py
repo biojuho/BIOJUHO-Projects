@@ -44,7 +44,7 @@ class PipelineEvent:
     started_at: datetime = field(default_factory=datetime.now)
     completed_at: datetime | None = None
 
-    def complete(self, result: Any = None, error: str = ""):
+    def complete(self, result: Any = None, error: str = "") -> object:
         self.result = result
         self.error = error
         self.completed_at = datetime.now()
@@ -74,7 +74,7 @@ class StreamingPipeline:
     GENERATOR_CONCURRENCY = 3  # 동시 LLM 호출 수
     STAGE_TIMEOUT_SECONDS = 120  # 단일 트렌드 처리 타임아웃
 
-    def __init__(self, config, conn, *, generator_concurrency: int = 0):
+    def __init__(self, config, conn, *, generator_concurrency: int = 0) -> None:
         self._config = config
         self._conn = conn
         self._gen_concurrency = generator_concurrency or self.GENERATOR_CONCURRENCY
@@ -146,12 +146,12 @@ class StreamingPipeline:
         return self._results
 
     @staticmethod
-    async def _await_all_workers(scorer_task, gen_tasks, saver_task):
+    async def _await_all_workers(scorer_task, gen_tasks, saver_task) -> object:
         await scorer_task
         await asyncio.gather(*gen_tasks)
         await saver_task
 
-    async def _scorer_worker(self, raw_trends, contexts, score_fn):
+    async def _scorer_worker(self, raw_trends, contexts, score_fn) -> object:
         """Stage 1: 트렌드를 하나씩 스코어링하고 scored_queue에 넣는다."""
         for trend in raw_trends:
             event = PipelineEvent(trend=trend, stage="scoring")
@@ -179,7 +179,7 @@ class StreamingPipeline:
         for _ in range(self._gen_concurrency):
             await self._scored_queue.put(_SENTINEL)
 
-    async def _generator_worker(self, generate_fn, *, worker_id: int = 0):
+    async def _generator_worker(self, generate_fn, *, worker_id: int = 0) -> object:
         """Stage 2: scored_queue에서 꺼내 생성하고 generated_queue에 넣는다."""
         while True:
             event = await self._scored_queue.get()
@@ -212,7 +212,7 @@ class StreamingPipeline:
 
             await self._generated_queue.put(event)
 
-    async def _saver_worker(self, save_fn, *, expected_count: int):
+    async def _saver_worker(self, save_fn, *, expected_count: int) -> object:
         """Stage 3: generated_queue에서 꺼내 저장하고 결과를 수집한다."""
         sentinel_count = 0
 

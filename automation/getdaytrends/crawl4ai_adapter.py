@@ -113,6 +113,29 @@ async def scrape_url(url: str) -> dict[str, str]:
         return empty
 
 
+def _successful_crawl_articles(results: list, urls_to_crawl: list[str]) -> list[dict]:
+    articles = []
+    for index, result in enumerate(results):
+        if isinstance(result, Exception):
+            log.debug(f"[Crawl4AI] crawl exception: {urls_to_crawl[index]} - {result}")
+            continue
+        if result and result.get("content"):
+            articles.append(result)
+    return articles
+
+
+def _format_crawled_article(index: int, article: dict) -> str:
+    title = article["title"] or "(제목 없음)"
+    content = article["content"].strip()
+    date_info = f" ({article['published_date']})" if article["published_date"] else ""
+    return f"--- 기사 {index}{date_info} ---\n제목: {title}\n본문:\n{content}"
+
+
+def _format_enriched_context(articles: list[dict]) -> str:
+    parts = [_format_crawled_article(index, article) for index, article in enumerate(articles, 1)]
+    return "[기사 본문 요약]\n" + "\n\n".join(parts)
+
+
 async def enrich_trend_context(
     trend_keyword: str,
     news_urls: list[str],
@@ -132,14 +155,7 @@ async def enrich_trend_context(
 
     tasks = [scrape_url(url) for url in urls_to_crawl]
     results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    articles = []
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            log.debug(f"[Crawl4AI] 크롤링 예외: {urls_to_crawl[i]} - {result}")
-            continue
-        if result and result.get("content"):
-            articles.append(result)
+    articles = _successful_crawl_articles(results, urls_to_crawl)
 
     if not articles:
         log.info(f"[Crawl4AI] '{trend_keyword}' 성공 기사 없음")
@@ -147,14 +163,7 @@ async def enrich_trend_context(
 
     log.info(f"[Crawl4AI] '{trend_keyword}' {len(articles)}/{len(urls_to_crawl)}건 성공")
 
-    parts = []
-    for idx, article in enumerate(articles, 1):
-        title = article["title"] or "(제목 없음)"
-        content = article["content"].strip()
-        date_info = f" ({article['published_date']})" if article["published_date"] else ""
-        parts.append(f"--- 기사 {idx}{date_info} ---\n제목: {title}\n본문:\n{content}")
-
-    return "[기사 본문 요약]\n" + "\n\n".join(parts)
+    return _format_enriched_context(articles)
 
 
 async def close() -> None:

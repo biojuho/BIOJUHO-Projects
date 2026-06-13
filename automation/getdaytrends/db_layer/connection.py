@@ -5,6 +5,7 @@ db_schema.py에서 분리됨.
 """
 
 import os
+import re
 import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -26,6 +27,13 @@ except ImportError:
 # asyncpg 커넥션 풀 (싱글턴)
 _PG_POOL: "asyncpg.Pool | None" = None
 _SQLITE_WRITE_LOCK = threading.RLock()
+
+
+def _mask_db_error(value: object) -> str:
+    text = str(value)
+    text = re.sub(r"((?:postgresql|postgres)://)[^@\s]+@", r"\1***:***@", text)
+    text = re.sub(r"(tenant/user\s+)[^\s)]+", r"\1***", text, flags=re.IGNORECASE)
+    return text
 
 
 def _uses_in_memory_sqlite(db_path: str) -> bool:
@@ -119,7 +127,7 @@ async def get_connection(
     database_url: str = "",
     *,
     allow_sqlite_fallback: bool = False,
-):
+) -> object:
     """DB 연결 반환. DATABASE_URL 설정 시 asyncpg Pool에서 연결 획득."""
     # Explicit in-memory SQLite requests should not be overridden by a
     # workspace-level DATABASE_URL leaking in from the shell environment.
@@ -137,7 +145,7 @@ async def get_connection(
                 raise
             log.warning(
                 "PostgreSQL connection failed; falling back to local SQLite "
-                f"for this run ({type(exc).__name__}: {exc})"
+                f"for this run ({type(exc).__name__}: {_mask_db_error(exc)})"
             )
 
     os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)

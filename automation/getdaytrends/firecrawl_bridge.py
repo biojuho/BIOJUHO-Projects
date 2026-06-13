@@ -79,18 +79,13 @@ async def enrich_contexts_with_firecrawl(
         Updated contexts dict with enriched content.
     """
     backend = _get_backend()
-
     if backend == "none":
         log.info("[CrawlBridge] No crawl backend available, skipping enrichment")
         return contexts
 
     log.info(f"[CrawlBridge] Using backend: {backend}")
-
     client = get_firecrawl_client() if backend == "firecrawl" else None
-
-    # Filter trends worth enriching
-    eligible = [t for t in quality_trends if getattr(t, "viral_potential", 0) >= min_score_for_enrichment]
-
+    eligible = _eligible_trends_for_enrichment(quality_trends, min_score_for_enrichment)
     if not eligible:
         log.info("[CrawlBridge] No trends above enrichment threshold")
         return contexts
@@ -99,49 +94,77 @@ async def enrich_contexts_with_firecrawl(
         f"[CrawlBridge] Enriching {len(eligible)} trends (min_score={min_score_for_enrichment}, backend={backend})"
     )
 
-    for trend in eligible:
-        keyword = getattr(trend, "keyword", str(trend))
-        ctx = contexts.get(keyword)
+    try:
+        for trend in eligible:
+            await _enrich_single_context(
+                trend,
+                contexts,
+                backend,
+                client,
+                max_articles_per_trend,
+            )
+    finally:
+        await _close_backend(backend, client)
 
-        if ctx is None:
-            continue
+    return contexts
 
-        # Extract news URLs from existing context
-        news_urls = _extract_news_urls(ctx)
-        if not news_urls:
-            log.debug(f"[CrawlBridge] No news URLs for '{keyword}', skipping")
-            continue
 
-        # Enrich with full-text articles (backend-aware)
-        try:
-            if backend == "crawl4ai":
-                enriched_text = await crawl4ai_adapter.enrich_trend_context(
-                    keyword, news_urls, max_articles=max_articles_per_trend
-                )
-            else:
-                enriched_text = await client.enrich_trend_context(
-                    keyword, news_urls, max_articles=max_articles_per_trend
-                )
+def _eligible_trends_for_enrichment(quality_trends: list, min_score_for_enrichment: int) -> list:
+    return [trend for trend in quality_trends if getattr(trend, "viral_potential", 0) >= min_score_for_enrichment]
 
-            if enriched_text:
-                # Append enriched context to existing context
-                if hasattr(ctx, "firecrawl_context"):
-                    ctx.firecrawl_context = enriched_text
-                elif isinstance(ctx, dict):
-                    ctx["firecrawl_context"] = enriched_text
-                else:
-                    # Fallback: inject into combined_summary
-                    combined = getattr(ctx, "combined_summary", "")
-                    if isinstance(combined, str):
-                        ctx.combined_summary = f"{combined}\n\n{enriched_text}"
 
-                log.info(f"[CrawlBridge] Enriched '{keyword}' with {len(enriched_text)} chars")
+async def _crawl_enrichment_text(
+    keyword: str,
+    news_urls: list[str],
+    backend: str,
+    client,
+    max_articles: int,
+) -> str:
+    if backend == "crawl4ai":
+        return await crawl4ai_adapter.enrich_trend_context(keyword, news_urls, max_articles=max_articles)
+    return await client.enrich_trend_context(keyword, news_urls, max_articles=max_articles)
 
-        except Exception as exc:
-            log.warning(f"[CrawlBridge] Error enriching '{keyword}': {exc}")
-            continue
 
-    # Cleanup
+def _attach_enriched_text(ctx: Any, enriched_text: str) -> None:
+    if hasattr(ctx, "firecrawl_context"):
+        ctx.firecrawl_context = enriched_text
+    elif isinstance(ctx, dict):
+        ctx["firecrawl_context"] = enriched_text
+    else:
+        combined = getattr(ctx, "combined_summary", "")
+        if isinstance(combined, str):
+            ctx.combined_summary = f"{combined}\n\n{enriched_text}"
+
+
+async def _enrich_single_context(
+    trend,
+    contexts: dict[str, Any],
+    backend: str,
+    client,
+    max_articles_per_trend: int,
+) -> None:
+    keyword = getattr(trend, "keyword", str(trend))
+    ctx = contexts.get(keyword)
+    if ctx is None:
+        return
+
+    news_urls = _extract_news_urls(ctx)
+    if not news_urls:
+        log.debug(f"[CrawlBridge] No news URLs for '{keyword}', skipping")
+        return
+
+    try:
+        enriched_text = await _crawl_enrichment_text(keyword, news_urls, backend, client, max_articles_per_trend)
+    except Exception as exc:
+        log.warning(f"[CrawlBridge] Error enriching '{keyword}': {exc}")
+        return
+
+    if enriched_text:
+        _attach_enriched_text(ctx, enriched_text)
+        log.info(f"[CrawlBridge] Enriched '{keyword}' with {len(enriched_text)} chars")
+
+
+async def _close_backend(backend: str, client) -> None:
     try:
         if backend == "crawl4ai":
             await crawl4ai_adapter.close()
@@ -150,32 +173,25 @@ async def enrich_contexts_with_firecrawl(
     except Exception:
         pass
 
-    return contexts
-
 
 def _extract_news_urls(ctx: Any) -> list[str]:
     """Extract news article URLs from a TrendContext object."""
+    urls = _urls_from_news_items(getattr(ctx, "news_items", None))
+    if not urls and hasattr(ctx, "news") and isinstance(ctx.news, list):
+        urls = _urls_from_news_items(ctx.news)
+    if not urls and isinstance(ctx, dict):
+        urls = _urls_from_news_items(ctx.get("news", []))
+    return urls[:10]
+
+
+def _urls_from_news_items(items: Any) -> list[str]:
     urls: list[str] = []
-
-    # Try different context structures
-    if hasattr(ctx, "news_items"):
-        for item in ctx.news_items or []:
-            if hasattr(item, "url") and item.url:
-                urls.append(item.url)
-            elif isinstance(item, dict) and item.get("url"):
-                urls.append(item["url"])
-
-    elif hasattr(ctx, "news") and isinstance(ctx.news, list):
-        for item in ctx.news:
-            if isinstance(item, dict) and item.get("url"):
-                urls.append(item["url"])
-
-    elif isinstance(ctx, dict):
-        for item in ctx.get("news", []):
-            if isinstance(item, dict) and item.get("url"):
-                urls.append(item["url"])
-
-    return urls[:10]  # Cap at 10 URLs
+    for item in items or []:
+        if hasattr(item, "url") and item.url:
+            urls.append(item.url)
+        elif isinstance(item, dict) and item.get("url"):
+            urls.append(item["url"])
+    return urls
 
 
 if __name__ == "__main__":
@@ -185,7 +201,7 @@ if __name__ == "__main__":
     if client.available:
         print("Ready for pipeline integration!")
 
-        async def _test():
+        async def _test() -> None:
             result = await client.scrape_url("https://news.google.com")
             print(f"Test scrape result: title={result.get('title', 'N/A')[:50]}")
             await client.close()

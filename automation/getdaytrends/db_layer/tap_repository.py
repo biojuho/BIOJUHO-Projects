@@ -517,29 +517,26 @@ async def record_tap_deal_room_event(
 ) -> str:
     """Persist one TAP deal-room funnel event."""
 
-    normalized_keyword = (keyword or "").strip()
-    normalized_event_type = _normalize_event_type(event_type)
-    if not normalized_keyword:
-        raise ValueError("keyword is required")
-    if normalized_event_type not in {"view", "click", "checkout_open", "purchase"}:
-        raise ValueError(f"unsupported deal-room event_type: {event_type}")
-
+    normalized_keyword, normalized_event_type = _validate_tap_deal_event(keyword, event_type)
     resolved_event_id = event_id or f"tapde_{uuid4().hex}"
-    if event_id:
-        existing_cursor = await conn.execute(
-            "SELECT event_id FROM tap_deal_room_events WHERE event_id = ? LIMIT 1",
-            (resolved_event_id,),
-        )
-        existing_row = await existing_cursor.fetchone()
-        if existing_row:
-            return resolved_event_id
-    payload = _merge_json_dict(
-        metadata or {},
-        {
-            "event_type": normalized_event_type,
-            "package_tier": package_tier,
-            "offer_tier": offer_tier,
-        },
+    if event_id and await _tap_deal_room_event_exists(conn, resolved_event_id):
+        return resolved_event_id
+
+    record = _tap_deal_room_event_record(
+        event_id=resolved_event_id,
+        keyword=normalized_keyword,
+        event_type=normalized_event_type,
+        snapshot_id=snapshot_id,
+        target_country=target_country,
+        audience_segment=audience_segment,
+        package_tier=package_tier,
+        offer_tier=offer_tier,
+        price_anchor=price_anchor,
+        checkout_handle=checkout_handle,
+        session_id=session_id,
+        actor_id=actor_id,
+        revenue_value=revenue_value,
+        metadata=metadata,
     )
 
     async with sqlite_write_lock(conn):
@@ -550,23 +547,7 @@ async def record_tap_deal_room_event(
                        package_tier, offer_tier, event_type, price_anchor, checkout_handle,
                        session_id, actor_id, revenue_value, metadata_json, created_at
                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    resolved_event_id,
-                    snapshot_id,
-                    normalized_keyword,
-                    _normalize_country(target_country),
-                    (audience_segment or "").strip().lower(),
-                    (package_tier or "").strip().lower(),
-                    (offer_tier or "").strip().lower(),
-                    normalized_event_type,
-                    price_anchor,
-                    checkout_handle,
-                    session_id,
-                    actor_id,
-                    float(revenue_value or 0.0),
-                    _json_text(payload),
-                    datetime.utcnow().isoformat(),
-                ),
+                _tap_deal_room_event_insert_params(record),
             )
             await conn.commit()
         except Exception as exc:
@@ -576,6 +557,87 @@ async def record_tap_deal_room_event(
             raise
 
     return resolved_event_id
+
+
+def _validate_tap_deal_event(keyword: str, event_type: str) -> tuple[str, str]:
+    normalized_keyword = (keyword or "").strip()
+    normalized_event_type = _normalize_event_type(event_type)
+    if not normalized_keyword:
+        raise ValueError("keyword is required")
+    if normalized_event_type not in {"view", "click", "checkout_open", "purchase"}:
+        raise ValueError(f"unsupported deal-room event_type: {event_type}")
+    return normalized_keyword, normalized_event_type
+
+
+async def _tap_deal_room_event_exists(conn, event_id: str) -> bool:
+    existing_cursor = await conn.execute(
+        "SELECT event_id FROM tap_deal_room_events WHERE event_id = ? LIMIT 1",
+        (event_id,),
+    )
+    return await existing_cursor.fetchone() is not None
+
+
+def _tap_deal_room_event_record(
+    *,
+    event_id: str,
+    keyword: str,
+    event_type: str,
+    snapshot_id: str,
+    target_country: str,
+    audience_segment: str,
+    package_tier: str,
+    offer_tier: str,
+    price_anchor: str,
+    checkout_handle: str,
+    session_id: str,
+    actor_id: str,
+    revenue_value: float,
+    metadata: dict | None,
+) -> dict:
+    metadata_payload = _merge_json_dict(
+        metadata or {},
+        {
+            "event_type": event_type,
+            "package_tier": package_tier,
+            "offer_tier": offer_tier,
+        },
+    )
+    return {
+        "event_id": event_id,
+        "snapshot_id": snapshot_id,
+        "keyword": keyword,
+        "target_country": _normalize_country(target_country),
+        "audience_segment": (audience_segment or "").strip().lower(),
+        "package_tier": (package_tier or "").strip().lower(),
+        "offer_tier": (offer_tier or "").strip().lower(),
+        "event_type": event_type,
+        "price_anchor": price_anchor,
+        "checkout_handle": checkout_handle,
+        "session_id": session_id,
+        "actor_id": actor_id,
+        "revenue_value": float(revenue_value or 0.0),
+        "metadata": metadata_payload,
+    }
+
+
+def _tap_deal_room_event_insert_params(record: dict) -> tuple:
+    return (
+        record["event_id"],
+        record["snapshot_id"],
+        record["keyword"],
+        record["target_country"],
+        record["audience_segment"],
+        record["package_tier"],
+        record["offer_tier"],
+        record["event_type"],
+        record["price_anchor"],
+        record["checkout_handle"],
+        record["session_id"],
+        record["actor_id"],
+        record["revenue_value"],
+        _json_text(record["metadata"]),
+        datetime.utcnow().isoformat(),
+    )
 
 
 async def upsert_tap_checkout_session(
@@ -603,33 +665,33 @@ async def upsert_tap_checkout_session(
 ) -> str:
     """Insert or refresh one TAP checkout session row."""
 
-    normalized_session_id = (checkout_session_id or "").strip()
-    normalized_keyword = (keyword or "").strip()
-    if not normalized_session_id:
-        raise ValueError("checkout_session_id is required")
-    if not normalized_keyword:
-        raise ValueError("keyword is required")
-
-    now = datetime.utcnow().isoformat()
-    normalized_status = (session_status or "created").strip().lower() or "created"
-    normalized_payment = (payment_status or "").strip().lower()
-    payload = _merge_json_dict(
-        metadata or {},
-        {
-            "checkout_handle": checkout_handle,
-            "session_status": normalized_status,
-            "payment_status": normalized_payment,
-        },
+    record = _tap_checkout_session_record(
+        checkout_session_id=checkout_session_id,
+        checkout_handle=checkout_handle,
+        snapshot_id=snapshot_id,
+        keyword=keyword,
+        target_country=target_country,
+        audience_segment=audience_segment,
+        package_tier=package_tier,
+        offer_tier=offer_tier,
+        session_status=session_status,
+        payment_status=payment_status,
+        currency=currency,
+        quoted_price_value=quoted_price_value,
+        revenue_value=revenue_value,
+        checkout_url=checkout_url,
+        actor_id=actor_id,
+        stripe_customer_id=stripe_customer_id,
+        stripe_event_id=stripe_event_id,
+        metadata=metadata,
+        completed_at=completed_at,
     )
+    now = datetime.utcnow().isoformat()
 
     async with sqlite_write_lock(conn):
-        existing_cursor = await conn.execute(
-            "SELECT metadata_json FROM tap_checkout_sessions WHERE checkout_session_id = ? LIMIT 1",
-            (normalized_session_id,),
-        )
-        existing_row = await existing_cursor.fetchone()
+        existing_row = await _existing_tap_checkout_metadata(conn, record["checkout_session_id"])
         if existing_row:
-            merged_metadata = _merge_json_dict(_json_dict(existing_row["metadata_json"]), payload)
+            merged_metadata = _merge_json_dict(_json_dict(existing_row["metadata_json"]), record["metadata"])
             await conn.execute(
                 """UPDATE tap_checkout_sessions
                    SET checkout_handle = ?,
@@ -652,28 +714,7 @@ async def upsert_tap_checkout_session(
                        updated_at = ?,
                        completed_at = COALESCE(?, completed_at)
                  WHERE checkout_session_id = ?""",
-                (
-                    checkout_handle,
-                    snapshot_id,
-                    normalized_keyword,
-                    _normalize_country(target_country),
-                    (audience_segment or "").strip().lower(),
-                    (package_tier or "").strip().lower(),
-                    (offer_tier or "").strip().lower(),
-                    normalized_status,
-                    normalized_payment,
-                    (currency or "usd").strip().lower(),
-                    float(quoted_price_value or 0.0),
-                    float(revenue_value or 0.0),
-                    checkout_url,
-                    actor_id,
-                    stripe_customer_id,
-                    stripe_event_id,
-                    _json_text(merged_metadata),
-                    now,
-                    completed_at,
-                    normalized_session_id,
-                ),
+                _tap_checkout_update_params(record, _json_text(merged_metadata), now),
             )
         else:
             await conn.execute(
@@ -684,33 +725,150 @@ async def upsert_tap_checkout_session(
                        revenue_value, checkout_url, actor_id, stripe_customer_id,
                        stripe_event_id, metadata_json, created_at, updated_at, completed_at
                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    normalized_session_id,
-                    checkout_handle,
-                    snapshot_id,
-                    normalized_keyword,
-                    _normalize_country(target_country),
-                    (audience_segment or "").strip().lower(),
-                    (package_tier or "").strip().lower(),
-                    (offer_tier or "").strip().lower(),
-                    normalized_status,
-                    normalized_payment,
-                    (currency or "usd").strip().lower(),
-                    float(quoted_price_value or 0.0),
-                    float(revenue_value or 0.0),
-                    checkout_url,
-                    actor_id,
-                    stripe_customer_id,
-                    stripe_event_id,
-                    _json_text(payload),
-                    now,
-                    now,
-                    completed_at,
-                ),
+                _tap_checkout_insert_params(record, _json_text(record["metadata"]), now),
             )
         await conn.commit()
 
-    return normalized_session_id
+    return record["checkout_session_id"]
+
+
+def _tap_checkout_session_record(
+    *,
+    checkout_session_id: str,
+    checkout_handle: str,
+    snapshot_id: str,
+    keyword: str,
+    target_country: str,
+    audience_segment: str,
+    package_tier: str,
+    offer_tier: str,
+    session_status: str,
+    payment_status: str,
+    currency: str,
+    quoted_price_value: float,
+    revenue_value: float,
+    checkout_url: str,
+    actor_id: str,
+    stripe_customer_id: str,
+    stripe_event_id: str,
+    metadata: dict | None,
+    completed_at: str | None,
+) -> dict:
+    normalized_session_id = _required_checkout_text(checkout_session_id, "checkout_session_id")
+    normalized_keyword = _required_checkout_text(keyword, "keyword")
+    normalized_status = _normalized_checkout_status(session_status)
+    normalized_payment = _normalized_checkout_payment(payment_status)
+    return {
+        "checkout_session_id": normalized_session_id,
+        "checkout_handle": checkout_handle,
+        "snapshot_id": snapshot_id,
+        "keyword": normalized_keyword,
+        "target_country": _normalize_country(target_country),
+        "audience_segment": (audience_segment or "").strip().lower(),
+        "package_tier": (package_tier or "").strip().lower(),
+        "offer_tier": (offer_tier or "").strip().lower(),
+        "session_status": normalized_status,
+        "payment_status": normalized_payment,
+        "currency": (currency or "usd").strip().lower(),
+        "quoted_price_value": float(quoted_price_value or 0.0),
+        "revenue_value": float(revenue_value or 0.0),
+        "checkout_url": checkout_url,
+        "actor_id": actor_id,
+        "stripe_customer_id": stripe_customer_id,
+        "stripe_event_id": stripe_event_id,
+        "metadata": _tap_checkout_metadata(metadata, checkout_handle, normalized_status, normalized_payment),
+        "completed_at": completed_at,
+    }
+
+
+def _required_checkout_text(value: str, field_name: str) -> str:
+    normalized = (value or "").strip()
+    if not normalized:
+        raise ValueError(f"{field_name} is required")
+    return normalized
+
+
+def _normalized_checkout_status(session_status: str) -> str:
+    return (session_status or "created").strip().lower() or "created"
+
+
+def _normalized_checkout_payment(payment_status: str) -> str:
+    return (payment_status or "").strip().lower()
+
+
+def _tap_checkout_metadata(
+    metadata: dict | None,
+    checkout_handle: str,
+    session_status: str,
+    payment_status: str,
+) -> dict:
+    return _merge_json_dict(
+        metadata or {},
+        {
+            "checkout_handle": checkout_handle,
+            "session_status": session_status,
+            "payment_status": payment_status,
+        },
+    )
+
+
+async def _existing_tap_checkout_metadata(conn, checkout_session_id: str) -> object:
+    existing_cursor = await conn.execute(
+        "SELECT metadata_json FROM tap_checkout_sessions WHERE checkout_session_id = ? LIMIT 1",
+        (checkout_session_id,),
+    )
+    return await existing_cursor.fetchone()
+
+
+def _tap_checkout_update_params(record: dict, metadata_json: str, now: str) -> tuple:
+    return (
+        record["checkout_handle"],
+        record["snapshot_id"],
+        record["keyword"],
+        record["target_country"],
+        record["audience_segment"],
+        record["package_tier"],
+        record["offer_tier"],
+        record["session_status"],
+        record["payment_status"],
+        record["currency"],
+        record["quoted_price_value"],
+        record["revenue_value"],
+        record["checkout_url"],
+        record["actor_id"],
+        record["stripe_customer_id"],
+        record["stripe_event_id"],
+        metadata_json,
+        now,
+        record["completed_at"],
+        record["checkout_session_id"],
+    )
+
+
+def _tap_checkout_insert_params(record: dict, metadata_json: str, now: str) -> tuple:
+    return (
+        record["checkout_session_id"],
+        record["checkout_handle"],
+        record["snapshot_id"],
+        record["keyword"],
+        record["target_country"],
+        record["audience_segment"],
+        record["package_tier"],
+        record["offer_tier"],
+        record["session_status"],
+        record["payment_status"],
+        record["currency"],
+        record["quoted_price_value"],
+        record["revenue_value"],
+        record["checkout_url"],
+        record["actor_id"],
+        record["stripe_customer_id"],
+        record["stripe_event_id"],
+        metadata_json,
+        now,
+        now,
+        record["completed_at"],
+    )
 
 
 async def mark_tap_checkout_session_completed(

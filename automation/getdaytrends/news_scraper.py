@@ -70,37 +70,54 @@ def fetch_news_enhanced(
     return unique[:max_results]
 
 
+def _naver_news_url(keyword: str) -> str:
+    encoded = urllib.parse.quote(keyword)
+    return f"https://search.naver.com/search.naver?where=news&query={encoded}&sort=1"
+
+
+def _naver_news_items(page) -> object:
+    return page.css(".news_area") or page.css(".list_news > li")
+
+
+def _element_text(element, default: str = "") -> str:
+    return element.text.strip() if element else default
+
+
+def _element_href(element) -> str:
+    return element.attrib.get("href", "") if element else ""
+
+
+def _naver_article_from_item(item) -> dict | None:
+    title_el = item.css_first(".news_tit") or item.css_first("a.news_tit")
+    source_el = item.css_first(".info.press") or item.css_first(".info_group .press")
+    snippet_el = item.css_first(".news_dsc") or item.css_first(".dsc_wrap")
+
+    title = _element_text(title_el)
+    if not title:
+        return None
+    return {
+        "title": title,
+        "source": _element_text(source_el, "네이버 뉴스"),
+        "url": _element_href(title_el),
+        "snippet": _element_text(snippet_el)[:200],
+    }
+
+
+def _parse_naver_news_page(page, max_results: int) -> list[dict]:
+    articles = []
+    for item in _naver_news_items(page)[:max_results]:
+        article = _naver_article_from_item(item)
+        if article:
+            articles.append(article)
+    return articles
+
+
 def _fetch_naver_news(keyword: str, max_results: int = 5) -> list[dict]:
     """네이버 뉴스 검색 결과 스크래핑."""
-    encoded = urllib.parse.quote(keyword)
-    url = f"https://search.naver.com/search.naver?where=news&query={encoded}&sort=1"
-
     try:
         fetcher = Fetcher(auto_match=True)
-        page = fetcher.get(url, stealthy_headers=True)
-
-        articles = []
-        # 네이버 뉴스 검색 결과 파싱
-        news_items = page.css(".news_area") or page.css(".list_news > li")
-        for item in news_items[:max_results]:
-            title_el = item.css_first(".news_tit") or item.css_first("a.news_tit")
-            source_el = item.css_first(".info.press") or item.css_first(".info_group .press")
-            snippet_el = item.css_first(".news_dsc") or item.css_first(".dsc_wrap")
-
-            title = title_el.text.strip() if title_el else ""
-            source_name = source_el.text.strip() if source_el else "네이버 뉴스"
-            snippet = snippet_el.text.strip()[:200] if snippet_el else ""
-            link = title_el.attrib.get("href", "") if title_el else ""
-
-            if title:
-                articles.append(
-                    {
-                        "title": title,
-                        "source": source_name,
-                        "url": link,
-                        "snippet": snippet,
-                    }
-                )
+        page = fetcher.get(_naver_news_url(keyword), stealthy_headers=True)
+        articles = _parse_naver_news_page(page, max_results)
 
         log.info(f"[Scrapling] 네이버 뉴스 '{keyword}': {len(articles)}건")
         return articles
@@ -110,36 +127,46 @@ def _fetch_naver_news(keyword: str, max_results: int = 5) -> list[dict]:
         return []
 
 
+def _daum_news_url(keyword: str) -> str:
+    encoded = urllib.parse.quote(keyword)
+    return f"https://search.daum.net/search?w=news&q={encoded}&sort=recency"
+
+
+def _daum_news_items(page) -> object:
+    return page.css(".c-list-basic > li") or page.css("#newsColl .cont_thumb")
+
+
+def _daum_article_from_item(item) -> dict | None:
+    title_el = item.css_first("a.tit_main") or item.css_first(".wrap_tit a")
+    source_el = item.css_first(".info_cp") or item.css_first(".cont_info .txt_info")
+    snippet_el = item.css_first(".desc") or item.css_first(".f_eb")
+
+    title = _element_text(title_el)
+    if not title:
+        return None
+    return {
+        "title": title,
+        "source": _element_text(source_el, "다음 뉴스"),
+        "url": _element_href(title_el),
+        "snippet": _element_text(snippet_el)[:200],
+    }
+
+
+def _parse_daum_news_page(page, max_results: int) -> list[dict]:
+    articles = []
+    for item in _daum_news_items(page)[:max_results]:
+        article = _daum_article_from_item(item)
+        if article:
+            articles.append(article)
+    return articles
+
+
 def _fetch_daum_news(keyword: str, max_results: int = 5) -> list[dict]:
     """다음 뉴스 검색 결과 스크래핑."""
-    encoded = urllib.parse.quote(keyword)
-    url = f"https://search.daum.net/search?w=news&q={encoded}&sort=recency"
-
     try:
         fetcher = Fetcher(auto_match=True)
-        page = fetcher.get(url, stealthy_headers=True)
-
-        articles = []
-        news_items = page.css(".c-list-basic > li") or page.css("#newsColl .cont_thumb")
-        for item in news_items[:max_results]:
-            title_el = item.css_first("a.tit_main") or item.css_first(".wrap_tit a")
-            source_el = item.css_first(".info_cp") or item.css_first(".cont_info .txt_info")
-            snippet_el = item.css_first(".desc") or item.css_first(".f_eb")
-
-            title = title_el.text.strip() if title_el else ""
-            source_name = source_el.text.strip() if source_el else "다음 뉴스"
-            snippet = snippet_el.text.strip()[:200] if snippet_el else ""
-            link = title_el.attrib.get("href", "") if title_el else ""
-
-            if title:
-                articles.append(
-                    {
-                        "title": title,
-                        "source": source_name,
-                        "url": link,
-                        "snippet": snippet,
-                    }
-                )
+        page = fetcher.get(_daum_news_url(keyword), stealthy_headers=True)
+        articles = _parse_daum_news_page(page, max_results)
 
         log.info(f"[Scrapling] 다음 뉴스 '{keyword}': {len(articles)}건")
         return articles

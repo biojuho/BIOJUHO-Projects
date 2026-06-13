@@ -99,34 +99,52 @@ def _compute_signal_score(
     content_age_hours: float = 0.0,
     velocity: float = 0.0,
 ) -> float:
-    """
-    Signal score (0-100).
-    Volume(30) + acceleration(25) + sources(20) + freshness(15) + velocity(10).
-    """
-    if volume_numeric > 0:
-        vol_score = min(math.log10(volume_numeric + 1) / math.log10(10_000_001) * 30, 30)
-    else:
-        vol_score = 0
+    """Signal score (0-100)."""
+    return min(
+        _volume_signal_score(volume_numeric)
+        + _acceleration_signal_score(trend_acceleration)
+        + _source_signal_score(cross_source_confidence)
+        + _freshness_signal_score(content_age_hours, is_new)
+        + _velocity_signal_score(velocity),
+        100,
+    )
 
-    acc_score = 0.0
-    match = re.search(r"\+([\d.]+)\s*%?", trend_acceleration or "")
+
+def _volume_signal_score(volume_numeric: int) -> float:
+    if volume_numeric <= 0:
+        return 0.0
+    return min(math.log10(volume_numeric + 1) / math.log10(10_000_001) * 30, 30)
+
+
+def _acceleration_signal_score(trend_acceleration: str) -> float:
+    acceleration = trend_acceleration or ""
+    match = re.search(r"\+([\d.]+)\s*%?", acceleration)
     if match:
-        pct = float(match.group(1))
-        if pct >= 30:
-            acc_score = 25
-        elif pct >= 10:
-            acc_score = 15
-        elif pct >= 3:
-            acc_score = 8
-        else:
-            acc_score = 3
-    elif trend_acceleration and trend_acceleration.startswith("-"):
-        acc_score = 0
-    elif "급상승" in (trend_acceleration or ""):
-        acc_score = 25
+        return _positive_acceleration_score(float(match.group(1)))
+    if acceleration.startswith("-"):
+        return 0.0
+    if "급상승" in acceleration:
+        return 25.0
+    return 0.0
 
-    source_score = min(cross_source_confidence * 5.0, 20)
-    freshness_score = _compute_freshness_score(content_age_hours, is_new) * 0.75
-    velocity_score = min(max(velocity, 0.0) * 5.0, 10.0)
 
-    return min(vol_score + acc_score + source_score + freshness_score + velocity_score, 100)
+def _positive_acceleration_score(pct: float) -> float:
+    if pct >= 30:
+        return 25.0
+    if pct >= 10:
+        return 15.0
+    if pct >= 3:
+        return 8.0
+    return 3.0
+
+
+def _source_signal_score(cross_source_confidence: int) -> float:
+    return min(cross_source_confidence * 5.0, 20)
+
+
+def _freshness_signal_score(content_age_hours: float, is_new: bool) -> float:
+    return _compute_freshness_score(content_age_hours, is_new) * 0.75
+
+
+def _velocity_signal_score(velocity: float) -> float:
+    return min(max(velocity, 0.0) * 5.0, 10.0)

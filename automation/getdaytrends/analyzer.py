@@ -99,9 +99,20 @@ def _salvage_scoring_payload(text: str | None) -> dict | None:
     if not text:
         return None
 
-    payload: dict[str, object] = {}
+    payload = {
+        **_salvage_string_fields(text),
+        **_salvage_int_fields(text),
+        **_salvage_bool_fields(text),
+        **_salvage_list_fields(text),
+    }
 
-    for field in (
+    if "viral_potential" not in payload and "publishable" not in payload:
+        return None
+    return payload
+
+
+def _salvage_string_fields(text: str) -> dict[str, object]:
+    fields = (
         "keyword",
         "trend_acceleration",
         "top_insight",
@@ -113,27 +124,30 @@ def _salvage_scoring_payload(text: str | None) -> dict | None:
         "publishability_reason",
         "corrected_keyword",
         "joongyeon_angle",
-    ):
-        value = _extract_json_string_field(text, field)
-        if value is not None:
-            payload[field] = value
+    )
+    return _salvage_fields(text, fields, _extract_json_string_field)
 
-    for field in ("volume_last_24h", "viral_potential", "relevance_score", "joongyeon_kick"):
-        value = _extract_json_int_field(text, field)
-        if value is not None:
-            payload[field] = value
 
-    for field in ("publishable", "safety_flag"):
-        value = _extract_json_bool_field(text, field)
-        if value is not None:
-            payload[field] = value
+def _salvage_int_fields(text: str) -> dict[str, object]:
+    fields = ("volume_last_24h", "viral_potential", "relevance_score", "joongyeon_kick")
+    return _salvage_fields(text, fields, _extract_json_int_field)
 
+
+def _salvage_bool_fields(text: str) -> dict[str, object]:
+    return _salvage_fields(text, ("publishable", "safety_flag"), _extract_json_bool_field)
+
+
+def _salvage_list_fields(text: str) -> dict[str, object]:
     suggested_angles = _extract_json_string_list_field(text, "suggested_angles")
-    if suggested_angles is not None:
-        payload["suggested_angles"] = suggested_angles
+    return {"suggested_angles": suggested_angles} if suggested_angles is not None else {}
 
-    if "viral_potential" not in payload and "publishable" not in payload:
-        return None
+
+def _salvage_fields(text: str, fields: tuple[str, ...], extractor) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for field in fields:
+        value = extractor(text, field)
+        if value is not None:
+            payload[field] = value
     return payload
 
 
@@ -295,6 +309,107 @@ except ImportError:
     )
 
 
+def _cached_score_to_trend(keyword: str, context: MultiSourceContext, volume_numeric: int, cached: dict) -> ScoredTrend:
+    angles = (
+        json.loads(cached.get("suggested_angles", "[]"))
+        if isinstance(cached.get("suggested_angles"), str)
+        else cached.get("suggested_angles", [])
+    )
+    return ScoredTrend(
+        keyword=keyword,
+        rank=0,
+        volume_last_24h=volume_numeric,
+        trend_acceleration=cached.get("trend_acceleration", "+0%"),
+        viral_potential=cached["viral_potential"],
+        top_insight=cached.get("top_insight", ""),
+        suggested_angles=angles,
+        best_hook_starter=cached.get("best_hook_starter", ""),
+        context=context,
+        sources=[TrendSource.GETDAYTRENDS],
+    )
+
+
+async def _get_cached_scored_trend(
+    conn: sqlite3.Connection | None,
+    keyword: str,
+    context: MultiSourceContext,
+    volume_numeric: int,
+) -> ScoredTrend | None:
+    if conn is None:
+        return None
+    fingerprint = compute_fingerprint(keyword, volume_numeric)
+    cached = await get_cached_score(conn, fingerprint, max_age_hours=18)
+    if not cached:
+        return None
+    log.info(f"  [罹먯떆] '{keyword}' ?ㅼ퐫???ъ궗??({cached['viral_potential']}??")
+    return _cached_score_to_trend(keyword, context, volume_numeric, cached)
+
+
+def _single_score_prompt(keyword: str, volume: str, context: MultiSourceContext) -> str:
+    from datetime import datetime as _dt
+
+    return SCORING_PROMPT_TEMPLATE.format(
+        keyword=sanitize_keyword(keyword),
+        volume=volume,
+        context=context.to_combined_text(),
+        current_time=_dt.now().strftime("%Y-%m-%d %H:%M (KST)"),
+    )
+
+
+async def _request_single_score(client: LLMClient, prompt: str, attempt: int) -> object:
+    max_tokens = _SINGLE_SCORE_MAX_TOKENS if attempt == 0 else _SINGLE_SCORE_RETRY_MAX_TOKENS
+    return await client.acreate(
+        tier=TaskTier.LIGHTWEIGHT,
+        max_tokens=max_tokens,
+        policy=_JSON_POLICY,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+
+def _parse_single_score_payload(text: str, keyword: str, attempt: int) -> dict | None:
+    parsed = _parse_json(text)
+    if parsed:
+        return parsed
+    parsed = _salvage_scoring_payload(text)
+    if parsed:
+        log.warning(f"??쇳맜??彛?JSON ?봔?브쑬?ф뤃? ????({attempt + 1}/2): {keyword}")
+    return parsed
+
+
+def _single_score_to_trend(
+    parsed: dict,
+    keyword: str,
+    context: MultiSourceContext,
+) -> ScoredTrend:
+    raw_category = parsed.get("category", "")
+    category = raw_category.split("|")[0].strip() if raw_category else ""
+    pub = parsed.get("publishable", True)
+    if isinstance(pub, str):
+        pub = pub.lower() not in ("false", "0", "no")
+
+    return ScoredTrend(
+        keyword=keyword,
+        rank=0,
+        volume_last_24h=parsed.get("volume_last_24h", 0),
+        trend_acceleration=parsed.get("trend_acceleration", "+0%"),
+        viral_potential=min(max(parsed.get("viral_potential", 0), 0) + _topic_boost(keyword), 100),
+        top_insight=parsed.get("top_insight", ""),
+        suggested_angles=parsed.get("suggested_angles", []),
+        best_hook_starter=parsed.get("best_hook_starter", ""),
+        category=category,
+        context=context,
+        sources=[TrendSource.GETDAYTRENDS],
+        sentiment=parsed.get("sentiment", "neutral"),
+        safety_flag=bool(parsed.get("safety_flag", False)),
+        why_trending=parsed.get("why_trending", ""),
+        peak_status=parsed.get("peak_status", ""),
+        relevance_score=min(max(int(parsed.get("relevance_score", 0)), 0), 10),
+        publishable=bool(pub),
+        publishability_reason=parsed.get("publishability_reason", ""),
+        corrected_keyword=parsed.get("corrected_keyword", ""),
+    )
+
+
 async def _score_trend_async(
     keyword: str,
     context: MultiSourceContext,
@@ -303,59 +418,16 @@ async def _score_trend_async(
     client: LLMClient,
     conn: sqlite3.Connection | None = None,
 ) -> ScoredTrend:
-    """단일 트렌드 비동기 스코어링 (캐시 조회 → LLM 호출, 최대 2회 시도)."""
-    # ── 캐시 조회: 카테고리 기반 차등 TTL (C1 최적화) ──
-    if conn is not None:
-        fingerprint = compute_fingerprint(keyword, volume_numeric)
-        cached = await get_cached_score(conn, fingerprint, max_age_hours=18)
-        if cached:
-            log.info(f"  [캐시] '{keyword}' 스코어 재사용 ({cached['viral_potential']}점)")
-            import json as _json
+    """단일 트렌드 비동기 스코어링 (캐시 조회 -> LLM 호출, 최대 2회 시도)."""
+    cached_trend = await _get_cached_scored_trend(conn, keyword, context, volume_numeric)
+    if cached_trend:
+        return cached_trend
 
-            angles = (
-                _json.loads(cached.get("suggested_angles", "[]"))
-                if isinstance(cached.get("suggested_angles"), str)
-                else cached.get("suggested_angles", [])
-            )
-            return ScoredTrend(
-                keyword=keyword,
-                rank=0,
-                volume_last_24h=volume_numeric,
-                trend_acceleration=cached.get("trend_acceleration", "+0%"),
-                viral_potential=cached["viral_potential"],
-                top_insight=cached.get("top_insight", ""),
-                suggested_angles=angles,
-                best_hook_starter=cached.get("best_hook_starter", ""),
-                context=context,
-                sources=[TrendSource.GETDAYTRENDS],
-            )
-
-    # ── LLM 스코어링 (최대 2회 시도) ──
-    from datetime import datetime as _dt
-
-    safe_keyword = sanitize_keyword(keyword)
-    prompt = SCORING_PROMPT_TEMPLATE.format(
-        keyword=safe_keyword,
-        volume=volume,
-        context=context.to_combined_text(),
-        current_time=_dt.now().strftime("%Y-%m-%d %H:%M (KST)"),
-    )
-
+    prompt = _single_score_prompt(keyword, volume, context)
     for attempt in range(2):
         try:
-            max_tokens = _SINGLE_SCORE_MAX_TOKENS if attempt == 0 else _SINGLE_SCORE_RETRY_MAX_TOKENS
-            response = await client.acreate(
-                tier=TaskTier.LIGHTWEIGHT,
-                max_tokens=max_tokens,
-                policy=_JSON_POLICY,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            parsed = _parse_json(response.text)
-            if not parsed:
-                parsed = _salvage_scoring_payload(response.text)
-                if parsed:
-                    log.warning(f"?ㅼ퐫?대쭅 JSON 遺遺꾨났援? ?ъ슜 ({attempt + 1}/2): {keyword}")
-
+            response = await _request_single_score(client, prompt, attempt)
+            parsed = _parse_single_score_payload(response.text, keyword, attempt)
             if not parsed:
                 log.warning(f"스코어링 JSON 파싱 실패 ({attempt + 1}/2): {keyword}")
                 if attempt == 0:
@@ -363,39 +435,7 @@ async def _score_trend_async(
                     continue
                 return _default_scored_trend(keyword, context)
 
-            raw_category = parsed.get("category", "")
-            # "연예|스포츠|..." 형식 또는 파이프가 포함된 경우 첫 번째 값만 추출
-            category = raw_category.split("|")[0].strip() if raw_category else ""
-
-            # [v13.0] publishable 판정
-            pub = parsed.get("publishable", True)
-            if isinstance(pub, str):
-                pub = pub.lower() not in ("false", "0", "no")
-
-            return ScoredTrend(
-                keyword=keyword,
-                rank=0,
-                volume_last_24h=parsed.get("volume_last_24h", 0),
-                trend_acceleration=parsed.get("trend_acceleration", "+0%"),
-                viral_potential=min(max(parsed.get("viral_potential", 0), 0) + _topic_boost(keyword), 100),
-                top_insight=parsed.get("top_insight", ""),
-                suggested_angles=parsed.get("suggested_angles", []),
-                best_hook_starter=parsed.get("best_hook_starter", ""),
-                category=category,
-                context=context,
-                sources=[TrendSource.GETDAYTRENDS],
-                sentiment=parsed.get("sentiment", "neutral"),
-                safety_flag=bool(parsed.get("safety_flag", False)),
-                # [v8.0] 프롬프트 ① 필드
-                why_trending=parsed.get("why_trending", ""),
-                peak_status=parsed.get("peak_status", ""),
-                relevance_score=min(max(int(parsed.get("relevance_score", 0)), 0), 10),
-                # [v13.0] 게시 가능성 게이트
-                publishable=bool(pub),
-                publishability_reason=parsed.get("publishability_reason", ""),
-                corrected_keyword=parsed.get("corrected_keyword", ""),
-            )
-
+            return _single_score_to_trend(parsed, keyword, context)
         except (RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
             log.error(f"스코어링 LLM 실패 ({attempt + 1}/2) ({keyword}): {type(e).__name__}: {e}")
             if attempt == 0:
@@ -407,7 +447,6 @@ async def _score_trend_async(
 
     return _default_scored_trend(keyword, context)
 
-
 # ══════════════════════════════════════════════════════
 #  배치 스코어링 (Phase 2: 5개/LLM 호출, 비용 ~70% 절감)
 # ══════════════════════════════════════════════════════
@@ -415,171 +454,197 @@ async def _score_trend_async(
 _BATCH_SIZE = 5  # 한 번에 스코어링할 트렌드 수
 
 
-async def _batch_score_async(
+async def _cached_batch_scores(
     batch: list[tuple["RawTrend", "MultiSourceContext"]],
-    client,
     conn,
-    config: "AppConfig | None" = None,
-    bucket: int = 5000,
-) -> list["ScoredTrend"]:
-    """
-    트렌드 배치(최대 _BATCH_SIZE개)를 1회 LLM 호출로 스코어링.
-    캐시 히트 항목은 LLM 호출에서 제외해 비용 절약.
-    실패 시 각 항목을 개별 스코어링으로 폴백.
-    """
-    # ── 캐시 분리 ──
+    bucket: int,
+) -> tuple[list[tuple["RawTrend", "MultiSourceContext"]], dict[str, "ScoredTrend"]]:
     need_llm: list[tuple[RawTrend, MultiSourceContext]] = []
     cached_results: dict[str, ScoredTrend] = {}
+    if conn is None:
+        return list(batch), cached_results
 
-    if conn is not None:
-        for trend, ctx in batch:
-            fp = compute_fingerprint(trend.name, trend.volume_numeric, bucket)
-            cached = await get_cached_score(conn, fp, max_age_hours=18)
-            if cached:
-                import json as _json
+    for trend, ctx in batch:
+        fp = compute_fingerprint(trend.name, trend.volume_numeric, bucket)
+        cached = await get_cached_score(conn, fp, max_age_hours=18)
+        if not cached:
+            need_llm.append((trend, ctx))
+            continue
 
-                angles = (
-                    _json.loads(cached.get("suggested_angles", "[]"))
-                    if isinstance(cached.get("suggested_angles"), str)
-                    else cached.get("suggested_angles", [])
-                )
-                log.info(f"  [캐시] '{trend.name}' 스코어 재사용 ({cached['viral_potential']}점)")
-                cached_results[trend.name] = ScoredTrend(
-                    keyword=trend.name,
-                    rank=0,
-                    volume_last_24h=trend.volume_numeric,
-                    trend_acceleration=cached.get("trend_acceleration", "+0%"),
-                    viral_potential=cached["viral_potential"],
-                    top_insight=cached.get("top_insight", ""),
-                    suggested_angles=angles,
-                    best_hook_starter=cached.get("best_hook_starter", ""),
-                    context=ctx,
-                    sources=[TrendSource.GETDAYTRENDS],
-                    sentiment=cached.get("sentiment", "neutral"),
-                    safety_flag=bool(cached.get("safety_flag", 0)),
-                    cross_source_confidence=_compute_cross_source_confidence(trend.volume_numeric, ctx),
-                )
-            else:
-                need_llm.append((trend, ctx))
-    else:
-        need_llm = list(batch)
+        import json as _json
 
+        angles = (
+            _json.loads(cached.get("suggested_angles", "[]"))
+            if isinstance(cached.get("suggested_angles"), str)
+            else cached.get("suggested_angles", [])
+        )
+        log.info(f"  [罹먯떆] '{trend.name}' ?ㅼ퐫???ъ궗??({cached['viral_potential']}??")
+        cached_results[trend.name] = ScoredTrend(
+            keyword=trend.name,
+            rank=0,
+            volume_last_24h=trend.volume_numeric,
+            trend_acceleration=cached.get("trend_acceleration", "+0%"),
+            viral_potential=cached["viral_potential"],
+            top_insight=cached.get("top_insight", ""),
+            suggested_angles=angles,
+            best_hook_starter=cached.get("best_hook_starter", ""),
+            context=ctx,
+            sources=[TrendSource.GETDAYTRENDS],
+            sentiment=cached.get("sentiment", "neutral"),
+            safety_flag=bool(cached.get("safety_flag", 0)),
+            cross_source_confidence=_compute_cross_source_confidence(trend.volume_numeric, ctx),
+        )
+    return need_llm, cached_results
+
+
+def _batch_scoring_prompt(need_llm: list[tuple["RawTrend", "MultiSourceContext"]]) -> str:
+    from datetime import datetime as _dt
+
+    trends_json = json.dumps(
+        [{"keyword": trend.name, "volume": trend.volume, "context": ctx.to_combined_text()} for trend, ctx in need_llm],
+        ensure_ascii=False,
+    )
+    return BATCH_SCORING_PROMPT_TEMPLATE.format(
+        n=len(need_llm),
+        trends_json=trends_json,
+        current_time=_dt.now().strftime("%Y-%m-%d %H:%M (KST)"),
+    )
+
+
+def _normalize_batch_scoring_payload(text: str, expected_count: int) -> list[dict] | None:
+    parsed_list = _parse_json_array(text)
+    if parsed_list is not None or expected_count != 1:
+        return parsed_list
+
+    single_item = _parse_json(text)
+    if isinstance(single_item, dict):
+        return [single_item]
+
+    repaired = _salvage_scoring_payload(text)
+    if repaired:
+        log.warning("Recovered truncated single-item batch scoring payload")
+        return [repaired]
+    return None
+
+
+async def _request_batch_scoring_list(prompt: str, expected_count: int, client) -> list[dict] | None:
+    parsed_list: list[dict] | None = await _score_batch_instructor(prompt, expected_count)
+    if parsed_list is not None:
+        return parsed_list
+
+    for attempt in range(2):
+        parsed_list = await _request_batch_scoring_attempt(prompt, expected_count, client, attempt)
+        if parsed_list and len(parsed_list) == expected_count:
+            return parsed_list
+    return None
+
+
+async def _request_batch_scoring_attempt(prompt: str, expected_count: int, client, attempt: int) -> list[dict] | None:
+    try:
+        response = await client.acreate(
+            tier=TaskTier.LIGHTWEIGHT,
+            max_tokens=_batch_score_max_tokens(attempt, expected_count),
+            policy=_JSON_ARRAY_POLICY,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        parsed_list = _normalize_batch_scoring_payload(response.text.strip(), expected_count)
+        if not parsed_list or len(parsed_list) != expected_count:
+            _log_batch_length_mismatch(parsed_list, expected_count)
+        return parsed_list
+    except (RuntimeError, ConnectionError, TimeoutError, ValueError) as exc:
+        await _handle_batch_scoring_error(exc, attempt, expected=True)
+    except Exception as exc:
+        await _handle_batch_scoring_error(exc, attempt, expected=False)
+    return None
+
+
+def _batch_score_max_tokens(attempt: int, expected_count: int) -> int:
+    per_item = _BATCH_SCORE_MAX_TOKENS_PER_ITEM if attempt == 0 else _BATCH_SCORE_RETRY_MAX_TOKENS_PER_ITEM
+    return per_item * expected_count
+
+
+def _log_batch_length_mismatch(parsed_list: list[dict] | None, expected_count: int) -> None:
+    actual_count = len(parsed_list) if parsed_list else 0
+    log.warning(f"Batch scoring response length mismatch: {actual_count} vs {expected_count}")
+
+
+async def _handle_batch_scoring_error(exc: Exception, attempt: int, *, expected: bool) -> None:
+    label = "LLM failure" if expected else "unexpected error"
+    log.error(f"Batch scoring {label} ({attempt + 1}/2): {type(exc).__name__}: {exc}")
+    if attempt == 0:
+        await asyncio.sleep(1)
+
+
+async def _recover_batch_item(trend: RawTrend, ctx: MultiSourceContext, error: Exception, client, conn) -> ScoredTrend:
+    safe_keyword = sanitize_keyword(trend.name)
+    log.warning(f"Batch scoring item fallback '{safe_keyword}': {type(error).__name__}: {error}")
+    try:
+        recovered = await _score_trend_async(trend.name, ctx, trend.volume, trend.volume_numeric, client, conn)
+        recovered.keyword = safe_keyword
+        return recovered
+    except Exception as fallback_error:
+        log.error(
+            f"Batch scoring item fallback failed '{safe_keyword}': "
+            f"{type(fallback_error).__name__}: {fallback_error}"
+        )
+        return _default_scored_trend(safe_keyword, ctx)
+
+
+async def _volume_velocity_for_batch_item(conn, keyword: str) -> float:
+    if conn is None:
+        return 0.0
+    try:
+        try:
+            from .db import get_volume_velocity
+        except ImportError:
+            from db import get_volume_velocity
+
+        return await get_volume_velocity(conn, keyword)
+    except (ImportError, sqlite3.Error, ValueError):
+        return 0.0
+
+
+async def _parsed_batch_results(
+    need_llm: list[tuple["RawTrend", "MultiSourceContext"]],
+    parsed_list: list[dict],
+    client,
+    conn,
+    config: "AppConfig | None",
+) -> list["ScoredTrend"]:
     results: list[ScoredTrend] = []
+    for (trend, ctx), item in zip(need_llm, parsed_list, strict=False):
+        keyword = sanitize_keyword(trend.name)
+        vel = await _volume_velocity_for_batch_item(conn, keyword)
+        try:
+            results.append(_parse_scored_trend_from_dict(item, keyword, trend.volume_numeric, ctx, config, velocity=vel))
+        except (AttributeError, KeyError, TypeError, ValueError) as e:
+            results.append(await _recover_batch_item(trend, ctx, e, client, conn))
+        except Exception as e:
+            results.append(await _recover_batch_item(trend, ctx, e, client, conn))
+    return results
 
-    if need_llm:
-        # ── 배치 LLM 호출 ──
-        from datetime import datetime as _dt
 
-        current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
-        trends_json = json.dumps(
-            [{"keyword": t.name, "volume": t.volume, "context": ctx.to_combined_text()} for t, ctx in need_llm],
-            ensure_ascii=False,
-        )
-        prompt = BATCH_SCORING_PROMPT_TEMPLATE.format(
-            n=len(need_llm),
-            trends_json=trends_json,
-            current_time=current_time,
-        )
-        # [Phase 1] Instructor 우선 시도 → 실패 시 기존 JSON 파싱 폴백
-        parsed_list: list[dict] | None = await _score_batch_instructor(prompt, len(need_llm))
+async def _fallback_batch_scores(
+    need_llm: list[tuple["RawTrend", "MultiSourceContext"]],
+    client,
+    conn,
+) -> list["ScoredTrend"]:
+    log.warning(f"Batch scoring parse failed; falling back to per-item scoring ({len(need_llm)} items)")
+    fallback = await asyncio.gather(
+        *[_score_trend_async(t.name, ctx, t.volume, t.volume_numeric, client, conn) for t, ctx in need_llm],
+        return_exceptions=True,
+    )
+    results: list[ScoredTrend] = []
+    for (trend, ctx), res in zip(need_llm, fallback, strict=False):
+        results.append(_default_scored_trend(trend.name, ctx) if isinstance(res, Exception) else res)
+    return results
 
-        if parsed_list is None:
-            # 기존 경로: shared/llm 클라이언트 + 수동 JSON 파싱
-            for attempt in range(2):
-                try:
-                    max_tokens = (
-                        _BATCH_SCORE_MAX_TOKENS_PER_ITEM if attempt == 0 else _BATCH_SCORE_RETRY_MAX_TOKENS_PER_ITEM
-                    ) * len(need_llm)
-                    response = await client.acreate(
-                        tier=TaskTier.LIGHTWEIGHT,
-                        max_tokens=max_tokens,
-                        policy=_JSON_ARRAY_POLICY,
-                        messages=[{"role": "user", "content": prompt}],
-                    )
-                    text = response.text.strip()
-                    parsed_list = _parse_json_array(text)
-                    if parsed_list is None and len(need_llm) == 1:
-                        single_item = _parse_json(text)
-                        if isinstance(single_item, dict):
-                            parsed_list = [single_item]
-                        else:
-                            repaired = _salvage_scoring_payload(text)
-                            if repaired:
-                                log.warning("諛곗튂 ?ㅼ퐫?대쭅 ?④퀎 ?묐떟 遺遺꾨났援? ?ъ슜")
-                                parsed_list = [repaired]
-                    if parsed_list and len(parsed_list) == len(need_llm):
-                        break
-                    log.warning(
-                        f"배치 스코어링 응답 길이 불일치: {len(parsed_list) if parsed_list else 0} vs {len(need_llm)}"
-                    )
-                    parsed_list = None
-                except (RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
-                    log.error(f"배치 스코어링 LLM 실패 ({attempt + 1}/2): {type(e).__name__}: {e}")
-                    if attempt == 0:
-                        await asyncio.sleep(1)
-                except Exception as e:
-                    log.error(f"배치 스코어링 예상외 오류 ({attempt + 1}/2): {type(e).__name__}: {e}")
-                    if attempt == 0:
-                        await asyncio.sleep(1)
 
-        async def _recover_batch_item(trend: RawTrend, ctx: MultiSourceContext, error: Exception) -> ScoredTrend:
-            safe_keyword = sanitize_keyword(trend.name)
-            log.warning(f"배치 스코어링 item fallback '{safe_keyword}': {type(error).__name__}: {error}")
-            try:
-                recovered = await _score_trend_async(
-                    trend.name,
-                    ctx,
-                    trend.volume,
-                    trend.volume_numeric,
-                    client,
-                    conn,
-                )
-                recovered.keyword = safe_keyword
-                return recovered
-            except Exception as fallback_error:
-                log.error(
-                    f"배치 스코어링 item fallback 실패 '{safe_keyword}': "
-                    f"{type(fallback_error).__name__}: {fallback_error}"
-                )
-                return _default_scored_trend(safe_keyword, ctx)
-
-        if parsed_list:
-            for (trend, ctx), item in zip(need_llm, parsed_list, strict=False):
-                keyword = sanitize_keyword(trend.name)
-                # [v9.0 B-1] DB에서 실제 velocity 조회
-                vel = 0.0
-                if conn is not None:
-                    try:
-                        try:
-                            from .db import get_volume_velocity
-                        except ImportError:
-                            from db import get_volume_velocity
-
-                        vel = await get_volume_velocity(conn, keyword)
-                    except (ImportError, sqlite3.Error, ValueError):
-                        pass
-                try:
-                    results.append(
-                        _parse_scored_trend_from_dict(item, keyword, trend.volume_numeric, ctx, config, velocity=vel)
-                    )
-                except (AttributeError, KeyError, TypeError, ValueError) as e:
-                    results.append(await _recover_batch_item(trend, ctx, e))
-                except Exception as e:
-                    results.append(await _recover_batch_item(trend, ctx, e))
-        else:
-            # 배치 실패 → 개별 스코어링 폴백
-            log.warning(f"배치 스코어링 실패 → 개별 폴백 ({len(need_llm)}개)")
-            fallback = await asyncio.gather(
-                *[_score_trend_async(t.name, ctx, t.volume, t.volume_numeric, client, conn) for t, ctx in need_llm],
-                return_exceptions=True,
-            )
-            for (trend, ctx), res in zip(need_llm, fallback, strict=False):
-                if isinstance(res, Exception):
-                    results.append(_default_scored_trend(trend.name, ctx))
-                else:
-                    results.append(res)
-
-    # ── 원래 순서대로 병합 ──
+def _ordered_batch_scores(
+    batch: list[tuple["RawTrend", "MultiSourceContext"]],
+    cached_results: dict[str, "ScoredTrend"],
+    results: list["ScoredTrend"],
+) -> list["ScoredTrend"]:
     ordered: list[ScoredTrend] = []
     for trend, ctx in batch:
         if trend.name in cached_results:
@@ -590,9 +655,269 @@ async def _batch_score_async(
     return ordered
 
 
-# ══════════════════════════════════════════════════════
-#  Async Orchestrator
-# ══════════════════════════════════════════════════════
+async def _batch_score_async(
+    batch: list[tuple["RawTrend", "MultiSourceContext"]],
+    client,
+    conn,
+    config: "AppConfig | None" = None,
+    bucket: int = 5000,
+) -> list["ScoredTrend"]:
+    """Score a small trend batch with cache reuse and per-item recovery."""
+    need_llm, cached_results = await _cached_batch_scores(batch, conn, bucket)
+    results: list[ScoredTrend] = []
+
+    if need_llm:
+        prompt = _batch_scoring_prompt(need_llm)
+        parsed_list = await _request_batch_scoring_list(prompt, len(need_llm), client)
+        if parsed_list:
+            results.extend(await _parsed_batch_results(need_llm, parsed_list, client, conn, config))
+        else:
+            results.extend(await _fallback_batch_scores(need_llm, client, conn))
+
+    return _ordered_batch_scores(batch, cached_results, results)
+
+def _apply_raw_trend_metadata(result: ScoredTrend, trend: RawTrend | None, config: AppConfig) -> None:
+    if not trend:
+        return
+    result.rank = trend.volume_numeric
+    result.country = trend.country or config.country
+
+
+def _has_source_signal(value: str, missing_marker: str) -> bool:
+    return bool(value and missing_marker not in value)
+
+
+def _sources_from_context(context: MultiSourceContext) -> list[TrendSource]:
+    sources = [TrendSource.GETDAYTRENDS]
+    if _has_source_signal(context.twitter_insight, "미설정"):
+        sources.append(TrendSource.TWITTER)
+    if _has_source_signal(context.reddit_insight, "없음"):
+        sources.append(TrendSource.REDDIT)
+    if _has_source_signal(context.news_insight, "없음"):
+        sources.append(TrendSource.GOOGLE_NEWS)
+    return sources
+
+
+def _apply_scored_trend_metadata(
+    scored: list[ScoredTrend],
+    raw_trends: list[RawTrend],
+    config: AppConfig,
+) -> None:
+    trend_map = {t.name: t for t in raw_trends}
+    for result in scored:
+        _apply_raw_trend_metadata(result, trend_map.get(result.keyword), config)
+        context = result.context or MultiSourceContext()
+        result.sources = _sources_from_context(context)
+
+def _finalize_scored_trends(scored: list[ScoredTrend]) -> list[ScoredTrend]:
+    scored.sort(key=lambda x: x.viral_potential, reverse=True)
+    for i, s in enumerate(scored):
+        s.rank = i + 1
+
+    safety_count = sum(1 for s in scored if s.safety_flag)
+    confidence_low = sum(1 for s in scored if s.cross_source_confidence < 2)
+    log.info(
+        f"Scoring complete: {len(scored)} trends "
+        f"(top score: {scored[0].viral_potential if scored else 0}, "
+        f"safety_flag: {safety_count}, low_confidence: {confidence_low})"
+    )
+    return scored
+
+
+async def _apply_history_correction(
+    scored: list[ScoredTrend],
+    config: AppConfig,
+    conn: sqlite3.Connection | None,
+) -> None:
+    if not config.enable_history_correction or conn is None:
+        return
+
+    history_multiplier = {
+        "new": 1.10,
+        "rising": 1.15,
+        "stable": 0.90,
+        "falling": 0.75,
+    }
+    try:
+        from db import get_trend_history_patterns_batch
+
+        pattern_map = await get_trend_history_patterns_batch(conn, [r.keyword for r in scored], days=7)
+    except (ImportError, sqlite3.Error) as exc:
+        log.debug(f"Batch history lookup skipped: {type(exc).__name__}: {exc}")
+        pattern_map = {}
+
+    for result in scored:
+        pattern = pattern_map.get(result.keyword, {"score_trend": "new", "is_recurring": False, "seen_count": 0})
+        score_trend = pattern.get("score_trend", "new")
+        multiplier = history_multiplier.get(score_trend, 1.0)
+        if pattern.get("is_recurring") and pattern.get("seen_count", 0) >= 5:
+            multiplier *= 0.8
+            log.debug(f"  [Phase3 recurring penalty] '{result.keyword}' x0.8")
+        if multiplier != 1.0:
+            before = result.viral_potential
+            result.viral_potential = min(int(result.viral_potential * multiplier), 100)
+            log.debug(
+                f"  [Phase3 history] '{result.keyword}' [{score_trend}] "
+                f"x{multiplier:.2f}: {before} -> {result.viral_potential}"
+            )
+
+
+async def _apply_emerging_detection(
+    scored: list[ScoredTrend],
+    config: AppConfig,
+    conn: sqlite3.Connection | None,
+) -> None:
+    if not getattr(config, "enable_emerging_detection", True) or conn is None:
+        return
+
+    vel_threshold = getattr(config, "emerging_velocity_threshold", 2.0)
+    vol_cap = getattr(config, "emerging_volume_cap", 5000)
+    try:
+        from db import get_volume_velocity_batch
+
+        keywords = [result.keyword for result in scored]
+        vel_map = await get_volume_velocity_batch(conn, keywords)
+    except (ImportError, sqlite3.Error, ValueError) as exc:
+        log.debug(f"Emerging detection skipped: {type(exc).__name__}: {exc}")
+        return
+
+    for result in scored:
+        vel = vel_map.get(result.keyword, 0.0)
+        result.velocity = vel
+        if vel >= vel_threshold and result.volume_last_24h < vol_cap:
+            result.is_emerging = True
+            bonus = 30
+            before = result.viral_potential
+            result.viral_potential = min(result.viral_potential + bonus, 100)
+            log.info(
+                f"  [Phase5 emerging] '{result.keyword}' "
+                f"velocity={vel:.1f}x, vol={result.volume_last_24h}, "
+                f"+{bonus}: {before} -> {result.viral_potential}"
+            )
+
+
+def _maybe_cluster_trends(
+    raw_trends: list[RawTrend],
+    contexts: dict[str, MultiSourceContext],
+    config: AppConfig,
+) -> tuple[list[RawTrend], dict[str, MultiSourceContext], list]:
+    if not config.enable_clustering:
+        return raw_trends, contexts, []
+
+    return cluster_trends_local(
+        raw_trends,
+        contexts,
+        getattr(config, "jaccard_cluster_threshold", 0.35),
+        use_embedding=getattr(config, "enable_embedding_clustering", True),
+        embedding_threshold=getattr(config, "embedding_cluster_threshold", 0.75),
+    )
+
+
+def _inject_cluster_hints(contexts: dict[str, MultiSourceContext], clusters: list) -> None:
+    cluster_map = {
+        cluster.representative: [member for member in cluster.members if member != cluster.representative]
+        for cluster in clusters
+        if len(cluster.members) > 1
+    }
+    for rep, related in cluster_map.items():
+        ctx = contexts.get(rep, MultiSourceContext())
+        related_str = ", ".join(related[:5])
+        cluster_hint = (
+            f"\n[Related trends cluster]: {related_str}. "
+            "Treat these as adjacent search angles for the same broader story."
+        )
+        contexts[rep] = MultiSourceContext(
+            twitter_insight=ctx.twitter_insight,
+            reddit_insight=ctx.reddit_insight,
+            news_insight=(ctx.news_insight or "") + cluster_hint,
+        )
+    if cluster_map:
+        log.info(f"[cluster-hint] injected related-trend hints for {len(cluster_map)} representative trends")
+
+
+def _category_reference_texts() -> dict[str, str]:
+    return {
+        "정치": "국회 대통령 정당 선거 법안 정책 정부 정치 이슈",
+        "경제": "주가 환율 금리 GDP 실적 무역 물가 투자",
+        "테크": "AI 반도체 스마트폰 앱 서비스 소프트웨어 플랫폼 스타트업",
+        "사회": "교육 범죄 사고 환경 복지 인구 노동 사회 문제",
+        "스포츠": "축구 야구 농구 올림픽 경기 선수 감독 스포츠",
+        "연예": "드라마 영화 아이돌 가수 배우 예능 컴백 엔터테인먼트",
+        "국제": "해외 외교 전쟁 미국 중국 일본 정상회담 국제",
+        "날씨": "태풍 폭우 폭염 미세먼지 기온 날씨 예보",
+        "음식": "맛집 레시피 카페 식당 음식 메뉴 외식",
+        "게임": "게임 e스포츠 콘솔 모바일게임 업데이트 출시",
+        "기타": "생활 문화 커뮤니티 일반 이슈 기타 트렌드",
+    }
+
+
+def _inject_category_hints(raw_trends: list[RawTrend], contexts: dict[str, MultiSourceContext]) -> None:
+    try:
+        from shared.embeddings import cosine_similarity as _cos_sim
+        from shared.embeddings import embed_texts
+
+        category_refs = _category_reference_texts()
+        ref_keys = list(category_refs.keys())
+        ref_vectors = embed_texts(list(category_refs.values()), task_type="SEMANTIC_SIMILARITY")
+        trend_vectors = embed_texts([trend.name for trend in raw_trends], task_type="SEMANTIC_SIMILARITY") if ref_vectors else []
+        if not trend_vectors:
+            return
+
+        injected = 0
+        for index, trend in enumerate(raw_trends):
+            scores = {cat: _cos_sim(trend_vectors[index], ref_vectors[j]) for j, cat in enumerate(ref_keys)}
+            best_cat = max(scores, key=scores.get)
+            best_score = scores[best_cat]
+            if best_score < 0.50:
+                continue
+            ctx = contexts.get(trend.name, MultiSourceContext())
+            cat_hint = f"\n[Category hint from embeddings]: {best_cat} (confidence {best_score:.2f})"
+            contexts[trend.name] = MultiSourceContext(
+                twitter_insight=ctx.twitter_insight,
+                reddit_insight=ctx.reddit_insight,
+                news_insight=(ctx.news_insight or "") + cat_hint,
+            )
+            injected += 1
+        log.info(f"[category-hint] injected embedding category hints for {injected}/{len(raw_trends)} trends")
+    except (ImportError, RuntimeError, ConnectionError, ValueError) as exc:
+        log.debug(f"[category-hint] skipped: {type(exc).__name__}: {exc}")
+
+
+async def _score_trend_batches(
+    raw_trends: list[RawTrend],
+    contexts: dict[str, MultiSourceContext],
+    config: AppConfig,
+    conn,
+    client,
+) -> list[ScoredTrend]:
+    pairs = [(trend, contexts.get(trend.name, MultiSourceContext())) for trend in raw_trends]
+    batches = [pairs[index : index + _BATCH_SIZE] for index in range(0, len(pairs), _BATCH_SIZE)]
+    bucket = getattr(config, "cache_volume_bucket", 5000)
+    log.info(f"  Batch scoring start: {len(raw_trends)} trends across {len(batches)} batches (batch_size={_BATCH_SIZE})")
+
+    batch_results = await asyncio.gather(
+        *[_batch_score_async(batch, client, conn, config, bucket) for batch in batches],
+        return_exceptions=True,
+    )
+    scored: list[ScoredTrend] = []
+    for batch_result, raw_batch in zip(batch_results, batches, strict=False):
+        if isinstance(batch_result, Exception):
+            log.error(f"Batch scoring batch exception: {batch_result}")
+            scored.extend(_default_scored_trend(trend.name, ctx) for trend, ctx in raw_batch)
+        else:
+            scored.extend(batch_result)
+    return scored
+
+
+def _apply_joongyeon_kick_floor(scored: list[ScoredTrend], config: AppConfig) -> None:
+    kick_threshold = getattr(config, "joongyeon_kick_long_form_threshold", 75)
+    for result in scored:
+        if result.joongyeon_kick >= kick_threshold and result.viral_potential < config.long_form_min_score:
+            result.viral_potential = config.long_form_min_score
+            log.debug(
+                f"  [Phase4 joongyeon kick] '{result.keyword}' "
+                f"kick={result.joongyeon_kick} raised to long-form minimum"
+            )
 
 
 async def _analyze_trends_async(
@@ -601,210 +926,18 @@ async def _analyze_trends_async(
     config: AppConfig,
     conn: sqlite3.Connection | None = None,
 ) -> list[ScoredTrend]:
-    """
-    전체 트렌드 비동기 배치 스코어링.
-    v3.0: _BATCH_SIZE(5)개씨 묶어 LLM 호출 → 비용 ~70% 절감.
-    v4.0: Phase3 히스토리 패턴 보정 + Phase4 중연 킥 기반 장문 조건 연동.
-    """
+    """Analyze trends asynchronously using clustered context and batch scoring."""
     client = get_client()
+    raw_trends, contexts, clusters = _maybe_cluster_trends(raw_trends, contexts, config)
+    _inject_cluster_hints(contexts, clusters)
+    _inject_category_hints(raw_trends, contexts)
 
-    # [v9.0] 로컬 클러스터링 (Jaccard + Embedding)
-    # [v14.0] Gemini Embedding 2 기반 의미적 유사도 추가
-    clusters = []
-    if config.enable_clustering:
-        threshold = getattr(config, "jaccard_cluster_threshold", 0.35)
-        use_emb = getattr(config, "enable_embedding_clustering", True)
-        emb_threshold = getattr(config, "embedding_cluster_threshold", 0.75)
-        raw_trends, contexts, clusters = cluster_trends_local(
-            raw_trends,
-            contexts,
-            threshold,
-            use_embedding=use_emb,
-            embedding_threshold=emb_threshold,
-        )
-
-    # [v14.1] 클러스터 정보를 컨텍스트에 주입 (스코어링 정확도 향상)
-    if clusters:
-        cluster_map: dict[str, list[str]] = {}
-        for c in clusters:
-            if len(c.members) > 1:
-                cluster_map[c.representative] = [m for m in c.members if m != c.representative]
-        for rep, related in cluster_map.items():
-            ctx = contexts.get(rep, MultiSourceContext())
-            related_str = ", ".join(related[:5])
-            cluster_hint = f"\n[관련 트렌드 (의미적 클러스터)]: {related_str} → 이 주제가 여러 검색어로 확산 중"
-            # news_insight에 클러스터 힌트 추가
-            if ctx.news_insight:
-                ctx = MultiSourceContext(
-                    twitter_insight=ctx.twitter_insight,
-                    reddit_insight=ctx.reddit_insight,
-                    news_insight=ctx.news_insight + cluster_hint,
-                )
-            else:
-                ctx = MultiSourceContext(
-                    twitter_insight=ctx.twitter_insight,
-                    reddit_insight=ctx.reddit_insight,
-                    news_insight=cluster_hint,
-                )
-            contexts[rep] = ctx
-        log.info(f"[클러스터 힌트] {len(cluster_map)}개 대표 트렌드에 관련 키워드 정보 주입")
-
-    # [v14.1] 임베딩 기반 카테고리 사전 분류 힌트
-    try:
-        from shared.embeddings import cosine_similarity as _cos_sim
-        from shared.embeddings import embed_texts
-
-        _CATEGORY_REFS = {
-            "정치": "국회 대통령 정당 선거 법안 정책",
-            "경제": "주가 환율 금리 GDP 실적 무역",
-            "테크": "AI 반도체 스마트폰 앱 서비스 소프트웨어",
-            "사회": "교육 범죄 사고 환경 복지 인구",
-            "스포츠": "축구 야구 농구 올림픽 경기 감독",
-            "연예": "드라마 영화 아이돌 가수 배우 컴백",
-            "국제": "외교 전쟁 유엔 미국 중국 정상회담",
-        }
-        ref_texts = list(_CATEGORY_REFS.values())
-        ref_keys = list(_CATEGORY_REFS.keys())
-        ref_vectors = embed_texts(ref_texts, task_type="SEMANTIC_SIMILARITY")
-
-        if ref_vectors:
-            trend_names = [t.name for t in raw_trends]
-            trend_vectors = embed_texts(trend_names, task_type="SEMANTIC_SIMILARITY")
-            if trend_vectors:
-                for i, t in enumerate(raw_trends):
-                    scores = {cat: _cos_sim(trend_vectors[i], ref_vectors[j]) for j, cat in enumerate(ref_keys)}
-                    best_cat = max(scores, key=scores.get)
-                    best_score = scores[best_cat]
-                    if best_score >= 0.50:  # 최소 신뢰도
-                        ctx = contexts.get(t.name, MultiSourceContext())
-                        cat_hint = f"\n[카테고리 힌트 (임베딩)]: {best_cat} (신뢰도: {best_score:.2f})"
-                        contexts[t.name] = MultiSourceContext(
-                            twitter_insight=ctx.twitter_insight,
-                            reddit_insight=ctx.reddit_insight,
-                            news_insight=(ctx.news_insight or "") + cat_hint,
-                        )
-                log.info(f"[카테고리 사전분류] {len(raw_trends)}개 트렌드에 임베딩 기반 카테고리 힌트 주입")
-    except (ImportError, RuntimeError, ConnectionError, ValueError) as _e:
-        log.debug(f"[카테고리 사전분류] 사용 불가 (무시): {type(_e).__name__}: {_e}")
-
-    # 배치 분할 (5개씩)
-    pairs = [(t, contexts.get(t.name, MultiSourceContext())) for t in raw_trends]
-    batches = [pairs[i : i + _BATCH_SIZE] for i in range(0, len(pairs), _BATCH_SIZE)]
-    bucket = getattr(config, "cache_volume_bucket", 5000)
-
-    log.info(f"  배치 스코어링 시작: {len(raw_trends)}개 → {len(batches)}배치 (배치크기={_BATCH_SIZE})")
-    batch_results = await asyncio.gather(
-        *[_batch_score_async(b, client, conn, config, bucket) for b in batches],
-        return_exceptions=True,
-    )
-
-    scored: list[ScoredTrend] = []
-    for batch, raw_batch in zip(batch_results, batches, strict=False):
-        if isinstance(batch, Exception):
-            log.error(f"배치 스코어링 전체 예외: {batch}")
-            for trend, ctx in raw_batch:
-                scored.append(_default_scored_trend(trend.name, ctx))
-            continue
-        scored.extend(batch)
-
-    # 소스 정보 보완 및 랜킹 재정렬
-    # BUG-015 fix: Build trend_map once outside the loop (was O(N²))
-    trend_map = {t.name: t for t in raw_trends}
-    for result in scored:
-        trend = trend_map.get(result.keyword)
-        if trend:
-            result.rank = trend.volume_numeric
-            result.country = trend.country or config.country
-
-        context = result.context or MultiSourceContext()
-        sources = [TrendSource.GETDAYTRENDS]
-        if context.twitter_insight and "미설정" not in context.twitter_insight:
-            sources.append(TrendSource.TWITTER)
-        if context.reddit_insight and "없음" not in context.reddit_insight:
-            sources.append(TrendSource.REDDIT)
-        if context.news_insight and "없음" not in context.news_insight:
-            sources.append(TrendSource.GOOGLE_NEWS)
-        result.sources = sources
-
-    # Phase 3: 히스토리 패턴 보정 [v9.0] N+1 → 배치 조회
-    if config.enable_history_correction and conn is not None:
-        _HISTORY_MULTIPLIER = {
-            "new": 1.10,
-            "rising": 1.15,
-            "stable": 0.90,
-            "falling": 0.75,
-        }
-        try:
-            from db import get_trend_history_patterns_batch
-
-            pattern_map = await get_trend_history_patterns_batch(conn, [r.keyword for r in scored], days=7)
-        except (ImportError, sqlite3.Error) as _e:
-            log.debug(f"배치 히스토리 조회 실패 (무시): {type(_e).__name__}: {_e}")
-            pattern_map = {}
-
-        for result in scored:
-            pattern = pattern_map.get(result.keyword, {"score_trend": "new", "is_recurring": False, "seen_count": 0})
-            score_trend = pattern.get("score_trend", "new")
-            mult = _HISTORY_MULTIPLIER.get(score_trend, 1.0)
-            if pattern.get("is_recurring") and pattern.get("seen_count", 0) >= 5:
-                mult *= 0.8
-                log.debug(f"  [Phase3 반복 패널티] '{result.keyword}' ×0.8 (5회 이상 등장)")
-            if mult != 1.0:
-                before = result.viral_potential
-                result.viral_potential = min(int(result.viral_potential * mult), 100)
-                log.debug(
-                    f"  [Phase3 히스토리] '{result.keyword}' [{score_trend}] "
-                    f"×{mult:.2f} → {before}점 → {result.viral_potential}점"
-                )
-
-    # Phase 4: 중연 킥 기반 장문 조건 연동
-    kick_threshold = getattr(config, "joongyeon_kick_long_form_threshold", 75)
-    for result in scored:
-        if result.joongyeon_kick >= kick_threshold and result.viral_potential < config.long_form_min_score:
-            result.viral_potential = config.long_form_min_score
-            log.debug(f"  [Phase4 킥] '{result.keyword}' kick={result.joongyeon_kick} → 장문 미니스코어 우회")
-
-    # Phase 5: [v9.0 C-6] 이머징 트렌드 감지
-    if getattr(config, "enable_emerging_detection", True) and conn is not None:
-        vel_threshold = getattr(config, "emerging_velocity_threshold", 2.0)
-        vol_cap = getattr(config, "emerging_volume_cap", 5000)
-        try:
-            # B-009 fix: N+1 쿼리 제거 — 배치로 전체 velocity 한 번에 조회
-            from db import get_volume_velocity_batch
-
-            keywords = [result.keyword for result in scored]
-            vel_map = await get_volume_velocity_batch(conn, keywords)
-
-            for result in scored:
-                vel = vel_map.get(result.keyword, 0.0)
-                result.velocity = vel
-                if vel >= vel_threshold and result.volume_last_24h < vol_cap:
-                    result.is_emerging = True
-                    bonus = 30
-                    before = result.viral_potential
-                    result.viral_potential = min(result.viral_potential + bonus, 100)
-                    log.info(
-                        f"  [Phase5 이머징] '{result.keyword}' "
-                        f"velocity={vel:.1f}x, vol={result.volume_last_24h} "
-                        f"→ +{bonus}점 ({before}→{result.viral_potential})"
-                    )
-        except (ImportError, sqlite3.Error, ValueError) as _e:
-            log.debug(f"이머징 감지 실패 (무시): {type(_e).__name__}: {_e}")
-
-    scored.sort(key=lambda x: x.viral_potential, reverse=True)
-    for i, s in enumerate(scored):
-        s.rank = i + 1
-
-    safety_count = sum(1 for s in scored if s.safety_flag)
-    confidence_low = sum(1 for s in scored if s.cross_source_confidence < 2)
-    log.info(
-        f"스코어링 완료: {len(scored)}개 "
-        f"(최고 점수: {scored[0].viral_potential if scored else 0}, "
-        f"safety_flag: {safety_count}건, "
-        f"저신뢰 트렌드: {confidence_low}건)"
-    )
-    return scored
-
+    scored = await _score_trend_batches(raw_trends, contexts, config, conn, client)
+    _apply_scored_trend_metadata(scored, raw_trends, config)
+    await _apply_history_correction(scored, config, conn)
+    _apply_joongyeon_kick_floor(scored, config)
+    await _apply_emerging_detection(scored, config, conn)
+    return _finalize_scored_trends(scored)
 
 def analyze_trends(
     raw_trends: list[RawTrend],

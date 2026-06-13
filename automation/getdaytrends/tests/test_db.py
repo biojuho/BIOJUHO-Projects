@@ -117,6 +117,31 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
         self.assertIn("idx_tweets_generated_at", tweet_indexes)
         self.assertIn("idx_tweets_posted_at", tweet_indexes)
 
+    @pytest.mark.asyncio
+    async def test_trends_category_column_exists_for_dashboard_stats(self):
+        await init_db(self.conn)
+        cursor = await self.conn.execute("PRAGMA table_info(trends)")
+        columns = {row["name"] for row in await cursor.fetchall()}
+        self.assertIn("category", columns)
+
+    @pytest.mark.asyncio
+    async def test_migration_helpers_detect_legacy_schema(self):
+        from db_layer.migrations import _detect_legacy_schema_version, _pending_migrations
+
+        await self.conn.execute(
+            "CREATE TABLE schema_version (version INTEGER PRIMARY KEY, description TEXT, applied_at TEXT)"
+        )
+        await self.conn.execute("CREATE TABLE trends (id INTEGER PRIMARY KEY, joongyeon_angle TEXT)")
+        await self.conn.commit()
+
+        detected = await _detect_legacy_schema_version(self.conn, 0)
+        cursor = await self.conn.execute("SELECT version FROM schema_version ORDER BY version")
+        versions = [row["version"] for row in await cursor.fetchall()]
+
+        self.assertEqual(detected, 4)
+        self.assertEqual(versions, [1, 2, 3, 4])
+        self.assertEqual([version for version, _, _ in _pending_migrations(detected)], list(range(5, 13)))
+
 
 class TestSaveRun(unittest.IsolatedAsyncioTestCase):
     """실행 기록 저장/업데이트."""
@@ -418,12 +443,13 @@ class TestTapDealRoomFunnel(unittest.IsolatedAsyncioTestCase):
             audience_segment="creator",
             package_tier="premium_alert_bundle",
             offer_tier="premium",
-            session_status="created",
-            payment_status="pending",
-            currency="usd",
+            session_status=" Created ",
+            payment_status=" Pending ",
+            currency="USD",
             quoted_price_value=99.0,
             checkout_url="https://checkout.stripe.com/pay/cs_test_1",
             actor_id="dashboard-session-1",
+            metadata={"source": "test"},
         )
         completed = await mark_tap_checkout_session_completed(
             self.conn,
@@ -451,6 +477,12 @@ class TestTapDealRoomFunnel(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(summary["totals"]["completion_rate"], 1.0, places=4)
         self.assertEqual(summary["items"][0]["checkout_session_id"], "cs_test_1")
         self.assertEqual(summary["items"][0]["payment_status"], "paid")
+        self.assertEqual(summary["items"][0]["currency"], "usd")
+        self.assertEqual(summary["items"][0]["metadata"]["source"], "test")
+        self.assertEqual(summary["items"][0]["metadata"]["provider"], "stripe")
+        self.assertEqual(summary["items"][0]["metadata"]["checkout_handle"], "stripe:premium_alert_bundle:united-states:AI regulation")
+        self.assertEqual(summary["items"][0]["metadata"]["session_status"], "created")
+        self.assertEqual(summary["items"][0]["metadata"]["payment_status"], "pending")
 
     @pytest.mark.asyncio
     async def test_tap_alert_delivery_batch_and_status_update(self):

@@ -44,6 +44,119 @@ _RATE_LIMIT_DELAY = 1.0  # seconds between batch items (conservative)
 _BATCH_CHUNK_SIZE = 100  # X API max IDs per request
 
 
+async def _collection_cycle_candidate_rows(conn, lookback_hours: int) -> list:
+    cutoff = (datetime.now() - timedelta(hours=lookback_hours)).isoformat()
+    cursor = await conn.execute(
+        """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id, t.content
+           FROM tweets t
+           WHERE t.posted_at IS NOT NULL
+             AND t.posted_at >= ?
+             AND (
+                 (t.x_tweet_id IS NOT NULL AND t.x_tweet_id != '' AND t.x_tweet_id NOT IN (
+                     SELECT tweet_id
+                     FROM tweet_performance
+                 ))
+                 OR
+                 ((t.x_tweet_id IS NULL OR t.x_tweet_id = '') AND t.id NOT IN (
+                     SELECT CAST(tweet_id AS INTEGER)
+                     FROM tweet_performance
+                     WHERE tweet_id GLOB '[0-9]*'
+                 ))
+             )
+           ORDER BY t.posted_at DESC
+           LIMIT 200""",
+        (cutoff,),
+    )
+    return await cursor.fetchall()
+
+
+def _collection_cycle_row_groups(rows: list) -> tuple[dict[str, dict], list[dict]]:
+    tweet_id_map: dict[str, dict] = {}
+    local_only: list[dict] = []
+    for row in rows:
+        row_dict = dict(row)
+        x_id = _collection_cycle_x_id(row_dict)
+        if x_id:
+            tweet_id_map[x_id] = row_dict
+        else:
+            local_only.append(row_dict)
+    return tweet_id_map, local_only
+
+
+def _collection_cycle_x_id(row_dict: dict) -> str:
+    x_tweet_id = (row_dict.get("x_tweet_id", "") or "").strip()
+    posted_at = (row_dict.get("posted_at", "") or "").strip()
+    if x_tweet_id and re.match(r"^\d{10,}$", x_tweet_id):
+        return x_tweet_id
+    if posted_at and re.match(r"^\d{10,}$", posted_at):
+        return posted_at
+    return ""
+
+
+def _annotate_x_metrics(metrics_list: list[TweetMetrics], tweet_id_map: dict[str, dict]) -> None:
+    for metric in metrics_list:
+        row_info = tweet_id_map.get(metric.tweet_id, {})
+        metric.angle_type = normalize_angle(row_info.get("tweet_type", ""))
+
+
+def _local_only_metrics(local_only: list[dict]) -> list[TweetMetrics]:
+    return [
+        TweetMetrics(
+            tweet_id=str(row["id"]),
+            angle_type=normalize_angle(row.get("tweet_type", "")),
+            collected_at=datetime.now(UTC),
+        )
+        for row in local_only
+    ]
+
+
+def _scorable_angle_rates(
+    stats: dict[str, AngleStats],
+    *,
+    min_samples: int,
+) -> tuple[dict[str, float], list[str]]:
+    scored: dict[str, float] = {}
+    unscorable: list[str] = []
+    for angle in ANGLE_TYPES:
+        stat = stats.get(angle)
+        if stat and stat.total_tweets >= min_samples:
+            scored[angle] = max(stat.avg_engagement_rate, 1e-8)
+        else:
+            unscorable.append(angle)
+    return scored, unscorable
+
+
+def _normalize_angle_weights(weights: dict[str, float]) -> dict[str, float]:
+    total = sum(weights.values())
+    if total <= 0:
+        return weights
+    return {angle: round(weight / total, 4) for angle, weight in weights.items()}
+
+
+def _angle_weights_from_stats(stats: dict[str, AngleStats], *, min_samples: int) -> dict[str, float]:
+    default_weight = 1.0 / len(ANGLE_TYPES)
+    scored, unscorable = _scorable_angle_rates(stats, min_samples=min_samples)
+    if not scored:
+        return {angle: default_weight for angle in ANGLE_TYPES}
+
+    total_score = sum(scored.values())
+    explore_budget = len(unscorable) * default_weight
+    exploit_budget = 1.0 - explore_budget
+    weights = {
+        angle: round(exploit_budget * (scored[angle] / total_score), 4)
+        if angle in scored
+        else round(default_weight, 4)
+        for angle in ANGLE_TYPES
+    }
+    return _normalize_angle_weights(weights)
+
+
+def _apply_angle_weights(stats: dict[str, AngleStats], weights: dict[str, float]) -> None:
+    for angle, weight in weights.items():
+        if angle in stats:
+            stats[angle].weight = weight
+
+
 # -- PerformanceTracker --
 
 
@@ -53,16 +166,28 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
     앵글 유형별 가중치를 피드백하는 Phase 3 모듈.
     """
 
-    def __init__(self, db_path: str = "data/getdaytrends.db", bearer_token: str = ""):
+    def __init__(
+        self,
+        db_path: str = "data/getdaytrends.db",
+        bearer_token: str = "",
+        database_url: str = "",
+        allow_sqlite_fallback: bool = True,
+    ) -> None:
         self.db_path = db_path
         self.bearer_token = bearer_token
+        self.database_url = database_url
+        self.allow_sqlite_fallback = allow_sqlite_fallback
         self._initialized = False
 
     # -- DB Setup --
 
-    async def _get_conn(self):
+    async def _get_conn(self) -> object:
         """비동기 통합 연결 (PgAdapter/aiosqlite) 반환."""
-        return await get_connection(self.db_path)
+        return await get_connection(
+            self.db_path,
+            database_url=self.database_url,
+            allow_sqlite_fallback=self.allow_sqlite_fallback,
+        )
 
     async def init_table(self) -> None:
         """Legacy. 테이블 초기화는 이제 migrations.py에서 일괄 처리되므로 No-Op."""
@@ -327,127 +452,38 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
             {angle_type: weight} - 확률 모델에 사용될 가중치 (합계 1.0).
         """
         stats = _precomputed_stats or await self.get_angle_performance(days)
-        n = len(ANGLE_TYPES)
-        default_weight = 1.0 / n
-
-        scored: dict[str, float] = {}
-        unscorable: list[str] = []
-
-        for angle in ANGLE_TYPES:
-            s = stats.get(angle)
-            if s and s.total_tweets >= min_samples:
-                scored[angle] = max(s.avg_engagement_rate, 1e-8)
-            else:
-                unscorable.append(angle)
-
-        if not scored:
-            return {a: default_weight for a in ANGLE_TYPES}
-
-        total_score = sum(scored.values())
-        explore_budget = len(unscorable) * default_weight
-        exploit_budget = 1.0 - explore_budget
-
-        weights: dict[str, float] = {}
-        for angle in ANGLE_TYPES:
-            if angle in scored:
-                weights[angle] = round(exploit_budget * (scored[angle] / total_score), 4)
-            else:
-                weights[angle] = round(default_weight, 4)
-
-        total = sum(weights.values())
-        if total > 0:
-            weights = {k: round(v / total, 4) for k, v in weights.items()}
-
-        for angle, w in weights.items():
-            if angle in stats:
-                stats[angle].weight = w
-
+        weights = _angle_weights_from_stats(stats, min_samples=min_samples)
+        _apply_angle_weights(stats, weights)
         return weights
 
     # -- Scheduler Integration --
 
     async def run_collection_cycle(self, lookback_hours: int = 48) -> int:
-        """주기적 스케줄러 호출용. 미수집 트윗의 메트릭 업데이트 사이클 구성.
-
-        Returns:
-            업데이트된 DB 행수.
-        """
+        """Collect missing metrics for recently posted tweets."""
         conn = await self._get_conn()
         try:
             if not await self._table_exists(conn, "tweet_performance"):
                 log.info("run_collection_cycle skipped: tweet_performance table missing")
                 return 0
-
-            cutoff = (datetime.now() - timedelta(hours=lookback_hours)).isoformat()
-            cursor = await conn.execute(
-                """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id, t.content
-                   FROM tweets t
-                   WHERE t.posted_at IS NOT NULL
-                     AND t.posted_at >= ?
-                     AND (
-                         (t.x_tweet_id IS NOT NULL AND t.x_tweet_id != '' AND t.x_tweet_id NOT IN (
-                             SELECT tweet_id
-                             FROM tweet_performance
-                         ))
-                         OR
-                         ((t.x_tweet_id IS NULL OR t.x_tweet_id = '') AND t.id NOT IN (
-                             SELECT CAST(tweet_id AS INTEGER)
-                             FROM tweet_performance
-                             WHERE tweet_id GLOB '[0-9]*'
-                         ))
-                     )
-                   ORDER BY t.posted_at DESC
-                   LIMIT 200""",
-                (cutoff,),
-            )
-            rows = await cursor.fetchall()
+            rows = await _collection_cycle_candidate_rows(conn, lookback_hours)
         finally:
             await conn.close()
 
         if not rows:
             return 0
 
-        tweet_id_map: dict[str, dict] = {}
-        local_only: list[dict] = []
+        tweet_id_map, local_only = _collection_cycle_row_groups(rows)
+        all_metrics = await self._collection_cycle_metrics(tweet_id_map, local_only)
+        return await self.save_metrics_batch(all_metrics)
 
-        for row in rows:
-            row_dict = dict(row)
-            x_tweet_id = (row_dict.get("x_tweet_id", "") or "").strip()
-            posted_at = (row_dict.get("posted_at", "") or "").strip()
-            if x_tweet_id and re.match(r"^\d{10,}$", x_tweet_id):
-                x_id = x_tweet_id
-                tweet_id_map[x_id] = row_dict
-            elif posted_at and re.match(r"^\d{10,}$", posted_at):
-                x_id = posted_at
-                tweet_id_map[x_id] = row_dict
-            else:
-                local_only.append(row_dict)
-
-        collected_count = 0
+    async def _collection_cycle_metrics(self, tweet_id_map: dict[str, dict], local_only: list[dict]) -> list[TweetMetrics]:
         all_metrics: list[TweetMetrics] = []
         if tweet_id_map and self.bearer_token:
-            x_ids = list(tweet_id_map.keys())
-            metrics_list = await self.batch_collect(x_ids)
-
-            for m in metrics_list:
-                row_info = tweet_id_map.get(m.tweet_id, {})
-                m.angle_type = normalize_angle(row_info.get("tweet_type", ""))
-                all_metrics.append(m)
-
-        for row_dict in local_only:
-            db_id = str(row_dict["id"])
-            angle = normalize_angle(row_dict.get("tweet_type", ""))
-            all_metrics.append(
-                TweetMetrics(
-                    tweet_id=db_id,
-                    angle_type=angle,
-                    collected_at=datetime.now(UTC),
-                )
-            )
-
-        collected_count = await self.save_metrics_batch(all_metrics)
-        return collected_count
-
+            metrics_list = await self.batch_collect(list(tweet_id_map.keys()))
+            _annotate_x_metrics(metrics_list, tweet_id_map)
+            all_metrics.extend(metrics_list)
+        all_metrics.extend(_local_only_metrics(local_only))
+        return all_metrics
     # -- [B] Hook/Kick Pattern Analytics --
 
     async def get_hook_performance(self, days: int = 30) -> dict[str, PatternStats]:

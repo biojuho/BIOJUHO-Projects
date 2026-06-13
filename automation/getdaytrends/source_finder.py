@@ -229,6 +229,41 @@ async def _arxiv_search(
 # ──────────────────────────────────────────────────
 
 
+def _source_types(source_types: list[str] | None, include_academic: bool) -> list[str]:
+    default_types = ["news", "web", "wiki"]
+    if include_academic:
+        default_types.append("arxiv")
+    return source_types or default_types
+
+
+def _source_search_tasks(keyword: str, types: list[str]) -> list:
+    tasks = []
+    if "news" in types:
+        tasks.append(_google_news_search(keyword, max_results=5))
+    if "web" in types:
+        tasks.append(_duckduckgo_search(keyword, max_results=5))
+    if "wiki" in types:
+        tasks.append(_wikipedia_search(keyword, max_results=2))
+        tasks.append(_wikipedia_search(keyword, lang="ko", max_results=1))
+    if "arxiv" in types:
+        tasks.append(_arxiv_search(keyword, max_results=3))
+    return tasks
+
+
+def _merge_source_batches(all_results: list) -> list[dict]:
+    seen_urls = set()
+    merged = []
+    for batch in all_results:
+        if isinstance(batch, Exception):
+            continue
+        for item in batch:
+            url = item["url"]
+            if url not in seen_urls:
+                seen_urls.add(url)
+                merged.append(item)
+    return merged
+
+
 async def auto_discover_sources(
     keyword: str,
     source_types: list[str] | None = None,
@@ -247,39 +282,14 @@ async def auto_discover_sources(
     Returns:
         [{"title": str, "url": str, "source": str}, ...]
     """
-    default_types = ["news", "web", "wiki"]
-    if include_academic:
-        default_types.append("arxiv")
-    types = source_types or default_types
+    types = _source_types(source_types, include_academic)
 
     log.info(f"[SourceFinder] '{keyword}' → {types} 검색 시작")
 
-    # 병렬 수집
-    tasks = []
-    if "news" in types:
-        tasks.append(_google_news_search(keyword, max_results=5))
-    if "web" in types:
-        tasks.append(_duckduckgo_search(keyword, max_results=5))
-    if "wiki" in types:
-        tasks.append(_wikipedia_search(keyword, max_results=2))
-        tasks.append(_wikipedia_search(keyword, lang="ko", max_results=1))
-    if "arxiv" in types:
-        tasks.append(_arxiv_search(keyword, max_results=3))
-
+    tasks = _source_search_tasks(keyword, types)
     all_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # 결과 병합 + 중복 제거
-    seen_urls = set()
-    merged = []
-    for batch in all_results:
-        if isinstance(batch, Exception):
-            continue
-        for item in batch:
-            url = item["url"]
-            if url not in seen_urls:
-                seen_urls.add(url)
-                merged.append(item)
-
+    merged = _merge_source_batches(all_results)
     final = merged[:max_total]
     log.info(f"[SourceFinder] 총 {len(final)}개 소스 수집 완료")
     return final
@@ -291,7 +301,7 @@ async def auto_discover_sources(
 
 if __name__ == "__main__":
 
-    async def _test():
+    async def _test() -> None:
         print("=== Source Finder Test ===")
         results = await auto_discover_sources(
             "CRISPR gene editing",

@@ -34,9 +34,16 @@ from models import RawTrend  # noqa: E402
 KST = timezone(timedelta(hours=9))
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return parsed
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pages", type=int, default=5, help="modoo list pages to fetch (each = 12 ideas)")
+    parser.add_argument("--pages", type=_positive_int, default=5, help="modoo list pages to fetch (each = 12 ideas)")
     parser.add_argument("--timeout-ms", type=int, default=60_000, help="per-page Playwright nav timeout")
     parser.add_argument(
         "--out-dir",

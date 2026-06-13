@@ -257,32 +257,50 @@ async def sync_tweet_metrics(
 
 async def get_cached_content(conn, fingerprint: str, max_age_hours: int = 24) -> list[dict] | None:
     cache = _get_cache_client() if _redis_enabled() else None
-    # Redis cache first — 장애 시 DB fallback
-    if cache is not None:
-        cache_key = f"gdt:content:{fingerprint}"
-        try:
-            cached = await cache.get(cache_key)
-            if cached is not None and isinstance(cached, list):
-                return cached
-        except Exception:
-            cache = None
+    cache_key = _content_cache_key(fingerprint)
+    cached = await _get_cached_content_from_redis(cache, cache_key)
+    if cached is not None:
+        return cached
 
-    cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
+    result = await _get_cached_content_from_db(conn, fingerprint, max_age_hours)
+    await _store_cached_content_in_redis(cache, cache_key, result)
+    return result
+
+
+def _content_cache_key(fingerprint: str) -> str:
+    return f"gdt:content:{fingerprint}"
+
+
+async def _get_cached_content_from_redis(cache, cache_key: str) -> list[dict] | None:
+    if cache is None:
+        return None
+    try:
+        cached = await cache.get(cache_key)
+    except Exception:
+        return None
+    return cached if isinstance(cached, list) else None
+
+
+async def _get_cached_content_from_db(conn, fingerprint: str, max_age_hours: int) -> list[dict] | None:
     cursor = await conn.execute(
         "SELECT tw.tweet_type, tw.content, tw.content_type, tw.char_count FROM tweets tw JOIN trends tr ON tw.trend_id = tr.id WHERE tr.fingerprint = ? AND tr.scored_at >= ? ORDER BY tw.generated_at DESC",
-        (fingerprint, cutoff),
+        (fingerprint, _cache_cutoff(max_age_hours)),
     )
     rows = await cursor.fetchall()
-    result = [dict(r) for r in rows] if rows else None
+    return [dict(row) for row in rows] if rows else None
 
-    # Cache for 6 hours (shorter than max_age to keep fresh)
-    if result and cache is not None:
-        try:
-            await cache.set(cache_key, result, ttl=6 * 3600)
-        except Exception:
-            pass
 
-    return result
+def _cache_cutoff(max_age_hours: int) -> str:
+    return (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
+
+
+async def _store_cached_content_in_redis(cache, cache_key: str, result: list[dict] | None) -> None:
+    if not result or cache is None:
+        return
+    try:
+        await cache.set(cache_key, result, ttl=6 * 3600)
+    except Exception:
+        pass
 
 
 async def get_recent_tweet_contents(conn, keyword: str, hours: int = 24, limit: int = 5) -> list[str]:

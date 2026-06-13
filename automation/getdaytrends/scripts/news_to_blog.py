@@ -21,6 +21,18 @@ import asyncio
 import sys
 from pathlib import Path
 
+
+def _configure_stdio() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+_configure_stdio()
+
 # 프로젝트 경로
 GETDAYTRENDS_ROOT = Path(__file__).resolve().parents[1]
 DAILYNEWS_ROOT = GETDAYTRENDS_ROOT.parent / "DailyNews"
@@ -83,62 +95,55 @@ def _load_dailynews_reports(
 
 
 def reports_to_trend_contexts(reports: list[dict]) -> list[dict]:
-    """DailyNews 리포트를 GetDayTrends ScoredTrend 호환 컨텍스트로 변환.
-
-    Returns:
-        list of dicts with keys:
-            keyword: 블로그 주제 키워드
-            category: 카테고리
-            context_text: 결합된 컨텍스트 텍스트
-            summary: 핵심 요약
-            insights: 인사이트 리스트
-            source_links: 원본 소스 링크
-            viral_potential: 추정 바이럴 점수 (기본 75)
-    """
+    """Convert DailyNews reports into GetDayTrends trend contexts."""
     contexts = []
-
     for report in reports:
-        category = report.get("category", "기타")
-        summary_lines = report.get("summary_lines", [])
-        insights = report.get("insights", [])
-        source_links = report.get("source_links", [])
-        drafts = report.get("channel_drafts", [])
-
-        if not summary_lines and not insights:
-            continue
-
-        # 주제 키워드 추출 (첫번째 요약줄에서)
-        keyword = summary_lines[0][:50] if summary_lines else f"{category} 뉴스 브리프"
-
-        # 컨텍스트 텍스트 구성
-        context_parts = []
-        if summary_lines:
-            context_parts.append("[뉴스 요약]\n" + "\n".join(f"- {s}" for s in summary_lines))
-        if insights:
-            context_parts.append("[인사이트]\n" + "\n".join(f"- {i}" for i in insights))
-        if source_links:
-            context_parts.append(f"[원본 소스] {len(source_links)}건")
-
-        # 기존 X/Threads 드래프트에서 추가 컨텍스트
-        for draft in drafts:
-            if draft.get("content"):
-                context_parts.append(f"[{draft['channel']} 초안 참고]\n{draft['content'][:500]}")
-
-        context_text = "\n\n".join(context_parts)
-
-        contexts.append(
-            {
-                "keyword": keyword,
-                "category": category,
-                "context_text": context_text,
-                "summary": "\n".join(summary_lines),
-                "insights": insights,
-                "source_links": source_links,
-                "viral_potential": 75,  # 뉴스 소스 기본 점수
-            }
-        )
-
+        context = report_to_trend_context(report)
+        if context:
+            contexts.append(context)
     return contexts
+
+
+def report_to_trend_context(report: dict) -> dict | None:
+    category = report.get("category", "기타")
+    summary_lines = report.get("summary_lines", [])
+    insights = report.get("insights", [])
+    source_links = report.get("source_links", [])
+    drafts = report.get("channel_drafts", [])
+
+    if not summary_lines and not insights:
+        return None
+
+    keyword = summary_lines[0][:50] if summary_lines else f"{category} 뉴스 브리핑"
+    return {
+        "keyword": keyword,
+        "category": category,
+        "context_text": build_context_text(summary_lines, insights, source_links, drafts),
+        "summary": "\n".join(summary_lines),
+        "insights": insights,
+        "source_links": source_links,
+        "viral_potential": 75,
+    }
+
+
+def build_context_text(summary_lines: list[str], insights: list[str], source_links: list, drafts: list[dict]) -> str:
+    context_parts = []
+    if summary_lines:
+        context_parts.append("[뉴스 요약]\n" + "\n".join(f"- {item}" for item in summary_lines))
+    if insights:
+        context_parts.append("[인사이트]\n" + "\n".join(f"- {item}" for item in insights))
+    if source_links:
+        context_parts.append(f"[원본 소스] {len(source_links)}건")
+    context_parts.extend(draft_context_parts(drafts))
+    return "\n\n".join(context_parts)
+
+
+def draft_context_parts(drafts: list[dict]) -> list[str]:
+    return [
+        f"[{draft['channel']} 초안 참고]\n{draft['content'][:500]}"
+        for draft in drafts
+        if draft.get("content")
+    ]
 
 
 def get_news_contexts(
@@ -219,7 +224,7 @@ async def generate_blog_from_news(
 # ── CLI Entry Point ────────────────────────────────────
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="DailyNews → 네이버 블로그 글감 생성")

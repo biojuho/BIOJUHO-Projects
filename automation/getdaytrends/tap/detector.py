@@ -31,6 +31,7 @@ class ArbitrageOpportunity:
     time_gap_hours: float = 0.0  # source 국가에서 첫 감지 이후 경과 시간
     source_count: int = 1  # 원본에서 감지된 소스 개수
     priority: float = 0.0  # 선점 우선순위 (높을수록 좋음)
+    source_evidence: str = ""
     detected_at: datetime = field(default_factory=datetime.now)
 
     def to_prompt_hint(self) -> str:
@@ -55,28 +56,33 @@ def _normalize_keyword(kw: str) -> str:
 
 
 def _is_same_topic(kw_a: str, kw_b: str, threshold: float = 0.8) -> bool:
-    """두 키워드가 같은 토픽인지 판별 (정규화 매치 + 부분 문자열)."""
+    """Return whether two normalized keywords describe the same topic."""
     na, nb = _normalize_keyword(kw_a), _normalize_keyword(kw_b)
     if not na or not nb:
         return False
-    # 정확 매치
-    if na == nb:
+    if _is_exact_or_contained_topic(na, nb):
         return True
-    # 한쪽이 다른 쪽에 포함
-    if na in nb or nb in na:
-        return True
-    # Jaccard character n-gram (bigram) similarity
-    if len(na) >= 2 and len(nb) >= 2:
-        bigrams_a = {na[i : i + 2] for i in range(len(na) - 1)}
-        bigrams_b = {nb[i : i + 2] for i in range(len(nb) - 1)}
-        if not bigrams_a or not bigrams_b:
-            return False
-        jaccard = len(bigrams_a & bigrams_b) / len(bigrams_a | bigrams_b)
-        return jaccard >= threshold
-    return False
+    return _bigram_jaccard(na, nb) >= threshold
 
 
-# ══════════════════════════════════════════════════════
+def _is_exact_or_contained_topic(kw_a: str, kw_b: str) -> bool:
+    return kw_a == kw_b or kw_a in kw_b or kw_b in kw_a
+
+
+def _bigram_jaccard(kw_a: str, kw_b: str) -> float:
+    if len(kw_a) < 2 or len(kw_b) < 2:
+        return 0.0
+    bigrams_a = _bigrams(kw_a)
+    bigrams_b = _bigrams(kw_b)
+    if not bigrams_a or not bigrams_b:
+        return 0.0
+    return len(bigrams_a & bigrams_b) / len(bigrams_a | bigrams_b)
+
+
+def _bigrams(value: str) -> set[str]:
+    return {value[i : i + 2] for i in range(len(value) - 1)}
+
+
 #  Core Detector
 # ══════════════════════════════════════════════════════
 
@@ -90,7 +96,7 @@ class TrendArbitrageDetector:
     DEFAULT_SIMILARITY_THRESHOLD = 0.75
     MAX_OPPORTUNITIES = 10
 
-    def __init__(self, conn, *, lookback_hours: int = 0, min_viral: int = 0):
+    def __init__(self, conn, *, lookback_hours: int = 0, min_viral: int = 0) -> None:
         self._conn = conn
         self._lookback = lookback_hours or self.DEFAULT_LOOKBACK_HOURS
         self._min_viral = min_viral or self.DEFAULT_MIN_VIRAL_SCORE
@@ -100,7 +106,7 @@ class TrendArbitrageDetector:
         cutoff = (datetime.now() - timedelta(hours=self._lookback)).isoformat()
         try:
             cursor = await self._conn.execute(
-                "SELECT keyword, country, viral_potential, scored_at "
+                "SELECT keyword, country, viral_potential, scored_at, top_insight "
                 "FROM trends WHERE scored_at >= ? AND viral_potential >= ? "
                 "ORDER BY viral_potential DESC",
                 (cutoff, self._min_viral),
@@ -131,89 +137,136 @@ class TrendArbitrageDetector:
             log.warning(f"[TAP] 감지 실패 (파이프라인 무중단): {type(e).__name__}: {e}")
             return []
 
+    def _active_countries(self, by_country: dict[str, list[dict]], config=None) -> list[str]:
+        if config and hasattr(config, "countries") and config.countries:
+            return [country.lower() for country in config.countries]
+        return list(by_country.keys())
+
+    def _missing_target_countries(
+        self,
+        *,
+        keyword: str,
+        source_country: str,
+        by_country: dict[str, list[dict]],
+        active_countries: list[str],
+    ) -> list[str]:
+        missing_in: list[str] = []
+        for target_country in active_countries:
+            if target_country == source_country:
+                continue
+            target_keywords = [trend["keyword"] for trend in by_country.get(target_country, [])]
+            found = any(
+                _is_same_topic(keyword, target_keyword, self.DEFAULT_SIMILARITY_THRESHOLD)
+                for target_keyword in target_keywords
+            )
+            if not found:
+                missing_in.append(target_country)
+        return missing_in
+
+    def _trend_time_gap_hours(self, trend_data: dict) -> float:
+        scored_at_str = trend_data.get("scored_at", "")
+        if not scored_at_str:
+            return 0.0
+        try:
+            if "T" in scored_at_str:
+                scored_dt = datetime.fromisoformat(scored_at_str)
+            else:
+                scored_dt = datetime.strptime(scored_at_str, "%Y-%m-%d %H:%M:%S")
+        except (ValueError, TypeError):
+            return 0.0
+        return (datetime.now() - scored_dt).total_seconds() / 3600
+
+    def _opportunity_priority(self, *, viral: int, time_gap: float, missing_count: int, active_count: int) -> float:
+        time_factor = _time_priority_factor(time_gap)
+        country_factor = missing_count / max(active_count - 1, 1)
+        return viral * 0.5 + time_factor * 30 + country_factor * 20
+
+    def _build_opportunity(
+        self,
+        *,
+        keyword: str,
+        source_country: str,
+        trend_data: dict,
+        missing_in: list[str],
+        active_countries: list[str],
+    ) -> ArbitrageOpportunity:
+        time_gap = self._trend_time_gap_hours(trend_data)
+        viral = trend_data.get("viral_potential", 0)
+        priority = self._opportunity_priority(
+            viral=viral,
+            time_gap=time_gap,
+            missing_count=len(missing_in),
+            active_count=len(active_countries),
+        )
+        return ArbitrageOpportunity(
+            keyword=keyword,
+            source_country=source_country,
+            target_countries=missing_in,
+            viral_score=viral,
+            time_gap_hours=round(time_gap, 1),
+            source_evidence=str(trend_data.get("top_insight", "") or "").strip(),
+            priority=round(priority, 1),
+        )
+
+    def _opportunities_for_source(
+        self,
+        *,
+        source_country: str,
+        source_trends: list[dict],
+        by_country: dict[str, list[dict]],
+        active_countries: list[str],
+    ) -> list[ArbitrageOpportunity]:
+        if source_country not in active_countries:
+            return []
+        opportunities: list[ArbitrageOpportunity] = []
+        for keyword, trend_data in {trend["keyword"]: trend for trend in source_trends}.items():
+            missing_in = self._missing_target_countries(
+                keyword=keyword,
+                source_country=source_country,
+                by_country=by_country,
+                active_countries=active_countries,
+            )
+            if missing_in:
+                opportunities.append(
+                    self._build_opportunity(
+                        keyword=keyword,
+                        source_country=source_country,
+                        trend_data=trend_data,
+                        missing_in=missing_in,
+                        active_countries=active_countries,
+                    )
+                )
+        return opportunities
+
+    def _dedupe_and_rank_opportunities(
+        self, opportunities: list[ArbitrageOpportunity]
+    ) -> list[ArbitrageOpportunity]:
+        best: dict[str, ArbitrageOpportunity] = {}
+        for opportunity in opportunities:
+            normalized_keyword = _normalize_keyword(opportunity.keyword)
+            if normalized_keyword not in best or opportunity.priority > best[normalized_keyword].priority:
+                best[normalized_keyword] = opportunity
+        return sorted(best.values(), key=lambda opportunity: opportunity.priority, reverse=True)[: self.MAX_OPPORTUNITIES]
+
     async def _detect_impl(self, *, config=None) -> list[ArbitrageOpportunity]:
         by_country = await self._fetch_recent_trends_by_country()
         if len(by_country) < 2:
-            log.debug(f"[TAP] 국가 수 부족 ({len(by_country)}개) → 차익거래 감지 생략")
+            log.debug(f"[TAP] insufficient countries ({len(by_country)}); skipping arbitrage detection")
             return []
 
-        # 활성 국가 목록 (config에서 또는 DB에서 자동 추출)
-        active_countries = list(by_country.keys())
-        if config and hasattr(config, "countries") and config.countries:
-            active_countries = [c.lower() for c in config.countries]
-
+        active_countries = self._active_countries(by_country, config)
         opportunities: list[ArbitrageOpportunity] = []
-
         for source_country, source_trends in by_country.items():
-            if source_country not in active_countries:
-                continue
-
-            # 이 국가의 키워드 집합
-            source_keywords = {t["keyword"]: t for t in source_trends}
-
-            for keyword, trend_data in source_keywords.items():
-                # 다른 국가에서 이 키워드가 등장했는지 확인
-                missing_in: list[str] = []
-
-                for target_country in active_countries:
-                    if target_country == source_country:
-                        continue
-                    target_trends = by_country.get(target_country, [])
-                    target_keywords = [t["keyword"] for t in target_trends]
-
-                    # 정확 매치 또는 유사 매치가 없으면 arbitrage 기회
-                    found = any(
-                        _is_same_topic(keyword, tk, self.DEFAULT_SIMILARITY_THRESHOLD) for tk in target_keywords
-                    )
-                    if not found:
-                        missing_in.append(target_country)
-
-                if not missing_in:
-                    continue
-
-                # 시차 계산 (첫 감지 시각부터 현재까지)
-                scored_at_str = trend_data.get("scored_at", "")
-                time_gap = 0.0
-                if scored_at_str:
-                    try:
-                        if "T" in scored_at_str:
-                            scored_dt = datetime.fromisoformat(scored_at_str)
-                        else:
-                            scored_dt = datetime.strptime(scored_at_str, "%Y-%m-%d %H:%M:%S")
-                        time_gap = (datetime.now() - scored_dt).total_seconds() / 3600
-                    except (ValueError, TypeError):
-                        pass
-
-                viral = trend_data.get("viral_potential", 0)
-
-                # Priority 계산:
-                # - 바이럴 스코어가 높을수록 좋음
-                # - 미감지 국가가 많을수록 좋음
-                # - 시차가 적당히 있되 너무 오래되지 않으면 좋음 (sweet spot: 2-8h)
-                time_factor = _time_priority_factor(time_gap)
-                country_factor = len(missing_in) / max(len(active_countries) - 1, 1)
-                priority = viral * 0.5 + time_factor * 30 + country_factor * 20
-
-                opportunities.append(
-                    ArbitrageOpportunity(
-                        keyword=keyword,
-                        source_country=source_country,
-                        target_countries=missing_in,
-                        viral_score=viral,
-                        time_gap_hours=round(time_gap, 1),
-                        priority=round(priority, 1),
-                    )
+            opportunities.extend(
+                self._opportunities_for_source(
+                    source_country=source_country,
+                    source_trends=source_trends,
+                    by_country=by_country,
+                    active_countries=active_countries,
                 )
+            )
 
-        # Deduplicate: 같은 키워드가 여러 source_country에서 잡히면 priority 최대값만 유지
-        best: dict[str, ArbitrageOpportunity] = {}
-        for opp in opportunities:
-            nk = _normalize_keyword(opp.keyword)
-            if nk not in best or opp.priority > best[nk].priority:
-                best[nk] = opp
-
-        sorted_opps = sorted(best.values(), key=lambda o: o.priority, reverse=True)
-        return sorted_opps[: self.MAX_OPPORTUNITIES]
+        return self._dedupe_and_rank_opportunities(opportunities)
 
 
 def _time_priority_factor(hours: float) -> float:

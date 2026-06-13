@@ -7,8 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from alerts import (
+    check_watchlist,
     format_trend_alert,
     send_alert,
+    send_daily_cost_alert,
     send_discord_alert,
     send_email_alert,
     send_slack_alert,
@@ -179,3 +181,72 @@ def test_send_alert_dispatches_all_channels(mock_tg, mock_dc, mock_sl, mock_em, 
 def test_send_alert_skips_unconfigured_channels(empty_config):
     results = send_alert("test message", empty_config)
     assert results == {}
+
+
+def test_daily_cost_alert_skips_below_threshold(config):
+    fake_tracker = MagicMock()
+    fake_tracker.get_daily_stats.return_value = [{"date": "2099-01-01", "cost_usd": 0.1, "calls": 2}]
+
+    with (
+        patch("alerts._daily_cost_tracker", return_value=fake_tracker),
+        patch("alerts.date") as mock_date,
+        patch("alerts.send_alert") as mock_send,
+    ):
+        mock_date.today.return_value = "2099-01-01"
+        config.daily_budget_usd = 2.0
+
+        assert send_daily_cost_alert(config) is False
+
+    mock_send.assert_not_called()
+    fake_tracker.close.assert_called_once()
+
+
+def test_daily_cost_alert_sends_critical_message(config):
+    fake_tracker = MagicMock()
+    fake_tracker.get_daily_stats.return_value = [{"date": "2099-01-01", "cost_usd": 1.9, "calls": 12}]
+
+    with (
+        patch("alerts._daily_cost_tracker", return_value=fake_tracker),
+        patch("alerts.date") as mock_date,
+        patch("alerts.send_alert", return_value={"slack": {"ok": True}}) as mock_send,
+    ):
+        mock_date.today.return_value = "2099-01-01"
+        config.daily_budget_usd = 2.0
+
+        assert send_daily_cost_alert(config) is True
+
+    message = mock_send.call_args.args[0]
+    assert "critical" in message.lower()
+    assert "Calls today: 12" in message
+    fake_tracker.close.assert_called_once()
+
+
+def test_check_watchlist_sends_single_alert_for_matches(config):
+    from models import ScoredTrend, TrendSource
+
+    trends = [
+        ScoredTrend(
+            keyword="AI regulation",
+            rank=1,
+            viral_potential=88,
+            trend_acceleration="+20%",
+            top_insight="policy spike",
+            sources=[TrendSource.GETDAYTRENDS],
+        ),
+        ScoredTrend(
+            keyword="sports update",
+            rank=2,
+            viral_potential=51,
+            trend_acceleration="+1%",
+            top_insight="low priority",
+            sources=[TrendSource.GETDAYTRENDS],
+        ),
+    ]
+    config.watchlist_keywords = ["regulation", "finance"]
+
+    with patch("alerts.send_alert", return_value={"telegram": {"ok": True}}) as mock_send:
+        assert check_watchlist(trends, config) == 1
+
+    message = mock_send.call_args.args[0]
+    assert "AI regulation" in message
+    assert "regulation" in message

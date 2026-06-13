@@ -12,7 +12,7 @@ $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
 
 $projectRoot = Split-Path -Parent $PSCommandPath
-$workspaceRoot = Split-Path -Parent $projectRoot
+$workspaceRoot = Split-Path -Parent (Split-Path -Parent $projectRoot)
 $pythonExe = Join-Path $workspaceRoot ".venv\Scripts\python.exe"
 $utf8Runner = Join-Path $workspaceRoot ".agents\skills\windows-encoding-safe-test\scripts\run_utf8_safe.py"
 $schedulerRunner = Join-Path $projectRoot "run_scheduled_getdaytrends.ps1"

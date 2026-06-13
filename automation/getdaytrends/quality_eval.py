@@ -75,100 +75,89 @@ def evaluate_content(
     faithfulness_threshold: float = 0.6,
     relevancy_threshold: float = 0.5,
 ) -> EvalResult:
-    """
-    생성된 콘텐츠를 DeepEval 메트릭으로 평가.
-    DeepEval 미설치 시 기본 통과 반환 (기존 동작 호환).
-
-    Args:
-        generated_text: 평가할 생성 콘텐츠
-        source_context: 소스 컨텍스트 (뉴스, X, Reddit)
-        keyword: 트렌드 키워드
-        hallucination_threshold: 환각 점수 기각 임계값 (높을수록 관대)
-        faithfulness_threshold: 사실 일관성 기각 임계값 (높을수록 엄격)
-        relevancy_threshold: 관련성 기각 임계값 (높을수록 엄격)
-    """
+    """Evaluate generated content with DeepEval metrics when available."""
     if not DEEPEVAL_AVAILABLE or _deepeval_runtime_disabled():
         return EvalResult()
-
     if not generated_text or not source_context:
         return EvalResult()
 
-    result = EvalResult()
-
     try:
         test_case = LLMTestCase(
-            input=f"트렌드 키워드 '{keyword}'에 대한 SNS 콘텐츠를 생성하세요.",
+            input=f"Trend keyword '{keyword}' content generation",
             actual_output=generated_text,
             retrieval_context=[source_context],
         )
-
-        # 1. 환각 탐지
-        try:
-            hallucination_metric = HallucinationMetric(
-                threshold=hallucination_threshold,
-            )
-            hallucination_metric.measure(test_case)
-            result.hallucination_score = hallucination_metric.score or 0.0
-            if not hallucination_metric.is_successful():
-                result.issues.append(
-                    f"환각 감지 (score={result.hallucination_score:.2f}, threshold={hallucination_threshold})"
-                )
-                result.passed = False
-            result.details["hallucination_reason"] = hallucination_metric.reason
-        except Exception as e:
-            log.debug(f"[DeepEval] 환각 평가 실패: {e}")
-
-        # 2. 사실 일관성
-        try:
-            faithfulness_metric = FaithfulnessMetric(
-                threshold=faithfulness_threshold,
-            )
-            faithfulness_metric.measure(test_case)
-            result.faithfulness_score = faithfulness_metric.score or 0.0
-            if not faithfulness_metric.is_successful():
-                result.issues.append(
-                    f"사실 불일치 (score={result.faithfulness_score:.2f}, threshold={faithfulness_threshold})"
-                )
-                result.passed = False
-            result.details["faithfulness_reason"] = faithfulness_metric.reason
-        except Exception as e:
-            log.debug(f"[DeepEval] 사실 일관성 평가 실패: {e}")
-
-        # 3. 답변 관련성
-        try:
-            relevancy_metric = AnswerRelevancyMetric(
-                threshold=relevancy_threshold,
-            )
-            relevancy_metric.measure(test_case)
-            result.relevancy_score = relevancy_metric.score or 0.0
-            if not relevancy_metric.is_successful():
-                result.issues.append(
-                    f"관련성 부족 (score={result.relevancy_score:.2f}, threshold={relevancy_threshold})"
-                )
-                result.passed = False
-            result.details["relevancy_reason"] = relevancy_metric.reason
-        except Exception as e:
-            log.debug(f"[DeepEval] 관련성 평가 실패: {e}")
-
-    except Exception as e:
-        log.warning(f"[DeepEval] 평가 실패: {type(e).__name__}: {e}")
-        return EvalResult()  # 실패 시 기본 통과
-
-    if result.issues:
-        log.info(
-            f"[DeepEval] '{keyword}' 품질 이슈 {len(result.issues)}건: "
-            f"H={result.hallucination_score:.2f} "
-            f"F={result.faithfulness_score:.2f} "
-            f"R={result.relevancy_score:.2f}"
+        result = EvalResult()
+        _apply_deepeval_metric(
+            result,
+            HallucinationMetric(threshold=hallucination_threshold),
+            test_case,
+            score_field="hallucination_score",
+            detail_key="hallucination_reason",
+            issue_template="hallucination detected (score={score:.2f}, threshold={threshold})",
+            threshold=hallucination_threshold,
+            debug_label="hallucination",
         )
+        _apply_deepeval_metric(
+            result,
+            FaithfulnessMetric(threshold=faithfulness_threshold),
+            test_case,
+            score_field="faithfulness_score",
+            detail_key="faithfulness_reason",
+            issue_template="faithfulness mismatch (score={score:.2f}, threshold={threshold})",
+            threshold=faithfulness_threshold,
+            debug_label="faithfulness",
+        )
+        _apply_deepeval_metric(
+            result,
+            AnswerRelevancyMetric(threshold=relevancy_threshold),
+            test_case,
+            score_field="relevancy_score",
+            detail_key="relevancy_reason",
+            issue_template="relevancy too low (score={score:.2f}, threshold={threshold})",
+            threshold=relevancy_threshold,
+            debug_label="relevancy",
+        )
+    except Exception as e:
+        log.warning(f"[DeepEval] evaluation failed: {type(e).__name__}: {e}")
+        return EvalResult()
 
+    _log_eval_issues(keyword, result)
     return result
 
 
-# ══════════════════════════════════════════════════════
-#  배치 평가 (파이프라인 통합용)
-# ══════════════════════════════════════════════════════
+def _apply_deepeval_metric(
+    result: EvalResult,
+    metric,
+    test_case,
+    *,
+    score_field: str,
+    detail_key: str,
+    issue_template: str,
+    threshold: float,
+    debug_label: str,
+) -> None:
+    try:
+        metric.measure(test_case)
+        score = metric.score or 0.0
+        setattr(result, score_field, score)
+        if not metric.is_successful():
+            result.issues.append(issue_template.format(score=score, threshold=threshold))
+            result.passed = False
+        result.details[detail_key] = metric.reason
+    except Exception as e:
+        log.debug(f"[DeepEval] {debug_label} metric failed: {e}")
 
+
+def _log_eval_issues(keyword: str, result: EvalResult) -> None:
+    if not result.issues:
+        return
+    log.info(
+        f"[DeepEval] '{keyword}' quality issues {len(result.issues)}: "
+        f"H={result.hallucination_score:.2f} "
+        f"F={result.faithfulness_score:.2f} "
+        f"R={result.relevancy_score:.2f}"
+    )
 
 def evaluate_batch(
     tweets: list[str],

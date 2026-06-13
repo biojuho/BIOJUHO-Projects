@@ -1,7 +1,9 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
 
 # ══════════════════════════════════════════════════════
 #  _should_skip_qa unit tests
@@ -102,6 +104,40 @@ class TestIsAccelerating:
 # ══════════════════════════════════════════════════════
 
 
+class TestAdjustSchedule:
+    def test_schedule_decision_prefers_hot_trends(self):
+        from getdaytrends.core.pipeline_steps import _schedule_decision
+
+        hot = SimpleNamespace(viral_potential=95, trend_acceleration="+9%")
+        normal = SimpleNamespace(viral_potential=20, trend_acceleration="+1%")
+
+        assert _schedule_decision([hot, normal], 120) == (30, "hot", 57.5, 1)
+
+    def test_schedule_decision_tunes_by_average_score(self):
+        from getdaytrends.core.pipeline_steps import _schedule_decision
+
+        high = [SimpleNamespace(viral_potential=80, trend_acceleration="+1%")]
+        low = [SimpleNamespace(viral_potential=40, trend_acceleration="+1%")]
+        empty = []
+
+        assert _schedule_decision(high, 60) == (51, "high_average", 80.0, 0)
+        assert _schedule_decision(low, 60) == (75, "low_average", 40.0, 0)
+        assert _schedule_decision(empty, 60) == (60, "default", 0, 0)
+
+    @pytest.mark.asyncio
+    async def test_adjust_schedule_does_not_schedule_one_shot(self):
+        from getdaytrends.core.pipeline_steps import _adjust_schedule
+
+        cfg = AppConfig()
+        cfg.smart_schedule = True
+        cfg.one_shot = True
+        cfg.schedule_minutes = 60
+
+        with patch("getdaytrends.core.pipeline_steps.schedule.clear") as mock_clear:
+            await _adjust_schedule([SimpleNamespace(viral_potential=95, trend_acceleration="+9%")], cfg)
+
+        mock_clear.assert_not_called()
+
 class TestBatchFromCache:
     """캐시 → TweetBatch 재구성 검증."""
 
@@ -183,3 +219,75 @@ async def test_run_fact_check_passes_fact_check_feedback_to_regeneration():
     assert mock_regen.call_args.args[4] == ["tweets"]
     assert mock_regen.call_args.kwargs["fact_check_feedback"]["tweets"]["fact_check"]["hallucinated_claims"] == 1
     assert "환각 의심" in mock_regen.call_args.kwargs["fact_check_feedback"]["tweets"]["fact_check"]["issues"][0]
+
+
+@pytest.mark.asyncio
+async def test_diversity_rewrite_pass_rewrites_later_duplicate(monkeypatch):
+    from getdaytrends.core import steps_generate
+    from getdaytrends.core.steps_generate import _run_diversity_rewrite_pass
+
+    batch = TweetBatch(
+        topic="topic",
+        tweets=[
+            GeneratedTweet(tweet_type="a", content="same framing one"),
+            GeneratedTweet(tweet_type="b", content="same framing two"),
+            GeneratedTweet(tweet_type="c", content="distinct framing"),
+        ],
+    )
+    trend = ScoredTrend(keyword="topic", rank=1, viral_potential=80)
+    cfg = AppConfig()
+    cfg.diversity_sim_threshold = 0.8
+    cfg.target_languages = ["ko"]
+
+    monkeypatch.setattr(steps_generate, "_embed_texts", lambda texts, task_type=None: [[1], [2], [3]])
+    monkeypatch.setattr(steps_generate, "_cosine_similarity", lambda a, b: 0.95 if a == [1] and b == [2] else 0.2)
+
+    client = AsyncMock()
+    client.acreate.return_value = SimpleNamespace(text="rewritten unique tweet")
+
+    await _run_diversity_rewrite_pass(batch, trend, cfg, client)
+
+    assert batch.tweets[0].content == "same framing one"
+    assert batch.tweets[1].content == "rewritten unique tweet"
+    assert "diversity rewrite" in batch.metadata["qa_report"]["warnings"][0]
+
+
+@pytest.mark.asyncio
+async def test_annotate_predictions_adds_prediction_metadata(monkeypatch):
+    from getdaytrends.core import steps_save
+    from getdaytrends.core.steps_save import _annotate_predictions
+
+    class FakePredictionEngine:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        async def initialize(self):
+            return None
+
+        async def predict(self, **kwargs):
+            assert kwargs["trend_keyword"] == "prediction-topic"
+            assert kwargs["qa_scores"] == {"tweets": 88}
+            return SimpleNamespace(
+                predicted_engagement_rate=0.12,
+                predicted_impressions=1234,
+                viral_probability=0.45,
+                optimal_hours=[9, 18],
+                risk_level="low",
+            )
+
+    trend = ScoredTrend(keyword="prediction-topic", rank=1, viral_potential=82, category="tech")
+    batch = TweetBatch(
+        topic="prediction-topic",
+        tweets=[GeneratedTweet(tweet_type="analysis", content="prediction payload")],
+        metadata={"qa_scores": {"tweets": 88}},
+    )
+
+    monkeypatch.setattr(steps_save, "_PredictionEngine", FakePredictionEngine)
+
+    await _annotate_predictions([trend], [batch], AppConfig())
+
+    assert batch.metadata["predicted_er"] == 0.12
+    assert batch.metadata["predicted_impressions"] == 1234
+    assert batch.metadata["viral_probability"] == 0.45
+    assert batch.metadata["optimal_hours"] == [9, 18]
+    assert batch.metadata["pee_risk"] == "low"

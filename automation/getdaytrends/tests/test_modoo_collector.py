@@ -70,6 +70,17 @@ def test_fetch_modoo_ideas_returns_empty_when_node_missing(
     assert modoo_mod.fetch_modoo_ideas() == []
 
 
+def test_fetch_modoo_ideas_rejects_non_positive_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_if_subprocess_runs(*args, **kwargs):
+        raise AssertionError("subprocess must not run for pages <= 0")
+
+    monkeypatch.setattr(modoo_mod, "_node_available", lambda: True)
+    monkeypatch.setattr(modoo_mod, "_scraper_js_exists", lambda: True)
+    monkeypatch.setattr(modoo_mod.subprocess, "run", fail_if_subprocess_runs)
+
+    assert modoo_mod.fetch_modoo_ideas(pages=0) == []
+
+
 def test_fetch_modoo_ideas_handles_subprocess_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

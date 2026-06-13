@@ -21,6 +21,74 @@ def _make_raw_trend(name: str = "test-trend") -> RawTrend:
 
 class TestContextGlobalTimeout:
     @pytest.mark.asyncio
+    async def test_context_source_quality_settings_classifies_sources(self):
+        from collectors.context_runtime import _context_source_quality_settings
+
+        config = AppConfig()
+        config.min_source_quality_calls = 5
+        quality_summary = {
+            "twitter": {"total_calls": 8, "success_rate": 95.0, "avg_quality_score": 0.8},
+            "reddit": {"total_calls": 8, "success_rate": 20.0, "avg_quality_score": 0.1},
+            "news": {"total_calls": 8, "success_rate": 55.0, "avg_quality_score": 0.6},
+            "unknown": {"total_calls": 99, "success_rate": 0.0, "avg_quality_score": 0.0},
+        }
+
+        with patch("db.get_source_quality_summary", new_callable=AsyncMock, return_value=quality_summary):
+            skip_sources, source_timeouts = await _context_source_quality_settings(MagicMock(), config)
+
+        assert skip_sources == {"reddit"}
+        assert source_timeouts == {"twitter": 10.0, "news": 2.0}
+
+    @pytest.mark.asyncio
+    async def test_single_source_merges_extra_news_and_records_quality(self):
+        from collectors.context import _async_fetch_single_source
+
+        with (
+            patch(
+                "collectors.context._async_fetch_google_news_trends",
+                new_callable=AsyncMock,
+                return_value="news payload",
+            ),
+            patch("db.record_source_quality", new_callable=AsyncMock) as mock_record_quality,
+        ):
+            result = await _async_fetch_single_source(
+                MagicMock(),
+                "source-topic",
+                "news",
+                extra_news="seed news",
+                conn=MagicMock(),
+            )
+
+        assert result == ("source-topic", "news", "seed news | news payload")
+        mock_record_quality.assert_awaited_once()
+        assert mock_record_quality.await_args.args[1] == "news"
+        assert mock_record_quality.await_args.args[2] is True
+
+    @pytest.mark.asyncio
+    async def test_single_source_returns_error_text_and_zero_quality_on_failure(self):
+        from collectors.context import _async_fetch_single_source
+
+        with (
+            patch(
+                "collectors.context._async_fetch_reddit_trends",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("source down"),
+            ),
+            patch("db.record_source_quality", new_callable=AsyncMock) as mock_record_quality,
+        ):
+            result = await _async_fetch_single_source(
+                MagicMock(),
+                "source-topic",
+                "reddit",
+                conn=MagicMock(),
+            )
+
+        assert result == ("source-topic", "reddit", "[reddit 오류] source-topic")
+        mock_record_quality.assert_awaited_once()
+        assert mock_record_quality.await_args.args[2] is False
+        assert mock_record_quality.await_args.args[5] == 0.0
+
+    @pytest.mark.asyncio
     async def test_partial_timeout_preserves_completed_results(self):
         from collectors.context import _async_collect_contexts
 

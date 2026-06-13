@@ -245,52 +245,63 @@ def send_weekly_cost_report(config: AppConfig) -> bool:
     return bool(result.get("ok"))
 
 
-def check_watchlist(trends: list[ScoredTrend], config: AppConfig, conn=None) -> int:
-    """Send an immediate alert when a watchlist keyword appears."""
-
-    if not getattr(config, "watchlist_keywords", None) or config.no_alerts:
-        return 0
-
+def _watchlist_matches(trends: list[ScoredTrend], watchlist_keywords: list[str]) -> list[tuple[ScoredTrend, str]]:
     detected: list[tuple[ScoredTrend, str]] = []
     for trend in trends:
-        for keyword in config.watchlist_keywords:
+        for keyword in watchlist_keywords:
             if keyword.lower() in trend.keyword.lower():
                 detected.append((trend, keyword))
                 break
+    return detected
 
-    if not detected:
-        return 0
 
+def _watchlist_message(detected: list[tuple[ScoredTrend, str]]) -> str:
     lines = ["*[WATCHLIST] Keyword detected!*\n"]
     for trend, keyword in detected:
         lines.append(
             f"  - *{trend.keyword}* (matched `{keyword}`) | viral {trend.viral_potential} | {trend.trend_acceleration}"
         )
+    return "\n".join(lines)
 
-    send_alert("\n".join(lines), config)
 
-    if conn is not None:
+async def _persist_watchlist_hits(conn, detected: list[tuple[ScoredTrend, str]]) -> None:
+    try:
+        from .db import record_watchlist_hit
+    except ImportError:
+        from db import record_watchlist_hit
+
+    for trend, keyword in detected:
+        await record_watchlist_hit(conn, trend.keyword, keyword, trend.viral_potential)
+
+
+def _schedule_watchlist_persistence(conn, detected: list[tuple[ScoredTrend, str]]) -> None:
+    if conn is None:
+        return
+    try:
         try:
-            try:
-                from .db import record_watchlist_hit
-            except ImportError:
-                from db import record_watchlist_hit
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_persist_watchlist_hits(conn, detected))
+        else:
+            loop.create_task(_persist_watchlist_hits(conn, detected))
+    except Exception as exc:  # pragma: no cover - persistence is best effort
+        log.debug(f"Watchlist persistence skipped: {exc}")
 
-            async def _persist_hits() -> None:
-                for trend, keyword in detected:
-                    await record_watchlist_hit(conn, trend.keyword, keyword, trend.viral_potential)
 
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                asyncio.run(_persist_hits())
-            else:
-                loop.create_task(_persist_hits())
-        except Exception as exc:  # pragma: no cover - persistence is best effort
-            log.debug(f"Watchlist persistence skipped: {exc}")
+def check_watchlist(trends: list[ScoredTrend], config: AppConfig, conn=None) -> int:
+    """Send an immediate alert when a watchlist keyword appears."""
 
+    watchlist_keywords = getattr(config, "watchlist_keywords", None)
+    if not watchlist_keywords or config.no_alerts:
+        return 0
+
+    detected = _watchlist_matches(trends, watchlist_keywords)
+    if not detected:
+        return 0
+
+    send_alert(_watchlist_message(detected), config)
+    _schedule_watchlist_persistence(conn, detected)
     return len(detected)
-
 
 def check_and_alert(trends: list[ScoredTrend], config: AppConfig) -> int:
     """Send alerts for trends above the configured viral threshold."""
@@ -319,6 +330,15 @@ def format_cost_summary(daily_cost: float, daily_budget: float) -> str:
     return f"{status} ${daily_cost:.4f}/${daily_budget:.2f} ({pct:.0f}%) [{bar}]"
 
 
+def _daily_cost_tracker() -> object:
+    from shared.llm.stats import _DB_PATH as llm_db_path
+    from shared.llm.stats import CostTracker
+
+    if not llm_db_path.exists():
+        return None
+    return CostTracker(persist=True)
+
+
 def send_daily_cost_alert(config: AppConfig) -> bool:
     """Send a daily budget alert when LLM usage crosses warning thresholds."""
 
@@ -326,39 +346,47 @@ def send_daily_cost_alert(config: AppConfig) -> bool:
         return False
 
     try:
-        from shared.llm.stats import _DB_PATH as llm_db_path
-        from shared.llm.stats import CostTracker
+        tracker = _daily_cost_tracker()
     except Exception:
         return False
 
-    if not llm_db_path.exists():
+    if tracker is None:
         return False
 
     try:
-        tracker = CostTracker(persist=True)
         daily = tracker.get_daily_stats(1)
         tracker.close()
     except Exception as exc:  # pragma: no cover - external dependency path
         log.debug(f"Daily cost alert unavailable: {exc}")
         return False
 
-    today = str(date.today())
-    today_cost = sum(row["cost_usd"] for row in daily if row.get("date") == today)
-    pct = today_cost / config.daily_budget_usd * 100 if config.daily_budget_usd > 0 else 0
-    if pct < 70:
+    daily_cost, daily_calls = _daily_cost_totals(daily, str(date.today()))
+    pct = _daily_budget_pct(daily_cost, config.daily_budget_usd)
+    if not _should_send_cost_alert(pct):
         return False
 
-    summary = format_cost_summary(today_cost, config.daily_budget_usd)
-    today_calls = sum(row["calls"] for row in daily if row.get("date") == today)
-    if pct >= 90:
-        message = (
-            f"*Daily budget critical!*\n{summary}\nCalls today: {today_calls}\nConsider disabling heavy Sonnet paths."
-        )
-    else:
-        message = f"*Daily cost alert*\n{summary}\nCalls today: {today_calls}"
-
-    results = send_alert(message, config)
+    summary = format_cost_summary(daily_cost, config.daily_budget_usd)
+    results = send_alert(_daily_cost_alert_message(summary, daily_calls, pct), config)
     if any(result.get("ok") for result in results.values()):
         log.info(f"Daily cost alert sent: {summary}")
         return True
     return False
+
+
+def _daily_cost_totals(daily: list[dict], today: str) -> tuple[float, int]:
+    rows = [row for row in daily if row.get("date") == today]
+    return sum(row["cost_usd"] for row in rows), sum(row["calls"] for row in rows)
+
+
+def _daily_budget_pct(daily_cost: float, daily_budget: float) -> float:
+    return daily_cost / daily_budget * 100 if daily_budget > 0 else 0
+
+
+def _should_send_cost_alert(pct: float) -> bool:
+    return pct >= 70
+
+
+def _daily_cost_alert_message(summary: str, calls: int, pct: float) -> str:
+    if pct >= 90:
+        return f"*Daily budget critical!*\n{summary}\nCalls today: {calls}\nConsider disabling heavy Sonnet paths."
+    return f"*Daily cost alert*\n{summary}\nCalls today: {calls}"

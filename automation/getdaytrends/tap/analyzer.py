@@ -26,7 +26,7 @@ class ArbitrageAnalyzer:
     # 프롬프트 블록에 포함할 최대 기회 수
     MAX_PROMPT_HINTS = 3
 
-    def __init__(self, opportunities: list[ArbitrageOpportunity] | None = None):
+    def __init__(self, opportunities: list[ArbitrageOpportunity] | None = None) -> None:
         self._opps = opportunities or []
 
     @property

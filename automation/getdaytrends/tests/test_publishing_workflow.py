@@ -65,6 +65,45 @@ def test_sync_approved_from_notion_records_review_decision(monkeypatch):
     ]
 
 
+def test_query_hub_pages_uses_data_source_query_for_database_id():
+    module = _load_script_module()
+    notion = MagicMock()
+    del notion.databases.query
+    notion.databases.retrieve.return_value = {"data_sources": [{"id": "data-source-1"}]}
+    notion.data_sources.query.return_value = {"results": []}
+
+    result = module._query_hub_pages(notion, "database-1", page_size=25)
+
+    assert result == {"results": []}
+    notion.databases.retrieve.assert_called_once_with(database_id="database-1")
+    notion.data_sources.query.assert_called_once_with(data_source_id="data-source-1", page_size=25)
+
+
+def test_query_hub_pages_falls_back_to_legacy_database_query():
+    module = _load_script_module()
+    notion = MagicMock()
+    del notion.data_sources
+    notion.databases.query.return_value = {"results": []}
+
+    result = module._query_hub_pages(notion, "database-1", page_size=25)
+
+    assert result == {"results": []}
+    notion.databases.query.assert_called_once_with(database_id="database-1", page_size=25)
+
+
+def test_status_and_platform_helpers_tolerate_empty_notion_values():
+    module = _load_script_module()
+    props = {
+        "Status": {"select": None},
+        "Platform": {"multi_select": None},
+        "Draft ID": {"rich_text": None},
+    }
+
+    assert module._status_value(props) == ""
+    assert module._platform_names(props) == []
+    assert module._rich_text_value(props, "Draft ID") == ""
+
+
 def test_mark_as_published_records_receipt_and_updates_notion(monkeypatch):
     module = _load_script_module()
     notion = MagicMock()

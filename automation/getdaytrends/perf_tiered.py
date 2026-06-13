@@ -78,14 +78,7 @@ class TieredCollectionMixin:
             await conn.close()
 
     async def run_tiered_collection(self, lookback_hours: int = 48) -> dict:
-        """[D] 3단계 수집 스케줄러.
-
-        - 1h tier: 발행 후 45분~90분 내 트윗
-        - 6h tier: 발행 후 5~7시간 내 트윗
-        - 48h tier: 발행 후 24~72시간 내 트윗
-
-        Returns: {tier_1h: N, tier_6h: N, tier_48h: N}
-        """
+        """Run scheduled 1h/6h/48h performance collection."""
         conn = await self._get_conn()
         result = {"tier_1h": 0, "tier_6h": 0, "tier_48h": 0}
 
@@ -94,70 +87,85 @@ class TieredCollectionMixin:
                 log.info("[Tiered Collection] skipped: tweet_performance table missing")
                 return result
 
-            now = datetime.now()
-            t1h_start = (now - timedelta(minutes=90)).isoformat()
-            t1h_end = (now - timedelta(minutes=45)).isoformat()
-            t6h_start = (now - timedelta(hours=7)).isoformat()
-            t6h_end = (now - timedelta(hours=5)).isoformat()
-            t48h_start = (now - timedelta(hours=72)).isoformat()
-            t48h_end = (now - timedelta(hours=24)).isoformat()
+            for tier, start, end in _tier_windows(datetime.now()):
+                result[f"tier_{tier}"] = await self._collect_one_tier(conn, tier, start, end)
 
-            for tier, start, end in [
-                ("1h", t1h_start, t1h_end),
-                ("6h", t6h_start, t6h_end),
-                ("48h", t48h_start, t48h_end),
-            ]:
-                cursor = await conn.execute(
-                    """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id
-                       FROM tweets t
-                       WHERE t.posted_at IS NOT NULL
-                         AND t.posted_at >= ? AND t.posted_at <= ?
-                         AND (
-                             (t.x_tweet_id IS NOT NULL AND t.x_tweet_id != '' AND t.x_tweet_id NOT IN (
-                                 SELECT tweet_id
-                                 FROM tweet_performance
-                                 WHERE collection_tier = ?
-                             ))
-                             OR
-                             ((t.x_tweet_id IS NULL OR t.x_tweet_id = '') AND t.id NOT IN (
-                                 SELECT CAST(tweet_id AS INTEGER)
-                                 FROM tweet_performance
-                                 WHERE collection_tier = ? AND tweet_id GLOB '[0-9]*'
-                             ))
-                         )
-                       LIMIT 100""",
-                    (start, end, tier, tier),
-                )
-                rows = await cursor.fetchall()
-
-                if not rows:
-                    continue
-
-                tweet_ids = []
-                id_map: dict[str, dict] = {}
-                for r in rows:
-                    x_tweet_id = (r["x_tweet_id"] or "").strip()
-                    posted_at = (r["posted_at"] or "").strip()
-                    if x_tweet_id and re.match(r"^\d{10,}$", x_tweet_id):
-                        x_id = x_tweet_id
-                        tweet_ids.append(x_id)
-                        id_map[x_id] = dict(r)
-                    elif posted_at and re.match(r"^\d{10,}$", posted_at):
-                        x_id = posted_at
-                        tweet_ids.append(x_id)
-                        id_map[x_id] = dict(r)
-
-                if tweet_ids and self.bearer_token:
-                    metrics = await self.batch_collect(tweet_ids)
-                    for m in metrics:
-                        m.collection_tier = tier
-                        row_info = id_map.get(m.tweet_id, {})
-                        m.angle_type = normalize_angle(row_info.get("tweet_type", ""))
-                    count = await self.save_metrics_batch(metrics)
-                    result[f"tier_{tier}"] = count
-
-            log.info(f"3단계 수집 완료: 1h={result['tier_1h']}, 6h={result['tier_6h']}, 48h={result['tier_48h']}")
+            log.info(
+                f"3-tier collection complete: 1h={result['tier_1h']}, "
+                f"6h={result['tier_6h']}, 48h={result['tier_48h']}"
+            )
         finally:
             await conn.close()
 
         return result
+
+    async def _collect_one_tier(self, conn, tier: str, start: str, end: str) -> int:
+        rows = await _tier_candidate_rows(conn, tier, start, end)
+        tweet_ids, id_map = _tier_tweet_id_map(rows)
+        if not tweet_ids or not self.bearer_token:
+            return 0
+
+        metrics = await self.batch_collect(tweet_ids)
+        _annotate_tier_metrics(metrics, tier, id_map)
+        return await self.save_metrics_batch(metrics)
+
+
+def _tier_windows(now: datetime) -> list[tuple[str, str, str]]:
+    return [
+        ("1h", (now - timedelta(minutes=90)).isoformat(), (now - timedelta(minutes=45)).isoformat()),
+        ("6h", (now - timedelta(hours=7)).isoformat(), (now - timedelta(hours=5)).isoformat()),
+        ("48h", (now - timedelta(hours=72)).isoformat(), (now - timedelta(hours=24)).isoformat()),
+    ]
+
+
+async def _tier_candidate_rows(conn, tier: str, start: str, end: str) -> list:
+    cursor = await conn.execute(
+        """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id
+           FROM tweets t
+           WHERE t.posted_at IS NOT NULL
+             AND t.posted_at >= ? AND t.posted_at <= ?
+             AND (
+                 (t.x_tweet_id IS NOT NULL AND t.x_tweet_id != '' AND t.x_tweet_id NOT IN (
+                     SELECT tweet_id
+                     FROM tweet_performance
+                     WHERE collection_tier = ?
+                 ))
+                 OR
+                 ((t.x_tweet_id IS NULL OR t.x_tweet_id = '') AND t.id NOT IN (
+                     SELECT CAST(tweet_id AS INTEGER)
+                     FROM tweet_performance
+                     WHERE collection_tier = ? AND tweet_id GLOB '[0-9]*'
+                 ))
+             )
+           LIMIT 100""",
+        (start, end, tier, tier),
+    )
+    return await cursor.fetchall()
+
+
+def _tier_tweet_id_map(rows: list) -> tuple[list[str], dict[str, dict]]:
+    tweet_ids: list[str] = []
+    id_map: dict[str, dict] = {}
+    for row in rows:
+        x_id = _tier_row_tweet_id(row)
+        if x_id:
+            tweet_ids.append(x_id)
+            id_map[x_id] = dict(row)
+    return tweet_ids, id_map
+
+
+def _tier_row_tweet_id(row) -> str:
+    x_tweet_id = (row["x_tweet_id"] or "").strip()
+    posted_at = (row["posted_at"] or "").strip()
+    if x_tweet_id and re.match(r"^\d{10,}$", x_tweet_id):
+        return x_tweet_id
+    if posted_at and re.match(r"^\d{10,}$", posted_at):
+        return posted_at
+    return ""
+
+
+def _annotate_tier_metrics(metrics: list[TweetMetrics], tier: str, id_map: dict[str, dict]) -> None:
+    for metric in metrics:
+        metric.collection_tier = tier
+        row_info = id_map.get(metric.tweet_id, {})
+        metric.angle_type = normalize_angle(row_info.get("tweet_type", ""))

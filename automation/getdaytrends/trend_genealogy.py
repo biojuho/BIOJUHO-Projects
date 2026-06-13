@@ -7,6 +7,7 @@ analyzer.py에서 분리됨.
 import json
 import re
 import sqlite3
+from datetime import datetime
 
 from loguru import logger as log
 
@@ -94,11 +95,7 @@ _GENEALOGY_PROMPT = """당신은 트렌드 인과관계 분석 전문가입니�
 - predicted_children: 최대 2개, 구체적이고 검색 가능한 키워드"""
 
 
-def _parse_json_array(text: str | None) -> list | None:
-    """JSON 배열 파싱."""
-    if not text:
-        return None
-    stripped = text.strip()
+def _json_array_candidates(stripped: str) -> list[str]:
     candidates = [stripped]
     fence_match = re.match(r"^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$", stripped, re.IGNORECASE)
     if fence_match:
@@ -109,8 +106,28 @@ def _parse_json_array(text: str | None) -> list | None:
     if start != -1 and end != -1 and start < end:
         candidates.append(stripped[start : end + 1])
 
+    return candidates
+
+
+def _array_from_json_value(parsed: object) -> list | None:
+    if isinstance(parsed, list):
+        return parsed
+    if not isinstance(parsed, dict):
+        return None
+    for key in ("items", "results", "data", "trends"):
+        value = parsed.get(key)
+        if isinstance(value, list):
+            return value
+    return None
+
+
+def _parse_json_array(text: str | None) -> list | None:
+    """JSON array parsing with markdown and wrapper-object fallbacks."""
+    if not text:
+        return None
+    stripped = text.strip()
     seen: set[str] = set()
-    for candidate in candidates:
+    for candidate in _json_array_candidates(stripped):
         if not candidate or candidate in seen:
             continue
         seen.add(candidate)
@@ -118,15 +135,10 @@ def _parse_json_array(text: str | None) -> list | None:
             parsed = json.loads(candidate)
         except json.JSONDecodeError:
             continue
-        if isinstance(parsed, list):
-            return parsed
-        if isinstance(parsed, dict):
-            for key in ("items", "results", "data", "trends"):
-                value = parsed.get(key)
-                if isinstance(value, list):
-                    return value
+        parsed_array = _array_from_json_value(parsed)
+        if parsed_array is not None:
+            return parsed_array
     return None
-
 
 async def analyze_trend_genealogy(
     current_trends: list,
@@ -134,71 +146,82 @@ async def analyze_trend_genealogy(
     client: "LLMClient",
     config=None,
 ) -> list[dict]:
-    """[A] 현재 트렌드와 과거 트렌드 간 계보 관계 분석 + 파생 예측.
-
-    Returns:
-        [{"keyword": str, "parent_keyword": str, "predicted_children": [...], "confidence": float}]
-    """
+    """Analyze causal trend genealogy and return normalized relationships."""
     if not current_trends:
         return []
 
-    from datetime import datetime as _dt
-
-    current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
-
-    current_keywords = "\n".join(
-        f"- {t.keyword} (카테고리: {t.category}, 바이럴: {t.viral_potential})" for t in current_trends[:15]
-    )
-
-    history_keywords = "없음 (첫 실행)"
-    if history_trends:
-        history_keywords = "\n".join(
-            f"- {h.get('keyword', '?')} (최고점수: {h.get('peak_viral_score', 0)}, "
-            f"마지막: {h.get('last_seen_at', '?')[:16]})"
-            for h in history_trends[:20]
-        )
-
-    prompt = _GENEALOGY_PROMPT.format(
-        current_time=current_time,
-        current_keywords=current_keywords,
-        history_keywords=history_keywords,
-    )
-
     try:
-        response = await client.acreate(
-            tier=TaskTier.LIGHTWEIGHT,
-            max_tokens=1500,
-            policy=_JSON_POLICY,
-            system="트렌드 인과관계 분석 전문가. JSON 배열로만 응답.",
-            messages=[{"role": "user", "content": prompt}],
-        )
+        response = await _request_genealogy_analysis(client, current_trends, history_trends)
         results = _parse_json_array(response.text)
         if not results:
-            log.warning("[Genealogy] JSON 파싱 실패")
+            log.warning("[Genealogy] JSON parsing failed")
             return []
 
-        valid = []
-        for r in results:
-            if not isinstance(r, dict) or "keyword" not in r:
-                continue
-            valid.append(
-                {
-                    "keyword": r.get("keyword", ""),
-                    "parent_keyword": r.get("parent_keyword", ""),
-                    "predicted_children": r.get("predicted_children", [])[:2],
-                    "confidence": min(max(float(r.get("confidence", 0.0)), 0.0), 1.0),
-                }
-            )
-
+        valid = _valid_genealogy_results(results)
         log.info(
-            f"[Genealogy] 계보 분석 완료: {len(valid)}개 트렌드, "
-            f"연결 발견: {sum(1 for v in valid if v['parent_keyword'])}개"
+            f"[Genealogy] completed: {len(valid)} trends, "
+            f"linked: {sum(1 for item in valid if item['parent_keyword'])}"
         )
         return valid
 
-    except Exception as e:
-        log.error(f"[Genealogy] 분석 실패: {e}")
+    except Exception as exc:
+        log.error(f"[Genealogy] analysis failed: {exc}")
         return []
+
+
+async def _request_genealogy_analysis(client: "LLMClient", current_trends: list, history_trends: list[dict]) -> object:
+    return await client.acreate(
+        tier=TaskTier.LIGHTWEIGHT,
+        max_tokens=1500,
+        policy=_JSON_POLICY,
+        system="Trend causality analyst. Reply only with a JSON array.",
+        messages=[{"role": "user", "content": _genealogy_prompt(current_trends, history_trends)}],
+    )
+
+
+def _genealogy_prompt(current_trends: list, history_trends: list[dict]) -> str:
+    return _GENEALOGY_PROMPT.format(
+        current_time=datetime.now().strftime("%Y-%m-%d %H:%M (KST)"),
+        current_keywords=_current_trend_lines(current_trends),
+        history_keywords=_history_trend_lines(history_trends),
+    )
+
+
+def _current_trend_lines(current_trends: list) -> str:
+    return "\n".join(
+        f"- {trend.keyword} (category: {trend.category}, viral: {trend.viral_potential})"
+        for trend in current_trends[:15]
+    )
+
+
+def _history_trend_lines(history_trends: list[dict]) -> str:
+    if not history_trends:
+        return "none (first run)"
+    return "\n".join(
+        f"- {item.get('keyword', '?')} (peak: {item.get('peak_viral_score', 0)}, "
+        f"last: {item.get('last_seen_at', '?')[:16]})"
+        for item in history_trends[:20]
+    )
+
+
+def _valid_genealogy_results(results: list) -> list[dict]:
+    valid = []
+    for item in results:
+        normalized = _normalize_genealogy_result(item)
+        if normalized:
+            valid.append(normalized)
+    return valid
+
+
+def _normalize_genealogy_result(item: object) -> dict | None:
+    if not isinstance(item, dict) or "keyword" not in item:
+        return None
+    return {
+        "keyword": item.get("keyword", ""),
+        "parent_keyword": item.get("parent_keyword", ""),
+        "predicted_children": item.get("predicted_children", [])[:2],
+        "confidence": min(max(float(item.get("confidence", 0.0)), 0.0), 1.0),
+    }
 
 
 def enrich_trends_with_genealogy(

@@ -187,6 +187,101 @@ except ImportError:
 # ══════════════════════════════════════════════════════
 
 
+def _tweet_generation_user_message(
+    trend: ScoredTrend,
+    config: AppConfig,
+    recent_tweets: list[str] | None,
+    approved_post_bank: list[dict[str, Any]] | None,
+    golden_refs: list | None,
+    pattern_weights: dict | None,
+    edape_block: str,
+    revision_feedback: dict | None,
+) -> str:
+    from datetime import datetime as _dt
+
+    target_language = _resolve_language(config)
+    safe_keyword = sanitize_keyword(trend.keyword)
+    current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
+    ai_frame_guard_section = _build_ai_frame_guard_section(trend) if getattr(config, "tone", "") == "biojuho" else ""
+    return (
+        f"Topic: {safe_keyword}\n"
+        f"Current time: {current_time}\n"
+        f"Output language: write only in {target_language}.\n"
+        f"{_build_account_identity_section(config)}"
+        f"{_build_fact_guardrail_section(trend)}"
+        f"{_build_deep_why_section(trend)}"
+        f"{_build_context_section(trend)}"
+        f"{_build_scoring_section(trend)}"
+        f"{_build_category_tone_hint(trend)}"
+        f"{_build_pattern_weights_section(pattern_weights)}"
+        f"{_build_golden_reference_section(golden_refs)}"
+        f"{_build_diversity_section(recent_tweets or [])}"
+        f"{_build_approved_post_bank_section(approved_post_bank)}"
+        f"{_build_revision_feedback_section(revision_feedback)}"
+        f"{_build_audience_format_section(trend)}"
+        f"{ai_frame_guard_section}"
+        f"{edape_block}\n"
+        "Write five sharply differentiated tweets. Use concrete facts from context, "
+        "but make interpretation and point of view the main value. Output JSON only."
+    )
+
+
+async def _tweet_generation_instructor_data(trend: ScoredTrend, config: AppConfig, user_message: str) -> dict | None:
+    if not _INST_OK:
+        return None
+    try:
+        full_prompt = f"[system]\n{_system_tweets(config.tone)}\n\n[user]\n{user_message}"
+        inst_result = await extract_structured(
+            full_prompt,
+            TweetGenerationResponse,
+            tier="lightweight",
+            max_tokens=1500,
+        )
+        if inst_result and inst_result.tweets:
+            log.info(f"[Instructor] tweet generation parsed: '{trend.keyword}'")
+            return inst_result.model_dump()
+    except (RuntimeError, ConnectionError, TimeoutError) as e:
+        log.debug(f"[Instructor] tweet generation fallback: {type(e).__name__}: {e}")
+    return None
+
+
+async def _tweet_generation_json_data(
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    user_message: str,
+) -> dict | None:
+    try:
+        response = await client.acreate(
+            tier=TaskTier.LIGHTWEIGHT,
+            max_tokens=1500,
+            policy=_JSON_POLICY,
+            system=_system_tweets(config.tone),
+            messages=[{"role": "user", "content": user_message}],
+        )
+        return _parse_json(response.text)
+    except (RuntimeError, ConnectionError, TimeoutError) as e:
+        log.error(f"Tweet generation LLM failed ({trend.keyword}): {type(e).__name__}: {e}")
+    except Exception as e:
+        log.error(f"Tweet generation unexpected error ({trend.keyword}): {type(e).__name__}: {e}")
+    return None
+
+
+async def _tweet_generation_data(
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    user_message: str,
+) -> dict | None:
+    data = await _tweet_generation_instructor_data(trend, config, user_message)
+    if data is None:
+        data = await _tweet_generation_json_data(trend, config, client, user_message)
+    if data is None:
+        log.warning(f"[retry] JSON parse failed; regenerating once: '{trend.keyword}'")
+        data = await _tweet_generation_json_data(trend, config, client, user_message)
+    return data
+
+
 async def generate_tweets_async(
     trend: ScoredTrend,
     config: AppConfig,
@@ -199,98 +294,19 @@ async def generate_tweets_async(
     edape_block: str = "",
     revision_feedback: dict | None = None,
 ) -> TweetBatch | None:
-    """5종 단문 트윗 비동기 생성 (Haiku — 비용 절감).
-    [v9.0] recent_tweets: 이전 생성 내용 주입으로 표현 다양성 보장.
-    [v5.0] golden_refs: 골든 레퍼런스 벤치마크 (E. Benchmark QA).
-    [v5.0] pattern_weights: 훅/킥 성과 가중치 (B. Adaptive Voice).
-    """
-    from datetime import datetime as _dt
-
-    target_language = _resolve_language(config)
-    context_section = _build_context_section(trend)
-    scoring_section = _build_scoring_section(trend)
-    identity_section = _build_account_identity_section(config)
-    fact_guardrail_section = _build_fact_guardrail_section(trend)
-    diversity_section = _build_diversity_section(recent_tweets or [])
-    approved_post_bank_section = _build_approved_post_bank_section(approved_post_bank)
-    category_hint = _build_category_tone_hint(trend)
-    deep_why_section = _build_deep_why_section(trend)
-    golden_ref_section = _build_golden_reference_section(golden_refs)
-    pattern_weights_section = _build_pattern_weights_section(pattern_weights)
-    revision_feedback_section = _build_revision_feedback_section(revision_feedback)
-    audience_format_section = _build_audience_format_section(trend)
-    ai_frame_guard_section = _build_ai_frame_guard_section(trend) if getattr(config, "tone", "") == "biojuho" else ""
-    safe_keyword = sanitize_keyword(trend.keyword)
-    current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
-
-    user_message = (
-        f"주제: {safe_keyword}\n"
-        f"현재 시각: {current_time}\n"
-        f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}"
-        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}"
-        f"{approved_post_bank_section}"
-        f"{revision_feedback_section}{audience_format_section}{ai_frame_guard_section}"
-        f"{edape_block}\n"
-        "위 배경과 컨텍스트를 깊이 소화한 뒤, 쟁점을 추출하고 각 쟁점별로 날카로운 각도의 트윗 작성.\n"
-        "중요: 너는 뉴스를 '전달'하는 사람이 아니라 뉴스를 보고 '한마디 하는' 사람임.\n"
-        "정보 전달 30% + 너의 해석/시각 70% 비율로 작성.\n"
-        "컨텍스트의 구체적 수치/사건/반응을 반드시 활용하되, 그걸 '내 관점'으로 재해석할 것.\n"
-        "5개 트윗의 첫 문장이 전부 다른 방식으로 시작해야 함.\n"
-        "반드시 JSON만 출력."
+    """Generate five short tweets asynchronously."""
+    user_message = _tweet_generation_user_message(
+        trend,
+        config,
+        recent_tweets,
+        approved_post_bank,
+        golden_refs,
+        pattern_weights,
+        edape_block,
+        revision_feedback,
     )
-
-    # [Phase 1] Instructor 우선 시도 → 실패 시 기존 JSON 파싱 폴백
-    data = None
-    if _INST_OK:
-        try:
-            full_prompt = f"[시스템]\n{_system_tweets(config.tone)}\n\n[사용자]\n{user_message}"
-            inst_result = await extract_structured(
-                full_prompt,
-                TweetGenerationResponse,
-                tier="lightweight",
-                max_tokens=1500,
-            )
-            if inst_result and inst_result.tweets:
-                data = inst_result.model_dump()
-                log.info(f"[Instructor] 트윗 생성 파싱 성공: '{trend.keyword}'")
-        except (RuntimeError, ConnectionError, TimeoutError) as e:
-            log.debug(f"[Instructor] 트윗 생성 폴백: {type(e).__name__}: {e}")
-
-    if data is None:
-        try:
-            response = await client.acreate(
-                tier=TaskTier.LIGHTWEIGHT,
-                max_tokens=1500,
-                policy=_JSON_POLICY,
-                system=_system_tweets(config.tone),
-                messages=[{"role": "user", "content": user_message}],
-            )
-            data = _parse_json(response.text)
-        except (RuntimeError, ConnectionError, TimeoutError) as e:
-            log.error(f"트윗 생성 LLM 실패 ({trend.keyword}): {type(e).__name__}: {e}")
-            return None
-        except Exception as e:
-            log.error(f"트윗 생성 예상외 오류 ({trend.keyword}): {type(e).__name__}: {e}")
-            return None
-
-    # JSON 파싱 실패 시 1회 재시도 (LLM 응답이 깨진 JSON인 경우)
-    if data is None:
-        log.warning(f"[재시도] JSON 파싱 실패 → 1회 재생성 시도: '{trend.keyword}'")
-        try:
-            response = await client.acreate(
-                tier=TaskTier.LIGHTWEIGHT,
-                max_tokens=1500,
-                policy=_JSON_POLICY,
-                system=_system_tweets(config.tone),
-                messages=[{"role": "user", "content": user_message}],
-            )
-            data = _parse_json(response.text)
-        except Exception as e:
-            log.error(f"[재시도] 트윗 재생성 실패 ({trend.keyword}): {type(e).__name__}: {e}")
-
+    data = await _tweet_generation_data(trend, config, client, user_message)
     return _parse_tweets_to_batch(data, trend)
-
 
 # -- 추출된 모듈 re-export (후방 호환) --
 try:
@@ -435,6 +451,63 @@ def _attach_optional_results(batch: TweetBatch, result_map: dict[str, Any]) -> N
             setattr(batch, attr, result)
 
 
+def _primary_generation_call(
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    recent_tweets: list[str] | None,
+    approved_post_bank: list[dict[str, Any]] | None,
+    golden_refs: list | None,
+    pattern_weights: dict | None,
+    edape_block: str,
+    threads_enabled: bool,
+) -> tuple[str, Any]:
+    if threads_enabled:
+        return (
+            "combined",
+            generate_tweets_and_threads_async(
+                trend,
+                config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                golden_refs,
+                pattern_weights,
+                edape_block=edape_block,
+            ),
+        )
+    return (
+        "tweets",
+        generate_tweets_async(
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
+            edape_block=edape_block,
+        ),
+    )
+
+
+def _optional_generation_calls(
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    blog_enabled: bool,
+    gen_tier: TaskTier,
+) -> list[tuple[str, Any]]:
+    calls: list[tuple[str, Any]] = []
+    if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
+        calls.append(("long", generate_long_form_async(trend, config, client, tier=gen_tier)))
+    if trend.viral_potential >= config.thread_min_score:
+        calls.append(("thread", generate_thread_async(trend, config, client, tier=gen_tier)))
+    if blog_enabled:
+        calls.append(("blog", generate_blog_async(trend, config, client)))
+    return calls
+
+
 async def _run_serial_generation(
     trend: ScoredTrend,
     config: AppConfig,
@@ -449,55 +522,27 @@ async def _run_serial_generation(
     gen_tier: TaskTier,
 ) -> dict[str, Any]:
     result_map: dict[str, Any] = {}
-    primary_key = "combined" if threads_enabled else "tweets"
-    primary_coro = (
-        generate_tweets_and_threads_async(
-            trend,
-            config,
-            client,
-            recent_tweets,
-            approved_post_bank,
-            golden_refs,
-            pattern_weights,
-            edape_block=edape_block,
-        )
-        if threads_enabled
-        else generate_tweets_async(
-            trend,
-            config,
-            client,
-            recent_tweets,
-            approved_post_bank,
-            golden_refs,
-            pattern_weights,
-            edape_block=edape_block,
-        )
+    primary_key, primary_coro = _primary_generation_call(
+        trend,
+        config,
+        client,
+        recent_tweets,
+        approved_post_bank,
+        golden_refs,
+        pattern_weights,
+        edape_block,
+        threads_enabled,
     )
     try:
         result_map[primary_key] = await primary_coro
     except Exception as exc:
         result_map[primary_key] = exc
 
-    for key, coro in [
-        (
-            "long",
-            generate_long_form_async(trend, config, client, tier=gen_tier)
-            if config.enable_long_form and trend.viral_potential >= config.long_form_min_score
-            else None,
-        ),
-        (
-            "thread",
-            generate_thread_async(trend, config, client, tier=gen_tier)
-            if trend.viral_potential >= config.thread_min_score
-            else None,
-        ),
-        ("blog", generate_blog_async(trend, config, client) if blog_enabled else None),
-    ]:
-        if coro is not None:
-            try:
-                result_map[key] = await coro
-            except Exception as exc:
-                result_map[key] = exc
+    for key, coro in _optional_generation_calls(trend, config, client, blog_enabled, gen_tier):
+        try:
+            result_map[key] = await coro
+        except Exception as exc:
+            result_map[key] = exc
     return result_map
 
 
@@ -563,84 +608,118 @@ async def generate_for_trend_async(
     *,
     edape_block: str = "",
 ) -> TweetBatch | None:
-    """
-    오케스트레이터 (비동기): 트윗 5종 + 조건부 장문/Threads/쓰레드/블로그 동시 생성.
-
-    C1 최적화: Threads 활성 시 단문+Threads를 통합 1회 호출로 처리.
-    [v12.0] target_platforms 기반 멀티플랫폼 라우팅.
-    [v9.0] recent_tweets: 이전 생성 표현 주입 (콘텐츠 다양성).
-    [v5.0] golden_refs / pattern_weights: 성과 기반 벤치마크 + 패턴 가중치.
-    """
-    gen_tier = _select_generation_tier(trend, config)
-    category = getattr(trend, "category", "") or "미분류"
-    tier_label = "Sonnet" if gen_tier == TaskTier.HEAVY else "Haiku↓"
-    platforms = getattr(config, "target_platforms", ["x"])
-
-    threads_enabled = (
-        config.enable_threads and trend.viral_potential >= config.threads_min_score and "threads" in platforms
+    """Generate the enabled content formats for one scored trend."""
+    plan = _generation_plan(trend, config)
+    _log_generation_plan(trend, config, plan)
+    result_map = await _execute_generation_plan(
+        plan,
+        trend,
+        config,
+        client,
+        recent_tweets,
+        approved_post_bank,
+        golden_refs,
+        pattern_weights,
+        edape_block,
     )
-    blog_enabled = "naver_blog" in platforms and trend.viral_potential >= getattr(config, "blog_min_score", 70)
-
-    tier_parts = ["단문(5종)" + ("+Threads(통합)" if threads_enabled else "")]
-    if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
-        tier_parts.append(f"Premium+장문({tier_label})")
-    if trend.viral_potential >= config.thread_min_score:
-        tier_parts.append(f"X쓰레드({tier_label})")
-    if blog_enabled:
-        tier_parts.append("블로그(HEAVY)")
-    log.info(f"  [{trend.viral_potential}점/{category}] '{trend.keyword}' → {' + '.join(tier_parts)}")
-
-    if _PY314_SERIAL_GENERATION:
-        result_map = await _run_serial_generation(
-            trend,
-            config,
-            client,
-            recent_tweets,
-            approved_post_bank,
-            golden_refs,
-            pattern_weights,
-            edape_block,
-            threads_enabled,
-            blog_enabled,
-            gen_tier,
-        )
-    else:
-        result_map = await _run_parallel_generation(
-            trend,
-            config,
-            client,
-            recent_tweets,
-            approved_post_bank,
-            golden_refs,
-            pattern_weights,
-            edape_block,
-            threads_enabled,
-            blog_enabled,
-            gen_tier,
-        )
-
-    # 기본 배치 추출 (combined 또는 tweets)
-    if "combined" in result_map:
-        batch = await _resolve_combined_fallback(
-            result_map,
-            trend,
-            config,
-            client,
-            approved_post_bank,
-            golden_refs,
-            pattern_weights,
-            edape_block=edape_block,
-        )
-    else:
-        batch = result_map.get("tweets")
-
-    if not batch or isinstance(batch, Exception):
-        if isinstance(batch, Exception):
-            log.error(f"트윗 생성 예외 ({trend.keyword}): {batch}")
+    batch = await _primary_generation_batch(
+        result_map,
+        trend,
+        config,
+        client,
+        approved_post_bank,
+        golden_refs,
+        pattern_weights,
+        edape_block,
+    )
+    if not _valid_generation_batch(batch, trend):
         return None
 
     _attach_optional_results(batch, result_map)
     return batch
+
+
+def _generation_plan(trend: ScoredTrend, config: AppConfig) -> dict[str, Any]:
+    gen_tier = _select_generation_tier(trend, config)
+    platforms = getattr(config, "target_platforms", ["x"])
+    return {
+        "gen_tier": gen_tier,
+        "tier_label": "Sonnet" if gen_tier == TaskTier.HEAVY else "Haiku",
+        "threads_enabled": (
+            config.enable_threads and trend.viral_potential >= config.threads_min_score and "threads" in platforms
+        ),
+        "blog_enabled": "naver_blog" in platforms and trend.viral_potential >= getattr(config, "blog_min_score", 70),
+    }
+
+
+def _log_generation_plan(trend: ScoredTrend, config: AppConfig, plan: dict[str, Any]) -> None:
+    category = getattr(trend, "category", "") or "unclassified"
+    tier_parts = ["tweets(5)" + ("+threads(combined)" if plan["threads_enabled"] else "")]
+    if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
+        tier_parts.append(f"premium+ long-form({plan['tier_label']})")
+    if trend.viral_potential >= config.thread_min_score:
+        tier_parts.append(f"x-thread({plan['tier_label']})")
+    if plan["blog_enabled"]:
+        tier_parts.append("blog(heavy)")
+    log.info(f"  [{trend.viral_potential}][{category}] '{trend.keyword}' -> {' + '.join(tier_parts)}")
+
+
+async def _execute_generation_plan(
+    plan: dict[str, Any],
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    recent_tweets: list[str] | None,
+    approved_post_bank: list[dict[str, Any]] | None,
+    golden_refs: list | None,
+    pattern_weights: dict | None,
+    edape_block: str,
+) -> dict[str, Any]:
+    runner = _run_serial_generation if _PY314_SERIAL_GENERATION else _run_parallel_generation
+    return await runner(
+        trend,
+        config,
+        client,
+        recent_tweets,
+        approved_post_bank,
+        golden_refs,
+        pattern_weights,
+        edape_block,
+        plan["threads_enabled"],
+        plan["blog_enabled"],
+        plan["gen_tier"],
+    )
+
+
+async def _primary_generation_batch(
+    result_map: dict[str, Any],
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    approved_post_bank: list[dict[str, Any]] | None,
+    golden_refs: list | None,
+    pattern_weights: dict | None,
+    edape_block: str,
+) -> TweetBatch | Exception | None:
+    if "combined" not in result_map:
+        return result_map.get("tweets")
+    return await _resolve_combined_fallback(
+        result_map,
+        trend,
+        config,
+        client,
+        approved_post_bank,
+        golden_refs,
+        pattern_weights,
+        edape_block=edape_block,
+    )
+
+
+def _valid_generation_batch(batch: TweetBatch | Exception | None, trend: ScoredTrend) -> bool:
+    if isinstance(batch, Exception):
+        log.error(f"tweet generation exception ({trend.keyword}): {batch}")
+        return False
+    return bool(batch)
 
 
 def generate_for_trend(

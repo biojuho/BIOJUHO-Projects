@@ -18,7 +18,7 @@ import unicodedata
 # import db_schema back (breaking the circular chain).
 
 
-def __getattr__(name):
+def __getattr__(name) -> object:
     """Lazy import to avoid circular dependency with db_layer/__init__.py."""
     _CONNECTION_NAMES = {
         "sqlite_write_lock",
@@ -89,6 +89,7 @@ async def _init_db_unlocked(conn) -> None:
             suggested_angles   TEXT DEFAULT '[]',
             best_hook_starter  TEXT DEFAULT '',
             country            TEXT DEFAULT 'korea',
+            category           TEXT DEFAULT '',
             sources            TEXT DEFAULT '[]',
             twitter_context    TEXT DEFAULT '',
             reddit_context     TEXT DEFAULT '',

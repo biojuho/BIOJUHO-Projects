@@ -12,13 +12,14 @@ import pytest
 # ══════════════════════════════════════════════════════
 
 
-def _make_trend_row(keyword: str, country: str, viral: int, hours_ago: float = 2.0):
+def _make_trend_row(keyword: str, country: str, viral: int, hours_ago: float = 2.0, top_insight: str = ""):
     scored_at = (datetime.now() - timedelta(hours=hours_ago)).isoformat()
     return {
         "keyword": keyword,
         "country": country,
         "viral_potential": viral,
         "scored_at": scored_at,
+        "top_insight": top_insight,
     }
 
 
@@ -299,6 +300,27 @@ class TestEntryPoint:
         result = await detect_arbitrage_opportunities(conn)
         assert isinstance(result, list)
         assert len(result) >= 1
+
+    @pytest.mark.asyncio
+    async def test_detect_preserves_source_evidence_from_top_insight(self):
+        from tap import detect_arbitrage_opportunities
+
+        trends = [
+            _make_trend_row(
+                "AI regulation",
+                "korea",
+                88,
+                2.0,
+                top_insight="Korean policy outlets reported the signal first.",
+            ),
+            _make_trend_row("USonly", "united-states", 75, 2.0),
+        ]
+        conn = _mock_conn_with_trends(trends)
+
+        result = await detect_arbitrage_opportunities(conn)
+
+        assert result
+        assert result[0].source_evidence == "Korean policy outlets reported the signal first."
 
     @pytest.mark.asyncio
     async def test_detect_with_config(self):

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts import setup_content_hub
 
 
@@ -78,3 +80,18 @@ def test_create_sample_page_payload():
     assert result["url"] == "https://notion.test/sample"
     assert notion.pages.created_payload["parent"] == {"database_id": "hub-db"}
     assert notion.pages.created_payload["properties"]["Status"]["select"]["name"] == "Draft"
+
+
+def test_help_exits_before_content_hub_setup(monkeypatch, capsys):
+    def fail_if_setup_runs(*args, **kwargs):
+        raise AssertionError("setup must not run for --help")
+
+    monkeypatch.setattr(setup_content_hub, "_setup_content_hub", fail_if_setup_runs)
+
+    with pytest.raises(SystemExit) as exc_info:
+        setup_content_hub.main(["--help"])
+
+    assert exc_info.value.code == 0
+    output = capsys.readouterr().out
+    assert "Create the Notion Content Hub database" in output
+    assert "Creating Content Hub DB" not in output

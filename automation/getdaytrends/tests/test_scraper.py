@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -9,6 +10,7 @@ from models import RawTrend, TrendSource
 from scraper import (
     _FETCH_CACHE,
     _FETCH_CACHE_TTL,
+    _async_fetch_getdaytrends,
     _async_fetch_google_trends_rss,
     _is_korean_trend,
     _is_similar_keyword,
@@ -148,6 +150,45 @@ class TestFetchCache(unittest.TestCase):
         self.assertGreater(_time.time() - cached_at, _FETCH_CACHE_TTL)
 
 
+class TestGetdaytrendsFetch(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        _FETCH_CACHE.clear()
+
+    def tearDown(self):
+        _FETCH_CACHE.clear()
+
+    async def test_parses_table_rows_and_stores_cache(self):
+        html = """
+        <table class="trends"><tbody>
+          <tr><td class="main"><a href="/korea/trend/ai">#AI regulation</a></td><td class="desc">50K+</td></tr>
+          <tr><td class="main"><a href="https://example.com/full">Cloud costs</a></td><td class="desc">1.5M</td></tr>
+        </tbody></table>
+        """
+        response = httpx.Response(200, text=html, request=httpx.Request("GET", "https://getdaytrends.com/korea/"))
+        session = MagicMock()
+        session.get = AsyncMock(return_value=response)
+
+        trends = await _async_fetch_getdaytrends(session, "korea", limit=5)
+
+        self.assertEqual([trend.name for trend in trends], ["AI regulation", "Cloud costs"])
+        self.assertEqual(trends[0].volume_numeric, 50_000)
+        self.assertEqual(trends[0].link, "https://getdaytrends.com/korea/trend/ai")
+        self.assertIn("korea", _FETCH_CACHE)
+
+    async def test_uses_fresh_cache_without_request(self):
+        _FETCH_CACHE["global"] = (
+            __import__("time").time(),
+            [RawTrend(name="cached", source=TrendSource.GETDAYTRENDS)],
+        )
+        session = MagicMock()
+        session.get = AsyncMock()
+
+        trends = await _async_fetch_getdaytrends(session, "", limit=1)
+
+        self.assertEqual([trend.name for trend in trends], ["cached"])
+        session.get.assert_not_called()
+
+
 class TestGoogleTrendsRssResilience(unittest.IsolatedAsyncioTestCase):
     async def test_returns_empty_on_http_status_error(self):
         request = httpx.Request("GET", "https://trends.google.com/trending/rss?geo=US")
@@ -187,6 +228,36 @@ class TestGoogleTrendsRssResilience(unittest.IsolatedAsyncioTestCase):
         trends = await _async_fetch_google_trends_rss(session, "united-states", limit=5)
 
         self.assertEqual(trends, [])
+
+
+class TestOperatorLogText(unittest.TestCase):
+    def test_scraper_operator_logs_use_plain_ascii_labels(self):
+        source = (Path(__file__).resolve().parents[1] / "scraper.py").read_text(encoding="utf-8")
+
+        expected_labels = [
+            "collection failed",
+            "[source-check] all active sources failed; using fallback trends",
+            "[source-check] collection success below 50%",
+            "[source-check] collection success:",
+            "Merge complete:",
+            "Recently-seen keyword lookup failed",
+            "Recently-seen dedupe:",
+            "[embedding-dedupe]",
+            "[YouTube trend]",
+        ]
+        for label in expected_labels:
+            self.assertIn(label, source)
+
+        stale_fragments = [
+            "?섏쭛 ?ㅽ뙣",
+            "遺遺??깃났",
+            "蹂묓빀",
+            "以묐났 ?쒓굅",
+            "[?섏쭛 ?꾨쿋??以묐났]",
+            "[YouTube ?멸린]",
+        ]
+        for fragment in stale_fragments:
+            self.assertNotIn(fragment, source)
 
 
 if __name__ == "__main__":

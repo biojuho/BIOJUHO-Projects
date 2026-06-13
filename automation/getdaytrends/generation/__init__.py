@@ -23,7 +23,7 @@ v9.0 리팩토링 완료: generator.py(984→519줄)에서 서브모듈 추출 �
 """
 
 
-def __getattr__(name):
+def __getattr__(name) -> object:
     """Lazy import to avoid circular dependency with generator.py."""
     # generator.py imports from generation.persona, so we can't eagerly
     # import from generator at module level (circular import).

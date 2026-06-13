@@ -82,36 +82,31 @@ def _qa_group_for_bundle(bundle) -> str:
     return "tweets"
 
 
-async def _record_v2_workflow_bundle(
-    conn,
-    *,
-    trend,
-    batch: TweetBatch,
-    trend_row_id: int,
-    run_row_id: int,
-    config: AppConfig,
-) -> dict:
+async def _validate_or_quarantine_v2_trend(conn, trend, trend_row_id: int, run_row_id: int, config: AppConfig) -> object:
     fingerprint = compute_fingerprint(trend.keyword, trend.volume_last_24h, bucket=config.cache_volume_bucket)
     validated, quarantine = validate_trend_candidate(
         trend,
         dedup_fingerprint=fingerprint,
         trend_id=f"trend-{trend_row_id}",
     )
-    if validated is None:
-        await record_trend_quarantine(
-            conn,
-            run_id=run_row_id,
-            keyword=trend.keyword,
-            fingerprint=fingerprint,
-            reason_code=quarantine.get("reason_code", "validation_failed"),
-            reason_detail=quarantine.get("reason_detail", ""),
-            source_count=len(getattr(trend, "sources", []) or []),
-            freshness_minutes=int(round(float(getattr(trend, "content_age_hours", 0.0) or 0.0) * 60)),
-            payload={"keyword": trend.keyword, "viral_potential": getattr(trend, "viral_potential", 0)},
-        )
-        return {"ready_platforms": set(), "drafts": []}
+    if validated is not None:
+        return validated
 
-    validated.lifecycle_status = "scored"
+    await record_trend_quarantine(
+        conn,
+        run_id=run_row_id,
+        keyword=trend.keyword,
+        fingerprint=fingerprint,
+        reason_code=quarantine.get("reason_code", "validation_failed"),
+        reason_detail=quarantine.get("reason_detail", ""),
+        source_count=len(getattr(trend, "sources", []) or []),
+        freshness_minutes=int(round(float(getattr(trend, "content_age_hours", 0.0) or 0.0) * 60)),
+        payload={"keyword": trend.keyword, "viral_potential": getattr(trend, "viral_potential", 0)},
+    )
+    return None
+
+
+async def _save_scored_v2_trend(conn, validated, trend_row_id: int, run_row_id: int) -> None:
     await save_validated_trend(
         conn,
         trend_id=validated.trend_id,
@@ -128,19 +123,62 @@ async def _record_v2_workflow_bundle(
         run_id=run_row_id,
     )
 
-    bundles = build_draft_bundles(
-        trend_id=validated.trend_id,
+
+async def _record_v2_workflow_bundle(
+    conn,
+    *,
+    trend,
+    batch: TweetBatch,
+    trend_row_id: int,
+    run_row_id: int,
+    config: AppConfig,
+) -> dict:
+    validated = await _validate_or_quarantine_v2_trend(conn, trend, trend_row_id, run_row_id, config)
+    if validated is None:
+        return {"ready_platforms": set(), "drafts": []}
+
+    validated.lifecycle_status = "scored"
+    await _save_scored_v2_trend(conn, validated, trend_row_id, run_row_id)
+
+    qa_meta = (batch.metadata or {}).get("qa_report", {}) or {}
+    bundles = _build_v2_draft_bundles(validated.trend_id, trend, batch)
+    ready_platforms, recorded = await _record_v2_draft_bundles(
+        conn,
+        bundles=bundles,
+        qa_meta=qa_meta,
+        config=config,
+        trend_row_id=trend_row_id,
+        batch=batch,
+        trend=trend,
+    )
+
+    return {"ready_platforms": ready_platforms, "drafts": recorded, "trend_id": validated.trend_id}
+
+
+def _build_v2_draft_bundles(trend_id: str, trend, batch: TweetBatch) -> object:
+    return build_draft_bundles(
+        trend_id=trend_id,
         trend=trend,
         batch=batch,
         prompt_version=(batch.metadata or {}).get("prompt_version", f"getdaytrends-v2.{VERSION}"),
         generator_provider=(batch.metadata or {}).get("generator_provider", "shared.llm"),
         generator_model=(batch.metadata or {}).get("generator_model", "shared.llm.default"),
     )
-    qa_meta = (batch.metadata or {}).get("qa_report", {}) or {}
+
+
+async def _record_v2_draft_bundles(
+    conn,
+    *,
+    bundles,
+    qa_meta: dict,
+    config: AppConfig,
+    trend_row_id: int,
+    batch: TweetBatch,
+    trend,
+) -> tuple[set[str], list[dict]]:
     failed_groups = qa_meta.get("failed_groups", []) or []
     warnings = qa_meta.get("warnings", []) or []
     group_results = qa_meta.get("group_results", {}) or {}
-
     ready_platforms: set[str] = set()
     recorded: list[dict] = []
     for bundle in bundles:
@@ -208,7 +246,7 @@ async def _record_v2_workflow_bundle(
             }
         )
 
-    return {"ready_platforms": ready_platforms, "drafts": recorded, "trend_id": validated.trend_id}
+    return ready_platforms, recorded
 
 
 # ══════════════════════════════════════════════════════
@@ -273,73 +311,108 @@ async def _save_single_trend_db(
 # ══════════════════════════════════════════════════════
 
 
+async def _save_external_targets(batch: TweetBatch, trend, config: AppConfig, notion_sem: asyncio.Semaphore) -> dict[str, bool]:
+    results: dict[str, bool] = {}
+    if config.storage_type in ("notion", "both"):
+        async with notion_sem:
+            results["notion"] = await asyncio.to_thread(save_to_notion, batch, trend, config)
+    if config.storage_type in ("google_sheets", "both"):
+        results["google_sheets"] = await asyncio.to_thread(save_to_google_sheets, batch, trend, config)
+    return results
+
+
+def _record_external_save_result(keyword: str, result, run: RunResult) -> str:
+    if isinstance(result, Exception):
+        log.error(f"External save raised ({keyword}): {result}")
+        run.errors.append(f"external save raised: {keyword}")
+        return keyword
+
+    failed_targets = sorted(name for name, ok in result.items() if not ok)
+    if not failed_targets:
+        return ""
+
+    failed_label = ", ".join(failed_targets)
+    log.error(f"External save failed ({keyword}): {failed_label}")
+    run.errors.append(f"external save failed ({failed_label}): {keyword}")
+    return f"{keyword}[{failed_label}]"
+
+
+def _content_hub_ready_platforms(batch: TweetBatch) -> set:
+    workflow_v2 = (getattr(batch, "metadata", {}) or {}).get("workflow_v2", {}) or {}
+    return set(workflow_v2.get("ready_platforms", set()) or [])
+
+
+def _content_hub_has_platform_content(batch: TweetBatch, platform: str) -> bool:
+    platform_content = {
+        "x": bool(batch.tweets),
+        "threads": bool(batch.threads_posts),
+        "naver_blog": bool(getattr(batch, "blog_posts", [])),
+    }
+    return platform_content.get(platform, False)
+
+
+async def _save_content_hub_platform(
+    batch: TweetBatch,
+    trend,
+    config: AppConfig,
+    platform: str,
+    notion_sem: asyncio.Semaphore,
+    run: RunResult,
+) -> None:
+    try:
+        async with notion_sem:
+            hub_ok = await asyncio.to_thread(save_to_content_hub, batch, trend, config, platform)
+    except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError) as hub_err:
+        log.warning(f"Content Hub save raised [{platform}] ({trend.keyword}): {type(hub_err).__name__}: {hub_err}")
+        run.errors.append(f"content hub raised ({platform}): {trend.keyword}")
+        return
+
+    if not hub_ok:
+        log.warning(f"Content Hub save failed [{platform}] ({trend.keyword})")
+        run.errors.append(f"content hub failed ({platform}): {trend.keyword}")
+
+
+async def _save_content_hub_outputs(
+    ext_pairs: list[tuple],
+    config: AppConfig,
+    notion_sem: asyncio.Semaphore,
+    run: RunResult,
+) -> None:
+    if not _content_hub_enabled(config):
+        return
+
+    platforms = getattr(config, "target_platforms", ["x"])
+    for batch, trend in ext_pairs:
+        ready_platforms = _content_hub_ready_platforms(batch)
+        for platform in platforms:
+            if ready_platforms and platform not in ready_platforms:
+                continue
+            if not _content_hub_has_platform_content(batch, platform):
+                continue
+            await _save_content_hub_platform(batch, trend, config, platform, notion_sem, run)
+
+
 async def _save_external(
     ext_pairs: list[tuple],
     config: AppConfig,
     run: RunResult,
 ) -> None:
-    """Notion/Sheets + Content Hub 병렬 외부 저장."""
+    """Notion/Sheets + Content Hub parallel external save."""
     notion_sem = asyncio.Semaphore(config.notion_sem_limit)
+    ext_results = await asyncio.gather(
+        *[_save_external_targets(batch, trend, config, notion_sem) for batch, trend in ext_pairs],
+        return_exceptions=True,
+    )
 
-    async def _do_ext_save(b, t) -> dict[str, bool]:
-        results: dict[str, bool] = {}
-        if config.storage_type in ("notion", "both"):
-            async with notion_sem:
-                results["notion"] = await asyncio.to_thread(save_to_notion, b, t, config)
-        if config.storage_type in ("google_sheets", "both"):
-            results["google_sheets"] = await asyncio.to_thread(save_to_google_sheets, b, t, config)
-        return results
-
-    ext_results = await asyncio.gather(*[_do_ext_save(b, t) for b, t in ext_pairs], return_exceptions=True)
     ext_failed: list[str] = []
-    for i, result in enumerate(ext_results):
-        keyword = ext_pairs[i][1].keyword
-        if isinstance(result, Exception):
-            log.error(f"External save raised ({keyword}): {result}")
-            run.errors.append(f"external save raised: {keyword}")
-            ext_failed.append(keyword)
-            continue
-        failed_targets = sorted(name for name, ok in result.items() if not ok)
-        if failed_targets:
-            failed_label = ", ".join(failed_targets)
-            log.error(f"External save failed ({keyword}): {failed_label}")
-            run.errors.append(f"external save failed ({failed_label}): {keyword}")
-            ext_failed.append(f"{keyword}[{failed_label}]")
+    for index, result in enumerate(ext_results):
+        failure = _record_external_save_result(ext_pairs[index][1].keyword, result, run)
+        if failure:
+            ext_failed.append(failure)
     if ext_failed:
         print(f"\n  External save failed for {len(ext_failed)} item(s): {', '.join(ext_failed)}")
 
-    if not _content_hub_enabled(config):
-        return
-    platforms = getattr(config, "target_platforms", ["x"])
-    for b, t in ext_pairs:
-        workflow_v2 = (getattr(b, "metadata", {}) or {}).get("workflow_v2", {}) or {}
-        ready_platforms = set(workflow_v2.get("ready_platforms", set()) or [])
-        for plat in platforms:
-            if ready_platforms and plat not in ready_platforms:
-                continue
-            has_content = (
-                (plat == "x" and b.tweets)
-                or (plat == "threads" and b.threads_posts)
-                or (plat == "naver_blog" and getattr(b, "blog_posts", []))
-            )
-            if not has_content:
-                continue
-            try:
-                async with notion_sem:
-                    hub_ok = await asyncio.to_thread(save_to_content_hub, b, t, config, plat)
-            except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError) as hub_err:
-                log.warning(f"Content Hub save raised [{plat}] ({t.keyword}): {type(hub_err).__name__}: {hub_err}")
-                run.errors.append(f"content hub raised ({plat}): {t.keyword}")
-                continue
-            if not hub_ok:
-                log.warning(f"Content Hub save failed [{plat}] ({t.keyword})")
-                run.errors.append(f"content hub failed ({plat}): {t.keyword}")
-
-
-# ══════════════════════════════════════════════════════
-#  Preview & Stats
-# ══════════════════════════════════════════════════════
-
+    await _save_content_hub_outputs(ext_pairs, config, notion_sem, run)
 
 async def _preview_and_record_stats(batch, category: str, conn) -> None:
     """배치 콘텐츠 미리보기 출력 + 게시 시간 통계 기록."""
@@ -374,54 +447,64 @@ def _attach_best_hours(batch, category: str, best_hours: list[int]) -> None:
 # ══════════════════════════════════════════════════════
 
 
-async def _annotate_predictions(quality_trends: list, batch_results: list, config: AppConfig) -> None:
-    """PEE로 각 배치의 예상 성과를 예측하고 메타데이터에 기록."""
+def _prediction_workspace_paths() -> object:
     from pathlib import Path
 
+    workspace = Path(__file__).resolve().parents[3]
+    return {
+        "gdt_db": workspace / "automation" / "getdaytrends" / "data" / "getdaytrends.db",
+        "cie_db": workspace / "automation" / "content-intelligence" / "data" / "cie.db",
+        "dn_db": workspace / "automation" / "DailyNews" / "data" / "pipeline_state.db",
+        "model_dir": workspace / "var" / "models" / "prediction",
+    }
+
+
+def _prediction_candidate(trend, batch) -> object:
+    if isinstance(batch, Exception) or not batch:
+        return None
+    best_tweet = batch.tweets[0] if batch.tweets else None
+    if not best_tweet:
+        return None
+    metadata = getattr(batch, "metadata", None) or {}
+    return {
+        "content": best_tweet.content,
+        "trend_keyword": trend.keyword,
+        "viral_potential": trend.viral_potential,
+        "qa_scores": metadata.get("qa_scores", {}),
+        "category": getattr(trend, "category", "other") or "other",
+        "content_type": "tweet",
+    }
+
+
+def _apply_prediction_metadata(batch, result) -> None:
+    if not hasattr(batch, "metadata") or batch.metadata is None:
+        batch.metadata = {}
+    batch.metadata["predicted_er"] = result.predicted_engagement_rate
+    batch.metadata["predicted_impressions"] = result.predicted_impressions
+    batch.metadata["viral_probability"] = result.viral_probability
+    batch.metadata["optimal_hours"] = result.optimal_hours
+    batch.metadata["pee_risk"] = result.risk_level
+
+
+async def _annotate_predictions(quality_trends: list, batch_results: list, config: AppConfig) -> None:
+    """Annotate generated batches with prediction engine metadata."""
     try:
-        workspace = Path(__file__).resolve().parents[3]
-        engine = _PredictionEngine(
-            gdt_db=workspace / "automation" / "getdaytrends" / "data" / "getdaytrends.db",
-            cie_db=workspace / "automation" / "content-intelligence" / "data" / "cie.db",
-            dn_db=workspace / "automation" / "DailyNews" / "data" / "pipeline_state.db",
-            model_dir=workspace / "var" / "models" / "prediction",
-        )
+        engine = _PredictionEngine(**_prediction_workspace_paths())
         await engine.initialize()
 
         annotated = 0
         for trend, batch in zip(quality_trends, batch_results, strict=False):
-            if isinstance(batch, Exception) or not batch:
+            candidate = _prediction_candidate(trend, batch)
+            if candidate is None:
                 continue
-            best_tweet = batch.tweets[0] if batch.tweets else None
-            if not best_tweet:
-                continue
-            qa_scores = {}
-            if hasattr(batch, "metadata") and batch.metadata:
-                qa_scores = batch.metadata.get("qa_scores", {})
-
-            result = await engine.predict(
-                content=best_tweet.content,
-                trend_keyword=trend.keyword,
-                viral_potential=trend.viral_potential,
-                qa_scores=qa_scores,
-                category=getattr(trend, "category", "other") or "other",
-                content_type="tweet",
-            )
-
-            if not hasattr(batch, "metadata") or batch.metadata is None:
-                batch.metadata = {}
-            batch.metadata["predicted_er"] = result.predicted_engagement_rate
-            batch.metadata["predicted_impressions"] = result.predicted_impressions
-            batch.metadata["viral_probability"] = result.viral_probability
-            batch.metadata["optimal_hours"] = result.optimal_hours
-            batch.metadata["pee_risk"] = result.risk_level
+            result = await engine.predict(**candidate)
+            _apply_prediction_metadata(batch, result)
             annotated += 1
 
         if annotated:
-            log.info(f"  [PEE] {annotated}건 성과 예측 완료")
+            log.info(f"  [PEE] predictions annotated: {annotated}")
     except (ImportError, OSError, ValueError, RuntimeError) as e:
-        log.warning(f"  [PEE] 예측 실패 (무시): {type(e).__name__}: {e}")
-
+        log.warning(f"  [PEE] prediction skipped: {type(e).__name__}: {e}")
 
 # ══════════════════════════════════════════════════════
 #  Main Step 4: Save
@@ -436,10 +519,9 @@ async def _step_save(
     run: RunResult,
     run_row_id: int,
 ) -> int:
-    """Step 4: SQLite 원자적 트랜잭션 저장 + 외부 저장 병렬 처리."""
+    """Step 4: persist generated content and queue external saves."""
     print("\n[4/4] 저장 중...")
 
-    # ── PEE: 예측 성과 주석 달기 (optional) ──
     if _PEE_AVAILABLE and getattr(config, "enable_prediction", True):
         await _annotate_predictions(quality_trends, batch_results, config)
 
@@ -448,44 +530,81 @@ async def _step_save(
     failed_saves: list[str] = []
 
     for trend, batch in zip(quality_trends, batch_results, strict=False):
-        if config.enable_sentiment_filter and getattr(trend, "safety_flag", False):
-            log.warning(f"유해 트렌드 스킵: '{trend.keyword}' (sentiment={trend.sentiment})")
-            run.errors.append(f"safety_flag 스킵: {trend.keyword}")
-            continue
-
-        print(f"\n  '{trend.keyword}' (바이럴: {trend.viral_potential}점)")
-
-        category = getattr(trend, "category", "기타") or "기타"
-        best_hours: list[int] = []
-        with contextlib.suppress(ImportError, sqlite3.Error, ValueError):
-            best_hours = await get_best_posting_hours(conn, category, top_n=3)
-
-        if isinstance(batch, Exception):
-            log.error(f"생성 예외 ({trend.keyword}): {type(batch).__name__}: {batch}")
-            run.errors.append(f"생성 예외: {trend.keyword}")
-            continue
-        if not batch:
-            run.errors.append(f"생성 실패: {trend.keyword}")
-            continue
-
-        run.tweets_generated += (
-            len(batch.tweets) + len(batch.long_posts) + len(batch.threads_posts) + len(getattr(batch, "blog_posts", []))
-        )
-        await _preview_and_record_stats(batch, category, conn)
-        _attach_best_hours(batch, category, best_hours)
-
-        if not await _save_single_trend_db(batch, trend, config, conn, run, run_row_id):
+        result = await _save_generated_trend_batch(trend, batch, config, conn, run, run_row_id)
+        if result == "failed":
             failed_saves.append(trend.keyword)
+            continue
+        if result == "skipped":
             continue
 
         success_count += 1
-        if not config.dry_run:
+        if result == "external":
             ext_pairs.append((batch, trend))
 
     if ext_pairs and not config.dry_run:
         await _save_external(ext_pairs, config, run)
 
     if failed_saves:
-        print(f"\n  DB 저장 실패 {len(failed_saves)}건: {', '.join(failed_saves)}")
+        print(f"\n  DB save failed for {len(failed_saves)} trend(s): {', '.join(failed_saves)}")
 
     return success_count
+
+
+async def _save_generated_trend_batch(
+    trend,
+    batch,
+    config: AppConfig,
+    conn,
+    run: RunResult,
+    run_row_id: int,
+) -> str:
+    if _skip_safety_flagged_trend(trend, config, run):
+        return "skipped"
+
+    print(f"\n  '{trend.keyword}' (viral: {trend.viral_potential})")
+    category = getattr(trend, "category", "other") or "other"
+    best_hours = await _best_posting_hours(conn, category)
+    if not _valid_generated_batch(trend, batch, run):
+        return "skipped"
+
+    _record_generated_content_count(run, batch)
+    await _preview_and_record_stats(batch, category, conn)
+    _attach_best_hours(batch, category, best_hours)
+
+    if not await _save_single_trend_db(batch, trend, config, conn, run, run_row_id):
+        return "failed"
+    return "saved" if config.dry_run else "external"
+
+
+def _skip_safety_flagged_trend(trend, config: AppConfig, run: RunResult) -> bool:
+    if not (config.enable_sentiment_filter and getattr(trend, "safety_flag", False)):
+        return False
+    log.warning(f"Unsafe trend skipped: '{trend.keyword}' (sentiment={trend.sentiment})")
+    run.errors.append(f"safety_flag skipped: {trend.keyword}")
+    return True
+
+
+async def _best_posting_hours(conn, category: str) -> list[int]:
+    with contextlib.suppress(ImportError, sqlite3.Error, ValueError):
+        return await get_best_posting_hours(conn, category, top_n=3)
+    return []
+
+
+def _valid_generated_batch(trend, batch, run: RunResult) -> bool:
+    if isinstance(batch, Exception):
+        log.error(f"Generation exception ({trend.keyword}): {type(batch).__name__}: {batch}")
+        run.errors.append(f"generation exception: {trend.keyword}")
+        return False
+    if not batch:
+        run.errors.append(f"generation failed: {trend.keyword}")
+        return False
+    return True
+
+
+def _record_generated_content_count(run: RunResult, batch: TweetBatch) -> None:
+    run.tweets_generated += (
+        len(batch.tweets)
+        + len(batch.long_posts)
+        + len(batch.threads_posts)
+        + len(getattr(batch, "blog_posts", []))
+    )

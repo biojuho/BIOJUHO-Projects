@@ -88,3 +88,8 @@ def test_main_returns_nonzero_on_empty(tmp_path: Path, monkeypatch: pytest.Monke
     rc = dump_mod.main(["--pages", "1", "--out-dir", str(tmp_path)])
     assert rc == 1
     assert list(tmp_path.iterdir()) == []
+
+
+def test_parse_args_rejects_zero_pages() -> None:
+    with pytest.raises(SystemExit):
+        dump_mod.parse_args(["--pages", "0"])

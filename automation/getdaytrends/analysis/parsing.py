@@ -168,22 +168,35 @@ def _build_trend_context(parsed: dict, context: "MultiSourceContext") -> "TrendC
     chain = parsed.get("chain_reaction", "")
     why_now = parsed.get("why_now", "")
     positions = parsed.get("key_positions", [])
-    if not (trigger or chain or why_now or positions):
+    if not _has_trend_context_fields(trigger, chain, why_now, positions):
         return None
-
-    real_tweets = ""
-    if context and context.twitter_insight:
-        insight = context.twitter_insight
-        if len(insight) > 30 and "오류" not in insight and "없음" not in insight:
-            real_tweets = insight[:300]
 
     return TrendContext(
         trigger_event=trigger,
         chain_reaction=chain,
         why_now=why_now,
-        key_positions=positions if isinstance(positions, list) else [],
-        real_tweets_summary=real_tweets,
+        key_positions=_trend_positions(positions),
+        real_tweets_summary=_real_tweets_summary(context),
     )
+
+
+def _has_trend_context_fields(trigger: str, chain: str, why_now: str, positions: object) -> bool:
+    return bool(trigger or chain or why_now or positions)
+
+
+def _trend_positions(positions: object) -> list:
+    return positions if isinstance(positions, list) else []
+
+
+def _real_tweets_summary(context: "MultiSourceContext") -> str:
+    insight = getattr(context, "twitter_insight", "") if context else ""
+    if _is_usable_twitter_insight(insight):
+        return insight[:300]
+    return ""
+
+
+def _is_usable_twitter_insight(insight: str) -> bool:
+    return bool(insight and len(insight) > 30 and "?ㅻ쪟" not in insight and "?놁쓬" not in insight)
 
 
 def _parse_publishability(parsed: dict, keyword: str) -> tuple[bool, str, str]:
@@ -210,41 +223,72 @@ def _apply_credibility_check(
     hybrid_viral: int,
 ) -> tuple[int, float, bool, list[str]]:
     """Apply credibility penalty and cross-source consistency checks."""
-    credibility = 0.0
-    consistent = True
-    flags: list[str] = []
-
     try:
-        try:
-            from ..fact_checker import check_cross_source_consistency, compute_enhanced_confidence
-        except ImportError:
-            from fact_checker import check_cross_source_consistency, compute_enhanced_confidence
-
-        news_insight = context.news_insight if context else ""
-        _, credibility = compute_enhanced_confidence(hybrid_viral, context, news_insight)
-
-        threshold = getattr(config, "credibility_penalty_threshold", 0.3) if config else 0.3
-        penalty_factor = getattr(config, "credibility_penalty_factor", 0.85) if config else 0.85
-        enable_credibility = getattr(config, "enable_source_credibility", True) if config else True
-        if enable_credibility and 0 < credibility < threshold:
-            hybrid_viral = int(hybrid_viral * penalty_factor)
-            log.debug(
-                f"[Credibility penalty] '{keyword}' credibility {credibility:.2f} < {threshold} -> {hybrid_viral}"
-            )
-
-        enable_consistency = getattr(config, "enable_cross_source_consistency", True) if config else True
-        if enable_consistency and context:
-            temp = ScoredTrend(keyword=keyword, rank=0, context=context, sources=[TrendSource.GETDAYTRENDS])
-            result = check_cross_source_consistency(temp)
-            consistent = result["consistent"]
-            if not consistent:
-                conflicts = result.get("conflicts", [])
-                flags.extend(f"cross-source conflict: {item}" for item in conflicts[:3])
-                log.warning(f"[Cross-source mismatch] '{keyword}' conflicts={len(conflicts)}")
+        check_cross_source_consistency, compute_enhanced_confidence = _credibility_functions()
+        credibility = _enhanced_source_credibility(compute_enhanced_confidence, hybrid_viral, context)
+        hybrid_viral = _apply_source_credibility_penalty(config, keyword, hybrid_viral, credibility)
+        consistent, flags = _cross_source_consistency_flags(
+            check_cross_source_consistency,
+            config,
+            context,
+            keyword,
+        )
     except Exception as exc:
         log.debug(f"[Credibility check] skipped: {exc}")
+        return hybrid_viral, 0.0, True, []
 
     return hybrid_viral, credibility, consistent, flags
+
+
+def _credibility_functions() -> object:
+    try:
+        from ..fact_checker import check_cross_source_consistency, compute_enhanced_confidence
+    except ImportError:
+        from fact_checker import check_cross_source_consistency, compute_enhanced_confidence
+    return check_cross_source_consistency, compute_enhanced_confidence
+
+
+def _enhanced_source_credibility(compute_enhanced_confidence, hybrid_viral: int, context: "MultiSourceContext") -> float:
+    news_insight = context.news_insight if context else ""
+    _, credibility = compute_enhanced_confidence(hybrid_viral, context, news_insight)
+    return credibility
+
+
+def _apply_source_credibility_penalty(
+    config: "AppConfig | None",
+    keyword: str,
+    hybrid_viral: int,
+    credibility: float,
+) -> int:
+    threshold = getattr(config, "credibility_penalty_threshold", 0.3) if config else 0.3
+    penalty_factor = getattr(config, "credibility_penalty_factor", 0.85) if config else 0.85
+    enable_credibility = getattr(config, "enable_source_credibility", True) if config else True
+    if enable_credibility and 0 < credibility < threshold:
+        penalized = int(hybrid_viral * penalty_factor)
+        log.debug(f"[Credibility penalty] '{keyword}' credibility {credibility:.2f} < {threshold} -> {penalized}")
+        return penalized
+    return hybrid_viral
+
+
+def _cross_source_consistency_flags(
+    check_cross_source_consistency,
+    config: "AppConfig | None",
+    context: "MultiSourceContext",
+    keyword: str,
+) -> tuple[bool, list[str]]:
+    enable_consistency = getattr(config, "enable_cross_source_consistency", True) if config else True
+    if not enable_consistency or not context:
+        return True, []
+
+    temp = ScoredTrend(keyword=keyword, rank=0, context=context, sources=[TrendSource.GETDAYTRENDS])
+    result = check_cross_source_consistency(temp)
+    consistent = result["consistent"]
+    if consistent:
+        return True, []
+
+    conflicts = result.get("conflicts", [])
+    log.warning(f"[Cross-source mismatch] '{keyword}' conflicts={len(conflicts)}")
+    return False, [f"cross-source conflict: {item}" for item in conflicts[:3]]
 
 
 def _parse_scored_trend_from_dict(

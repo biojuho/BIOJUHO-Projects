@@ -139,98 +139,131 @@ def build_observations(
     min_actual_impressions: int,
     min_actual_engagement_rate: float,
 ) -> tuple[list[dict], dict]:
-    by_keyword: dict[str, list[sqlite3.Row]] = defaultdict(list)
-    for row in rows:
-        by_keyword[row["keyword"]].append(row)
-
+    by_keyword = group_rows_by_keyword(rows)
     latest_scored_at = max(datetime.fromisoformat(row["scored_at"]) for row in rows)
     cutoff = latest_scored_at - timedelta(hours=lookahead_hours)
     observations: list[dict] = []
-    skipped_incomplete = 0
-    measured_labels = 0
-    inferred_labels = 0
-    pending_measured_labels = 0
+    counters = {"skipped": 0, "measured": 0, "inferred": 0, "pending_measured": 0}
 
     for keyword, items in by_keyword.items():
         first = items[0]
         first_dt = datetime.fromisoformat(first["scored_at"])
         if first_dt > cutoff:
-            skipped_incomplete += 1
+            counters["skipped"] += 1
             continue
 
-        future_items = [
-            item
-            for item in items[1:]
-            if first_dt < datetime.fromisoformat(item["scored_at"]) <= first_dt + timedelta(hours=lookahead_hours)
-        ]
-        future_scores = [item["viral_potential"] for item in future_items]
-        future_threshold = round(first["viral_potential"] * min_relative_future_score, 1)
-        inferred_hit = any(score >= future_threshold for score in future_scores)
-        actual_hit, actual_hit_source = resolve_actual_hit(
+        observation = build_observation(
+            keyword,
             first,
+            items[1:],
+            first_dt=first_dt,
+            lookahead_hours=lookahead_hours,
+            min_relative_future_score=min_relative_future_score,
             label_mode=label_mode,
             min_actual_impressions=min_actual_impressions,
             min_actual_engagement_rate=min_actual_engagement_rate,
-            inferred_hit=inferred_hit,
         )
+        increment_label_counter(counters, observation["actual_hit_source"])
+        observations.append(observation)
 
-        if actual_hit_source == "measured_x_performance":
-            measured_labels += 1
-        elif actual_hit_source == "pending_measured_x_performance":
-            pending_measured_labels += 1
-        else:
-            inferred_labels += 1
+    observations.sort(key=observation_sort_key)
+    summary = build_summary(latest_scored_at, observations, counters)
+    return observations, summary
 
-        observations.append(
-            {
-                "keyword": keyword,
-                "trend_id": first["id"],
-                "run_id": first["run_id"],
-                "scored_at": first["scored_at"],
-                "rank": first["rank"],
-                "volume_numeric": first["volume_numeric"],
-                "cross_source_confidence": first["cross_source_confidence"],
-                "tweet_count": first["tweet_count"],
-                "posted_tweet_count": int(first["posted_tweet_count"] or 0),
-                "single_source_score": estimate_single_source_score(
-                    first["viral_potential"], first["cross_source_confidence"]
-                ),
-                "multi_source_score": float(first["viral_potential"]),
-                "actual_hit": actual_hit,
-                "actual_hit_source": actual_hit_source,
-                "measured_impressions": int(first["max_impressions"] or 0),
-                "measured_avg_impressions": round(float(first["avg_impressions"] or 0.0), 1),
-                "measured_engagement_rate": round(float(first["max_engagement_rate"] or 0.0), 6),
-                "measured_avg_engagement_rate": round(float(first["avg_engagement_rate"] or 0.0), 6),
-                "future_appearances": len(future_items),
-                "future_max_score": max(future_scores) if future_scores else 0,
-                "future_threshold": future_threshold,
-                "notes": (
-                    "single_source_score is a proxy derived from stored viral_potential by "
-                    "removing corroboration bonus and reversing low-confidence penalty. "
-                    "actual_hit_source indicates whether the label came from measured X performance "
-                    "or fallback recurrence inference."
-                ),
-            }
-        )
 
-    observations.sort(
-        key=lambda item: (
-            item["scored_at"],
-            -item["multi_source_score"],
-            item["keyword"],
-        )
+def group_rows_by_keyword(rows: list[sqlite3.Row]) -> dict[str, list[sqlite3.Row]]:
+    by_keyword: dict[str, list[sqlite3.Row]] = defaultdict(list)
+    for row in rows:
+        by_keyword[row["keyword"]].append(row)
+    return by_keyword
+
+
+def build_observation(
+    keyword: str,
+    first: sqlite3.Row,
+    later_items: list[sqlite3.Row],
+    *,
+    first_dt: datetime,
+    lookahead_hours: int,
+    min_relative_future_score: float,
+    label_mode: str,
+    min_actual_impressions: int,
+    min_actual_engagement_rate: float,
+) -> dict:
+    future_items = future_window_items(later_items, first_dt=first_dt, lookahead_hours=lookahead_hours)
+    future_scores = [item["viral_potential"] for item in future_items]
+    future_threshold = round(first["viral_potential"] * min_relative_future_score, 1)
+    inferred_hit = any(score >= future_threshold for score in future_scores)
+    actual_hit, actual_hit_source = resolve_actual_hit(
+        first,
+        label_mode=label_mode,
+        min_actual_impressions=min_actual_impressions,
+        min_actual_engagement_rate=min_actual_engagement_rate,
+        inferred_hit=inferred_hit,
     )
-    summary = {
+    return {
+        "keyword": keyword,
+        "trend_id": first["id"],
+        "run_id": first["run_id"],
+        "scored_at": first["scored_at"],
+        "rank": first["rank"],
+        "volume_numeric": first["volume_numeric"],
+        "cross_source_confidence": first["cross_source_confidence"],
+        "tweet_count": first["tweet_count"],
+        "posted_tweet_count": int(first["posted_tweet_count"] or 0),
+        "single_source_score": estimate_single_source_score(first["viral_potential"], first["cross_source_confidence"]),
+        "multi_source_score": float(first["viral_potential"]),
+        "actual_hit": actual_hit,
+        "actual_hit_source": actual_hit_source,
+        "measured_impressions": int(first["max_impressions"] or 0),
+        "measured_avg_impressions": round(float(first["avg_impressions"] or 0.0), 1),
+        "measured_engagement_rate": round(float(first["max_engagement_rate"] or 0.0), 6),
+        "measured_avg_engagement_rate": round(float(first["avg_engagement_rate"] or 0.0), 6),
+        "future_appearances": len(future_items),
+        "future_max_score": max(future_scores) if future_scores else 0,
+        "future_threshold": future_threshold,
+        "notes": (
+            "single_source_score is a proxy derived from stored viral_potential by "
+            "removing corroboration bonus and reversing low-confidence penalty. "
+            "actual_hit_source indicates whether the label came from measured X performance "
+            "or fallback recurrence inference."
+        ),
+    }
+
+
+def future_window_items(
+    items: list[sqlite3.Row],
+    *,
+    first_dt: datetime,
+    lookahead_hours: int,
+) -> list[sqlite3.Row]:
+    horizon = first_dt + timedelta(hours=lookahead_hours)
+    return [item for item in items if first_dt < datetime.fromisoformat(item["scored_at"]) <= horizon]
+
+
+def increment_label_counter(counters: dict[str, int], source: str) -> None:
+    if source == "measured_x_performance":
+        counters["measured"] += 1
+    elif source == "pending_measured_x_performance":
+        counters["pending_measured"] += 1
+    else:
+        counters["inferred"] += 1
+
+
+def observation_sort_key(item: dict) -> tuple:
+    return (item["scored_at"], -item["multi_source_score"], item["keyword"])
+
+
+def build_summary(latest_scored_at: datetime, observations: list[dict], counters: dict[str, int]) -> dict:
+    return {
         "latest_scored_at": latest_scored_at.isoformat(),
-        "skipped_incomplete_keywords": skipped_incomplete,
+        "skipped_incomplete_keywords": counters["skipped"],
         "positive_labels": sum(1 for item in observations if item["actual_hit"]),
         "negative_labels": sum(1 for item in observations if not item["actual_hit"]),
-        "measured_labels": measured_labels,
-        "inferred_labels": inferred_labels,
-        "pending_measured_labels": pending_measured_labels,
+        "measured_labels": counters["measured"],
+        "inferred_labels": counters["inferred"],
+        "pending_measured_labels": counters["pending_measured"],
     }
-    return observations, summary
 
 
 def write_json(path_str: str, payload: dict) -> Path:

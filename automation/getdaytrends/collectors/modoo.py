@@ -47,6 +47,9 @@ def fetch_modoo_ideas(
     Returns:
         RawTrend 리스트. Node/Playwright 미설치 또는 실패 시 빈 리스트.
     """
+    if pages <= 0:
+        log.warning("modoo collector skipped: pages must be >= 1")
+        return []
     if not _node_available():
         log.warning("modoo collector skipped: 'node' not on PATH")
         return []

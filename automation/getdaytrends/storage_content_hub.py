@@ -27,6 +27,8 @@ try:
         NotionClient,
         _is_notion_provider_error,
         _persist_content_hub_link,
+        _query_notion_target,
+        _resolve_notion_write_target,
         _retry_notion_call,
     )
 except ImportError:
@@ -34,6 +36,8 @@ except ImportError:
         NOTION_AVAILABLE,
         NotionClient,
         _persist_content_hub_link,
+        _query_notion_target,
+        _resolve_notion_write_target,
         _retry_notion_call,
     )
 
@@ -51,8 +55,8 @@ def _content_hub_workflow_meta(batch: TweetBatch, platform: str) -> dict:
 
 def _get_hub_schema(notion: Any, database_id: str) -> dict[str, Any]:
     try:
-        response = _retry_notion_call(notion.databases.retrieve, database_id=database_id)
-        return response.get("properties", {}) if isinstance(response, dict) else {}
+        target = _resolve_notion_write_target(notion, database_id)
+        return target.schema if target is not None else {}
     except Exception as exc:
         log.debug(f"Content Hub schema lookup failed: {exc}")
         return {}
@@ -62,9 +66,12 @@ def _query_content_hub_by_draft_id(notion: Any, database_id: str, draft_id: str)
     if not draft_id:
         return ""
     try:
-        results = _retry_notion_call(
-            notion.databases.query,
-            database_id=database_id,
+        target = _resolve_notion_write_target(notion, database_id)
+        if target is None:
+            return ""
+        results = _query_notion_target(
+            notion,
+            target,
             filter={"property": "Draft ID", "rich_text": {"equals": draft_id}},
             page_size=1,
         )
@@ -82,6 +89,65 @@ def _rich_text_prop(text: str) -> dict:
     return {"rich_text": [{"text": {"content": text[:1900]}}]}
 
 
+def _set_schema_prop(props: dict[str, Any], schema: dict[str, Any], name: str, value: dict, *, include: bool = True) -> None:
+    if include and name in schema:
+        props[name] = value
+
+
+def _base_content_hub_properties(
+    schema: dict[str, Any],
+    *,
+    title: str,
+    status: str,
+    category: str,
+    platform_label: str,
+    score: float,
+) -> dict[str, Any]:
+    props: dict[str, Any] = {}
+    base_fields = {
+        "Name": {"title": [{"text": {"content": title}}]},
+        "Status": {"select": {"name": status}},
+        "Category": {"select": {"name": category}},
+        "Date": {"date": {"start": datetime.now().date().isoformat()}},
+        "Score": {"number": score},
+        "Platform": {"multi_select": [{"name": platform_label}]},
+    }
+    for name, value in base_fields.items():
+        _set_schema_prop(props, schema, name, value)
+    return props
+
+
+def _draft_meta_content_hub_properties(schema: dict[str, Any], draft_meta: dict) -> dict[str, Any]:
+    props: dict[str, Any] = {}
+    text_fields = {
+        "Trend ID": draft_meta.get("trend_id"),
+        "Draft ID": draft_meta.get("draft_id"),
+        "Prompt Version": draft_meta.get("prompt_version"),
+        "Blocking Reasons": ", ".join(draft_meta.get("blocking_reasons", []) or []),
+    }
+    for name, value in text_fields.items():
+        _set_schema_prop(props, schema, name, _rich_text_prop(str(value)), include=bool(value) or name == "Blocking Reasons")
+
+    if draft_meta.get("qa_score") is not None:
+        _set_schema_prop(props, schema, "QA Score", {"number": float(draft_meta.get("qa_score", 0.0))})
+    return props
+
+
+def _published_content_hub_properties(
+    schema: dict[str, Any],
+    *,
+    published_url: str,
+    published_at: str,
+    receipt_id: str,
+) -> dict[str, Any]:
+    props: dict[str, Any] = {}
+    _set_schema_prop(props, schema, "Published URL", {"url": published_url}, include=bool(published_url))
+    _set_schema_prop(props, schema, "Published At", {"date": {"start": published_at}}, include=bool(published_at))
+    _set_schema_prop(props, schema, "Receipt ID", _rich_text_prop(receipt_id), include=bool(receipt_id))
+    _set_schema_prop(props, schema, "URL", {"url": published_url}, include=bool(published_url))
+    return props
+
+
 def _content_hub_properties(
     schema: dict[str, Any],
     *,
@@ -95,38 +161,23 @@ def _content_hub_properties(
     published_at: str = "",
     receipt_id: str = "",
 ) -> dict[str, Any]:
-    props: dict[str, Any] = {}
-    if "Name" in schema:
-        props["Name"] = {"title": [{"text": {"content": title}}]}
-    if "Status" in schema:
-        props["Status"] = {"select": {"name": status}}
-    if "Category" in schema:
-        props["Category"] = {"select": {"name": category}}
-    if "Date" in schema:
-        props["Date"] = {"date": {"start": datetime.now().date().isoformat()}}
-    if "Score" in schema:
-        props["Score"] = {"number": score}
-    if "Platform" in schema:
-        props["Platform"] = {"multi_select": [{"name": platform_label}]}
-    if "Trend ID" in schema and draft_meta.get("trend_id"):
-        props["Trend ID"] = _rich_text_prop(str(draft_meta["trend_id"]))
-    if "Draft ID" in schema and draft_meta.get("draft_id"):
-        props["Draft ID"] = _rich_text_prop(str(draft_meta["draft_id"]))
-    if "Prompt Version" in schema and draft_meta.get("prompt_version"):
-        props["Prompt Version"] = _rich_text_prop(str(draft_meta["prompt_version"]))
-    if "QA Score" in schema and draft_meta.get("qa_score") is not None:
-        props["QA Score"] = {"number": float(draft_meta.get("qa_score", 0.0))}
-    if "Blocking Reasons" in schema:
-        blockers = ", ".join(draft_meta.get("blocking_reasons", []) or [])
-        props["Blocking Reasons"] = _rich_text_prop(blockers)
-    if "Published URL" in schema and published_url:
-        props["Published URL"] = {"url": published_url}
-    if "Published At" in schema and published_at:
-        props["Published At"] = {"date": {"start": published_at}}
-    if "Receipt ID" in schema and receipt_id:
-        props["Receipt ID"] = _rich_text_prop(receipt_id)
-    if "URL" in schema and published_url:
-        props["URL"] = {"url": published_url}
+    props = _base_content_hub_properties(
+        schema,
+        title=title,
+        status=status,
+        category=category,
+        platform_label=platform_label,
+        score=score,
+    )
+    props.update(_draft_meta_content_hub_properties(schema, draft_meta))
+    props.update(
+        _published_content_hub_properties(
+            schema,
+            published_url=published_url,
+            published_at=published_at,
+            receipt_id=receipt_id,
+        )
+    )
     return props
 
 
@@ -136,6 +187,175 @@ def _content_hub_default_priority(score: float) -> str:
     if score >= 70:
         return "Medium"
     return "Low"
+
+
+def _content_hub_platform_label(platform: str) -> str:
+    return {"x": "X", "threads": "Threads", "naver_blog": "NaverBlog"}.get(platform, platform)
+
+
+def _content_hub_review_context(
+    batch: TweetBatch,
+    trend: ScoredTrend,
+    platform: str,
+    workflow_meta: dict,
+) -> dict[str, Any]:
+    platform_label = _content_hub_platform_label(platform)
+    review_score = float(workflow_meta.get("qa_score", batch.viral_score or trend.viral_potential))
+    return {
+        "platform_label": platform_label,
+        "category": getattr(trend, "category", "湲고?") or "湲고?",
+        "status": "Ready",
+        "title": f"[{platform_label}] {batch.topic} | {datetime.now().strftime('%m/%d %H:%M')}",
+        "review_score": review_score,
+    }
+
+
+def _content_hub_summary_block(context: dict[str, Any], workflow_meta: dict) -> dict:
+    return {
+        "object": "block",
+        "type": "callout",
+        "callout": {
+            "icon": {"type": "emoji", "emoji": "?뱷"},
+            "rich_text": [
+                {
+                    "type": "text",
+                    "text": {
+                        "content": (
+                            f"Platform: {context['platform_label']} | Status: {context['status']}\n"
+                            f"Category: {context['category']} | Score: {context['review_score']}\n"
+                            f"Draft ID: {workflow_meta.get('draft_id', '')}\n"
+                            f"Prompt Version: {workflow_meta.get('prompt_version', '')}"
+                        )
+                    },
+                }
+            ],
+            "color": "blue_background",
+        },
+    }
+
+
+def _plain_code_block(content: str) -> dict:
+    return {
+        "object": "block",
+        "type": "code",
+        "code": {
+            "language": "plain text",
+            "rich_text": [{"type": "text", "text": {"content": content[:1900]}}],
+        },
+    }
+
+
+def _paragraph_block(content: str) -> dict:
+    return {
+        "object": "block",
+        "type": "paragraph",
+        "paragraph": {
+            "rich_text": [{"type": "text", "text": {"content": content[:1900]}}],
+        },
+    }
+
+
+def _content_hub_body_blocks(batch: TweetBatch, trend: ScoredTrend, platform: str) -> list[dict]:
+    if platform == "x":
+        return _build_notion_body(batch, trend)
+    if platform == "threads":
+        return [_plain_code_block(post.content) for post in batch.threads_posts]
+    if platform == "naver_blog":
+        return [_paragraph_block(post.content) for post in batch.blog_posts]
+    return []
+
+
+def _seed_content_hub_create_defaults(properties: dict[str, Any], schema: dict[str, Any], review_score: float) -> None:
+    defaults = {
+        "Feedback State": {"select": {"name": "Need Review"}},
+        "Next Action": {"select": {"name": "Review Copy"}},
+        "Priority": {"select": {"name": _content_hub_default_priority(review_score)}},
+    }
+    for name, value in defaults.items():
+        _set_schema_prop(properties, schema, name, value)
+
+
+def _existing_content_hub_page_id(notion: Any, schema: dict[str, Any], hub_db_id: str, workflow_meta: dict) -> str:
+    if "Draft ID" not in schema or not workflow_meta.get("draft_id"):
+        return ""
+    return _query_content_hub_by_draft_id(notion, hub_db_id, workflow_meta.get("draft_id", ""))
+
+
+def _upsert_content_hub_page(
+    notion: Any,
+    *,
+    hub_db_id: str,
+    existing_page_id: str,
+    properties: dict[str, Any],
+    blocks: list[dict],
+) -> str:
+    if existing_page_id:
+        _retry_notion_call(notion.pages.update, page_id=existing_page_id, properties=properties)
+        return existing_page_id
+
+    target = _resolve_notion_write_target(notion, hub_db_id)
+    if target is None:
+        return ""
+
+    page = _retry_notion_call(
+        notion.pages.create,
+        parent=target.parent,
+        properties=properties,
+        children=blocks,
+    )
+    return page.get("id", "") if isinstance(page, dict) else ""
+
+
+def _content_hub_database_id(config: AppConfig) -> str | None:
+    hub_db_id = getattr(config, "content_hub_database_id", "")
+    if not hub_db_id:
+        return None
+    if not NOTION_AVAILABLE:
+        log.error("notion-client package is required for Content Hub writes")
+        return None
+    return hub_db_id
+
+
+def _should_skip_content_hub(batch: TweetBatch, platform: str, workflow_meta: dict) -> bool:
+    if (getattr(batch, "metadata", {}) or {}).get("workflow_v2") and not workflow_meta:
+        log.info(f"Content Hub skip [{platform}] '{batch.topic}' - no ready V2 draft")
+        return True
+    return False
+
+
+def _prepare_content_hub_payload(
+    notion: Any,
+    *,
+    hub_db_id: str,
+    batch: TweetBatch,
+    trend: ScoredTrend,
+    platform: str,
+    workflow_meta: dict,
+) -> tuple[dict[str, Any], dict[str, Any], list[dict], str]:
+    schema = _get_hub_schema(notion, hub_db_id)
+    context = _content_hub_review_context(batch, trend, platform, workflow_meta)
+    properties = _content_hub_properties(
+        schema,
+        title=context["title"],
+        status=context["status"],
+        category=context["category"],
+        platform_label=context["platform_label"],
+        score=context["review_score"],
+        draft_meta=workflow_meta,
+    )
+    blocks = [_content_hub_summary_block(context, workflow_meta), *_content_hub_body_blocks(batch, trend, platform)][:100]
+    existing_page_id = _existing_content_hub_page_id(notion, schema, hub_db_id, workflow_meta)
+    if not existing_page_id:
+        _seed_content_hub_create_defaults(properties, schema, context["review_score"])
+    return context, properties, blocks, existing_page_id
+
+
+def _log_content_hub_error(exc: Exception, context: dict[str, Any]) -> None:
+    platform_label = context.get("platform_label", "unknown")
+    if isinstance(exc, (ConnectionError, TimeoutError)):
+        log.error(f"Content Hub network error [{platform_label}]: {type(exc).__name__}: {exc}")
+    else:
+        log.error(f"Content Hub upsert failed [{platform_label}]: {type(exc).__name__}: {exc}")
 
 
 # ══════════════════════════════════════════════════════
@@ -150,123 +370,37 @@ def save_to_content_hub(
     platform: str = "x",
 ) -> bool:
     """Upsert one V2.0 review-queue page into the canonical Notion Content Hub."""
-    hub_db_id = getattr(config, "content_hub_database_id", "")
+    hub_db_id = _content_hub_database_id(config)
     if not hub_db_id:
-        return False
-    if not NOTION_AVAILABLE:
-        log.error("notion-client package is required for Content Hub writes")
         return False
 
     workflow_meta = _content_hub_workflow_meta(batch, platform)
-    if (getattr(batch, "metadata", {}) or {}).get("workflow_v2") and not workflow_meta:
-        log.info(f"Content Hub skip [{platform}] '{batch.topic}' - no ready V2 draft")
+    if _should_skip_content_hub(batch, platform, workflow_meta):
         return True
 
     notion = NotionClient(auth=config.notion_token)
-    schema = _get_hub_schema(notion, hub_db_id)
-    now = datetime.now()
-
-    platform_label = {"x": "X", "threads": "Threads", "naver_blog": "NaverBlog"}.get(platform, platform)
-    category = getattr(trend, "category", "기타") or "기타"
-    status = "Ready"
-    title = f"[{platform_label}] {batch.topic} | {now.strftime('%m/%d %H:%M')}"
-    review_score = float(workflow_meta.get("qa_score", batch.viral_score or trend.viral_potential))
-
-    properties = _content_hub_properties(
-        schema,
-        title=title,
-        status=status,
-        category=category,
-        platform_label=platform_label,
-        score=review_score,
-        draft_meta=workflow_meta,
-    )
-
-    blocks: list[dict] = [
-        {
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "📝"},
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {
-                            "content": (
-                                f"Platform: {platform_label} | Status: {status}\n"
-                                f"Category: {category} | Score: {review_score}\n"
-                                f"Draft ID: {workflow_meta.get('draft_id', '')}\n"
-                                f"Prompt Version: {workflow_meta.get('prompt_version', '')}"
-                            )
-                        },
-                    }
-                ],
-                "color": "blue_background",
-            },
-        }
-    ]
-
-    if platform == "x":
-        blocks.extend(_build_notion_body(batch, trend))
-    elif platform == "threads":
-        for post in batch.threads_posts:
-            blocks.append(
-                {
-                    "object": "block",
-                    "type": "code",
-                    "code": {
-                        "language": "plain text",
-                        "rich_text": [{"type": "text", "text": {"content": post.content[:1900]}}],
-                    },
-                }
-            )
-    elif platform == "naver_blog":
-        for post in batch.blog_posts:
-            blocks.append(
-                {
-                    "object": "block",
-                    "type": "paragraph",
-                    "paragraph": {
-                        "rich_text": [{"type": "text", "text": {"content": post.content[:1900]}}],
-                    },
-                }
-            )
-
-    if len(blocks) > 100:
-        blocks = blocks[:100]
-
-    existing_page_id = ""
-    if "Draft ID" in schema and workflow_meta.get("draft_id"):
-        existing_page_id = _query_content_hub_by_draft_id(notion, hub_db_id, workflow_meta.get("draft_id", ""))
-    if not existing_page_id:
-        if "Feedback State" in schema:
-            properties["Feedback State"] = {"select": {"name": "Need Review"}}
-        if "Next Action" in schema:
-            properties["Next Action"] = {"select": {"name": "Review Copy"}}
-        if "Priority" in schema:
-            properties["Priority"] = {"select": {"name": _content_hub_default_priority(review_score)}}
-
+    context: dict[str, Any] = {}
     try:
-        if existing_page_id:
-            _retry_notion_call(notion.pages.update, page_id=existing_page_id, properties=properties)
-            page_id = existing_page_id
-        else:
-            page = _retry_notion_call(
-                notion.pages.create,
-                parent={"database_id": hub_db_id},
-                properties=properties,
-                children=blocks,
-            )
-            page_id = page.get("id", "") if isinstance(page, dict) else ""
-
+        context, properties, blocks, existing_page_id = _prepare_content_hub_payload(
+            notion,
+            hub_db_id=hub_db_id,
+            batch=batch,
+            trend=trend,
+            platform=platform,
+            workflow_meta=workflow_meta,
+        )
+        page_id = _upsert_content_hub_page(
+            notion,
+            hub_db_id=hub_db_id,
+            existing_page_id=existing_page_id,
+            properties=properties,
+            blocks=blocks,
+        )
         if page_id and workflow_meta.get("draft_id"):
-            _persist_content_hub_link(config, workflow_meta["draft_id"], page_id, status)
+            _persist_content_hub_link(config, workflow_meta["draft_id"], page_id, context["status"])
 
-        log.info(f"Content Hub upsert complete [{platform_label}] '{batch.topic}'")
+        log.info(f"Content Hub upsert complete [{context['platform_label']}] '{batch.topic}'")
         return True
-    except (ConnectionError, TimeoutError) as exc:
-        log.error(f"Content Hub network error [{platform_label}]: {type(exc).__name__}: {exc}")
-        return False
     except Exception as exc:
-        log.error(f"Content Hub upsert failed [{platform_label}]: {type(exc).__name__}: {exc}")
+        _log_content_hub_error(exc, context)
         return False

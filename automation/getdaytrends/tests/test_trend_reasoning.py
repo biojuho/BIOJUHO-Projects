@@ -27,3 +27,18 @@ async def test_upsert_pattern_qualifies_survival_count_for_postgres_compat() -> 
     assert "CASE WHEN trend_patterns.survival_count + 1 >= 3" in sql
     assert params[:3] == ("pattern-1", "Digital fandom spillover", "korea")
     assert conn.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_upsert_pattern_includes_region_in_params() -> None:
+    conn = _FakeConn()
+    await upsert_pattern(conn, "p2", "Test pattern", "global")
+    _, params = conn.calls[0]
+    assert params[:3] == ("p2", "Test pattern", "global")
+
+
+@pytest.mark.asyncio
+async def test_upsert_pattern_calls_commit() -> None:
+    conn = _FakeConn()
+    await upsert_pattern(conn, "p3", "Desc", "us")
+    assert conn.commit_count == 1

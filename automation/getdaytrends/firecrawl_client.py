@@ -24,7 +24,7 @@ _CONTENT_TRUNCATE_CHARS = 3000  # 기사 본문 최대 길이 (프롬프트 비�
 class _RateLimiter:
     """간단한 슬라이딩 윈도우 레이트 리미터."""
 
-    def __init__(self, max_requests: int = _MAX_REQUESTS_PER_MIN, window_seconds: float = 60.0):
+    def __init__(self, max_requests: int = _MAX_REQUESTS_PER_MIN, window_seconds: float = 60.0) -> None:
         self._max = max_requests
         self._window = window_seconds
         self._timestamps: list[float] = []
@@ -47,6 +47,69 @@ class _RateLimiter:
 
 # 모듈 레벨 싱글턴
 _rate_limiter = _RateLimiter()
+
+
+def _empty_firecrawl_article() -> dict[str, str]:
+    return {"title": "", "content": "", "published_date": ""}
+
+
+def _firecrawl_quota_exhausted(resp) -> bool:
+    if resp.status_code == 402:
+        log.warning("[Firecrawl] API credits exhausted (402)")
+        return True
+    if resp.status_code == 429:
+        log.warning("[Firecrawl] rate limit exceeded (429)")
+        return True
+    return False
+
+
+def _truncated_firecrawl_markdown(markdown: str) -> str:
+    if len(markdown) > _CONTENT_TRUNCATE_CHARS:
+        return markdown[:_CONTENT_TRUNCATE_CHARS] + "\n...(truncated)"
+    return markdown
+
+
+def _firecrawl_article_from_data(page_data: dict) -> dict[str, str]:
+    metadata = page_data.get("metadata", {})
+    return {
+        "title": metadata.get("title", "") or metadata.get("ogTitle", ""),
+        "content": _truncated_firecrawl_markdown(page_data.get("markdown", "")),
+        "published_date": (
+            metadata.get("publishedTime", "")
+            or metadata.get("articlePublishedTime", "")
+            or metadata.get("ogArticlePublishedTime", "")
+        ),
+    }
+
+
+def _parse_firecrawl_scrape_response(data: dict, url: str) -> dict[str, str]:
+    if not data.get("success"):
+        log.warning(f"[Firecrawl] scrape failed: {url} - {data.get('error', 'unknown')}")
+        return _empty_firecrawl_article()
+    return _firecrawl_article_from_data(data.get("data", {}))
+
+
+def _successful_firecrawl_articles(results: list, urls_to_crawl: list[str]) -> list[dict]:
+    articles: list[dict] = []
+    for index, result in enumerate(results):
+        if isinstance(result, Exception):
+            log.warning(f"[Firecrawl] crawl exception: {urls_to_crawl[index]} - {result}")
+            continue
+        if result and result.get("content"):
+            articles.append(result)
+    return articles
+
+
+def _format_firecrawl_article(index: int, article: dict) -> str:
+    title = article["title"] or "(제목 없음)"
+    content = article["content"].strip()
+    date_info = f" ({article['published_date']})" if article["published_date"] else ""
+    return f"--- 기사 {index}{date_info} ---\n제목: {title}\n본문:\n{content}"
+
+
+def _format_firecrawl_context(articles: list[dict]) -> str:
+    parts = [_format_firecrawl_article(index, article) for index, article in enumerate(articles, 1)]
+    return "[기사 본문 요약]\n" + "\n\n".join(parts)
 
 
 # ══════════════════════════════════════════════════════
@@ -78,7 +141,7 @@ class FirecrawlClient:
         context_text = await client.enrich_trend_context("키워드", urls, max_articles=3)
     """
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None) -> None:
         self._api_key = api_key or os.getenv("FIRECRAWL_API_KEY", "")
         self._client: httpx.AsyncClient | None = None
 
@@ -117,11 +180,9 @@ class FirecrawlClient:
             {"title": str, "content": str, "published_date": str}
             실패 시 모든 값이 빈 문자열.
         """
-        empty = {"title": "", "content": "", "published_date": ""}
-
         if not self.available:
             log.debug("[Firecrawl] API 키 미설정, 스킵")
-            return empty
+            return _empty_firecrawl_article()
 
         try:
             await _rate_limiter.acquire()
@@ -136,48 +197,21 @@ class FirecrawlClient:
                 },
             )
 
-            if resp.status_code == 402:
-                log.warning("[Firecrawl] API 크레딧 소진 (402)")
-                return empty
-            if resp.status_code == 429:
-                log.warning("[Firecrawl] 레이트 리밋 초과 (429)")
-                return empty
+            if _firecrawl_quota_exhausted(resp):
+                return _empty_firecrawl_article()
 
             resp.raise_for_status()
-            data = resp.json()
-
-            # Firecrawl v1 응답 구조: {"success": bool, "data": {"markdown": ..., "metadata": {...}}}
-            if not data.get("success"):
-                log.warning(f"[Firecrawl] 스크래핑 실패: {url} - {data.get('error', 'unknown')}")
-                return empty
-
-            page_data = data.get("data", {})
-            metadata = page_data.get("metadata", {})
-            markdown = page_data.get("markdown", "")
-
-            # 본문 길이 제한 (LLM 프롬프트 비용 절감)
-            if len(markdown) > _CONTENT_TRUNCATE_CHARS:
-                markdown = markdown[:_CONTENT_TRUNCATE_CHARS] + "\n...(truncated)"
-
-            return {
-                "title": metadata.get("title", "") or metadata.get("ogTitle", ""),
-                "content": markdown,
-                "published_date": (
-                    metadata.get("publishedTime", "")
-                    or metadata.get("articlePublishedTime", "")
-                    or metadata.get("ogArticlePublishedTime", "")
-                ),
-            }
+            return _parse_firecrawl_scrape_response(resp.json(), url)
 
         except httpx.TimeoutException:
             log.warning(f"[Firecrawl] 타임아웃: {url}")
-            return empty
+            return _empty_firecrawl_article()
         except httpx.HTTPStatusError as exc:
             log.warning(f"[Firecrawl] HTTP {exc.response.status_code}: {url}")
-            return empty
+            return _empty_firecrawl_article()
         except Exception as exc:
             log.warning(f"[Firecrawl] 예외 발생: {url} - {exc}")
-            return empty
+            return _empty_firecrawl_article()
 
     # --------------------------------------------------
     #  Batch: 여러 URL 크롤 + 컨텍스트 텍스트 생성
@@ -213,14 +247,7 @@ class FirecrawlClient:
         tasks = [self.scrape_url(url) for url in urls_to_crawl]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 성공한 기사만 수집
-        articles: list[dict] = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                log.warning(f"[Firecrawl] 크롤링 예외: {urls_to_crawl[i]} - {result}")
-                continue
-            if result and result.get("content"):
-                articles.append(result)
+        articles = _successful_firecrawl_articles(results, urls_to_crawl)
 
         if not articles:
             log.info(f"[Firecrawl] '{trend_keyword}' 크롤링 성공 기사 없음")
@@ -228,16 +255,7 @@ class FirecrawlClient:
 
         log.info(f"[Firecrawl] '{trend_keyword}' {len(articles)}/{len(urls_to_crawl)}건 크롤링 성공")
 
-        # 컨텍스트 텍스트 조립
-        parts: list[str] = []
-        for idx, article in enumerate(articles, 1):
-            title = article["title"] or "(제목 없음)"
-            content = article["content"].strip()
-            date_info = f" ({article['published_date']})" if article["published_date"] else ""
-
-            parts.append(f"--- 기사 {idx}{date_info} ---\n제목: {title}\n본문:\n{content}")
-
-        return "[기사 본문 요약]\n" + "\n\n".join(parts)
+        return _format_firecrawl_context(articles)
 
 
 # ══════════════════════════════════════════════════════

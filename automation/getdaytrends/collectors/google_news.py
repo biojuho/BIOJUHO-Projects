@@ -66,53 +66,84 @@ async def _async_fetch_google_news_trends(
     timeout: httpx.Timeout | float | None = None,
 ) -> str:
     """Fetch recent Google News RSS headlines for a keyword."""
-    encoded_topic = urllib.parse.quote(keyword)
     insights: list[str] = []
     seen_titles: set[str] = set()
 
-    for hl, gl, ceid in (("ko", "KR", "KR:ko"), ("en-US", "US", "US:en")):
-        url = f"https://news.google.com/rss/search?q={encoded_topic}&hl={hl}&gl={gl}&ceid={ceid}"
-        try:
-            resp = await session.get(
-                url,
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=_resolve_timeout(timeout),
-            )
-            raw = resp.read()
-            root = ET.fromstring(raw)
-        except Exception:
-            continue
-
-        for item in root.findall(".//item")[:5]:
-            title = item.find("title")
-            pub_date = item.find("pubDate")
-            if title is None or not title.text:
-                continue
-
-            title_text = title.text.strip()
-            title_key = title_text.casefold()
-            if title_key in seen_titles:
-                continue
-
-            dt = _parse_rss_date(pub_date.text if pub_date is not None else None)
-            if not _is_fresh_enough(dt):
-                continue
-
-            age_str = _format_news_age(pub_date.text if pub_date is not None else None)
-            time_label = dt.strftime("%m/%d %H:%M") if dt else ""
-
-            if age_str and time_label:
-                headline = f"[{time_label}, {age_str}] {title_text}"
-            elif age_str:
-                headline = f"[{age_str}] {title_text}"
-            else:
-                headline = title_text
-
-            seen_titles.add(title_key)
-            insights.append(headline)
+    for url in _google_news_rss_urls(keyword):
+        root = await _fetch_google_news_rss_root(session, url, timeout)
+        if root is not None:
+            _append_google_news_headlines(root, insights, seen_titles)
 
     return " | ".join(insights) if insights else "관련 뉴스 없음"
 
+
+def _google_news_rss_urls(keyword: str) -> list[str]:
+    encoded_topic = urllib.parse.quote(keyword)
+    return [
+        f"https://news.google.com/rss/search?q={encoded_topic}&hl={hl}&gl={gl}&ceid={ceid}"
+        for hl, gl, ceid in (("ko", "KR", "KR:ko"), ("en-US", "US", "US:en"))
+    ]
+
+
+async def _fetch_google_news_rss_root(
+    session: httpx.AsyncClient,
+    url: str,
+    timeout: httpx.Timeout | float | None,
+) -> ET.Element | None:
+    try:
+        resp = await session.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=_resolve_timeout(timeout),
+        )
+        return ET.fromstring(resp.read())
+    except Exception:
+        return None
+
+
+def _append_google_news_headlines(
+    root: ET.Element,
+    insights: list[str],
+    seen_titles: set[str],
+) -> None:
+    for item in root.findall(".//item")[:5]:
+        headline = _google_news_headline(item, seen_titles)
+        if headline:
+            insights.append(headline)
+
+
+def _google_news_headline(item: ET.Element, seen_titles: set[str]) -> str:
+    title = item.find("title")
+    pub_date = item.find("pubDate")
+    if title is None or not title.text:
+        return ""
+
+    title_text = title.text.strip()
+    title_key = title_text.casefold()
+    if title_key in seen_titles:
+        return ""
+
+    date_text = pub_date.text if pub_date is not None else None
+    dt = _parse_rss_date(date_text)
+    if not _is_fresh_enough(dt):
+        return ""
+
+    seen_titles.add(title_key)
+    return _format_google_news_headline(title_text, date_text, dt)
+
+
+def _format_google_news_headline(
+    title_text: str,
+    date_text: str | None,
+    dt: datetime | None,
+) -> str:
+    age_str = _format_news_age(date_text)
+    time_label = dt.strftime("%m/%d %H:%M") if dt else ""
+    if age_str and time_label:
+        return f"[{time_label}, {age_str}] {title_text}"
+    if age_str:
+        return f"[{age_str}] {title_text}"
+    return title_text
 
 def fetch_google_news_trends(keyword: str) -> str:
     """Sync wrapper for Google News RSS collection."""

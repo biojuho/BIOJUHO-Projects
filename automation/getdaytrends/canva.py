@@ -27,7 +27,7 @@ except ImportError:
 class CanvaMCPClient:
     """Canva MCP 서버와 통신하는 클라이언트"""
 
-    def __init__(self, workspace_root: Path):
+    def __init__(self, workspace_root: Path) -> None:
         self.workspace_root = workspace_root
         self.mcp_server_path = workspace_root / "canva-mcp"
         self.server_process: subprocess.Popen | None = None
@@ -121,7 +121,7 @@ class CanvaMCPClient:
             log.error("[Canva MCP] 디자인 생성 실패: {}", e)
             return []
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """MCP 서버 종료"""
         if self.server_process:
             self.server_process.terminate()
@@ -208,7 +208,7 @@ async def _generate_visual_assets_skeleton(trend: ScoredTrend, config: AppConfig
     log.debug("[Canva Skeleton] 템플릿 ID: {}", config.canva_template_id)
     log.debug("[Canva Skeleton] 트렌드 데이터: keyword={}, insight={}", trend.keyword, trend.top_insight)
 
-    # Phase 2 TODO:
+    # Fallback hardening notes:
     # - MCP 서버 프로세스 관리 안정화
     # - stdin/stdout JSON-RPC 통신 디버깅
     # - Canva OAuth 인증 플로우 통합

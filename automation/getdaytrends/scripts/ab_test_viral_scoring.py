@@ -121,19 +121,27 @@ def parse_observation(item: dict) -> TrendObservation:
     )
 
 
+def _load_observations(items: list[dict]) -> list[TrendObservation]:
+    return [parse_observation(item) for item in items]
+
+
+def _dataset_from_mapping(raw: dict, path: str) -> tuple[list[TrendObservation], str, dict]:
+    observations = raw.get("observations") or raw.get("items") or raw.get("dataset") or []
+    metadata = raw.get("metadata", {})
+    dataset_name = raw.get("dataset_name") or metadata.get("dataset_name") or path
+    return _load_observations(observations), dataset_name, metadata
+
+
 def load_dataset(path: str | None) -> tuple[list[TrendObservation], str, dict]:
     if not path:
         return SAMPLE_DATASET, "built-in sample", {}
 
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     if isinstance(raw, list):
-        return [parse_observation(item) for item in raw], path, {}
+        return _load_observations(raw), path, {}
 
     if isinstance(raw, dict):
-        observations = raw.get("observations") or raw.get("items") or raw.get("dataset") or []
-        metadata = raw.get("metadata", {})
-        dataset_name = raw.get("dataset_name") or metadata.get("dataset_name") or path
-        return [parse_observation(item) for item in observations], dataset_name, metadata
+        return _dataset_from_mapping(raw, path)
 
     raise ValueError("Unsupported dataset format")
 

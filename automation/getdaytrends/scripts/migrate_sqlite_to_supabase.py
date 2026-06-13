@@ -11,9 +11,11 @@ Features:
     - Auto-updates SERIAL sequences after bulk insert
 """
 
+import argparse
 import asyncio
 import os
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 # Add workspace root to Python path
@@ -94,6 +96,21 @@ _MIGRATION_TABLES = [
 ]
 
 
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Migrate getdaytrends SQLite data to Supabase PostgreSQL.")
+    parser.add_argument(
+        "--database-url",
+        default="",
+        help="PostgreSQL DATABASE_URL. Defaults to the DATABASE_URL environment variable.",
+    )
+    parser.add_argument(
+        "--sqlite-db-path",
+        default=str(Path(__file__).parent.parent / "data" / "getdaytrends.db"),
+        help="Source SQLite database path.",
+    )
+    return parser.parse_args(argv)
+
+
 async def _init_pg_schema(pg_pool: asyncpg.Pool) -> None:
     """Run init_db + supplementary DDL on PostgreSQL."""
     from automation.getdaytrends.db_layer.pg_adapter import PgAdapter
@@ -146,37 +163,47 @@ async def _migrate_table(
         log.info(f"  [{table}] Empty. Skipping.")
         return 0
 
-    # Build INSERT ... ON CONFLICT DO NOTHING
-    col_names = ", ".join(columns)
-    placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
-
-    conflict_clause = ""
-    if pk_cols:
-        pk_str = ", ".join(pk_cols)
-        conflict_clause = f"ON CONFLICT ({pk_str}) DO NOTHING"
-    elif table == "runs":
-        conflict_clause = "ON CONFLICT (run_uuid) DO NOTHING"
-
-    query = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders}) {conflict_clause}"
+    query = _insert_query(table, columns, pk_cols)
     records = [tuple(row[col] for col in columns) for row in rows]
 
     try:
         await pg_pool.executemany(query, records)
         log.info(f"  [{table}] Migrated {len(records)} rows.")
-
-        # Update SERIAL sequence if auto-increment 'id' column exists
-        if "id" in columns and "id" in pk_cols:
-            try:
-                await pg_pool.execute(
-                    f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}"
-                )
-                log.info(f"  [{table}] Sequence updated.")
-            except Exception as seq_err:
-                log.debug(f"  [{table}] Sequence update skipped: {seq_err}")
+        await _update_serial_sequence(pg_pool, table, columns, pk_cols)
         return len(records)
     except Exception as e:
         log.error(f"  [{table}] Migration error: {e}")
         return 0
+
+
+def _insert_query(table: str, columns: list[str], pk_cols: list[str]) -> str:
+    col_names = ", ".join(columns)
+    placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
+    conflict_clause = _conflict_clause(table, pk_cols)
+    return f"INSERT INTO {table} ({col_names}) VALUES ({placeholders}) {conflict_clause}"
+
+
+def _conflict_clause(table: str, pk_cols: list[str]) -> str:
+    if pk_cols:
+        return f"ON CONFLICT ({', '.join(pk_cols)}) DO NOTHING"
+    if table == "runs":
+        return "ON CONFLICT (run_uuid) DO NOTHING"
+    return ""
+
+
+async def _update_serial_sequence(
+    pg_pool: asyncpg.Pool,
+    table: str,
+    columns: list[str],
+    pk_cols: list[str],
+) -> None:
+    if "id" not in columns or "id" not in pk_cols:
+        return
+    try:
+        await pg_pool.execute(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}")
+        log.info(f"  [{table}] Sequence updated.")
+    except Exception as seq_err:
+        log.debug(f"  [{table}] Sequence update skipped: {seq_err}")
 
 
 async def _verify_migration(pg_pool: asyncpg.Pool, sqlite_conn: aiosqlite.Connection) -> None:
@@ -208,14 +235,7 @@ async def _verify_migration(pg_pool: asyncpg.Pool, sqlite_conn: aiosqlite.Connec
         log.info("\nAll tables verified: row counts match!")
 
 
-async def main():
-    database_url = os.getenv("DATABASE_URL", "")
-    sqlite_db_path = str(Path(__file__).parent.parent / "data" / "getdaytrends.db")
-
-    if not database_url:
-        log.error("DATABASE_URL is not set in the environment. Cannot connect to Supabase.")
-        sys.exit(1)
-
+async def _run_migration(database_url: str, sqlite_db_path: str) -> None:
     masked_url = database_url.split("@")[-1] if "@" in database_url else "***"
     log.info(f"Source SQLite: {sqlite_db_path}")
     log.info(f"Target PG:    {masked_url}")
@@ -256,5 +276,15 @@ async def main():
     log.info("\nMigration complete!")
 
 
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    database_url = args.database_url or os.getenv("DATABASE_URL", "")
+    if not database_url:
+        log.error("DATABASE_URL is not set in the environment. Cannot connect to Supabase.")
+        return 1
+    asyncio.run(_run_migration(database_url, args.sqlite_db_path))
+    return 0
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(main())

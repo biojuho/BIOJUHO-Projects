@@ -6,17 +6,26 @@ getdaytrends v4.1 - Configuration Management
 import os
 from dataclasses import dataclass, field
 from functools import cached_property
+from pathlib import Path
 
 try:
     from shared.env_loader import load_workspace_env
 
-    load_workspace_env()
+    load_workspace_env(project_dir=Path(__file__).resolve().parent)
 except ImportError:
     from dotenv import load_dotenv
 
-    load_dotenv()
+    load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
 VERSION = "4.1"
+
+
+def _set_default_cost_database_url() -> None:
+    cost_db = Path(__file__).resolve().parent / "data" / "llm_costs.db"
+    os.environ.setdefault("LLM_COSTS_DATABASE_URL", f"sqlite:///{cost_db.as_posix()}")
+
+
+_set_default_cost_database_url()
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -107,7 +116,12 @@ class AlertConfig:
 
     @property
     def has_any_channel(self) -> bool:
-        return self.has_telegram or self.has_discord or bool(self.slack_webhook_url)
+        return (
+            self.has_telegram
+            or self.has_discord
+            or bool(self.slack_webhook_url)
+            or (bool(self.smtp_host) and bool(self.alert_email))
+        )
 
 
 @dataclass
@@ -128,6 +142,7 @@ class AppConfig:
     # Storage: Database
     # SQLite ??れ삀??? PostgreSQL ??ш낄援?? DATABASE_URL=postgresql://user:pw@host/db
     db_path: str = "data/getdaytrends.db"
+    allow_sqlite_fallback: bool = True
     database_url: str = ""  # ???源놁젳 ??PostgreSQL ????(SQLite ???뺤깓??
 
     # Schedule
@@ -456,9 +471,19 @@ class AppConfig:
     verbose: bool = False
     no_alerts: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.countries:
             self.countries = [self.country]
+
+    @cached_property
+    def base_dir(self) -> Path:
+        """Absolute project directory for getdaytrends runtime assets."""
+        return Path(__file__).resolve().parent
+
+    @cached_property
+    def log_file_path(self) -> Path:
+        """Default log file path used by file logging."""
+        return self.base_dir / "data" / "tweet_bot.log"
 
     # [QA ???쒓낯?? @property ??@cached_property: 癲??嶺뚮ㅎ?????좊즵??꼯????獄쏅똻???袁⑸젻泳?
     @cached_property
@@ -546,62 +571,66 @@ class AppConfig:
         return cls(**kwargs)
 
     def validate(self) -> list[str]:
-        """????곸씔 癲ル슢?꾤땟戮⑤뭄??袁⑸즵??? ???域밸Ŧ遊얕짆?嶺뚮ㅎ?닻얠쥉異????レ챺??"""
+        """Validate runtime configuration and return human-readable errors."""
         from shared.llm.config import load_keys
 
-        errors = []
-        keys = load_keys()
-        if not any(keys.values()):
-            errors.append("LLM API ??? ???源놁젳??? ????⒱봼??????(??룸Ŧ爾??.env ?嶺뚮Ĳ?됮?.")
+        errors: list[str] = []
+        self._validate_llm_keys(errors, load_keys())
+        self._validate_storage_config(errors)
+        self._validate_content_hub_config(errors)
+        self._validate_choice_fields(errors)
+        self._validate_numeric_ranges(errors)
+        self._validate_quality_rules(errors)
+        return errors
 
+    @staticmethod
+    def _validate_llm_keys(errors: list[str], keys: dict) -> None:
+        if not any(keys.values()):
+            errors.append("LLM API keys are not configured. Set at least one provider key in .env.")
+
+    def _validate_storage_config(self, errors: list[str]) -> None:
         if self.storage_type in ("notion", "both"):
             if not self.notion_token or "your_" in self.notion_token:
-                errors.append("NOTION_TOKEN?????源놁젳??? ????⒱봼??????")
+                errors.append("NOTION_TOKEN is required for Notion storage")
             if not self.notion_database_id or "your_" in self.notion_database_id:
-                errors.append("NOTION_DATABASE_ID??좊읈? ???源놁젳??? ????⒱봼??????")
+                errors.append("NOTION_DATABASE_ID is required for Notion storage")
 
         if self.storage_type in ("google_sheets", "both"):
             if not self.google_sheet_id or "your_" in self.google_sheet_id:
-                errors.append("GOOGLE_SHEET_ID??좊읈? ???源놁젳??? ????⒱봼??????")
+                errors.append("GOOGLE_SHEET_ID is required for Google Sheets storage")
             if not os.path.exists(self.google_service_json):
-                errors.append(
-                    f"Google ??筌먐삳４????節뚮쳮??JSON??癲ル슓??젆???????⑤８?????덊렡: {self.google_service_json}"
-                )
+                errors.append(f"Google service account JSON does not exist: {self.google_service_json}")
 
+    def _validate_content_hub_config(self, errors: list[str]) -> None:
         if self.enable_content_hub and not self.content_hub_database_id:
-            errors.append("ENABLE_CONTENT_HUB=true ???癲?CONTENT_HUB_DATABASE_ID??좊읈? ????룹젂????怨?????덊렡.")
+            errors.append("ENABLE_CONTENT_HUB=true requires CONTENT_HUB_DATABASE_ID")
 
-        # ???쒓랜萸??類?????濡ろ떟?癲?
+    def _validate_choice_fields(self, errors: list[str]) -> None:
         valid_storage = {"notion", "google_sheets", "both", "none"}
         valid_editorial_profiles = {"report", "classic", "biojuho"}
         if self.storage_type not in valid_storage:
-            errors.append(
-                f"STORAGE_TYPE?????レ챺???? ?????????덊렡: '{self.storage_type}' (???源낅츛: {valid_storage})"
-            )
+            errors.append(f"STORAGE_TYPE is invalid: '{self.storage_type}' (allowed: {valid_storage})")
         if self.editorial_profile not in valid_editorial_profiles:
-            errors.append(
-                f"EDITORIAL_PROFILE?????レ챺???? ?????????덊렡: '{self.editorial_profile}' "
-                f"(???源낅츛: {valid_editorial_profiles})"
-            )
-        if not 1 <= self.schedule_minutes <= 1440:
-            errors.append(f"SCHEDULE_INTERVAL_MINUTES ?類?????縕??? {self.schedule_minutes} (1~1440)")
-        if not 1 <= self.country_parallel_limit <= 10:
-            errors.append(f"COUNTRY_PARALLEL_LIMIT out of range: {self.country_parallel_limit} (1~10)")
-        if self.daily_budget_usd < 0:
-            errors.append(f"DAILY_BUDGET_USD??0 ???⑤?彛???⑤９苑????筌뤾퍓??? {self.daily_budget_usd}")
-        if not 1 <= self.max_workers <= 50:
-            errors.append(f"MAX_WORKERS ?類?????縕??? {self.max_workers} (1~50)")
-        if not 1 <= self.limit <= 100:
-            errors.append(f"DEFAULT_LIMIT ?類?????縕??? {self.limit} (1~100)")
-        if not 1 <= self.notion_sem_limit <= 50:
-            errors.append(f"NOTION_SEM_LIMIT ?類?????縕??? {self.notion_sem_limit} (1~50)")
-        if not 1 <= self.data_retention_days <= 3650:
-            errors.append(f"DATA_RETENTION_DAYS ?類?????縕??? {self.data_retention_days} (1~3650)")
+            errors.append(f"EDITORIAL_PROFILE is invalid: '{self.editorial_profile}' (allowed: {valid_editorial_profiles})")
 
-        if not 0 <= self.persona_min_matches <= 5:
-            errors.append(f"PERSONA_MIN_MATCHES out of range: {self.persona_min_matches} (0~5)")
-        if not 0 <= self.min_context_sources <= 3:
-            errors.append(f"MIN_CONTEXT_SOURCES out of range: {self.min_context_sources} (0~3)")
+    def _validate_numeric_ranges(self, errors: list[str]) -> None:
+        range_checks = (
+            ("SCHEDULE_INTERVAL_MINUTES", self.schedule_minutes, 1, 1440),
+            ("COUNTRY_PARALLEL_LIMIT", self.country_parallel_limit, 1, 10),
+            ("MAX_WORKERS", self.max_workers, 1, 50),
+            ("DEFAULT_LIMIT", self.limit, 1, 100),
+            ("NOTION_SEM_LIMIT", self.notion_sem_limit, 1, 50),
+            ("DATA_RETENTION_DAYS", self.data_retention_days, 1, 3650),
+            ("PERSONA_MIN_MATCHES", self.persona_min_matches, 0, 5),
+            ("MIN_CONTEXT_SOURCES", self.min_context_sources, 0, 3),
+        )
+        for name, value, lower, upper in range_checks:
+            if not lower <= value <= upper:
+                errors.append(f"{name} out of range: {value} ({lower}~{upper})")
+        if self.daily_budget_usd < 0:
+            errors.append(f"DAILY_BUDGET_USD must be non-negative: {self.daily_budget_usd}")
+
+    def _validate_quality_rules(self, errors: list[str]) -> None:
         valid_source_types = {"twitter", "reddit", "news"}
         for combo in self.required_source_combinations:
             parts = {part.strip().lower() for part in combo.split("+") if part.strip()}
@@ -609,9 +638,6 @@ class AppConfig:
                 errors.append(f"REQUIRED_SOURCE_COMBINATIONS invalid combo: {combo}")
         if any(not keyword.strip() for keyword in self.hard_drop_topic_keywords):
             errors.append("HARD_DROP_TOPIC_KEYWORDS contains an empty keyword")
-
-        return errors
-
     def resolve_country_slug(self) -> str:
         """??? ?熬곣뫀????ｏ쭗?getdaytrends.com URL ??????쇱춻?용뿭큔 ?怨뚮뼚???"""
         return COUNTRY_MAP.get(self.country.lower(), self.country.lower())

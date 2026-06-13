@@ -73,27 +73,12 @@ sudo systemctl status getdaytrends
 
 ### Method 3: Docker (Isolated Environment)
 
-**Dockerfile** (already present at `getdaytrends/Dockerfile`):
+The Dockerfile uses the current `pyproject.toml` dependency contract. Build it
+from the getdaytrends project directory:
 
-```dockerfile
-FROM python:3.13-slim
-
-WORKDIR /app
-COPY . .
-
-# Install dependencies
-RUN pip install --no-cache-dir -r getdaytrends/requirements.txt
-
-# No PYTHONPATH needed - main.py sets it automatically!
-
-# Run from getdaytrends directory
-WORKDIR /app/getdaytrends
-CMD ["python", "main.py"]
-```
-
-Build and run from the workspace root:
 ```bash
-docker build -f getdaytrends/Dockerfile -t getdaytrends:latest .
+cd "D:\AI project\automation\getdaytrends"
+docker build -f Dockerfile -t getdaytrends:latest .
 docker run -d --name getdaytrends \
   --env-file .env \
   getdaytrends:latest
@@ -123,7 +108,7 @@ python -m pytest getdaytrends/tests/test_models.py -v
 ### 3. Dry Run Test
 ```bash
 cd getdaytrends
-python main.py --dry-run --limit 3
+python main.py --one-shot --dry-run --limit 3
 ```
 
 **Expected**: Collects 3 trends, analyzes them, but doesn't save
@@ -180,9 +165,9 @@ GOOGLE_API_KEY=your_google_key
 
 # Optional
 OPENAI_API_KEY=your_openai_key
-NOTION_API_TOKEN=your_notion_token
+NOTION_TOKEN=your_notion_token
 TELEGRAM_BOT_TOKEN=your_telegram_token
-DATABASE_URL=postgresql://user:pass@host/db  # For production
+DATABASE_URL=<your production PostgreSQL connection string>
 ```
 
 ---

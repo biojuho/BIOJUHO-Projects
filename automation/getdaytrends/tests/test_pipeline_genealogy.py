@@ -53,7 +53,7 @@ async def test_step_genealogy_awaits_history_and_persistence(monkeypatch):
         assert len(genealogy) == 2
         return trends
 
-    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda db_path: tracker)
+    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda **kwargs: tracker)
     monkeypatch.setattr("getdaytrends.analyzer.analyze_trend_genealogy", fake_analyze)
     monkeypatch.setattr("getdaytrends.analyzer.enrich_trends_with_genealogy", fake_enrich)
     monkeypatch.setattr("getdaytrends.core.pipeline.get_client", lambda: object())
@@ -140,7 +140,7 @@ async def test_step_genealogy_swallows_best_effort_tracker_failures(monkeypatch)
         save_trend_genealogy=AsyncMock(),
     )
 
-    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda db_path: tracker)
+    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda **kwargs: tracker)
 
     result = await _step_genealogy(quality_trends, config)
 

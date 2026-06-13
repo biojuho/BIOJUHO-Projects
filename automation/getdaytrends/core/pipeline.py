@@ -252,40 +252,98 @@ def _annotate_persona_and_signal(scored_trends: list, config: AppConfig) -> None
         trend.hard_drop_reason = f"hard_drop_keyword:{hard_drop_keyword}" if hard_drop_keyword else ""
 
 
+def _log_filter_result(label: str, before: int, filtered: list, extra: str = "") -> None:
+    removed = before - len(filtered)
+    if removed:
+        suffix = f" {extra}" if extra else ""
+        log.info(f"  [{label}] removed={removed} kept={len(filtered)}{suffix}")
+
+
+def _apply_hard_drop_filter(trends: list, config: AppConfig) -> list:
+    if not getattr(config, "enforce_hard_drop_policy", False):
+        return trends
+    before = len(trends)
+    filtered = [trend for trend in trends if not getattr(trend, "hard_drop", False)]
+    _log_filter_result("Hard Drop Policy", before, filtered)
+    return filtered
+
+
+def _apply_persona_filter(trends: list, config: AppConfig) -> list:
+    if not (getattr(config, "enable_persona_filter", False) and getattr(config, "persona_axes", [])):
+        return trends
+    before = len(trends)
+    filtered = [trend for trend in trends if getattr(trend, "persona_fit", False)]
+    _log_filter_result("Persona Filter", before, filtered)
+    return filtered
+
+
+def _apply_min_source_filter(trends: list, config: AppConfig) -> list:
+    min_sources = max(0, int(getattr(config, "min_context_sources", 0) or 0))
+    if not (getattr(config, "enforce_min_context_sources", False) and min_sources > 0):
+        return trends
+    before = len(trends)
+    filtered = [trend for trend in trends if getattr(trend, "usable_source_count", 0) >= min_sources]
+    _log_filter_result("Signal Filter", before, filtered, f"min_sources={min_sources}")
+    return filtered
+
+
+def _apply_source_diversity_filter(trends: list, config: AppConfig) -> list:
+    if not getattr(config, "enforce_source_diversity_gate", False):
+        return trends
+    before = len(trends)
+    filtered = [trend for trend in trends if getattr(trend, "source_diversity_fit", False)]
+    combos = ",".join(getattr(config, "required_source_combinations", []) or [])
+    _log_filter_result("Source Diversity Gate", before, filtered, f"combos={combos}")
+    return filtered
+
+
 def _filter_persona_and_source_fit(trends: list, config: AppConfig) -> list:
     filtered = list(trends)
+    filtered = _apply_hard_drop_filter(filtered, config)
+    filtered = _apply_persona_filter(filtered, config)
+    filtered = _apply_min_source_filter(filtered, config)
+    return _apply_source_diversity_filter(filtered, config)
 
-    if getattr(config, "enforce_hard_drop_policy", False):
-        before = len(filtered)
-        filtered = [trend for trend in filtered if not getattr(trend, "hard_drop", False)]
-        removed = before - len(filtered)
-        if removed:
-            log.info(f"  [Hard Drop Policy] removed={removed} kept={len(filtered)}")
 
-    if getattr(config, "enable_persona_filter", False) and getattr(config, "persona_axes", []):
-        before = len(filtered)
-        filtered = [trend for trend in filtered if getattr(trend, "persona_fit", False)]
-        removed = before - len(filtered)
-        if removed:
-            log.info(f"  [Persona Filter] removed={removed} kept={len(filtered)}")
+def _apply_source_diversity_restore_floor(trends: list, config: AppConfig, min_score: int) -> list:
+    if not getattr(config, "enforce_source_diversity_gate", False):
+        return trends
+    if not getattr(config, "required_source_combinations", None):
+        return trends
+    return [
+        trend
+        for trend in trends
+        if getattr(trend, "source_diversity_fit", False)
+        or int(getattr(trend, "viral_potential", 0) or 0) < min_score
+    ]
 
-    min_sources = max(0, int(getattr(config, "min_context_sources", 0) or 0))
-    if getattr(config, "enforce_min_context_sources", False) and min_sources > 0:
-        before = len(filtered)
-        filtered = [trend for trend in filtered if getattr(trend, "usable_source_count", 0) >= min_sources]
-        removed = before - len(filtered)
-        if removed:
-            log.info(f"  [Signal Filter] removed={removed} kept={len(filtered)} min_sources={min_sources}")
 
-    if getattr(config, "enforce_source_diversity_gate", False):
-        before = len(filtered)
-        filtered = [trend for trend in filtered if getattr(trend, "source_diversity_fit", False)]
-        removed = before - len(filtered)
-        if removed:
-            combos = ",".join(getattr(config, "required_source_combinations", []) or [])
-            log.info(f"  [Source Diversity Gate] removed={removed} kept={len(filtered)} combos={combos}")
+def _restore_after_persona_source_gates(safe_trends: list, config: AppConfig, min_score: int, min_count: int) -> list:
+    if not getattr(config, "enable_zero_content_prevention", True):
+        return []
+    fallback_pool = _apply_hard_drop_filter(list(safe_trends), config)
+    fallback_pool = _apply_source_diversity_restore_floor(fallback_pool, config, min_score)
+    if not fallback_pool:
+        return []
+    log.warning("  [Zero Content Prevention] persona/source gates removed all candidates; restoring best safe candidate")
+    return _zero_content_restore(
+        sorted(fallback_pool, key=lambda trend: trend.viral_potential, reverse=True),
+        min_score,
+        min_count,
+    )
 
-    return filtered
+
+def _restore_after_selection_floor(safe_trends: list, config: AppConfig, min_score: int, min_count: int) -> list:
+    if not getattr(config, "enable_zero_content_prevention", True):
+        return []
+    if not safe_trends:
+        return []
+    log.warning("  [Zero Content Prevention] final score floor removed all candidates; restoring best safe candidate")
+    return _zero_content_restore(
+        sorted(safe_trends, key=lambda trend: trend.viral_potential, reverse=True),
+        min_score,
+        min_count,
+    )
 
 
 async def _step_refresh_tap_products(conn, config: AppConfig) -> dict:
@@ -378,64 +436,70 @@ async def _check_budget_and_adjust_limit(config: AppConfig, conn) -> tuple[AppCo
     return pipeline_config, budget_disabled
 
 
+def _needs_deep_context(raw_trends: list, contexts: dict, min_context_len: int = 100) -> list:
+    return [
+        trend
+        for trend in raw_trends
+        if not contexts.get(trend.name) or len(contexts[trend.name].to_combined_text().strip()) < min_context_len
+    ]
+
+
+def _merge_deep_contexts(contexts: dict, deep_contexts: dict) -> None:
+    for name, deep_ctx in deep_contexts.items():
+        base = contexts.get(name)
+        if not base:
+            contexts[name] = deep_ctx
+            continue
+        if deep_ctx.twitter_insight and len(deep_ctx.twitter_insight) > len(base.twitter_insight):
+            base.twitter_insight = deep_ctx.twitter_insight
+        if deep_ctx.reddit_insight and len(deep_ctx.reddit_insight) > len(base.reddit_insight):
+            base.reddit_insight = deep_ctx.reddit_insight
+        if deep_ctx.news_insight and len(deep_ctx.news_insight) > len(base.news_insight):
+            base.news_insight = deep_ctx.news_insight
+
+
+async def _collect_deep_contexts_if_needed(raw_trends: list, contexts: dict, config: AppConfig, conn) -> None:
+    if not raw_trends:
+        return
+    needs_deep = _needs_deep_context(raw_trends, contexts)
+    if not needs_deep:
+        log.info(f"  [Deep Research] all {len(raw_trends)} trend contexts are sufficient; skipping recursive collection")
+        return
+    print(f"  recursive context collection needed ({len(needs_deep)}/{len(raw_trends)} trends)...")
+    try:
+        deep_contexts = await _async_collect_contexts(needs_deep, config, conn=conn)
+    except Exception as exc:
+        log.warning(f"  [Recursive Context Failure] collect_contexts exception: {type(exc).__name__}: {exc}")
+        return
+    _merge_deep_contexts(contexts, deep_contexts)
+
+
+def _warn_missing_context(raw_trends: list, contexts: dict, config: AppConfig) -> None:
+    if not (raw_trends and getattr(config, "require_context", True)):
+        return
+    empty_ctx = [
+        trend.name
+        for trend in raw_trends
+        if not contexts.get(trend.name) or not contexts[trend.name].to_combined_text().strip()
+    ]
+    if empty_ctx:
+        log.warning(f"  [Context Missing] {len(empty_ctx)} trend contexts are empty: {', '.join(empty_ctx[:3])}")
+
+
 async def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
-    """Step 1: 멀티소스 트렌드 수집 + 심층 컨텍스트 조건부 수집."""
-    print("\n[1/4] 멀티소스 트렌드 수집 중...")
+    """Collect raw trends and fill missing/weak context without failing the whole run."""
+    print("\n[1/4] collecting metadata trends...")
     try:
         raw_trends, contexts = await _async_collect_trends(config, conn)
     except Exception as exc:
-        # 외부 API(Google Trends, getdaytrends.com 등) 장애 시 파이프라인 전체 크래시 방지
-        log.error(f"  [수집 실패] collect_trends 예외: {type(exc).__name__}: {exc}")
+        log.error(f"  [Collect Failure] collect_trends exception: {type(exc).__name__}: {exc}")
         run.errors.append(f"collect_trends 예외: {type(exc).__name__}: {exc}")
         return [], {}
     run.trends_collected = len(raw_trends)
-    print(f"  수집 완료: {len(raw_trends)}개 트렌드")
-
-    # 심층 컨텍스트 조건부 수집
-    if raw_trends:
-        _MIN_CTX_LEN = 100
-        needs_deep = [
-            t
-            for t in raw_trends
-            if not contexts.get(t.name) or len(contexts[t.name].to_combined_text().strip()) < _MIN_CTX_LEN
-        ]
-
-        if needs_deep:
-            print(f"  심층 컨텍스트 수집 중 ({len(needs_deep)}/{len(raw_trends)}개 부족)...")
-            try:
-                deep_contexts = await _async_collect_contexts(needs_deep, config, conn=conn)
-            except Exception as exc:
-                # 심층 컨텍스트 수집 실패는 치명적이지 않음 — 기존 컨텍스트로 계속 진행
-                log.warning(f"  [심층 컨텍스트 실패] collect_contexts 예외: {type(exc).__name__}: {exc}")
-                deep_contexts = {}
-            for name, deep_ctx in deep_contexts.items():
-                base = contexts.get(name)
-                if base:
-                    if deep_ctx.twitter_insight and len(deep_ctx.twitter_insight) > len(base.twitter_insight):
-                        base.twitter_insight = deep_ctx.twitter_insight
-                    if deep_ctx.reddit_insight and len(deep_ctx.reddit_insight) > len(base.reddit_insight):
-                        base.reddit_insight = deep_ctx.reddit_insight
-                    if deep_ctx.news_insight and len(deep_ctx.news_insight) > len(base.news_insight):
-                        base.news_insight = deep_ctx.news_insight
-                else:
-                    contexts[name] = deep_ctx
-        else:
-            log.info(f"  [Deep Research] 전체 {len(raw_trends)}개 컨텍스트 충분 → 재수집 스킵")
-
-        # 컨텍스트 필수화 경고
-        if getattr(config, "require_context", True):
-            empty_ctx = [
-                t.name
-                for t in raw_trends
-                if not contexts.get(t.name) or not contexts[t.name].to_combined_text().strip()
-            ]
-            if empty_ctx:
-                log.warning(
-                    f"  [컨텍스트 부족] {len(empty_ctx)}개 트렌드 컨텍스트 비어있음: {', '.join(empty_ctx[:3])}"
-                )
-
+    print(f"  collection complete: {len(raw_trends)} trends")
+    await _collect_deep_contexts_if_needed(raw_trends, contexts, config, conn)
+    _warn_missing_context(raw_trends, contexts, config)
     return raw_trends, contexts
-
 
 def _zero_content_restore(candidates: list, min_score: int, min_count: int) -> list:
     """모든 트렌드가 필터링된 경우 ZCP 3단계로 최소 복원."""
@@ -456,33 +520,55 @@ def _zero_content_restore(candidates: list, min_score: int, min_count: int) -> l
     return []
 
 
-def _filter_unsafe_trends(scored_trends: list, config: AppConfig, min_score: int, min_count: int) -> list:
-    """안전/게시가능/카테고리 필터 적용 + Zero Content Prevention."""
-    safe = [t for t in scored_trends if not (config.enable_sentiment_filter and getattr(t, "safety_flag", False))]
+def _filter_sentiment_safe_trends(scored_trends: list, config: AppConfig) -> list:
+    if not config.enable_sentiment_filter:
+        return list(scored_trends)
+    return [trend for trend in scored_trends if not getattr(trend, "safety_flag", False)]
 
-    before_pub = len(safe)
-    safe = [t for t in safe if getattr(t, "publishable", True)]
-    if before_pub - len(safe):
-        log.warning(f"  [게시불가 필터] {before_pub - len(safe)}개 제거 (의미 없는 키워드/문장 조각)")
 
+def _filter_publishable_trends(trends: list) -> tuple[list, int]:
+    before = len(trends)
+    return [trend for trend in trends if getattr(trend, "publishable", True)], before
+
+
+def _log_publishability_filter(before: int, filtered: list) -> None:
+    removed = before - len(filtered)
+    if removed:
+        log.warning(f"  [Publishability Filter] removed={removed}")
+
+
+def _filter_excluded_categories(trends: list, config: AppConfig) -> tuple[list, list]:
     excluded_cats = set(getattr(config, "exclude_categories", []))
-    all_before_exclusion = list(safe)
-    if excluded_cats:
-        before = len(safe)
-        safe = [t for t in safe if (getattr(t, "category", "기타") or "기타") not in excluded_cats]
-        if before - len(safe):
-            log.info(f"  [카테고리 제외] {before - len(safe)}개 제거 ({', '.join(excluded_cats)})")
+    candidates_before_exclusion = list(trends)
+    if not excluded_cats:
+        return trends, candidates_before_exclusion
 
-    if safe or not getattr(config, "enable_zero_content_prevention", True):
-        return safe
+    before = len(trends)
+    filtered = [
+        trend for trend in trends if (getattr(trend, "category", "기타") or "기타") not in excluded_cats
+    ]
+    removed = before - len(filtered)
+    if removed:
+        log.info(f"  [Category Exclusion] removed={removed} ({', '.join(excluded_cats)})")
+    return filtered, candidates_before_exclusion
 
-    safe_candidates = sorted(
-        [t for t in all_before_exclusion if not (config.enable_sentiment_filter and getattr(t, "safety_flag", False))],
-        key=lambda x: x.viral_potential,
+
+def _zero_content_candidates(trends: list, config: AppConfig) -> list:
+    return sorted(
+        _filter_sentiment_safe_trends(trends, config),
+        key=lambda trend: trend.viral_potential,
         reverse=True,
     )
-    return _zero_content_restore(safe_candidates, min_score, min_count)
 
+
+def _filter_unsafe_trends(scored_trends: list, config: AppConfig, min_score: int, min_count: int) -> list:
+    """Apply safety/publishability/category filters with zero-content recovery."""
+    publishable, before_publishable = _filter_publishable_trends(_filter_sentiment_safe_trends(scored_trends, config))
+    _log_publishability_filter(before_publishable, publishable)
+    safe, all_before_exclusion = _filter_excluded_categories(publishable, config)
+    if safe or not getattr(config, "enable_zero_content_prevention", True):
+        return safe
+    return _zero_content_restore(_zero_content_candidates(all_before_exclusion, config), min_score, min_count)
 
 def _assign_freshness_grades(trends: list, config: AppConfig) -> None:
     """최신성 등급 부여 + 패널티 인플레이스 적용."""
@@ -508,34 +594,54 @@ def _assign_freshness_grades(trends: list, config: AppConfig) -> None:
 
 
 def _select_diverse_trends(safe_trends: list, min_score: int, max_same: int, min_count: int) -> list:
-    """3-pass 다양성 선택: 카테고리 시드 → 잔여 채우기 → 최소 수 보장."""
-    cat_best: dict[str, list] = {}
-    for t in safe_trends:
-        cat_best.setdefault(getattr(t, "category", "기타") or "기타", []).append(t)
-    for cats in cat_best.values():
-        cats.sort(key=lambda x: x.viral_potential, reverse=True)
-
+    """Select high-scoring trends while limiting category concentration."""
+    cat_best = _trends_by_category(safe_trends)
     selected: list = []
     selected_set: set = set()
     cat_count: dict[str, int] = {}
 
-    # Pass 1: 카테고리별 최고 점수 1개
-    for cat in sorted(cat_best, key=lambda c: cat_best[c][0].viral_potential if cat_best[c] else 0, reverse=True):
-        best = cat_best[cat][0] if cat_best[cat] else None
+    _select_category_leaders(cat_best, selected, selected_set, cat_count, min_score)
+    _fill_slots(safe_trends, selected, selected_set, cat_count, min_score, max_same)
+    if len(selected) < min_count:
+        _ensure_min_count(safe_trends, selected, selected_set, cat_count, min_score, min_count, max_same)
+    return selected
+
+
+def _trends_by_category(safe_trends: list) -> dict[str, list]:
+    cat_best: dict[str, list] = {}
+    for trend in safe_trends:
+        cat_best.setdefault(_trend_category(trend), []).append(trend)
+    for category_trends in cat_best.values():
+        category_trends.sort(key=lambda item: item.viral_potential, reverse=True)
+    return cat_best
+
+
+def _trend_category(trend) -> str:
+    return getattr(trend, "category", "기타") or "기타"
+
+
+def _select_category_leaders(
+    cat_best: dict[str, list],
+    selected: list,
+    selected_set: set,
+    cat_count: dict[str, int],
+    min_score: int,
+) -> None:
+    for category in _categories_by_top_score(cat_best):
+        best = cat_best[category][0] if cat_best[category] else None
         if best and best.viral_potential >= min_score and id(best) not in selected_set:
             selected.append(best)
             selected_set.add(id(best))
-            cat_count[cat] = cat_count.get(cat, 0) + 1
-    log.debug(f"  [다양성 Pass1] 카테고리별 시드: {len(selected)}개 ({len(cat_best)}개 카테고리)")
+            cat_count[category] = cat_count.get(category, 0) + 1
+    log.debug(f"  [Diversity Pass1] category leaders: {len(selected)} from {len(cat_best)} categories")
 
-    # Pass 2: 남은 슬롯 채우기 (score 순, 카테고리 상한 준수)
-    _fill_slots(safe_trends, selected, selected_set, cat_count, min_score, max_same)
 
-    # Pass 3: 최소 기사 수 보장 (floor_score로 기준 완화)
-    if len(selected) < min_count:
-        _ensure_min_count(safe_trends, selected, selected_set, cat_count, min_score, min_count, max_same)
-
-    return selected
+def _categories_by_top_score(cat_best: dict[str, list]) -> list[str]:
+    return sorted(
+        cat_best,
+        key=lambda category: cat_best[category][0].viral_potential if cat_best[category] else 0,
+        reverse=True,
+    )
 
 
 def _fill_slots(pool: list, selected: list, selected_set: set, cat_count: dict, min_score: int, max_same: int) -> None:
@@ -589,13 +695,18 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
     if not safe_trends:
         return []
 
-    safe_trends = _filter_persona_and_source_fit(safe_trends, config)
-    if not safe_trends:
+    filtered_trends = _filter_persona_and_source_fit(safe_trends, config)
+    if not filtered_trends:
+        filtered_trends = _restore_after_persona_source_gates(safe_trends, config, min_score, min_count)
+    if not filtered_trends:
         return []
+    safe_trends = filtered_trends
 
     _assign_freshness_grades(safe_trends, config)
     min_count = min(min_count, len(safe_trends))
     selected = _select_diverse_trends(safe_trends, min_score, max_same, min_count)
+    if not selected:
+        selected = _restore_after_selection_floor(safe_trends, config, min_score, min_count)
     selected.sort(key=lambda x: x.viral_potential, reverse=True)
     return selected
 
@@ -610,7 +721,11 @@ async def _step_genealogy(quality_trends: list, config: AppConfig) -> list:
             from analyzer import analyze_trend_genealogy, enrich_trends_with_genealogy
             from performance_tracker import PerformanceTracker
 
-        tracker = PerformanceTracker(db_path=config.db_path)
+        tracker = PerformanceTracker(
+            db_path=config.db_path,
+            database_url=config.database_url,
+            allow_sqlite_fallback=config.allow_sqlite_fallback,
+        )
         history = await tracker.get_trend_history(
             keyword="",
             hours=getattr(config, "genealogy_history_hours", 72),
@@ -688,59 +803,60 @@ async def _step_reasoning(quality_trends: list, config: AppConfig, conn, run: Ru
         log.debug(f"  [Reasoning] 추론 실패 (무시): {type(_e).__name__}: {_e}")
 
 
-async def _step_post_run(
-    pipeline_config: AppConfig,
-    run: RunResult,
-    elapsed: float,
-    scored_trends: list,
-    orig_config: AppConfig,
-    schedule_callback,
-    separator: str,
-) -> None:
-    """파이프라인 완료 후 후처리: 성과 갱신, 메트릭 로깅, 스케줄링, Heartbeat."""
-    # 3단계 수집 + 골든 레퍼런스 자동 갱신
+async def _refresh_performance_artifacts(pipeline_config: AppConfig) -> None:
     if pipeline_config.dry_run:
         log.debug("  Performance refresh skipped in dry-run mode")
-    elif getattr(pipeline_config, "enable_tiered_collection", False) or getattr(
-        pipeline_config, "enable_golden_reference_qa", False
+        return
+    if not (
+        getattr(pipeline_config, "enable_tiered_collection", False)
+        or getattr(pipeline_config, "enable_golden_reference_qa", False)
     ):
+        return
+    try:
         try:
-            try:
-                from ..performance_tracker import PerformanceTracker
-            except ImportError:
-                from performance_tracker import PerformanceTracker
+            from ..performance_tracker import PerformanceTracker
+        except ImportError:
+            from performance_tracker import PerformanceTracker
 
-            pt = PerformanceTracker(db_path=pipeline_config.db_path, bearer_token=pipeline_config.twitter_bearer_token)
-            if getattr(pipeline_config, "enable_tiered_collection", False):
-                log.info(f"  [Tiered Collection] {await pt.run_tiered_collection()}")
-            if getattr(pipeline_config, "enable_golden_reference_qa", False):
-                count = await pt.auto_update_golden_references(
-                    days=getattr(pipeline_config, "golden_reference_auto_update_days", 7)
-                )
-                log.info(f"  [Golden Ref] 자동 갱신: {count}건")
-        except Exception as _e:
-            log.debug(f"  성과 수집/갱신 실패 (무시): {type(_e).__name__}: {_e}")
-
-    # 구조화 메트릭 로깅
-    total_cost = 0.0
-    if pipeline_config.enable_structured_metrics:
-        try:
-            from shared.llm.stats import CostTracker
-
-            tracker = CostTracker(persist=True)
-            total_cost = tracker.get_today_cost()
-            tracker.close()
-        except (ImportError, ValueError, KeyError, OSError):
-            pass
-        log.info(
-            f"pipeline_metrics | run_id={run.run_id[:8]} country={run.country} "
-            f"collected={run.trends_collected} scored={run.trends_scored} "
-            f"generated={run.tweets_generated} saved={run.tweets_saved} "
-            f"errors={len(run.errors)} cost_usd={total_cost:.4f} duration_s={elapsed:.1f}"
+        pt = PerformanceTracker(
+            db_path=pipeline_config.db_path,
+            bearer_token=pipeline_config.twitter_bearer_token,
+            database_url=pipeline_config.database_url,
+            allow_sqlite_fallback=pipeline_config.allow_sqlite_fallback,
         )
+        if getattr(pipeline_config, "enable_tiered_collection", False):
+            log.info(f"  [Tiered Collection] {await pt.run_tiered_collection()}")
+        if getattr(pipeline_config, "enable_golden_reference_qa", False):
+            count = await pt.auto_update_golden_references(
+                days=getattr(pipeline_config, "golden_reference_auto_update_days", 7)
+            )
+            log.info(f"  [Golden Ref] auto update: {count}")
+    except Exception as _e:
+        log.debug(f"  Performance refresh failed (ignored): {type(_e).__name__}: {_e}")
 
-    await _adjust_schedule(scored_trends, orig_config, schedule_callback)
 
+def _log_structured_pipeline_metrics(pipeline_config: AppConfig, run: RunResult, elapsed: float) -> float:
+    total_cost = 0.0
+    if not pipeline_config.enable_structured_metrics:
+        return total_cost
+    try:
+        from shared.llm.stats import CostTracker
+
+        tracker = CostTracker(persist=True)
+        total_cost = tracker.get_today_cost()
+        tracker.close()
+    except (ImportError, ValueError, KeyError, OSError):
+        pass
+    log.info(
+        f"pipeline_metrics | run_id={run.run_id[:8]} country={run.country} "
+        f"collected={run.trends_collected} scored={run.trends_scored} "
+        f"generated={run.tweets_generated} saved={run.tweets_saved} "
+        f"errors={len(run.errors)} cost_usd={total_cost:.4f} duration_s={elapsed:.1f}"
+    )
+    return total_cost
+
+
+def _send_cost_alerts(pipeline_config: AppConfig) -> None:
     try:
         try:
             from ..alerts import send_daily_cost_alert
@@ -751,8 +867,8 @@ async def _step_post_run(
     except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError):
         pass
 
-    print(separator)
 
+def _send_pipeline_heartbeat(pipeline_config: AppConfig, run: RunResult, elapsed: float, total_cost: float) -> None:
     try:
         from shared.notifications import Notifier
 
@@ -762,24 +878,94 @@ async def _step_post_run(
                 "GetDayTrends",
                 status="alive",
                 details=(
-                    f"수집={run.trends_collected} 스코어링={run.trends_scored} "
-                    f"생성={run.tweets_generated} 저장={run.tweets_saved} 소요={elapsed:.0f}초"
+                    f"collected={run.trends_collected} scored={run.trends_scored} "
+                    f"generated={run.tweets_generated} saved={run.tweets_saved} elapsed={elapsed:.0f}s"
                 ),
             )
             if total_cost > 0:
                 notifier.send_cost_alert(total_cost, getattr(pipeline_config, "daily_budget_usd", 2.0))
     except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError) as _e:
-        log.debug(f"Heartbeat 전송 실패 (무시): {type(_e).__name__}: {_e}")
+        log.debug(f"Heartbeat send failed (ignored): {type(_e).__name__}: {_e}")
 
-    # PEE 자동 재학습 (주간, 조건부)
+
+async def _maybe_retrain_prediction_model() -> None:
     try:
         from shared.prediction.retrain import maybe_retrain
 
         retrain_result = await maybe_retrain()
         if retrain_result.get("retrained"):
-            log.info(f"  [PEE] 모델 재학습 완료: R²={retrain_result['metrics']['r2']:.4f}")
+            log.info(f"  [PEE] model retrain complete: R2={retrain_result['metrics']['r2']:.4f}")
     except (ImportError, RuntimeError, ValueError, OSError):
         pass
+
+
+async def _step_post_run(
+    pipeline_config: AppConfig,
+    run: RunResult,
+    elapsed: float,
+    scored_trends: list,
+    orig_config: AppConfig,
+    schedule_callback,
+    separator: str,
+) -> None:
+    """파이프라인 완료 후 후처리: 성과 갱신, 메트릭 로깅, 스케줄링, Heartbeat."""
+    """파이프라인 완료 후 후처리: 성과 갱신, 메트릭 로깅, 스케줄링, Heartbeat."""
+    await _refresh_performance_artifacts(pipeline_config)
+    total_cost = _log_structured_pipeline_metrics(pipeline_config, run, elapsed)
+    await _adjust_schedule(scored_trends, orig_config, schedule_callback)
+    _send_cost_alerts(pipeline_config)
+    print(separator)
+    _send_pipeline_heartbeat(pipeline_config, run, elapsed, total_cost)
+    await _maybe_retrain_prediction_model()
+
+
+def _category_distribution(quality_trends: list) -> dict[str, int]:
+    cat_dist: dict[str, int] = {}
+    for trend in quality_trends:
+        category = getattr(trend, "category", "기타") or "기타"
+        cat_dist[category] = cat_dist.get(category, 0) + 1
+    return cat_dist
+
+
+def _print_category_distribution(cat_dist: dict[str, int]) -> None:
+    if cat_dist:
+        dist_str = ", ".join(f"{k}:{v}" for k, v in sorted(cat_dist.items(), key=lambda x: -x[1]))
+        print(f"  category distribution: {dist_str}")
+
+
+async def _trend_history_for_preview(config: AppConfig, conn, scored_trends: list) -> dict:
+    if not config.verbose:
+        return {}
+    return await get_trend_history_batch(conn, [st.keyword for st in scored_trends])
+
+
+def _print_score_preview(scored_trends: list, quality_trends: list, history_map: dict, verbose: bool) -> None:
+    for st in scored_trends:
+        marker = " ✓" if st in quality_trends else " ✗"
+        score_bar = "█" * (st.viral_potential // 10) + "░" * (10 - st.viral_potential // 10)
+        print(f"  #{st.rank} [{score_bar}] {st.viral_potential:3d} | {st.keyword}{marker}")
+        if verbose:
+            history = history_map.get(st.keyword, [])
+            if history:
+                avg = round(sum(h["viral_potential"] for h in history) / len(history), 1)
+                print(f"       history: {len(history)} records, avg {avg}")
+
+
+def _run_watchlist_alerts(scored_trends: list, config: AppConfig) -> None:
+    if not config.watchlist_keywords:
+        return
+    wl_count = check_watchlist(scored_trends, config)
+    if wl_count:
+        print(f"\n  [WATCHLIST] matched keywords: {wl_count}")
+
+
+def _send_score_alerts(scored_trends: list, config: AppConfig, run: RunResult) -> None:
+    if config.no_alerts:
+        return
+    alerts_sent = check_and_alert(scored_trends, config)
+    run.alerts_sent = alerts_sent
+    if alerts_sent:
+        print(f"\n  alerts sent: {alerts_sent}")
 
 
 async def _step_score_and_alert(raw_trends, contexts, config: AppConfig, conn, run: RunResult) -> tuple:
@@ -791,50 +977,16 @@ async def _step_score_and_alert(raw_trends, contexts, config: AppConfig, conn, r
     quality_trends = _ensure_quality_and_diversity(scored_trends, config)
     filtered_count = len(scored_trends) - len(quality_trends)
     if filtered_count:
-        print(f"\n  ⚡ 품질 필터: {filtered_count}개 제외 (다양성+바이럴 기반)")
+        print(f"\n  quality filter excluded: {filtered_count}")
 
-    # 카테고리 분포 로깅
-    cat_dist: dict[str, int] = {}
-    for t in quality_trends:
-        cat = getattr(t, "category", "기타") or "기타"
-        cat_dist[cat] = cat_dist.get(cat, 0) + 1
-    run.category_distribution = cat_dist
-    if cat_dist:
-        dist_str = ", ".join(f"{k}:{v}" for k, v in sorted(cat_dist.items(), key=lambda x: -x[1]))
-        print(f"  📊 카테고리 분포: {dist_str}")
+    run.category_distribution = _category_distribution(quality_trends)
+    _print_category_distribution(run.category_distribution)
 
-    # verbose 모드: 배치 히스토리
-    history_map = {}
-    if config.verbose:
-        history_map = await get_trend_history_batch(conn, [st.keyword for st in scored_trends])
-
-    # 스코어 미리보기
-    for st in scored_trends:
-        marker = " ✓" if st in quality_trends else " ✗"
-        score_bar = "█" * (st.viral_potential // 10) + "░" * (10 - st.viral_potential // 10)
-        print(f"  #{st.rank} [{score_bar}] {st.viral_potential:3d}점 | {st.keyword}{marker}")
-
-        if config.verbose:
-            history = history_map.get(st.keyword, [])
-            if history:
-                avg = round(sum(h["viral_potential"] for h in history) / len(history), 1)
-                print(f"       ↳ 히스토리: {len(history)}회 등장, 평균 {avg}점")
-
-    # Watchlist 모니터링
-    if config.watchlist_keywords:
-        wl_count = check_watchlist(scored_trends, config)
-        if wl_count:
-            print(f"\n  [WATCHLIST] 관심 키워드 {wl_count}건 감지 — 알림 전송")
-
-    # 알림 전송
-    if not config.no_alerts:
-        alerts_sent = check_and_alert(scored_trends, config)
-        run.alerts_sent = alerts_sent
-        if alerts_sent:
-            print(f"\n  알림 전송: {alerts_sent}건")
-
+    history_map = await _trend_history_for_preview(config, conn, scored_trends)
+    _print_score_preview(scored_trends, quality_trends, history_map, config.verbose)
+    _run_watchlist_alerts(scored_trends, config)
+    _send_score_alerts(scored_trends, config, run)
     return scored_trends, quality_trends
-
 
 # -- step functions import --
 try:
@@ -854,157 +1006,133 @@ except ImportError:
 # ══════════════════════════════════════════════════════
 
 
-async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[..., Any] | None = None) -> RunResult:
-    """전체 파이프라인 (비동기): 수집 → 스코어링 → 알림 → 병렬생성 → 저장."""
-    # ── Harness Governance init ──
-    harness = None
-    if _HARNESS_AVAILABLE and get_pipeline_harness is not None:
-        harness = get_pipeline_harness(config)
-        if harness:
-            # Sync budget from config into harness
-            effective_budget = getattr(config, "daily_budget_usd", 2.0)
-            log.info(f"[Harness] Pipeline governance active — budget=${effective_budget:.2f}")
+def _pipeline_harness(config: AppConfig) -> object:
+    if not (_HARNESS_AVAILABLE and get_pipeline_harness is not None):
+        return None
+    harness = get_pipeline_harness(config)
+    if harness:
+        effective_budget = getattr(config, "daily_budget_usd", 2.0)
+        log.info(f"[Harness] Pipeline governance active - budget=${effective_budget:.2f}")
+    return harness
 
-    # B-011 fix: get_connection() 실패 시 conn 미정의 → finally의 NameError 방지
+
+async def _open_pipeline_run(config: AppConfig) -> tuple[Any, RunResult, int]:
+    conn = await get_connection(
+        config.db_path,
+        database_url=config.database_url,
+        allow_sqlite_fallback=config.dry_run or config.allow_sqlite_fallback,
+    )
+    await init_db(conn)
+    run = RunResult(run_id=str(uuid.uuid4()), country=config.country)
+    run.started_at = datetime.now()
+    run_row_id = await save_run(conn, run)
+    return conn, run, run_row_id
+
+
+def _print_pipeline_start(separator: str) -> None:
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"\n{separator}")
+    print(f"  작업 시작: {now_str}")
+    print(separator)
+
+
+async def _run_pipeline_step(name: str, func, *args, harness=None, governed_kwargs: dict | None = None, **kwargs) -> object:
+    if harness and governed_step:
+        return await governed_step(name, func, *args, harness=harness, **(governed_kwargs or {}), **kwargs)
+    return await func(*args, **kwargs)
+
+
+async def _finalize_empty_pipeline(conn, run: RunResult, run_row_id: int) -> RunResult:
+    run.errors.append("트렌드 수집 실패")
+    run.finished_at = datetime.now()
+    await update_run(conn, run, run_row_id)
+    return run
+
+
+def _print_pipeline_completion(separator: str, success_count: int, quality_trends: list, elapsed: float) -> None:
+    print(f"\n{separator}")
+    print(f"  완료: {success_count}/{len(quality_trends)} saved")
+    print(f"  소요: {elapsed:.1f}s")
+
+
+def _notify_pipeline_error(error: Exception) -> None:
+    try:
+        from shared.notifications import Notifier
+
+        notifier = Notifier.from_env()
+        if notifier.has_channels:
+            notifier.send_error(f"Pipeline failed: {error}", error=error, source="GetDayTrends")
+    except Exception:
+        pass
+
+
+async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[..., Any] | None = None) -> RunResult:
+    """전체 파이프라인: 수집 -> 스코어링 -> 생성 -> 저장."""
+    harness = _pipeline_harness(config)
     conn = None
     try:
-        conn = await get_connection(
-            config.db_path,
-            database_url=config.database_url,
-            allow_sqlite_fallback=config.dry_run,
-        )
-        await init_db(conn)
-        run = RunResult(run_id=str(uuid.uuid4()), country=config.country)
-        run.started_at = datetime.now()  # B-015 fix: elapsed 계산 시 AttributeError 방지
-        run_row_id = await save_run(conn, run)
-
+        conn, run, run_row_id = await _open_pipeline_run(config)
         separator = "=" * 55
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\n{separator}")
-        print(f"  작업 시작: {now_str}")
-        print(separator)
+        _print_pipeline_start(separator)
 
-        # Pre: 예산 + 적응형 limit 조정
         pipeline_config, _budget_disabled = await _check_budget_and_adjust_limit(config, conn)
 
-        # Step 1: 수집 (governed)
-        _t0 = time.time()
-        if harness and governed_step:
-            raw_trends, contexts = await governed_step(
-                "collect_trends",
-                _step_collect,
-                pipeline_config,
-                conn,
-                run,
-                harness=harness,
-            )
-        else:
-            raw_trends, contexts = await _step_collect(pipeline_config, conn, run)
-        _t1 = time.time()
-        log.info(f"  [타이밍] 수집: {_t1 - _t0:.1f}초")
+        t0 = time.time()
+        raw_trends, contexts = await _run_pipeline_step(
+            "collect_trends", _step_collect, pipeline_config, conn, run, harness=harness
+        )
+        t1 = time.time()
+        log.info(f"  [timing] collect: {t1 - t0:.1f}s")
         if not raw_trends:
-            run.errors.append("트렌드 수집 실패")
-            run.finished_at = datetime.now()
-            await update_run(conn, run, run_row_id)
-            return run
+            return await _finalize_empty_pipeline(conn, run, run_row_id)
 
-        # Step 2-3: 스코어링 + 알림 (governed)
-        if harness and governed_step:
-            scored_trends, quality_trends = await governed_step(
-                "score_trends",
-                _step_score_and_alert,
-                raw_trends,
-                contexts,
-                pipeline_config,
-                conn,
-                run,
-                harness=harness,
-            )
-        else:
-            scored_trends, quality_trends = await _step_score_and_alert(
-                raw_trends, contexts, pipeline_config, conn, run
-            )
-        _t2 = time.time()
-        log.info(f"  [타이밍] 스코어링+알림: {_t2 - _t1:.1f}초")
+        scored_trends, quality_trends = await _run_pipeline_step(
+            "score_trends", _step_score_and_alert, raw_trends, contexts, pipeline_config, conn, run, harness=harness
+        )
+        t2 = time.time()
+        log.info(f"  [timing] score+alert: {t2 - t1:.1f}s")
 
-        # Step 3.5: Trend Genealogy (선택적)
         if getattr(pipeline_config, "enable_trend_genealogy", False) and quality_trends:
             quality_trends = await _step_genealogy(quality_trends, pipeline_config)
 
-        # Step 4: 생성 (governed)
-        if harness and governed_step:
-            batch_results = await governed_step(
-                "generate_content",
-                _step_generate,
-                quality_trends,
-                pipeline_config,
-                conn,
-                harness=harness,
-                cost_estimate=0.01 * len(quality_trends),  # LLM call estimate per trend
-            )
-        else:
-            batch_results = await _step_generate(quality_trends, pipeline_config, conn)
-        _t3 = time.time()
-        log.info(f"  [타이밍] 생성: {_t3 - _t2:.1f}초")
+        batch_results = await _run_pipeline_step(
+            "generate_content",
+            _step_generate,
+            quality_trends,
+            pipeline_config,
+            conn,
+            harness=harness,
+            governed_kwargs={"cost_estimate": 0.01 * len(quality_trends)},
+        )
+        t3 = time.time()
+        log.info(f"  [timing] generate: {t3 - t2:.1f}s")
 
-        # Step 4.5: Canva 비주얼 자동 생성 (조건부)
         if getattr(pipeline_config, "enable_canva_visuals", False) and pipeline_config.canva_api_key:
             await _step_canva_visuals(quality_trends, batch_results, pipeline_config)
-
-        # Step 4.6: Cross-Trend Inductive Reasoning (optional)
         await _step_reasoning(quality_trends, pipeline_config, conn, run)
 
-        # Step 5: 저장 (governed)
-        if harness and governed_step:
-            success_count = await governed_step(
-                "save_results",
-                _step_save,
-                quality_trends,
-                batch_results,
-                pipeline_config,
-                conn,
-                run,
-                run_row_id,
-                harness=harness,
-            )
-        else:
-            success_count = await _step_save(quality_trends, batch_results, pipeline_config, conn, run, run_row_id)
-        _t4 = time.time()
-        log.info(f"  [타이밍] 저장: {_t4 - _t3:.1f}초")
+        success_count = await _run_pipeline_step(
+            "save_results", _step_save, quality_trends, batch_results, pipeline_config, conn, run, run_row_id, harness=harness
+        )
+        t4 = time.time()
+        log.info(f"  [timing] save: {t4 - t3:.1f}s")
 
-        # Post: 완료 기록
-        # Step 5.5: TAP snapshot/alert queue refresh (multi-country only)
         await _step_refresh_tap_products(conn, pipeline_config)
-
         run.finished_at = datetime.now()
         await update_run(conn, run, run_row_id)
 
         elapsed = (run.finished_at - run.started_at).total_seconds()
-        print(f"\n{separator}")
-        print(f"  완료: {success_count}/{len(quality_trends)}개 저장")
-        print(f"  소요: {elapsed:.1f}초")
-
+        _print_pipeline_completion(separator, success_count, quality_trends, elapsed)
         await _step_post_run(pipeline_config, run, elapsed, scored_trends, config, schedule_callback, separator)
-
-        # ── Harness Governance Summary ──
         if harness and print_harness_summary:
             print_harness_summary(harness)
-
         return run
-    except Exception as _pipeline_err:
-        try:
-            from shared.notifications import Notifier
-
-            _notifier = Notifier.from_env()
-            if _notifier.has_channels:
-                _notifier.send_error(f"파이프라인 실패: {_pipeline_err}", error=_pipeline_err, source="GetDayTrends")
-        except Exception:
-            pass
+    except Exception as pipeline_err:
+        _notify_pipeline_error(pipeline_err)
         raise
     finally:
-        if conn is not None:  # B-011 fix: 연결 실패 시 close() 시도 방지
+        if conn is not None:
             await conn.close()
-
 
 def run_pipeline(config: AppConfig, schedule_callback: Callable[..., Any] | None = None) -> RunResult:
     """동기 래퍼 (schedule 호환). 내부적으로 비동기 파이프라인 실행."""

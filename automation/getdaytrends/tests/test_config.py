@@ -1,6 +1,8 @@
 """config.py 테스트: 환경변수 로드, 검증, 국가 코드 매핑."""
 
+import os
 import unittest
+from unittest.mock import patch
 
 # 프로젝트 루트를 path에 추가
 from config import COUNTRY_MAP, AppConfig
@@ -68,11 +70,33 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_default_dedupe_hours(self):
         self.assertEqual(self.config.dedupe_window_hours, 6)
 
+    def test_sqlite_fallback_default_enabled(self):
+        self.assertTrue(self.config.allow_sqlite_fallback)
+
+    def test_cost_database_default_is_project_local(self):
+        url = os.environ.get("LLM_COSTS_DATABASE_URL", "")
+        self.assertTrue(url.startswith("sqlite:///"))
+        self.assertIn("/automation/getdaytrends/data/llm_costs.db", url.replace("\\", "/"))
+
     def test_group_quality_threshold_defaults(self):
         self.assertEqual(self.config.get_quality_threshold("tweets"), 50)
         self.assertEqual(self.config.get_quality_threshold("threads_posts"), 65)
         self.assertEqual(self.config.get_quality_threshold("long_posts"), 70)
         self.assertEqual(self.config.get_quality_threshold("blog_posts"), 75)
+
+    def test_from_env_supports_default_countries_for_dashboard_tap(self):
+        with patch.dict(
+            os.environ,
+            {
+                "DEFAULT_COUNTRIES": "korea,united-states,japan",
+                "DEFAULT_COUNTRY": "us",
+            },
+            clear=False,
+        ):
+            config = AppConfig.from_env()
+
+        self.assertEqual(config.country, "korea")
+        self.assertEqual(config.countries, ["korea", "united-states", "japan"])
 
 
 class TestAppConfigValidation(unittest.TestCase):

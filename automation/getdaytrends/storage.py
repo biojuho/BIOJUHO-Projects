@@ -26,8 +26,11 @@ _bg_tasks = _storage_notion._bg_tasks
 _build_legacy_notion_properties = _storage_notion._build_legacy_notion_properties
 _build_notion_body = _storage_notion._build_notion_body
 _is_notion_provider_error = _storage_notion._is_notion_provider_error
+_missing_legacy_notion_properties = _storage_notion._missing_legacy_notion_properties
 _notion_page_exists = _storage_notion._notion_page_exists
 _persist_content_hub_link = _storage_notion._persist_content_hub_link
+_query_notion_target = _storage_notion._query_notion_target
+_resolve_notion_write_target = _storage_notion._resolve_notion_write_target
 
 _content_hub_default_priority = _storage_content_hub._content_hub_default_priority
 _content_hub_properties = _storage_content_hub._content_hub_properties

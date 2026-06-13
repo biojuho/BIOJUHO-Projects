@@ -81,7 +81,7 @@ def _json_list(value: str | None) -> list[str]:
     return parsed if isinstance(parsed, list) else []
 
 
-def _facade_module():
+def _facade_module() -> object:
     for name in ("db", "automation.getdaytrends.db"):
         module = sys.modules.get(name)
         if module is not None:
@@ -96,7 +96,7 @@ def _redis_enabled() -> bool:
     return _REDIS_OK
 
 
-def _get_cache_client():
+def _get_cache_client() -> object:
     facade = _facade_module()
     if facade is not None and hasattr(facade, "get_cache"):
         return facade.get_cache()

@@ -114,67 +114,87 @@ def _save_encrypted_cookies(plain_path: Path) -> None:
 
 
 async def _get_client() -> TwikitClient | None:
-    """Twikit 싱글톤 클라이언트. 쿠키 기반 세션 재사용."""
-    global _client, _login_attempted, _client_lock
+    """Return a cached Twikit client, restoring cookies or logging in once."""
+    global _client, _login_attempted
 
     if not TWIKIT_AVAILABLE:
         return None
 
-    # B-006 fix: 이벤트 루프 내에서 첫 사용 시 Lock 생성
-    if _client_lock is None:
-        _client_lock = asyncio.Lock()
-
-    async with _client_lock:
+    async with _client_lock_instance():
         if _client is not None:
             return _client
-
         if _login_attempted:
-            # 이전 로그인 시도 실패 — 재시도하지 않음
             return None
 
-        username = os.environ.get("TWIKIT_USERNAME", "")
-        email = os.environ.get("TWIKIT_EMAIL", "")
-        password = os.environ.get("TWIKIT_PASSWORD", "")
-
-        if not (username and password):
-            log.debug("[Twikit] TWIKIT_USERNAME/TWIKIT_PASSWORD 미설정 -- 비활성화")
+        credentials = _twikit_credentials()
+        if not credentials:
+            log.debug("[Twikit] TWIKIT_USERNAME/TWIKIT_PASSWORD missing; disabled")
             _login_attempted = True
             return None
 
         _client = TwikitClient("ko")
-
-        # 1순위: 암호화 쿠키 (.enc)
-        if _load_encrypted_cookies(_client):
-            log.info("[Twikit] 암호화 쿠키로 세션 복원")
+        if _restore_twikit_session(_client):
             return _client
 
-        # 2순위: 평문 쿠키 잔존 시 로드 후 즉시 암호화 전환
-        if _COOKIES_PATH.exists():
-            try:
-                _client.load_cookies(str(_COOKIES_PATH))
-                log.info("[Twikit] 평문 쿠키 로드 → 암호화 전환 중")
-                _save_encrypted_cookies(_COOKIES_PATH)
-                return _client
-            except (OSError, ValueError, RuntimeError) as e:
-                log.warning(f"[Twikit] 쿠키 로드 실패: {e} -- 재로그인 시도")
-
-        # 첫 로그인
         _login_attempted = True
-        try:
-            _COOKIES_PATH.parent.mkdir(parents=True, exist_ok=True)
-            await _client.login(
-                auth_info_1=username,
-                auth_info_2=email or username,
-                password=password,
-                cookies_file=str(_COOKIES_PATH),
-            )
-            log.info("[Twikit] 로그인 성공, 쿠키 암호화 저장 중")
-            _save_encrypted_cookies(_COOKIES_PATH)
+        if await _login_twikit_client(_client, credentials):
             return _client
-        except (ValueError, RuntimeError, ConnectionError, TimeoutError) as e:
-            log.warning(f"[Twikit] 로그인 실패: {e}")
-            _client = None
-            return None
+        _client = None
+        return None
+
+
+def _client_lock_instance() -> asyncio.Lock:
+    global _client_lock
+    if _client_lock is None:
+        _client_lock = asyncio.Lock()
+    return _client_lock
+
+
+def _twikit_credentials() -> tuple[str, str, str] | None:
+    username = os.environ.get("TWIKIT_USERNAME", "")
+    email = os.environ.get("TWIKIT_EMAIL", "")
+    password = os.environ.get("TWIKIT_PASSWORD", "")
+    if not username or not password:
+        return None
+    return username, email or username, password
+
+
+def _restore_twikit_session(client: TwikitClient) -> bool:
+    if _load_encrypted_cookies(client):
+        log.info("[Twikit] restored session from encrypted cookies")
+        return True
+    return _restore_plain_cookie_session(client)
+
+
+def _restore_plain_cookie_session(client: TwikitClient) -> bool:
+    if not _COOKIES_PATH.exists():
+        return False
+    try:
+        client.load_cookies(str(_COOKIES_PATH))
+        log.info("[Twikit] loaded plain cookies; converting to encrypted storage")
+        _save_encrypted_cookies(_COOKIES_PATH)
+        return True
+    except (OSError, ValueError, RuntimeError) as exc:
+        log.warning(f"[Twikit] cookie load failed: {exc}; trying fresh login")
+        return False
+
+
+async def _login_twikit_client(client: TwikitClient, credentials: tuple[str, str, str]) -> bool:
+    username, auth_info_2, password = credentials
+    try:
+        _COOKIES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        await client.login(
+            auth_info_1=username,
+            auth_info_2=auth_info_2,
+            password=password,
+            cookies_file=str(_COOKIES_PATH),
+        )
+        log.info("[Twikit] login succeeded; encrypting cookies")
+        _save_encrypted_cookies(_COOKIES_PATH)
+        return True
+    except (ValueError, RuntimeError, ConnectionError, TimeoutError) as exc:
+        log.warning(f"[Twikit] login failed: {exc}")
+        return False
 
 
 def is_available() -> bool:

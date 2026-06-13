@@ -34,7 +34,7 @@ except Exception:
 # ── Kiwi 싱글톤 ────────────────────────────────────────
 
 
-def _get_kiwi():
+def _get_kiwi() -> object:
     global _kiwi
     if _kiwi is None:
         import os
@@ -68,7 +68,7 @@ def _get_kiwi():
     return _kiwi
 
 
-def reset_kiwi():
+def reset_kiwi() -> None:
     """테스트용 리셋."""
     global _kiwi
     _kiwi = None
@@ -129,6 +129,36 @@ _AI_MORPHEME_PATTERNS: list[tuple[str, list[tuple[str, str]]]] = [
 ]
 
 
+
+def _detect_ai_voice_by_text(text: str) -> list[str]:
+    flags: list[str] = []
+    for label, pattern in _AI_ENDING_PATTERNS:
+        if pattern in text:
+            idx = text.index(pattern)
+            start = max(0, idx - 10)
+            end = min(len(text), idx + len(pattern) + 10)
+            flags.append(f"{label}: {text[start:end].strip()}")
+    return flags
+
+
+def _detect_ai_voice_by_morpheme(text: str, existing_flags: list[str]) -> list[str]:
+    try:
+        kiwi = _get_kiwi()
+        tokens = kiwi.tokenize(text)
+        morphemes = [(t.form, t.tag) for t in tokens]
+    except Exception as e:
+        log.debug(f"[Kiwipiepy] 형태소 분석 실패 (문자열 패턴으로 폴백): {e}")
+        return []
+
+    flags: list[str] = []
+    for pattern_name, pattern_seq in _AI_MORPHEME_PATTERNS:
+        if _find_morpheme_sequence(morphemes, pattern_seq) and not any(
+            pattern_name in f for f in existing_flags
+        ):
+            flags.append(f"{pattern_name}: (형태소 분석)")
+    return flags
+
+
 def detect_ai_voice(text: str) -> list[str]:
     """
     텍스트에서 AI어투 패턴을 탐지하여 위반 목록 반환.
@@ -138,33 +168,8 @@ def detect_ai_voice(text: str) -> list[str]:
     if not KIWI_AVAILABLE:
         return _detect_ai_voice_fallback(text)
 
-    flags: list[str] = []
-
-    # 1단계: 문자열 패턴 매칭 (빠른 스캔)
-    for label, pattern in _AI_ENDING_PATTERNS:
-        if pattern in text:
-            # 매칭된 주변 컨텍스트 추출 (최대 30자)
-            idx = text.index(pattern)
-            start = max(0, idx - 10)
-            end = min(len(text), idx + len(pattern) + 10)
-            context = text[start:end].strip()
-            flags.append(f"{label}: {context}")
-
-    # 2단계: 형태소 분석 기반 심층 탐지 (Kiwipiepy 사용 가능 시)
-    if KIWI_AVAILABLE:
-        try:
-            kiwi = _get_kiwi()
-            tokens = kiwi.tokenize(text)
-            morphemes = [(t.form, t.tag) for t in tokens]
-
-            for pattern_name, pattern_seq in _AI_MORPHEME_PATTERNS:
-                if _find_morpheme_sequence(morphemes, pattern_seq):
-                    # 이미 1단계에서 잡힌 패턴과 중복 방지
-                    if not any(pattern_name in f for f in flags):
-                        flags.append(f"{pattern_name}: (형태소 분석)")
-        except Exception as e:
-            log.debug(f"[Kiwipiepy] 형태소 분석 실패 (문자열 패턴으로 폴백): {e}")
-
+    flags = _detect_ai_voice_by_text(text)
+    flags.extend(_detect_ai_voice_by_morpheme(text, flags))
     return flags
 
 
@@ -302,16 +307,25 @@ def compute_quality_score(text: str) -> float:
 
 def refine_keyword(keyword: str) -> dict:
     """
-    트렌드 키워드를 형태소 분석하여 메타데이터 추출.
-    반환: {
-        "original": "원본 키워드",
-        "nouns": ["명사1", "명사2"],          # 핵심 명사 추출
-        "novel_words": ["신조어1"],            # 사전 미등재
-        "is_fragment": bool,                   # 문장 조각 여부
-        "corrected": "교정된 키워드" | None,   # 오타 교정
-    }
+    Analyze a trend keyword and return lightweight morphology metadata.
     """
-    result = {
+    result = _empty_keyword_refinement(keyword)
+    if not KIWI_AVAILABLE:
+        return result
+
+    try:
+        kiwi = _get_kiwi()
+        tokens = kiwi.tokenize(keyword)
+        result.update(_keyword_token_insights(tokens))
+        result["corrected"] = _keyword_correction(keyword, tokens)
+    except Exception as e:
+        log.debug(f"[Kiwipiepy] keyword refinement failed: {e}")
+
+    return result
+
+
+def _empty_keyword_refinement(keyword: str) -> dict:
+    return {
         "original": keyword,
         "nouns": [],
         "novel_words": [],
@@ -319,32 +333,23 @@ def refine_keyword(keyword: str) -> dict:
         "corrected": None,
     }
 
-    if not KIWI_AVAILABLE:
-        return result
 
-    try:
-        kiwi = _get_kiwi()
-        tokens = kiwi.tokenize(keyword)
+def _keyword_token_insights(tokens) -> dict:
+    return {
+        "nouns": [t.form for t in tokens if t.tag.startswith("NN") and len(t.form) >= 2],
+        "novel_words": [t.form for t in tokens if t.tag == "UN" and len(t.form) >= 2],
+        "is_fragment": _is_keyword_fragment(tokens),
+    }
 
-        # 명사 추출 (NNG: 일반명사, NNP: 고유명사, NNB: 의존명사)
-        nouns = [t.form for t in tokens if t.tag.startswith("NN") and len(t.form) >= 2]
-        result["nouns"] = nouns
 
-        # 신조어
-        result["novel_words"] = [t.form for t in tokens if t.tag == "UN" and len(t.form) >= 2]
+def _is_keyword_fragment(tokens) -> bool:
+    has_noun = any(t.tag.startswith("NN") or t.tag == "UN" for t in tokens)
+    has_only_particles = all(t.tag.startswith(("J", "E", "X", "S")) or t.tag == "SP" for t in tokens)
+    return not has_noun or has_only_particles
 
-        # 문장 조각 판별: 명사 없이 어미/조사만 있으면 조각
-        has_noun = any(t.tag.startswith("NN") or t.tag == "UN" for t in tokens)
-        has_only_particles = all(t.tag.startswith(("J", "E", "X", "S")) or t.tag == "SP" for t in tokens)
-        result["is_fragment"] = not has_noun or has_only_particles
 
-        # 오타 교정 (Kiwi typo correction)
-        corrected_tokens = kiwi.tokenize(keyword)
-        corrected_text = "".join(t.form for t in corrected_tokens)
-        if corrected_text != keyword and len(corrected_text) >= len(keyword) * 0.8:
-            result["corrected"] = corrected_text
-
-    except Exception as e:
-        log.debug(f"[Kiwipiepy] 키워드 정제 실패: {e}")
-
-    return result
+def _keyword_correction(keyword: str, tokens) -> str | None:
+    corrected_text = "".join(t.form for t in tokens)
+    if corrected_text != keyword and len(corrected_text) >= len(keyword) * 0.8:
+        return corrected_text
+    return None

@@ -1,212 +1,155 @@
-# X 트렌드 자동 트윗 생성기 v2.0
+# GetDayTrends (Production Runbook)
 
-> 멀티소스 트렌드 수집 + 바이럴 스코어링 + Claude AI 단문 트윗 5종 생성 + 자동 저장 + 알림
->
-> Runtime path note: `automation/getdaytrends/` is the canonical repo path. The workspace-root `getdaytrends/` path is a Windows junction kept for legacy commands and points to the same files.
+Productionized trend pipeline that collects, scores, and drafts social content variants.
 
----
-
-## 현재 정책 (2026-05, shortform-only)
-
-- **활성**: 단문 트윗 5종 (`160–240자` 한국어 공백 포함)
-- **비활성** (기본값): 네이버 블로그, 장문 글, X 멀티 쓰레드, Meta Threads
-- **3중 가드**: `enable_long_form=False`, `enable_threads=False`, `long_form/thread/blog_min_score=999`
-- **QA 페널티**: `>240자` regulation/algorithm −2, `<160자` angle −4 + algorithm −2, 비유/은유 표현 −8 (tone)
-- **발행**: 수동 전용 (`AUTO_PUSH_ENABLED=False`, `CONTENT_APPROVAL_MODE=manual`) — X 계정 리스크 회피
-- **레거시 옵트인**: `AppConfig(enable_long_form=True, enable_threads=True)` 명시 시에만 장문/쓰레드 경로 활성. `target_platforms=["x"]`가 기본
-
-
----
-## Target Audience
-
-**Primary Persona**: "트렌드 서퍼" (Trend Surfer)
-
-**Profile**: 20-35세 콘텐츠 크리에이터, 마케터, 1인 미디어 who need automated trend discovery and viral content generation.
-
-**Key Characteristics**:
-- Tech-savvy content creators with understanding of automation
-- Variable income dependent on viral hits (freelancers, ad revenue)
-- Value speed over perfection (ship 80% quality fast)
-- Data-driven decision making (scoring > gut feeling)
-- Primary workflow: CLI + Telegram/Discord alerts (daily 8-9 AM check)
-
-**What They Need**:
-- Automatic trend collection every 2 hours with viral scoring
-- 5 tweet variants auto-generated per trend
-- Multi-source integration (getdaytrends + X API + Reddit + Google News)
-- History DB to prevent duplicates and learn patterns
-- Decision time <10 seconds per trend (viral score 80+ = instant adopt)
-
-**Success Metrics**:
-- Viral scoring accuracy >70% (correlation with actual hit rate)
-- Trend collection success rate >95%
-- Tweet generation time <30 seconds per item
-- User viral hit rate +50% (vs before using tool)
-
-For detailed audience analysis, see [workspace-audience-profiles.md](../../.claude/skills/audience-first/references/workspace-audience-profiles.md#2-getdaytrends).
-
-
-
-## v2.0 주요 변경사항
-
-| 기능 | v1.0 | v2.0 |
-|------|------|------|
-| 데이터 소스 | getdaytrends.com만 | + X API v2, Reddit, Google News |
-| 트렌드 분석 | 없음 | 바이럴 스코어링 (0-100점) |
-| 트윗 생성 | 주제명만 입력 | 멀티소스 컨텍스트 + 스코어링 기반 |
-| 쓰레드 | 없음 | 바이럴 80점+ 자동 생성 |
-| 히스토리 | 없음 | SQLite DB (패턴 감지) |
-| 알림 | 없음 | Telegram / Discord |
-| CLI | 없음 | --country, --one-shot, --dry-run 등 |
-| 구조 | 단일 파일 | 8개 모듈 분리 |
+Current canonical runtime path:
+`automation/getdaytrends/`
 
 ---
 
-## 파일 구조
+## What is implemented (current baseline)
 
-```
-getdaytrends/
-├── main.py          # CLI 진입점 + 파이프라인 오케스트레이터
-├── config.py        # 환경변수/설정 관리
-├── models.py        # 데이터 모델 (dataclass)
-├── scraper.py       # 멀티소스 트렌드 수집
-├── analyzer.py      # 바이럴 스코어링 (Claude Haiku)
-├── generator.py     # 트윗/쓰레드 생성 (Claude Sonnet)
-├── storage.py       # Notion + Google Sheets + SQLite 저장
-├── alerts.py        # Telegram/Discord 알림
-├── db.py            # SQLite 초기화/헬퍼
-├── requirements.txt # 의존 패키지
-├── .env.example     # 환경변수 템플릿
-└── data/
-    └── getdaytrends.db  # (자동생성) 트렌드 히스토리 DB
-```
+- Deterministic CLI and diagnostics:
+  - `--version` for CLI metadata
+  - `--doctor` for runtime preflight checks
+  - `--health-check` as the scheduler/monitor-friendly preflight alias
+  - `--stats` for collected-run metrics
+  - `--serve` for dashboard server
+- Scheduled runner support:
+  - `run_scheduled_getdaytrends.ps1` writes per-run summary + per-execution detail logs
+  - `logs/scheduler/run_YYYY-MM-DD_HHMMSS.json` records status, exit code, duration, command, and log paths
+  - UTF-8 safe output handling and resilient log writes
+- Graceful shutdown handling:
+  - SIGINT / SIGTERM aware shutdown with shared shutdown state
+- User-facing text cleanup in main CLI path
+- Machine-readable readiness gate:
+  - `scripts/browser_smoke.py` starts the dashboard, clicks the TAP controls, checks desktop/mobile layout, and writes browser evidence
+  - `scripts/readiness_check.py` checks CLI smoke, dashboard browser smoke, text hygiene, scheduler artifacts, production docs, and GitHub benchmark evidence
+  - `scripts/readiness_check.py --max-scheduler-age-hours 24 --max-cli-smoke-age-hours 24 --fail-on-runtime-fallback --require-live-db` adds launch-day freshness, clean-runtime, and live PostgreSQL doctor policies for scheduler, CLI smoke, PostgreSQL, and cost DB evidence
+  - `logs/readiness/readiness_latest.json` records a versioned readiness summary
+- Structured completion plan for remaining hardening in `GETDAYTRENDS_COMPLETION_PLAN.md`
 
 ---
 
-## 빠른 시작
+## Prerequisites
+
+- Python environment from workspace root `.venv` (recommended)
+- Node/OS dependencies are not required for this package
+- Environment variables in `.env` (see `.env.example`)
+- Dependencies managed by `pyproject.toml` and `uv.lock`
+
+---
+
+## Install
 
 ```bash
-# 1. 패키지 설치
-pip install -r requirements.txt
-
-# 2. 환경변수 설정
+cd "D:\AI project\automation\getdaytrends"
+uv sync --extra dev
 cp .env.example .env
-# .env 파일을 열어 ANTHROPIC_API_KEY 입력
-
-# 3. 실행
-python main.py --one-shot          # 1회 실행
-python main.py                      # 2시간마다 자동 실행
 ```
+
+Edit `.env` and configure:
+
+- `ANTHROPIC_API_KEY`
+- any optional provider keys (Notion, Telegram, Slack, SMTP, Google, X)
 
 ---
 
-## CLI 사용법
+## Core CLI
 
 ```bash
-# 기본 실행 (2시간 스케줄)
-python main.py
-
-# 1회 실행 후 종료
+python main.py --help
+python main.py --version
+python main.py --doctor
+python main.py --health-check
 python main.py --one-shot
-
-# 수집 + 분석만 (저장 안 함)
 python main.py --one-shot --dry-run
-
-# 미국 트렌드 Top 10 처리
 python main.py --one-shot --country us --limit 10
-
-# 상세 로그 + 알림 끄기
 python main.py --one-shot --verbose --no-alerts
-
-# 스케줄 간격 변경 (30분마다)
-python main.py --schedule-min 30
-
-# 히스토리 통계 확인
 python main.py --stats
+python main.py --serve
 ```
 
-### CLI 옵션
+Supported options (from argparse):
 
-| 옵션 | 설명 | 기본값 |
-|------|------|--------|
-| `--country` | 국가 코드 (korea, us, japan, uk, india, global) | korea |
-| `--limit` | 처리할 트렌드 수 | 5 |
-| `--one-shot` | 1회 실행 후 종료 | false |
-| `--dry-run` | 수집+분석만 (외부 저장 안 함) | false |
-| `--verbose` | 상세 로그 출력 | false |
-| `--no-alerts` | 알림 전송 안 함 | false |
-| `--schedule-min` | 스케줄 간격(분) 오버라이드 | 120 |
-| `--stats` | 히스토리 통계 출력 후 종료 | false |
+- `--version`
+- `--country`
+- `--countries`
+- `--limit`
+- `--one-shot`
+- `--dry-run`
+- `--verbose`
+- `--no-alerts`
+- `--doctor`
+- `--health-check`
+- `--schedule-min`
+- `--stats`
+- `--serve`
 
 ---
 
-## 데이터 플로우
+## Scheduled run
 
-```
-scraper.py
-  getdaytrends.com ──┐
-  X API v2 ──────────┤
-  Reddit ────────────┼──→ [트렌드 + 컨텍스트]
-  Google News ───────┘         │
-                               ▼
-                        analyzer.py
-                    (Claude Haiku 스코어링)
-                               │
-                    [ScoredTrend: 0-100점]
-                               │
-                    ┌──────────┼──────────┐
-                    ▼          ▼          ▼
-              alerts.py   generator.py  db.py
-          (Telegram/Discord) (Claude)  (SQLite)
-                               │
-                          [TweetBatch]
-                          (단문 5종 · 160–240자)
-                               │
-                               ▼
-                         storage.py
-                    ┌──────┬──────┐
-                    ▼      ▼      ▼
-                 Notion  Sheets  SQLite
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run_scheduled_getdaytrends.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run_scheduled_getdaytrends.ps1 -Country "us" -Limit 5
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run_scheduled_getdaytrends.ps1 -DryRun
 ```
 
----
+Logs:
 
-## 필요한 API 키
+- Summary log: `run_scheduled.log`
+- Summary fallback log, used if the rolling summary is locked: `logs/scheduler/summary_YYYY-MM-DD_HHMMSS.log`
+- Detail logs: `logs/scheduler/run_YYYY-MM-DD_HHMMSS.log`
+- Machine-readable artifacts: `logs/scheduler/run_YYYY-MM-DD_HHMMSS.json`
 
-| 키 | 발급처 | 필수 |
-|---|---|---|
-| Anthropic API Key | https://console.anthropic.com | 필수 |
-| Notion Integration Token | https://notion.so/my-integrations | Notion 사용 시 |
-| Google Service Account JSON | https://console.cloud.google.com | Google Sheets 사용 시 |
-| Twitter Bearer Token | https://developer.twitter.com | 선택 (없어도 동작) |
-| Telegram Bot Token | @BotFather | 선택 |
-| Discord Webhook URL | 서버 설정 > 연동 > 웹훅 | 선택 |
+Database fallback:
 
----
-
-## Notion DB 구조
-
-| 컬럼 | 타입 | 내용 |
-|------|------|------|
-| 제목 | title | [트렌드 #순위] 주제 - 시각 |
-| 주제 | rich_text | 트렌드 키워드 |
-| 순위 | number | 바이럴 점수 기반 순위 |
-| 생성시각 | date | ISO 8601 |
-| 공감유도형 | rich_text | 트윗 시안 1 |
-| 꿀팁형 | rich_text | 트윗 시안 2 |
-| 찬반질문형 | rich_text | 트윗 시안 3 |
-| 명언형 | rich_text | 트윗 시안 4 |
-| 유머밈형 | rich_text | 트윗 시안 5 |
-| 바이럴점수 | number | 0-100 (v2.0 신규) |
-| 쓰레드 | rich_text | _Legacy_. shortform-only 정책에서 비어 있음(2026-05). 옵트인 시에만 채워짐 |
-| 상태 | select | 대기중 / 게시완료 |
+- `ALLOW_SQLITE_FALLBACK=true` is the default recovery behavior.
+- If `DATABASE_URL` is configured but unreachable, startup and pipeline runs fall back to local SQLite and keep the PostgreSQL error masked.
 
 ---
 
-## 종료
-실행 중 `Ctrl + C`로 종료
+## Suggested run policy
+
+- Daily execution:
+  - one run window + one highest-confidence output batch
+  - avoid multi-window fan-out by default
+- Retry policy:
+  - prefer one-shot for operator checks before schedule enablement
+  - use `--dry-run` for parse/analyze verification
+- Failure handling:
+ - keep an eye on non-zero exit code from scheduler
+ - check the scheduler JSON artifact, detail log, and either the rolling summary or per-run summary fallback for root cause
 
 ---
 
-## 세팅 가이드
-→ [SETUP_GUIDE.md](./SETUP_GUIDE.md) 참고
+## Health checks
+
+1. `python main.py --doctor`
+2. `python main.py --doctor --require-live-db`
+3. `python main.py --health-check`
+4. `python scripts\smoke_cli.py`
+5. `python scripts\browser_smoke.py`
+6. `python scripts\check_text_hygiene.py`
+7. `python scripts\smoke_cli.py --include-dry-run`
+8. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run_scheduled_getdaytrends.ps1 -DryRun`
+9. `python scripts\readiness_check.py --max-scheduler-age-hours 24 --max-cli-smoke-age-hours 24 --fail-on-runtime-fallback --require-live-db`
+10. From workspace root: `python ops\scripts\getdaytrends_launch_secret_scan.py --include-current-artifacts --json-out var\getdaytrends-launch-secret-scan-final-2026-06-07.json`
+11. `python main.py --stats`
+
+The smoke script writes a JSON report to `logs/smoke/cli_smoke_latest.json`.
+The browser smoke writes a JSON report to `logs/smoke/dashboard_browser_latest.json` and a screenshot to `logs/smoke/dashboard_browser_latest.png`.
+The text hygiene script writes a JSON report to `logs/hygiene/text_hygiene_latest.json`.
+The readiness script writes a JSON report to `logs/readiness/readiness_latest.json`. Use `--max-scheduler-age-hours 24 --max-cli-smoke-age-hours 24 --fail-on-runtime-fallback --require-live-db` for launch-day checks that should fail stale scheduler or CLI smoke evidence, fail runtime PostgreSQL / cost DB fallback, and include the live PostgreSQL doctor result in the same operator artifact.
+The launch secret scan is run from workspace root and should use `--include-current-artifacts` before release handoff so readiness, recovery packets, browser smoke, CLI smoke, workspace smoke, and handoff docs are checked together.
+Doctor output uses `[OK]`, `[WARN]`, and `[ERROR]` records with stable check IDs and `fix:` remediation hints. Add `--require-live-db` to run a non-destructive live PostgreSQL `SELECT 1` probe during launch preflight. Database checks also report the effective `DATABASE_URL` source, Supabase pooler URL shape, optional `SUPABASE_URL` project-ref cross-check, DNS reachability, and TCP reachability without printing credentials.
+
+---
+
+## References
+
+- `WORKFLOW.md`: end-to-end runtime flow and module map
+- `docs/RUNBOOK_ROLLBACK_FAILOVER.md`: rollback, database failover, and alert failover procedure
+- `docs/GITHUB_BENCHMARK_2026-06-04.md`: GitHub comparison and product-hardening decisions
+- `GETDAYTRENDS_COMPLETION_PLAN.md`: production completion criteria and backlog

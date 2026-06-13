@@ -101,75 +101,94 @@ def _parse_volume_text(text: str) -> int:
 # ══════════════════════════════════════════════════════
 
 
-async def _async_fetch_getdaytrends(session: httpx.AsyncClient, country_slug: str, limit: int = 50) -> list[RawTrend]:
-    """getdaytrends.com에서 트렌드 수집 (비동기)."""
+def _getdaytrends_url(country_slug: str) -> str:
+    base_url = "https://getdaytrends.com"
+    return f"{base_url}/{country_slug}/" if country_slug else f"{base_url}/"
+
+
+def _getdaytrends_cache_key(country_slug: str) -> str:
+    return country_slug or "global"
+
+
+def _fresh_getdaytrends_cache(cache_key: str, limit: int) -> list[RawTrend] | None:
+    cached = _FETCH_CACHE.get(cache_key)
+    if not cached:
+        return None
+    cached_at, cached_trends = cached
+    cache_age = time.time() - cached_at
+    if cache_age >= _FETCH_CACHE_TTL:
+        return None
+    log.info(f"[?섏쭛 罹먯떆] getdaytrends.com ?ъ궗?? {len(cached_trends)}媛?({cache_key}, {int(cache_age)}珥???")
+    return cached_trends[:limit]
+
+
+def _getdaytrends_soup(html: str) -> object:
     from bs4 import BeautifulSoup
 
-    base_url = "https://getdaytrends.com"
-    url = f"{base_url}/{country_slug}/" if country_slug else f"{base_url}/"
+    try:
+        return BeautifulSoup(html, "lxml")
+    except Exception:
+        return BeautifulSoup(html, "html.parser")
 
-    # Phase 3: 캐시 히트 확인 (1시간 TTL)
-    cache_key = country_slug or "global"
-    cached = _FETCH_CACHE.get(cache_key)
-    if cached:
-        cached_at, cached_trends = cached
-        if time.time() - cached_at < _FETCH_CACHE_TTL:
-            log.info(
-                f"[수집 캐시] getdaytrends.com 재사용: {len(cached_trends)}개 ({cache_key}, {int(time.time() - cached_at)}초 전)"
-            )
-            return cached_trends[:limit]
+
+def _getdaytrends_rows(soup) -> list:
+    rows = soup.select("table.trends tbody tr")
+    return rows or soup.select("table tr")
+
+
+def _getdaytrends_row_to_trend(row, country_slug: str) -> RawTrend | None:
+    base_url = "https://getdaytrends.com"
+    name_el = row.select_one(".main a") or row.select_one("a")
+    if not name_el:
+        return None
+
+    name = name_el.get_text(strip=True).lstrip("#").strip()
+    if not name:
+        return None
+
+    volume_el = row.select_one(".desc")
+    volume_text = volume_el.get_text(strip=True) if volume_el else "N/A"
+    href = name_el.get("href", "")
+    link = f"{base_url}{href}" if href and not href.startswith("http") else href
+    return RawTrend(
+        name=name,
+        source=TrendSource.GETDAYTRENDS,
+        volume=volume_text,
+        volume_numeric=_parse_volume_text(volume_text),
+        link=link,
+        country=country_slug or "global",
+    )
+
+
+def _parse_getdaytrends_html(html: str, country_slug: str, limit: int) -> list[RawTrend]:
+    trends: list[RawTrend] = []
+    for row in _getdaytrends_rows(_getdaytrends_soup(html)):
+        trend = _getdaytrends_row_to_trend(row, country_slug)
+        if trend is None:
+            continue
+        trends.append(trend)
+        if len(trends) >= limit:
+            break
+    return trends
+
+
+async def _async_fetch_getdaytrends(session: httpx.AsyncClient, country_slug: str, limit: int = 50) -> list[RawTrend]:
+    """Fetch trends from getdaytrends.com asynchronously."""
+    cache_key = _getdaytrends_cache_key(country_slug)
+    cached_trends = _fresh_getdaytrends_cache(cache_key, limit)
+    if cached_trends is not None:
+        return cached_trends
 
     try:
-        resp = await session.get(url, headers=_COMMON_HEADERS, timeout=_DEFAULT_TIMEOUT)
+        resp = await session.get(_getdaytrends_url(country_slug), headers=_COMMON_HEADERS, timeout=_DEFAULT_TIMEOUT)
         resp.raise_for_status()
-        html = resp.text
-
-        try:
-            soup = BeautifulSoup(html, "lxml")
-        except Exception:
-            soup = BeautifulSoup(html, "html.parser")
-
-        trends = []
-        rows = soup.select("table.trends tbody tr")
-        if not rows:
-            rows = soup.select("table tr")
-
-        for row in rows:
-            name_el = row.select_one(".main a") or row.select_one("a")
-            if not name_el:
-                continue
-
-            name = name_el.get_text(strip=True).lstrip("#").strip()
-            if not name:
-                continue
-
-            volume_el = row.select_one(".desc")
-            volume_text = volume_el.get_text(strip=True) if volume_el else "N/A"
-
-            href = name_el.get("href", "")
-            link = f"{base_url}{href}" if href and not href.startswith("http") else href
-
-            trends.append(
-                RawTrend(
-                    name=name,
-                    source=TrendSource.GETDAYTRENDS,
-                    volume=volume_text,
-                    volume_numeric=_parse_volume_text(volume_text),
-                    link=link,
-                    country=country_slug or "global",
-                )
-            )
-
-            if len(trends) >= limit:
-                break
-
+        trends = _parse_getdaytrends_html(resp.text, country_slug, limit)
         if not trends:
-            log.warning("getdaytrends.com 파싱 실패. 대체 트렌드 사용.")
+            log.warning("getdaytrends.com parsing failed. Using fallback trends.")
             return _fallback_trends()
 
-        # Phase 3: 캐시 저장
         _FETCH_CACHE[cache_key] = (time.time(), trends)
-        log.info(f"getdaytrends.com 수집 완료: {len(trends)}개 ({country_slug or 'global'})")
+        log.info(f"getdaytrends.com collection complete: {len(trends)} ({country_slug or 'global'})")
         return trends
 
     except httpx.HTTPStatusError as e:
@@ -180,9 +199,8 @@ async def _async_fetch_getdaytrends(session: httpx.AsyncClient, country_slug: st
         log.error(f"getdaytrends.com request failed: {type(e).__name__}: {e}")
         return _fallback_trends()
     except Exception as e:
-        log.error(f"getdaytrends.com 수집 실패: {e}")
+        log.error(f"getdaytrends.com collection failed: {e}")
         return _fallback_trends()
-
 
 def fetch_getdaytrends(country_slug: str, limit: int = 50) -> list[RawTrend]:
     """getdaytrends.com에서 트렌드 수집 (동기 호환 래퍼)."""
@@ -229,81 +247,92 @@ def _is_korean_trend(name: str, country_slug: str) -> bool:
     return has_hangul or is_ascii
 
 
+def _google_trends_geo(country_slug: str) -> str:
+    return _GEO_MAP.get(country_slug, "KR") if country_slug else "KR"
+
+
+def _google_trends_rss_url(geo: str) -> str:
+    return f"https://trends.google.com/trending/rss?geo={geo}"
+
+
+def _parse_google_trends_root(raw: bytes) -> object:
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError as exc:
+        log.warning(f"Google Trends RSS parse failed: {exc}")
+        return None
+
+    root_tag = root.tag.split("}", 1)[-1].lower()
+    if root_tag not in {"rss", "feed"}:
+        log.warning(f"Google Trends RSS unexpected root tag: {root_tag}")
+        return None
+    return root
+
+
+def _google_trends_news_items(item, ns: dict[str, str]) -> list[str]:
+    news_items = []
+    for news_item in item.findall("ht:news_item", ns)[:2]:
+        news_title = news_item.find("ht:news_item_title", ns)
+        if news_title is not None and news_title.text:
+            news_items.append(news_title.text.strip())
+    return news_items
+
+
+def _google_trends_item_to_raw(item, ns: dict[str, str], country_slug: str) -> RawTrend | None:
+    title_el = item.find("title")
+    if title_el is None or not title_el.text:
+        return None
+
+    name = title_el.text.strip()
+    if not _is_korean_trend(name, country_slug):
+        log.debug(f"  [Google Trends] 鍮꾪븳援?뼱 ?꾪꽣: '{name}'")
+        return None
+
+    traffic_el = item.find("ht:approx_traffic", ns)
+    volume_text = traffic_el.text.strip() if traffic_el is not None else "N/A"
+    link_el = item.find("link")
+    pub_date_el = item.find("pubDate")
+    return RawTrend(
+        name=name,
+        source=TrendSource.GOOGLE_TRENDS,
+        volume=volume_text,
+        volume_numeric=_parse_volume_text(volume_text.replace("+", "").replace(",", "")),
+        link=link_el.text.strip() if link_el is not None and link_el.text else "",
+        country=country_slug or "global",
+        extra={"news_headlines": _google_trends_news_items(item, ns)},
+        published_at=_parse_rss_date(pub_date_el.text if pub_date_el is not None else None),
+    )
+
+
+def _parse_google_trends_items(raw: bytes, country_slug: str, limit: int) -> list[RawTrend]:
+    root = _parse_google_trends_root(raw)
+    if root is None:
+        return []
+
+    ns = {"ht": "https://trends.google.com/trending/rss"}
+    trends: list[RawTrend] = []
+    for item in root.findall(".//item"):
+        trend = _google_trends_item_to_raw(item, ns, country_slug)
+        if trend is None:
+            continue
+        trends.append(trend)
+        if len(trends) >= limit:
+            break
+    return trends
+
+
 async def _async_fetch_google_trends_rss(
     session: httpx.AsyncClient, country_slug: str, limit: int = 20
 ) -> list[RawTrend]:
-    """Google Trends RSS에서 실시간 트렌딩 토픽 수집 (비동기)."""
-    geo = _GEO_MAP.get(country_slug, "KR") if country_slug else "KR"
-    url = f"https://trends.google.com/trending/rss?geo={geo}"
+    """Fetch realtime trends from Google Trends RSS asynchronously."""
+    geo = _google_trends_geo(country_slug)
     headers = {"User-Agent": "Mozilla/5.0 (compatible; TrendBot/2.3)"}
 
     try:
-        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+        resp = await session.get(_google_trends_rss_url(geo), headers=headers, timeout=_SHORT_TIMEOUT)
         resp.raise_for_status()
-        raw = resp.read()
-
-        try:
-            root = ET.fromstring(raw)
-        except ET.ParseError as e:
-            log.warning(f"Google Trends RSS parse failed: {e}")
-            return []
-
-        root_tag = root.tag.split("}", 1)[-1].lower()
-        if root_tag not in {"rss", "feed"}:
-            log.warning(f"Google Trends RSS unexpected root tag: {root_tag}")
-            return []
-
-        ns = {"ht": "https://trends.google.com/trending/rss"}
-
-        trends = []
-        for item in root.findall(".//item"):
-            title_el = item.find("title")
-            if title_el is None or not title_el.text:
-                continue
-
-            name = title_el.text.strip()
-
-            # 한국 대상이면 비한국어 필터링
-            if not _is_korean_trend(name, country_slug):
-                log.debug(f"  [Google Trends] 비한국어 필터: '{name}'")
-                continue
-
-            # 트래픽 볼륨 (ht:approx_traffic)
-            traffic_el = item.find("ht:approx_traffic", ns)
-            volume_text = traffic_el.text.strip() if traffic_el is not None else "N/A"
-
-            # 뉴스 링크
-            link_el = item.find("link")
-            link = link_el.text.strip() if link_el is not None and link_el.text else ""
-
-            # [가능 시] 발행 시점 파싱
-            news_items = []
-            for news_item in item.findall("ht:news_item", ns)[:2]:
-                news_title = news_item.find("ht:news_item_title", ns)
-                if news_title is not None and news_title.text:
-                    news_items.append(news_title.text.strip())
-
-            # [v6.1] pubDate 파싱
-            pub_date_el = item.find("pubDate")
-            published_at = _parse_rss_date(pub_date_el.text if pub_date_el is not None else None)
-
-            trends.append(
-                RawTrend(
-                    name=name,
-                    source=TrendSource.GOOGLE_TRENDS,
-                    volume=volume_text,
-                    volume_numeric=_parse_volume_text(volume_text.replace("+", "").replace(",", "")),
-                    link=link,
-                    country=country_slug or "global",
-                    extra={"news_headlines": news_items},
-                    published_at=published_at,
-                )
-            )
-
-            if len(trends) >= limit:
-                break
-
-        log.info(f"Google Trends RSS 수집 완료: {len(trends)}개 ({geo})")
+        trends = _parse_google_trends_items(resp.read(), country_slug, limit)
+        log.info(f"Google Trends RSS collection complete: {len(trends)} ({geo})")
         return trends
 
     except httpx.HTTPStatusError as e:
@@ -314,9 +343,8 @@ async def _async_fetch_google_trends_rss(
         log.warning(f"Google Trends RSS request failed: {type(e).__name__}: {e}")
         return []
     except Exception as e:
-        log.warning(f"Google Trends RSS 수집 실패: {e}")
+        log.warning(f"Google Trends RSS collection failed: {e}")
         return []
-
 
 def fetch_google_trends_rss(country_slug: str, limit: int = 20) -> list[RawTrend]:
     """Google Trends RSS 수집 (동기 호환 래퍼)."""
@@ -361,79 +389,100 @@ _YOUTUBE_GEO_MAP = {
 async def _async_fetch_youtube_trending(
     session: httpx.AsyncClient, country_slug: str = "korea", limit: int = 10
 ) -> list[RawTrend]:
-    """YouTube 인기 동영상 RSS에서 트렌드 키워드 추출 (비동기). [v9.1] 적응형 타임아웃 & 백오프 적용"""
+    """YouTube 인기 동영상 RSS에서 트렌드 키워드를 추출 (비동기)."""
     country_code = _YOUTUBE_GEO_MAP.get(country_slug, "KR")
-    # YouTube RSS trending feed (chart=mostviewed 폐기 대응)
-    url = f"https://www.youtube.com/feeds/videos.xml?gl={country_code}&hl=ko"
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; TrendBot/4.1)"}
+    raw = await _fetch_youtube_trending_feed(session, _youtube_trending_url(country_code))
+    if raw is None:
+        return []
 
-    raw = None
+    trends = _parse_youtube_trending_feed(raw, country_slug or "korea", limit)
+    log.info(f"YouTube Trending 수집 완료: {len(trends)}개 ({country_code})")
+    return trends
+
+
+def _youtube_trending_url(country_code: str) -> str:
+    return f"https://www.youtube.com/feeds/videos.xml?gl={country_code}&hl=ko"
+
+
+async def _fetch_youtube_trending_feed(session: httpx.AsyncClient, url: str) -> bytes | None:
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; TrendBot/4.1)"}
     for attempt in range(1, 4):
         try:
             resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
             resp.raise_for_status()
             raw = resp.read()
-            break
+            return raw if isinstance(raw, bytes) else None
         except Exception as e:
             if attempt == 3:
                 log.debug(f"YouTube Trending 수집 최종 실패 (3회 초과): {e}")
-                return []
+                return None
             backoff = 2**attempt
             log.warning(f"YouTube API 에러({e}), {backoff}초 후 재시도 ({attempt}/3)")
             await asyncio.sleep(backoff)
+    return None
 
-    if not isinstance(raw, bytes):
-        return []
 
+def _parse_youtube_trending_feed(raw: bytes, country_slug: str, limit: int) -> list[RawTrend]:
     try:
         root = ET.fromstring(raw)
-        # YouTube Atom feed namespace
-        ns = {
-            "atom": "http://www.w3.org/2005/Atom",
-            "media": "http://search.yahoo.com/mrss/",
-            "yt": "http://www.youtube.com/xml/schemas/2015",
-        }
-
-        trends = []
-        for entry in root.findall("atom:entry", ns)[:limit]:
-            title_el = entry.find("atom:title", ns)
-            if title_el is None or not title_el.text:
-                continue
-            name = title_el.text.strip()
-            if len(name) < 2:
-                continue
-
-            # 동영상 링크
-            link_el = entry.find("atom:link", ns)
-            link = link_el.get("href", "") if link_el is not None else ""
-
-            # 조회 수 (yt:statistics viewCount)
-            stats_el = entry.find("yt:statistics", ns)
-            view_count = 0
-            if stats_el is not None:
-                try:
-                    view_count = int(stats_el.get("viewCount", "0"))
-                except ValueError:
-                    pass
-
-            trends.append(
-                RawTrend(
-                    name=name,
-                    source=TrendSource.YOUTUBE,
-                    volume=f"{view_count:,} views" if view_count else "N/A",
-                    volume_numeric=view_count,
-                    link=link,
-                    country=country_slug or "korea",
-                )
-            )
-
-        log.info(f"YouTube Trending 수집 완료: {len(trends)}개 ({country_code})")
-        return trends
-
     except Exception as e:
         log.debug(f"YouTube Trending 수집 실패 (무시): {e}")
         return []
 
+    ns = _youtube_feed_namespaces()
+    trends: list[RawTrend] = []
+    for entry in root.findall("atom:entry", ns)[:limit]:
+        trend = _youtube_entry_to_raw_trend(entry, ns, country_slug)
+        if trend is not None:
+            trends.append(trend)
+    return trends
+
+
+def _youtube_feed_namespaces() -> dict[str, str]:
+    return {
+        "atom": "http://www.w3.org/2005/Atom",
+        "media": "http://search.yahoo.com/mrss/",
+        "yt": "http://www.youtube.com/xml/schemas/2015",
+    }
+
+
+def _youtube_entry_to_raw_trend(
+    entry: ET.Element,
+    ns: dict[str, str],
+    country_slug: str,
+) -> RawTrend | None:
+    title_el = entry.find("atom:title", ns)
+    if title_el is None or not title_el.text:
+        return None
+
+    name = title_el.text.strip()
+    if len(name) < 2:
+        return None
+
+    view_count = _youtube_view_count(entry, ns)
+    return RawTrend(
+        name=name,
+        source=TrendSource.YOUTUBE,
+        volume=f"{view_count:,} views" if view_count else "N/A",
+        volume_numeric=view_count,
+        link=_youtube_entry_link(entry, ns),
+        country=country_slug,
+    )
+
+
+def _youtube_entry_link(entry: ET.Element, ns: dict[str, str]) -> str:
+    link_el = entry.find("atom:link", ns)
+    return link_el.get("href", "") if link_el is not None else ""
+
+
+def _youtube_view_count(entry: ET.Element, ns: dict[str, str]) -> int:
+    stats_el = entry.find("yt:statistics", ns)
+    if stats_el is None:
+        return 0
+    try:
+        return int(stats_el.get("viewCount", "0"))
+    except ValueError:
+        return 0
 
 def fetch_youtube_trending(country_slug: str = "korea", limit: int = 10) -> list[RawTrend]:
     """YouTube 인기 동영상 RSS 수집 (동기 호환 래퍼)."""
@@ -454,45 +503,62 @@ async def _async_fetch_youtube_trending_standalone(country_slug: str = "korea", 
 _HN_FRONTPAGE_URL = "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage={limit}"
 
 
+async def _hacker_news_payload(session: httpx.AsyncClient, limit: int) -> dict:
+    url = _HN_FRONTPAGE_URL.format(limit=limit)
+    headers = {"User-Agent": "GetDayTrends/2.4 (mailto:biojuho@gmail.com)"}
+    resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _hacker_news_title(hit: dict) -> str:
+    return (hit.get("title") or hit.get("story_title") or "").strip()
+
+
+def _hacker_news_link(hit: dict) -> str:
+    story_id = hit.get("objectID", "")
+    return hit.get("url") or (f"https://news.ycombinator.com/item?id={story_id}" if story_id else "")
+
+
+def _hacker_news_trend_from_hit(hit: dict) -> RawTrend | None:
+    title = _hacker_news_title(hit)
+    if not title or len(title) < 3:
+        return None
+
+    points = int(hit.get("points") or 0)
+    comments = int(hit.get("num_comments") or 0)
+    return RawTrend(
+        name=title,
+        source=TrendSource.HACKER_NEWS,
+        volume=f"{points} points / {comments} comments",
+        volume_numeric=points * 10 + comments,
+        link=_hacker_news_link(hit),
+        country="global",
+        extra={"points": points, "comments": comments},
+    )
+
+
+def _hacker_news_trends_from_payload(payload: dict) -> list[RawTrend]:
+    trends: list[RawTrend] = []
+    for hit in payload.get("hits") or []:
+        trend = _hacker_news_trend_from_hit(hit)
+        if trend is not None:
+            trends.append(trend)
+    return trends
+
+
 async def _async_fetch_hacker_news(
     session: httpx.AsyncClient,
     limit: int = 20,
 ) -> list[RawTrend]:
     """Hacker News 프론트페이지에서 트렌드 추출 (Algolia 공개 API)."""
-    url = _HN_FRONTPAGE_URL.format(limit=limit)
-    headers = {"User-Agent": "GetDayTrends/2.4 (mailto:biojuho@gmail.com)"}
-
     try:
-        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
-        resp.raise_for_status()
-        payload = resp.json()
+        payload = await _hacker_news_payload(session, limit)
     except (httpx.HTTPError, ValueError) as exc:
         log.warning(f"Hacker News 수집 실패: {type(exc).__name__}: {exc}")
         return []
 
-    hits = payload.get("hits") or []
-    trends: list[RawTrend] = []
-    for hit in hits:
-        title = (hit.get("title") or hit.get("story_title") or "").strip()
-        if not title or len(title) < 3:
-            continue
-        points = int(hit.get("points") or 0)
-        comments = int(hit.get("num_comments") or 0)
-        story_id = hit.get("objectID", "")
-        link = hit.get("url") or (f"https://news.ycombinator.com/item?id={story_id}" if story_id else "")
-
-        trends.append(
-            RawTrend(
-                name=title,
-                source=TrendSource.HACKER_NEWS,
-                volume=f"{points} points / {comments} comments",
-                volume_numeric=points * 10 + comments,
-                link=link,
-                country="global",
-                extra={"points": points, "comments": comments},
-            )
-        )
-
+    trends = _hacker_news_trends_from_payload(payload)
     log.info(f"Hacker News 수집 완료: {len(trends)}개")
     return trends
 
@@ -516,60 +582,82 @@ async def _async_fetch_hacker_news_standalone(limit: int = 20) -> list[RawTrend]
 _REDDIT_POPULAR_URL = "https://www.reddit.com/r/popular.json?limit={limit}&t=day"
 
 
+def _reddit_popular_url(limit: int) -> str:
+    return _REDDIT_POPULAR_URL.format(limit=limit)
+
+
+def _reddit_popular_headers() -> dict[str, str]:
+    return {"User-Agent": "GetDayTrends/2.4 (+mailto:biojuho@gmail.com)"}
+
+
+async def _reddit_popular_payload(session: httpx.AsyncClient, limit: int) -> dict | None:
+    try:
+        resp = await session.get(_reddit_popular_url(limit), headers=_reddit_popular_headers(), timeout=_SHORT_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        log.warning(f"Reddit /r/popular collection failed: {type(exc).__name__}: {exc}")
+        return None
+
+
+def _reddit_popular_children(payload: dict | None) -> list:
+    if not payload:
+        return []
+    return (payload.get("data") or {}).get("children") or []
+
+
+def _reddit_post_data(child: dict | None) -> dict:
+    return (child or {}).get("data") or {}
+
+
+def _reddit_post_is_candidate(data: dict) -> bool:
+    title = (data.get("title") or "").strip()
+    return bool(title and len(title) >= 4 and not data.get("over_18") and not data.get("stickied"))
+
+
+def _reddit_post_link(data: dict) -> str:
+    permalink = data.get("permalink") or ""
+    if permalink and not permalink.startswith("http"):
+        return f"https://www.reddit.com{permalink}"
+    return permalink or (data.get("url") or "")
+
+
+def _reddit_post_to_raw_trend(data: dict) -> RawTrend:
+    title = (data.get("title") or "").strip()
+    ups = int(data.get("ups") or 0)
+    comments = int(data.get("num_comments") or 0)
+    subreddit = (data.get("subreddit_name_prefixed") or "").strip()
+    return RawTrend(
+        name=title,
+        source=TrendSource.REDDIT,
+        volume=f"{ups} ups / {comments} comments",
+        volume_numeric=ups + comments * 5,
+        link=_reddit_post_link(data),
+        country="global",
+        extra={
+            "ups": ups,
+            "comments": comments,
+            "subreddit": subreddit,
+        },
+    )
+
+
+def _parse_reddit_popular_trends(payload: dict | None) -> list[RawTrend]:
+    trends: list[RawTrend] = []
+    for child in _reddit_popular_children(payload):
+        data = _reddit_post_data(child)
+        if _reddit_post_is_candidate(data):
+            trends.append(_reddit_post_to_raw_trend(data))
+    return trends
+
+
 async def _async_fetch_reddit_popular(
     session: httpx.AsyncClient,
     limit: int = 20,
 ) -> list[RawTrend]:
-    """Reddit /r/popular 인기 게시물에서 트렌드 추출 (무인증)."""
-    url = _REDDIT_POPULAR_URL.format(limit=limit)
-    headers = {"User-Agent": "GetDayTrends/2.4 (+mailto:biojuho@gmail.com)"}
-
-    try:
-        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
-        resp.raise_for_status()
-        payload = resp.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        log.warning(f"Reddit /r/popular 수집 실패: {type(exc).__name__}: {exc}")
-        return []
-
-    children = (payload.get("data") or {}).get("children") or []
-    trends: list[RawTrend] = []
-    for child in children:
-        data = (child or {}).get("data") or {}
-        title = (data.get("title") or "").strip()
-        if not title or len(title) < 4:
-            continue
-        # NSFW 와 stickied 게시물은 트렌드 후보에서 제외
-        if data.get("over_18") or data.get("stickied"):
-            continue
-
-        ups = int(data.get("ups") or 0)
-        comments = int(data.get("num_comments") or 0)
-        subreddit = (data.get("subreddit_name_prefixed") or "").strip()
-        permalink = data.get("permalink") or ""
-        link = (
-            f"https://www.reddit.com{permalink}"
-            if permalink and not permalink.startswith("http")
-            else permalink or (data.get("url") or "")
-        )
-
-        trends.append(
-            RawTrend(
-                name=title,
-                source=TrendSource.REDDIT,
-                volume=f"{ups} ups / {comments} comments",
-                volume_numeric=ups + comments * 5,
-                link=link,
-                country="global",
-                extra={
-                    "ups": ups,
-                    "comments": comments,
-                    "subreddit": subreddit,
-                },
-            )
-        )
-
-    log.info(f"Reddit /r/popular 수집 완료: {len(trends)}개")
+    """Fetch trend candidates from Reddit /r/popular."""
+    trends = _parse_reddit_popular_trends(await _reddit_popular_payload(session, limit))
+    log.info(f"Reddit /r/popular collection complete: {len(trends)}")
     return trends
 
 
@@ -593,42 +681,43 @@ def _merge_trends(
     secondary: list[RawTrend],
     limit: int,
 ) -> list[RawTrend]:
-    """
-    두 소스 트렌드 병합 + 중복 제거.
-    primary(getdaytrends) 우선, secondary(Google Trends) 보충.
-    [v14.1] 문자열 정확 매칭 + 임베딩 의미적 중복 감지.
-    """
-    seen: dict[str, RawTrend] = {}
+    """Merge primary and secondary trends, preserving primary priority."""
+    merged, added_from_secondary = _merge_exact_trend_names(primary, secondary)
+    if added_from_secondary:
+        log.info(f"Google Trends added {added_from_secondary} supplemental trends")
+    return _dedupe_semantic_trends(merged)[:limit]
 
-    for t in primary:
-        key = t.name.lower().strip()
-        if key not in seen:
-            seen[key] = t
+
+def _merge_exact_trend_names(primary: list[RawTrend], secondary: list[RawTrend]) -> tuple[list[RawTrend], int]:
+    seen: dict[str, RawTrend] = {}
+    for trend in primary:
+        seen.setdefault(_trend_name_key(trend), trend)
 
     added_from_secondary = 0
-    for t in secondary:
-        key = t.name.lower().strip()
+    for trend in secondary:
+        key = _trend_name_key(trend)
         if key not in seen:
-            seen[key] = t
+            seen[key] = trend
             added_from_secondary += 1
+    return list(seen.values()), added_from_secondary
 
-    if added_from_secondary:
-        log.info(f"Google Trends에서 {added_from_secondary}개 추가 트렌드 병합")
 
-    merged = list(seen.values())
+def _trend_name_key(trend: RawTrend) -> str:
+    return trend.name.lower().strip()
 
-    # [v14.1] 임베딩 기반 소스 간 의미적 중복 제거
-    if len(merged) > 1:
-        try:
-            from shared.embeddings import deduplicate_texts
 
-            names = [t.name for t in merged]
-            unique_indices = deduplicate_texts(names, threshold=0.82)
-            removed = len(merged) - len(unique_indices)
-            if removed:
-                merged = [merged[i] for i in unique_indices]
-                log.info(f"[의미적 병합] 소스 간 중복 {removed}개 제거 → {len(merged)}개")
-        except Exception as _e:
-            log.debug(f"[의미적 병합] 임베딩 사용 불가 (무시): {_e}")
+def _dedupe_semantic_trends(trends: list[RawTrend]) -> list[RawTrend]:
+    if len(trends) <= 1:
+        return trends
+    try:
+        from shared.embeddings import deduplicate_texts
 
-    return merged[:limit]
+        unique_indices = deduplicate_texts([trend.name for trend in trends], threshold=0.82)
+    except Exception as exc:
+        log.debug(f"[semantic merge] embedding dedupe unavailable: {exc}")
+        return trends
+
+    removed = len(trends) - len(unique_indices)
+    if removed:
+        log.info(f"[semantic merge] removed {removed} duplicate trends -> {len(unique_indices)}")
+    return [trends[index] for index in unique_indices]

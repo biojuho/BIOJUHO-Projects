@@ -18,7 +18,7 @@ from typing import Any
 from loguru import logger as log
 
 
-async def _maybe_await(value):
+async def _maybe_await(value) -> object:
     if inspect.isawaitable(value):
         return await value
     return value

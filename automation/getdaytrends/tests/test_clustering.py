@@ -5,6 +5,7 @@ cluster_trends_local 함수의 유사도 기반 트렌드 병합 검증.
 
 from analyzer import _jaccard_similarity, cluster_trends_local
 from models import MultiSourceContext, RawTrend, TrendSource
+from trend_clustering import _build_clusters_from_parsed
 
 # ══════════════════════════════════════════════════════
 #  Jaccard 유사도 단위 테스트
@@ -210,3 +211,24 @@ def test_cluster_with_embedding_disabled_preserves_standalone():
     reps, _, clusters = cluster_trends_local(trends, contexts, use_embedding=False)
     assert len(reps) == 3
     assert len(clusters) == 3
+
+
+def test_build_clusters_from_parsed_falls_back_to_valid_member_and_preserves_standalone():
+    trends = [
+        RawTrend(name="AI phone", rank=1, source=TrendSource.GETDAYTRENDS),
+        RawTrend(name="AI device", rank=2, source=TrendSource.GETDAYTRENDS),
+        RawTrend(name="Coffee", rank=3, source=TrendSource.GETDAYTRENDS),
+    ]
+    contexts = {
+        "AI phone": MultiSourceContext(twitter_insight="phone insight"),
+        "AI device": MultiSourceContext(reddit_insight="device insight"),
+    }
+    parsed = [{"representative": "missing", "members": ["AI phone", "AI device"]}]
+
+    filtered, merged_contexts, clusters = _build_clusters_from_parsed(parsed, trends, contexts)
+
+    assert [trend.name for trend in filtered] == ["AI phone", "Coffee"]
+    assert clusters[0].representative == "AI phone"
+    assert clusters[0].members == ["AI phone", "AI device"]
+    assert clusters[-1].representative == "Coffee"
+    assert "phone insight" in merged_contexts["AI phone"].twitter_insight

@@ -74,96 +74,158 @@ async def trend_to_notebook(
     audio_instructions: str | None = None,
     output_dir: Path | None = None,
 ) -> dict:
-    """
-    단일 트렌드를 NotebookLM 노트북으로 변환.
+    """Convert one trend into a NotebookLM notebook and optional artifacts."""
+    _ensure_notebooklm_available()
+    content_types = content_types or DEFAULT_CONTENT_TYPES
+    audio_instructions = audio_instructions or DEFAULT_AUDIO_INSTRUCTIONS
+    _ensure_output_dir(output_dir or DEFAULT_OUTPUT_DIR)
 
-    Args:
-        keyword: 트렌드 키워드
-        urls: 관련 URL 리스트 (뉴스, 소셜 등)
-        viral_score: 바이럴 점수
-        category: 카테고리
-        context_text: 추가 컨텍스트 텍스트 (소셜 인사이트 등)
-        content_types: 생성할 콘텐츠 유형 (audio, slide-deck, mind-map 등)
-        audio_instructions: 오디오 생성 시 지시문
-        output_dir: 다운로드 출력 디렉토리
+    result = _empty_notebook_result()
+    async with await NotebookLMClient.from_storage() as client:
+        notebook = await _create_trend_notebook(client, keyword, category)
+        result["notebook_id"] = notebook.id
+        result["source_ids"] = await _add_notebook_sources(client, notebook.id, urls)
+        await _add_context_note(client, notebook.id, keyword, context_text)
+        result["summary"] = await _ask_notebook_summary(client, notebook.id, keyword, bool(result["source_ids"]))
+        result["artifacts"] = await _generate_notebook_artifacts(
+            client,
+            notebook.id,
+            keyword,
+            content_types,
+            audio_instructions,
+        )
+    return result
 
-    Returns:
-        dict: {
-            "notebook_id": str,
-            "source_ids": list[str],
-            "summary": str,
-            "artifacts": dict[str, str],  # type → artifact_id
-        }
-    """
+
+def _ensure_notebooklm_available() -> None:
     if not NOTEBOOKLM_AVAILABLE:
         raise RuntimeError("notebooklm-py가 설치되지 않았습니다")
 
-    content_types = content_types or DEFAULT_CONTENT_TYPES
-    audio_instructions = audio_instructions or DEFAULT_AUDIO_INSTRUCTIONS
-    output_dir = output_dir or DEFAULT_OUTPUT_DIR
+
+def _ensure_output_dir(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    result = {
+
+def _empty_notebook_result() -> dict:
+    return {
         "notebook_id": "",
         "source_ids": [],
         "summary": "",
         "artifacts": {},
     }
 
-    async with await NotebookLMClient.from_storage() as client:
-        # 1. 노트북 생성
-        title = f"[{category}] {keyword} ({today})"
-        nb = await client.notebooks.create(title)
-        result["notebook_id"] = nb.id
-        log.info(f"[NotebookLM] 노트북 생성: '{title}' ({nb.id[:8]}...)")
 
-        # 2. URL 소스 추가 (최대 10개 — API 부하 방지)
-        added_urls = 0
-        for url in urls[:10]:
-            try:
-                source = await client.sources.add_url(nb.id, url, wait=True)
-                result["source_ids"].append(source.id)
-                added_urls += 1
-            except Exception as e:
-                log.warning(f"[NotebookLM] 소스 추가 실패 ({url[:50]}): {e}")
-        log.info(f"[NotebookLM] 소스 {added_urls}/{len(urls)}개 추가 완료")
+async def _create_trend_notebook(client, keyword: str, category: str) -> object:
+    title = f"[{category}] {keyword} ({datetime.now().strftime('%Y-%m-%d')})"
+    notebook = await client.notebooks.create(title)
+    log.info(f"[NotebookLM] 노트북 생성: '{title}' ({notebook.id[:8]}...)")
+    return notebook
 
-        # 3. 컨텍스트 텍스트를 노트로 추가
-        if context_text and context_text.strip():
-            try:
-                await client.notes.create(
-                    nb.id,
-                    title=f"컨텍스트: {keyword}",
-                    content=context_text[:5000],  # NotebookLM 노트 길이 제한
-                )
-                log.debug(f"[NotebookLM] 컨텍스트 노트 추가 ({len(context_text)}자)")
-            except Exception as e:
-                log.debug(f"[NotebookLM] 컨텍스트 노트 추가 실패 (무시): {e}")
 
-        # 4. AI 요약 요청
-        if result["source_ids"]:
-            try:
-                ask_result = await client.chat.ask(
-                    nb.id,
-                    f"'{keyword}'에 대한 핵심 인사이트 3가지와 소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
-                )
-                result["summary"] = ask_result.answer
-                log.info(f"[NotebookLM] AI 요약 완료 ({len(ask_result.answer)}자)")
-            except Exception as e:
-                log.warning(f"[NotebookLM] AI 요약 실패: {e}")
+async def _add_notebook_sources(client, notebook_id: str, urls: list[str]) -> list[str]:
+    source_ids: list[str] = []
+    for url in urls[:10]:
+        try:
+            source = await client.sources.add_url(notebook_id, url, wait=True)
+            source_ids.append(source.id)
+        except Exception as e:
+            log.warning(f"[NotebookLM] 소스 추가 실패 ({url[:50]}): {e}")
+    log.info(f"[NotebookLM] 소스 {len(source_ids)}/{len(urls)}개 추가 완료")
+    return source_ids
 
-        # 5. 콘텐츠 생성 (비동기 — 생성 시작만, 완료 대기는 선택적)
-        for ctype in content_types:
-            try:
-                artifact_id = await _generate_content(client, nb.id, keyword, ctype, audio_instructions)
-                if artifact_id:
-                    result["artifacts"][ctype] = artifact_id
-                    log.info(f"[NotebookLM] {ctype} 생성 시작: {artifact_id[:8]}...")
-            except Exception as e:
-                log.warning(f"[NotebookLM] {ctype} 생성 실패: {e}")
 
-    return result
+async def _add_context_note(client, notebook_id: str, keyword: str, context_text: str) -> None:
+    if not context_text or not context_text.strip():
+        return
+    try:
+        await client.notes.create(
+            notebook_id,
+            title=f"컨텍스트: {keyword}",
+            content=context_text[:5000],
+        )
+        log.debug(f"[NotebookLM] 컨텍스트 노트 추가 ({len(context_text)}자)")
+    except Exception as e:
+        log.debug(f"[NotebookLM] 컨텍스트 노트 추가 실패 (무시): {e}")
+
+
+async def _ask_notebook_summary(client, notebook_id: str, keyword: str, has_sources: bool) -> str:
+    if not has_sources:
+        return ""
+    try:
+        ask_result = await client.chat.ask(
+            notebook_id,
+            f"'{keyword}'에 대한 핵심 인사이트 3가지와 소셜 미디어 콘텐츠 각도 2가지를 한국어로 정리해줘",
+        )
+        log.info(f"[NotebookLM] AI 요약 완료 ({len(ask_result.answer)}자)")
+        return ask_result.answer
+    except Exception as e:
+        log.warning(f"[NotebookLM] AI 요약 실패: {e}")
+        return ""
+
+
+async def _generate_notebook_artifacts(
+    client,
+    notebook_id: str,
+    keyword: str,
+    content_types: list[str],
+    audio_instructions: str,
+) -> dict[str, str]:
+    artifacts: dict[str, str] = {}
+    for ctype in content_types:
+        try:
+            artifact_id = await _generate_content(client, notebook_id, keyword, ctype, audio_instructions)
+            if artifact_id:
+                artifacts[ctype] = artifact_id
+                log.info(f"[NotebookLM] {ctype} 생성 시작: {artifact_id[:8]}...")
+        except Exception as e:
+            log.warning(f"[NotebookLM] {ctype} 생성 실패: {e}")
+    return artifacts
+
+_STANDARD_ARTIFACT_GENERATORS = {
+    "slide-deck": ("generate_slide_deck", {}),
+    "mind-map": ("generate_mind_map", {}),
+    "quiz": ("generate_quiz", {}),
+    "report": ("generate_report", {"report_format": "briefing-doc"}),
+}
+
+
+def _artifact_identifier(status) -> str:
+    return getattr(status, "artifact_id", None) or getattr(status, "task_id", None) or str(status)
+
+
+async def _generate_standard_artifact(
+    client,
+    notebook_id: str,
+    content_type: str,
+    audio_instructions: str,
+) -> object:
+    if content_type == "audio":
+        return await client.artifacts.generate_audio(notebook_id, instructions=audio_instructions)
+
+    generator = _STANDARD_ARTIFACT_GENERATORS.get(content_type)
+    if generator is None:
+        return None
+    method_name, kwargs = generator
+    method = getattr(client.artifacts, method_name)
+    return await method(notebook_id, **kwargs)
+
+
+async def _generate_infographic_artifact(client, notebook_id: str, keyword: str) -> object:
+    # NotebookLM API requires explicit style/orientation; omitting them can return null.
+    from notebooklm.rpc.types import (
+        InfographicDetail,
+        InfographicOrientation,
+        InfographicStyle,
+    )
+
+    return await client.artifacts.generate_infographic(
+        notebook_id,
+        language="ko",
+        instructions=f"'{keyword}' core data and insights as a visual summary",
+        orientation=InfographicOrientation.PORTRAIT,
+        detail_level=InfographicDetail.STANDARD,
+        style=InfographicStyle.PROFESSIONAL,
+    )
 
 
 async def _generate_content(
@@ -173,89 +235,24 @@ async def _generate_content(
     content_type: str,
     audio_instructions: str,
 ) -> str | None:
-    """콘텐츠 유형별 생성 시작. artifact_id 반환."""
-    if content_type == "audio":
-        status = await client.artifacts.generate_audio(
-            notebook_id,
-            instructions=audio_instructions,
-        )
-        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
+    """Start NotebookLM artifact generation and return its artifact or task id."""
+    if content_type == "infographic":
+        status = await _generate_infographic_artifact(client, notebook_id, keyword)
+        return _artifact_identifier(status)
 
-    elif content_type == "slide-deck":
-        status = await client.artifacts.generate_slide_deck(notebook_id)
-        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
-
-    elif content_type == "mind-map":
-        status = await client.artifacts.generate_mind_map(notebook_id)
-        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
-
-    elif content_type == "quiz":
-        status = await client.artifacts.generate_quiz(notebook_id)
-        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
-
-    elif content_type == "report":
-        status = await client.artifacts.generate_report(notebook_id, report_format="briefing-doc")
-        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
-
-    elif content_type == "infographic":
-        # NotebookLM API requires explicit style/orientation —
-        # omitting them causes null response and generation failure.
-        from notebooklm.rpc.types import (
-            InfographicDetail,
-            InfographicOrientation,
-            InfographicStyle,
-        )
-
-        status = await client.artifacts.generate_infographic(
-            notebook_id,
-            language="ko",
-            instructions=f"'{keyword}'의 핵심 데이터와 인사이트를 시각적으로 정리",
-            orientation=InfographicOrientation.PORTRAIT,
-            detail_level=InfographicDetail.STANDARD,
-            style=InfographicStyle.PROFESSIONAL,
-        )
-        return status.task_id if status.task_id else str(status)
-
-    else:
-        log.warning(f"[NotebookLM] 미지원 콘텐츠 유형: {content_type}")
+    status = await _generate_standard_artifact(client, notebook_id, content_type, audio_instructions)
+    if status is None:
+        log.warning(f"[NotebookLM] unsupported content type: {content_type}")
         return None
-
+    return _artifact_identifier(status)
 
 # ──────────────────────────────────────────────────
 #  Content Factory — 멀티포맷 동시 생산
 # ──────────────────────────────────────────────────
 
 
-async def content_factory(
-    keyword: str,
-    urls: list[str],
-    category: str = "기타",
-    context_text: str = "",
-) -> dict:
-    """
-    트렌드 1개에서 인포그래픽 + 브리핑 리포트 + 트윗 초안을 동시 생산.
-
-    Returns:
-        {
-            "notebook_id": str,
-            "source_count": int,
-            "summary": str,           # AI 딥리서치 요약
-            "tweet_draft": str,        # 트윗 초안 (280자 이내)
-            "infographic_id": str,     # 인포그래픽 artifact ID
-            "report_id": str,          # 브리핑 리포트 artifact ID
-        }
-    """
-    if not NOTEBOOKLM_AVAILABLE:
-        raise RuntimeError("notebooklm-py가 설치되지 않았습니다")
-
-    from notebooklm.rpc.types import (
-        InfographicDetail,
-        InfographicOrientation,
-        InfographicStyle,
-    )
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    result = {
+def _content_factory_result() -> dict:
+    return {
         "notebook_id": "",
         "source_count": 0,
         "summary": "",
@@ -264,84 +261,139 @@ async def content_factory(
         "report_id": "",
     }
 
+
+async def _add_content_factory_sources(client, notebook_id: str, urls: list[str]) -> int:
+    source_count = 0
+    for url in urls[:10]:
+        try:
+            await client.sources.add_url(notebook_id, url, wait=True)
+            source_count += 1
+        except Exception as e:
+            log.warning(f"[ContentFactory] source add failed: {e}")
+    return source_count
+
+
+async def _add_content_factory_context_note(client, notebook_id: str, keyword: str, context_text: str) -> None:
+    if not context_text.strip():
+        return
+    try:
+        await client.notes.create(
+            notebook_id,
+            title=f"Context: {keyword}",
+            content=context_text[:5000],
+        )
+    except Exception as e:
+        log.warning(f"[ContentFactory] context note failed: {e}")
+
+
+async def _ask_content_factory_summary(client, notebook_id: str, keyword: str) -> str:
+    try:
+        insight = await client.chat.ask(
+            notebook_id,
+            f"Summarize three key insights about '{keyword}' and two social media content angles in Korean.",
+        )
+        return insight.answer
+    except Exception as e:
+        log.warning(f"[ContentFactory] insight generation failed: {e}")
+        return ""
+
+
+async def _ask_content_factory_tweet(client, notebook_id: str, keyword: str) -> str:
+    try:
+        tweet = await client.chat.ask(
+            notebook_id,
+            f"Write one engaging Korean X post about '{keyword}' under 280 characters with 2-3 emoji and 2 hashtags.",
+        )
+        return tweet.answer.strip()
+    except Exception as e:
+        log.warning(f"[ContentFactory] tweet draft failed: {e}")
+        return ""
+
+
+async def _generate_content_factory_outputs(client, notebook_id: str, keyword: str) -> dict[str, str]:
+    outputs = {"infographic_id": "", "report_id": ""}
+    try:
+        info_status = await _generate_infographic_artifact(client, notebook_id, keyword)
+        outputs["infographic_id"] = _artifact_identifier(info_status)
+        log.info("[ContentFactory] infographic generation started")
+    except Exception as e:
+        log.warning(f"[ContentFactory] infographic failed: {e}")
+
+    try:
+        report_status = await client.artifacts.generate_report(notebook_id, report_format="briefing-doc")
+        outputs["report_id"] = _artifact_identifier(report_status)
+        log.info("[ContentFactory] report generation started")
+    except Exception as e:
+        log.warning(f"[ContentFactory] report failed: {e}")
+    return outputs
+
+
+async def content_factory(
+    keyword: str,
+    urls: list[str],
+    category: str = "기타",
+    context_text: str = "",
+) -> dict:
+    """Produce a NotebookLM-backed summary, tweet draft, infographic, and report."""
+    if not NOTEBOOKLM_AVAILABLE:
+        raise RuntimeError("notebooklm-py is not installed")
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    result = _content_factory_result()
+
     async with await NotebookLMClient.from_storage() as client:
-        # 1. 노트북 생성
         title = f"[{category}] {keyword} ({today})"
         nb = await client.notebooks.create(title)
         result["notebook_id"] = nb.id
-        log.info(f"[ContentFactory] 노트북 생성: '{title}'")
+        log.info(f"[ContentFactory] notebook created: '{title}'")
 
-        # 2. URL 소스 추가
-        for url in urls[:10]:
-            try:
-                await client.sources.add_url(nb.id, url, wait=True)
-                result["source_count"] += 1
-            except Exception as e:
-                log.warning(f"[ContentFactory] 소스 추가 실패: {e}")
-
-        # 3. 컨텍스트 노트
-        if context_text.strip():
-            try:
-                await client.notes.create(
-                    nb.id,
-                    title=f"컨텍스트: {keyword}",
-                    content=context_text[:5000],
-                )
-            except Exception:
-                pass
-
-        # 4. AI 딥리서치 — 인사이트 + 트윗 초안 동시 요청
-        try:
-            insight = await client.chat.ask(
-                nb.id,
-                f"'{keyword}'에 대한 핵심 인사이트 3가지와 소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
-            )
-            result["summary"] = insight.answer
-            log.info(f"[ContentFactory] 인사이트 완료 ({len(insight.answer)}자)")
-        except Exception as e:
-            log.warning(f"[ContentFactory] 인사이트 실패: {e}")
-
-        try:
-            tweet = await client.chat.ask(
-                nb.id,
-                f"'{keyword}'에 대해 한국어로 트위터/X 포스트 1개를 작성해줘. "
-                f"조건: 280자 이내, 이모지 2-3개 포함, 해시태그 2개 포함, "
-                f"호기심을 끄는 톤으로",
-            )
-            result["tweet_draft"] = tweet.answer.strip()
-            log.info("[ContentFactory] 트윗 초안 완료")
-        except Exception as e:
-            log.warning(f"[ContentFactory] 트윗 초안 실패: {e}")
-
-        # 5. 인포그래픽 + 브리핑 리포트 동시 생성
-        try:
-            info_status = await client.artifacts.generate_infographic(
-                nb.id,
-                language="ko",
-                instructions=f"'{keyword}'의 핵심 데이터와 인사이트를 시각적으로 정리",
-                orientation=InfographicOrientation.PORTRAIT,
-                detail_level=InfographicDetail.STANDARD,
-                style=InfographicStyle.PROFESSIONAL,
-            )
-            result["infographic_id"] = info_status.task_id or ""
-            log.info("[ContentFactory] 인포그래픽 생성 시작")
-        except Exception as e:
-            log.warning(f"[ContentFactory] 인포그래픽 실패: {e}")
-
-        try:
-            report_status = await client.artifacts.generate_report(nb.id, report_format="briefing-doc")
-            rid = report_status.task_id if hasattr(report_status, "task_id") else ""
-            result["report_id"] = rid or ""
-            log.info("[ContentFactory] 브리핑 리포트 생성 시작")
-        except Exception as e:
-            log.warning(f"[ContentFactory] 리포트 실패: {e}")
+        result["source_count"] = await _add_content_factory_sources(client, nb.id, urls)
+        await _add_content_factory_context_note(client, nb.id, keyword, context_text)
+        result["summary"] = await _ask_content_factory_summary(client, nb.id, keyword)
+        result["tweet_draft"] = await _ask_content_factory_tweet(client, nb.id, keyword)
+        result.update(await _generate_content_factory_outputs(client, nb.id, keyword))
 
     return result
-
 
 # ──────────────────────────────────────────────────
 #  Pipeline Integration
 # ──────────────────────────────────────────────────
+
+
+def _notebooklm_candidate_trends(quality_trends: list, min_viral_score: int, max_notebooks: int) -> list:
+    return [t for t in quality_trends if getattr(t, "viral_potential", 0) >= min_viral_score][:max_notebooks]
+
+
+def _notebooklm_trend_keyword(trend) -> str:
+    return getattr(trend, "keyword", "") or getattr(trend, "name", "")
+
+
+def _notebooklm_context_for_trend(trend, contexts: dict) -> object:
+    keyword = _notebooklm_trend_keyword(trend)
+    return contexts.get(keyword) or contexts.get(getattr(trend, "name", ""))
+
+
+def _notebooklm_context_text(ctx) -> str:
+    if not ctx:
+        return ""
+    return ctx.to_combined_text() if hasattr(ctx, "to_combined_text") else str(ctx)
+
+
+async def _enrich_one_trend_with_notebooklm(trend, contexts: dict, content_types: list[str] | None) -> dict | None:
+    keyword = _notebooklm_trend_keyword(trend)
+    ctx = _notebooklm_context_for_trend(trend, contexts)
+    try:
+        return await trend_to_notebook(
+            keyword=keyword,
+            urls=_extract_urls_from_context(ctx) if ctx else [],
+            viral_score=getattr(trend, "viral_potential", 0),
+            category=getattr(trend, "category", "기타"),
+            context_text=_notebooklm_context_text(ctx),
+            content_types=content_types,
+        )
+    except Exception as e:
+        log.error(f"[NotebookLM] '{keyword}' notebook creation failed: {e}")
+        return None
 
 
 async def enrich_trends_with_notebooklm(
@@ -351,60 +403,22 @@ async def enrich_trends_with_notebooklm(
     content_types: list[str] | None = None,
     max_notebooks: int = 3,
 ) -> list[dict]:
-    """
-    파이프라인의 스코어링 후 단계에서 호출.
-    고바이럴 트렌드를 NotebookLM에 자동 등록하고 심층 분석 생성.
-
-    Args:
-        quality_trends: 스코어링/필터링된 트렌드 리스트 (ScoredTrend 객체)
-        contexts: {keyword: TrendContext} 매핑
-        min_viral_score: NotebookLM 통합 최소 바이럴 점수
-        content_types: 생성할 콘텐츠 유형
-        max_notebooks: 최대 생성 노트북 수 (API 부하 방지)
-
-    Returns:
-        list[dict]: 생성된 노트북 정보 리스트
-    """
+    """Create NotebookLM notebooks for high-viral trends and return notebook metadata."""
     if not NOTEBOOKLM_AVAILABLE:
         return []
 
-    # 바이럴 점수 기준 상위 트렌드 선택
-    high_viral = [t for t in quality_trends if getattr(t, "viral_potential", 0) >= min_viral_score][:max_notebooks]
-
+    high_viral = _notebooklm_candidate_trends(quality_trends, min_viral_score, max_notebooks)
     if not high_viral:
-        log.debug(f"[NotebookLM] 바이럴≥{min_viral_score} 트렌드 없음 — 스킵")
+        log.debug(f"[NotebookLM] no trends at viral>={min_viral_score}; skipping")
         return []
 
-    log.info(f"[NotebookLM] 고바이럴 {len(high_viral)}개 트렌드 → 노트북 생성 시작")
-
+    log.info(f"[NotebookLM] creating notebooks for {len(high_viral)} high-viral trends")
     results = []
     for trend in high_viral:
-        keyword = getattr(trend, "keyword", "") or getattr(trend, "name", "")
-        ctx = contexts.get(keyword) or contexts.get(getattr(trend, "name", ""))
-
-        # 컨텍스트에서 URL 추출
-        urls = _extract_urls_from_context(ctx) if ctx else []
-
-        # 컨텍스트 텍스트 병합
-        context_text = ""
-        if ctx:
-            context_text = ctx.to_combined_text() if hasattr(ctx, "to_combined_text") else str(ctx)
-
-        try:
-            result = await trend_to_notebook(
-                keyword=keyword,
-                urls=urls,
-                viral_score=getattr(trend, "viral_potential", 0),
-                category=getattr(trend, "category", "기타"),
-                context_text=context_text,
-                content_types=content_types,
-            )
+        result = await _enrich_one_trend_with_notebooklm(trend, contexts, content_types)
+        if result:
             results.append(result)
-        except Exception as e:
-            log.error(f"[NotebookLM] '{keyword}' 노트북 생성 실패: {e}")
-
     return results
-
 
 def _extract_urls_from_context(ctx) -> list[str]:
     """TrendContext 객체에서 URL들을 추출."""

@@ -36,7 +36,7 @@ _CONSTITUTION_PATH = Path(__file__).parent / "constitution.yaml"
 _harness_instance: Any | None = None
 
 
-def _load_constitution():
+def _load_constitution() -> object:
     """Load the GetDayTrends constitution from YAML."""
     from shared.harness.constitution import Constitution
 
@@ -76,7 +76,7 @@ def _load_constitution():
     )
 
 
-def get_pipeline_harness(config=None):
+def get_pipeline_harness(config=None) -> object:
     """Get or create the pipeline harness singleton.
 
     Returns None if shared.harness is not available, allowing the
@@ -160,7 +160,7 @@ async def governed_step(
     harness=None,
     cost_estimate: float = 0.0,
     **kwargs,
-):
+) -> object:
     """Execute a pipeline step through the harness governance layer.
 
     If harness is None (not available), executes the step directly.

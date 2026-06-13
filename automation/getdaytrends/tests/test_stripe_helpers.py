@@ -1,7 +1,76 @@
 from __future__ import annotations
 
 import pytest
-from stripe_helpers import _extract_tap_purchase_from_stripe_event, _validate_tap_checkout_payload_matches_handle
+from stripe_helpers import (
+    _build_tap_checkout_redirect_urls,
+    _extract_tap_purchase_from_stripe_event,
+    _retrieve_stripe_checkout_session,
+    _stripe_checkout_session_status_payload,
+    _validate_tap_checkout_payload_matches_handle,
+)
+
+
+class _FakeRequest:
+    base_url = "https://example.com/dashboard/"
+
+
+def test_build_tap_checkout_redirect_urls_include_session_id_placeholder() -> None:
+    success_url, cancel_url = _build_tap_checkout_redirect_urls(_FakeRequest(), "AI regulation")
+
+    assert success_url == (
+        "https://example.com/dashboard/?tap_checkout=success"
+        "&tap_keyword=AI+regulation"
+        "&tap_checkout_session_id={CHECKOUT_SESSION_ID}"
+    )
+    assert cancel_url == "https://example.com/dashboard/?tap_checkout=cancel&tap_keyword=AI+regulation"
+
+
+def test_stripe_checkout_session_status_payload_excludes_customer_pii() -> None:
+    payload = _stripe_checkout_session_status_payload(
+        {
+            "id": "cs_test_123",
+            "status": "complete",
+            "payment_status": "paid",
+            "amount_total": 9900,
+            "currency": "usd",
+            "livemode": False,
+            "client_reference_id": "stripe:premium_alert_bundle:united-states:AI regulation",
+            "customer_email": "buyer@example.com",
+            "customer_details": {"email": "buyer@example.com"},
+            "metadata": {
+                "keyword": "AI regulation",
+                "target_country": "united-states",
+                "package_tier": "premium_alert_bundle",
+            },
+        }
+    )
+
+    assert payload == {
+        "ok": True,
+        "provider": "stripe",
+        "session_id": "cs_test_123",
+        "checkout_status": "complete",
+        "payment_status": "paid",
+        "currency": "usd",
+        "amount_total": 9900,
+        "price_anchor": "$99",
+        "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+        "keyword": "AI regulation",
+        "target_country": "united-states",
+        "package_tier": "premium_alert_bundle",
+        "livemode": False,
+    }
+    assert "buyer@example.com" not in str(payload)
+
+
+def test_stripe_checkout_session_status_payload_requires_id() -> None:
+    with pytest.raises(ValueError, match="Stripe checkout session response is missing id"):
+        _stripe_checkout_session_status_payload({"status": "complete"})
+
+
+def test_retrieve_stripe_checkout_session_requires_secret_before_import() -> None:
+    with pytest.raises(RuntimeError, match="STRIPE_SECRET_KEY is not configured"):
+        _retrieve_stripe_checkout_session(secret_key="", session_id="cs_test_123")
 
 
 def test_extract_tap_purchase_from_completed_paid_session() -> None:

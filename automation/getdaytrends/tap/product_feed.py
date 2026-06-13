@@ -362,11 +362,18 @@ class TapBoardBuilder:
         window: PublishWindow,
         platforms: list[str],
     ) -> list[str]:
-        return [
-            f"Prioritize {', '.join(platforms)} in the next {window.closes_in_minutes} minutes.",
-            f"Localize the hook around a {opportunity.time_gap_hours:.1f}h information gap.",
-            "Package a teaser headline for public reach and reserve the full playbook for premium users.",
-        ]
+        notes: list[str] = []
+        source_evidence = str(getattr(opportunity, "source_evidence", "") or "").strip()
+        if source_evidence:
+            notes.append(f"Source signal: {source_evidence}")
+        notes.extend(
+            [
+                f"Prioritize {', '.join(platforms)} in the next {window.closes_in_minutes} minutes.",
+                f"Localize the hook around a {opportunity.time_gap_hours:.1f}h information gap.",
+                "Package a teaser headline for public reach and reserve the full playbook for premium users.",
+            ]
+        )
+        return notes
 
     def _build_revenue_play(self, opportunity: ArbitrageOpportunity) -> RevenuePlay:
         if opportunity.viral_score >= 85:

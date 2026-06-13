@@ -1,15 +1,17 @@
 """
-getdaytrends — Notion Body Builder
-Notion 페이지 본문 블록 생성 + 중복 체크.
-storage.py에서 분리됨.
+getdaytrends Notion body builder.
+
+This module builds the child block payload used by the Notion publishing path.
+Keep the public helpers stable because storage modules import them directly.
 """
 
+from collections.abc import Iterable
 from datetime import datetime
 
 try:
-    from .models import ScoredTrend, TweetBatch
+    from .models import GeneratedTweet, ScoredTrend, TweetBatch
 except ImportError:
-    from models import ScoredTrend, TweetBatch
+    from models import GeneratedTweet, ScoredTrend, TweetBatch
 
 
 def _notion_page_exists(
@@ -18,10 +20,7 @@ def _notion_page_exists(
     keyword: str,
     date_str: str,
 ) -> bool:
-    """
-    동일 키워드 + 오늘 날짜의 Notion 페이지가 이미 존재하는지 확인.
-    중복 저장 방지용 멱등성 체크.
-    """
+    """Return whether today's Notion page already exists for a keyword."""
     try:
         results = notion.databases.query(
             database_id=database_id,
@@ -35,7 +34,234 @@ def _notion_page_exists(
         )
         return bool(results.get("results"))
     except Exception:
-        return False  # 조회 실패 시 저장 허용 (안전 방향)
+        return False
+
+
+def _rich_text(content: str, *, bold: bool = False) -> list[dict]:
+    text: dict = {"type": "text", "text": {"content": content[:1900]}}
+    if bold:
+        text["annotations"] = {"bold": True}
+    return [text]
+
+
+def _divider() -> dict:
+    return {"object": "block", "type": "divider", "divider": {}}
+
+
+def _heading(level: int, content: str) -> dict:
+    block_type = f"heading_{level}"
+    return {"object": "block", "type": block_type, block_type: {"rich_text": _rich_text(content)}}
+
+
+def _paragraph(content: str) -> dict:
+    return {"object": "block", "type": "paragraph", "paragraph": {"rich_text": _rich_text(content)}}
+
+
+def _bulleted_item(content: str) -> dict:
+    return {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": _rich_text(content)}}
+
+
+def _code_block(content: str) -> dict:
+    return {
+        "object": "block",
+        "type": "code",
+        "code": {"language": "plain text", "rich_text": _rich_text(content)},
+    }
+
+
+def _callout(content: str, emoji: str, color: str, *, bold: bool = False) -> dict:
+    return {
+        "object": "block",
+        "type": "callout",
+        "callout": {
+            "icon": {"type": "emoji", "emoji": emoji},
+            "rich_text": _rich_text(content, bold=bold),
+            "color": color,
+        },
+    }
+
+
+def _chunked_paragraphs(content: str, chunk_size: int = 1900) -> list[dict]:
+    return [_paragraph(content[index : index + chunk_size]) for index in range(0, len(content), chunk_size) if content[index : index + chunk_size]]
+
+
+def _posting_tip(now: datetime) -> str:
+    hour = now.hour
+    if 6 <= hour < 10:
+        return "오전 질주 골든타임입니다. 지금 올리면 노출이 좋습니다."
+    if 11 <= hour < 14:
+        return "점심 골든타임입니다. 직장인 라이브 체크에 맞추세요."
+    if 19 <= hour < 23:
+        return "저녁 골든타임입니다. 퇴근 후 반응을 노리기 좋습니다."
+    return "최적 포스팅 시간: 오전 7-9시 / 점심 12-13시 / 저녁 20-22시"
+
+
+def _intro_blocks(batch: TweetBatch, trend: ScoredTrend, now: datetime) -> list[dict]:
+    score_bar = "█" * (trend.viral_potential // 10) + "░" * (10 - trend.viral_potential // 10)
+    return [
+        _callout(
+            f"오늘의 중연 포스팅 초안: {batch.topic}\n"
+            f"{_posting_tip(now)}\n"
+            "아래 초안에서 마음에 드는 것을 복사해서 X에 직접 올리세요.",
+            "🚀",
+            "green_background",
+        ),
+        _callout(
+            f"바이럴 점수: {trend.viral_potential}/100  [{score_bar}]\n"
+            f"가속도: {trend.trend_acceleration}  |  소스: {len(trend.sources)}개",
+            "📊",
+            "blue_background" if trend.viral_potential >= 80 else "gray_background",
+        ),
+    ]
+
+
+def _image_blocks(image_url: str) -> list[dict]:
+    if not image_url:
+        return []
+    return [
+        {"object": "block", "type": "image", "image": {"type": "external", "external": {"url": image_url}}},
+        _divider(),
+    ]
+
+
+def _prediction_blocks(metadata: dict) -> list[dict]:
+    if metadata.get("predicted_er") is None:
+        return []
+    pred_er = metadata["predicted_er"]
+    pred_imp = metadata.get("predicted_impressions", 0)
+    viral_prob = metadata.get("viral_probability", 0)
+    pee_risk = metadata.get("pee_risk", "unknown")
+    opt_hours = metadata.get("optimal_hours", [])
+    risk_emoji = {"low": "🟢", "medium": "🟡", "high": "🔴"}.get(pee_risk, "⚪")
+    er_bar = "█" * min(int(pred_er * 200), 10) + "░" * max(10 - min(int(pred_er * 200), 10), 0)
+    hours_str = ", ".join(f"{hour}시" for hour in opt_hours[:3]) if opt_hours else "N/A"
+    return [
+        _callout(
+            "AI 성과 예측 (PEE)\n"
+            f"예상 ER: {pred_er:.2%}  [{er_bar}]\n"
+            f"예상 Impression: {pred_imp:,}  |  바이럴 확률: {viral_prob:.0%}\n"
+            f"리스크: {risk_emoji} {pee_risk}  |  최적 발행: {hours_str}",
+            "📈",
+            "purple_background" if viral_prob > 0.3 else "gray_background",
+        )
+    ]
+
+
+def _insight_blocks(trend: ScoredTrend) -> list[dict]:
+    if not trend.top_insight:
+        return []
+    return [_callout(f"이 트렌드의 킥\n{trend.top_insight}", "💡", "yellow_background", bold=True)]
+
+
+def _tweet_icon(tweet_type: str) -> str:
+    tweet_icons = {
+        "공감 유도형": "🟠",
+        "꿀팁형": "🟢",
+        "찬반 질문형": "⚖️",
+        "팩트 관찰형": "🔎",
+        "롱테이크형": "🧵",
+        "가벼운 꿀팁형": "🟢",
+        "동기부여형": "🧭",
+        "동기부여 명언형": "🧭",
+        "유머/반전형": "😄",
+        "유머/밈 활용형": "😄",
+    }
+    return tweet_icons.get(tweet_type, "📝")
+
+
+def _tweet_blocks(tweets: Iterable[GeneratedTweet]) -> list[dict]:
+    blocks = [_divider(), _heading(2, "🐦 트윗 초안 (5종, 아래에서 선택 후 X에 복붙)")]
+    for tweet in tweets:
+        blocks.append(_heading(3, f"{_tweet_icon(tweet.tweet_type)} {tweet.tweet_type} ({tweet.char_count}자)"))
+        blocks.append(_code_block(tweet.content))
+    return blocks
+
+
+def _thread_blocks(batch: TweetBatch) -> list[dict]:
+    if not batch.thread or not batch.thread.tweets:
+        return []
+    blocks = [_divider(), _heading(2, f"🧵 스레드 ({len(batch.thread.tweets)}트윗)")]
+    for index, text in enumerate(batch.thread.tweets):
+        label = "🎣 Hook" if index == 0 else f"🧩 {index + 1}/{len(batch.thread.tweets)}"
+        blocks.append(_code_block(f"{label}\n{text}"))
+    return blocks
+
+
+def _context_blocks(trend: ScoredTrend) -> list[dict]:
+    if not trend.context:
+        return []
+    combined = trend.context.to_combined_text()
+    if not combined:
+        return []
+    return [
+        _divider(),
+        {
+            "object": "block",
+            "type": "toggle",
+            "toggle": {
+                "rich_text": _rich_text("📚 수집한 원본 데이터 (펼쳐보기)"),
+                "children": [_paragraph(combined)],
+            },
+        },
+    ]
+
+
+def _suggested_angle_blocks(trend: ScoredTrend) -> list[dict]:
+    if not trend.suggested_angles:
+        return []
+    blocks = [_divider(), _heading(2, "🚀 추천 앵글 (다음 포스팅 아이디어)")]
+    blocks.extend(_bulleted_item(angle) for angle in trend.suggested_angles)
+    return blocks
+
+
+def _long_post_blocks(posts: Iterable[GeneratedTweet]) -> list[dict]:
+    posts = list(posts)
+    if not posts:
+        return []
+    blocks = [_divider(), _heading(2, "📝 X Premium+ 장문 포스트")]
+    for post in posts:
+        blocks.append(_heading(3, f"📌 {post.tweet_type} ({post.char_count}자)"))
+        blocks.extend(_chunked_paragraphs(post.content))
+    return blocks
+
+
+def _threads_post_blocks(posts: Iterable[GeneratedTweet]) -> list[dict]:
+    posts = list(posts)
+    if not posts:
+        return []
+    blocks = [_divider(), _heading(2, "🧵 Threads 콘텐츠")]
+    blocks.extend(_code_block(f"[{post.tweet_type}]\n{post.content}") for post in posts)
+    return blocks
+
+
+def _markdown_line_block(stripped: str) -> list[dict]:
+    if stripped.startswith("# "):
+        return [_heading(1, stripped[2:])]
+    if stripped.startswith("## "):
+        return [_heading(2, stripped[3:])]
+    if stripped.startswith("### "):
+        return [_heading(3, stripped[4:])]
+    if stripped.startswith("- "):
+        return [_bulleted_item(stripped[2:])]
+    if stripped.startswith("---"):
+        return [_divider()]
+    return _chunked_paragraphs(stripped)
+
+
+def _blog_blocks(posts: Iterable[GeneratedTweet]) -> list[dict]:
+    posts = list(posts)
+    if not posts:
+        return []
+    blocks = [_divider(), _heading(2, "📝 네이버 블로그 글감")]
+    for post in posts:
+        seo_keywords = getattr(post, "seo_keywords", [])
+        if seo_keywords:
+            blocks.append(_callout(f"SEO 키워드: {', '.join(seo_keywords)}\n글자 수: {post.char_count:,}자", "🏷️", "purple_background"))
+        for line in post.content.split("\n"):
+            stripped = line.strip()
+            if stripped:
+                blocks.extend(_markdown_line_block(stripped))
+    return blocks
 
 
 def _build_notion_body(
@@ -43,434 +269,18 @@ def _build_notion_body(
     trend: ScoredTrend,
     image_url: str = "",
 ) -> list[dict]:
-    """노션 페이지 본문 블록 생성.
-    중연 포스팅 큐 지원: 상단 큐 섹션 + 코드블록 복사 + 킥 하이라이트.
-    """
-    blocks: list[dict] = []
+    """Build Notion child blocks for one generated content batch."""
     now = datetime.now()
-
-    # ──────────────────────
-    # 중연 포스팅 큐 (포스팅 안하면 포포알니까 좌엱하지말고 복붙)
-    # ──────────────────────
-    hour = now.hour
-    if 6 <= hour < 10:
-        posting_tip = "오전 질주 골든타임 — 지금 올리면 노출 좋음 ⏰"
-    elif 11 <= hour < 14:
-        posting_tip = "점심 골든타임 — 직장인 라이브 피크 ⏰"
-    elif 19 <= hour < 23:
-        posting_tip = "저녁 골든타임 — 돌아오는 직장인 널릶리기 ⏰"
-    else:
-        posting_tip = "최적 포스팅 시간: 오전 7-9시 / 점심 12-13시 / 저녁 20-22시"
-
-    blocks.append(
-        {
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "🎯"},
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {
-                            "content": f"오늘의 중연 포스팅 큐 — {batch.topic}\n"
-                            f"{posting_tip}\n"
-                            f"아래 초안에서 마음에 드는 것을 복사해서 X에 직접 올리세요"
-                        },
-                    }
-                ],
-                "color": "green_background",
-            },
-        }
-    )
-
-    # 커버 이미지
-    if image_url:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "image",
-                "image": {
-                    "type": "external",
-                    "external": {"url": image_url},
-                },
-            }
-        )
-        blocks.append({"object": "block", "type": "divider", "divider": {}})
-
-    # 바이럴 스코어 요약
-    score_bar = "█" * (trend.viral_potential // 10) + "░" * (10 - trend.viral_potential // 10)
-    blocks.append(
-        {
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "📊"},
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {
-                            "content": f"바이럴 점수: {trend.viral_potential}/100  [{score_bar}]\n"
-                            f"가속도: {trend.trend_acceleration}  |  소스: {len(trend.sources)}개"
-                        },
-                    }
-                ],
-                "color": "blue_background" if trend.viral_potential >= 80 else "gray_background",
-            },
-        }
-    )
-
-    # PEE 성과 예측 섹션 (metadata에 predicted_er 있을 때만)
-    meta = getattr(batch, "metadata", {}) or {}
-    if meta.get("predicted_er") is not None:
-        pred_er = meta["predicted_er"]
-        pred_imp = meta.get("predicted_impressions", 0)
-        viral_prob = meta.get("viral_probability", 0)
-        pee_risk = meta.get("pee_risk", "unknown")
-        opt_hours = meta.get("optimal_hours", [])
-
-        risk_emoji = {"low": "🟢", "medium": "🟡", "high": "🔴"}.get(pee_risk, "⚪")
-        er_bar = "█" * min(int(pred_er * 200), 10) + "░" * max(10 - min(int(pred_er * 200), 10), 0)
-        hours_str = ", ".join(f"{h}시" for h in opt_hours[:3]) if opt_hours else "N/A"
-
-        pee_text = (
-            f"AI 성과 예측 (PEE)\n"
-            f"예상 ER: {pred_er:.2%}  [{er_bar}]\n"
-            f"예상 Impression: {pred_imp:,}  |  "
-            f"바이럴 확률: {viral_prob:.0%}\n"
-            f"리스크: {risk_emoji} {pee_risk}  |  "
-            f"최적 발행: {hours_str}"
-        )[:1900]  # Notion rich_text 2000자 제한 방어
-
-        blocks.append(
-            {
-                "object": "block",
-                "type": "callout",
-                "callout": {
-                    "icon": {"type": "emoji", "emoji": "🔮"},
-                    "rich_text": [
-                        {
-                            "type": "text",
-                            "text": {"content": pee_text},
-                        }
-                    ],
-                    "color": "purple_background" if viral_prob > 0.3 else "gray_background",
-                },
-            }
-        )
-
-    # 킥(Kick) 하이라이트 섹션
-    if trend.top_insight:
-        blocks.append(
-            {
-                "object": "block",
-                "type": "callout",
-                "callout": {
-                    "icon": {"type": "emoji", "emoji": "💥"},
-                    "rich_text": [
-                        {
-                            "type": "text",
-                            "text": {"content": f"이 트렌드의 킥(Kick)\n{trend.top_insight}"},
-                            "annotations": {"bold": True},
-                        }
-                    ],
-                    "color": "yellow_background",
-                },
-            }
-        )
-
-    blocks.append({"object": "block", "type": "divider", "divider": {}})
-
-    # 트윗 시안 섹션
-    blocks.append(
-        {
-            "object": "block",
-            "type": "heading_2",
-            "heading_2": {
-                "rich_text": [{"type": "text", "text": {"content": "✍️ 트윗 시안 (5종) — 아래에서 선택 후 X에 복붙"}}],
-            },
-        }
-    )
-
-    # 중연 타입 + 기존 타입 모두 커버
-    tweet_icons = {
-        # 중연 전용
-        "공감 유도형": "💬",
-        "꿀팁형": "💡",
-        "찬반 질문형": "⚖️",
-        "시크한 관찰형": "🔍",
-        "핫테이크형": "🔥",
-        # 기존 타입
-        "가벼운 꿀팁형": "💡",
-        "동기부여형": "🔥",
-        "동기부여/명언형": "🔥",
-        "유머/밈형": "😂",
-        "유머/밈 활용형": "😂",
-    }
-
-    for tweet in batch.tweets:
-        icon = tweet_icons.get(tweet.tweet_type, "📝")
-        # 트윗 유형 헤더
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {
-                    "rich_text": [
-                        {"type": "text", "text": {"content": f"{icon} {tweet.tweet_type} ({tweet.char_count}자)"}}
-                    ],
-                },
-            }
-        )
-        # 트윗 내용 — code 블록으로 복사 편의성 제공
-        blocks.append(
-            {
-                "object": "block",
-                "type": "code",
-                "code": {
-                    "language": "plain text",
-                    "rich_text": [{"type": "text", "text": {"content": tweet.content}}],
-                },
-            }
-        )
-
-    # 쓰레드 섹선
-    if batch.thread and batch.thread.tweets:
-        blocks.append({"object": "block", "type": "divider", "divider": {}})
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {
-                    "rich_text": [{"type": "text", "text": {"content": f"🧵 쓰레드 ({len(batch.thread.tweets)}트윗)"}}],
-                },
-            }
-        )
-        for i, text in enumerate(batch.thread.tweets):
-            label = "🪧 Hook" if i == 0 else f"📌 {i + 1}/{len(batch.thread.tweets)}"
-            blocks.append(
-                {
-                    "object": "block",
-                    "type": "code",
-                    "code": {
-                        "language": "plain text",
-                        "rich_text": [
-                            {
-                                "type": "text",
-                                "text": {"content": f"{label}\n{text}"[:1900]},
-                            }
-                        ],
-                    },
-                }
-            )
-
-    # 콘텍스트 데이터 섹선
-    if trend.context:
-        combined = trend.context.to_combined_text()
-        if combined:
-            blocks.append({"object": "block", "type": "divider", "divider": {}})
-            blocks.append(
-                {
-                    "object": "block",
-                    "type": "toggle",
-                    "toggle": {
-                        "rich_text": [{"type": "text", "text": {"content": "📡 수집된 원본 데이터 (펼쳐보기)"}}],
-                        "children": [
-                            {
-                                "object": "block",
-                                "type": "paragraph",
-                                "paragraph": {
-                                    "rich_text": [{"type": "text", "text": {"content": combined[:1900]}}],
-                                },
-                            }
-                        ],
-                    },
-                }
-            )
-
-    # 추천 앵글
-    if trend.suggested_angles:
-        blocks.append({"object": "block", "type": "divider", "divider": {}})
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {
-                    "rich_text": [{"type": "text", "text": {"content": "🎯 추청 앵글 (다음 포스트 아이디어)"}}],
-                },
-            }
-        )
-        for angle in trend.suggested_angles:
-            blocks.append(
-                {
-                    "object": "block",
-                    "type": "bulleted_list_item",
-                    "bulleted_list_item": {
-                        "rich_text": [{"type": "text", "text": {"content": angle}}],
-                    },
-                }
-            )
-
-    # X Premium+ 장문 포스트
-    if batch.long_posts:
-        blocks.append({"object": "block", "type": "divider", "divider": {}})
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {
-                    "rich_text": [{"type": "text", "text": {"content": "📝 X Premium+ 장문 포스트"}}],
-                },
-            }
-        )
-        for post in batch.long_posts:
-            blocks.append(
-                {
-                    "object": "block",
-                    "type": "heading_3",
-                    "heading_3": {
-                        "rich_text": [
-                            {"type": "text", "text": {"content": f"📄 {post.tweet_type} ({post.char_count}자)"}}
-                        ],
-                    },
-                }
-            )
-            # Notion 블록은 2000자 제한 → 분할
-            content = post.content
-            while content:
-                chunk, content = content[:1900], content[1900:]
-                blocks.append(
-                    {
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {
-                            "rich_text": [{"type": "text", "text": {"content": chunk}}],
-                        },
-                    }
-                )
-
-    # Meta Threads 콘텐츠
-    if batch.threads_posts:
-        blocks.append({"object": "block", "type": "divider", "divider": {}})
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {
-                    "rich_text": [{"type": "text", "text": {"content": "🧵 Threads 콘텐츠"}}],
-                },
-            }
-        )
-        for post in batch.threads_posts:
-            blocks.append(
-                {
-                    "object": "block",
-                    "type": "code",
-                    "code": {
-                        "language": "plain text",
-                        "rich_text": [
-                            {"type": "text", "text": {"content": f"[{post.tweet_type}]\n{post.content}"[:1900]}}
-                        ],
-                    },
-                }
-            )
-
-    # [v12.0] 네이버 블로그 글감
-    if batch.blog_posts:
-        blocks.append({"object": "block", "type": "divider", "divider": {}})
-        blocks.append(
-            {
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {
-                    "rich_text": [{"type": "text", "text": {"content": "📝 네이버 블로그 글감"}}],
-                },
-            }
-        )
-        for post in batch.blog_posts:
-            # SEO 키워드 정보
-            seo_kws = getattr(post, "seo_keywords", [])
-            if seo_kws:
-                blocks.append(
-                    {
-                        "object": "block",
-                        "type": "callout",
-                        "callout": {
-                            "icon": {"type": "emoji", "emoji": "🔑"},
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {
-                                        "content": f"SEO 키워드: {', '.join(seo_kws)}\n글자 수: {post.char_count:,}자"
-                                    },
-                                }
-                            ],
-                            "color": "purple_background",
-                        },
-                    }
-                )
-            # 블로그 본문 (마크다운 → 줄별 파싱)
-            content = post.content
-            lines = content.split("\n")
-            for line in lines:
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                # 마크다운 헤딩 변환
-                if stripped.startswith("# "):
-                    blocks.append(
-                        {
-                            "object": "block",
-                            "type": "heading_1",
-                            "heading_1": {
-                                "rich_text": [{"type": "text", "text": {"content": stripped[2:]}}],
-                            },
-                        }
-                    )
-                elif stripped.startswith("## "):
-                    blocks.append(
-                        {
-                            "object": "block",
-                            "type": "heading_2",
-                            "heading_2": {
-                                "rich_text": [{"type": "text", "text": {"content": stripped[3:]}}],
-                            },
-                        }
-                    )
-                elif stripped.startswith("### "):
-                    blocks.append(
-                        {
-                            "object": "block",
-                            "type": "heading_3",
-                            "heading_3": {
-                                "rich_text": [{"type": "text", "text": {"content": stripped[4:]}}],
-                            },
-                        }
-                    )
-                elif stripped.startswith("- "):
-                    blocks.append(
-                        {
-                            "object": "block",
-                            "type": "bulleted_list_item",
-                            "bulleted_list_item": {
-                                "rich_text": [{"type": "text", "text": {"content": stripped[2:][:1900]}}],
-                            },
-                        }
-                    )
-                elif stripped.startswith("---"):
-                    blocks.append({"object": "block", "type": "divider", "divider": {}})
-                else:
-                    # 일반 단락 (2000자 제한 분할)
-                    text = stripped
-                    while text:
-                        chunk, text = text[:1900], text[1900:]
-                        blocks.append(
-                            {
-                                "object": "block",
-                                "type": "paragraph",
-                                "paragraph": {
-                                    "rich_text": [{"type": "text", "text": {"content": chunk}}],
-                                },
-                            }
-                        )
-
+    blocks: list[dict] = []
+    blocks.extend(_intro_blocks(batch, trend, now))
+    blocks.extend(_image_blocks(image_url))
+    blocks.extend(_prediction_blocks(getattr(batch, "metadata", {}) or {}))
+    blocks.extend(_insight_blocks(trend))
+    blocks.extend(_tweet_blocks(batch.tweets))
+    blocks.extend(_thread_blocks(batch))
+    blocks.extend(_context_blocks(trend))
+    blocks.extend(_suggested_angle_blocks(trend))
+    blocks.extend(_long_post_blocks(batch.long_posts))
+    blocks.extend(_threads_post_blocks(batch.threads_posts))
+    blocks.extend(_blog_blocks(batch.blog_posts))
     return blocks

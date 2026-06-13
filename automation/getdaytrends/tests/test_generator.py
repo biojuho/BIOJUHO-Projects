@@ -25,6 +25,7 @@ from generator import (
     generate_tweets_async,
 )
 from models import GeneratedTweet, MultiSourceContext, ScoredTrend, TrendContext, TweetBatch
+from prompt_builder import _available_fact_lines
 
 
 def _make_trend(viral: int = 75, acc: str = "+5%") -> ScoredTrend:
@@ -103,6 +104,23 @@ class TestReportProfilePromptBuilders(unittest.TestCase):
         section = _build_available_facts_section(_make_trend())
         self.assertIn("행정안전부", section)
         self.assertIn("X 인사이트", section)
+
+    def test_available_fact_lines_dedupes_truncates_and_limits(self):
+        long_fact = "a" * 230
+        facts = _available_fact_lines(
+            [
+                "- Duplicate fact\n",
+                "[source] duplicate fact\n",
+                f"* {long_fact}\nThird fact\nFourth fact",
+            ],
+            limit=3,
+        )
+
+        self.assertEqual(len(facts), 3)
+        self.assertEqual(facts[0], "Duplicate fact")
+        self.assertEqual(len(facts[1]), 220)
+        self.assertTrue(facts[1].endswith("..."))
+        self.assertEqual(facts[2], "Third fact")
 
     def test_report_long_form_prompt_contains_guardrails(self):
         prompt = _system_long_form("joongyeon", "report")
@@ -374,8 +392,8 @@ class TestReportProfileGeneration(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result)
         prompt = client.acreate.await_args.kwargs["messages"][0]["content"]
         self.assertIn("[재생성 보정 지시]", prompt)
-        self.assertIn("QA 총점/기준: 61/75", prompt)
-        self.assertIn("가장 약한 축: hook", prompt)
+        self.assertIn("QA score/threshold: 61/75", prompt)
+        self.assertIn("Weakest QA axis: hook", prompt)
         self.assertIn("[사실 고정 규칙", prompt)
 
     async def test_tweet_generation_includes_approved_post_bank_section(self):

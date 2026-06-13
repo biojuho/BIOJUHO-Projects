@@ -2,14 +2,16 @@ import os
 import tempfile
 from collections.abc import Generator
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
 
 respx = pytest.importorskip("respx")
 
-from perf_models import ANGLE_TYPES, HOOK_PATTERNS, KICK_PATTERNS, GoldenReference, TweetMetrics
-from performance_tracker import PerformanceTracker
+from perf_models import ANGLE_TYPES, HOOK_PATTERNS, KICK_PATTERNS, AngleStats, GoldenReference, TweetMetrics
+from perf_tiered import _tier_row_tweet_id, _tier_windows
+from performance_tracker import PerformanceTracker, _collection_cycle_row_groups
 
 
 @pytest.fixture
@@ -91,6 +93,26 @@ async def tracker(temp_db: str) -> PerformanceTracker:
     await conn.close()
 
     return t
+
+
+@pytest.mark.asyncio
+async def test_tracker_get_conn_uses_configured_database_fallback() -> None:
+    conn = object()
+    tracker = PerformanceTracker(
+        db_path="data/test.db",
+        database_url="postgresql://postgres.project:secret@pooler.example.com:6543/postgres",
+        allow_sqlite_fallback=True,
+    )
+
+    with patch("performance_tracker.get_connection", new_callable=AsyncMock, return_value=conn) as mock_get_connection:
+        result = await tracker._get_conn()
+
+    assert result is conn
+    mock_get_connection.assert_awaited_once_with(
+        "data/test.db",
+        database_url="postgresql://postgres.project:secret@pooler.example.com:6543/postgres",
+        allow_sqlite_fallback=True,
+    )
 
 
 @pytest.mark.asyncio
@@ -254,6 +276,39 @@ async def test_run_tiered_collection_skips_when_metrics_table_missing(temp_db: s
     assert result == {"tier_1h": 0, "tier_6h": 0, "tier_48h": 0}
 
 
+def test_tier_windows_build_expected_ranges() -> None:
+    now = datetime(2026, 5, 20, 12, 0, 0)
+
+    windows = _tier_windows(now)
+
+    assert windows == [
+        ("1h", "2026-05-20T10:30:00", "2026-05-20T11:15:00"),
+        ("6h", "2026-05-20T05:00:00", "2026-05-20T07:00:00"),
+        ("48h", "2026-05-17T12:00:00", "2026-05-19T12:00:00"),
+    ]
+
+
+def test_tier_row_tweet_id_prefers_valid_x_id_and_falls_back_to_posted_at() -> None:
+    assert _tier_row_tweet_id({"x_tweet_id": "1234567890", "posted_at": "9999999999"}) == "1234567890"
+    assert _tier_row_tweet_id({"x_tweet_id": "", "posted_at": "9999999999"}) == "9999999999"
+    assert _tier_row_tweet_id({"x_tweet_id": "short", "posted_at": "not-a-tweet-id"}) == ""
+
+
+def test_collection_cycle_row_groups_split_x_and_local_rows() -> None:
+    rows = [
+        {"id": 1, "x_tweet_id": "1234567890", "posted_at": "2026-05-20T10:00:00", "tweet_type": "analysis"},
+        {"id": 2, "x_tweet_id": "", "posted_at": "9999999999", "tweet_type": "hook"},
+        {"id": 3, "x_tweet_id": "", "posted_at": "local-only", "tweet_type": "question"},
+    ]
+
+    tweet_id_map, local_only = _collection_cycle_row_groups(rows)
+
+    assert sorted(tweet_id_map) == ["1234567890", "9999999999"]
+    assert tweet_id_map["1234567890"]["id"] == 1
+    assert tweet_id_map["9999999999"]["id"] == 2
+    assert local_only == [rows[2]]
+
+
 @pytest.mark.asyncio
 async def test_auto_update_golden_references_skips_when_metrics_table_missing(temp_db: str) -> None:
     tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
@@ -298,6 +353,26 @@ async def test_angle_and_pattern_weights_fall_back_when_metrics_table_missing(te
     assert set(HOOK_PATTERNS) == set(pattern_weights["hook_weights"])
     assert set(KICK_PATTERNS) == set(pattern_weights["kick_weights"])
     assert set(ANGLE_TYPES) == set(pattern_weights["angle_weights"])
+
+
+@pytest.mark.asyncio
+async def test_angle_weights_use_precomputed_stats_and_annotate_weights(temp_db: str) -> None:
+    tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
+    stats = {
+        angle: AngleStats(
+            angle=angle,
+            total_tweets=6 if index < 2 else 0,
+            avg_engagement_rate=0.04 if index == 0 else 0.02 if index == 1 else 0.0,
+        )
+        for index, angle in enumerate(ANGLE_TYPES)
+    }
+
+    weights = await tracker.get_optimal_angle_weights(min_samples=5, _precomputed_stats=stats)
+
+    assert set(weights) == set(ANGLE_TYPES)
+    assert round(sum(weights.values()), 4) == 1.0
+    assert weights[ANGLE_TYPES[0]] > weights[ANGLE_TYPES[1]]
+    assert stats[ANGLE_TYPES[0]].weight == weights[ANGLE_TYPES[0]]
 
 
 @pytest.mark.asyncio

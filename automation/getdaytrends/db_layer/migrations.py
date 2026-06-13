@@ -10,7 +10,7 @@ from loguru import logger as log
 
 from .pg_adapter import PgAdapter
 
-_CURRENT_SCHEMA_VERSION = 11
+_CURRENT_SCHEMA_VERSION = 12
 
 
 async def _get_schema_version(conn) -> int:
@@ -374,6 +374,14 @@ async def _migrate_v11(conn) -> None:
 
 
 # 마이그레이션 레지스트리 (버전, 설명, 함수)
+async def _migrate_v12(conn) -> None:
+    """v12: trends.category column for dashboard category stats."""
+    cols = await _table_columns(conn, "trends")
+    if "category" not in cols:
+        await conn.execute("ALTER TABLE trends ADD COLUMN category TEXT DEFAULT ''")
+        await conn.commit()
+
+
 _MIGRATIONS: list[tuple[int, str, any]] = [
     (1, "tweets.content_type column", _migrate_v1),
     (2, "trends.fingerprint column + index", _migrate_v2),
@@ -386,6 +394,7 @@ _MIGRATIONS: list[tuple[int, str, any]] = [
     (9, "TAP premium alert queue", _migrate_v9),
     (10, "TAP deal-room funnel events", _migrate_v10),
     (11, "TAP checkout session ops", _migrate_v11),
+    (12, "trends.category dashboard stats column", _migrate_v12),
 ]
 
 
@@ -400,42 +409,58 @@ async def _reconcile_latest_schema(conn) -> None:
     await _migrate_v9(conn)
     await _migrate_v10(conn)
     await _migrate_v11(conn)
+    await _migrate_v12(conn)
+
+
+def _pending_migrations(current: int) -> list[tuple[int, str, any]]:
+    return [(version, description, migrate_fn) for version, description, migrate_fn in _MIGRATIONS if version > current]
+
+
+async def _detect_legacy_schema_version(conn, current: int) -> int:
+    if current != 0:
+        return current
+    try:
+        cols = await _table_columns(conn, "trends")
+    except Exception:
+        return current
+    if "joongyeon_angle" not in cols:
+        return current
+
+    for version, description, _ in _MIGRATIONS:
+        if version > 4:
+            break
+        await _set_schema_version(conn, version, f"{description} (legacy detected)")
+    return 4
+
+
+async def _mark_initial_schema_if_needed(conn, current: int) -> None:
+    if current == 0:
+        await _set_schema_version(conn, _CURRENT_SCHEMA_VERSION, "initial install")
+
+
+async def _apply_pending_migrations(conn, pending: list[tuple[int, str, any]]) -> None:
+    for version, description, migrate_fn in pending:
+        log.info(f"[DB Migration] v{version}: {description}")
+        await migrate_fn(conn)
+        await _set_schema_version(conn, version, description)
 
 
 async def run_migrations(conn) -> None:
-    """현재 버전 확인 후 미적용 마이그레이션 순차 실행."""
+    """Run pending schema migrations and reconcile drifted latest schemas."""
     current = await _get_schema_version(conn)
 
     if current >= _CURRENT_SCHEMA_VERSION:
         await _reconcile_latest_schema(conn)
         return
 
-    # 기존 DB (schema_version 없이 이미 컬럼이 있는 경우) 상태 감지
-    if current == 0:
-        try:
-            cols = await _table_columns(conn, "trends")
-            if "joongyeon_angle" in cols:
-                # v4까지 이미 적용된 기존 DB → v4로 점프
-                current = 4
-                for v in range(1, 5):
-                    desc = next(d for ver, d, _ in _MIGRATIONS if ver == v)
-                    await _set_schema_version(conn, v, f"{desc} (기존 감지)")
-        except Exception:
-            pass
-
-    pending = [(v, d, fn) for v, d, fn in _MIGRATIONS if v > current]
+    current = await _detect_legacy_schema_version(conn, current)
+    pending = _pending_migrations(current)
     if not pending:
-        # 최신인데 schema_version 엔트리만 없는 경우
-        if current == 0:
-            await _set_schema_version(conn, _CURRENT_SCHEMA_VERSION, "초기 설치")
+        await _mark_initial_schema_if_needed(conn, current)
         await _reconcile_latest_schema(conn)
         return
 
-    for version, description, migrate_fn in pending:
-        log.info(f"[DB Migration] v{version}: {description}")
-        await migrate_fn(conn)
-        await _set_schema_version(conn, version, description)
-
+    await _apply_pending_migrations(conn, pending)
     await _reconcile_latest_schema(conn)
 
-    log.info(f"[DB Migration] 완료: v{current} → v{_CURRENT_SCHEMA_VERSION}")
+    log.info(f"[DB Migration] complete: v{current} -> v{_CURRENT_SCHEMA_VERSION}")

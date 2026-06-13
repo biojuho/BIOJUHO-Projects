@@ -17,14 +17,14 @@ Phase 2 리펙토링: main.py(1308줄)에서 추출된 파이프라인 패키지
 # 부작용이 있을 수 있으므로, 필요한 함수만 lazy import합니다.
 
 
-def run_pipeline(*args, **kwargs):
+def run_pipeline(*args, **kwargs) -> None:
     """main.py의 run_pipeline 래퍼 (lazy import)."""
     from main import run_pipeline as _run
 
     return _run(*args, **kwargs)
 
 
-def run_single(*args, **kwargs):
+def run_single(*args, **kwargs) -> None:
     """main.py의 run_single 래퍼 (lazy import)."""
     from main import run_single as _run
 

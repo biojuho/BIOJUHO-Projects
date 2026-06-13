@@ -94,7 +94,7 @@ class PgAdapter:
         )
         return sql
 
-    async def execute(self, sql: str, parameters=()):
+    async def execute(self, sql: str, parameters=()) -> object:
         # Skip SQLite-only PRAGMA statements
         if sql.strip().upper().startswith("PRAGMA"):
 
@@ -102,10 +102,10 @@ class PgAdapter:
                 lastrowid = None
                 rowcount = 0
 
-                async def fetchone(self):
+                async def fetchone(self) -> object:
                     return None
 
-                async def fetchall(self):
+                async def fetchall(self) -> object:
                     return []
 
             return NoOpCursor()
@@ -138,10 +138,10 @@ class PgAdapter:
                     lastrowid = dict(row).get("id") if row else None
                     rowcount = 1
 
-                    async def fetchone(self):
+                    async def fetchone(self) -> object:
                         return row
 
-                    async def fetchall(self):
+                    async def fetchall(self) -> object:
                         return [row] if row else []
 
                 return DummyCursor()
@@ -153,10 +153,10 @@ class PgAdapter:
                     lastrowid = None
                     rowcount = len(rows)
 
-                    async def fetchone(self):
+                    async def fetchone(self) -> object:
                         return rows[0] if rows else None
 
-                    async def fetchall(self):
+                    async def fetchall(self) -> object:
                         return rows
 
                 return DummyCursor()
@@ -164,12 +164,12 @@ class PgAdapter:
             log.error(f"PG Execute Error: {e} | SQL: {sql_pg}")
             raise
 
-    async def executemany(self, sql: str, parameters):
+    async def executemany(self, sql: str, parameters) -> object:
         sql_pg = self._ph(sql)
         async with self._lock:
             await self._conn.executemany(sql_pg, parameters)
 
-    async def executescript(self, sql: str):
+    async def executescript(self, sql: str) -> object:
         sql_pg = re.sub(
             r"INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT",
             "BIGSERIAL PRIMARY KEY",
@@ -189,21 +189,21 @@ class PgAdapter:
                 else:
                     raise
 
-    async def commit(self):
+    async def commit(self) -> None:
         # BUG-006 fix: commit the active transaction if one exists
         if self._txn is not None:
             async with self._lock:
                 await self._txn.commit()
             self._txn = None
 
-    async def rollback(self):
+    async def rollback(self) -> None:
         # BUG-006 fix: rollback the active transaction if one exists
         if self._txn is not None:
             async with self._lock:
                 await self._txn.rollback()
             self._txn = None
 
-    async def close(self):
+    async def close(self) -> None:
         # BUG-005 fix: release connection back to pool instead of closing it
         if self._txn is not None:
             try:

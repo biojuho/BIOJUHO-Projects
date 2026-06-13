@@ -289,7 +289,7 @@ def send_auth_alert(error_message: str = "") -> bool:
 # ──────────────────────────────────────────────────
 
 
-def _record_refresh_history(result: dict):
+def _record_refresh_history(result: dict) -> None:
     """갱신 이력을 JSON 파일에 추가 기록."""
     try:
         REFRESH_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -332,31 +332,27 @@ def get_refresh_history(limit: int = 10) -> list[dict]:
 # ──────────────────────────────────────────────────
 
 
-async def health_check(verbose: bool = False) -> dict:
-    """
-    종합 헬스 체크 — 인증 + 기본 API 동작 확인.
-    Returns:
-        dict: {
-            "timestamp": str,
-            "auth": dict,
-            "api_reachable": bool,
-            "notebook_count": int | None,
-            "status": "healthy" | "degraded" | "down",
-        }
-    """
-    result = {
+def _initial_health_result(auth_status: dict) -> dict:
+    return {
         "timestamp": datetime.now().isoformat(),
-        "auth": check_auth_status(),
+        "auth": auth_status,
         "api_reachable": False,
         "notebook_count": None,
         "status": "down",
     }
 
-    if not result["auth"]["authenticated"]:
-        _log_health(result)
-        return result
 
-    # API 도달 가능성 테스트 — list 명령 실행
+def _notebook_count_from_stdout(stdout: str) -> int | None:
+    try:
+        notebooks = json.loads(stdout)
+    except json.JSONDecodeError:
+        return None
+    return len(notebooks) if isinstance(notebooks, list) else None
+
+
+def _probe_notebooklm_cli() -> tuple[bool, int | None]:
+    import os
+
     try:
         proc = subprocess.run(
             ["notebooklm", "list", "--json"],
@@ -365,46 +361,53 @@ async def health_check(verbose: bool = False) -> dict:
             timeout=30,
             encoding="utf-8",
             errors="replace",
-            env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
-        if proc.returncode == 0:
-            result["api_reachable"] = True
-            try:
-                notebooks = json.loads(proc.stdout)
-                result["notebook_count"] = len(notebooks) if isinstance(notebooks, list) else None
-            except json.JSONDecodeError:
-                # JSON 파싱 실패해도 API 도달은 성공
-                result["notebook_count"] = None
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+        return False, None
 
-    # 상태 판정
-    if result["api_reachable"] and result["auth"]["authenticated"]:
-        if result["auth"]["needs_refresh"]:
-            result["status"] = "degraded"  # 곧 만료 예정
-        else:
-            result["status"] = "healthy"
-    elif result["auth"]["authenticated"]:
-        result["status"] = "degraded"
-    else:
-        result["status"] = "down"
+    if proc.returncode != 0:
+        return False, None
+    return True, _notebook_count_from_stdout(proc.stdout)
 
+
+def _health_status(auth_status: dict, api_reachable: bool) -> str:
+    if not auth_status.get("authenticated"):
+        return "down"
+    if not api_reachable:
+        return "degraded"
+    return "degraded" if auth_status.get("needs_refresh") else "healthy"
+
+
+def _print_health(result: dict) -> None:
+    print(f"\n{'=' * 50}")
+    print("  NotebookLM Health Check")
+    print(f"  Timestamp: {result['timestamp']}")
+    print(f"  Auth: {'OK' if result['auth']['authenticated'] else 'FAIL'}")
+    print(f"  Session Age: {result['auth']['age_hours']}h")
+    print(f"  API: {'OK' if result['api_reachable'] else 'FAIL'}")
+    print(f"  Status: {result['status'].upper()}")
+    print(f"{'=' * 50}\n")
+
+
+async def health_check(verbose: bool = False) -> dict:
+    """Return aggregate NotebookLM auth and CLI health status."""
+    result = _initial_health_result(check_auth_status())
+
+    if result["auth"].get("authenticated"):
+        api_reachable, notebook_count = _probe_notebooklm_cli()
+        result["api_reachable"] = api_reachable
+        result["notebook_count"] = notebook_count
+
+    result["status"] = _health_status(result["auth"], result["api_reachable"])
     _log_health(result)
 
     if verbose:
-        print(f"\n{'=' * 50}")
-        print("  NotebookLM Health Check")
-        print(f"  Timestamp: {result['timestamp']}")
-        print(f"  Auth: {'OK' if result['auth']['authenticated'] else 'FAIL'}")
-        print(f"  Session Age: {result['auth']['age_hours']}h")
-        print(f"  API: {'OK' if result['api_reachable'] else 'FAIL'}")
-        print(f"  Status: {result['status'].upper()}")
-        print(f"{'=' * 50}\n")
+        _print_health(result)
 
     return result
 
-
-def _log_health(result: dict):
+def _log_health(result: dict) -> None:
     """헬스 체크 결과를 로그 파일에 기록."""
     try:
         HEALTH_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

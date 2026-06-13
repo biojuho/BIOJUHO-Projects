@@ -73,26 +73,9 @@ def _merge_clusters(
     representatives: list[RawTrend] = []
 
     for idxs in groups.values():
-        members = [names[i] for i in idxs]
-        # 대표 = 볼륨 최대
-        rep_name = max(members, key=lambda nm: trend_map[nm].volume_numeric)
-
-        # 컨텍스트 병합
-        merged_tw, merged_rd, merged_nw = [], [], []
-        for nm in members:
-            ctx = contexts.get(nm, MultiSourceContext())
-            if ctx.twitter_insight and "오류" not in ctx.twitter_insight:
-                merged_tw.append(ctx.twitter_insight)
-            if ctx.reddit_insight and "없음" not in ctx.reddit_insight:
-                merged_rd.append(ctx.reddit_insight)
-            if ctx.news_insight and "없음" not in ctx.news_insight:
-                merged_nw.append(ctx.news_insight)
-
-        merged_ctx = MultiSourceContext(
-            twitter_insight="\n".join(merged_tw) or contexts.get(rep_name, MultiSourceContext()).twitter_insight,
-            reddit_insight="\n".join(merged_rd) or contexts.get(rep_name, MultiSourceContext()).reddit_insight,
-            news_insight="\n".join(merged_nw) or contexts.get(rep_name, MultiSourceContext()).news_insight,
-        )
+        members = _group_member_names(idxs, names)
+        rep_name = _representative_name(members, trend_map)
+        merged_ctx = _cluster_context_from_members(members, contexts, rep_name)
         contexts[rep_name] = merged_ctx
         clusters.append(TrendCluster(representative=rep_name, members=members, merged_context=merged_ctx))
         representatives.append(trend_map[rep_name])
@@ -107,6 +90,79 @@ def _merge_clusters(
 # ══════════════════════════════════════════════════════
 #  Local Hybrid Clustering (v14.0)
 # ══════════════════════════════════════════════════════
+
+
+def _find_parent(parent: list[int], x: int) -> int:
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
+def _union_parent(parent: list[int], x: int, y: int) -> None:
+    parent[_find_parent(parent, x)] = _find_parent(parent, y)
+
+
+def _apply_embedding_clusters(
+    parent: list[int],
+    names: list[str],
+    embedding_threshold: float,
+) -> bool:
+    embedding_pairs = _compute_similarity_pairs_embedding(names, embedding_threshold)
+    if embedding_pairs is None:
+        return False
+    for i, j in embedding_pairs:
+        _union_parent(parent, i, j)
+    log.info(
+        f"[임베딩 클러스터링] {len(names)}개 키워드에서 "
+        f"{len(embedding_pairs)}개 유사 감지 (threshold={embedding_threshold})"
+    )
+    return True
+
+
+def _apply_jaccard_clusters(parent: list[int], names: list[str], threshold: float) -> None:
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            if _jaccard_similarity(names[i], names[j]) >= threshold:
+                _union_parent(parent, i, j)
+
+
+def _cluster_index_groups(parent: list[int]) -> dict[int, list[int]]:
+    groups: dict[int, list[int]] = {}
+    for i in range(len(parent)):
+        root = _find_parent(parent, i)
+        groups.setdefault(root, []).append(i)
+    return groups
+
+
+def _group_member_names(idxs: list[int], names: list[str]) -> list[str]:
+    return [names[i] for i in idxs]
+
+
+def _representative_name(members: list[str], trend_map: dict[str, "RawTrend"]) -> str:
+    return max(members, key=lambda nm: trend_map[nm].volume_numeric)
+
+
+def _cluster_context_from_members(
+    members: list[str],
+    contexts: dict[str, "MultiSourceContext"],
+    rep_name: str,
+) -> "MultiSourceContext":
+    fallback = contexts.get(rep_name, MultiSourceContext())
+    return MultiSourceContext(
+        twitter_insight=_merged_context_value(
+            _collect_context_insights(members, contexts, "twitter_insight", "오류"),
+            fallback.twitter_insight,
+        ),
+        reddit_insight=_merged_context_value(
+            _collect_context_insights(members, contexts, "reddit_insight", "없음"),
+            fallback.reddit_insight,
+        ),
+        news_insight=_merged_context_value(
+            _collect_context_insights(members, contexts, "news_insight", "없음"),
+            fallback.news_insight,
+        ),
+    )
 
 
 def cluster_trends_local(
@@ -135,45 +191,19 @@ def cluster_trends_local(
         return raw_trends, contexts, clusters
 
     names = [t.name for t in raw_trends]
-    n = len(names)
-    parent = list(range(n))
-
-    def find(x: int) -> int:
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(x: int, y: int) -> None:
-        parent[find(x)] = find(y)
+    parent = list(range(len(names)))
 
     # [v14.0] 1차: 임베딩 기반 의미적 유사도 시도
     embedding_available = False
     if use_embedding:
-        embedding_pairs = _compute_similarity_pairs_embedding(names, embedding_threshold)
-        if embedding_pairs is not None:
-            for i, j in embedding_pairs:
-                union(i, j)
-            embedding_available = True
-            log.info(
-                f"[임베딩 클러스터링] {len(names)}개 키워드 → "
-                f"{len(embedding_pairs)}쌍 유사 감지 (threshold={embedding_threshold})"
-            )
+        embedding_available = _apply_embedding_clusters(parent, names, embedding_threshold)
 
     # 2차: 임베딩 실패 시 Jaccard 폴백
-    for i in range(n):
-        for j in range(i + 1, n):
-            if _jaccard_similarity(names[i], names[j]) >= threshold:
-                union(i, j)
+    _apply_jaccard_clusters(parent, names, threshold)
 
     # 클러스터 그룹핑
-    used_embedding = embedding_available
-    groups: dict[int, list[int]] = {}
-    for i in range(n):
-        root = find(i)
-        groups.setdefault(root, []).append(i)
-
-    method = "임베딩" if used_embedding else "Jaccard"
+    groups = _cluster_index_groups(parent)
+    method = "임베딩" if embedding_available else "Jaccard"
     return _merge_clusters(raw_trends, contexts, groups, names, method)
 
 
@@ -221,27 +251,92 @@ def _call_cluster_llm(client, raw_trends: list[RawTrend]) -> list | None:
         return None
 
 
+def _usable_context_insight(value: str, blocked_marker: str) -> bool:
+    return bool(value) and blocked_marker not in value
+
+
+def _collect_context_insights(
+    members: list[str],
+    contexts: dict[str, MultiSourceContext],
+    attr: str,
+    blocked_marker: str,
+) -> list[str]:
+    insights = []
+    for member in members:
+        value = getattr(contexts.get(member, MultiSourceContext()), attr)
+        if _usable_context_insight(value, blocked_marker):
+            insights.append(value)
+    return insights
+
+
+def _merged_context_value(insights: list[str], fallback: str) -> str:
+    return "\n".join(insights) if insights else fallback
+
+
 def _merge_member_contexts(
     members: list[str],
     contexts: dict[str, MultiSourceContext],
     rep: str,
 ) -> MultiSourceContext:
     """[B] 클러스터 멤버 컨텍스트를 대표 키워드 기준으로 병합."""
-    merged_twitter, merged_reddit, merged_news = [], [], []
-    for m in members:
-        ctx = contexts.get(m, MultiSourceContext())
-        if ctx.twitter_insight and "오류" not in ctx.twitter_insight:
-            merged_twitter.append(ctx.twitter_insight)
-        if ctx.reddit_insight and "없음" not in ctx.reddit_insight:
-            merged_reddit.append(ctx.reddit_insight)
-        if ctx.news_insight and "없음" not in ctx.news_insight:
-            merged_news.append(ctx.news_insight)
     fallback = contexts.get(rep, MultiSourceContext())
     return MultiSourceContext(
-        twitter_insight="\n".join(merged_twitter) if merged_twitter else fallback.twitter_insight,
-        reddit_insight="\n".join(merged_reddit) if merged_reddit else fallback.reddit_insight,
-        news_insight="\n".join(merged_news) if merged_news else fallback.news_insight,
+        twitter_insight=_merged_context_value(
+            _collect_context_insights(members, contexts, "twitter_insight", "오류"),
+            fallback.twitter_insight,
+        ),
+        reddit_insight=_merged_context_value(
+            _collect_context_insights(members, contexts, "reddit_insight", "없음"),
+            fallback.reddit_insight,
+        ),
+        news_insight=_merged_context_value(
+            _collect_context_insights(members, contexts, "news_insight", "없음"),
+            fallback.news_insight,
+        ),
     )
+
+
+def _resolve_cluster_representative(group: dict, trend_map: dict[str, RawTrend]) -> str:
+    rep = group.get("representative", "")
+    if rep in trend_map:
+        return rep
+    for member in group.get("members", [rep]):
+        if member in trend_map:
+            return member
+    return ""
+
+
+def _cluster_from_parsed_group(
+    group: dict,
+    trend_map: dict[str, RawTrend],
+    contexts: dict[str, MultiSourceContext],
+) -> TrendCluster | None:
+    rep = _resolve_cluster_representative(group, trend_map)
+    if not rep:
+        return None
+    members = group.get("members", [rep])
+    merged_ctx = _merge_member_contexts(members, contexts, rep)
+    contexts[rep] = merged_ctx
+    return TrendCluster(representative=rep, members=members, merged_context=merged_ctx)
+
+
+def _clustered_members(clusters: list[TrendCluster]) -> set[str]:
+    clustered: set[str] = set()
+    for cluster in clusters:
+        clustered.update(cluster.members)
+    return clustered
+
+
+def _append_standalone_clusters(
+    raw_trends: list[RawTrend],
+    filtered: list[RawTrend],
+    clusters: list[TrendCluster],
+) -> None:
+    clustered = _clustered_members(clusters)
+    for trend in raw_trends:
+        if trend.name not in clustered:
+            filtered.append(trend)
+            clusters.append(TrendCluster(representative=trend.name, members=[trend.name]))
 
 
 def _build_clusters_from_parsed(
@@ -255,27 +350,14 @@ def _build_clusters_from_parsed(
     representative_names: set[str] = set()
 
     for group in parsed:
-        rep = group.get("representative", "")
-        members = group.get("members", [rep])
-        if rep not in trend_map:
-            valid = [m for m in members if m in trend_map]
-            rep = valid[0] if valid else ""
-        if not rep:
+        cluster = _cluster_from_parsed_group(group, trend_map, contexts)
+        if cluster is None:
             continue
-        merged_ctx = _merge_member_contexts(members, contexts, rep)
-        contexts[rep] = merged_ctx
-        clusters_list.append(TrendCluster(representative=rep, members=members, merged_context=merged_ctx))
-        representative_names.add(rep)
+        clusters_list.append(cluster)
+        representative_names.add(cluster.representative)
 
     filtered = [t for t in raw_trends if t.name in representative_names]
-    clustered_all: set[str] = set()
-    for c in clusters_list:
-        clustered_all.update(c.members)
-    for t in raw_trends:
-        if t.name not in clustered_all:
-            filtered.append(t)
-            clusters_list.append(TrendCluster(representative=t.name, members=[t.name]))
-
+    _append_standalone_clusters(raw_trends, filtered, clusters_list)
     return filtered, contexts, clusters_list
 
 

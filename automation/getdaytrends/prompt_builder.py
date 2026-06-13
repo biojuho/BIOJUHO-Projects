@@ -171,64 +171,92 @@ def _build_approved_post_bank_section(approved_posts: list[dict[str, Any]] | Non
     return "\n".join(lines) + "\n"
 
 
+def _revision_feedback_base_lines() -> list[str]:
+    return [
+        "",
+        "[재생성 보정 지시]",
+        "- 이번 출력은 자동 QA 또는 FactCheck 실패 뒤 다시 쓰는 버전이다.",
+        "- 핵심 인사이트는 유지하되, 문장만 조금 고치는 수준이 아니라 처음부터 다시 작성할 것.",
+    ]
+
+
+def _revision_axis_guidance() -> dict[str, str]:
+    return {
+        "hook": "泥?臾몄옣? ?レ옄, ?鍮? 吏덈Ц, 媛뺥븳 愿李?以??섎굹濡?諛붾줈 二쇰ぉ?꾨? 留뚮뱾?대씪.",
+        "fact": "而⑦뀓?ㅽ듃??吏곸젒 ?덈뒗 怨좎쑀紐낆궗, ?섏튂, ?몄슜留??ъ슜?섍퀬 異붿젙 ?ъ떎? ?덈줈 留뚮뱾吏 留덈씪.",
+        "tone": "?곹닾援? AI 留먰닾, 湲곗궗泥??쒗쁽??以꾩씠怨??щ엺??諛붾줈 留먰븯????븳 臾몄옣?쇰줈 諛붽퓭??",
+        "kick": "留덈Т由щ뒗 諛뗫컠???뺣━ ????낆옄媛 媛?멸컝 ?댁꽍?대굹 ??以?愿李곕줈 ?앸궡??",
+        "angle": "?댁뒪 ?붿빟 諛섎났???쇳븯怨? ??以묒슂?쒖??????紐낇솗??愿?먯씠???댁꽍??異붽??섎씪.",
+        "regulation": "?뚮옯??洹쒖튃???꾩닔?섍퀬 湲몄씠, ?뺤떇, ?댁떆?쒓렇 ?쒗븳???ㅼ떆 ?먭??섎씪.",
+        "algorithm": "?ㅽ겕濡ㅼ쓣 硫덉텛寃??섎뒗 援ъ“? 李몄뿬瑜?遺瑜대뒗 ?먮쫫????遺꾨챸???ㅺ퀎?섎씪.",
+    }
+
+
+def _qa_score_text(qa: dict) -> str:
+    qa_total = qa.get("total")
+    qa_threshold = qa.get("threshold")
+    total_text = qa_total if qa_total not in (None, "") else "?"
+    threshold_text = qa_threshold if qa_threshold not in (None, "") else "?"
+    return f"- QA score/threshold: {total_text}/{threshold_text}"
+
+
+def _qa_issue_lines(qa: dict) -> list[str]:
+    return [f"- QA issue: {issue}" for issue in list(qa.get("issues", []) or [])[:3]]
+
+
+def _qa_flag_lines(qa: dict) -> list[str]:
+    lines: list[str] = []
+    if qa.get("fact_violation"):
+        lines.append("- Fact violation detected: preserve verified claims and remove unsupported numbers or entities.")
+    if (qa.get("regulation") or 10) <= 3:
+        lines.append("- Regulation score is low: avoid policy overclaims and name only verified institutions.")
+    return lines
+
+
+def _qa_axis_guidance_line(weakest_axis: str) -> str:
+    guidance = _revision_axis_guidance().get(weakest_axis)
+    return f"- Axis-specific rewrite guidance: {guidance}" if guidance else ""
+
+
+def _append_revision_qa_lines(lines: list[str], qa: dict) -> None:
+    if not qa:
+        return
+    weakest_axis = qa.get("worst_axis") or ""
+    lines.append(_qa_score_text(qa))
+    if weakest_axis:
+        lines.append(f"- Weakest QA axis: {weakest_axis}")
+    if qa.get("reason"):
+        lines.append(f"- Main QA reason: {qa['reason']}")
+    lines.extend(_qa_issue_lines(qa))
+    lines.extend(_qa_flag_lines(qa))
+    guidance_line = _qa_axis_guidance_line(weakest_axis)
+    if guidance_line:
+        lines.append(guidance_line)
+
+def _append_revision_fact_check_lines(lines: list[str], fact_check: dict) -> None:
+    if not fact_check:
+        return
+    accuracy_score = fact_check.get("accuracy_score")
+    if fact_check.get("summary"):
+        lines.append(f"- FactCheck 요약: {fact_check['summary']}")
+    if accuracy_score is not None:
+        with contextlib.suppress(TypeError, ValueError):
+            lines.append(f"- 寃利??뺥솗?? {float(accuracy_score):.0%}")
+    if fact_check.get("hallucinated_claims", 0):
+        lines.append(f"- 환각 의심 주장 수: {fact_check.get('hallucinated_claims', 0)}")
+    for issue in list(fact_check.get("issues", []) or [])[:3]:
+        lines.append(f"- ?쒓굅 ?먮뒗 ?꾪솕??二쇱옣: {issue}")
+    lines.append("- ?뚯뒪?먯꽌 吏곸젒 ?뺤씤???ъ떎留??⑥젙?뺤쑝濡??곌퀬, 遺덊솗?ㅽ븳 ?댁슜? 異붿젙 ?쒗쁽?쇰줈 ??떠??")
+
+
 def _build_revision_feedback_section(revision_feedback: dict | None) -> str:
     """Inject retry-specific QA / fact-check guidance into regeneration prompts."""
     if not revision_feedback:
         return ""
 
-    lines = [
-        "",
-        "[재생성 보정 지시]",
-        "- 이번 출력은 자동 QA 또는 FactCheck 실패 후 다시 쓰는 버전이다.",
-        "- 핵심 인사이트는 유지하되, 문장만 조금 고치는 수준이 아니라 처음부터 다시 작성할 것.",
-    ]
-
-    qa = revision_feedback.get("qa") or {}
-    if qa:
-        qa_total = qa.get("total")
-        qa_threshold = qa.get("threshold")
-        weakest_axis = qa.get("worst_axis") or ""
-        axis_guidance = {
-            "hook": "첫 문장은 숫자, 대비, 질문, 강한 관찰 중 하나로 바로 주목도를 만들어라.",
-            "fact": "컨텍스트에 직접 있는 고유명사, 수치, 인용만 사용하고 추정 사실은 새로 만들지 마라.",
-            "tone": "상투구, AI 말투, 기사체 표현을 줄이고 사람이 바로 말하는 듯한 문장으로 바꿔라.",
-            "kick": "마무리는 밋밋한 정리 대신 독자가 가져갈 해석이나 한 줄 관찰로 끝내라.",
-            "angle": "뉴스 요약 반복을 피하고, 왜 중요한지에 대한 명확한 관점이나 해석을 추가하라.",
-            "regulation": "플랫폼 규칙을 엄수하고 길이, 형식, 해시태그 제한을 다시 점검하라.",
-            "algorithm": "스크롤을 멈추게 하는 구조와 참여를 부르는 흐름을 더 분명히 설계하라.",
-        }
-        lines.append(
-            f"- QA 총점/기준: "
-            f"{qa_total if qa_total not in (None, '') else '?'}/"
-            f"{qa_threshold if qa_threshold not in (None, '') else '?'}"
-        )
-        if weakest_axis:
-            lines.append(f"- 가장 약한 축: {weakest_axis}")
-        if qa.get("reason"):
-            lines.append(f"- 대표 실패 사유: {qa['reason']}")
-        for issue in list(qa.get("issues", []) or [])[:3]:
-            lines.append(f"- 보완 포인트: {issue}")
-        if qa.get("fact_violation"):
-            lines.append("- 컨텍스트 밖 고유명사, 수치, 출처 불명 인용은 모두 제거하거나 완곡하게 낮춰라.")
-        if (qa.get("regulation") or 10) <= 3:
-            lines.append("- 이전 출력에서 플랫폼 규칙 위반이 있었으니 형식 규칙을 우선적으로 바로잡아라.")
-        if weakest_axis in axis_guidance:
-            lines.append(f"- 우선 수정 방향: {axis_guidance[weakest_axis]}")
-
-    fact_check = revision_feedback.get("fact_check") or {}
-    if fact_check:
-        accuracy_score = fact_check.get("accuracy_score")
-        if fact_check.get("summary"):
-            lines.append(f"- FactCheck 요약: {fact_check['summary']}")
-        if accuracy_score is not None:
-            with contextlib.suppress(TypeError, ValueError):
-                lines.append(f"- 검증 정확도: {float(accuracy_score):.0%}")
-        if fact_check.get("hallucinated_claims", 0):
-            lines.append(f"- 환각 의심 주장 수: {fact_check.get('hallucinated_claims', 0)}")
-        for issue in list(fact_check.get("issues", []) or [])[:3]:
-            lines.append(f"- 제거 또는 완화할 주장: {issue}")
-        lines.append("- 소스에서 직접 확인된 사실만 단정형으로 쓰고, 불확실한 내용은 추정 표현으로 낮춰라.")
-
+    lines = _revision_feedback_base_lines()
+    _append_revision_qa_lines(lines, revision_feedback.get("qa") or {})
+    _append_revision_fact_check_lines(lines, revision_feedback.get("fact_check") or {})
     return "\n".join(lines) + "\n"
 
 
@@ -275,6 +303,42 @@ def _clean_fact_line(line: str) -> str:
 
 
 def _build_available_facts_section(trend: ScoredTrend, limit: int = 10) -> str:
+    facts = _available_fact_lines(_available_fact_blocks(trend), limit)
+    if not facts:
+        return ""
+    bullets = "\n".join(f"- {fact}" for fact in facts)
+    return f"\n[사용 가능한 사실]\n{bullets}\n"
+
+
+def _available_source_labels(trend: ScoredTrend) -> list[str]:
+    context = getattr(trend, "context", None)
+    labels: list[str] = []
+    if context and getattr(context, "twitter_insight", ""):
+        labels.append("X reactions")
+    if context and getattr(context, "reddit_insight", ""):
+        labels.append("Reddit discussion")
+    if context and getattr(context, "news_insight", ""):
+        labels.append("news headlines")
+    if getattr(trend, "trend_context", None):
+        labels.append("structured trend context")
+    return labels
+
+
+def _build_source_attribution_section(trend: ScoredTrend) -> str:
+    labels = _available_source_labels(trend)
+    if not labels:
+        return ""
+    source_list = ", ".join(labels)
+    return (
+        "\n[Source attribution requirement]\n"
+        f"- Available source types: {source_list}.\n"
+        "- When making a concrete claim, name the source type it came from "
+        "using one of the available source types above.\n"
+        "- Do not invent direct quotes, institutions, or numbers that are not present in the available facts.\n"
+    )
+
+
+def _available_fact_blocks(trend: ScoredTrend) -> list[str]:
     raw_blocks: list[str] = []
     if getattr(trend, "trend_context", None):
         raw_blocks.append(trend.trend_context.to_prompt_text())
@@ -284,31 +348,34 @@ def _build_available_facts_section(trend: ScoredTrend, limit: int = 10) -> str:
         raw_blocks.append(trend.top_insight)
     if getattr(trend, "why_trending", ""):
         raw_blocks.append(trend.why_trending)
+    return raw_blocks
 
+
+def _available_fact_lines(raw_blocks: list[str], limit: int) -> list[str]:
     facts: list[str] = []
     seen: set[str] = set()
     for block in raw_blocks:
         for raw_line in block.splitlines():
-            line = _clean_fact_line(raw_line)
-            if not line:
+            fact = _normalized_fact_line(raw_line, seen)
+            if not fact:
                 continue
-            key = line.casefold()
-            if key in seen:
-                continue
-            seen.add(key)
-            if len(line) > 220:
-                line = line[:217].rstrip() + "..."
-            facts.append(line)
+            facts.append(fact)
             if len(facts) >= limit:
                 break
         if len(facts) >= limit:
             break
+    return facts
 
-    if not facts:
+
+def _normalized_fact_line(raw_line: str, seen: set[str]) -> str:
+    line = _clean_fact_line(raw_line)
+    if not line:
         return ""
-    bullets = "\n".join(f"- {fact}" for fact in facts)
-    return f"\n[사용 가능한 사실]\n{bullets}\n"
-
+    key = line.casefold()
+    if key in seen:
+        return ""
+    seen.add(key)
+    return line[:217].rstrip() + "..." if len(line) > 220 else line
 
 def _build_fact_guardrail_section(trend: ScoredTrend) -> str:
     facts_section = _build_available_facts_section(trend)
@@ -346,7 +413,7 @@ def _build_fact_guardrail_section(trend: ScoredTrend) -> str:
         f"{credibility_note}"
         f"{consistency_note}"
     )
-    return rules + facts_section
+    return rules + _build_source_attribution_section(trend) + facts_section
 
 
 def _build_audience_format_section(trend: ScoredTrend) -> str:
@@ -385,8 +452,43 @@ def _build_golden_reference_section(golden_refs: list | None) -> str:
     )
 
 
+
+def _top_weight_line(title: str, weights: dict, labels: dict[str, str], limit: int) -> str:
+    if not weights:
+        return ""
+    top_items = sorted(weights.items(), key=lambda x: x[1], reverse=True)[:limit]
+    formatted = ", ".join(f"{labels.get(k, k)}({v:.0%})" for k, v in top_items)
+    return f"- {title}: {formatted}"
+
+
+def _pattern_weight_labels() -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    hook_labels = {
+        "number_shock": "number shock",
+        "relatable_math": "relatable math",
+        "reversal": "reversal",
+        "insider": "insider",
+        "contrast": "contrast",
+        "question": "question",
+    }
+    kick_labels = {
+        "mic_drop": "mic drop",
+        "self_deprecation": "self-deprecation",
+        "uncertainty": "uncertainty",
+        "manifesto": "manifesto",
+        "twist": "twist",
+    }
+    angle_labels = {
+        "reversal": "reversal angle",
+        "data_punch": "data punch",
+        "empathy": "empathy",
+        "tips": "practical tips",
+        "debate": "debate",
+    }
+    return hook_labels, kick_labels, angle_labels
+
+
 def _build_pattern_weights_section(pattern_weights: dict | None) -> str:
-    """[B] 훅/킥/앵글 패턴별 성과 가중치를 프롬프트에 주입 — 고성과 패턴 우선 사용 유도."""
+    """Inject high-performing pattern weights into generation prompts."""
     if not pattern_weights:
         return ""
     hook_w = pattern_weights.get("hook_weights", {})
@@ -396,45 +498,15 @@ def _build_pattern_weights_section(pattern_weights: dict | None) -> str:
     if not hook_w and not kick_w and not angle_w:
         return ""
 
-    hook_labels = {
-        "number_shock": "숫자충격",
-        "relatable_math": "체감환산",
-        "reversal": "반전선언",
-        "insider": "내부자시선",
-        "contrast": "대조병치",
-        "question": "질문도발",
-    }
-    kick_labels = {
-        "mic_drop": "뒤통수",
-        "self_deprecation": "자조형",
-        "uncertainty": "질문형",
-        "manifesto": "선언형",
-        "twist": "반전형",
-    }
-    angle_labels = {
-        "reversal": "반전시각",
-        "data_punch": "데이터펀치",
-        "empathy": "공감형",
-        "tips": "실용팁",
-        "debate": "논쟁유발",
-    }
-
-    lines = ["\n[성과 기반 패턴 가중치 — 높은 가중치 패턴을 우선 사용할 것]"]
-    if hook_w:
-        hook_sorted = sorted(hook_w.items(), key=lambda x: x[1], reverse=True)[:3]
-        lines.append(
-            "- 훅(첫 문장) 성과 순위: " + ", ".join(f"{hook_labels.get(k, k)}({v:.0%})" for k, v in hook_sorted)
-        )
-    if kick_w:
-        kick_sorted = sorted(kick_w.items(), key=lambda x: x[1], reverse=True)[:3]
-        lines.append(
-            "- 킥(마무리) 성과 순위: " + ", ".join(f"{kick_labels.get(k, k)}({v:.0%})" for k, v in kick_sorted)
-        )
-    if angle_w:
-        angle_sorted = sorted(angle_w.items(), key=lambda x: x[1], reverse=True)[:2]
-        lines.append(
-            "- 앵글(전달 시각) 성과 순위: " + ", ".join(f"{angle_labels.get(k, k)}({v:.0%})" for k, v in angle_sorted)
-        )
+    hook_labels, kick_labels, angle_labels = _pattern_weight_labels()
+    lines = ["\n[Performance-based pattern weights: prioritize higher-weight patterns]"]
+    for line in (
+        _top_weight_line("Opening hooks", hook_w, hook_labels, 3),
+        _top_weight_line("Closing kicks", kick_w, kick_labels, 3),
+        _top_weight_line("Delivery angles", angle_w, angle_labels, 2),
+    ):
+        if line:
+            lines.append(line)
 
     return "\n".join(lines) + "\n"
 
@@ -464,10 +536,7 @@ def _build_category_tone_hint(trend: ScoredTrend) -> str:
 # ══════════════════════════════════════════════════════
 
 
-def _parse_json(raw: str | None) -> dict | None:
-    if not raw:
-        return None
-
+def _json_parse_candidates(raw: str) -> list[str]:
     stripped = raw.strip()
     candidates = [stripped]
     fence_match = re.match(r"^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$", stripped, re.IGNORECASE)
@@ -479,6 +548,59 @@ def _parse_json(raw: str | None) -> dict | None:
     if start != -1 and end != -1 and start < end:
         candidates.append(stripped[start : end + 1])
 
+    repaired_candidates: list[str] = []
+    for candidate in candidates:
+        repaired_candidates.append(candidate)
+        repaired = _strip_json_trailing_commas(candidate)
+        if repaired != candidate:
+            repaired_candidates.append(repaired)
+    return repaired_candidates
+
+
+def _strip_json_trailing_commas(candidate: str) -> str:
+    out: list[str] = []
+    in_string = False
+    escaped = False
+    i = 0
+
+    while i < len(candidate):
+        ch = candidate[i]
+        if in_string:
+            out.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+
+        if ch == ",":
+            j = i + 1
+            while j < len(candidate) and candidate[j] in " \t\r\n":
+                j += 1
+            if j < len(candidate) and candidate[j] in "}]":
+                i += 1
+                continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def _parse_json(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+
+    candidates = _json_parse_candidates(raw)
     last_error: json.JSONDecodeError | None = None
     seen: set[str] = set()
     for candidate in candidates:
@@ -831,16 +953,20 @@ Return JSON only:
     )
 
 
+def _load_system_prompts_module() -> object:
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts
+
+
 def _system_tweets(tone: str) -> str:
     if tone == "biojuho":
         return _system_tweets_biojuho()
     if tone == "joongyeon":
         return _system_tweets_joongyeon()
-    try:
-        from . import system_prompts as _system_prompts
-    except ImportError:
-        import system_prompts as _system_prompts
-    return _system_prompts._system_tweets(tone)
+    return _load_system_prompts_module()._system_tweets(tone)
 
 
 def _system_long_form(tone: str, editorial_profile: str = "classic") -> str:
@@ -850,11 +976,7 @@ def _system_long_form(tone: str, editorial_profile: str = "classic") -> str:
         return _REPORT_LONG_FORM_SYSTEM
     if tone == "joongyeon":
         return _system_long_form_joongyeon()
-    try:
-        from . import system_prompts as _system_prompts
-    except ImportError:
-        import system_prompts as _system_prompts
-    return _system_prompts._system_long_form(tone, editorial_profile)
+    return _load_system_prompts_module()._system_long_form(tone, editorial_profile)
 
 
 def _system_threads(tone: str, editorial_profile: str = "classic") -> str:
@@ -864,31 +986,19 @@ def _system_threads(tone: str, editorial_profile: str = "classic") -> str:
         return _REPORT_THREADS_SYSTEM
     if tone == "joongyeon":
         return _system_threads_joongyeon()
-    try:
-        from . import system_prompts as _system_prompts
-    except ImportError:
-        import system_prompts as _system_prompts
-    return _system_prompts._system_threads(tone, editorial_profile)
+    return _load_system_prompts_module()._system_threads(tone, editorial_profile)
 
 
 def _system_thread(tone: str) -> str:
     if tone == "biojuho":
         return _system_thread_biojuho()
-    try:
-        from . import system_prompts as _system_prompts
-    except ImportError:
-        import system_prompts as _system_prompts
-    return _system_prompts._system_thread(tone)
+    return _load_system_prompts_module()._system_thread(tone)
 
 
 def _system_tweets_and_threads(tone: str) -> str:
     if tone == "biojuho":
         return _system_tweets_and_threads_biojuho()
-    try:
-        from . import system_prompts as _system_prompts
-    except ImportError:
-        import system_prompts as _system_prompts
-    return _system_prompts._system_tweets_and_threads(tone)
+    return _load_system_prompts_module()._system_tweets_and_threads(tone)
 
 
 _BIOJUHO_RULES_FINAL = """You write for @biojuho.

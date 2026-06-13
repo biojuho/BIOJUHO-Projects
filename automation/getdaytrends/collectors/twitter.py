@@ -113,6 +113,91 @@ def _check_rate_limit(headers: "httpx.Headers") -> None:
             pass
 
 
+def _twitter_recent_search_url(keyword: str) -> str:
+    query_str = f"{keyword} -is:retweet -is:quote -is:nullcast lang:ko min_faves:3"
+    encoded_query = urllib.parse.quote(query_str)
+    return (
+        "https://api.twitter.com/2/tweets/search/recent"
+        f"?query={encoded_query}&max_results=25"
+        "&tweet.fields=public_metrics,created_at,context_annotations"
+        "&expansions=author_id"
+    )
+
+
+def _twitter_auth_headers(bearer_token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {bearer_token}",
+        "User-Agent": "GetDayTrends/2.4",
+    }
+
+
+async def _twitter_api_response(
+    session: httpx.AsyncClient,
+    keyword: str,
+    bearer_token: str,
+    timeout: httpx.Timeout | float | None,
+) -> object:
+    return await session.get(
+        _twitter_recent_search_url(keyword),
+        headers=_twitter_auth_headers(bearer_token),
+        timeout=_resolve_timeout(timeout),
+    )
+
+
+async def _twitter_status_fallback(
+    session: httpx.AsyncClient,
+    keyword: str,
+    resp,
+    timeout: httpx.Timeout | float | None,
+) -> str | None:
+    if resp.status_code == 429:
+        retry_after = resp.headers.get("retry-after", "60")
+        log.warning(f"[X API] rate limit exceeded. Retry after {retry_after}s")
+        return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
+    if resp.status_code == 403:
+        log.debug("[X API] search permission unavailable. Falling back to Jina.")
+        return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
+    return None
+
+
+def _tweet_engagement(tweet: dict) -> int:
+    metrics = tweet.get("public_metrics", {})
+    return metrics.get("like_count", 0) + metrics.get("retweet_count", 0) * 2 + metrics.get("quote_count", 0)
+
+
+def _tweet_time_label(tweet: dict) -> str:
+    raw_ts = tweet.get("created_at", "")
+    if not raw_ts:
+        return ""
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        dt_utc = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+        dt_local = dt_utc.astimezone(timezone(timedelta(hours=9)))
+        return dt_local.strftime("%m/%d %H:%M")
+    except Exception:
+        return ""
+
+
+def _tweet_summary(tweet: dict) -> str:
+    metrics = tweet.get("public_metrics", {})
+    engagement = f"[{metrics.get('like_count', 0)}L/{metrics.get('retweet_count', 0)}RT]"
+    text = tweet["text"].replace("\n", " ")[:200]
+    time_label = _tweet_time_label(tweet)
+    prefix = f"[{time_label}] " if time_label else ""
+    return f"{prefix}{engagement} {text}"
+
+
+def _twitter_summaries(data: dict, keyword: str) -> str:
+    if "data" not in data:
+        log.debug(f"[X API] '{keyword}' recent tweets unavailable")
+        return "최근 관련 트윗 없음"
+
+    tweets = data["data"]
+    tweets.sort(key=_tweet_engagement, reverse=True)
+    return "\n".join(_tweet_summary(tweet) for tweet in tweets[:7])
+
+
 async def _async_fetch_twitter_trends(
     session: httpx.AsyncClient,
     keyword: str,
@@ -123,66 +208,16 @@ async def _async_fetch_twitter_trends(
     if not bearer_token:
         return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
-    query_str = f"{keyword} -is:retweet -is:quote -is:nullcast lang:ko min_faves:3"
-    encoded_query = urllib.parse.quote(query_str)
-    url = (
-        "https://api.twitter.com/2/tweets/search/recent"
-        f"?query={encoded_query}&max_results=25"
-        "&tweet.fields=public_metrics,created_at,context_annotations"
-        "&expansions=author_id"
-    )
-    headers = {
-        "Authorization": f"Bearer {bearer_token}",
-        "User-Agent": "GetDayTrends/2.4",
-    }
-
     try:
-        resp = await session.get(url, headers=headers, timeout=_resolve_timeout(timeout))
+        resp = await _twitter_api_response(session, keyword, bearer_token, timeout)
         _check_rate_limit(resp.headers)
 
-        if resp.status_code == 429:
-            retry_after = resp.headers.get("retry-after", "60")
-            log.warning(f"[X API] 레이트 리밋 초과. {retry_after}초 후 재시도 필요")
-            return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
-
-        if resp.status_code == 403:
-            log.debug("[X API] 검색 권한 없음 (Basic 티어 미지원). Jina 폴백.")
-            return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
+        fallback = await _twitter_status_fallback(session, keyword, resp, timeout)
+        if fallback is not None:
+            return fallback
 
         resp.raise_for_status()
-        data = resp.json()
-
-        if "data" not in data:
-            log.debug(f"[X API] '{keyword}' 최근 트윗 없음")
-            return "최근 관련 트윗 없음"
-
-        tweets = data["data"]
-
-        for t in tweets:
-            m = t.get("public_metrics", {})
-            t["_eng"] = m.get("like_count", 0) + m.get("retweet_count", 0) * 2 + m.get("quote_count", 0)
-        tweets.sort(key=lambda t: t["_eng"], reverse=True)
-
-        summaries = []
-        for t in tweets[:7]:
-            m = t.get("public_metrics", {})
-            eng = f"[{m.get('like_count', 0)}L/{m.get('retweet_count', 0)}RT]"
-            text = t["text"].replace("\n", " ")[:200]
-            time_label = ""
-            raw_ts = t.get("created_at", "")
-            if raw_ts:
-                try:
-                    from datetime import datetime, timedelta, timezone
-
-                    dt_utc = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
-                    dt_local = dt_utc.astimezone(timezone(timedelta(hours=9)))
-                    time_label = dt_local.strftime("%m/%d %H:%M")
-                except Exception:
-                    pass
-            prefix = f"[{time_label}] " if time_label else ""
-            summaries.append(f"{prefix}{eng} {text}")
-
-        return "\n".join(summaries)
+        return _twitter_summaries(resp.json(), keyword)
 
     except httpx.HTTPStatusError as e:
         log.debug(f"Twitter API HTTP 오류 ({keyword}): {e.response.status_code} → Jina 폴백")

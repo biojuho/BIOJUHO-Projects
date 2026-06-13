@@ -94,6 +94,196 @@ except ImportError:
 # ══════════════════════════════════════════════════════
 
 
+def _source_fetch_options(config: AppConfig) -> dict[str, int | bool]:
+    return {
+        "hn_enabled": bool(getattr(config, "enable_hacker_news", False)),
+        "hn_limit": int(getattr(config, "hacker_news_limit", 15)),
+        "rd_enabled": bool(getattr(config, "enable_reddit_primary", False)),
+        "rd_limit": int(getattr(config, "reddit_primary_limit", 20)),
+        "modoo_enabled": bool(getattr(config, "enable_modoo", False)),
+        "modoo_pages": int(getattr(config, "modoo_pages", 3)),
+    }
+
+
+def _build_fetch_tasks(
+    session: httpx.AsyncClient,
+    country_slug: str,
+    fetch_size: int,
+    options: dict[str, int | bool],
+) -> tuple[list, dict[str, int]]:
+    fetch_tasks = [
+        _async_fetch_getdaytrends(session, country_slug, fetch_size),
+        _async_fetch_google_trends_rss(session, country_slug, fetch_size),
+    ]
+    indices = {"getdaytrends": 0, "google_trends": 1, "hacker_news": -1, "reddit": -1, "modoo": -1}
+    if options["hn_enabled"]:
+        indices["hacker_news"] = len(fetch_tasks)
+        fetch_tasks.append(_async_fetch_hacker_news(session, int(options["hn_limit"])))
+    if options["rd_enabled"]:
+        indices["reddit"] = len(fetch_tasks)
+        fetch_tasks.append(_async_fetch_reddit_popular(session, int(options["rd_limit"])))
+    if options["modoo_enabled"]:
+        indices["modoo"] = len(fetch_tasks)
+        fetch_tasks.append(asyncio.to_thread(fetch_modoo_ideas, int(options["modoo_pages"])))
+    return fetch_tasks, indices
+
+
+def _fetch_result_list(fetch_results: list, idx: int) -> list[RawTrend]:
+    if idx < 0 or idx >= len(fetch_results):
+        return []
+    value = fetch_results[idx]
+    if isinstance(value, BaseException):
+        return []
+    return list(value)
+
+
+def _fetch_result_lists(fetch_results: list, indices: dict[str, int]) -> dict[str, list[RawTrend]]:
+    return {name: _fetch_result_list(fetch_results, idx) for name, idx in indices.items()}
+
+
+def _log_fetch_failures(fetch_results: list, indices: dict[str, int]) -> None:
+    warning_sources = {
+        "hacker_news": "Hacker News",
+        "reddit": "Reddit /r/popular",
+        "modoo": "modoo.or.kr",
+        "google_trends": "Google Trends",
+    }
+    for source, label in warning_sources.items():
+        idx = indices[source]
+        if idx >= 0 and isinstance(fetch_results[idx], BaseException):
+            log.warning(f"{label} collection failed: {fetch_results[idx]}")
+    gdt_idx = indices["getdaytrends"]
+    if isinstance(fetch_results[gdt_idx], Exception):
+        log.error(f"getdaytrends collection failed: {fetch_results[gdt_idx]}")
+
+
+def _active_source_count(options: dict[str, int | bool]) -> int:
+    return 2 + sum(1 for flag in ("hn_enabled", "rd_enabled", "modoo_enabled") if bool(options[flag]))
+
+
+def _ensure_source_success(
+    trends_by_source: dict[str, list[RawTrend]],
+    total_sources: int,
+) -> None:
+    success_sources = sum(1 for trends in trends_by_source.values() if trends)
+    if success_sources == 0:
+        log.error("[source-check] all active sources failed; using fallback trends")
+        trends_by_source["getdaytrends"] = _fallback_trends()
+    elif success_sources / total_sources < 0.5:
+        log.warning(
+            f"[source-check] collection success below 50% ({success_sources}/{total_sources}); "
+            "continuing with available sources"
+        )
+    else:
+        log.info(f"[source-check] collection success: {success_sources}/{total_sources} active sources")
+
+
+async def _record_primary_source_quality(
+    config: AppConfig,
+    conn,
+    gdt_trends: list[RawTrend],
+    gtr_trends: list[RawTrend],
+    fetch_size: int,
+) -> None:
+    if not getattr(config, "enable_source_quality_tracking", True) or conn is None:
+        return
+    try:
+        from .db import record_source_quality
+    except ImportError:
+        from db import record_source_quality
+
+    await record_source_quality(
+        conn,
+        "getdaytrends",
+        bool(gdt_trends),
+        0,
+        len(gdt_trends),
+        min(len(gdt_trends) / max(fetch_size, 1), 1.0),
+    )
+    await record_source_quality(
+        conn, "google_trends", bool(gtr_trends), 0, len(gtr_trends), min(len(gtr_trends) / 20, 1.0)
+    )
+
+
+def _merge_primary_trends(
+    gdt_trends: list[RawTrend],
+    gtr_trends: list[RawTrend],
+    modoo_trends: list[RawTrend],
+    fetch_size: int,
+) -> list[RawTrend]:
+    all_trends = _merge_trends(gdt_trends, gtr_trends, limit=fetch_size)
+    if modoo_trends:
+        all_trends = _merge_trends(all_trends, modoo_trends, limit=fetch_size)
+    log.info(
+        f"Merge complete: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)}"
+        f"{f', modoo={len(modoo_trends)}' if modoo_trends else ''}"
+        f", total={len(all_trends)}"
+    )
+    return all_trends
+
+
+async def _filter_recently_seen_trends(
+    all_trends: list[RawTrend],
+    config: AppConfig,
+    conn,
+) -> list[RawTrend]:
+    if conn is None:
+        return all_trends
+    try:
+        from .db import get_recently_processed_keywords
+    except ImportError:
+        from db import get_recently_processed_keywords
+
+    try:
+        seen = await get_recently_processed_keywords(conn, hours=config.dedupe_window_hours)
+    except Exception as _e:
+        log.warning(f"Recently-seen keyword lookup failed: {_e}")
+        seen = set()
+    fresh = [t for t in all_trends if not _is_similar_keyword(t.name, seen)]
+    if fresh:
+        log.info(
+            f"Recently-seen dedupe: {len(all_trends)} -> {len(fresh)} "
+            f"(excluded {len(all_trends) - len(fresh)})"
+        )
+        return fresh
+    log.warning(
+        f"All trends were seen within {config.dedupe_window_hours}h; keeping original trend list"
+    )
+    return all_trends
+
+
+def _dedupe_embedding_trends(all_trends: list[RawTrend], config: AppConfig) -> list[RawTrend]:
+    if len(all_trends) <= 1 or not getattr(config, "enable_embedding_clustering", True):
+        return all_trends
+    try:
+        from shared.embeddings import deduplicate_texts
+
+        names = [t.name for t in all_trends]
+        unique_indices = deduplicate_texts(
+            names,
+            threshold=getattr(config, "embedding_cluster_threshold", 0.75),
+        )
+        removed = len(all_trends) - len(unique_indices)
+        if removed:
+            log.info(f"[embedding-dedupe] removed {removed} duplicate trends; kept {len(unique_indices)}")
+            return [all_trends[i] for i in unique_indices]
+    except Exception as _e:
+        log.debug(f"[embedding-dedupe] skipped: {_e}")
+    return all_trends
+
+
+def _build_seed_contexts(raw_trends: list[RawTrend]) -> dict[str, MultiSourceContext]:
+    contexts: dict[str, MultiSourceContext] = {}
+    for trend in raw_trends:
+        extra_news = ""
+        if trend.source == TrendSource.GOOGLE_TRENDS:
+            extra_news = " | ".join(trend.extra.get("news_headlines", []))
+        elif trend.source == TrendSource.YOUTUBE:
+            extra_news = f"[YouTube trend] {trend.name}"
+        contexts[trend.name] = MultiSourceContext(news_insight=extra_news)
+    return contexts
+
+
 async def _async_collect_trends(
     config: AppConfig,
     conn=None,
@@ -104,11 +294,6 @@ async def _async_collect_trends(
     2. 최근 N시간 처리된 중복 키워드 제거
     3. 각 트렌드에 대해 Twitter, Reddit, Google News 컨텍스트 병렬 수집
     """
-    try:
-        from .db import get_recently_processed_keywords
-    except ImportError:
-        from db import get_recently_processed_keywords
-
     country_slug = config.resolve_country_slug()
     fetch_size = config.limit + 10  # 여유 있게 수집
 
@@ -120,146 +305,28 @@ async def _async_collect_trends(
     )
     async with httpx.AsyncClient(limits=limits) as session:
         # 1단계: 소스 병렬 수집 (HN + Reddit /r/popular 보조 — 모두 X 비의존 신호)
-        hn_enabled = bool(getattr(config, "enable_hacker_news", False))
-        hn_limit = int(getattr(config, "hacker_news_limit", 15))
-        rd_enabled = bool(getattr(config, "enable_reddit_primary", False))
-        rd_limit = int(getattr(config, "reddit_primary_limit", 20))
-        modoo_enabled = bool(getattr(config, "enable_modoo", False))
-        modoo_pages = int(getattr(config, "modoo_pages", 3))
-
-        fetch_tasks: list[asyncio.Future] = [
-            _async_fetch_getdaytrends(session, country_slug, fetch_size),
-            _async_fetch_google_trends_rss(session, country_slug, fetch_size),
-        ]
-        hn_index = -1
-        rd_index = -1
-        modoo_index = -1
-        if hn_enabled:
-            hn_index = len(fetch_tasks)
-            fetch_tasks.append(_async_fetch_hacker_news(session, hn_limit))
-        if rd_enabled:
-            rd_index = len(fetch_tasks)
-            fetch_tasks.append(_async_fetch_reddit_popular(session, rd_limit))
-        if modoo_enabled:
-            modoo_index = len(fetch_tasks)
-            # Subprocess-based (Node Playwright); offload to thread to keep loop free.
-            fetch_tasks.append(asyncio.to_thread(fetch_modoo_ideas, modoo_pages))
+        options = _source_fetch_options(config)
+        fetch_tasks, indices = _build_fetch_tasks(session, country_slug, fetch_size, options)
 
         fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
 
-        def _ok(idx: int) -> list[RawTrend]:
-            """Pick a list result by index, returning [] when the task raised."""
-            if idx < 0 or idx >= len(fetch_results):
-                return []
-            value = fetch_results[idx]
-            if isinstance(value, BaseException):
-                return []
-            return list(value)
+        _log_fetch_failures(fetch_results, indices)
+        trends_by_source = _fetch_result_lists(fetch_results, indices)
 
-        gdt_trends = _ok(0)
-        gtr_trends = _ok(1)
-        hn_trends = _ok(hn_index) if hn_index >= 0 else []
-        rd_trends = _ok(rd_index) if rd_index >= 0 else []
-        modoo_trends = _ok(modoo_index) if modoo_index >= 0 else []
+        # Allow partial source success and fall back only when every source failed.
+        _ensure_source_success(trends_by_source, _active_source_count(options))
+        gdt_trends = trends_by_source["getdaytrends"]
+        gtr_trends = trends_by_source["google_trends"]
+        modoo_trends = trends_by_source["modoo"]
 
-        if hn_index >= 0 and isinstance(fetch_results[hn_index], BaseException):
-            log.warning(f"Hacker News 수집 실패: {fetch_results[hn_index]}")
-        if rd_index >= 0 and isinstance(fetch_results[rd_index], BaseException):
-            log.warning(f"Reddit /r/popular 수집 실패: {fetch_results[rd_index]}")
-        if modoo_index >= 0 and isinstance(fetch_results[modoo_index], BaseException):
-            log.warning(f"modoo.or.kr 수집 실패: {fetch_results[modoo_index]}")
+        await _record_primary_source_quality(config, conn, gdt_trends, gtr_trends, fetch_size)
 
-        if isinstance(fetch_results[0], Exception):
-            log.error(f"getdaytrends 수집 실패: {fetch_results[0]}")
-        if isinstance(fetch_results[1], Exception):
-            log.warning(f"Google Trends 수집 실패: {fetch_results[1]}")
-
-        # [v9.1] 부분 성공(Partial Success) 허용 및 전체 실패 시 우회(Fallback) 아키텍처
-        total_sources = 2 + (1 if hn_enabled else 0) + (1 if rd_enabled else 0) + (1 if modoo_enabled else 0)
-        success_sources = sum(1 for t_list in (gdt_trends, gtr_trends, hn_trends, rd_trends, modoo_trends) if t_list)
-
-        if success_sources == 0:
-            log.error("[장애] 모든 트렌드 소스 수집 실패! Fallback 트렌드로 우회합니다.")
-            gdt_trends = _fallback_trends()  # 실패 시 모의 트렌드 사용
-        elif success_sources / total_sources < 0.5:
-            log.warning(
-                f"[부분 성공] 데이터 소스 수집 성공률 50% 미만 ({success_sources}/{total_sources}). 파이프라인 강행."
-            )
-        else:
-            log.info(f"[부분 성공] 수집 성공: {success_sources}/{total_sources} 개 소스 가동 중.")
-
-        # 소스 품질 기록 (v5.0)
-        if getattr(config, "enable_source_quality_tracking", True) and conn is not None:
-            try:
-                from .db import record_source_quality
-            except ImportError:
-                from db import record_source_quality
-
-            await record_source_quality(
-                conn,
-                "getdaytrends",
-                bool(gdt_trends),
-                0,
-                len(gdt_trends),
-                min(len(gdt_trends) / max(fetch_size, 1), 1.0),
-            )
-            await record_source_quality(
-                conn, "google_trends", bool(gtr_trends), 0, len(gtr_trends), min(len(gtr_trends) / 20, 1.0)
-            )
-
-        # 2단계: 병합 (getdaytrends → google_trends 순서 우선)
-        all_trends = _merge_trends(gdt_trends, gtr_trends, limit=fetch_size)
-        if modoo_trends:
-            all_trends = _merge_trends(all_trends, modoo_trends, limit=fetch_size)
-        log.info(
-            f"병합 완료: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)}"
-            f"{f', modoo={len(modoo_trends)}' if modoo_trends else ''}"
-            f" → 총 {len(all_trends)}개"
-        )
-
-        # 3단계: 중복 필터 (유사도 기반)
-        if conn is not None:
-            try:
-                seen = await get_recently_processed_keywords(conn, hours=config.dedupe_window_hours)
-            except Exception as _e:
-                log.warning(f"중복 필터 조회 실패 (무시): {_e}")
-                seen = set()
-            fresh = [t for t in all_trends if not _is_similar_keyword(t.name, seen)]
-            if fresh:
-                log.info(f"중복 제거: {len(all_trends)}개 → {len(fresh)}개 (제외: {len(all_trends) - len(fresh)}개)")
-                all_trends = fresh
-            else:
-                log.warning(f"모든 트렌드가 {config.dedupe_window_hours}시간 내 처리됨 → 중복 허용")
-
-        # [v14.1] 4단계 전 의미적 중복 제거 (임베딩 기반)
-        if len(all_trends) > 1 and getattr(config, "enable_embedding_clustering", True):
-            try:
-                from shared.embeddings import deduplicate_texts
-
-                names = [t.name for t in all_trends]
-                unique_indices = deduplicate_texts(
-                    names,
-                    threshold=getattr(config, "embedding_cluster_threshold", 0.75),
-                )
-                removed = len(all_trends) - len(unique_indices)
-                if removed:
-                    all_trends = [all_trends[i] for i in unique_indices]
-                    log.info(f"[수집 임베딩 중복] {removed}개 의미적 중복 제거 → {len(all_trends)}개")
-            except Exception as _e:
-                log.debug(f"[수집 임베딩 중복] 사용 불가: {_e}")
+        all_trends = _merge_primary_trends(gdt_trends, gtr_trends, modoo_trends, fetch_size)
+        all_trends = await _filter_recently_seen_trends(all_trends, config, conn)
+        all_trends = _dedupe_embedding_trends(all_trends, config)
 
         raw_trends = all_trends[: config.limit]
-
-        # 4단계: 기본 컨텍스트 (Google Trends RSS 헤드라인만)
-        contexts: dict[str, MultiSourceContext] = {}
-        for t in raw_trends:
-            extra_news = ""
-            if t.source == TrendSource.GOOGLE_TRENDS:
-                extra_news = " | ".join(t.extra.get("news_headlines", []))
-            elif t.source == TrendSource.YOUTUBE:
-                # YouTube 트렌드는 타이틀을 뉴스 인사이트로 초기화
-                extra_news = f"[YouTube 인기] {t.name}"
-            contexts[t.name] = MultiSourceContext(news_insight=extra_news)
+        contexts = _build_seed_contexts(raw_trends)
 
     log.info(f"멀티소스 수집 완료: {len(raw_trends)}개 트렌드 (기본 컨텍스트만 구성)")
     return raw_trends, contexts

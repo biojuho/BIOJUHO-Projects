@@ -32,6 +32,14 @@ async def test_validate_trend_candidate_rejects_malformed_stale_and_duplicate():
     assert validated is None
     assert quarantine["reason_code"] == "stale_record"
 
+    missing_evidence = make_scored_trend(keyword="missing-evidence")
+    missing_evidence.context = None
+    missing_evidence.sources = []
+    missing_evidence.trend_context = None
+    validated, quarantine = validate_trend_candidate(missing_evidence, dedup_fingerprint="fp-3")
+    assert validated is None
+    assert quarantine["reason_code"] == "missing_evidence"
+
     duplicate = make_scored_trend(keyword="dup-topic")
     validated, quarantine = validate_trend_candidate(
         duplicate,

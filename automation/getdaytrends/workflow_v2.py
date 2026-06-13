@@ -75,6 +75,63 @@ def collect_evidence_refs(trend: ScoredTrend) -> list[str]:
     return list(dict.fromkeys(refs))
 
 
+def _quarantine_reason(
+    *,
+    keyword: str,
+    evidence_refs: list[str],
+    freshness_hours: float,
+    freshness_grade: str,
+    max_freshness_hours: float,
+    dedup_fingerprint: str,
+    recent_fingerprints: set[str],
+) -> dict[str, Any] | None:
+    if not keyword:
+        return {
+            "reason_code": "malformed_record",
+            "reason_detail": "keyword is empty",
+        }
+    if not evidence_refs:
+        return {
+            "reason_code": "missing_evidence",
+            "reason_detail": "trend has no evidence refs",
+        }
+    if freshness_hours > max_freshness_hours or freshness_grade == "expired":
+        return {
+            "reason_code": "stale_record",
+            "reason_detail": f"freshness_hours={freshness_hours:.2f}",
+        }
+    if dedup_fingerprint and dedup_fingerprint in recent_fingerprints:
+        return {
+            "reason_code": "duplicate_record",
+            "reason_detail": dedup_fingerprint,
+        }
+    return None
+
+
+def _validated_trend(
+    trend: ScoredTrend,
+    *,
+    keyword: str,
+    evidence_refs: list[str],
+    freshness_minutes: int,
+    dedup_fingerprint: str,
+    trend_id: str | None,
+) -> ValidatedTrend:
+    axes, reasons = build_scoring_axes(trend)
+    return ValidatedTrend(
+        trend_id=trend_id or _hash_id("trend", keyword, dedup_fingerprint or keyword),
+        keyword=keyword,
+        confidence_score=float(getattr(trend, "cross_source_confidence", 0) or 0),
+        source_count=len(getattr(trend, "sources", []) or []),
+        evidence_refs=evidence_refs,
+        freshness_minutes=freshness_minutes,
+        dedup_fingerprint=dedup_fingerprint,
+        lifecycle_status=WorkflowLifecycleStatus.VALIDATED,
+        scoring_axes=axes,
+        scoring_reasons=reasons,
+    )
+
+
 def validate_trend_candidate(
     trend: ScoredTrend,
     *,
@@ -89,39 +146,25 @@ def validate_trend_candidate(
     freshness_minutes = max(0, int(round(freshness_hours * 60)))
     evidence_refs = collect_evidence_refs(trend)
 
-    if not keyword:
-        return None, {
-            "reason_code": "malformed_record",
-            "reason_detail": "keyword is empty",
-        }
-    if not evidence_refs:
-        return None, {
-            "reason_code": "missing_evidence",
-            "reason_detail": "trend has no evidence refs",
-        }
-    if freshness_hours > max_freshness_hours or getattr(trend, "freshness_grade", "") == "expired":
-        return None, {
-            "reason_code": "stale_record",
-            "reason_detail": f"freshness_hours={freshness_hours:.2f}",
-        }
-    if dedup_fingerprint and dedup_fingerprint in recent:
-        return None, {
-            "reason_code": "duplicate_record",
-            "reason_detail": dedup_fingerprint,
-        }
-
-    axes, reasons = build_scoring_axes(trend)
-    validated = ValidatedTrend(
-        trend_id=trend_id or _hash_id("trend", keyword, dedup_fingerprint or keyword),
+    quarantine = _quarantine_reason(
         keyword=keyword,
-        confidence_score=float(getattr(trend, "cross_source_confidence", 0) or 0),
-        source_count=len(getattr(trend, "sources", []) or []),
+        evidence_refs=evidence_refs,
+        freshness_hours=freshness_hours,
+        freshness_grade=getattr(trend, "freshness_grade", ""),
+        max_freshness_hours=max_freshness_hours,
+        dedup_fingerprint=dedup_fingerprint,
+        recent_fingerprints=recent,
+    )
+    if quarantine:
+        return None, quarantine
+
+    validated = _validated_trend(
+        trend,
+        keyword=keyword,
         evidence_refs=evidence_refs,
         freshness_minutes=freshness_minutes,
         dedup_fingerprint=dedup_fingerprint,
-        lifecycle_status=WorkflowLifecycleStatus.VALIDATED,
-        scoring_axes=axes,
-        scoring_reasons=reasons,
+        trend_id=trend_id,
     )
     return validated, None
 

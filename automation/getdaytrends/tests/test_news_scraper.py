@@ -3,6 +3,8 @@
 import pytest
 from news_scraper import (
     SCRAPLING_AVAILABLE,
+    _parse_daum_news_page,
+    _parse_naver_news_page,
     enrich_news_context,
     fetch_news_enhanced,
 )
@@ -29,6 +31,84 @@ class TestFetchNewsEnhanced:
             assert "source" in article
             assert "url" in article
             assert "snippet" in article
+
+    def test_parse_naver_news_page_extracts_article_fields(self):
+        class _Element:
+            def __init__(self, text="", href=""):
+                self.text = text
+                self.attrib = {"href": href} if href else {}
+
+        class _Item:
+            def __init__(self, selectors):
+                self.selectors = selectors
+
+            def css_first(self, selector):
+                return self.selectors.get(selector)
+
+        class _Page:
+            def css(self, selector):
+                if selector != ".news_area":
+                    return []
+                return [
+                    _Item(
+                        {
+                            ".news_tit": _Element(" Headline ", "https://news.example/a"),
+                            ".info.press": _Element(" Press "),
+                            ".news_dsc": _Element(" Summary " * 40),
+                        }
+                    ),
+                    _Item({}),
+                ]
+
+        result = _parse_naver_news_page(_Page(), max_results=5)
+
+        assert result == [
+            {
+                "title": "Headline",
+                "source": "Press",
+                "url": "https://news.example/a",
+                "snippet": (" Summary " * 40).strip()[:200],
+            }
+        ]
+
+    def test_parse_daum_news_page_extracts_article_fields(self):
+        class _Element:
+            def __init__(self, text="", href=""):
+                self.text = text
+                self.attrib = {"href": href} if href else {}
+
+        class _Item:
+            def __init__(self, selectors):
+                self.selectors = selectors
+
+            def css_first(self, selector):
+                return self.selectors.get(selector)
+
+        class _Page:
+            def css(self, selector):
+                if selector != ".c-list-basic > li":
+                    return []
+                return [
+                    _Item(
+                        {
+                            "a.tit_main": _Element(" Daum headline ", "https://news.example/d"),
+                            ".info_cp": _Element(" DaumPress "),
+                            ".desc": _Element(" Daum summary " * 30),
+                        }
+                    ),
+                    _Item({}),
+                ]
+
+        result = _parse_daum_news_page(_Page(), max_results=5)
+
+        assert result == [
+            {
+                "title": "Daum headline",
+                "source": "DaumPress",
+                "url": "https://news.example/d",
+                "snippet": (" Daum summary " * 30).strip()[:200],
+            }
+        ]
 
 
 class TestEnrichNewsContext:
