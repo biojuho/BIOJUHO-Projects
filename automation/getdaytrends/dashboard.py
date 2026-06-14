@@ -1902,6 +1902,89 @@ def _operator_workspace_smoke_section(workspace_smoke: dict[str, Any]) -> tuple[
     return workspace_smoke_total, workspace_smoke_passed, workspace_smoke_state, workspace_smoke_card_detail
 
 
+def _operator_launch_secret_scan_section(
+    launch_secret_scan: dict[str, Any],
+) -> tuple[str, int, int, int, bool, bool, str, str, str]:
+    """Summarize the launch secret-scan artifact.
+
+    Returns ``(status, scanned, findings, missing, includes_current, ok, state,
+    value, detail)``. Pure read of the ``launch_secret_scan`` payload.
+    """
+    status = str(launch_secret_scan.get("status") or "missing")
+    scanned = int(launch_secret_scan.get("scanned") or 0)
+    findings = int(launch_secret_scan.get("findings") or 0)
+    missing = int(launch_secret_scan.get("missing") or 0)
+    includes_current = launch_secret_scan.get("include_current_artifacts") is True
+    ok = (
+        bool(launch_secret_scan.get("path"))
+        and launch_secret_scan.get("ok") is True
+        and findings == 0
+        and missing == 0
+        and includes_current
+    )
+    state = "pass" if ok else "warn"
+    if launch_secret_scan.get("path") and (findings > 0 or missing > 0):
+        state = "fail"
+    if not launch_secret_scan.get("path"):
+        value = "missing"
+    elif missing > 0:
+        value = f"{missing} missing"
+    elif findings > 0:
+        value = f"{findings} findings"
+    elif scanned > 0:
+        value = f"{scanned} scanned"
+    else:
+        value = status
+    detail = (
+        "Current artifacts included."
+        if ok
+        else "Run final launch secret scan with --include-current-artifacts."
+    )
+    return status, scanned, findings, missing, includes_current, ok, state, value, detail
+
+
+def _operator_handoff_secret_scan_section(
+    handoff_refresh: dict[str, Any],
+) -> tuple[int, int, int, bool, bool, bool, str, str, str]:
+    """Summarize the handoff-refresh secret-scan fields.
+
+    Returns ``(scanned, findings, missing, includes_current, contract_ok, ok,
+    state, value, detail)``. Pure read of the ``handoff_refresh`` payload.
+    """
+    scanned = int(handoff_refresh.get("secret_scan_scanned") or 0)
+    findings = int(handoff_refresh.get("secret_scan_findings") or 0)
+    missing = int(handoff_refresh.get("secret_scan_missing") or 0)
+    includes_current = handoff_refresh.get("secret_scan_include_current_artifacts") is True
+    contract_ok = handoff_refresh.get("secret_scan_supabase_recovery_packet_contract_ok") is True
+    ok = (
+        bool(handoff_refresh.get("path"))
+        and handoff_refresh.get("secret_scan_ok") is True
+        and findings == 0
+        and missing == 0
+        and includes_current
+        and contract_ok
+    )
+    state = "pass" if ok else "warn"
+    if handoff_refresh.get("path") and (findings > 0 or missing > 0):
+        state = "fail"
+    if not handoff_refresh.get("path"):
+        value = "missing"
+    elif missing > 0:
+        value = f"{missing} missing"
+    elif findings > 0:
+        value = f"{findings} findings"
+    elif scanned > 0:
+        value = f"{scanned} scanned"
+    else:
+        value = str(handoff_refresh.get("secret_scan_state") or handoff_refresh.get("status") or "unknown")
+    detail = (
+        "Current artifacts and recovery packet contract verified."
+        if ok
+        else "Run handoff refresh and confirm current artifacts plus packet contract."
+    )
+    return scanned, findings, missing, includes_current, contract_ok, ok, state, value, detail
+
+
 def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
     logs_dir = base_dir / "logs"
     readiness_path = logs_dir / "readiness" / "readiness_latest.json"
@@ -2015,69 +2098,28 @@ def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
         workspace_smoke_state,
         workspace_smoke_card_detail,
     ) = _operator_workspace_smoke_section(workspace_smoke)
-    launch_secret_scan_status = str(launch_secret_scan.get("status") or "missing")
-    launch_secret_scan_scanned = int(launch_secret_scan.get("scanned") or 0)
-    launch_secret_scan_findings = int(launch_secret_scan.get("findings") or 0)
-    launch_secret_scan_missing = int(launch_secret_scan.get("missing") or 0)
-    launch_secret_scan_includes_current = launch_secret_scan.get("include_current_artifacts") is True
-    launch_secret_scan_ok = (
-        bool(launch_secret_scan.get("path"))
-        and launch_secret_scan.get("ok") is True
-        and launch_secret_scan_findings == 0
-        and launch_secret_scan_missing == 0
-        and launch_secret_scan_includes_current
-    )
-    launch_secret_scan_state = "pass" if launch_secret_scan_ok else "warn"
-    if launch_secret_scan.get("path") and (launch_secret_scan_findings > 0 or launch_secret_scan_missing > 0):
-        launch_secret_scan_state = "fail"
-    if not launch_secret_scan.get("path"):
-        launch_secret_scan_value = "missing"
-    elif launch_secret_scan_missing > 0:
-        launch_secret_scan_value = f"{launch_secret_scan_missing} missing"
-    elif launch_secret_scan_findings > 0:
-        launch_secret_scan_value = f"{launch_secret_scan_findings} findings"
-    elif launch_secret_scan_scanned > 0:
-        launch_secret_scan_value = f"{launch_secret_scan_scanned} scanned"
-    else:
-        launch_secret_scan_value = launch_secret_scan_status
-    launch_secret_scan_detail = (
-        "Current artifacts included."
-        if launch_secret_scan_ok
-        else "Run final launch secret scan with --include-current-artifacts."
-    )
-    handoff_secret_scan_scanned = int(handoff_refresh.get("secret_scan_scanned") or 0)
-    handoff_secret_scan_findings = int(handoff_refresh.get("secret_scan_findings") or 0)
-    handoff_secret_scan_missing = int(handoff_refresh.get("secret_scan_missing") or 0)
-    handoff_secret_scan_includes_current = handoff_refresh.get("secret_scan_include_current_artifacts") is True
-    handoff_secret_scan_contract_ok = (
-        handoff_refresh.get("secret_scan_supabase_recovery_packet_contract_ok") is True
-    )
-    handoff_secret_scan_ok = (
-        bool(handoff_refresh.get("path"))
-        and handoff_refresh.get("secret_scan_ok") is True
-        and handoff_secret_scan_findings == 0
-        and handoff_secret_scan_missing == 0
-        and handoff_secret_scan_includes_current
-        and handoff_secret_scan_contract_ok
-    )
-    handoff_secret_scan_state = "pass" if handoff_secret_scan_ok else "warn"
-    if handoff_refresh.get("path") and (handoff_secret_scan_findings > 0 or handoff_secret_scan_missing > 0):
-        handoff_secret_scan_state = "fail"
-    if not handoff_refresh.get("path"):
-        handoff_secret_scan_value = "missing"
-    elif handoff_secret_scan_missing > 0:
-        handoff_secret_scan_value = f"{handoff_secret_scan_missing} missing"
-    elif handoff_secret_scan_findings > 0:
-        handoff_secret_scan_value = f"{handoff_secret_scan_findings} findings"
-    elif handoff_secret_scan_scanned > 0:
-        handoff_secret_scan_value = f"{handoff_secret_scan_scanned} scanned"
-    else:
-        handoff_secret_scan_value = str(handoff_refresh.get("secret_scan_state") or handoff_refresh.get("status") or "unknown")
-    handoff_secret_scan_detail = (
-        "Current artifacts and recovery packet contract verified."
-        if handoff_secret_scan_ok
-        else "Run handoff refresh and confirm current artifacts plus packet contract."
-    )
+    (
+        launch_secret_scan_status,
+        launch_secret_scan_scanned,
+        launch_secret_scan_findings,
+        launch_secret_scan_missing,
+        launch_secret_scan_includes_current,
+        launch_secret_scan_ok,
+        launch_secret_scan_state,
+        launch_secret_scan_value,
+        launch_secret_scan_detail,
+    ) = _operator_launch_secret_scan_section(launch_secret_scan)
+    (
+        handoff_secret_scan_scanned,
+        handoff_secret_scan_findings,
+        handoff_secret_scan_missing,
+        handoff_secret_scan_includes_current,
+        handoff_secret_scan_contract_ok,
+        handoff_secret_scan_ok,
+        handoff_secret_scan_state,
+        handoff_secret_scan_value,
+        handoff_secret_scan_detail,
+    ) = _operator_handoff_secret_scan_section(handoff_refresh)
     launch_focus = _operator_launch_focus(
         status=status,
         blockers=blockers,
