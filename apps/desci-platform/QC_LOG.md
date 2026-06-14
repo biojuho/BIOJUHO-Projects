@@ -1,5 +1,25 @@
 # DSCI QC Log
 
+## 2026-06-14 (Launch-meta regression guard + security-header note)
+
+### Scope
+- Lock in every launch-readiness invariant added this branch so a future edit can't silently regress them. New test file only — no shared-file edit, no dependency.
+- Owned paths: `frontend/src/__tests__/launch-meta.test.js`, this log.
+
+### What it asserts
+- index.html: `lang="ko"`, canonical, og:image + twitter `summary_large_image`, favicon/apple-touch/manifest links (and NO `vite.svg`), and JSON-LD that parses with Organization + SoftwareApplication and the exact pricing offers (0/29/199).
+- site.webmanifest: valid JSON, brand theme color, standalone, 192+512 maskable icons.
+- robots.txt: points at sitemap + disallows `/dashboard`; sitemap.xml: lists the 4 public routes, excludes app routes.
+
+### Verification
+- `npx vitest run src/__tests__/launch-meta.test.js` -> 8 passed. Marked `@vitest-environment node` (pure fs reads, no DOM) -> 1.69s vs 58s under jsdom.
+
+### Security-header follow-up (NOT changed — needs approval)
+- `frontend/vercel.json` already sends `X-Content-Type-Options`, `X-Frame-Options: DENY`, `X-XSS-Protection`. For a hardened launch it should also send `Strict-Transport-Security` (HSTS), `Referrer-Policy: strict-origin-when-cross-origin`, and a locked-down `Permissions-Policy`; a `Content-Security-Policy` needs careful per-source allowlisting (Google Fonts, Firebase) + browser testing. vercel.json is deploy/infra config, so per CLAUDE.md this is left for explicit approval rather than auto-applied.
+
+### Result
+- The 6-cycle launch-readiness PR #261 is now regression-guarded. Recommended next: approve the vercel.json security headers, and an axe-core a11y smoke (adds a dev dependency → needs approval).
+
 ## 2026-06-14 (PWA web manifest)
 
 ### Scope
