@@ -1766,93 +1766,22 @@ def _operator_artifact_actions(
     return [action for action in candidates if str(action.get("value") or "").strip()]
 
 
-def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
-    logs_dir = base_dir / "logs"
-    readiness_path = logs_dir / "readiness" / "readiness_latest.json"
-    readiness, readiness_error = _load_json_file(readiness_path)
-    checks = readiness.get("checks") if isinstance(readiness.get("checks"), list) else []
-    summary = readiness.get("summary") if isinstance(readiness.get("summary"), dict) else {}
-    readiness_artifacts = readiness.get("artifacts") if isinstance(readiness.get("artifacts"), dict) else {}
+def _operator_scheduler_evidence_section(
+    base_dir: Path,
+    scheduler_evidence: dict[str, Any],
+    scheduler_artifact_path: Any,
+    warnings: list[dict[str, Any]],
+) -> tuple[str, float | None, bool, str]:
+    """Enrich scheduler evidence and compute its freshness.
 
-    by_name = {str(check.get("name", "")): check for check in checks if isinstance(check, dict)}
-    browser_evidence = by_name.get("dashboard_browser_report", {}).get("evidence", {})
-    tap_fixture_evidence = by_name.get("tap_fixture_browser_report", {}).get("evidence", {})
-    scheduler_evidence = by_name.get("scheduler_artifact", {}).get("evidence", {})
-    hygiene_evidence = by_name.get("text_hygiene_report", {}).get("evidence", {})
-    browser_evidence = browser_evidence if isinstance(browser_evidence, dict) else {}
-    tap_fixture_evidence = tap_fixture_evidence if isinstance(tap_fixture_evidence, dict) else {}
-    scheduler_evidence = scheduler_evidence if isinstance(scheduler_evidence, dict) else {}
-    hygiene_evidence = hygiene_evidence if isinstance(hygiene_evidence, dict) else {}
-    browser_evidence = _prefer_latest_dashboard_browser_evidence(base_dir, browser_evidence)
-    workspace_smoke = _latest_getdaytrends_workspace_smoke(base_dir)
-    launch_secret_scan = _latest_getdaytrends_launch_secret_scan(base_dir)
-    handoff_refresh = _latest_getdaytrends_handoff_refresh(base_dir)
-    credential_input_status = _latest_credential_input_status(base_dir)
-
-    blockers = [
-        _operator_issue(check, fallback_message="Readiness check failed.")
-        for check in checks
-        if isinstance(check, dict) and check.get("ok") is False and str(check.get("level", "FAIL")).upper() != "WARN"
-    ]
-    warnings = [
-        _operator_issue(check, fallback_message="Readiness check warning.")
-        for check in checks
-        if isinstance(check, dict) and str(check.get("level", "")).upper() == "WARN"
-    ]
-    if readiness_error:
-        blockers.append(
-            {
-                "name": "readiness_report",
-                "display_name": _operator_check_display_name("readiness_report"),
-                "message": f"Readiness report is unavailable: {readiness_error}.",
-                "level": "ERROR",
-                "remediation": READINESS_REFRESH_COMMAND,
-            }
-        )
-    supabase_recovery_packet, provider_auth_recovery_packet = _operator_recovery_packet_paths(
-        base_dir,
-        readiness_artifacts,
-    )
-    if supabase_recovery_packet:
-        for issue in blockers:
-            if issue.get("name") in {"live_db_doctor", "cli_smoke_report"}:
-                issue["recovery_packet"] = supabase_recovery_packet
-    if provider_auth_recovery_packet:
-        for issue in blockers:
-            if issue.get("name") == "provider_auth_report":
-                issue["recovery_packet"] = provider_auth_recovery_packet
-    _annotate_reused_recovery_packets(blockers)
-    recovery_packet_payload: dict[str, Any] = {}
-    if supabase_recovery_packet:
-        recovery_packet_payload, _ = _load_json_file(Path(supabase_recovery_packet))
-    recovery_packet_status = str(recovery_packet_payload.get("status") or "unknown")
-    recovery_packet_next_action = str(recovery_packet_payload.get("next_required_action") or "").strip()
-    recovery_packet_issue_count = 0
-    recovery_packet_issue_types = recovery_packet_payload.get("issue_types")
-    if isinstance(recovery_packet_issue_types, list):
-        recovery_packet_issue_count = len([item for item in recovery_packet_issue_types if str(item).strip()])
-    provider_auth_packet_payload: dict[str, Any] = {}
-    if provider_auth_recovery_packet:
-        provider_auth_packet_payload, _ = _load_json_file(Path(provider_auth_recovery_packet))
-    provider_auth_packet_status = str(provider_auth_packet_payload.get("status") or "unknown")
-    provider_auth_packet_next_action = str(provider_auth_packet_payload.get("next_required_action") or "").strip()
-    provider_auth_packet_issue_count = 0
-    provider_auth_packet_issue_types = provider_auth_packet_payload.get("issue_types")
-    if isinstance(provider_auth_packet_issue_types, list):
-        provider_auth_packet_issue_count = len(
-            [item for item in provider_auth_packet_issue_types if str(item).strip()]
-        )
-    recovery_packet_card_detail = _operator_packet_card_detail(
-        recovery_packet_next_action,
-        recovery_packet_issue_count,
-    )
-    provider_auth_packet_card_detail = _operator_packet_card_detail(
-        provider_auth_packet_next_action,
-        provider_auth_packet_issue_count,
-    )
-
+    Backfills missing fields from the scheduler artifact, records log
+    existence/containment, appends freshness warnings, and derives the age
+    card detail. ``scheduler_evidence`` and ``warnings`` are mutated in place
+    (same objects the caller holds). Returns
+    ``(finished_at, age_hours, scheduler_near_stale, scheduler_age_card_detail)``.
+    """
     finished_at = str(scheduler_evidence.get("finished_at") or scheduler_evidence.get("started_at") or "")
-    scheduler_artifact_path = scheduler_evidence.get("path")
+    scheduler_payload: dict[str, Any] = {}
     if scheduler_artifact_path:
         scheduler_payload, _ = _load_json_file(Path(str(scheduler_artifact_path)))
         for key in (
@@ -1938,6 +1867,106 @@ def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
         scheduler_age_card_detail = "Run scheduler refresh soon to avoid stale evidence."
     else:
         scheduler_age_card_detail = _operator_scheduler_detail(scheduler_evidence)
+    return finished_at, age_hours, scheduler_near_stale, scheduler_age_card_detail
+
+
+def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
+    logs_dir = base_dir / "logs"
+    readiness_path = logs_dir / "readiness" / "readiness_latest.json"
+    readiness, readiness_error = _load_json_file(readiness_path)
+    checks = readiness.get("checks") if isinstance(readiness.get("checks"), list) else []
+    summary = readiness.get("summary") if isinstance(readiness.get("summary"), dict) else {}
+    readiness_artifacts = readiness.get("artifacts") if isinstance(readiness.get("artifacts"), dict) else {}
+
+    by_name = {str(check.get("name", "")): check for check in checks if isinstance(check, dict)}
+    browser_evidence = by_name.get("dashboard_browser_report", {}).get("evidence", {})
+    tap_fixture_evidence = by_name.get("tap_fixture_browser_report", {}).get("evidence", {})
+    scheduler_evidence = by_name.get("scheduler_artifact", {}).get("evidence", {})
+    hygiene_evidence = by_name.get("text_hygiene_report", {}).get("evidence", {})
+    browser_evidence = browser_evidence if isinstance(browser_evidence, dict) else {}
+    tap_fixture_evidence = tap_fixture_evidence if isinstance(tap_fixture_evidence, dict) else {}
+    scheduler_evidence = scheduler_evidence if isinstance(scheduler_evidence, dict) else {}
+    hygiene_evidence = hygiene_evidence if isinstance(hygiene_evidence, dict) else {}
+    browser_evidence = _prefer_latest_dashboard_browser_evidence(base_dir, browser_evidence)
+    workspace_smoke = _latest_getdaytrends_workspace_smoke(base_dir)
+    launch_secret_scan = _latest_getdaytrends_launch_secret_scan(base_dir)
+    handoff_refresh = _latest_getdaytrends_handoff_refresh(base_dir)
+    credential_input_status = _latest_credential_input_status(base_dir)
+
+    blockers = [
+        _operator_issue(check, fallback_message="Readiness check failed.")
+        for check in checks
+        if isinstance(check, dict) and check.get("ok") is False and str(check.get("level", "FAIL")).upper() != "WARN"
+    ]
+    warnings = [
+        _operator_issue(check, fallback_message="Readiness check warning.")
+        for check in checks
+        if isinstance(check, dict) and str(check.get("level", "")).upper() == "WARN"
+    ]
+    if readiness_error:
+        blockers.append(
+            {
+                "name": "readiness_report",
+                "display_name": _operator_check_display_name("readiness_report"),
+                "message": f"Readiness report is unavailable: {readiness_error}.",
+                "level": "ERROR",
+                "remediation": READINESS_REFRESH_COMMAND,
+            }
+        )
+    supabase_recovery_packet, provider_auth_recovery_packet = _operator_recovery_packet_paths(
+        base_dir,
+        readiness_artifacts,
+    )
+    if supabase_recovery_packet:
+        for issue in blockers:
+            if issue.get("name") in {"live_db_doctor", "cli_smoke_report"}:
+                issue["recovery_packet"] = supabase_recovery_packet
+    if provider_auth_recovery_packet:
+        for issue in blockers:
+            if issue.get("name") == "provider_auth_report":
+                issue["recovery_packet"] = provider_auth_recovery_packet
+    _annotate_reused_recovery_packets(blockers)
+    recovery_packet_payload: dict[str, Any] = {}
+    if supabase_recovery_packet:
+        recovery_packet_payload, _ = _load_json_file(Path(supabase_recovery_packet))
+    recovery_packet_status = str(recovery_packet_payload.get("status") or "unknown")
+    recovery_packet_next_action = str(recovery_packet_payload.get("next_required_action") or "").strip()
+    recovery_packet_issue_count = 0
+    recovery_packet_issue_types = recovery_packet_payload.get("issue_types")
+    if isinstance(recovery_packet_issue_types, list):
+        recovery_packet_issue_count = len([item for item in recovery_packet_issue_types if str(item).strip()])
+    provider_auth_packet_payload: dict[str, Any] = {}
+    if provider_auth_recovery_packet:
+        provider_auth_packet_payload, _ = _load_json_file(Path(provider_auth_recovery_packet))
+    provider_auth_packet_status = str(provider_auth_packet_payload.get("status") or "unknown")
+    provider_auth_packet_next_action = str(provider_auth_packet_payload.get("next_required_action") or "").strip()
+    provider_auth_packet_issue_count = 0
+    provider_auth_packet_issue_types = provider_auth_packet_payload.get("issue_types")
+    if isinstance(provider_auth_packet_issue_types, list):
+        provider_auth_packet_issue_count = len(
+            [item for item in provider_auth_packet_issue_types if str(item).strip()]
+        )
+    recovery_packet_card_detail = _operator_packet_card_detail(
+        recovery_packet_next_action,
+        recovery_packet_issue_count,
+    )
+    provider_auth_packet_card_detail = _operator_packet_card_detail(
+        provider_auth_packet_next_action,
+        provider_auth_packet_issue_count,
+    )
+
+    scheduler_artifact_path = scheduler_evidence.get("path")
+    (
+        finished_at,
+        age_hours,
+        scheduler_near_stale,
+        scheduler_age_card_detail,
+    ) = _operator_scheduler_evidence_section(
+        base_dir,
+        scheduler_evidence,
+        scheduler_artifact_path,
+        warnings,
+    )
 
     status = str(readiness.get("status") or ("missing" if readiness_error else "unknown"))
     total = int(summary.get("total") or len(checks) or 0)
