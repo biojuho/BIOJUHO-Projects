@@ -51,6 +51,8 @@ def score_tweet_batch(batch: Any, trend: Any, config: Any) -> dict[str, Any]:
     return {
         "total": int(res.get("total", 0)),
         "failed": bool(res.get("failed", False)),
+        "fact_violation": bool(res.get("fact_violation", False)),
+        "regulation": int(res.get("regulation", 0)),
         "n": len(tweets),
         "worst": str(res.get("worst", "")),
         "generated": True,
@@ -102,6 +104,9 @@ async def run_ab(
     avg_b = round(sum(r["score_b"]["total"] for r in scored) / len(scored), 2) if scored else 0.0
     a_fail = sum(1 for r in scored if r["score_a"]["failed"])
     b_fail = sum(1 for r in scored if r["score_b"]["failed"])
+    failure_drivers = _failure_drivers(
+        [r["score_a"] for r in scored] + [r["score_b"] for r in scored]
+    )
     a_wins = sum(1 for r in results if r["winner"] == "A")
     b_wins = sum(1 for r in results if r["winner"] == "B")
     adopt_b, reason = _adoption_verdict(
@@ -124,7 +129,29 @@ async def run_ab(
         "b_failures": b_fail,
         "decision": "adopt_B" if adopt_b else "keep_A",
         "decision_reason": reason,
+        "failure_drivers": failure_drivers,
         "results": results,
+    }
+
+
+def _failure_drivers(scores: list[dict[str, Any]]) -> dict[str, int]:
+    """Classify why failing batches fail, to separate calibration vs content issues.
+
+    ``_audit_content_group`` fails a batch when total < threshold, regulation
+    <= 3, or any fact violation. Counting which driver dominates tells us
+    whether the ~100% batch-failure rate is a generation problem (fact
+    violations from sparse context) or a format/regulation one.
+    """
+    failed = [s for s in scores if s.get("generated") and s.get("failed")]
+    return {
+        "failed_batches": len(failed),
+        "fact_violation": sum(1 for s in failed if s.get("fact_violation")),
+        "regulation_low": sum(1 for s in failed if int(s.get("regulation", 99)) <= 3),
+        "below_threshold_only": sum(
+            1
+            for s in failed
+            if not s.get("fact_violation") and int(s.get("regulation", 99)) > 3
+        ),
     }
 
 

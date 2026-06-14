@@ -10,6 +10,7 @@ from config import AppConfig
 from models import GeneratedTweet, ScoredTrend, TweetBatch
 from scripts.ab_test_content_variants import (
     _adoption_verdict,
+    _failure_drivers,
     compare_trend_variants,
     decide_winner,
     run_ab,
@@ -127,6 +128,22 @@ class TestAdoptionVerdict:
             compared=8, a_wins=3, b_wins=5, avg_a=64.0, avg_b=65.0, a_fail=1, b_fail=1
         )
         assert adopt is False and "noise" in reason
+
+
+class TestFailureDrivers:
+    def test_classifies_fact_violation_and_regulation(self):
+        scores = [
+            {"generated": True, "failed": True, "fact_violation": True, "regulation": 10},
+            {"generated": True, "failed": True, "fact_violation": False, "regulation": 2},
+            {"generated": True, "failed": True, "fact_violation": False, "regulation": 8},
+            {"generated": True, "failed": False, "fact_violation": False, "regulation": 10},
+            {"generated": False, "failed": True},  # ungenerated ignored
+        ]
+        drivers = _failure_drivers(scores)
+        assert drivers["failed_batches"] == 3
+        assert drivers["fact_violation"] == 1
+        assert drivers["regulation_low"] == 1
+        assert drivers["below_threshold_only"] == 1
 
 
 class TestRunAb:
