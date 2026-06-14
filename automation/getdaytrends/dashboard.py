@@ -1985,6 +1985,26 @@ def _operator_handoff_secret_scan_section(
     return scanned, findings, missing, includes_current, contract_ok, ok, state, value, detail
 
 
+def _operator_packet_summary(packet_path: str) -> tuple[dict[str, Any], str, str, int, str]:
+    """Load and summarize a recovery packet.
+
+    Returns ``(payload, status, next_action, issue_count, card_detail)``. Shared
+    by the Supabase and provider-auth recovery packets, which have identical
+    shape.
+    """
+    payload: dict[str, Any] = {}
+    if packet_path:
+        payload, _ = _load_json_file(Path(packet_path))
+    status = str(payload.get("status") or "unknown")
+    next_action = str(payload.get("next_required_action") or "").strip()
+    issue_count = 0
+    issue_types = payload.get("issue_types")
+    if isinstance(issue_types, list):
+        issue_count = len([item for item in issue_types if str(item).strip()])
+    card_detail = _operator_packet_card_detail(next_action, issue_count)
+    return payload, status, next_action, issue_count, card_detail
+
+
 def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
     logs_dir = base_dir / "logs"
     readiness_path = logs_dir / "readiness" / "readiness_latest.json"
@@ -2041,34 +2061,20 @@ def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
             if issue.get("name") == "provider_auth_report":
                 issue["recovery_packet"] = provider_auth_recovery_packet
     _annotate_reused_recovery_packets(blockers)
-    recovery_packet_payload: dict[str, Any] = {}
-    if supabase_recovery_packet:
-        recovery_packet_payload, _ = _load_json_file(Path(supabase_recovery_packet))
-    recovery_packet_status = str(recovery_packet_payload.get("status") or "unknown")
-    recovery_packet_next_action = str(recovery_packet_payload.get("next_required_action") or "").strip()
-    recovery_packet_issue_count = 0
-    recovery_packet_issue_types = recovery_packet_payload.get("issue_types")
-    if isinstance(recovery_packet_issue_types, list):
-        recovery_packet_issue_count = len([item for item in recovery_packet_issue_types if str(item).strip()])
-    provider_auth_packet_payload: dict[str, Any] = {}
-    if provider_auth_recovery_packet:
-        provider_auth_packet_payload, _ = _load_json_file(Path(provider_auth_recovery_packet))
-    provider_auth_packet_status = str(provider_auth_packet_payload.get("status") or "unknown")
-    provider_auth_packet_next_action = str(provider_auth_packet_payload.get("next_required_action") or "").strip()
-    provider_auth_packet_issue_count = 0
-    provider_auth_packet_issue_types = provider_auth_packet_payload.get("issue_types")
-    if isinstance(provider_auth_packet_issue_types, list):
-        provider_auth_packet_issue_count = len(
-            [item for item in provider_auth_packet_issue_types if str(item).strip()]
-        )
-    recovery_packet_card_detail = _operator_packet_card_detail(
+    (
+        recovery_packet_payload,
+        recovery_packet_status,
         recovery_packet_next_action,
         recovery_packet_issue_count,
-    )
-    provider_auth_packet_card_detail = _operator_packet_card_detail(
+        recovery_packet_card_detail,
+    ) = _operator_packet_summary(supabase_recovery_packet)
+    (
+        provider_auth_packet_payload,
+        provider_auth_packet_status,
         provider_auth_packet_next_action,
         provider_auth_packet_issue_count,
-    )
+        provider_auth_packet_card_detail,
+    ) = _operator_packet_summary(provider_auth_recovery_packet)
 
     scheduler_artifact_path = scheduler_evidence.get("path")
     (
