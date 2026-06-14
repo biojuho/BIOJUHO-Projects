@@ -1,5 +1,26 @@
 # DSCI QC Log
 
+## 2026-06-14 (PWA web manifest)
+
+### Scope
+- Pairs with the favicon cycle: added a `site.webmanifest` so the app is installable (Android home-screen / desktop PWA) with a name, theme/background color, standalone display, and maskable icons.
+- Owned paths: `frontend/public/site.webmanifest`, `frontend/public/icon-192.png`, `frontend/public/icon-512.png`, `frontend/scripts/generate_favicon.py` (extended to emit 192/512), `frontend/index.html` (manifest link only; verified clean before edit), this log.
+
+### A/B Decision
+- A (baseline): no manifest — no install prompt, no themed standalone window, browser-chosen icons.
+- B (variant): full manifest (name/short_name/description in Korean, `theme_color`/`background_color` #040811, `display: standalone`, scope `/`) + 192/512 maskable icons generated from the same molecule motif.
+- Selected B: standard installable-PWA launch polish; the dark theme color also styles the mobile browser chrome consistently.
+
+### Verification
+- `python scripts/generate_favicon.py` -> wrote apple-touch-icon (180, unchanged bytes), icon-192 (4694 B), icon-512 (12143 B).
+- `json.load` of site.webmanifest -> valid, 3 icons.
+- `npm run build` -> built in 2.92s; `dist/{site.webmanifest,icon-192.png,icon-512.png}` present; `dist/index.html` links the manifest.
+- `git status -s index.html` before edit -> clean; edit limited to one `<link rel="manifest">` line.
+
+### Result
+- Landing is now an installable PWA with a branded identity end to end (favicon → touch icon → manifest icons). Additive, revertible.
+- Cumulative this branch (PR #261): index.html SEO/JSON-LD meta, per-route dynamic meta hook, robots.txt + sitemap.xml, branded favicon/touch icon, PWA manifest.
+
 ## 2026-06-14 (Branded favicon + apple-touch-icon)
 
 ### Scope

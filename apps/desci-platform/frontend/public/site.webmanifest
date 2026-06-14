@@ -1,0 +1,31 @@
+{
+  "name": "DecentBio — AI-Powered DeSci Platform",
+  "short_name": "DecentBio",
+  "description": "바이오 연구를 AI로 가속화하는 탈중앙 사이언스 플랫폼. 정부과제 매칭, VC 연결, AI 제안서, IPFS 논문 저장.",
+  "lang": "ko-KR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#040811",
+  "theme_color": "#040811",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}
