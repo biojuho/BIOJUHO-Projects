@@ -164,7 +164,7 @@ def _load_recent_trends(db_path: str, limit: int) -> list[Any]:
 
 async def _run_live(limit: int, db_path: str) -> dict[str, Any]:
     from config import AppConfig
-    from generator import generate_ab_variant_async, generate_for_trend_async
+    from generator import generate_ab_variant_async, generate_tweets_async
 
     from shared.llm import get_client
 
@@ -174,8 +174,11 @@ async def _run_live(limit: int, db_path: str) -> dict[str, Any]:
     if not trends:
         raise SystemExit(f"No trends found in {db_path}; run the pipeline first.")
 
+    # Variant A = default-tone shortform tweets, symmetric with variant B
+    # (generate_ab_variant_async). Using the tweet-only generator keeps the
+    # comparison apples-to-apples and avoids the slow/broken heavy-tier blog path.
     async def gen_a(trend: Any) -> Any:
-        return await generate_for_trend_async(trend, config, client)
+        return await generate_tweets_async(trend, config, client)
 
     async def gen_b(trend: Any) -> Any:
         return await generate_ab_variant_async(trend, config, client)
