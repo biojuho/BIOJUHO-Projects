@@ -102,19 +102,65 @@ async def run_ab(
     avg_b = round(sum(r["score_b"]["total"] for r in scored) / len(scored), 2) if scored else 0.0
     a_fail = sum(1 for r in scored if r["score_a"]["failed"])
     b_fail = sum(1 for r in scored if r["score_b"]["failed"])
-    adopt_b = bool(scored) and avg_b > avg_a and b_fail <= a_fail
+    a_wins = sum(1 for r in results if r["winner"] == "A")
+    b_wins = sum(1 for r in results if r["winner"] == "B")
+    adopt_b, reason = _adoption_verdict(
+        compared=len(scored),
+        a_wins=a_wins,
+        b_wins=b_wins,
+        avg_a=avg_a,
+        avg_b=avg_b,
+        a_fail=a_fail,
+        b_fail=b_fail,
+    )
     return {
         "trends": len(results),
         "compared": len(scored),
-        "a_wins": sum(1 for r in results if r["winner"] == "A"),
-        "b_wins": sum(1 for r in results if r["winner"] == "B"),
+        "a_wins": a_wins,
+        "b_wins": b_wins,
         "avg_a": avg_a,
         "avg_b": avg_b,
         "a_failures": a_fail,
         "b_failures": b_fail,
         "decision": "adopt_B" if adopt_b else "keep_A",
+        "decision_reason": reason,
         "results": results,
     }
+
+
+# Minimum evidence required before recommending a product-wide tone change.
+MIN_COMPARED = 5
+MIN_MARGIN = 3.0  # mean-score points (~5% of the ~64-point typical total)
+
+
+def _adoption_verdict(
+    *,
+    compared: int,
+    a_wins: int,
+    b_wins: int,
+    avg_a: float,
+    avg_b: float,
+    a_fail: int,
+    b_fail: int,
+) -> tuple[bool, str]:
+    """Gate variant-B adoption on real evidence, not a noisy mean delta.
+
+    A 1-point mean edge with tied per-trend wins — or both variants failing QA
+    on every trend — is not grounds to flip the product tone. Require a minimum
+    sample, a win majority, a meaningful margin, no extra failures, and that B is
+    not failing on every compared trend.
+    """
+    if compared < MIN_COMPARED:
+        return False, f"insufficient sample ({compared} < {MIN_COMPARED})"
+    if b_fail >= compared:
+        return False, "variant B fails QA on every compared trend"
+    if b_wins <= a_wins:
+        return False, f"no win majority (B {b_wins} vs A {a_wins})"
+    if (avg_b - avg_a) < MIN_MARGIN:
+        return False, f"margin within noise ({avg_b - avg_a:.2f} < {MIN_MARGIN})"
+    if b_fail > a_fail:
+        return False, "variant B adds QA failures"
+    return True, f"B beats A by {avg_b - avg_a:.2f} with {b_wins}-{a_wins} wins"
 
 
 def _row_to_scored_trend(row: sqlite3.Row) -> Any:

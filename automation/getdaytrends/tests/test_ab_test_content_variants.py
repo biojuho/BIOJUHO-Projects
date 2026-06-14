@@ -9,6 +9,7 @@ import pytest
 from config import AppConfig
 from models import GeneratedTweet, ScoredTrend, TweetBatch
 from scripts.ab_test_content_variants import (
+    _adoption_verdict,
     compare_trend_variants,
     decide_winner,
     run_ab,
@@ -95,25 +96,40 @@ class TestScoreTweetBatch:
 # ── run_ab aggregation + decision ─────────────────────────────────────────────
 
 
+class TestAdoptionVerdict:
+    def test_adopts_b_with_clear_evidence(self):
+        adopt, _reason = _adoption_verdict(
+            compared=8, a_wins=2, b_wins=6, avg_a=60.0, avg_b=66.0, a_fail=1, b_fail=1
+        )
+        assert adopt is True
+
+    def test_rejects_small_sample(self):
+        adopt, reason = _adoption_verdict(
+            compared=1, a_wins=0, b_wins=1, avg_a=56.0, avg_b=66.0, a_fail=0, b_fail=0
+        )
+        assert adopt is False and "sample" in reason
+
+    def test_rejects_tied_wins_and_noise_margin(self):
+        # The real n=9 live result: 5-5 wins, +1.33 margin, all failing.
+        adopt, reason = _adoption_verdict(
+            compared=9, a_wins=5, b_wins=5, avg_a=63.78, avg_b=65.11, a_fail=9, b_fail=9
+        )
+        assert adopt is False
+
+    def test_rejects_when_b_fails_every_trend(self):
+        adopt, reason = _adoption_verdict(
+            compared=6, a_wins=1, b_wins=5, avg_a=50.0, avg_b=60.0, a_fail=6, b_fail=6
+        )
+        assert adopt is False and "every" in reason
+
+    def test_rejects_margin_within_noise(self):
+        adopt, reason = _adoption_verdict(
+            compared=8, a_wins=3, b_wins=5, avg_a=64.0, avg_b=65.0, a_fail=1, b_fail=1
+        )
+        assert adopt is False and "noise" in reason
+
+
 class TestRunAb:
-    @pytest.mark.asyncio
-    async def test_adopts_b_when_better(self, trend, config):
-        weak = "엔비디아 좋다 대박 ㅋㅋ"  # short, low-quality lead
-        strong = _GOOD
-
-        async def gen_a(_t):
-            return _batch(weak)
-
-        async def gen_b(_t):
-            return _batch(strong)
-
-        summary = await run_ab([trend], config, gen_a, gen_b)
-        assert summary["compared"] == 1
-        # B is the stronger copy; if it scores higher it must be adopted.
-        if summary["avg_b"] > summary["avg_a"]:
-            assert summary["decision"] == "adopt_B"
-            assert summary["b_wins"] == 1
-
     @pytest.mark.asyncio
     async def test_keeps_a_when_b_fails_to_generate(self, trend, config):
         async def gen_a(_t):
