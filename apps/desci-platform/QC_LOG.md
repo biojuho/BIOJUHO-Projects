@@ -1,5 +1,26 @@
 # DSCI QC Log
 
+## 2026-06-13 (Per-Route Document Meta for SPA Routes)
+
+### Scope
+- Follow-up to the index.html hardening: the SPA had no per-route `document.title`/meta, so every route (`/pricing`, `/explore`, `/investors`, 404) showed the home title in the browser tab, bookmarks, and deep-link social shares. Only `ProposalView` had any title handling.
+- Owned paths: `frontend/src/hooks/useDocumentMeta.js` (+ test), `frontend/src/components/{LandingPage,PricingPage,Investors,ResearchFeed,NotFound}.jsx`, this log.
+
+### A/B Decision
+- A (baseline): single static title from index.html for all routes.
+- B (variant): a dependency-free `useDocumentMeta` hook that sets title + meta description + OG/Twitter title/description + canonical per route, locale-aware (ko-KR/en-US via existing `useLocale`), and restores the index.html baseline on unmount. Wired into the 5 public routes.
+- Rejected react-helmet (would add a dependency; CLAUDE.md forbids unapproved deps). The hook is ~110 lines, no new dep, no bundle change.
+- Selected B: distinct titles improve tab/bookmark UX, crawler per-page understanding, and deep-link share cards.
+
+### Verification
+- `npx vitest run src/hooks/useDocumentMeta.test.jsx` -> 4 passed (set+propagate, canonical-from-path, restore-on-unmount, create-missing-tag). Found+fixed a test-fixture ordering bug (innerHTML assignment wiped the jsdom `<title>`); hook itself unchanged.
+- `npx vitest run` page tests for LandingPage/PricingPage/Investors/ResearchFeed/NotFound -> 27 passed total, no regressions.
+- `npm run lint` -> clean. `npm run build` -> built in 1.61s.
+
+### Result
+- Public routes now carry correct, locale-aware titles and meta. Additive, revertible.
+- Next cycle: PricingPage `Product`/`Offer` JSON-LD injected client-side, and an axe-core a11y smoke over the landing+pricing flow.
+
 ## 2026-06-13 (Launch SEO/a11y Meta Hardening — index.html)
 
 ### Scope

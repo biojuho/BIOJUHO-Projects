@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Building2, Globe2, Mail, Search } from 'lucide-react';
 import client from '../services/api';
+import { useLocale } from '../contexts/LocaleContext';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import GlassCard from './ui/GlassCard';
 import { SkeletonList } from './ui/Skeleton';
 
@@ -16,81 +18,136 @@ const STAGE_OPTIONS = [
   'Strategic',
 ];
 
-const COUNTRY_OPTIONS = [
-  { value: '', label: 'All countries' },
-  { value: 'KR', label: 'Korea' },
-  { value: 'US', label: 'United States' },
-  { value: 'FR', label: 'France' },
-];
+const COUNTRY_OPTIONS = ['', 'KR', 'US', 'FR'];
 
-function InvestorCard({ vc }) {
+function safeExternalWebUrl(candidate) {
+  if (!candidate) return '';
+  try {
+    const url = new URL(String(candidate));
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function displayExternalUrl(url) {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
+function safeMailtoHref(candidate) {
+  const email = String(candidate || '').trim();
+  if (!email || email.length > 254) return '';
+  if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email)) return '';
+  return `mailto:${email}`;
+}
+
+function InvestorCard({ vc, t }) {
+  const websiteUrl = safeExternalWebUrl(vc.website);
+  const emailHref = safeMailtoHref(vc.contact_email);
+
   return (
-    <GlassCard className="p-6" hoverEffect>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">
-              {vc.country}
-            </span>
-            {vc.preferred_stages?.slice(0, 3).map((stage) => (
-              <span
-                key={stage}
-                className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-ink-muted"
-              >
-                {stage}
+    <div data-testid={`investor-card-${vc.id}`}>
+      <GlassCard className="p-6" hoverEffect>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">
+                {vc.country}
               </span>
-            ))}
-          </div>
-          <h3 className="font-display text-2xl font-semibold text-ink">{vc.name}</h3>
-          <p className="mt-3 text-sm leading-6 text-ink-muted">{vc.investment_thesis}</p>
-          {vc.portfolio_keywords?.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {vc.portfolio_keywords.slice(0, 6).map((kw) => (
+              {vc.preferred_stages?.slice(0, 3).map((stage) => (
                 <span
-                  key={kw}
-                  className="rounded-full border border-surface-line/60 bg-surface/70 px-3 py-1 text-xs font-medium text-ink-muted"
+                  key={stage}
+                  className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-ink-muted"
                 >
-                  {kw}
+                  {stage}
                 </span>
               ))}
             </div>
-          )}
+            <h3 className="font-display text-2xl font-semibold text-ink">{vc.name}</h3>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">{vc.investment_thesis}</p>
+            {vc.portfolio_keywords?.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {vc.portfolio_keywords.slice(0, 6).map((kw) => (
+                  <span
+                    key={kw}
+                    className="rounded-full border border-surface-line/60 bg-surface/70 px-3 py-1 text-xs font-medium text-ink-muted"
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex w-full flex-shrink-0 flex-col gap-2 text-sm text-ink-muted lg:w-56">
+            {websiteUrl ? (
+              <a
+                href={websiteUrl}
+                data-testid={`investor-website-${vc.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-primary hover:underline"
+              >
+                <Globe2 className="h-4 w-4" />
+                <span className="truncate">{displayExternalUrl(websiteUrl)}</span>
+              </a>
+            ) : (
+              <span
+                data-testid={`investor-website-unavailable-${vc.id}`}
+                className="inline-flex items-center gap-2 text-ink-soft"
+              >
+                <Globe2 className="h-4 w-4" />
+                <span className="truncate">{t('investors.websiteUnavailable')}</span>
+              </span>
+            )}
+            {emailHref ? (
+              <a
+                href={emailHref}
+                data-testid={`investor-email-${vc.id}`}
+                className="inline-flex items-center gap-2 text-ink hover:text-primary"
+              >
+                <Mail className="h-4 w-4" />
+                <span className="truncate">{vc.contact_email}</span>
+              </a>
+            ) : vc.contact_email ? (
+              <span
+                data-testid={`investor-email-unavailable-${vc.id}`}
+                className="inline-flex items-center gap-2 text-ink-soft"
+              >
+                <Mail className="h-4 w-4" />
+                <span className="truncate">{t('investors.emailUnavailable')}</span>
+              </span>
+            ) : (
+              null
+            )}
+            <span className="mt-2 text-xs text-ink-soft">{vc.id}</span>
+          </div>
         </div>
-        <div className="flex w-full flex-shrink-0 flex-col gap-2 text-sm text-ink-muted lg:w-56">
-          {vc.website && (
-            <a
-              href={vc.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-primary hover:underline"
-            >
-              <Globe2 className="h-4 w-4" />
-              <span className="truncate">{vc.website.replace(/^https?:\/\//, '')}</span>
-            </a>
-          )}
-          {vc.contact_email && (
-            <a
-              href={`mailto:${vc.contact_email}`}
-              className="inline-flex items-center gap-2 text-ink hover:text-primary"
-            >
-              <Mail className="h-4 w-4" />
-              <span className="truncate">{vc.contact_email}</span>
-            </a>
-          )}
-          <span className="mt-2 text-xs text-ink-soft">{vc.id}</span>
-        </div>
-      </div>
-    </GlassCard>
+      </GlassCard>
+    </div>
   );
 }
 
 export default function Investors() {
+  const { t, locale } = useLocale();
+  const isKo = locale === 'ko-KR';
+  useDocumentMeta({
+    title: isKo ? '투자자 디렉토리 — DecentBio' : 'Investor Directory — DecentBio',
+    description: isKo
+      ? '바이오 분야 국내외 VC 디렉토리. 연구를 위한 투자자를 찾아보세요.'
+      : 'Directory of bio-focused VCs in Korea and beyond. Find investors for your research.',
+    canonicalPath: '/investors',
+  });
   const [allVcs, setAllVcs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [country, setCountry] = useState('');
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
+  const tRef = useRef(t);
+
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +162,7 @@ export default function Investors() {
       } catch (err) {
         if (!cancelled) {
           console.error('Failed to fetch VCs:', err);
-          setError('Could not load investor directory.');
+          setError(tRef.current('investors.loadFailed'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -137,14 +194,13 @@ export default function Investors() {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="clay-chip mb-4 inline-flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> Investor directory
+              <Building2 className="h-4 w-4" /> {t('investors.directory')}
             </p>
             <h1 className="font-display text-4xl font-semibold text-ink">
-              Bio <span className="text-gradient">VC ecosystem</span>
+              {t('investors.titlePrefix')} <span className="text-gradient">{t('investors.titleHighlight')}</span>
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-ink-muted">
-              Browse {allVcs.length || '50+'} curated Korean and global biotech investors. Filter by
-              country, stage, or keyword to find the right partner for your research.
+              {t('investors.subtitle', { count: allVcs.length || '50+' })}
             </p>
           </div>
         </div>
@@ -156,21 +212,23 @@ export default function Investors() {
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
             <input
               type="text"
-              placeholder="Search name, thesis, or keyword"
+              placeholder={t('investors.searchPlaceholder')}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               className="clay-input pl-11"
+              data-testid="investors-search"
             />
           </div>
           <select
             value={country}
             onChange={(e) => setCountry(e.target.value)}
             className="clay-input"
-            aria-label="Filter by country"
+            aria-label={t('investors.filterCountry')}
+            data-testid="investors-country-filter"
           >
-            {COUNTRY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            {COUNTRY_OPTIONS.map((value) => (
+              <option key={value || 'all'} value={value}>
+                {t(value ? `investors.country.${value}` : 'investors.allCountries')}
               </option>
             ))}
           </select>
@@ -178,9 +236,10 @@ export default function Investors() {
             value={stage}
             onChange={(e) => setStage(e.target.value)}
             className="clay-input"
-            aria-label="Filter by preferred stage"
+            aria-label={t('investors.filterStage')}
+            data-testid="investors-stage-filter"
           >
-            <option value="">All stages</option>
+            <option value="">{t('investors.allStages')}</option>
             {STAGE_OPTIONS.filter(Boolean).map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -197,22 +256,24 @@ export default function Investors() {
       )}
 
       <p className="text-sm text-ink-muted">
-        Showing {filtered.length} of {allVcs.length} investors
+        <span data-testid="investors-result-count">
+          {t('investors.showingCount', { shown: filtered.length, total: allVcs.length })}
+        </span>
       </p>
 
       {loading ? (
         <SkeletonList count={5} />
       ) : filtered.length === 0 ? (
         <GlassCard className="p-10 text-center">
-          <p className="font-semibold text-ink">No investors match your filters</p>
+          <p className="font-semibold text-ink">{t('investors.emptyTitle')}</p>
           <p className="mt-2 text-sm text-ink-muted">
-            Try clearing a filter or broadening the keyword search.
+            {t('investors.emptyDescription')}
           </p>
         </GlassCard>
       ) : (
         <div className="space-y-4">
           {filtered.map((vc) => (
-            <InvestorCard key={vc.id} vc={vc} />
+            <InvestorCard key={vc.id} vc={vc} t={t} />
           ))}
         </div>
       )}

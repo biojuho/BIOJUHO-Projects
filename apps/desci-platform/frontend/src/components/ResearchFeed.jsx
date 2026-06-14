@@ -16,6 +16,7 @@ import {
     Activity,
 } from 'lucide-react';
 import { useLocale } from '../contexts/LocaleContext';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import LocaleToggle from './ui/LocaleToggle';
 import GlassCard from './ui/GlassCard';
 import { Badge } from './ui/Badge';
@@ -101,6 +102,68 @@ const FIELD_LABELS_KO = {
     Genomics: '유전체학',
 };
 
+function testIdPart(value) {
+    return String(value ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'item';
+}
+
+function safeIpfsCid(candidate) {
+    const value = String(candidate || '').trim();
+    if (!value) return '';
+    if (value.length < 32 || value.length > 100) return '';
+    if (!/^[A-Za-z0-9]+$/.test(value)) return '';
+    return value;
+}
+
+function buildIpfsGatewayHref(candidate) {
+    const cid = safeIpfsCid(candidate);
+    return cid ? `https://ipfs.io/ipfs/${cid}` : '';
+}
+
+function buildAmoyTxHref(candidate) {
+    const hash = String(candidate || '').trim();
+    if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) return '';
+    return `https://amoy.polygonscan.com/tx/${hash}`;
+}
+
+function buildAnalyzeLoginPath(paper) {
+    const params = new URLSearchParams({
+        next: '/biolinker',
+        intent: 'analyze',
+        paper_id: String(paper.id),
+    });
+    if (paper.title) {
+        params.set('paper_title', paper.title);
+    }
+    return `/login?${params.toString()}`;
+}
+
+function normalizePaper(paper, index = 0) {
+    const fallback = MOCK_PAPERS[index % MOCK_PAPERS.length] || MOCK_PAPERS[0];
+    const source = paper || {};
+    const keywords = Array.isArray(source.keywords) ? source.keywords.filter(Boolean) : [];
+    const tags = Array.isArray(source.tags) ? source.tags.filter(Boolean) : keywords;
+    const field = source.field || tags[0] || fallback.field || 'General Science';
+    const cid = source.ipfs_cid || source.cid || fallback.ipfs_cid;
+    const cited = Number(source.cited);
+
+    return {
+        ...fallback,
+        ...source,
+        id: source.id || source.cid || fallback.id,
+        title: source.title || fallback.title,
+        abstract: source.abstract || fallback.abstract,
+        authors: Array.isArray(source.authors) ? source.authors.join(', ') : (source.authors || fallback.authors),
+        tags: tags.length > 0 ? tags : [field],
+        ipfs_cid: cid,
+        date: source.date || String(source.created_at || '').slice(0, 10) || fallback.date,
+        field,
+        cited: Number.isFinite(cited) ? cited : 0,
+    };
+}
+
 const cardVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.45 } }),
@@ -109,6 +172,13 @@ const cardVariants = {
 export default function ResearchFeed() {
     const { locale } = useLocale();
     const isKo = locale === 'ko-KR';
+    useDocumentMeta({
+        title: isKo ? '연구 피드 — DecentBio' : 'Research Feed — DecentBio',
+        description: isKo
+            ? '최신 바이오 연구와 논문을 탐색하고 IPFS에 저장된 연구를 둘러보세요.'
+            : 'Explore the latest bio research and papers stored on IPFS.',
+        canonicalPath: '/explore',
+    });
     const [query, setQuery] = useState('');
     const [activeField, setActiveField] = useState('All');
     const [papersData, setPapersData] = useState([]);
@@ -118,8 +188,9 @@ export default function ResearchFeed() {
         import('../services/api').then(({ default: api }) => {
             api.get('/papers/public')
                 .then((res) => {
-                    if (res.data && res.data.length > 0) {
-                        setPapersData(res.data);
+                    const papers = Array.isArray(res.data) ? res.data : [];
+                    if (papers.length > 0) {
+                        setPapersData(papers.map((paper, index) => normalizePaper(paper, index)));
                     } else {
                         setPapersData(MOCK_PAPERS);
                     }
@@ -133,13 +204,13 @@ export default function ResearchFeed() {
     }, []);
 
     const papers = useMemo(() => {
-        let filtered = papersData;
+        let filtered = papersData.map((paper, index) => normalizePaper(paper, index));
         if (query.trim()) {
             const q = query.toLowerCase();
             filtered = filtered.filter(
                 (p) => p.title.toLowerCase().includes(q) ||
                     p.abstract.toLowerCase().includes(q) ||
-                    (p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
+                    p.tags.some((t) => t.toLowerCase().includes(q))
             );
         }
         if (activeField !== 'All') {
@@ -196,6 +267,7 @@ export default function ResearchFeed() {
                             onChange={(event) => setQuery(event.target.value)}
                             placeholder={isKo ? '제목, 초록, 키워드 검색...' : 'Search title, abstract, keywords...'}
                             className="clay-input w-full pl-11"
+                            data-testid="research-feed-search"
                             aria-label={isKo ? '논문 검색' : 'Search papers'}
                         />
                     </div>
@@ -206,6 +278,7 @@ export default function ResearchFeed() {
                                 key={field}
                                 type="button"
                                 onClick={() => setActiveField(field)}
+                                data-testid={`research-feed-field-${testIdPart(field)}`}
                                 className={[
                                     'shrink-0 rounded-[1.2rem] px-4 py-2 text-xs font-semibold transition-all',
                                     activeField === field
@@ -249,7 +322,10 @@ export default function ResearchFeed() {
                 ) : (
                     <div className="space-y-5">
 
-                        {papers.map((paper, index) => (
+                        {papers.map((paper, index) => {
+                            const ipfsHref = buildIpfsGatewayHref(paper.ipfs_cid);
+                            const txHref = buildAmoyTxHref(paper.tx_hash);
+                            return (
                             <motion.div
                                 key={paper.id}
                                 custom={index}
@@ -259,9 +335,9 @@ export default function ResearchFeed() {
                             >
                                 <GlassCard className="p-6 transition-all hover:-translate-y-0.5">
                                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                        <div className="flex-1">
+                                        <div className="min-w-0 flex-1">
                                             <div className="mb-3 flex flex-wrap items-center gap-2">
-                                                <Badge variant="default">{isKo ? FIELD_LABELS_KO[paper.field] : paper.field}</Badge>
+                                                <Badge variant="default">{isKo ? (FIELD_LABELS_KO[paper.field] || paper.field) : paper.field}</Badge>
                                                 <span className="flex items-center gap-1 text-xs text-ink-soft">
                                                     <Clock className="h-3 w-3" />
                                                     {paper.date}
@@ -300,29 +376,55 @@ export default function ResearchFeed() {
                                             </div>
                                         </div>
 
-                                        <div className="flex shrink-0 flex-row gap-2 md:flex-col">
-                                            <a
-                                                href={`https://ipfs.io/ipfs/${paper.ipfs_cid}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="clay-button text-xs font-semibold text-ink"
-                                                aria-label={isKo ? 'IPFS에서 보기' : 'View on IPFS'}
-                                            >
-                                                <Globe className="h-3.5 w-3.5" />
-                                                {isKo ? 'IPFS 보기' : 'IPFS'}
-                                            </a>
-                                            {paper.tx_hash && (
+                                        <div className="flex w-full shrink-0 flex-row flex-wrap gap-2 sm:w-auto md:w-32 md:flex-col">
+                                            {ipfsHref ? (
                                                 <a
-                                                    href={`https://amoy.polygonscan.com/tx/${paper.tx_hash}`}
+                                                    href={ipfsHref}
+                                                    data-testid={`research-feed-ipfs-${paper.id}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="clay-button text-xs font-semibold text-ink"
+                                                    className="clay-button w-full whitespace-nowrap !px-3 text-xs font-semibold text-ink sm:w-auto md:w-full"
+                                                    aria-label={isKo ? 'IPFS에서 보기' : 'View on IPFS'}
+                                                >
+                                                    <Globe className="h-3.5 w-3.5" />
+                                                    {isKo ? 'IPFS 보기' : 'IPFS'}
+                                                </a>
+                                            ) : (
+                                                <span
+                                                    data-testid={`research-feed-ipfs-unavailable-${paper.id}`}
+                                                    className="clay-button w-full cursor-default whitespace-nowrap !px-3 text-xs font-semibold text-ink-soft sm:w-auto md:w-full"
+                                                >
+                                                    <Globe className="h-3.5 w-3.5" />
+                                                    {isKo ? 'IPFS 없음' : 'IPFS unavailable'}
+                                                </span>
+                                            )}
+                                            {txHref ? (
+                                                <a
+                                                    href={txHref}
+                                                    data-testid={`research-feed-tx-${paper.id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="clay-button w-full whitespace-nowrap !px-3 text-xs font-semibold text-ink sm:w-auto md:w-full"
                                                 >
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                     {isKo ? '트랜잭션' : 'Tx'}
                                                 </a>
+                                            ) : paper.tx_hash ? (
+                                                <span
+                                                    data-testid={`research-feed-tx-unavailable-${paper.id}`}
+                                                    className="clay-button w-full cursor-default whitespace-nowrap !px-3 text-xs font-semibold text-ink-soft sm:w-auto md:w-full"
+                                                >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                    {isKo ? '트랜잭션 없음' : 'Tx unavailable'}
+                                                </span>
+                                            ) : (
+                                                null
                                             )}
-                                            <Link to="/login" className="clay-button clay-button-primary text-xs font-semibold text-white">
+                                            <Link
+                                                to={buildAnalyzeLoginPath(paper)}
+                                                className="clay-button clay-button-primary w-full whitespace-nowrap !px-3 text-xs font-semibold text-white sm:w-auto md:w-full"
+                                                data-testid={`research-feed-analyze-${paper.id}`}
+                                            >
                                                 <Sparkles className="h-3.5 w-3.5" />
                                                 {isKo ? 'AI 분석' : 'Analyze'}
                                             </Link>
@@ -330,7 +432,8 @@ export default function ResearchFeed() {
                                     </div>
                                 </GlassCard>
                             </motion.div>
-                        ))}
+                            );
+                        })}
                     </div>
                         )}
                     </div>

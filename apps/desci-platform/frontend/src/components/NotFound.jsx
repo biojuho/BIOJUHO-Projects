@@ -2,10 +2,17 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Beaker, Sparkles } from 'lucide-react';
 import { useLocale } from '../contexts/LocaleContext';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 export default function NotFound() {
     const { locale } = useLocale();
     const isKo = locale === 'ko-KR';
+    useDocumentMeta({
+        title: isKo ? '페이지를 찾을 수 없습니다 — DecentBio' : 'Page Not Found — DecentBio',
+        description: isKo
+            ? '요청하신 페이지를 찾을 수 없습니다.'
+            : 'The page you requested could not be found.',
+    });
 
     return (
         <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--bg-primary, #f0ece6)' }}>

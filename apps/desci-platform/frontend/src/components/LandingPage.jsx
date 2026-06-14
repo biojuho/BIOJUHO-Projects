@@ -19,6 +19,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useLocale } from '../contexts/LocaleContext';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import LocaleToggle from './ui/LocaleToggle';
 
 function AnimatedCounter({ end, suffix = '', duration = 2000 }) {
@@ -176,6 +177,15 @@ const cardVariants = {
 export default function LandingPage() {
     const { locale } = useLocale();
     const isKo = locale === 'ko-KR';
+    useDocumentMeta({
+        title: isKo
+            ? 'DecentBio — 바이오 연구를 AI로 가속화하는 DeSci 플랫폼'
+            : 'DecentBio — AI-Powered DeSci Platform for Bio Research',
+        description: isKo
+            ? '정부과제 매칭, VC 연결, AI 제안서 생성, IPFS 논문 저장을 한 곳에서.'
+            : 'Grant matching, VC connections, AI proposals, and IPFS paper storage in one place.',
+        canonicalPath: '/',
+    });
     const featuresRef = useRef(null);
     const featuresInView = useInView(featuresRef, { once: true, margin: '-80px' });
 
@@ -184,6 +194,89 @@ export default function LandingPage() {
     return (
         <div className="relative min-h-screen overflow-x-hidden" style={{ background: 'var(--bg-primary, #f0ece6)' }}>
             <div className="ambient-bg" aria-hidden="true" />
+
+            {/* Scientific Generative Bio-Mesh SVG Overlay */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[700px] overflow-hidden pointer-events-none z-0 opacity-60 select-none" aria-hidden="true">
+                <svg className="w-full h-full min-w-[1024px]" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="mesh-glow-left" cx="20%" cy="40%" r="30%">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.12" />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                        </radialGradient>
+                        <radialGradient id="mesh-glow-right" cx="80%" cy="30%" r="30%">
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.12" />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                        </radialGradient>
+                        <linearGradient id="helix-line-grad" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
+                            <stop offset="50%" stopColor="#6366f1" stopOpacity="0.15" />
+                            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.05" />
+                        </linearGradient>
+                    </defs>
+
+                    {/* Background Soft Glows */}
+                    <rect width="100%" height="100%" fill="url(#mesh-glow-left)" />
+                    <rect width="100%" height="100%" fill="url(#mesh-glow-right)" />
+
+                    {/* Scientific Molecular Connections & DNA Helix Representation */}
+                    <g className="animate-pulse-slow">
+                        {/* Connected Node Lines (Left Web) */}
+                        <line x1="120" y1="200" x2="220" y2="150" stroke="url(#helix-line-grad)" strokeWidth="1" strokeDasharray="3 3" />
+                        <line x1="220" y1="150" x2="280" y2="280" stroke="url(#helix-line-grad)" strokeWidth="1" />
+                        <line x1="120" y1="200" x2="280" y2="280" stroke="url(#helix-line-grad)" strokeWidth="1.5" />
+                        <line x1="280" y1="280" x2="200" y2="380" stroke="url(#helix-line-grad)" strokeWidth="1" strokeDasharray="4 2" />
+                        <line x1="200" y1="380" x2="120" y2="200" stroke="url(#helix-line-grad)" strokeWidth="1" />
+
+                        {/* Left Web Nodes */}
+                        <circle cx="120" cy="200" r="5" fill="#10b981" className="animate-float-gentle" />
+                        <circle cx="220" cy="150" r="3" fill="#6366f1" />
+                        <circle cx="280" cy="280" r="6" fill="#8b5cf6" className="animate-float-slower" />
+                        <circle cx="200" cy="380" r="4" fill="#10b981" />
+
+                        {/* Dotted orbital rings to imply planetary or electron shells */}
+                        <circle cx="280" cy="280" r="45" stroke="#8b5cf6" strokeWidth="0.75" strokeDasharray="3 6" strokeOpacity="0.4" />
+                        <circle cx="120" cy="200" r="30" stroke="#10b981" strokeWidth="0.75" strokeDasharray="2 4" strokeOpacity="0.4" />
+                    </g>
+
+                    <g className="animate-pulse-slow-reverse">
+                        {/* Connected Node Lines (Right Web) */}
+                        <line x1="1080" y1="180" x2="980" y2="280" stroke="url(#helix-line-grad)" strokeWidth="1" />
+                        <line x1="980" y1="280" x2="920" y2="150" stroke="url(#helix-line-grad)" strokeWidth="1.5" strokeDasharray="4 4" />
+                        <line x1="920" y1="150" x2="1080" y2="180" stroke="url(#helix-line-grad)" strokeWidth="1" />
+                        <line x1="980" y1="280" x2="1020" y2="390" stroke="url(#helix-line-grad)" strokeWidth="1" />
+                        <line x1="1020" y1="390" x2="1080" y2="180" stroke="url(#helix-line-grad)" strokeWidth="1.2" strokeDasharray="2 2" />
+
+                        {/* Right Web Nodes */}
+                        <circle cx="1080" cy="180" r="4" fill="#6366f1" />
+                        <circle cx="980" cy="280" r="6" fill="#10b981" className="animate-float-slower" />
+                        <circle cx="920" cy="150" r="3" fill="#8b5cf6" />
+                        <circle cx="1020" cy="390" r="5" fill="#6366f1" className="animate-float-gentle" />
+
+                        <circle cx="980" cy="280" r="50" stroke="#10b981" strokeWidth="0.75" strokeDasharray="4 5" strokeOpacity="0.4" />
+                    </g>
+
+                    {/* DNA Double Helix Representation running across behind the central title */}
+                    <g className="opacity-25">
+                        {/* Strand A */}
+                        <path d="M 300 220 Q 375 120 450 220 T 600 220 T 750 220 T 900 220" fill="none" stroke="url(#helix-line-grad)" strokeWidth="2" strokeDasharray="6 3" />
+                        {/* Strand B */}
+                        <path d="M 300 220 Q 375 320 450 220 T 600 220 T 750 220 T 900 220" fill="none" stroke="url(#helix-line-grad)" strokeWidth="2" />
+
+                        {/* Connecting base-pair rungs */}
+                        <line x1="337" y1="180" x2="337" y2="260" stroke="#10b981" strokeWidth="1" strokeOpacity="0.5" />
+                        <line x1="412" y1="180" x2="412" y2="260" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.5" />
+
+                        <line x1="487" y1="260" x2="487" y2="180" stroke="#8b5cf6" strokeWidth="1" strokeOpacity="0.5" />
+                        <line x1="562" y1="260" x2="562" y2="180" stroke="#10b981" strokeWidth="1" strokeOpacity="0.5" />
+
+                        <line x1="637" y1="180" x2="637" y2="260" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.5" />
+                        <line x1="712" y1="180" x2="712" y2="260" stroke="#8b5cf6" strokeWidth="1" strokeOpacity="0.5" />
+
+                        <line x1="787" y1="260" x2="787" y2="180" stroke="#10b981" strokeWidth="1" strokeOpacity="0.5" />
+                        <line x1="862" y1="260" x2="862" y2="180" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.5" />
+                    </g>
+                </svg>
+            </div>
 
             <nav className="relative z-20 flex items-center justify-between px-6 py-5 lg:px-12">
                 <div className="flex items-center gap-3">
@@ -194,10 +287,10 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <LocaleToggle />
-                    <Link to="/login" className="clay-button text-sm font-semibold text-ink-muted hover:text-ink">
+                    <Link to="/login" className="clay-button text-sm font-semibold text-ink-muted hover:text-ink" data-testid="landing-sign-in">
                         {isKo ? '로그인' : 'Sign in'}
                     </Link>
-                    <Link to="/login" className="clay-button clay-button-primary text-sm font-semibold text-white">
+                    <Link to="/login?next=/dashboard" className="clay-button clay-button-primary text-sm font-semibold text-white" data-testid="landing-header-get-started">
                         {isKo ? '무료로 시작' : 'Get started free'}
                         <ArrowRight className="h-4 w-4" />
                     </Link>
@@ -227,12 +320,12 @@ export default function LandingPage() {
                             : 'AI matching, IPFS storage, investor deal flow, and governance connected as one product flow.'}
                     </p>
                     <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                        <Link to="/login" className="clay-button clay-button-primary px-8 py-4 text-base font-semibold text-white">
+                        <Link to="/login?next=/upload" className="clay-button clay-button-primary px-8 py-4 text-base font-semibold text-white" data-testid="landing-start-researcher">
                             <FlaskConical className="h-5 w-5" />
                             {isKo ? '연구자로 시작하기' : 'Start as Researcher'}
                             <ArrowRight className="h-4 w-4" />
                         </Link>
-                        <Link to="/explore" className="clay-button px-8 py-4 text-base font-semibold text-ink">
+                        <Link to="/explore" className="clay-button px-8 py-4 text-base font-semibold text-ink" data-testid="landing-explore-research">
                             <BookOpen className="h-5 w-5" />
                             {isKo ? '공개 연구 보기' : 'Explore Research'}
                         </Link>
@@ -407,12 +500,12 @@ export default function LandingPage() {
                             : 'Create a free account to try paper submission, funding discovery, and AI matching.'}
                     </p>
                     <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                        <Link to="/login" className="clay-button clay-button-primary px-10 py-4 text-base font-semibold text-white">
+                        <Link to="/login?next=/dashboard" className="clay-button clay-button-primary px-10 py-4 text-base font-semibold text-white" data-testid="landing-create-account">
                             <Sparkles className="h-5 w-5" />
                             {isKo ? '무료 계정 만들기' : 'Create free account'}
                             <ArrowRight className="h-4 w-4" />
                         </Link>
-                        <Link to="/pricing" className="clay-button px-10 py-4 text-base font-semibold text-ink">
+                        <Link to="/pricing" className="clay-button px-10 py-4 text-base font-semibold text-ink" data-testid="landing-compare-plans">
                             {isKo ? '요금제 비교' : 'Compare plans'}
                         </Link>
                     </div>
