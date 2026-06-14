@@ -47,9 +47,12 @@ def test_npm_build_skips_when_node_modules_absent(monkeypatch, tmp_path: Path) -
 
     result = healthcheck.check_npm_build("frontend")
 
-    assert result["ok"] is True
-    assert "SKIP" in result["message"]
-    assert "node_modules" in result["message"]
+    if not result["ok"]:
+        raise AssertionError(f"Expected ok=True, got: {result}")
+    if "SKIP" not in result["message"]:
+        raise AssertionError(f"Expected 'SKIP' in message, got: {result['message']}")
+    if "node_modules" not in result["message"]:
+        raise AssertionError(f"Expected 'node_modules' in message, got: {result['message']}")
 
 
 def test_npm_build_missing_package_dir(monkeypatch, tmp_path: Path) -> None:
@@ -59,5 +62,7 @@ def test_npm_build_missing_package_dir(monkeypatch, tmp_path: Path) -> None:
 
     result = healthcheck.check_npm_build("nonexistent-app")
 
-    assert result["ok"] is False
-    assert "MISSING" in result["message"]
+    if result["ok"]:
+        raise AssertionError(f"Expected ok=False, got: {result}")
+    if "MISSING" not in result["message"]:
+        raise AssertionError(f"Expected 'MISSING' in message, got: {result['message']}")
