@@ -1,5 +1,25 @@
 # DSCI QC Log
 
+## 2026-06-14 (Branded favicon + apple-touch-icon)
+
+### Scope
+- Launch landing still shipped the default Vite logo as its favicon (`/vite.svg`) — the browser tab and bookmarks showed the Vite mark, not the product. Added a branded favicon and an iOS touch icon.
+- Owned paths: `frontend/public/favicon.svg`, `frontend/public/apple-touch-icon.png`, `frontend/scripts/generate_favicon.py`, `frontend/index.html` (icon links only; verified clean in the working tree before editing to avoid bundling), this log.
+
+### A/B Decision
+- A (baseline): default Vite SVG favicon.
+- B (variant): a hand-authored `favicon.svg` (3-node molecule in brand teal #20BB8A on dark #040811, crisp at 16px) + a 180×180 `apple-touch-icon.png` rendered from the same motif by a reproducible generator. index.html points `rel="icon"` at `/favicon.svg` and adds `rel="apple-touch-icon"`.
+- Selected B: removes the off-brand Vite logo, gives a recognizable mark in tabs/bookmarks/home-screen — table-stakes launch polish.
+
+### Verification
+- `python scripts/generate_favicon.py` -> wrote `public/apple-touch-icon.png` (5079 bytes); visually confirmed the molecule mark renders cleanly with anti-aliased edges and the top-node ring cut.
+- `npm run build` -> built in 3.07s; `dist/favicon.svg` and `dist/apple-touch-icon.png` present; `dist/index.html` references the new icons and no longer references `vite.svg`.
+- `git status -s index.html` before editing -> clean (no concurrent-session dirt); edit limited to the two icon `<link>` lines.
+
+### Result
+- Product now has its own browser-tab and home-screen identity. Additive, revertible.
+- Next: per-route Product JSON-LD on PricingPage (deferred — file currently carries another session's WIP), and an axe-core a11y smoke.
+
 ## 2026-06-14 (robots.txt + sitemap.xml for crawlers)
 
 ### Scope
