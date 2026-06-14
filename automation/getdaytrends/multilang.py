@@ -228,6 +228,18 @@ _GENERIC_ENTITY_ALLOWLIST = {
     "kst",
     "premium",
     "premium+",
+    "slack",
+    # Common Korean words the suffix heuristic (…부/원/…) mis-extracts as entities.
+    # These are never proper nouns, so allowlisting them removes false hallucination
+    # flags without weakening detection of real orgs (e.g. 교육부, 국정원 stay checked).
+    # NOTE: the greedy extractor stops at the suffix, so "대부분" surfaces as "대부";
+    # entries here must match the EXTRACTED token, not the source word. A complete
+    # fix needs morphological analysis (korean_nlp); this covers the common cases.
+    "전부",
+    "일부",
+    "대부",
+    "내부",
+    "외부",
 }
 
 
