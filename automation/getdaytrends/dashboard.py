@@ -1870,6 +1870,38 @@ def _operator_scheduler_evidence_section(
     return finished_at, age_hours, scheduler_near_stale, scheduler_age_card_detail
 
 
+def _operator_workspace_smoke_section(workspace_smoke: dict[str, Any]) -> tuple[int, int, str, str]:
+    """Summarize the workspace-smoke artifact.
+
+    Returns ``(total, passed, state, card_detail)``. Pure read of the
+    ``workspace_smoke`` payload.
+    """
+    workspace_smoke_summary = (
+        workspace_smoke.get("summary") if isinstance(workspace_smoke.get("summary"), dict) else {}
+    )
+    workspace_smoke_total = int(workspace_smoke_summary.get("total") or 0)
+    workspace_smoke_passed = int(workspace_smoke_summary.get("passed") or 0)
+    workspace_smoke_failed = int(
+        workspace_smoke_summary.get("failed") or max(workspace_smoke_total - workspace_smoke_passed, 0)
+    )
+    workspace_expected_external = workspace_smoke.get("expected_external_failures")
+    workspace_expected_external = workspace_expected_external if isinstance(workspace_expected_external, list) else []
+    workspace_unexpected_failures = workspace_smoke.get("unexpected_failures")
+    workspace_unexpected_failures = workspace_unexpected_failures if isinstance(workspace_unexpected_failures, list) else []
+    workspace_smoke_state = _workspace_smoke_state(
+        total=workspace_smoke_total,
+        failed=workspace_smoke_failed,
+        expected_external_failures=[str(item) for item in workspace_expected_external if str(item).strip()],
+        unexpected_failures=[str(item) for item in workspace_unexpected_failures if str(item).strip()],
+    )
+    workspace_smoke_card_detail = _workspace_smoke_card_detail(
+        state=workspace_smoke_state,
+        expected_external_failures=[str(item) for item in workspace_expected_external if str(item).strip()],
+        unexpected_failures=[str(item) for item in workspace_unexpected_failures if str(item).strip()],
+    )
+    return workspace_smoke_total, workspace_smoke_passed, workspace_smoke_state, workspace_smoke_card_detail
+
+
 def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
     logs_dir = base_dir / "logs"
     readiness_path = logs_dir / "readiness" / "readiness_latest.json"
@@ -1977,29 +2009,12 @@ def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
     browser_summary = browser_summary if isinstance(browser_summary, dict) else {}
     tap_fixture_summary = tap_fixture_summary if isinstance(tap_fixture_summary, dict) else {}
     hygiene_summary = hygiene_summary if isinstance(hygiene_summary, dict) else {}
-    workspace_smoke_summary = (
-        workspace_smoke.get("summary") if isinstance(workspace_smoke.get("summary"), dict) else {}
-    )
-    workspace_smoke_total = int(workspace_smoke_summary.get("total") or 0)
-    workspace_smoke_passed = int(workspace_smoke_summary.get("passed") or 0)
-    workspace_smoke_failed = int(
-        workspace_smoke_summary.get("failed") or max(workspace_smoke_total - workspace_smoke_passed, 0)
-    )
-    workspace_expected_external = workspace_smoke.get("expected_external_failures")
-    workspace_expected_external = workspace_expected_external if isinstance(workspace_expected_external, list) else []
-    workspace_unexpected_failures = workspace_smoke.get("unexpected_failures")
-    workspace_unexpected_failures = workspace_unexpected_failures if isinstance(workspace_unexpected_failures, list) else []
-    workspace_smoke_state = _workspace_smoke_state(
-        total=workspace_smoke_total,
-        failed=workspace_smoke_failed,
-        expected_external_failures=[str(item) for item in workspace_expected_external if str(item).strip()],
-        unexpected_failures=[str(item) for item in workspace_unexpected_failures if str(item).strip()],
-    )
-    workspace_smoke_card_detail = _workspace_smoke_card_detail(
-        state=workspace_smoke_state,
-        expected_external_failures=[str(item) for item in workspace_expected_external if str(item).strip()],
-        unexpected_failures=[str(item) for item in workspace_unexpected_failures if str(item).strip()],
-    )
+    (
+        workspace_smoke_total,
+        workspace_smoke_passed,
+        workspace_smoke_state,
+        workspace_smoke_card_detail,
+    ) = _operator_workspace_smoke_section(workspace_smoke)
     launch_secret_scan_status = str(launch_secret_scan.get("status") or "missing")
     launch_secret_scan_scanned = int(launch_secret_scan.get("scanned") or 0)
     launch_secret_scan_findings = int(launch_secret_scan.get("findings") or 0)
