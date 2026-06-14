@@ -1985,6 +1985,54 @@ def _operator_handoff_secret_scan_section(
     return scanned, findings, missing, includes_current, contract_ok, ok, state, value, detail
 
 
+def _operator_build_blockers_warnings(
+    checks: list,
+    readiness_error: str,
+    base_dir: Path,
+    readiness_artifacts: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+    """Build operator blockers/warnings and attach recovery-packet paths.
+
+    Returns ``(blockers, warnings, supabase_recovery_packet,
+    provider_auth_recovery_packet)``. The returned ``warnings`` list is later
+    extended in place by the scheduler-evidence section.
+    """
+    blockers = [
+        _operator_issue(check, fallback_message="Readiness check failed.")
+        for check in checks
+        if isinstance(check, dict) and check.get("ok") is False and str(check.get("level", "FAIL")).upper() != "WARN"
+    ]
+    warnings = [
+        _operator_issue(check, fallback_message="Readiness check warning.")
+        for check in checks
+        if isinstance(check, dict) and str(check.get("level", "")).upper() == "WARN"
+    ]
+    if readiness_error:
+        blockers.append(
+            {
+                "name": "readiness_report",
+                "display_name": _operator_check_display_name("readiness_report"),
+                "message": f"Readiness report is unavailable: {readiness_error}.",
+                "level": "ERROR",
+                "remediation": READINESS_REFRESH_COMMAND,
+            }
+        )
+    supabase_recovery_packet, provider_auth_recovery_packet = _operator_recovery_packet_paths(
+        base_dir,
+        readiness_artifacts,
+    )
+    if supabase_recovery_packet:
+        for issue in blockers:
+            if issue.get("name") in {"live_db_doctor", "cli_smoke_report"}:
+                issue["recovery_packet"] = supabase_recovery_packet
+    if provider_auth_recovery_packet:
+        for issue in blockers:
+            if issue.get("name") == "provider_auth_report":
+                issue["recovery_packet"] = provider_auth_recovery_packet
+    _annotate_reused_recovery_packets(blockers)
+    return blockers, warnings, supabase_recovery_packet, provider_auth_recovery_packet
+
+
 def _operator_packet_summary(packet_path: str) -> tuple[dict[str, Any], str, str, int, str]:
     """Load and summarize a recovery packet.
 
@@ -2028,39 +2076,12 @@ def _operator_readiness_snapshot(base_dir: Path) -> dict[str, Any]:
     handoff_refresh = _latest_getdaytrends_handoff_refresh(base_dir)
     credential_input_status = _latest_credential_input_status(base_dir)
 
-    blockers = [
-        _operator_issue(check, fallback_message="Readiness check failed.")
-        for check in checks
-        if isinstance(check, dict) and check.get("ok") is False and str(check.get("level", "FAIL")).upper() != "WARN"
-    ]
-    warnings = [
-        _operator_issue(check, fallback_message="Readiness check warning.")
-        for check in checks
-        if isinstance(check, dict) and str(check.get("level", "")).upper() == "WARN"
-    ]
-    if readiness_error:
-        blockers.append(
-            {
-                "name": "readiness_report",
-                "display_name": _operator_check_display_name("readiness_report"),
-                "message": f"Readiness report is unavailable: {readiness_error}.",
-                "level": "ERROR",
-                "remediation": READINESS_REFRESH_COMMAND,
-            }
-        )
-    supabase_recovery_packet, provider_auth_recovery_packet = _operator_recovery_packet_paths(
-        base_dir,
-        readiness_artifacts,
-    )
-    if supabase_recovery_packet:
-        for issue in blockers:
-            if issue.get("name") in {"live_db_doctor", "cli_smoke_report"}:
-                issue["recovery_packet"] = supabase_recovery_packet
-    if provider_auth_recovery_packet:
-        for issue in blockers:
-            if issue.get("name") == "provider_auth_report":
-                issue["recovery_packet"] = provider_auth_recovery_packet
-    _annotate_reused_recovery_packets(blockers)
+    (
+        blockers,
+        warnings,
+        supabase_recovery_packet,
+        provider_auth_recovery_packet,
+    ) = _operator_build_blockers_warnings(checks, readiness_error, base_dir, readiness_artifacts)
     (
         recovery_packet_payload,
         recovery_packet_status,
