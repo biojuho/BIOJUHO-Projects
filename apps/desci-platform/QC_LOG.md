@@ -1,5 +1,25 @@
 # DSCI QC Log
 
+## 2026-06-14 (robots.txt + sitemap.xml for crawlers)
+
+### Scope
+- Launch landing had no `robots.txt` and no `sitemap.xml`, so crawlers had no discovery hints and could index authed/app routes. Added both as static `public/` assets (Vite copies them to the dist root).
+- Owned paths: `frontend/public/robots.txt`, `frontend/public/sitemap.xml`, this log. New files only — zero shared-file edit, no bundling risk.
+
+### A/B Decision
+- A (baseline): no robots/sitemap; crawlers guess, may index `/dashboard`, `/wallet`, etc.
+- B (variant): robots allows the 4 public marketing routes (`/`, `/pricing`, `/explore`, `/investors`), disallows login + the authenticated app routes + `/subscription/`, and points to the sitemap; sitemap lists only the 4 public routes with changefreq/priority.
+- Selected B: standard launch hygiene, keeps the app surface out of the index, gives crawlers a clean map.
+
+### Verification
+- `python -m xml.dom.minidom` parse of sitemap.xml -> valid, 4 `<url>` entries.
+- `npm run build` -> built in 20.30s; `dist/robots.txt` and `dist/sitemap.xml` present at the dist root.
+- Route list cross-checked against `App.jsx`: public = `/`, `/pricing`, `/explore`, `/investors`; everything else is behind the protected route group or is login/post-checkout.
+
+### Result
+- Crawlers now get an allow/disallow policy + a sitemap. Pure additive, revertible.
+- Note: `lastmod` is a static `2026-06-14`; regenerate when listed pages change materially (candidate for a tiny generator script next).
+
 ## 2026-06-13 (Per-Route Document Meta for SPA Routes)
 
 ### Scope
