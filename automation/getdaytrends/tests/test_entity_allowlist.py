@@ -35,3 +35,18 @@ class TestEntityAllowlist:
     def test_digit_leading_filter_keeps_real_orgs(self):
         ents = _normalized_candidate_entities("서울시와 교육부가 10만원을 지원")
         assert "서울시" in ents and "교육부" in ents
+
+    def test_english_stopwords_not_treated_as_entities(self):
+        # The extractor matches any capitalized token, so sentence-initial /
+        # Title-Case function words ("The", "Anyone", "This") were extracted as
+        # entities-to-verify and caused false fact violations (found on 876 real
+        # tweets). Function words are never proper nouns.
+        ents = _normalized_candidate_entities("The Anyone This Are From When What")
+        for sw in ("the", "anyone", "this", "are", "from", "when", "what"):
+            assert sw not in ents, f"{sw} should be allowlisted"
+
+    def test_real_english_entities_still_extracted(self):
+        # Genuine proper nouns / orgs must stay checkable — only stop words are dropped.
+        ents = _normalized_candidate_entities("LCK KAIST Nintendo Korea Xbox")
+        for real in ("lck", "kaist", "nintendo", "korea", "xbox"):
+            assert real in ents, f"{real} must remain a checkable entity"

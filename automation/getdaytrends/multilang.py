@@ -248,6 +248,20 @@ _GENERIC_ENTITY_ALLOWLIST = {
     "대부",
     "내부",
     "외부",
+    # Common English function/stop words. The entity extractor matches any
+    # capitalized token ([A-Z]…), so sentence-initial or Title-Case words like
+    # "The", "Anyone", "This" surface as entities-to-verify and cause false fact
+    # violations. These are never proper nouns; content words that could be real
+    # entities (game, league, final, …) are deliberately NOT listed.
+    "the", "a", "an", "and", "or", "but", "if", "of", "to", "in", "on", "at",
+    "for", "with", "from", "by", "as", "is", "are", "was", "were", "be", "been",
+    "being", "have", "has", "had", "do", "does", "did", "will", "would", "can",
+    "could", "should", "not", "no", "this", "that", "these", "those", "its",
+    "he", "she", "they", "we", "you", "i", "me", "my", "your", "our", "their",
+    "his", "her", "anyone", "everyone", "someone", "anything", "everything",
+    "here", "there", "when", "where", "why", "how", "who", "what", "which",
+    "all", "any", "some", "more", "most", "very", "just", "only", "also",
+    "than", "then", "now", "so", "too", "about", "into", "over", "under",
 }
 
 
