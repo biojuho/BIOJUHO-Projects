@@ -177,6 +177,7 @@ _OPERATOR_CHECK_DISPLAY_NAMES = {
     "cli_smoke_report": "CLI smoke report",
     "dashboard_browser_report": "Dashboard browser report",
     "live_db_doctor": "Live DB doctor",
+    "live_llm_keys": "Live LLM keys",
     "provider_auth_report": "Provider auth report",
     "readiness_report": "Readiness report",
     "scheduler_artifact": "Scheduler artifact",
