@@ -1840,13 +1840,28 @@ def _normalized_percentage_claims(text: str) -> set[str]:
     }
 
 
+_MAGNITUDE_UNITS = ("만", "억", "조")
+
+
+def _is_small_casual_count(claim: str) -> bool:
+    """True for a 1-2 digit bare Korean counter (예: '3개', '5명') with no
+    magnitude unit — a casual count in conversational copy, not a load-bearing
+    factual claim. Larger numbers, magnitude units (만/억/조), currency, and
+    percentages are kept so real stats still get hallucination-checked.
+    """
+    if any(unit in claim for unit in _MAGNITUDE_UNITS):
+        return False
+    digits = re.sub(r"[^\d]", "", claim)
+    return 0 < len(digits) <= 2
+
+
 def _normalized_number_claims(text: str) -> set[str]:
     concrete_claims = _CONCRETE_NUMBER_CLAIM_RE.findall(text)
     currency_text = _CONCRETE_NUMBER_CLAIM_RE.sub(" ", text)
     currency_claims = _CURRENCY_NUMBER_CLAIM_RE.findall(currency_text)
     bare_text = _CURRENCY_NUMBER_CLAIM_RE.sub(" ", currency_text)
     bare_claims = _SIGNIFICANT_BARE_NUMBER_CLAIM_RE.findall(bare_text)
-    korean_claims = _KOREAN_NUMBER_CLAIM_RE.findall(text)
+    korean_claims = [c for c in _KOREAN_NUMBER_CLAIM_RE.findall(text) if not _is_small_casual_count(c)]
     return {
         re.sub(r"[\s,]+", "", claim.strip().casefold())
         for claim in [*concrete_claims, *currency_claims, *bare_claims, *korean_claims]
