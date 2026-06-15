@@ -112,3 +112,34 @@ For this turn, getdaytrends is moved from "partially fixed" to "production-ready
 - GitHub-benchmarked readiness evidence gate
 
 Current code, tests, docs, scheduler, and browser evidence are hardened (base readiness `8/8 PASS` on 2026-06-16). The only remaining release blockers are the two external/credential items described in section 2: live Supabase connectivity (`live_db_doctor` / runtime fallback) and provider key rotation (`provider_auth_report`).
+
+---
+
+## 5. Operator action items (2026-06-16, consolidated)
+
+The code is hardened and the product runs green in production (degraded). These
+are the **external/credential/infra actions only the operator can do** — none is
+a code defect. Priority order:
+
+1. **Rotate the leaked Google/Gemini key** in 3 places: local `.env`, the GHA
+   secret `GOOGLE_API_KEY`, and revoke the old one in the GCP console. Verify
+   with `python scripts/check_llm_keys.py`. (Leaked → 403; Anthropic-first
+   routing keeps the product working meanwhile.)
+2. **Check/rotate the XAI (Grok) key** — `llm_costs.db` shows grok 15/15 calls
+   failing with `403 caller does not have permission`. Fix the key or drop Grok
+   from routing. Same auth-fail-no-fallback class as the Gemini key.
+3. **`npm audit fix`** in `apps/AgriGuard/frontend` and
+   `apps/desci-platform/frontend` (form-data HIGH + 2 moderates). This is the
+   repo-wide "Quality Gate" / Node-audit blocker — it currently blocks **all**
+   PR merges (see `docs/SECURITY_DEPENDENCY_AUDIT_2026-06-16.md`).
+4. **Resume Supabase** (paused project → `tenant/user not found`) to upgrade
+   from SQLite fallback to durable cloud persistence. Optimization, not a
+   function blocker.
+5. **Re-issue the Discord alert webhook** (dead — `check_alert_channels.py`
+   reports `auth_failed`); Telegram alerts still work meanwhile.
+6. **Decide the run cadence** — the `getdaytrends.yml` cron runs every 4h and on
+   active days produces 3–5 draft batches (vs the README "1/day" policy). Cost
+   impact is negligible ($0.61 worst day vs the $3 budget), so this is a
+   cleanliness/policy choice, not urgent.
+
+After (1)+(4), rerun the strict bundle in section 2 to confirm full readiness.
