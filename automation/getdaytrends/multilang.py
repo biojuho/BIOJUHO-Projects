@@ -259,7 +259,10 @@ def _extract_candidate_entities(text: str) -> set[str]:
     pattern = re.compile(
         r"[A-Z][A-Za-z0-9&.\-]{1,}|[가-힣A-Za-z0-9·]+(?:부|청|원|처|시|군|구|일보|뉴스|위원회|협회|센터|재단|법원|검찰|대학교|대학|공사|공단|은행|증권|그룹|시청|군청)"
     )
-    return {match.group(0) for match in pattern.finditer(text)}
+    # Digit-leading matches (10만원, 2시, 3개월) are quantities/times caught by the
+    # suffix heuristic (…원/시/…), not proper nouns — quantities are checked by the
+    # numeric auditor instead. Real organisations never start with a digit.
+    return {m.group(0) for m in pattern.finditer(text) if not m.group(0)[0].isdigit()}
 
 
 def _first_nonempty_lines(text: str, limit: int = 3) -> list[str]:

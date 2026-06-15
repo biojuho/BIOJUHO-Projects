@@ -24,3 +24,14 @@ class TestEntityAllowlist:
         # 교육부 is a real ministry — it must remain checkable (not allowlisted).
         ents = _normalized_candidate_entities("교육부가 새 정책을 발표했다")
         assert "교육부" in ents
+
+    def test_digit_leading_quantities_not_entities(self):
+        # 10만원/2시/3개월 are quantities (suffix heuristic catches 원/시), not
+        # proper nouns; the numeric auditor handles them instead.
+        ents = _normalized_candidate_entities("10만원에 2시부터 3개월간 진행")
+        for q in ("10만원", "2시", "3개월"):
+            assert q not in ents
+
+    def test_digit_leading_filter_keeps_real_orgs(self):
+        ents = _normalized_candidate_entities("서울시와 교육부가 10만원을 지원")
+        assert "서울시" in ents and "교육부" in ents
