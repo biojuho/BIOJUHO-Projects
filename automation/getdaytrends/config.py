@@ -1,6 +1,6 @@
 """
 getdaytrends v4.1 - Configuration Management
-????듬젿?怨뚮뼚????棺??짆?삠궘? ??れ삀???筌? ???レ챺????濡ろ떟???? 濚욌꼬?댄꺍?????굿??
+환경변수 기반 설정 로드·검증·관리 모듈.
 """
 
 import os
@@ -53,7 +53,7 @@ COUNTRY_MAP = {
 
 @dataclass(frozen=True)
 class QualityConfig:
-    """???源녿뼥 ???굿?????源놁젳????ш끽維곮????"""
+    """콘텐츠 품질 임계값 설정."""
 
     feedback_min_score: int = 50
     threads_quality_min_score: int = 65
@@ -70,7 +70,7 @@ class QualityConfig:
 
 @dataclass(frozen=True)
 class CostConfig:
-    """????????굿?????源놁젳????ш끽維곮????"""
+    """비용·예산 관련 설정."""
 
     daily_budget_usd: float = 3.0
     peak_budget_multiplier: float = 0.5
@@ -488,7 +488,7 @@ class AppConfig:
     # [QA ???쒓낯?? @property ??@cached_property: 癲??嶺뚮ㅎ?????좊즵??꼯????獄쏅똻???袁⑸젻泳?
     @cached_property
     def quality(self) -> QualityConfig:
-        """???源녿뼥 ???굿?????源놁젳 ??ш끽維곮????(cached)."""
+        """품질 설정을 반환한다 (cached)."""
         return QualityConfig(
             feedback_min_score=self.quality_feedback_min_score,
             threads_quality_min_score=self.threads_quality_min_score,
@@ -505,7 +505,7 @@ class AppConfig:
 
     @cached_property
     def cost(self) -> CostConfig:
-        """????????굿?????源놁젳 ??ш끽維곮????(cached)."""
+        """비용 설정을 반환한다 (cached)."""
         return CostConfig(
             daily_budget_usd=self.daily_budget_usd,
             peak_budget_multiplier=self.peak_budget_multiplier,
@@ -639,11 +639,11 @@ class AppConfig:
         if any(not keyword.strip() for keyword in self.hard_drop_topic_keywords):
             errors.append("HARD_DROP_TOPIC_KEYWORDS contains an empty keyword")
     def resolve_country_slug(self) -> str:
-        """??? ?熬곣뫀????ｏ쭗?getdaytrends.com URL ??????쇱춻?용뿭큔 ?怨뚮뼚???"""
+        """country를 getdaytrends.com URL용 슬러그로 변환한다."""
         return COUNTRY_MAP.get(self.country.lower(), self.country.lower())
 
     def for_country(self, country: str) -> "AppConfig":
-        """癲ル슣????????????源놁젳???怨뚮옖甕????袁⑸즵???(???됰씭???좊읈? ?怨뚮옖筌??????덈틖??."""
+        """다른 country로 설정을 복제한 AppConfig를 반환한다."""
         import dataclasses
 
         return dataclasses.replace(self, country=country, countries=[country])
