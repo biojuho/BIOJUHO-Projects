@@ -196,7 +196,7 @@ def _real_tweets_summary(context: "MultiSourceContext") -> str:
 
 
 def _is_usable_twitter_insight(insight: str) -> bool:
-    return bool(insight and len(insight) > 30 and "?ㅻ쪟" not in insight and "?놁쓬" not in insight)
+    return bool(insight and len(insight) > 30 and "오류" not in insight and "없음" not in insight)
 
 
 def _parse_publishability(parsed: dict, keyword: str) -> tuple[bool, str, str]:
