@@ -2208,7 +2208,7 @@ def _apply_threads_format_rules(
     matched_bait = [p for p in _THREADS_BAIT_PATTERNS if p in combined]
     if matched_bait:
         regulation = max(0, regulation - 6)
-        issues.append(f"李몄뿬 ?좊룄 臾멸뎄 媛먯?: {', '.join(matched_bait[:2])}")
+        issues.append(f"참여 유도 문구 감지: {', '.join(matched_bait[:2])}")
     if any(len(item.content) > 500 for item in items):
         algorithm = max(0, algorithm - 4)
         issues.append("500자 초과 Threads 포스트 존재")

@@ -400,7 +400,7 @@ def _verify_quote_claim(claim: Claim, source_corpus: str, source_lower: str, val
     if words:
         matched = sum(1 for w in words if w.lower() in source_lower)
         if matched / len(words) >= 0.7:
-            _mark_verified(claim, 0.4, "(?듭떖 ?⑥뼱 遺遺?留ㅼ묶)")
+            _mark_verified(claim, 0.4, "(핵심 단어 부분 매칭)")
 
 
 def _verify_comparison_claim(claim: Claim, source_corpus: str, source_lower: str, value_lower: str) -> None:
@@ -491,10 +491,10 @@ def _classify_verified_claims(
             verified += 1
         elif claim.claim_type in (ClaimType.QUOTE, ClaimType.ENTITY):
             hallucinated += 1
-            issues.append(f"[?섍컖 ?섏떖] {claim.claim_type.value}: '{claim.value}' - ?뚯뒪?먯꽌 ?뺤씤 遺덇?")
+            issues.append(f"[환각 의심] {claim.claim_type.value}: '{claim.value}' - 소스에서 확인 불가")
         elif claim.claim_type == ClaimType.NUMBER and not strict_mode:
             unverified += 1
-            issues.append(f"[誘멸?利??섏튂] '{claim.value}' - ?뚯뒪?먯꽌 吏곸젒 ?뺤씤 遺덇?")
+            issues.append(f"[미검증 수치] '{claim.value}' - 소스에서 직접 확인 불가")
         else:
             unverified += 1
 
