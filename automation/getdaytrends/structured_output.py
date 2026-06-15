@@ -77,9 +77,13 @@ def _get_instructor_client() -> object:
 def _get_model_name(tier: str = "lightweight") -> str:
     """Pick a backend-specific model name."""
     if _instructor_backend == "gemini":
+        # GA aliases, not the dated -preview-* endpoints: Google shut those
+        # preview endpoints down (pro-preview-03-25 retired 2025-12-02, the
+        # 2.5 preview wave after 2025-07-15), so the old IDs now 404. Same 2.5
+        # generation, just the live GA names (retire 2026-10-16).
         if tier == "heavy":
-            return "gemini-2.5-pro-preview-03-25"
-        return "gemini-2.5-flash-preview-04-17"
+            return "gemini-2.5-pro"
+        return "gemini-2.5-flash"
     if tier == "heavy":
         return "claude-sonnet-4-6-20250514"
     return "claude-haiku-4-5-20251001"
