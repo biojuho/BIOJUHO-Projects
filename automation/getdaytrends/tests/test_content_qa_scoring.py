@@ -103,6 +103,16 @@ class TestScoreHook:
             score, issues = _score_hook(lead, [lead], "tweets")
             assert len(issues) >= 1, cliche  # cliché in lead → flagged
 
+    def test_geot_gatda_opinion_not_flagged_as_analogy(self):
+        """'~것 같다' (seems / I think) is an opinion-softener, not a prohibited analogy."""
+        from content_qa import _has_prohibited_analogy
+
+        for opinion in ("좋은 것 같다", "이게 맞는 것 같다", "나도 그런 것 같고", "할 것 같다"):
+            assert _has_prohibited_analogy(opinion) is False, opinion
+        # genuine analogies are still caught
+        for analogy in ("사자처럼 강하다", "마치 영화같다", "사자같다"):
+            assert _has_prohibited_analogy(analogy) is True, analogy
+
     def test_hyeonta_no_longer_banned_slang(self):
         """'현타' is mainstream casual Korean — not penalized; aggressive slang still is."""
         from content_qa import _BANNED_SLANG_PATTERNS, _slang_tone_penalty

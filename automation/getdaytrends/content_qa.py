@@ -405,7 +405,10 @@ _AI_NATIVE_PATTERNS = (
 
 _PROHIBITED_ANALOGY_PATTERNS = (
     re.compile(r"\b마치\b"),
-    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*같(?:다|은|이|고|지만|습니다)"),
+    # '같다' is an analogy ("사자 같다") EXCEPT in "것 같다" (= seems / I think), an
+    # opinion-softener that is not a metaphor — exclude it so casual copy is not
+    # false-flagged.
+    re.compile(r"(?<![가-힣A-Za-z0-9])(?!것\s*같)\S+\s*같(?:다|은|이|고|지만|습니다)"),
     re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*처럼"),
     re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*듯(?:하다|한|이|습니다|지만)?"),
     re.compile(r"\bas if\b", re.IGNORECASE),
