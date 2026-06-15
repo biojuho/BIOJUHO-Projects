@@ -55,3 +55,25 @@ scorer: only the grounding alignment helped; tone and hook rewrites did not.
 Further measurable gains need **real engagement labels** (the measured-metrics
 pipeline in `scripts/refresh_tweet_metrics.py` once tweets are published with
 metrics) rather than more proxy-scored prompt variants.
+
+---
+
+## Source-backed research cycles (2026-06-16)
+
+AutoResearch loop, deterministic-scorer A/B (no engagement labels needed), each
+decision logged with its source and the evidence that drove adopt/reject.
+
+| Hypothesis | Source | Real-data evidence | Decision |
+| --- | --- | --- | --- |
+| Connective-ending + comma is an LLM-Korean tell worth detecting | KatFishNet, ACL 2025 (arxiv 2503.00032): LLM essays 19.83% vs human 4.10% | 876 historical tweets: 5.9% flagged at the 2+ threshold, with a clear AI-cadence tail (5–10 per tweet) | **Adopt** — `_connective_comma_tone_penalty` (39a5b7c) |
+| Concrete comparison ≠ forced metaphor; the analogy penalty over-fires | Same paper (casual Korean uses 처럼/같은 freely) | Analogy penalty fired on 21.5% of 876 tweets; sampling showed quoted-entity/time-word/똑같다 false positives | **Adopt** — narrow the detector, 21.5%→17.7% (a3c3ee5) |
+| Formal discourse markers (따라서/결과적으로/그러므로/즉) clash with the casual register | Same line of work (LLM discourse-marker overuse) | Only 2.6% of 876 tweets; the clear formal-only subset ~1.3%; the prompt already enforces casual register | **Reject** — too low-yield, false-positive risk |
+| Gemini structured-output models are current | Google Gemini deprecation notes | `gemini-2.5-pro-preview-03-25` shut down 2025-12-02; the 2.5 preview wave retired after 2025-07-15 → both IDs now 404 | **Fix** (not A/B) — point at live GA aliases (faef1cc) |
+| fact_violation is driven by sparse trend context | — (data diagnostic) | 98% of 126 trends carry ≥1 multi-source grounding context (news 98%, twitter 71%, reddit 52%) | **Redirect** — context collection is healthy; the lever is extractor precision + grounding prompt, not more collection |
+
+Net: external research found one real latent bug (dead Gemini endpoints) and two
+genuine detector calibrations; one hypothesis was measured and rejected; one
+backlog feature (collection enhancement) was de-prioritised by data. Sources:
+[arxiv 2503.00032](https://arxiv.org/html/2503.00032v3),
+[KatFishNet ACL 2025](https://aclanthology.org/2025.acl-long.1030/),
+[Gemini deprecations](https://ai.google.dev/gemini-api/docs/deprecations.md.txt).
