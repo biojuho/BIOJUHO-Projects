@@ -141,6 +141,23 @@ class TestScoreHook:
         assert "쩌리" in _BANNED_SLANG_PATTERNS
         assert _slang_tone_penalty("저 쩌리 같은 모습 봐라") is not None
 
+    def test_connective_comma_ai_tell(self):
+        """Connective-ending + comma is a research-backed LLM-Korean tell (arxiv 2503.00032).
+
+        Flags 2+ occurrences; tolerates a single casual use; ignores sentence-initial
+        discourse markers (하지만,/그러나,/그런데,) and plain commas after nouns.
+        """
+        from content_qa import _connective_comma_tone_penalty
+
+        # 2+ verb connective endings + comma → flagged (clear AI cadence)
+        assert _connective_comma_tone_penalty("주가가 급등했고, 시장은 흔들렸으며, 투자자는 우려했다") is not None
+        # single occurrence → tolerated (humans use it ~4% of the time)
+        assert _connective_comma_tone_penalty("주가가 급등했고, 끝났다") is None
+        # sentence-initial discourse markers must NOT count as the tell
+        assert _connective_comma_tone_penalty("하지만, 문제는 따로 있다. 그러나, 시장은 반응했다") is None
+        # plain comma after a noun / casual aside is not a connective-ending tell
+        assert _connective_comma_tone_penalty("엔비디아 미쳤다, 진짜로. 이건 역대급, 실화냐") is None
+
     def test_no_number_or_keyword_penalty(self):
         """Lead without numbers/question words → -3 penalty."""
         score, _ = _score_hook(

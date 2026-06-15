@@ -1707,6 +1707,21 @@ def _clipped_ending_tone_penalty(combined: str) -> tuple[int, str] | None:
     return min(6, clipped_endings - 2), f"repeated clipped endings: {clipped_endings}"
 
 
+# Connective-ending + comma is the single most reliable LLM-Korean tell per
+# linguistic-feature research (arxiv 2503.00032: LLM essays 19.83% vs human
+# 4.10%). Match only unambiguous verb/adjective connective endings so sentence-
+# initial discourse markers (하지만,/그러나,/그런데,/그래서,) are NOT counted, and
+# require 2+ occurrences since humans do use it occasionally.
+_CONNECTIVE_COMMA_RE = re.compile(r"[가-힣](?:으며|면서|어서|아서|거나|도록|고|며)\s*,")
+
+
+def _connective_comma_tone_penalty(combined: str) -> tuple[int, str] | None:
+    count = len(_CONNECTIVE_COMMA_RE.findall(combined))
+    if count <= 1:
+        return None
+    return min(6, (count - 1) * 3), f"연결어미+쉼표 AI어투: {count}"
+
+
 def _ai_framing_mentions(combined: str) -> int:
     return len(
         re.findall(
@@ -1738,6 +1753,7 @@ def _tone_penalties(
         _slang_tone_penalty(combined),
         _emoji_tone_penalty(combined),
         _clipped_ending_tone_penalty(combined),
+        _connective_comma_tone_penalty(combined),
         _ai_framing_tone_penalty(combined, trend),
     ]
     return [penalty for penalty in penalties if penalty is not None]
