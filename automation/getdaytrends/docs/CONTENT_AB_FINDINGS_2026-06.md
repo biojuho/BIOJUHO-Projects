@@ -38,6 +38,16 @@ trend context. Each failure forces one regeneration. The real levers are
 **richer context grounding at collection time** or accepting the regeneration
 cost — both larger product decisions, not prompt tweaks.
 
+## Validity caveat (re-run after key rotation)
+
+These A/B runs happened while the Google/Gemini key was leaked (403), so the
+LIGHTWEIGHT/MEDIUM tiers were down and generation survived via fallback/HEAVY
+paths — i.e. not the intended routing. The "prompt is optimal" conclusion holds
+for the deterministic + LLM-judge signals **observed on a degraded stack**.
+Re-run the four hypotheses with `scripts/ab_test_hook_research.py --variant ...`
+and `scripts/ab_judge_content.py` once the key is rotated (verify with
+`scripts/check_llm_keys.py`) before treating the rejections as final.
+
 ## Conclusion
 
 The current production prompt is near a local optimum for the deterministic
