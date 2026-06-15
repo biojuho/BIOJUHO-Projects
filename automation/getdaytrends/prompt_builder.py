@@ -182,13 +182,13 @@ def _revision_feedback_base_lines() -> list[str]:
 
 def _revision_axis_guidance() -> dict[str, str]:
     return {
-        "hook": "泥?臾몄옣? ?レ옄, ?鍮? 吏덈Ц, 媛뺥븳 愿李?以??섎굹濡?諛붾줈 二쇰ぉ?꾨? 留뚮뱾?대씪.",
-        "fact": "而⑦뀓?ㅽ듃??吏곸젒 ?덈뒗 怨좎쑀紐낆궗, ?섏튂, ?몄슜留??ъ슜?섍퀬 異붿젙 ?ъ떎? ?덈줈 留뚮뱾吏 留덈씪.",
-        "tone": "?곹닾援? AI 留먰닾, 湲곗궗泥??쒗쁽??以꾩씠怨??щ엺??諛붾줈 留먰븯????븳 臾몄옣?쇰줈 諛붽퓭??",
-        "kick": "留덈Т由щ뒗 諛뗫컠???뺣━ ????낆옄媛 媛?멸컝 ?댁꽍?대굹 ??以?愿李곕줈 ?앸궡??",
-        "angle": "?댁뒪 ?붿빟 諛섎났???쇳븯怨? ??以묒슂?쒖??????紐낇솗??愿?먯씠???댁꽍??異붽??섎씪.",
-        "regulation": "?뚮옯??洹쒖튃???꾩닔?섍퀬 湲몄씠, ?뺤떇, ?댁떆?쒓렇 ?쒗븳???ㅼ떆 ?먭??섎씪.",
-        "algorithm": "?ㅽ겕濡ㅼ쓣 硫덉텛寃??섎뒗 援ъ“? 李몄뿬瑜?遺瑜대뒗 ?먮쫫????遺꾨챸???ㅺ퀎?섎씪.",
+        "hook": "첫 문장을 숫자·질문·강한 관점 중 하나로 시작해 바로 주목시켜라.",
+        "fact": "컨텍스트에 직접 있는 고유명사·수치·인용만 쓰고, 추정 사실은 새로 만들지 마라.",
+        "tone": "상투구·AI 말투·기사체 표현을 빼고 사람이 바로 말하듯 한 문장으로 바꿔라.",
+        "kick": "마무리는 캡처하거나 RT하고 싶게 만드는 한 줄로 끝내라.",
+        "angle": "뉴스 요약·반복을 피하고 더 중요하고 명확한 관점이나 해석을 더하라.",
+        "regulation": "플랫폼 규칙을 지키고 길이·형식·해시태그 제한을 다시 점검하라.",
+        "algorithm": "스크롤을 멈추게 하는 구조와 참여를 부르는 흐름으로 다시 설계하라.",
     }
 
 
@@ -241,12 +241,12 @@ def _append_revision_fact_check_lines(lines: list[str], fact_check: dict) -> Non
         lines.append(f"- FactCheck 요약: {fact_check['summary']}")
     if accuracy_score is not None:
         with contextlib.suppress(TypeError, ValueError):
-            lines.append(f"- 寃利??뺥솗?? {float(accuracy_score):.0%}")
+            lines.append(f"- 검증 정확도: {float(accuracy_score):.0%}")
     if fact_check.get("hallucinated_claims", 0):
         lines.append(f"- 환각 의심 주장 수: {fact_check.get('hallucinated_claims', 0)}")
     for issue in list(fact_check.get("issues", []) or [])[:3]:
-        lines.append(f"- ?쒓굅 ?먮뒗 ?꾪솕??二쇱옣: {issue}")
-    lines.append("- ?뚯뒪?먯꽌 吏곸젒 ?뺤씤???ъ떎留??⑥젙?뺤쑝濡??곌퀬, 遺덊솗?ㅽ븳 ?댁슜? 異붿젙 ?쒗쁽?쇰줈 ??떠??")
+        lines.append(f"- 제거 또는 완화할 주장: {issue}")
+    lines.append("- 소스에서 직접 확인된 사실만 확정으로 쓰고, 불확실한 내용은 추정 표현으로 써라.")
 
 
 def _build_revision_feedback_section(revision_feedback: dict | None) -> str:
