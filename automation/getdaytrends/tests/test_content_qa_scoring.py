@@ -109,8 +109,11 @@ class TestScoreHook:
 
         for opinion in ("좋은 것 같다", "이게 맞는 것 같다", "나도 그런 것 같고", "할 것 같다"):
             assert _has_prohibited_analogy(opinion) is False, opinion
+        # '같이' = "together" (adverb), not "like" — must not be flagged
+        for together in ("친구랑 같이 갔다", "다 같이 모였다", "매일 같이 운동"):
+            assert _has_prohibited_analogy(together) is False, together
         # genuine analogies are still caught
-        for analogy in ("사자처럼 강하다", "마치 영화같다", "사자같다"):
+        for analogy in ("사자처럼 강하다", "마치 영화같다", "사자같다", "사자 같은 힘"):
             assert _has_prohibited_analogy(analogy) is True, analogy
 
     def test_hyeonta_no_longer_banned_slang(self):

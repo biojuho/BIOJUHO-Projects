@@ -405,10 +405,11 @@ _AI_NATIVE_PATTERNS = (
 
 _PROHIBITED_ANALOGY_PATTERNS = (
     re.compile(r"\b마치\b"),
-    # '같다' is an analogy ("사자 같다") EXCEPT in "것 같다" (= seems / I think), an
-    # opinion-softener that is not a metaphor — exclude it so casual copy is not
-    # false-flagged.
-    re.compile(r"(?<![가-힣A-Za-z0-9])(?!것\s*같)\S+\s*같(?:다|은|이|고|지만|습니다)"),
+    # '같다'/'같은' is an analogy ("사자 같다"), EXCEPT "것 같다" (= seems / I think).
+    # The adverbial '같이' is dropped from the suffix set because it overwhelmingly
+    # means "together" (친구랑 같이, 다 같이), not "like" — flagging it false-flagged
+    # very common casual copy.
+    re.compile(r"(?<![가-힣A-Za-z0-9])(?!것\s*같)\S+\s*같(?:다|은|고|지만|습니다)"),
     re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*처럼"),
     re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*듯(?:하다|한|이|습니다|지만)?"),
     re.compile(r"\bas if\b", re.IGNORECASE),
