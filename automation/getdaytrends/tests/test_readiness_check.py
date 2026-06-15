@@ -161,6 +161,7 @@ def test_readiness_report_records_launch_requirement_flags(tmp_path):
         "require_scheduler": True,
         "fail_on_runtime_fallback": True,
         "require_live_db": False,
+        "require_live_llm": False,
         "max_cli_smoke_age_hours": 24,
         "max_browser_smoke_age_hours": 24,
         "max_scheduler_age_hours": 24,
@@ -506,6 +507,40 @@ def test_live_db_doctor_passes_when_command_succeeds(monkeypatch):
     assert check.evidence["exit_code"] == 0
     assert any("db.supabase_url_shape" in line for line in check.evidence["diagnostics"])
     assert any("db.supabase_project_ref_crosscheck" in line for line in check.evidence["diagnostics"])
+
+
+def test_live_llm_keys_passes_when_all_tiers_ok(monkeypatch):
+    def fake_run(*args, **kwargs):
+        return readiness_check.subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=json.dumps({"status": "pass", "tiers": [{"tier": "HEAVY", "ok": True}], "failed_tiers": []}),
+            stderr="",
+        )
+
+    monkeypatch.setattr(readiness_check.subprocess, "run", fake_run)
+    check = readiness_check.check_live_llm_keys(python_exe="python")
+    assert check.ok is True
+    assert check.level == "OK"
+
+
+def test_live_llm_keys_fails_on_leaked_key(monkeypatch):
+    def fake_run(*args, **kwargs):
+        return readiness_check.subprocess.CompletedProcess(
+            args=args[0],
+            returncode=1,
+            stdout=json.dumps(
+                {"status": "fail", "tiers": [{"tier": "MEDIUM", "ok": False, "status": "key_leaked"}], "failed_tiers": ["MEDIUM"]}
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(readiness_check.subprocess, "run", fake_run)
+    check = readiness_check.check_live_llm_keys(python_exe="python")
+    assert check.ok is False
+    assert check.level == "ERROR"
+    assert "MEDIUM" in check.message
+    assert check.remediation
 
 
 def test_live_db_doctor_fails_with_masked_diagnostics(monkeypatch):

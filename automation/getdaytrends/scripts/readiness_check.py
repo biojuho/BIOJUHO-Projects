@@ -1615,6 +1615,58 @@ def check_live_db_doctor(
     )
 
 
+def check_live_llm_keys(*, python_exe: str | None = None, timeout_seconds: int = 90) -> EvidenceCheck:
+    """Probe each LLM task tier so leaked/revoked/quota-exhausted keys block launch.
+
+    The log-scan provider_auth_report misses keys that fail silently (generation
+    survives via fallback/instructor paths), so this runs the live preflight.
+    """
+    command = [python_exe or sys.executable, "scripts/check_llm_keys.py", "--json"]
+    env = os.environ.copy()
+    env.setdefault("PYTHONUTF8", "1")
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    evidence: dict[str, Any] = {
+        "command": "python scripts/check_llm_keys.py --json",
+        "timeout_seconds": timeout_seconds,
+    }
+    remediation = "Run python scripts/check_llm_keys.py and rotate the flagged key."
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        evidence["failure_type"] = "timeout"
+        return EvidenceCheck(
+            "live_llm_keys", False, "ERROR", f"LLM key preflight timed out after {timeout_seconds}s.", evidence, remediation
+        )
+    except Exception as exc:
+        evidence["error"] = f"{type(exc).__name__}: {exc}"
+        return EvidenceCheck("live_llm_keys", False, "ERROR", "LLM key preflight failed to execute.", evidence, remediation)
+    try:
+        data = json.loads(_process_text(completed.stdout))
+    except Exception:
+        evidence["output_tail"] = _mask_sensitive_text(_process_text(completed.stdout))[-800:]
+        return EvidenceCheck("live_llm_keys", False, "ERROR", "LLM key preflight output was unparseable.", evidence, remediation)
+    evidence["tiers"] = data.get("tiers", [])
+    failed_tiers = data.get("failed_tiers", [])
+    ok = data.get("status") == "pass"
+    return EvidenceCheck(
+        "live_llm_keys",
+        ok,
+        "OK" if ok else "ERROR",
+        "All LLM task tiers have working keys."
+        if ok
+        else f"LLM keys failing for tiers: {', '.join(failed_tiers) or 'unknown'}.",
+        evidence,
+        "" if ok else remediation,
+    )
+
+
 def check_hygiene_report(path: Path) -> EvidenceCheck:
     payload, error = _load_json(path)
     evidence = {"path": str(path)}
@@ -2256,6 +2308,7 @@ def run_readiness(
     max_scheduler_age_hours: float | None = None,
     fail_on_runtime_fallback: bool = False,
     require_live_db: bool = False,
+    require_live_llm: bool = False,
 ) -> dict[str, Any]:
     checks = [
         check_smoke_report(
@@ -2289,6 +2342,8 @@ def run_readiness(
         )
     if require_live_db:
         checks.append(check_live_db_doctor())
+    if require_live_llm:
+        checks.append(check_live_llm_keys())
     blocking_checks = [check for check in checks if check.level != "WARN"]
     failed = [check for check in blocking_checks if not check.ok]
     warnings = [check for check in checks if check.level == "WARN" and not check.ok]
@@ -2303,6 +2358,7 @@ def run_readiness(
             "require_scheduler": require_scheduler,
             "fail_on_runtime_fallback": fail_on_runtime_fallback,
             "require_live_db": require_live_db,
+            "require_live_llm": require_live_llm,
             "max_cli_smoke_age_hours": max_cli_smoke_age_hours,
             "max_browser_smoke_age_hours": max_browser_smoke_age_hours,
             "max_scheduler_age_hours": max_scheduler_age_hours,
@@ -2390,6 +2446,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run python main.py --doctor --require-live-db and fail launch readiness if the live DB preflight fails.",
     )
     parser.add_argument(
+        "--require-live-llm",
+        action="store_true",
+        help="Probe each LLM tier (scripts/check_llm_keys.py) and fail launch readiness on a leaked/dead key.",
+    )
+    parser.add_argument(
         "--no-require-scheduler",
         action="store_true",
         help="Downgrade missing scheduler evidence to a warning for developer-only checks.",
@@ -2433,6 +2494,7 @@ def main(argv: list[str] | None = None) -> int:
         max_scheduler_age_hours=args.max_scheduler_age_hours,
         fail_on_runtime_fallback=args.fail_on_runtime_fallback,
         require_live_db=args.require_live_db,
+        require_live_llm=args.require_live_llm,
     )
     print(f"getdaytrends readiness: {payload['status']}")
     print(f"report: {args.report}")
