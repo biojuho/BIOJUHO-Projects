@@ -250,3 +250,40 @@ def test_check_watchlist_sends_single_alert_for_matches(config):
     message = mock_send.call_args.args[0]
     assert "AI regulation" in message
     assert "regulation" in message
+
+
+class TestDailyCostAlertHelpers:
+    """Budget-protection logic — pure helpers that gate the daily LLM-cost alert.
+
+    Untested before; a wrong threshold or total means silent over-budget spend.
+    """
+
+    def test_should_send_cost_alert_threshold_at_70(self):
+        from alerts import _should_send_cost_alert
+
+        assert _should_send_cost_alert(69.9) is False
+        assert _should_send_cost_alert(70) is True
+        assert _should_send_cost_alert(120) is True
+
+    def test_daily_budget_pct_and_zero_guard(self):
+        from alerts import _daily_budget_pct
+
+        assert _daily_budget_pct(3.5, 5.0) == 70.0
+        assert _daily_budget_pct(1.0, 0) == 0  # no divide-by-zero on unset budget
+
+    def test_daily_cost_totals_filters_today_only(self):
+        from alerts import _daily_cost_totals
+
+        rows = [
+            {"date": "2026-06-16", "cost_usd": 1.5, "calls": 10},
+            {"date": "2026-06-16", "cost_usd": 0.5, "calls": 4},
+            {"date": "2026-06-15", "cost_usd": 9.9, "calls": 99},
+        ]
+        cost, calls = _daily_cost_totals(rows, "2026-06-16")
+        assert cost == 2.0 and calls == 14
+
+    def test_daily_cost_alert_message_escalates_at_90(self):
+        from alerts import _daily_cost_alert_message
+
+        assert "critical" in _daily_cost_alert_message("s", 5, 90).lower()
+        assert "critical" not in _daily_cost_alert_message("s", 5, 75).lower()
