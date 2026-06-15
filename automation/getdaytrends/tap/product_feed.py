@@ -14,7 +14,7 @@ deterministic packaging, clear interfaces, and zero new hard dependencies.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -230,7 +230,7 @@ def empty_tap_board(*, target_country: str = "", teaser_count: int = 0) -> TapBo
     """Return an empty but schema-stable response."""
 
     return TapBoard(
-        generated_at=datetime.utcnow().isoformat(),
+        generated_at=datetime.now(UTC).replace(tzinfo=None).isoformat(),
         target_country=target_country,
         total_detected=0,
         teaser_count=teaser_count,
@@ -266,7 +266,7 @@ class TapBoardBuilder:
         ]
 
         return TapBoard(
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(UTC).replace(tzinfo=None).isoformat(),
             target_country=normalized_country,
             total_detected=len(filtered),
             teaser_count=max(0, teaser_count),

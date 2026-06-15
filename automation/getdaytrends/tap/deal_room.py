@@ -13,7 +13,7 @@ while making room for future commercial integrations.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 try:
@@ -189,7 +189,7 @@ class TapDealRoomBuilder:
         )
 
         return TapDealRoom(
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(UTC).replace(tzinfo=None).isoformat(),
             snapshot_id=board.snapshot_id,
             target_country=resolved.normalized_target_country or board.target_country,
             audience_segment=resolved.audience_segment,

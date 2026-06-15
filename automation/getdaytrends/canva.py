@@ -97,7 +97,7 @@ class CanvaMCPClient:
             response_line = ""
             try:
                 response_line = await asyncio.wait_for(
-                    asyncio.get_event_loop().run_in_executor(None, self.server_process.stdout.readline), timeout=30.0
+                    asyncio.get_running_loop().run_in_executor(None, self.server_process.stdout.readline), timeout=30.0
                 )
             except TimeoutError:
                 log.error("[Canva MCP] 응답 타임아웃 (30초)")

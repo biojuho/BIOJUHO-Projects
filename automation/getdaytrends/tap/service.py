@@ -11,7 +11,7 @@ This keeps dashboard/API consumers thin and gives us one place to add:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 def _load_db_funcs() -> object:
@@ -377,7 +377,7 @@ def _tap_delivery_metadata(
 async def _dispatch_tap_alert_item(conn, item: dict, config, update_status, send_alert) -> dict:
     channel_results = send_alert(item["alert_message"], config)
     successful_channels, failed_channels, failure_reason = _tap_channel_results(channel_results)
-    attempted_at = datetime.utcnow().isoformat()
+    attempted_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
 
     if successful_channels:
         await update_status(
