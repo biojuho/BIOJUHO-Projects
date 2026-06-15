@@ -72,6 +72,24 @@ async def _judge(client: Any, keyword: str, text_a: str, text_b: str) -> str:
     return "A" if verdict.startswith("A") else "B" if verdict.startswith("B") else "?"
 
 
+def _winner_from_verdict(verdict: str, a_first: bool) -> str:
+    """Map a shown-position verdict back to the real variant, undoing the swap.
+
+    When ``a_first`` is False the two sets were shown swapped to cancel order
+    bias, so the judge's 'A' actually refers to real variant B. Returns
+    'A', 'B', or 'tie' (for '?' / any non-A/B verdict).
+    """
+    if verdict not in ("A", "B"):
+        return "tie"
+    judge_picked_first = verdict == "A"
+    return "A" if judge_picked_first == a_first else "B"
+
+
+def _judge_decision(a_wins: int, b_wins: int, compared: int) -> str:
+    """Adopt B only on a clear majority over a minimum sample."""
+    return "adopt_B" if b_wins > a_wins and b_wins - a_wins >= 2 and compared >= 4 else "keep_A"
+
+
 async def _run_live(limit: int, db_path: str) -> dict[str, Any]:
     import generator
     from config import AppConfig
@@ -109,17 +127,15 @@ async def _run_live(limit: int, db_path: str) -> dict[str, Any]:
         a_first = idx % 2 == 0
         first, second = (text_a, text_b) if a_first else (text_b, text_a)
         verdict = await _judge(client, getattr(trend, "keyword", ""), first, second)
-        if verdict == "?":
+        winner = _winner_from_verdict(verdict, a_first)
+        if winner == "tie":
             ties += 1
-            continue
-        # map shown-position verdict back to A/B
-        winner_is_a = (verdict == "A") == a_first
-        if winner_is_a:
+        elif winner == "A":
             a_wins += 1
         else:
             b_wins += 1
 
-    decision = "adopt_B" if b_wins > a_wins and b_wins - a_wins >= 2 and compared >= 4 else "keep_A"
+    decision = _judge_decision(a_wins, b_wins, compared)
     return {
         "compared": compared,
         "a_wins": a_wins,
