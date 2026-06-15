@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from . import _json_text, sqlite_write_lock
@@ -72,7 +72,7 @@ def _is_snapshot_fresh(generated_at: str, max_age_minutes: int) -> bool:
     except ValueError:
         return False
 
-    now = datetime.now(parsed.tzinfo) if parsed.tzinfo is not None else datetime.utcnow()
+    now = datetime.now(parsed.tzinfo) if parsed.tzinfo is not None else datetime.now(UTC).replace(tzinfo=None)
     age_minutes = (now - parsed).total_seconds() / 60
     return age_minutes <= max_age_minutes
 
@@ -86,8 +86,8 @@ async def save_tap_board_snapshot(
     """Persist one TAP board snapshot and its flattened items."""
 
     snapshot_id = board.snapshot_id or f"tap_{uuid4().hex}"
-    generated_at = board.generated_at or datetime.utcnow().isoformat()
-    created_at = datetime.utcnow().isoformat()
+    generated_at = board.generated_at or datetime.now(UTC).replace(tzinfo=None).isoformat()
+    created_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
 
     async with sqlite_write_lock(conn):
         await conn.execute(
@@ -269,7 +269,7 @@ async def _has_recent_alert(
     except ValueError:
         return False
 
-    now = datetime.now(queued_at.tzinfo) if queued_at.tzinfo is not None else datetime.utcnow()
+    now = datetime.now(queued_at.tzinfo) if queued_at.tzinfo is not None else datetime.now(UTC).replace(tzinfo=None)
     age_minutes = (now - queued_at).total_seconds() / 60
     return age_minutes < cooldown_minutes
 
@@ -298,7 +298,7 @@ async def enqueue_tap_alerts(
             if await _has_recent_alert(conn, dedupe_key=dedupe_key, cooldown_minutes=cooldown_minutes):
                 continue
 
-            queued_at = datetime.utcnow().isoformat()
+            queued_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
             await conn.execute(
                 """INSERT INTO tap_alert_queue (
                        alert_id, snapshot_id, dedupe_key, target_country, keyword,
@@ -466,7 +466,7 @@ async def update_tap_alert_delivery_status(
     if not alert_id or not normalized_status:
         return False
 
-    attempted_at = last_attempt_at or datetime.utcnow().isoformat()
+    attempted_at = last_attempt_at or datetime.now(UTC).replace(tzinfo=None).isoformat()
 
     async with sqlite_write_lock(conn):
         existing_cursor = await conn.execute(
@@ -636,7 +636,7 @@ def _tap_deal_room_event_insert_params(record: dict) -> tuple:
         record["actor_id"],
         record["revenue_value"],
         _json_text(record["metadata"]),
-        datetime.utcnow().isoformat(),
+        datetime.now(UTC).replace(tzinfo=None).isoformat(),
     )
 
 
@@ -686,7 +686,7 @@ async def upsert_tap_checkout_session(
         metadata=metadata,
         completed_at=completed_at,
     )
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(UTC).replace(tzinfo=None).isoformat()
 
     async with sqlite_write_lock(conn):
         existing_row = await _existing_tap_checkout_metadata(conn, record["checkout_session_id"])
@@ -887,7 +887,7 @@ async def mark_tap_checkout_session_completed(
     if not normalized_session_id:
         return False
 
-    completed_at = datetime.utcnow().isoformat()
+    completed_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
     async with sqlite_write_lock(conn):
         existing_cursor = await conn.execute(
             "SELECT metadata_json FROM tap_checkout_sessions WHERE checkout_session_id = ? LIMIT 1",
@@ -935,8 +935,8 @@ async def get_tap_checkout_session_summary(
 ) -> dict:
     """Return checkout-session ops summary for TAP deal-room commerce."""
 
-    cutoff = datetime.utcnow().timestamp() - (max(1, days) * 86400)
-    cutoff_iso = datetime.utcfromtimestamp(cutoff).isoformat()
+    cutoff = datetime.now(UTC).replace(tzinfo=None).timestamp() - (max(1, days) * 86400)
+    cutoff_iso = datetime.fromtimestamp(cutoff, UTC).replace(tzinfo=None).isoformat()
     clauses = ["created_at >= ?"]
     params: list = [cutoff_iso]
 
@@ -1036,8 +1036,8 @@ async def get_tap_deal_room_funnel(
 ) -> dict:
     """Summarize TAP deal-room funnel performance for learning loops."""
 
-    cutoff = datetime.utcnow().timestamp() - (max(1, days) * 86400)
-    cutoff_iso = datetime.utcfromtimestamp(cutoff).isoformat()
+    cutoff = datetime.now(UTC).replace(tzinfo=None).timestamp() - (max(1, days) * 86400)
+    cutoff_iso = datetime.fromtimestamp(cutoff, UTC).replace(tzinfo=None).isoformat()
     clauses = ["created_at >= ?"]
     params: list = [cutoff_iso]
 

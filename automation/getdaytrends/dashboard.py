@@ -38,7 +38,7 @@ import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -275,7 +275,7 @@ def _tap_deal_room_fallback(
     package_tier: str,
 ) -> dict[str, Any]:
     return {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
         "snapshot_id": "",
         "target_country": (target_country or "").strip().lower(),
         "audience_segment": audience_segment,

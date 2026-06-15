@@ -5,7 +5,7 @@ dashboard.py에서 분리됨. FastAPI APIRouter 사용.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Path, Query, Request
 from fastapi.responses import JSONResponse
@@ -831,7 +831,7 @@ async def _insert_completed_tap_checkout_session(conn, record: dict) -> None:
         stripe_customer_id=record["stripe_customer_id"],
         stripe_event_id=record["event_id"],
         metadata=record["metadata"],
-        completed_at=datetime.utcnow().isoformat(),
+        completed_at=datetime.now(UTC).replace(tzinfo=None).isoformat(),
     )
 
 
