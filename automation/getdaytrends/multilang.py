@@ -208,6 +208,9 @@ _QA_CLICHE_PATTERNS = (
     "이목이 집중",
     "대두되고 있다",
     "화두로 떠올랐다",
+    # Report/analysis sentence-final tells (pure journalism, never casual speech).
+    "것으로 나타났다",
+    "로 풀이된다",
 )
 _THREADS_BAIT_PATTERNS = ("좋아요", "댓글", "투표", "1)", "2)", "여러분의 생각")
 _BLOG_REQUIRED_HEADINGS = (

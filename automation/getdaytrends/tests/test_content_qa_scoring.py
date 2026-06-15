@@ -89,7 +89,15 @@ class TestScoreHook:
         """Newly added newspaper/AI-voice clichés are in the list and flagged in the lead."""
         from multilang import _QA_CLICHE_PATTERNS
 
-        for cliche in ("눈길을 끌고 있다", "이목이 집중", "대두되고 있다", "화두로 떠올랐다"):
+        added = (
+            "눈길을 끌고 있다",
+            "이목이 집중",
+            "대두되고 있다",
+            "화두로 떠올랐다",
+            "것으로 나타났다",
+            "로 풀이된다",
+        )
+        for cliche in added:
             assert cliche in _QA_CLICHE_PATTERNS, cliche
             lead = f"이 주제가 {cliche}"
             score, issues = _score_hook(lead, [lead], "tweets")
