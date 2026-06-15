@@ -215,7 +215,7 @@ def _content_hub_summary_block(context: dict[str, Any], workflow_meta: dict) -> 
         "object": "block",
         "type": "callout",
         "callout": {
-            "icon": {"type": "emoji", "emoji": "?뱷"},
+            "icon": {"type": "emoji", "emoji": "📊"},
             "rich_text": [
                 {
                     "type": "text",
