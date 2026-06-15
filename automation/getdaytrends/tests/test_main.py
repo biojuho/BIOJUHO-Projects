@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -1155,3 +1156,35 @@ async def test_refresh_tap_products_after_parallel_runs_dispatches_when_enabled(
     assert "TAP refresh       : 2 snapshots / 2 alerts queued" in output
     assert "TAP dispatch      : 2 sent / 0 failed / 0 skipped" in output
     mock_dispatch.assert_awaited_once()
+
+
+def _argparse_flags_from_main_source() -> set[str]:
+    """Flags actually registered on the CLI parser, read from main.py source."""
+    source = Path(main_mod.__file__).resolve().read_text(encoding="utf-8")
+    return set(re.findall(r"add_argument\(\s*['\"](--[a-z0-9-]+)", source))
+
+
+def _documented_argparse_flags_from_readme() -> set[str]:
+    """Flags listed under README's 'Supported options (from argparse):' section."""
+    readme = (Path(main_mod.__file__).resolve().parent / "README.md").read_text(encoding="utf-8")
+    lines = readme.splitlines()
+    start = next(i for i, ln in enumerate(lines) if "Supported options (from argparse)" in ln)
+    flags: set[str] = set()
+    for ln in lines[start + 1 :]:
+        m = re.match(r"\s*-\s*`(--[a-z0-9-]+)`", ln)
+        if m:
+            flags.add(m.group(1))
+        elif flags and ln.strip() and not ln.strip().startswith("-"):
+            break  # left the bullet list
+    return flags
+
+
+def test_readme_supported_options_match_actual_argparse_flags():
+    """Guard against CLI doc-drift: README's argparse list must match main.py exactly."""
+    actual = _argparse_flags_from_main_source()
+    documented = _documented_argparse_flags_from_readme()
+    assert actual, "no argparse flags parsed from main.py source"
+    missing_from_readme = actual - documented
+    stale_in_readme = documented - actual
+    assert not missing_from_readme, f"README omits real CLI flags: {sorted(missing_from_readme)}"
+    assert not stale_in_readme, f"README documents nonexistent CLI flags: {sorted(stale_in_readme)}"

@@ -82,6 +82,7 @@ Supported options (from argparse):
 - `--no-alerts`
 - `--doctor`
 - `--health-check`
+- `--require-live-db`
 - `--schedule-min`
 - `--stats`
 - `--serve`
