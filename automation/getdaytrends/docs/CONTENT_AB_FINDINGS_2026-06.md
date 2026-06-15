@@ -22,6 +22,12 @@ classification), `scripts/ab_test_hook_research.py` (hook hypothesis).
 | --- | --- | --- |
 | Tone variant B (blunt/argumentative) | n=9: wins 5-5, avg 63.78 vs 65.11 (noise), both fail 100% | tied wins, margin within noise, B fails every batch |
 | Research-backed hook block (curiosity/contrarian/question/problem hooks) | n=2: baseline avg 77.0 vs 69.0, baseline wins 2-1 | did not beat the current prompt on measured quality |
+| Ending-variation block (cap 음/임 endings, vary the rest) | n=3: baseline avg 67.67 vs 69.0, baseline wins 2-1 | marginal avg edge but loses per-trend; not a clear win |
+
+Three distinct prompt-enhancement hypotheses (tone, hook, endings) all failed to
+beat the baseline → the production prompt is at a local optimum for the
+deterministic scorer. `scripts/ab_test_hook_research.py --variant {hook,endings}`
+is the reusable harness for future hypotheses.
 
 ## Structural finding (not a bug)
 
