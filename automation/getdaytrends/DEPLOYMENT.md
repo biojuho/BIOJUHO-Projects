@@ -138,6 +138,17 @@ configured API key is dead — e.g. `key_leaked` (provider revoked a leaked key)
 checks that modules import), so run this before launch and rotate the flagged
 key. Note: an auth-failed key currently kills its tier rather than falling back.
 
+### 7. Alert Channel Preflight (sends no message)
+```bash
+python scripts/check_alert_channels.py
+```
+
+**Expected**: Exit code `0` with each configured channel `valid`. Validates the
+Telegram/Discord tokens read-only (no alert is sent). A non-zero exit means a
+configured channel is dead — failure notifications from the unattended scheduler
+would otherwise fail silently. Rotate/replace the flagged token, or remove the
+unused channel from `.env`.
+
 ---
 
 ## 📂 File Structure (Post-Refactoring)
