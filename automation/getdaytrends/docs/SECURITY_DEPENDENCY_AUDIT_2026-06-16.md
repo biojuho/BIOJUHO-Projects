@@ -32,19 +32,28 @@ No other audited CVE maps to a getdaytrends declared dependency:
 The shared venv flagged advisories that are genuinely relevant to **other**
 projects' launches and worth triaging there (not in getdaytrends):
 
-- **pyjwt 2.11.0** — 7 PYSEC advisories. Auth-critical wherever JWTs are
-  verified (desci-platform / AgriGuard FastAPI backends). Highest priority.
-- **python-multipart 0.0.22**, **sqladmin 0.23.0**, **tornado 6.5.4** — web
-  surface (form parsing / admin UI / server) for the FastAPI apps.
-- **pypdf 6.6.2** (16 CVEs), **pillow 12.1.0** — only relevant where untrusted
-  PDFs/images are parsed.
+Mapped to the project that **directly declares** each package (grep over each
+project's `pyproject.toml` / `requirements*.txt`):
+
+| Package | Fix | Declared by | Severity |
+| --- | --- | --- | --- |
+| **pypdf** 6.6.2 | 6.12.0 | `apps/desci-platform/backend` | **16 CVEs — HIGH.** desci parses research/RFP PDFs (untrusted input), so PDF-parser CVEs are directly reachable. Triage first. |
+| **pyjwt** 2.11.0 | 2.13.0 | `mcp/notebooklm-mcp` | 7 PYSEC — auth-critical wherever JWTs are verified. |
+| **python-multipart** 0.0.22 | 0.0.27 | `apps/AgriGuard/backend`, `apps/desci-platform/backend`, `mcp/notebooklm-mcp` | 2 CVEs — form-parse DoS on the FastAPI apps. |
+| **sqladmin** 0.23.0 | 0.25.1 | `apps/AgriGuard/backend` | admin-UI CVE — relevant if the admin surface is exposed. |
+| **pygments** 2.19.2 | 2.20.0 | `mcp/notebooklm-mcp` | LOW. |
+| **pillow**, **tornado** | — | (not directly declared) | transitive only; bump via whatever pulls them. |
 
 These were not changed here: they live in other projects' dependency sets, and
-those trees are currently mid-change in parallel sessions.
+those trees are currently mid-change in parallel sessions. The single highest
+priority is **desci-platform pypdf** (untrusted-PDF parsing × 16 CVEs).
 
 ## Recommendation
 
 - getdaytrends launch is **not blocked** by a dependency CVE. The single
   in-scope item (python-dotenv → 1.2.2) is low severity and in-range; adopt it
   on the next intentional `uv lock` refresh.
-- Triage the pyjwt/web findings inside desci-platform / AgriGuard separately.
+- Cross-project priority order (report-only; the owner decides bumps):
+  desci-platform `pypdf`→6.12.0 (untrusted-PDF × 16 CVEs) first, then
+  notebooklm-mcp `pyjwt`→2.13.0 (auth), then `python-multipart`→0.0.27 across
+  the FastAPI apps, then AgriGuard `sqladmin`→0.25.1.
