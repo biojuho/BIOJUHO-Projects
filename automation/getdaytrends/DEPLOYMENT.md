@@ -308,6 +308,22 @@ Known non-blocking warnings:
 - Instructor may log a `mistralai` import fallback warning during structured extraction.
 - Low-confidence or low-diversity trends may still log QA warnings without failing the run.
 
+### Final Launch Gate (single go/no-go)
+
+Run these two commands; both must exit `0` to launch. They live-verify every
+credential that fails silently otherwise:
+
+```bash
+# Gates DB (Supabase) + LLM keys live; writes logs/readiness/readiness_latest.json
+python scripts/readiness_check.py --require-live-db --require-live-llm
+# Validates alert channels read-only (sends nothing)
+python scripts/check_alert_channels.py
+```
+
+Maps to the three credential blockers: `--require-live-db` (Supabase project
+active), `--require-live-llm` (no leaked/dead API key), and the alert preflight
+(Telegram/Discord tokens live). Any non-zero exit names exactly what to rotate.
+
 ---
 
 ## 📞 Support
