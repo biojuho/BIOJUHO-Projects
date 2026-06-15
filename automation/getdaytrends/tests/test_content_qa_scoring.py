@@ -85,6 +85,16 @@ class TestScoreHook:
             assert score <= 10
             assert len(issues) >= 1
 
+    def test_new_journalistic_cliches_detected(self):
+        """Newly added newspaper/AI-voice clichés are in the list and flagged in the lead."""
+        from multilang import _QA_CLICHE_PATTERNS
+
+        for cliche in ("눈길을 끌고 있다", "이목이 집중", "대두되고 있다", "화두로 떠올랐다"):
+            assert cliche in _QA_CLICHE_PATTERNS, cliche
+            lead = f"이 주제가 {cliche}"
+            score, issues = _score_hook(lead, [lead], "tweets")
+            assert len(issues) >= 1, cliche  # cliché in lead → flagged
+
     def test_no_number_or_keyword_penalty(self):
         """Lead without numbers/question words → -3 penalty."""
         score, _ = _score_hook(

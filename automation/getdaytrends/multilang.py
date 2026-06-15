@@ -203,6 +203,11 @@ _QA_CLICHE_PATTERNS = (
     "귀추가 주목된다",
     "여러분",
     "우리 모두",
+    # Newspaper / AI-voice attention clichés the casual product tone never uses.
+    "눈길을 끌고 있다",
+    "이목이 집중",
+    "대두되고 있다",
+    "화두로 떠올랐다",
 )
 _THREADS_BAIT_PATTERNS = ("좋아요", "댓글", "투표", "1)", "2)", "여러분의 생각")
 _BLOG_REQUIRED_HEADINGS = (
