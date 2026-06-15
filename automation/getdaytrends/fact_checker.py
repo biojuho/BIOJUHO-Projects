@@ -529,11 +529,11 @@ def _apply_deepeval_check(result: FactCheckResult, text: str, trend: ScoredTrend
                 result.issues.append(f"[DeepEval] {issue}")
             if eval_result.hallucination_score > 0.7:
                 result.passed = False
-                log.warning(f"[DeepEval] '{trend.keyword}' ?섍컖 ?먯닔 ?믪쓬: {eval_result.hallucination_score:.2f}")
+                log.warning(f"[DeepEval] '{trend.keyword}' 환각 점수 높음: {eval_result.hallucination_score:.2f}")
     except ImportError:
         pass
     except Exception as e:
-        log.debug(f"[DeepEval] 蹂댁“ ?됯? ?ㅽ궢: {e}")
+        log.debug(f"[DeepEval] 보조 평가 실패: {e}")
 
 
 def verify_content(
@@ -754,9 +754,9 @@ def _context_confidence_signal_count(context: "MultiSourceContext | None") -> in
         return 0
     return sum(
         (
-            _usable_context_signal(context.twitter_insight, ("?놁쓬", "?ㅻ쪟")),
-            _usable_context_signal(context.news_insight, ("?놁쓬",)),
-            _usable_context_signal(context.reddit_insight, ("?놁쓬", "?쒗븳")),
+            _usable_context_signal(context.twitter_insight, ("없음", "오류")),
+            _usable_context_signal(context.news_insight, ("없음",)),
+            _usable_context_signal(context.reddit_insight, ("없음", "제한")),
         )
     )
 
