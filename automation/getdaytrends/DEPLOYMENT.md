@@ -127,6 +127,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\getdaytrends\validate_
 
 **Expected**: Verifies `.env`, core tests, QA regression, scheduler dry-run, and scheduled task health
 
+### 6. LLM Key Preflight (spends a few cents)
+```bash
+python scripts/check_llm_keys.py
+```
+
+**Expected**: Exit code `0` with every task tier `ok`. A non-zero exit means a
+configured API key is dead — e.g. `key_leaked` (provider revoked a leaked key),
+`auth_failed`, or `quota_exhausted`. `--doctor` does NOT catch this (it only
+checks that modules import), so run this before launch and rotate the flagged
+key. Note: an auth-failed key currently kills its tier rather than falling back.
+
 ---
 
 ## 📂 File Structure (Post-Refactoring)
