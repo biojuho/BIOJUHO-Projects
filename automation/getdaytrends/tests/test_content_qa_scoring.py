@@ -103,6 +103,16 @@ class TestScoreHook:
             score, issues = _score_hook(lead, [lead], "tweets")
             assert len(issues) >= 1, cliche  # cliché in lead → flagged
 
+    def test_hyeonta_no_longer_banned_slang(self):
+        """'현타' is mainstream casual Korean — not penalized; aggressive slang still is."""
+        from content_qa import _BANNED_SLANG_PATTERNS, _slang_tone_penalty
+
+        assert "현타" not in _BANNED_SLANG_PATTERNS
+        assert _slang_tone_penalty("오늘 진짜 현타 제대로 왔다") is None
+        # the genuinely aggressive/insulting slang is still caught
+        assert "쩌리" in _BANNED_SLANG_PATTERNS
+        assert _slang_tone_penalty("저 쩌리 같은 모습 봐라") is not None
+
     def test_no_number_or_keyword_penalty(self):
         """Lead without numbers/question words → -3 penalty."""
         score, _ = _score_hook(

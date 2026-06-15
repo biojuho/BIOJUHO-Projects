@@ -373,11 +373,14 @@ _ATTRIBUTION_MARKER_ALLOWLIST = {
     "\uadfc\uac70",
 }
 
+# Aggressive/insulting slang the casual-but-kind product tone avoids. '현타'
+# (현실 자각 타임) was removed: unlike the others it is mainstream, self-
+# deprecating, dictionary-registered casual Korean that fits the witty
+# "동네 친구" tone, so banning it false-flagged natural copy.
 _BANNED_SLANG_PATTERNS = (
     "쩌리",
     "똥챔프",
     "깝치",
-    "현타",
 )
 
 _EMOJI_RANGES = (
