@@ -283,7 +283,7 @@ async def _load_approved_post_bank(config: AppConfig, conn) -> list[dict]:
         platforms = tuple(getattr(config, "approved_post_bank_platforms", ["x"]) or ["x"])
         return await get_approved_post_bank(conn, limit=limit, platforms=platforms)
     except (ImportError, sqlite3.Error, TypeError, ValueError) as _e:
-        log.debug(f"  [Approved Post Bank] 濡쒕뱶 ?ㅽ뙣 (臾댁떆): {type(_e).__name__}: {_e}")
+        log.debug(f"  [Approved Post Bank] 로드 실패 (무시): {type(_e).__name__}: {_e}")
         return []
 
 

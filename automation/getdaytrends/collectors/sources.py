@@ -118,7 +118,7 @@ def _fresh_getdaytrends_cache(cache_key: str, limit: int) -> list[RawTrend] | No
     cache_age = time.time() - cached_at
     if cache_age >= _FETCH_CACHE_TTL:
         return None
-    log.info(f"[?섏쭛 罹먯떆] getdaytrends.com ?ъ궗?? {len(cached_trends)}媛?({cache_key}, {int(cache_age)}珥???")
+    log.info(f"[수집 캐시] getdaytrends.com 사용: {len(cached_trends)}개 ({cache_key}, {int(cache_age)}초 전)")
     return cached_trends[:limit]
 
 
@@ -285,7 +285,7 @@ def _google_trends_item_to_raw(item, ns: dict[str, str], country_slug: str) -> R
 
     name = title_el.text.strip()
     if not _is_korean_trend(name, country_slug):
-        log.debug(f"  [Google Trends] 鍮꾪븳援?뼱 ?꾪꽣: '{name}'")
+        log.debug(f"  [Google Trends] 비한국어 필터: '{name}'")
         return None
 
     traffic_el = item.find("ht:approx_traffic", ns)

@@ -29,6 +29,19 @@ CRITICAL_FILES = [
     "multilang.py",
 ]
 
+# The placeholder-marker emitter/consumer chain: collectors emit "[X 데이터 없음]"
+# / "[X API 오류]" / "[Reddit 접근 제한]" and core/steps_generate matches the "환각"
+# hallucination prefix. Mojibake on either side silently breaks the match, so
+# guard the whole chain.
+CRITICAL_GLOBS = ["collectors/*.py", "core/*.py"]
+
+
+def _critical_paths() -> list[Path]:
+    paths = [_ROOT / rel for rel in CRITICAL_FILES]
+    for pattern in CRITICAL_GLOBS:
+        paths.extend(sorted(_ROOT.glob(pattern)))
+    return paths
+
 # Standalone Hangul compatibility jamo (U+3130–U+318F) never appear in normal
 # composed Korean prose — they are a strong mojibake signal. A lone '?' directly
 # before a Hangul syllable is the other classic lost-lead-byte signature.
@@ -42,10 +55,9 @@ def _mojibake_hits(text: str) -> dict[str, int]:
 
 def test_critical_files_have_no_mojibake():
     offenders = {}
-    for rel in CRITICAL_FILES:
-        path = _ROOT / rel
-        assert path.exists(), f"critical file missing: {rel}"
+    for path in _critical_paths():
+        assert path.exists(), f"critical file missing: {path}"
         hits = _mojibake_hits(path.read_text(encoding="utf-8"))
         if hits["jamo"] or hits["q_hangul"]:
-            offenders[rel] = hits
+            offenders[str(path.relative_to(_ROOT))] = hits
     assert not offenders, f"mojibake re-entered critical files: {offenders}"
