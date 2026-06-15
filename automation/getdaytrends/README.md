@@ -145,6 +145,8 @@ The readiness script writes a JSON report to `logs/readiness/readiness_latest.js
 The launch secret scan is run from workspace root and should use `--include-current-artifacts` before release handoff so readiness, recovery packets, browser smoke, CLI smoke, workspace smoke, and handoff docs are checked together.
 Doctor output uses `[OK]`, `[WARN]`, and `[ERROR]` records with stable check IDs and `fix:` remediation hints. Add `--require-live-db` to run a non-destructive live PostgreSQL `SELECT 1` probe during launch preflight. Database checks also report the effective `DATABASE_URL` source, Supabase pooler URL shape, optional `SUPABASE_URL` project-ref cross-check, DNS reachability, and TCP reachability without printing credentials.
 
+Add `--require-live-llm` to also fail launch readiness on a leaked/dead LLM API key (probes each task tier via `scripts/check_llm_keys.py`). Validate alert tokens read-only with `scripts/check_alert_channels.py` (sends nothing). These catch silent-failure credentials that `--doctor` misses — see `DEPLOYMENT.md` → "Final Launch Gate".
+
 ---
 
 ## References
