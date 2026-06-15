@@ -1,0 +1,952 @@
+{
+  "manifest_path": "D:\\AI project\\docs\\reports\\2026-06\\RELEASE_APPROVAL_WORKSPACE_COMPLETION_AUDIT_2026-06-06.json",
+  "generated_at": "2026-06-12T01:05:41.267562+09:00",
+  "snapshot_paths": [
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-status-audit-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:02:02.996376+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-inventory-health-bridge-config-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-08T16:02:41.689812+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-inventory-health-bridge-live-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:36.918767+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-direct-session-probe-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:31:46.923872+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-stale-process-audit-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:31:58.947874+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-stale-process-cleanup-plan-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:27.866206+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-process-owner-detail-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:56.661482+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-manual-cleanup-checklist-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:34:06.050401+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-cleanup-readiness-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:34:13.062434+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-connector-auth-readiness-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:35.893156+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-auth-diagnostic-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T07:22:18.541041+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-unblock-gate-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:02:14.449733+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/workspace-external-credential-recovery-refresh-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:55:49.811039+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-local-credential-side-channel-audit-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T00:54:02+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-no-credential-refresh-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:00:29.295481+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-release-evidence-refresh-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:00:29.146782+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/supabase-pooler-shape-audit-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:37:25.798410+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-scheduled-task-pause-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-07T23:04:15.2264279Z"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-scheduled-task-resume-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:04:48.756391+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-post-supabase-credential-input-status-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:55:12.546088+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-supabase-external-repair-packet-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:06.812100+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-db-pooler-username-variant-probes-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-08T16:10:43.869950+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-db-direct-host-probe-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-08T05:29:46.681585+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-first-run-verifier-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:32:51.1983071Z"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-x-ops-browser-smoke-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:04:52.124803+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-runner-preflight-morning-2026-06-12T010531KST.json",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-launch-secret-scan-final-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:01:06.860119+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-report-secret-scan-refresh-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:13.186462+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-prompt-to-artifact-checklist-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:20.020634+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-report-secret-scan-dailynews-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:08.665549+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/supabase-pooler-management-probe-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:31:46.831742+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-credential-input-status-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:55:13.602795+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-launch-secret-scan-final-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:01:12.747493+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-report-secret-scan-getdaytrends-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:13.135668+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-readiness-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.900030+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-strict-readiness-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.900030+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-provider-auth-recovery-packet-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.918274+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-strict-provider-auth-recovery-packet-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.948662+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-supabase-recovery-packet-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.900746+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-strict-supabase-recovery-packet-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.936465+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/workspace-smoke-getdaytrends-launch-final-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:02:20.128786+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-dashboard-browser-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T22:36:19.526045+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-evidence-consistency-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:30.708977+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-01-var-complete-goal-status-audit-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:02:02.996376+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-02-docs-reports-2026-06-complete-goal-status-audit-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-03-docs-reports-2026-06-github-similar-systems-modernization-2026-06-04-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-04-var-release-approval-check-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:04:21.792926+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-05-var-dailynews-first-run-verifier-mcp-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:32:51.1983071Z"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-06-var-dailynews-runner-preflight-morning-2026-06-08-094235-json-2026-06-12T010531KST.json",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-07-automation-getdaytrends-logs-readiness-strict-readiness-latest-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.900030+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-08-var-workspace-smoke-getdaytrends-launch-final-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T10:52:26.674941+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-09-var-auto-research-status-getdaytrends-handoff-refresh-current-2026-06-11-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T12:59:59.244964+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-10-var-complete-goal-evidence-consistency-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:30.708977+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-11-var-complete-goal-no-credential-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:00:29.295481+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-12-var-complete-goal-unblock-gate-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:02:14.449733+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-13-var-workspace-external-credential-recovery-refresh-preflight-current-2026-06-12-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:55:49.811039+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-14-var-supabase-pooler-management-probe-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:31:46.831742+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-15-var-mcp-inventory-health-bridge-live-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:36.918767+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-16-var-mcp-health-live-rerun-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-17-var-mcp-connector-auth-readiness-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:35.893156+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-18-docs-reports-2026-06-mcp-connector-auth-readiness-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-19-var-mcp-canva-local-transport-diagnostic-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:58.100169+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-20-docs-reports-2026-06-mcp-canva-local-transport-diagnostic-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-21-mcp-canva-mcp-var-canva-auth-status-json-2026-06-12T010531KST.json",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-22-mcp-canva-mcp-var-canva-auth-url-txt-2026-06-12T010531KST.txt",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-23-var-mcp-cleanup-readiness-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:34:13.062434+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-24-var-mcp-stale-process-audit-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:31:58.947874+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-25-var-mcp-manual-cleanup-checklist-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:34:06.050401+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-26-var-complete-goal-scheduled-task-resume-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:04:48.756391+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-27-docs-reports-2026-06-complete-goal-scheduled-task-resume-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-28-var-release-approval-check-scheduled-resume-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:04:23.145439+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-29-var-complete-goal-approval-request-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:13.740809+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-30-docs-reports-2026-06-complete-goal-approval-request-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-31-docs-reports-2026-06-complete-goal-operator-unblock-handoff-current-2026-06-12-m-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-32-var-complete-goal-release-manifest-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:29.931112+09:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-33-var-complete-goal-report-secret-scan-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:13.186462+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-34-var-complete-goal-report-secret-scan-dailynews-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:08.665549+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-35-var-complete-goal-report-secret-scan-getdaytrends-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:13.135668+00:00"
+    },
+    {
+      "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-36-var-complete-goal-approval-request-post-write-secret-scan-current-2026-06-12-jso-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:13.787847+09:00"
+    }
+  ],
+  "missing_sources": [],
+  "allowed_missing_sources": [],
+  "schema_version": 1,
+  "release_candidate": "workspace-completion-audit",
+  "affected_scope": "workspace",
+  "deterministic_gate": {
+    "ok": true,
+    "command": "python ops/scripts/run_workspace_smoke.py --scope workspace --json-out var/workspace-smoke-complete-goal-audit-2026-06-06.json",
+    "evidence_path": "var/workspace-smoke-complete-goal-audit-2026-06-06.json"
+  },
+  "completion_audit_gate": {
+    "ok": false,
+    "command": "python ops/scripts/auto_research_status.py --check-live-sources --auto-refresh-radar --radar-markdown-out docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md --require-completion-audit --json-out var/complete-goal-status-audit-current-2026-06-12.json --markdown-out docs/reports/2026-06/COMPLETE_GOAL_STATUS_AUDIT_CURRENT_2026-06-12.md",
+    "evidence_path": "var/complete-goal-status-audit-current-2026-06-12.json"
+  },
+  "unblock_preflight_gate": {
+    "ok": false,
+    "command": "python ops/scripts/complete_goal_unblock_gate.py --allow-blocked-external --allow-ready-to-rerun --json-out var/complete-goal-unblock-gate-current-2026-06-12.json --markdown-out docs/reports/2026-06/COMPLETE_GOAL_UNBLOCK_GATE_CURRENT_2026-06-12.md",
+    "evidence_path": "var/complete-goal-unblock-gate-current-2026-06-12.json"
+  },
+  "recovery_preflight_gate": {
+    "ok": false,
+    "command": "python ops/scripts/workspace_external_credential_recovery_refresh.py --execute --preflight-unblock-gate --allow-blocked-external --json-out var/workspace-external-credential-recovery-refresh-preflight-current-2026-06-12.json --markdown-out docs/reports/2026-06/WORKSPACE_EXTERNAL_CREDENTIAL_RECOVERY_REFRESH_PREFLIGHT_CURRENT_2026-06-12.md",
+    "evidence_path": "var/workspace-external-credential-recovery-refresh-preflight-current-2026-06-12.json"
+  },
+  "evidence_consistency_gate": {
+    "ok": true,
+    "command": "python ops/scripts/complete_goal_evidence_consistency_check.py --json-out var/complete-goal-evidence-consistency-current-2026-06-12.json --markdown-out docs/reports/2026-06/COMPLETE_GOAL_EVIDENCE_CONSISTENCY_CURRENT_2026-06-12.md",
+    "evidence_path": "var/complete-goal-evidence-consistency-current-2026-06-12.json"
+  },
+  "source_of_truth": {
+    "status": "reviewed",
+    "note": "Completion readiness is sourced from current completion audit, MCP health bridge, direct MCP session probe, MCP stale process audit, unblock gate, recovery report, credential input status, getdaytrends readiness/smoke/browser evidence, and evidence consistency. Completion audit generated 2026-06-11T16:02:02.996376+00:00 is action_required with blockers ['dailynews_first_run_launch_ready', 'getdaytrends_strict_readiness_pass', 'getdaytrends_canonical_smoke_pass']. Veritas live source status is current with checked=True and tracked source set status is current (8/8 current); radar_auto_refreshed=True. Unblock gate generated 2026-06-11T16:02:14.449733+00:00 is blocked_external with rerun_recommended=False and credential_signal_present=False. Recovery report `var/workspace-external-credential-recovery-refresh-preflight-current-2026-06-12.json` generated 2026-06-11T15:55:49.811039+00:00 is action_required with summary={'total': 14, 'completed': 3, 'planned': 0, 'skipped': 10, 'passed': 3, 'failed': 0}. Ordered no-credential refresh generated 2026-06-11T16:00:29.295481+00:00 is blocked_expected_external with release_generated_after_unblock=True and release_generated_after_side_channel=True. Evidence consistency generated 2026-06-12T01:05:30.708977+09:00 is ok with summary={'total': 44, 'passed': 44, 'failed': 0}. Evidence consistency pending=False during pre-consistency manifest bootstrap. External Supabase Transaction pooler credentials remain the expected blocker set; release approval remains blocked until completion_audit_gate.ok is true and blocked external steps 1 and 2 are resolved."
+  },
+  "evidence_references": {
+    "items": [
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-status-audit-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:02:02.996376+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-inventory-health-bridge-config-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-08T16:02:41.689812+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-inventory-health-bridge-live-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:33:36.918767+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-direct-session-probe-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:31:46.923872+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-stale-process-audit-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:31:58.947874+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-stale-process-cleanup-plan-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:33:27.866206+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-process-owner-detail-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:33:56.661482+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-manual-cleanup-checklist-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:34:06.050401+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-cleanup-readiness-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:34:13.062434+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-connector-auth-readiness-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:33:35.893156+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/mcp-auth-diagnostic-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T07:22:18.541041+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-unblock-gate-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:02:14.449733+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/workspace-external-credential-recovery-refresh-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:55:49.811039+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-local-credential-side-channel-audit-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T00:54:02+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-no-credential-refresh-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:00:29.295481+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-release-evidence-refresh-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:00:29.146782+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/supabase-pooler-shape-audit-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:37:25.798410+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-scheduled-task-pause-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-07T23:04:15.2264279Z"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-scheduled-task-resume-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:04:48.756391+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-post-supabase-credential-input-status-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:55:12.546088+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-supabase-external-repair-packet-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:05:06.812100+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-db-pooler-username-variant-probes-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-08T16:10:43.869950+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-db-direct-host-probe-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-08T05:29:46.681585+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-first-run-verifier-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:32:51.1983071Z"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-x-ops-browser-smoke-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:04:52.124803+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-runner-preflight-morning-2026-06-12T010531KST.json",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/dailynews-launch-secret-scan-final-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:01:06.860119+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-report-secret-scan-refresh-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:05:13.186462+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-prompt-to-artifact-checklist-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:05:20.020634+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-report-secret-scan-dailynews-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:05:08.665549+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/supabase-pooler-management-probe-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:31:46.831742+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-credential-input-status-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:55:13.602795+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-launch-secret-scan-final-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:01:12.747493+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-report-secret-scan-getdaytrends-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:05:13.135668+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-readiness-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:02:18.900030+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-strict-readiness-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:02:18.900030+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-provider-auth-recovery-packet-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:02:18.918274+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-strict-provider-auth-recovery-packet-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:02:18.948662+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-supabase-recovery-packet-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:02:18.900746+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-strict-supabase-recovery-packet-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:02:18.936465+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/workspace-smoke-getdaytrends-launch-final-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:02:20.128786+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/getdaytrends-dashboard-browser-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T22:36:19.526045+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/complete-goal-evidence-consistency-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:05:30.708977+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-01-var-complete-goal-status-audit-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:02:02.996376+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-02-docs-reports-2026-06-complete-goal-status-audit-current-2026-06-12-md-2026-06-12T010531KST.md",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-03-docs-reports-2026-06-github-similar-systems-modernization-2026-06-04-md-2026-06-12T010531KST.md",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-04-var-release-approval-check-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:04:21.792926+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-05-var-dailynews-first-run-verifier-mcp-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:32:51.1983071Z"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-06-var-dailynews-runner-preflight-morning-2026-06-08-094235-json-2026-06-12T010531KST.json",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-07-automation-getdaytrends-logs-readiness-strict-readiness-latest-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:02:18.900030+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-08-var-workspace-smoke-getdaytrends-launch-final-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T10:52:26.674941+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-09-var-auto-research-status-getdaytrends-handoff-refresh-current-2026-06-11-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T12:59:59.244964+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-10-var-complete-goal-evidence-consistency-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:05:30.708977+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-11-var-complete-goal-no-credential-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:00:29.295481+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-12-var-complete-goal-unblock-gate-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:02:14.449733+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-13-var-workspace-external-credential-recovery-refresh-preflight-current-2026-06-12-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:55:49.811039+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-14-var-supabase-pooler-management-probe-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:31:46.831742+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-15-var-mcp-inventory-health-bridge-live-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:33:36.918767+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-16-var-mcp-health-live-rerun-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-17-var-mcp-connector-auth-readiness-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:33:35.893156+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-18-docs-reports-2026-06-mcp-connector-auth-readiness-current-2026-06-12-md-2026-06-12T010531KST.md",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-19-var-mcp-canva-local-transport-diagnostic-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:33:58.100169+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-20-docs-reports-2026-06-mcp-canva-local-transport-diagnostic-current-2026-06-12-md-2026-06-12T010531KST.md",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-21-mcp-canva-mcp-var-canva-auth-status-json-2026-06-12T010531KST.json",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-22-mcp-canva-mcp-var-canva-auth-url-txt-2026-06-12T010531KST.txt",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-23-var-mcp-cleanup-readiness-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:34:13.062434+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-24-var-mcp-stale-process-audit-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:31:58.947874+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-25-var-mcp-manual-cleanup-checklist-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T15:34:06.050401+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-26-var-complete-goal-scheduled-task-resume-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:04:48.756391+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-27-docs-reports-2026-06-complete-goal-scheduled-task-resume-current-2026-06-12-md-2026-06-12T010531KST.md",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-28-var-release-approval-check-scheduled-resume-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:04:23.145439+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-29-var-complete-goal-approval-request-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:05:13.740809+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-30-docs-reports-2026-06-complete-goal-approval-request-current-2026-06-12-md-2026-06-12T010531KST.md",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-31-docs-reports-2026-06-complete-goal-operator-unblock-handoff-current-2026-06-12-m-2026-06-12T010531KST.md",
+        "generated_at": ""
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-32-var-complete-goal-release-manifest-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:05:29.931112+09:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-33-var-complete-goal-report-secret-scan-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:05:13.186462+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-34-var-complete-goal-report-secret-scan-dailynews-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:05:08.665549+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-35-var-complete-goal-report-secret-scan-getdaytrends-current-2026-06-12-json-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-11T16:05:13.135668+00:00"
+      },
+      {
+        "path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-36-var-complete-goal-approval-request-post-write-secret-scan-current-2026-06-12-jso-2026-06-12T010531KST.json",
+        "generated_at": "2026-06-12T01:05:13.787847+09:00"
+      }
+    ]
+  },
+  "external_steps": {
+    "items": [
+      {
+        "name": "Google provider auth",
+        "status": "not_applicable",
+        "evidence": "Provider-auth packet generated 2026-06-12T01:02:18.918274+09:00 reports status=clear and issue_types=[]. Remaining current completion blockers are ['dailynews_first_run_launch_ready', 'getdaytrends_strict_readiness_pass', 'getdaytrends_canonical_smoke_pass']."
+      },
+      {
+        "name": "DailyNews Supabase live database readiness",
+        "status": "blocked",
+        "evidence": "DailyNews credential input status generated 2026-06-11T15:55:12.546088+00:00 reports status=unchanged, ok=True, wrapper_rerun_recommended=False, and credential_source_signal_present=False. Current completion blockers are ['dailynews_first_run_launch_ready', 'getdaytrends_strict_readiness_pass', 'getdaytrends_canonical_smoke_pass']. Sanitized pooler username variant probe generated 2026-06-08T16:10:43.869950+00:00 reports variant_count=4 and db_success_count=0. Sanitized direct DB host diagnostic probe generated 2026-06-08T05:29:46.681585+00:00 reports project_refs_match=True, db_success_count=0, and direct_host_with_same_password_success=False. Supabase Management API pooler probe generated 2026-06-11T15:31:46.831742+00:00 reports status=token_missing, token_present=False, and transaction_pooler_count=0. Local credential side-channel audit generated 2026-06-12T00:54:02+09:00 reports status=no_new_local_credential_signal, new_local_credential_signal_present=False, and external_operator_action_required=True. Supabase pooler shape audit generated 2026-06-11T15:37:25.798410+00:00 reports status=matches_official_pooler_shape, any_transaction_pooler_shape_match_count=1, and obvious_pooler_shape_fix_available=False. Unblock gate generated 2026-06-11T16:02:14.449733+00:00 reports status=blocked_external, rerun_recommended=False, and credential_signal_present=False. Recovery report `var/workspace-external-credential-recovery-refresh-preflight-current-2026-06-12.json` generated 2026-06-11T15:55:49.811039+00:00 reports status=action_required with summary={'total': 14, 'completed': 3, 'planned': 0, 'skipped': 10, 'passed': 3, 'failed': 0}. Ordered no-credential refresh generated 2026-06-11T16:00:29.295481+00:00 reports status=blocked_expected_external, release_generated_after_unblock=True, and release_generated_after_side_channel=True. Scheduled task resume guard generated 2026-06-11T16:04:48.756391+00:00 reports status=blocked, ok=False, dry_run=True, gates.all_ok=False, and task states=['DailyNews_Morning_Insights=Disabled/Disabled', 'GetDayTrends_CurrentUser=Disabled/Disabled']. External operator action is still required while this step is blocked: apply a corrected DailyNews Transaction pooler credential with `python ops/scripts/dailynews_update_database_url.py --stdin --write`, or apply one workspace-wide corrected Transaction pooler URL with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ops/scripts/apply_workspace_supabase_pooler_url.ps1 -PreviewOnly -NonInteractive`, then `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ops/scripts/apply_workspace_supabase_pooler_url.ps1 -NonInteractive` after setting process-scope `WORKSPACE_NEW_SUPABASE_POOLER_DATABASE_URL` to the complete encoded URL; the wrapper shows a redacted dry-run preview, requires typing APPLY before writing, or the env-based fallback `python ops/scripts/apply_workspace_supabase_pooler_url.py --write --run-recovery --resume-scheduled-tasks`; the shared updater rejects scheduled-task resume unless same-run recovery is requested."
+      },
+      {
+        "name": "getdaytrends Supabase launch readiness",
+        "status": "blocked",
+        "evidence": "getdaytrends canonical workspace smoke generated 2026-06-11T16:02:20.128786+00:00 reports status=complete with summary={'total': 7, 'completed': 7, 'passed': 6, 'failed': 1, 'remaining': 0, 'elapsed_ms_total': 265609, 'slowest_results': [{'scope': 'getdaytrends', 'name': 'getdaytrends tests', 'elapsed_ms': 228427, 'ok': True}, {'scope': 'getdaytrends', 'name': 'getdaytrends subpackage tests', 'elapsed_ms': 14235, 'ok': True}, {'scope': 'getdaytrends', 'name': 'getdaytrends launch readiness gate', 'elapsed_ms': 13588, 'ok': False}, {'scope': 'getdaytrends', 'name': 'getdaytrends compile', 'elapsed_ms': 7700, 'ok': True}, {'scope': 'getdaytrends', 'name': 'getdaytrends entrypoint syntax', 'elapsed_ms': 581, 'ok': True}], 'expected_external_failures': ['getdaytrends launch readiness gate'], 'unexpected_failures': []}. Strict readiness generated 2026-06-12T01:02:18.900030+09:00 reports status=fail with summary={'total': 9, 'passed': 7, 'failed': 2, 'warnings': 0}. Provider-auth packet generated 2026-06-12T01:02:18.918274+09:00 reports status=clear and issue_types=[]. Supabase recovery packet generated 2026-06-12T01:02:18.900746+09:00 reports status=blocked with issue_types=['live_db_doctor_failed', 'live_postgres_probe_failed', 'pooler_tenant_user_not_found', 'runtime_database_fallback']. Dashboard browser smoke generated 2026-06-11T22:36:19.526045+09:00 reports summary={'total': 111, 'passed': 111, 'failed': 0}. getdaytrends credential input status generated 2026-06-11T15:55:13.602795+00:00 reports status=unchanged, credential_source_signal_present=False, and safe_to_skip_strict_readiness_until_credential_inputs_change=True. Supabase pooler shape audit generated 2026-06-11T15:37:25.798410+00:00 reports status=matches_official_pooler_shape and obvious_pooler_shape_fix_available=False. Ordered no-credential refresh generated 2026-06-11T16:00:29.295481+00:00 reports status=blocked_expected_external, release_generated_after_unblock=True, and release_generated_after_side_channel=True. Scheduled task resume guard generated 2026-06-11T16:04:48.756391+00:00 reports status=blocked, ok=False, dry_run=True, and task states=['DailyNews_Morning_Insights=Disabled/Disabled', 'GetDayTrends_CurrentUser=Disabled/Disabled']. External operator action is still required while this step is blocked: apply a corrected getdaytrends Transaction pooler credential with `python ops/scripts/getdaytrends_update_credentials.py --database-url-stdin --write`, or apply one workspace-wide corrected Transaction pooler URL with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ops/scripts/apply_workspace_supabase_pooler_url.ps1 -PreviewOnly -NonInteractive`, then `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ops/scripts/apply_workspace_supabase_pooler_url.ps1 -NonInteractive` after setting process-scope `WORKSPACE_NEW_SUPABASE_POOLER_DATABASE_URL` to the complete encoded URL; the wrapper shows a redacted dry-run preview, requires typing APPLY before writing, or the env-based fallback `python ops/scripts/apply_workspace_supabase_pooler_url.py --write --run-recovery --resume-scheduled-tasks`; the shared updater rejects scheduled-task resume unless same-run recovery is requested."
+      }
+    ]
+  },
+  "worktree": {
+    "status": "reviewed_in_progress",
+    "changed_paths": [
+      "ops/scripts/complete_goal_gate_common.py",
+      "ops/scripts/apply_workspace_supabase_pooler_url.py",
+      "ops/scripts/apply_workspace_supabase_pooler_url.ps1",
+      "ops/scripts/dailynews_update_database_url.py",
+      "ops/scripts/getdaytrends_update_credentials.py",
+      "ops/scripts/run_workspace_smoke.py",
+      "ops/scripts/workspace_smoke_report.py",
+      "ops/scripts/check_mcp_health.py",
+      "ops/scripts/mcp_service_inventory.py",
+      "ops/scripts/mcp_inventory_health_bridge.py",
+      "ops/scripts/mcp_stale_process_audit.py",
+      "ops/scripts/mcp_stale_process_cleanup_plan.py",
+      "ops/scripts/mcp_process_owner_detail_probe.py",
+      "ops/scripts/mcp_manual_cleanup_checklist.py",
+      "ops/scripts/mcp_cleanup_readiness_verifier.py",
+      "ops/scripts/supabase_pooler_management_probe.py",
+      "ops/scripts/supabase_pooler_shape_audit.py",
+      "ops/scripts/auto_research_status.py",
+      "ops/scripts/dailynews_launch_secret_scan.py",
+      "ops/scripts/getdaytrends_launch_secret_scan.py",
+      "ops/scripts/refresh_complete_goal_release_manifest.py",
+      "ops/scripts/complete_goal_evidence_consistency_check.py",
+      "ops/scripts/complete_goal_no_credential_refresh.py",
+      "ops/scripts/complete_goal_release_evidence_refresh.py",
+      "ops/scripts/release_approval_check.py",
+      "ops/scripts/complete_goal_unblock_gate.py",
+      "ops/scripts/complete_goal_resume_scheduled_tasks.py",
+      "automation/getdaytrends/scripts/verify_supabase_recovery_packet.py",
+      "automation/getdaytrends/scripts/verify_provider_auth_recovery_packet.py",
+      "tests/test_apply_workspace_supabase_pooler_url.py",
+      "tests/test_dailynews_update_database_url.py",
+      "tests/test_getdaytrends_update_credentials.py",
+      "tests/test_workspace_smoke.py",
+      "tests/test_ops_scripts_reports.py",
+      "tests/test_mcp_service_inventory.py",
+      "tests/test_mcp_inventory_health_bridge.py",
+      "tests/test_mcp_stale_process_audit.py",
+      "tests/test_mcp_stale_process_cleanup_plan.py",
+      "tests/test_mcp_process_owner_detail_probe.py",
+      "tests/test_mcp_manual_cleanup_checklist.py",
+      "tests/test_mcp_cleanup_readiness_verifier.py",
+      "tests/test_supabase_pooler_management_probe.py",
+      "tests/test_supabase_pooler_shape_audit.py",
+      "tests/test_auto_research_status.py",
+      "tests/test_dailynews_launch_secret_scan.py",
+      "tests/test_getdaytrends_launch_secret_scan.py",
+      "tests/test_refresh_complete_goal_release_manifest.py",
+      "tests/test_complete_goal_evidence_consistency_check.py",
+      "tests/test_complete_goal_no_credential_refresh.py",
+      "tests/test_complete_goal_release_evidence_refresh.py",
+      "tests/test_release_approval_check.py",
+      "tests/test_complete_goal_unblock_gate.py",
+      "tests/test_complete_goal_resume_scheduled_tasks.py",
+      "automation/getdaytrends/tests/test_verify_recovery_packet_scripts.py",
+      "docs/QUALITY_GATE.md",
+      "ops/scripts/mcp_connector_auth_readiness_report.py",
+      "tests/test_mcp_connector_auth_readiness_report.py",
+      "ops/scripts/complete_goal_report_secret_scan_refresh.py",
+      "tests/test_complete_goal_report_secret_scan_refresh.py",
+      "ops/scripts/complete_goal_prompt_to_artifact_checklist.py",
+      "tests/test_complete_goal_prompt_to_artifact_checklist.py",
+      "ops/scripts/diagnose_mcp_auth.py",
+      "tests/test_diagnose_mcp_auth.py",
+      "ops/scripts/generate_context_snapshot.py",
+      "ops/scripts/session_bootstrap.py",
+      "ops/scripts/getdaytrends_launch_handoff_refresh.py",
+      "tests/test_getdaytrends_launch_handoff_refresh.py"
+    ]
+  },
+  "compatibility_warnings": {
+    "status": "reviewed"
+  },
+  "prompt_checklist_evidence_snapshots": [
+    {
+      "source_path": "var/complete-goal-status-audit-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-01-var-complete-goal-status-audit-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:02:02.996376+00:00"
+    },
+    {
+      "source_path": "docs/reports/2026-06/COMPLETE_GOAL_STATUS_AUDIT_CURRENT_2026-06-12.md",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-02-docs-reports-2026-06-complete-goal-status-audit-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "source_path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-03-docs-reports-2026-06-github-similar-systems-modernization-2026-06-04-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "source_path": "var/release-approval-check-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-04-var-release-approval-check-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:04:21.792926+09:00"
+    },
+    {
+      "source_path": "var/dailynews-first-run-verifier-mcp.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-05-var-dailynews-first-run-verifier-mcp-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:32:51.1983071Z"
+    },
+    {
+      "source_path": "var/dailynews-runner-preflight-morning-2026-06-08_094235.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-06-var-dailynews-runner-preflight-morning-2026-06-08-094235-json-2026-06-12T010531KST.json",
+      "generated_at": ""
+    },
+    {
+      "source_path": "automation/getdaytrends/logs/readiness/strict_readiness_latest.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-07-automation-getdaytrends-logs-readiness-strict-readiness-latest-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:02:18.900030+09:00"
+    },
+    {
+      "source_path": "var/workspace-smoke-getdaytrends-launch-final.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-08-var-workspace-smoke-getdaytrends-launch-final-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T10:52:26.674941+00:00"
+    },
+    {
+      "source_path": "var/auto-research-status-getdaytrends-handoff-refresh-current-2026-06-11.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-09-var-auto-research-status-getdaytrends-handoff-refresh-current-2026-06-11-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T12:59:59.244964+00:00"
+    },
+    {
+      "source_path": "var/complete-goal-evidence-consistency-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-10-var-complete-goal-evidence-consistency-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:30.708977+09:00"
+    },
+    {
+      "source_path": "var/complete-goal-no-credential-refresh-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-11-var-complete-goal-no-credential-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:00:29.295481+00:00"
+    },
+    {
+      "source_path": "var/complete-goal-unblock-gate-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-12-var-complete-goal-unblock-gate-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:02:14.449733+00:00"
+    },
+    {
+      "source_path": "var/workspace-external-credential-recovery-refresh-preflight-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-13-var-workspace-external-credential-recovery-refresh-preflight-current-2026-06-12-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:55:49.811039+00:00"
+    },
+    {
+      "source_path": "var/supabase-pooler-management-probe-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-14-var-supabase-pooler-management-probe-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:31:46.831742+00:00"
+    },
+    {
+      "source_path": "var/mcp-inventory-health-bridge-live-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-15-var-mcp-inventory-health-bridge-live-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:36.918767+00:00"
+    },
+    {
+      "source_path": "var/mcp-health-live-rerun-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-16-var-mcp-health-live-rerun-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": ""
+    },
+    {
+      "source_path": "var/mcp-connector-auth-readiness-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-17-var-mcp-connector-auth-readiness-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:35.893156+00:00"
+    },
+    {
+      "source_path": "docs/reports/2026-06/MCP_CONNECTOR_AUTH_READINESS_CURRENT_2026-06-12.md",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-18-docs-reports-2026-06-mcp-connector-auth-readiness-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "source_path": "var/mcp-canva-local-transport-diagnostic-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-19-var-mcp-canva-local-transport-diagnostic-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:33:58.100169+00:00"
+    },
+    {
+      "source_path": "docs/reports/2026-06/MCP_CANVA_LOCAL_TRANSPORT_DIAGNOSTIC_CURRENT_2026-06-12.md",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-20-docs-reports-2026-06-mcp-canva-local-transport-diagnostic-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "source_path": "mcp/canva-mcp/var/canva-auth-status.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-21-mcp-canva-mcp-var-canva-auth-status-json-2026-06-12T010531KST.json",
+      "generated_at": ""
+    },
+    {
+      "source_path": "mcp/canva-mcp/var/canva-auth-url.txt",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-22-mcp-canva-mcp-var-canva-auth-url-txt-2026-06-12T010531KST.txt",
+      "generated_at": ""
+    },
+    {
+      "source_path": "var/mcp-cleanup-readiness-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-23-var-mcp-cleanup-readiness-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:34:13.062434+00:00"
+    },
+    {
+      "source_path": "var/mcp-stale-process-audit-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-24-var-mcp-stale-process-audit-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:31:58.947874+00:00"
+    },
+    {
+      "source_path": "var/mcp-manual-cleanup-checklist-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-25-var-mcp-manual-cleanup-checklist-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T15:34:06.050401+00:00"
+    },
+    {
+      "source_path": "var/complete-goal-scheduled-task-resume-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-26-var-complete-goal-scheduled-task-resume-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:04:48.756391+00:00"
+    },
+    {
+      "source_path": "docs/reports/2026-06/COMPLETE_GOAL_SCHEDULED_TASK_RESUME_CURRENT_2026-06-12.md",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-27-docs-reports-2026-06-complete-goal-scheduled-task-resume-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "source_path": "var/release-approval-check-scheduled-resume-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-28-var-release-approval-check-scheduled-resume-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:04:23.145439+09:00"
+    },
+    {
+      "source_path": "var/complete-goal-approval-request-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-29-var-complete-goal-approval-request-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:13.740809+09:00"
+    },
+    {
+      "source_path": "docs/reports/2026-06/COMPLETE_GOAL_APPROVAL_REQUEST_CURRENT_2026-06-12.md",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-30-docs-reports-2026-06-complete-goal-approval-request-current-2026-06-12-md-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "source_path": "docs/reports/2026-06/COMPLETE_GOAL_OPERATOR_UNBLOCK_HANDOFF_CURRENT_2026-06-12.md",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-31-docs-reports-2026-06-complete-goal-operator-unblock-handoff-current-2026-06-12-m-2026-06-12T010531KST.md",
+      "generated_at": ""
+    },
+    {
+      "source_path": "var/complete-goal-release-manifest-refresh-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-32-var-complete-goal-release-manifest-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:29.931112+09:00"
+    },
+    {
+      "source_path": "var/complete-goal-report-secret-scan-refresh-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-33-var-complete-goal-report-secret-scan-refresh-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:13.186462+00:00"
+    },
+    {
+      "source_path": "var/complete-goal-report-secret-scan-dailynews-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-34-var-complete-goal-report-secret-scan-dailynews-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:08.665549+00:00"
+    },
+    {
+      "source_path": "var/complete-goal-report-secret-scan-getdaytrends-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-35-var-complete-goal-report-secret-scan-getdaytrends-current-2026-06-12-json-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-11T16:05:13.135668+00:00"
+    },
+    {
+      "source_path": "var/complete-goal-approval-request-post-write-secret-scan-current-2026-06-12.json",
+      "snapshot_path": "var/release-approval-snapshots/2026-06-12/2026-06-12T010531KST/prompt-checklist-evidence-36-var-complete-goal-approval-request-post-write-secret-scan-current-2026-06-12-jso-2026-06-12T010531KST.json",
+      "generated_at": "2026-06-12T01:05:13.787847+09:00"
+    }
+  ]
+}
