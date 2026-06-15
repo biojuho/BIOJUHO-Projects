@@ -409,7 +409,9 @@ _PROHIBITED_ANALOGY_PATTERNS = (
     # The adverbial '같이' is dropped from the suffix set because it overwhelmingly
     # means "together" (친구랑 같이, 다 같이), not "like" — flagging it false-flagged
     # very common casual copy.
-    re.compile(r"(?<![가-힣A-Za-z0-9])(?!것\s*같)\S+\s*같(?:다|은|고|지만|습니다)"),
+    # 것 같다 (= seems), 똑같다/똑같은 (= identical), 한결같다 (= constant) are fixed
+    # non-metaphor words, not analogies — exclude them from the vehicle position.
+    re.compile(r"(?<![가-힣A-Za-z0-9])(?!(?:것|똑|한결)\s*같)\S+\s*같(?:다|은|고|지만|습니다)"),
     re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*처럼"),
     # Bare '듯' dropped: in casual Korean it is overwhelmingly conjecture
     # ("느끼는 듯" = seems to feel, "그런 듯" = seems so), not a metaphor. Forced
@@ -1599,8 +1601,20 @@ _STRONG_CLAIM_REGEXES = (
 )
 
 
+# Comparing to a quoted entity ('키다리스튜디오'처럼, '카톡 단톡방' 같은) or a time
+# period (작년처럼) is concrete exemplification, not forced metaphor. Neutralize
+# those spans before metaphor detection so natural casual comparison is not
+# penalized; unquoted bare-noun metaphors (사자처럼, 영화같다) are untouched.
+_QUOTED_COMPARISON_RE = re.compile(
+    r"[\x27\x22‘’“”][^\x27\x22‘’“”]{1,25}"
+    r"[\x27\x22‘’“”]\s*(?:처럼|같(?:다|은|고|지만|습니다))"
+)
+_TIMEWORD_COMPARISON_RE = re.compile(r"(?:작년|올해|예년|지난해|내년|평소|예전|작년도)\s*처럼")
+
+
 def _has_prohibited_analogy(text: str) -> bool:
-    return any(pattern.search(text) for pattern in _PROHIBITED_ANALOGY_PATTERNS)
+    masked = _TIMEWORD_COMPARISON_RE.sub(" ", _QUOTED_COMPARISON_RE.sub(" ", text))
+    return any(pattern.search(masked) for pattern in _PROHIBITED_ANALOGY_PATTERNS)
 
 
 def _count_emojis(text: str) -> int:

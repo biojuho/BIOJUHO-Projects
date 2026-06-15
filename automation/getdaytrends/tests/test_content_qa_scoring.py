@@ -131,6 +131,26 @@ class TestScoreHook:
         for analogy in ("사자처럼 강하다", "마치 영화같다", "사자같다", "사자 같은 힘"):
             assert _has_prohibited_analogy(analogy) is True, analogy
 
+    def test_concrete_comparison_not_flagged_as_analogy(self):
+        """Concrete exemplification is not forced metaphor (validated on 876 real tweets).
+
+        Comparing to a quoted entity or a time period, and the fixed words
+        똑같다/한결같다, must not be penalized; unquoted bare-noun metaphors stay caught.
+        """
+        from content_qa import _has_prohibited_analogy
+
+        # quoted-entity comparison = concrete example, not metaphor
+        for ok in ("'키다리스튜디오'처럼 해외 진출", "'카톡 단톡방' 같은 거", "‘괴물’ 같은 투수"):
+            assert _has_prohibited_analogy(ok) is False, ok
+        # time-period comparison
+        for ok in ("작년처럼 똑같은 사탕", "올해도 예년처럼"):
+            assert _has_prohibited_analogy(ok) is False, ok
+        # 똑같다/한결같다 are fixed words meaning identical/constant, not analogies
+        for ok in ("올해도 똑같은 실수", "한결같은 모습"):
+            assert _has_prohibited_analogy(ok) is False, ok
+        # unquoted bare-noun metaphor is still caught
+        assert _has_prohibited_analogy("사자처럼 강하다") is True
+
     def test_hyeonta_no_longer_banned_slang(self):
         """'현타' is mainstream casual Korean — not penalized; aggressive slang still is."""
         from content_qa import _BANNED_SLANG_PATTERNS, _slang_tone_penalty
