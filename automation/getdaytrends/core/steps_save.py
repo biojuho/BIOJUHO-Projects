@@ -301,7 +301,7 @@ async def _save_single_trend_db(
             batch.metadata["workflow_v2"] = workflow_v2
     except (ImportError, sqlite3.Error, ValueError) as e:
         log.error(f"SQLite 저장 실패 ({trend.keyword}): {type(e).__name__}: {e}")
-        run.errors.append(f"DB 저장 실패: {trend.keyword}")
+        run.errors.append(f"DB 저장 실패: {trend.keyword}: {type(e).__name__}")
         return False
     return True
 
