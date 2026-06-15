@@ -48,6 +48,23 @@ These were not changed here: they live in other projects' dependency sets, and
 those trees are currently mid-change in parallel sessions. The single highest
 priority is **desci-platform pypdf** (untrusted-PDF parsing × 16 CVEs).
 
+## Node side (`npm audit`, found via the CI "Node npm audit" gate)
+
+The Python `uv`/`pip-audit` pass above misses the Node frontends. `npm audit`
+per lockfile surfaced — this is what fails the "Dependency Audit (Node)" check
+on the open dependabot PRs (#267/#268), repo-wide and unrelated to those Python
+bumps. All are fixable in-range via `npm audit fix` in the named directory:
+
+| Project | Package | Severity | Advisory |
+| --- | --- | --- | --- |
+| `apps/AgriGuard/frontend` | form-data | **HIGH** | GHSA-hmw2-7cc7-3qxx (CRLF injection via unescaped multipart field/file names) |
+| `apps/desci-platform/frontend` | dompurify | moderate | GHSA-vxr8-fq34-vvx9 (Trusted Types policy survives clearConfig → XSS poisoning) |
+| `apps/desci-platform/frontend` | protobufjs | moderate | GHSA-f38q-mgvj-vph7 (schema names can shadow runtime properties) |
+
+`apps/dashboard`, both `contracts/`, and `mcp/canva-mcp` audited clean. The
+root workspace lockfile is clean. getdaytrends has no Node runtime, so it is
+unaffected. Highest Node priority: AgriGuard `form-data` (HIGH).
+
 ## Recommendation
 
 - getdaytrends launch is **not blocked** by a dependency CVE. The single
