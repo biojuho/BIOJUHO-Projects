@@ -432,7 +432,10 @@ _SIGNIFICANT_BARE_NUMBER_CLAIM_RE = re.compile(
     re.IGNORECASE,
 )
 _PERCENTAGE_CLAIM_RE = re.compile(
-    r"(?<![\d.])\d+(?:\.\d+)?\s*(?:%|퍼센트|프로)(?![\d.])",
+    # A statistic, EXCEPT casual emphasis like "100% 동의/공감" (= totally agree),
+    # which is an opinion intensifier, not a checkable number.
+    r"(?<![\d.])\d+(?:\.\d+)?\s*(?:%|퍼센트|프로)(?![\d.])"
+    r"(?!\s*(?:동의|공감|인정|이해|확신|확실|찬성|반대|만족|신뢰|맞|보장))",
 )
 _KOREAN_NUMBER_CLAIM_RE = re.compile(
     r"(?<![\d.])\d+(?:[,.]\d{3})*(?:\.\d+)?\s*(?:만|억|조)?\s*"

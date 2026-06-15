@@ -103,6 +103,16 @@ class TestScoreHook:
             score, issues = _score_hook(lead, [lead], "tweets")
             assert len(issues) >= 1, cliche  # cliché in lead → flagged
 
+    def test_percent_emphasis_not_a_stat(self):
+        """'100% 동의/공감' is opinion emphasis, not a checkable percentage claim."""
+        from content_qa import _normalized_percentage_claims
+
+        for emphasis in ("100% 동의한다", "완전 100프로 공감", "100% 인정"):
+            assert _normalized_percentage_claims(emphasis) == set(), emphasis
+        # real statistics (and non-emphasis 100%) are still extracted
+        assert _normalized_percentage_claims("매출 20% 증가") == {"20%"}
+        assert _normalized_percentage_claims("100% 충전됐다") == {"100%"}
+
     def test_geot_gatda_opinion_not_flagged_as_analogy(self):
         """'~것 같다' (seems / I think) is an opinion-softener, not a prohibited analogy."""
         from content_qa import _has_prohibited_analogy
