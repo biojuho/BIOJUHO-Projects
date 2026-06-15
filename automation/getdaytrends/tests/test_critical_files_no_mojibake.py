@@ -27,6 +27,7 @@ CRITICAL_FILES = [
     "system_prompts.py",
     "generator.py",
     "multilang.py",
+    "korean_nlp.py",
 ]
 
 # The placeholder-marker emitter/consumer chain: collectors emit "[X 데이터 없음]"
@@ -42,15 +43,26 @@ def _critical_paths() -> list[Path]:
         paths.extend(sorted(_ROOT.glob(pattern)))
     return paths
 
-# Standalone Hangul compatibility jamo (U+3130–U+318F) never appear in normal
-# composed Korean prose — they are a strong mojibake signal. A lone '?' directly
-# before a Hangul syllable is the other classic lost-lead-byte signature.
-_JAMO = re.compile(r"[㄰-㆏]")
+# Mojibake jamo signature: compound final consonants (ㄳㄵㄶㄺ–ㅀ, ㅄ) and archaic
+# jamo (U+3165–U+318E) never appear in modern Korean — including slang. Basic jamo
+# are deliberately NOT flagged so legitimate slang ('ㅋㅋ', 'ㄷㄷ') and morpheme
+# patterns ('ㅂ니다') don't false-positive. A lone '?' directly before a Hangul
+# syllable is the other classic lost-lead-byte signature.
+_JAMO = re.compile(r"[ㄳㄵㄶㄺㄻㄼㄽㄾㄿㅀㅄㅥ-ㆎ]")
 _Q_HANGUL = re.compile(r"\?[가-힣]")
 
 
 def _mojibake_hits(text: str) -> dict[str, int]:
     return {"jamo": len(_JAMO.findall(text)), "q_hangul": len(_Q_HANGUL.findall(text))}
+
+
+def test_detector_flags_mojibake_not_legitimate_korean():
+    # Mojibake jamo / lost-lead-byte are flagged.
+    assert _mojibake_hits("?ㅻ쪟 ?놁쓬")["jamo"] >= 1 or _mojibake_hits("?놁쓬")["q_hangul"] >= 1
+    # Legitimate slang and morpheme patterns must NOT be flagged.
+    for ok in ("ㅋㅋ", "ㄷㄷ", "ㅎㅎ", "ㅂ니다", "ㅠㅠ"):
+        hits = _mojibake_hits(ok)
+        assert hits["jamo"] == 0 and hits["q_hangul"] == 0, ok
 
 
 def test_critical_files_have_no_mojibake():
