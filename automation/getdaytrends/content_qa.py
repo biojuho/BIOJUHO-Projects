@@ -411,7 +411,10 @@ _PROHIBITED_ANALOGY_PATTERNS = (
     # very common casual copy.
     re.compile(r"(?<![가-힣A-Za-z0-9])(?!것\s*같)\S+\s*같(?:다|은|고|지만|습니다)"),
     re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*처럼"),
-    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*듯(?:하다|한|이|습니다|지만)?"),
+    # Bare '듯' dropped: in casual Korean it is overwhelmingly conjecture
+    # ("느끼는 듯" = seems to feel, "그런 듯" = seems so), not a metaphor. Forced
+    # analogies still trigger via 마치 / 처럼 / 같다; only rare literary "꿈 꾸는 듯"
+    # (no 마치) is no longer caught.
     re.compile(r"\bas if\b", re.IGNORECASE),
     re.compile(r"\blike an?\b", re.IGNORECASE),
     re.compile(r"\b(?:analogy|metaphor)\b", re.IGNORECASE),

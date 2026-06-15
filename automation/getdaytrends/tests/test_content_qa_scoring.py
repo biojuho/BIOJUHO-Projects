@@ -122,6 +122,11 @@ class TestScoreHook:
         # '같이' = "together" (adverb), not "like" — must not be flagged
         for together in ("친구랑 같이 갔다", "다 같이 모였다", "매일 같이 운동"):
             assert _has_prohibited_analogy(together) is False, together
+        # bare '듯' = conjecture ("seems"), not a metaphor — must not be flagged
+        for conjecture in ("느끼는 듯", "그런 듯", "아닌 듯하다"):
+            assert _has_prohibited_analogy(conjecture) is False, conjecture
+        # but '마치 … 듯' is still a forced analogy
+        assert _has_prohibited_analogy("마치 꿈 꾸는 듯") is True
         # genuine analogies are still caught
         for analogy in ("사자처럼 강하다", "마치 영화같다", "사자같다", "사자 같은 힘"):
             assert _has_prohibited_analogy(analogy) is True, analogy
