@@ -593,10 +593,13 @@ async def _best_posting_hours(conn, category: str) -> list[int]:
 def _valid_generated_batch(trend, batch, run: RunResult) -> bool:
     if isinstance(batch, Exception):
         log.error(f"Generation exception ({trend.keyword}): {type(batch).__name__}: {batch}")
-        run.errors.append(f"generation exception: {trend.keyword}")
+        # Persist the exception type, not just the keyword: the runs.errors column
+        # is the only post-hoc signal an operator sees, so "TimeoutError" vs
+        # "AuthError" must survive into the DB record, not just the log file.
+        run.errors.append(f"generation exception: {trend.keyword}: {type(batch).__name__}")
         return False
     if not batch:
-        run.errors.append(f"generation failed: {trend.keyword}")
+        run.errors.append(f"generation failed (empty batch): {trend.keyword}")
         return False
     return True
 
