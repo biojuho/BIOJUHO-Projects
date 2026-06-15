@@ -75,7 +75,12 @@ All of these must pass before release:
 15. `/api/operator/readiness` and the dashboard Posting blockers panel preserve copyable remediation commands for stale scheduler evidence, missing readiness evidence, runtime fallback evidence, and `live_db_doctor` evidence
 16. `live_db_doctor` reports `db.database_url_source`, `db.supabase_url_shape`, `db.supabase_project_ref_crosscheck`, `db.endpoint_dns`, `db.endpoint_tcp`, and `db.live_postgres` without leaking credentials or tenant identity details
 
-Current launch blocker on 2026-06-10: strict readiness is `7/9 PASS`. The remaining failed checks are `cli_smoke_report` and `live_db_doctor`. The live doctor confirms the effective `DATABASE_URL` comes from the workspace root `.env`, uses the Supabase transaction pooler on port `6543`, has the `postgres.<project_ref>` user shape, and cross-checks against a same-project `SUPABASE_URL`. DNS and TCP reachability pass, but `db.live_postgres` still fails with masked tenant/user text, so CLI smoke still records one `database.sqlite_fallback` signal. Fix the Supabase project state, database password, or Transaction pooler credentials in Supabase, then rerun the strict readiness command above and the final proof bundle.
+Current launch status on 2026-06-16: base readiness (`scripts/readiness_check.py --max-cli-smoke-age-hours 24`) is `8/8 PASS` after refreshing CLI smoke and scheduler evidence — code, tests, docs, scheduler, and browser evidence are all green. The strict launch gate has exactly two remaining failures, both requiring an external/credential action that cannot be completed locally:
+
+1. `live_db_doctor` — Supabase is unreachable. The live doctor confirms the effective `DATABASE_URL` comes from the workspace root `.env`, uses the Supabase transaction pooler on port `6543`, has the `postgres.<project_ref>` user shape, and cross-checks against a same-project `SUPABASE_URL`. DNS and TCP reachability pass, but `db.live_postgres` fails with masked tenant/user text (paused project or rotated pooler credentials), so runtime records one `database.sqlite_fallback` signal. Resume the Supabase project and/or fix the Transaction pooler credentials.
+2. `provider_auth_report` (strict `--require-live-llm`) — a leaked/dead provider API key is correctly caught by the live key probe. Rotate the affected key (see security memo) before launch.
+
+After resolving both, rerun the full strict bundle: `python scripts\readiness_check.py --max-scheduler-age-hours 24 --max-cli-smoke-age-hours 24 --fail-on-runtime-fallback --require-live-db --require-live-llm`. Everything else is launch-ready; these two are the only blockers.
 
 ---
 
@@ -95,4 +100,4 @@ For this turn, getdaytrends is moved from "partially fixed" to "production-ready
 - completion evidence checklist
 - GitHub-benchmarked readiness evidence gate
 
-Current code, tests, docs, scheduler, and browser evidence are hardened. The remaining release blocker is the strict runtime fallback gate described above.
+Current code, tests, docs, scheduler, and browser evidence are hardened (base readiness `8/8 PASS` on 2026-06-16). The only remaining release blockers are the two external/credential items described in section 2: live Supabase connectivity (`live_db_doctor` / runtime fallback) and provider key rotation (`provider_auth_report`).
