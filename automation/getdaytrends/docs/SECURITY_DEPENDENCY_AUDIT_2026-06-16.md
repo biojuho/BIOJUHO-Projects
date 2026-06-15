@@ -65,6 +65,14 @@ bumps. All are fixable in-range via `npm audit fix` in the named directory:
 root workspace lockfile is clean. getdaytrends has no Node runtime, so it is
 unaffected. Highest Node priority: AgriGuard `form-data` (HIGH).
 
+**Impact beyond security:** the repo "Quality Gate" check aggregates this audit
+(`##[error]Dependency audit failed. Fix vulnerable packages before merging.`),
+so these npm advisories currently **fail Quality Gate on every open PR** — they
+block all merges, not just a security badge. Clearing them (`npm audit fix` in
+`apps/AgriGuard/frontend` and `apps/desci-platform/frontend`) unblocks the PR
+pipeline, including the otherwise-green dependabot PR #254 and any future
+getdaytrends PR. This is the single highest-leverage CI action right now.
+
 ## Recommendation
 
 - getdaytrends launch is **not blocked** by a dependency CVE. The single
