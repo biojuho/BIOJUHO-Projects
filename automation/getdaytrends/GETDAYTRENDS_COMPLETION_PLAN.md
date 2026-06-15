@@ -82,6 +82,17 @@ Current launch status on 2026-06-16: base readiness (`scripts/readiness_check.py
 
 After resolving both, rerun the full strict bundle: `python scripts\readiness_check.py --max-scheduler-age-hours 24 --max-cli-smoke-age-hours 24 --fail-on-runtime-fallback --require-live-db --require-live-llm`. Everything else is launch-ready; these two are the only blockers.
 
+**Important context — the product is already running in production.** The
+scheduled `getdaytrends.yml` cron (every 4h) is green on its last 8 runs: the
+pipeline degrades gracefully around both items above (Supabase down → local
+SQLite fallback; leaked Gemini key → Anthropic-first routing), so it keeps
+collecting, scoring, generating, and saving drafts. So these two are not
+*functional* blockers — the product operates without them. They are an
+**optimization gate**: `--require-live-db` enforces a cloud-persistence policy
+(durable Postgres rather than ephemeral runner-local SQLite), and the key
+rotation restores the Gemini tier. Resuming Supabase upgrades the running
+product from degraded-but-working to fully-persistent; it does not switch it on.
+
 ---
 
 ## 3. 2nd-phase hardening (not yet required for baseline)
