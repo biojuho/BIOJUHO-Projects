@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from core.steps_save import _valid_generated_batch
+from core.steps_save import _record_external_save_result, _valid_generated_batch
 from models import RunResult
 
 
@@ -37,3 +37,16 @@ def test_valid_batch_records_no_error():
     ok = _valid_generated_batch(_trend(), SimpleNamespace(tweets=[1]), run)
     assert ok is True
     assert run.errors == []
+
+
+def test_external_save_exception_persists_its_type():
+    run = RunResult(run_id="r4")
+    _record_external_save_result("국채금리", ConnectionError("notion down"), run)
+    assert any("ConnectionError" in e for e in run.errors), run.errors
+    assert any("국채금리" in e for e in run.errors)
+
+
+def test_external_save_target_failure_keeps_failed_targets():
+    run = RunResult(run_id="r5")
+    _record_external_save_result("환율", {"notion": True, "google_sheets": False}, run)
+    assert any("google_sheets" in e for e in run.errors), run.errors

@@ -324,7 +324,7 @@ async def _save_external_targets(batch: TweetBatch, trend, config: AppConfig, no
 def _record_external_save_result(keyword: str, result, run: RunResult) -> str:
     if isinstance(result, Exception):
         log.error(f"External save raised ({keyword}): {result}")
-        run.errors.append(f"external save raised: {keyword}")
+        run.errors.append(f"external save raised: {keyword}: {type(result).__name__}")
         return keyword
 
     failed_targets = sorted(name for name, ok in result.items() if not ok)
@@ -364,7 +364,7 @@ async def _save_content_hub_platform(
             hub_ok = await asyncio.to_thread(save_to_content_hub, batch, trend, config, platform)
     except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError) as hub_err:
         log.warning(f"Content Hub save raised [{platform}] ({trend.keyword}): {type(hub_err).__name__}: {hub_err}")
-        run.errors.append(f"content hub raised ({platform}): {trend.keyword}")
+        run.errors.append(f"content hub raised ({platform}): {trend.keyword}: {type(hub_err).__name__}")
         return
 
     if not hub_ok:
