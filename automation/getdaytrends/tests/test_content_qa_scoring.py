@@ -4766,3 +4766,42 @@ class TestTweetHashtagRule:
         items = [self._t("C# 언어 얘기인데 진짜 어렵다 " + "가" * 150)]
         _, regulation, _, _ = _apply_tweet_format_rules(items, 10, 10, 10)
         assert regulation == 10
+
+
+class TestLazyOpeningRule:
+    """The persona rules require all 5 openings to differ; exact-signature dedup
+    missed the lazy case where 3+ drafts open with the same first word (often the
+    trend keyword). Measured at ~25% of single-variant batches before this rule.
+    """
+
+    def _t(self, content):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(content=content)
+
+    def test_three_same_first_word_flagged(self):
+        from content_qa import _apply_repeated_opening_hook_format_rules
+
+        items = [
+            self._t("F1 개막전 미쳤다 " + "가" * 100),
+            self._t("F1 포인트 경쟁 " + "나" * 100),
+            self._t("F1 새 시즌 " + "다" * 100),
+            self._t("하스가 잘했다 " + "라" * 100),
+            self._t("콜라핀토 데뷔 " + "마" * 100),
+        ]
+        angle, _, issues = _apply_repeated_opening_hook_format_rules(items, 12, 12)
+        assert angle < 12
+        assert any("lazy opening" in i for i in issues)
+
+    def test_diverse_openings_not_flagged(self):
+        from content_qa import _apply_repeated_opening_hook_format_rules
+
+        items = [
+            self._t("숫자가 미쳤다 " + "가" * 100),
+            self._t("근데 진짜 " + "나" * 100),
+            self._t("솔직히 이건 " + "다" * 100),
+            self._t("질문 하나 " + "라" * 100),
+            self._t("반전이다 " + "마" * 100),
+        ]
+        angle, _, issues = _apply_repeated_opening_hook_format_rules(items, 12, 12)
+        assert not any("lazy opening" in i for i in issues)

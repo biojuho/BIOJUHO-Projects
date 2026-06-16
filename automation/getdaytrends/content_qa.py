@@ -2225,11 +2225,24 @@ def _apply_repeated_opening_hook_format_rules(
         if item.content.strip()
     ]
     duplicate_count = len(_duplicate_signature_indices(signatures))
-    if duplicate_count <= 0:
-        return angle, algorithm, []
-    angle = max(0, angle - min(4, 2 * duplicate_count))
-    algorithm = max(0, algorithm - min(4, 2 * duplicate_count))
-    return angle, algorithm, [f"repeated opening hook: {duplicate_count} repeated item(s)"]
+    issues: list[str] = []
+    if duplicate_count > 0:
+        angle = max(0, angle - min(4, 2 * duplicate_count))
+        algorithm = max(0, algorithm - min(4, 2 * duplicate_count))
+        issues.append(f"repeated opening hook: {duplicate_count} repeated item(s)")
+    # Exact-signature dedup misses "lazy" openings where 3+ drafts start with the
+    # same first word (often the trend keyword) — the persona rules require all 5
+    # openings to differ in style and forbid keyword-repeat starts.
+    first_words: dict[str, int] = {}
+    for item in items:
+        opening = _opening_hook_text(item.content).split()
+        if opening:
+            first_words[opening[0]] = first_words.get(opening[0], 0) + 1
+    max_same_first = max(first_words.values(), default=0)
+    if max_same_first >= 3:
+        angle = max(0, angle - 3)
+        issues.append(f"lazy opening: {max_same_first} drafts start with the same word")
+    return angle, algorithm, issues
 
 
 def _apply_repeated_closing_kick_format_rules(
