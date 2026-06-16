@@ -341,8 +341,8 @@ class TestScoreFormat:
             "That makes procurement discipline the real signal."
         )
         tweets = [
-            GeneratedTweet(tweet_type="analysis", content=f"1) {content}! https://a.example/x #AI"),
-            GeneratedTweet(tweet_type="counterpoint", content=f"2. {content}... https://b.example/y #Cloud"),
+            GeneratedTweet(tweet_type="analysis", content=f"1) {content}! https://a.example/x "),
+            GeneratedTweet(tweet_type="counterpoint", content=f"2. {content}... https://b.example/y "),
         ]
 
         angle, reg, algo, issues = _score_format("tweets", tweets, "\n".join(t.content for t in tweets))
@@ -364,8 +364,8 @@ class TestScoreFormat:
             "That shifts the signal toward execution quality."
         )
         tweets = [
-            GeneratedTweet(tweet_type="analysis", content=f"1) {first}! https://a.example/x #AI"),
-            GeneratedTweet(tweet_type="counterpoint", content=f"2. {second}... https://b.example/y #Cloud"),
+            GeneratedTweet(tweet_type="analysis", content=f"1) {first}! https://a.example/x "),
+            GeneratedTweet(tweet_type="counterpoint", content=f"2. {second}... https://b.example/y "),
         ]
 
         _, reg, _, issues = _score_format("tweets", tweets, "\n".join(t.content for t in tweets))
@@ -4732,3 +4732,37 @@ class TestRegenerateContentGroups:
         assert batch.blog_posts[0].content == "new blog"
         assert calls["long_tier"] == "premium"
         assert calls["tweets_feedback"] == {"qa": {"total": 60}, "fact_check": {"hallucinated_claims": 1}}
+
+
+class TestTweetHashtagRule:
+    """Hashtags are an absolute prohibition (shadowban trigger). The threads
+    path zeroed regulation on them but the active short-tweet path did not, so
+    ~10% of saved tweets shipped with hashtags. Pin the tweet-path check.
+    """
+
+    def _t(self, content):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(content=content, tweet_type="반전")
+
+    def test_hashtag_zeros_regulation(self):
+        from content_qa import _apply_tweet_format_rules
+
+        items = [self._t("웹툰 투자 미쳤다 #웹툰투자 다들 하는데 호구임 " + "가" * 150)]
+        _, regulation, _, issues = _apply_tweet_format_rules(items, 10, 10, 10)
+        assert regulation == 0
+        assert any("해시태그" in i for i in issues)
+
+    def test_no_hashtag_keeps_regulation(self):
+        from content_qa import _apply_tweet_format_rules
+
+        items = [self._t("웹툰 투자 미쳤다 다들 하는데 호구임 " + "가" * 150)]
+        _, regulation, _, _ = _apply_tweet_format_rules(items, 10, 10, 10)
+        assert regulation == 10
+
+    def test_csharp_not_flagged_as_hashtag(self):
+        from content_qa import _apply_tweet_format_rules
+
+        items = [self._t("C# 언어 얘기인데 진짜 어렵다 " + "가" * 150)]
+        _, regulation, _, _ = _apply_tweet_format_rules(items, 10, 10, 10)
+        assert regulation == 10

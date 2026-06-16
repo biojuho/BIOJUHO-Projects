@@ -2056,6 +2056,13 @@ def _apply_tweet_format_rules(
     items: list[GeneratedTweet], angle: int, regulation: int, algorithm: int
 ) -> tuple[int, int, int, list[str]]:
     issues: list[str] = []
+    # Hashtags are an absolute-prohibition / shadowban trigger per the persona
+    # rules, and the threads format rules already zero regulation on them — but
+    # the active short-tweet path had no such check, so ~10% of saved tweets
+    # shipped with hashtags. Mirror the threads rule here.
+    if any(re.search(r"#[가-힣A-Za-z0-9_]", item.content) for item in items):
+        regulation = 0
+        issues.append("해시태그 사용 (절대 금지·shadowban 위험)")
     if any(len(item.content) > 240 for item in items):
         regulation = min(regulation, 6)
         algorithm = min(algorithm, 6)
