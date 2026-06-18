@@ -1,17 +1,17 @@
-"""# ── TAP Router ─────────────────────────────────
-init_tap_router(
-    config=_config,
-    get_conn_fn=_get_conn,
-    close_conn_fn=_close_conn,
-    run_db_json_fn=_run_db_json_with_fallback,
-    alert_queue_fallback=_tap_alert_queue_fallback,
-    deal_room_fallback=_tap_deal_room_fallback,
-    funnel_fallback=_tap_deal_room_funnel_fallback,
-    checkout_summary_fallback=_tap_checkout_summary_fallback,
-)
-app.include_router(tap_router)
-
-
+"""# ── TAP Router ─────────────────────────────────
+init_tap_router(
+    config=_config,
+    get_conn_fn=_get_conn,
+    close_conn_fn=_close_conn,
+    run_db_json_fn=_run_db_json_with_fallback,
+    alert_queue_fallback=_tap_alert_queue_fallback,
+    deal_room_fallback=_tap_deal_room_fallback,
+    funnel_fallback=_tap_deal_room_funnel_fallback,
+    checkout_summary_fallback=_tap_checkout_summary_fallback,
+)
+app.include_router(tap_router)
+
+
 
 getdaytrends v5.0 - Pro Dashboard
 FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소스 품질 모니터링, LLM 비용 추적.
@@ -119,6 +119,13 @@ except ImportError:
     )
 
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION)
+
+
+@app.get("/health")
+async def health():
+    """Liveness probe for uptime monitoring of the operations dashboard."""
+    return {"status": "healthy", "service": "getdaytrends-dashboard", "version": VERSION}
+
 
 try:
     from .dashboard_routes_tap import router as tap_router, init_tap_router
