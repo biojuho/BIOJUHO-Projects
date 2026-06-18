@@ -212,6 +212,7 @@ export default function Investors() {
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
             <input
               type="text"
+              aria-label={t('investors.searchPlaceholder')}
               placeholder={t('investors.searchPlaceholder')}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
