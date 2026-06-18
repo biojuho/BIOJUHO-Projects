@@ -9,15 +9,12 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY tsconfig.build.json ./
 COPY vite.config.ts ./
-COPY postcss.config.js ./
-COPY tailwind.config.ts ./
 
 # Install dependencies
 RUN npm ci
 
-# Copy source code and UI components
+# Copy source code (UI components live under src/components)
 COPY src ./src
-COPY ui-components ./ui-components
 
 # Build the widgets (Vite) and server (TypeScript)
 # This creates the assets/ directory with built HTML/JS/CSS
@@ -28,6 +25,10 @@ EXPOSE 8001
 
 # Set environment variable for port
 ENV PORT=8001
+
+# Run as the built-in non-root node user (container-escape hardening)
+RUN chown -R node:node /app
+USER node
 
 # Start the server
 CMD ["node", "dist/server/server.js"]
