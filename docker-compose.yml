@@ -27,7 +27,7 @@ services:
   # DeSci Platform - Biolinker API
   biolinker:
     build:
-      context: ./apps/desci-platform/biolinker
+      context: ./apps/desci-platform/backend
       dockerfile: Dockerfile
     container_name: biolinker-api
     environment:
@@ -40,7 +40,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./apps/desci-platform/biolinker:/app
+      - ./apps/desci-platform/backend:/app
       - ./packages/shared:/app/shared
     depends_on:
       postgres:

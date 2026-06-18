@@ -301,7 +301,7 @@ def content_pipeline(dry_run: bool = True) -> dict[str, Any]:
 def collect_notices() -> dict[str, Any]:
     """DeSci 공고 수집 (KDDF + NTIS)."""
     logger = get_run_logger()
-    _ensure_path(rel_unit_path("desci-platform", "biolinker"))
+    _ensure_path(rel_unit_path("desci-platform", "backend"))
     try:
         from services.scheduler import NoticeScheduler
 
