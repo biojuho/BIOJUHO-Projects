@@ -77,3 +77,29 @@ describe('crawler files', () => {
     expect(xml).not.toMatch(/decentbio\.xyz\/(dashboard|wallet|login)/);
   });
 });
+
+describe('vercel.json security headers', () => {
+  const config = JSON.parse(read('vercel.json'));
+  const keys = config.headers
+    .flatMap((rule) => rule.headers)
+    .map((h) => h.key);
+
+  it('sends the baseline hardening headers', () => {
+    for (const key of ['X-Content-Type-Options', 'X-Frame-Options', 'X-XSS-Protection']) {
+      expect(keys).toContain(key);
+    }
+  });
+
+  it('sends HSTS, Referrer-Policy, and Permissions-Policy', () => {
+    expect(keys).toContain('Strict-Transport-Security');
+    expect(keys).toContain('Referrer-Policy');
+    expect(keys).toContain('Permissions-Policy');
+  });
+
+  it('uses a strong HSTS max-age and denies framing', () => {
+    const find = (k) =>
+      config.headers.flatMap((r) => r.headers).find((h) => h.key === k)?.value;
+    expect(find('Strict-Transport-Security')).toMatch(/max-age=\d{7,}/);
+    expect(find('X-Frame-Options')).toBe('DENY');
+  });
+});
