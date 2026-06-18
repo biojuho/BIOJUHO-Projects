@@ -300,7 +300,7 @@ def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[C
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
     desci_frontend = rel_unit_path("desci-platform", "frontend")
-    desci_biolinker = rel_unit_path("desci-platform", "biolinker")
+    desci_biolinker = rel_unit_path("desci-platform", "backend")
     agriguard_frontend = rel_unit_path("agriguard", "frontend")
     agriguard_backend = rel_unit_path("agriguard", "backend")
     github_mcp = rel_unit_path("github-mcp")
