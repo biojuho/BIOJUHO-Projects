@@ -11,7 +11,7 @@ This document provides comprehensive guidance for setting up environment variabl
 cp .env.example .env
 
 # 2. Copy project-specific templates
-cp desci-platform/biolinker/.env.example desci-platform/biolinker/.env
+cp desci-platform/backend/.env.example desci-platform/backend/.env
 cp desci-platform/frontend/.env.example desci-platform/frontend/.env
 cp AgriGuard/backend/.env.example AgriGuard/backend/.env
 cp getdaytrends/.env.example getdaytrends/.env
@@ -135,7 +135,7 @@ cd DailyNews
 python scripts/collect_news.py --help
 
 # biolinker
-cd desci-platform/biolinker
+cd desci-platform/backend
 python -c "from services.settings import Settings; print(Settings().gemini_api_key[:10])"
 ```
 
@@ -206,7 +206,7 @@ echo "path/to/file:line_number" >> .gitleaksignore
 
 See individual `.env.example` files:
 - [Root .env.example](.env.example)
-- [biolinker .env.example](../desci-platform/biolinker/.env.example)
+- [biolinker .env.example](../desci-platform/backend/.env.example)
 - [frontend .env.example](../desci-platform/frontend/.env.example)
 - [AgriGuard .env.example](../AgriGuard/backend/.env.example)
 - [getdaytrends .env.example](../getdaytrends/.env.example)

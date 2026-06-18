@@ -58,7 +58,7 @@ docker compose config
 ### DeSci backend
 
 ```bash
-cd apps/desci-platform/biolinker
+cd apps/desci-platform/backend
 pip install -r requirements.txt
 python -m uvicorn main:app --port 8000 --reload
 ```
