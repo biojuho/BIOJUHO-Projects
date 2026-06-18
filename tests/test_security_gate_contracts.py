@@ -54,7 +54,7 @@ def test_security_env_examples_document_fail_closed_defaults() -> None:
     for path in [
         "apps/AgriGuard/backend/.env.example",
         "apps/desci-platform/.env.example",
-        "apps/desci-platform/biolinker/.env.example",
+        "apps/desci-platform/backend/.env.example",
     ]:
         env_example = _read(path)
         assert "# ALLOW_DEV_AUTH_FALLBACK=true" in env_example
@@ -76,8 +76,7 @@ def test_security_env_names_are_used_by_runtime_code() -> None:
     source_env_pairs = [
         ("apps/AgriGuard/backend/admin.py", "ADMIN_PASSWORD"),
         ("apps/AgriGuard/backend/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
-        ("apps/desci-platform/backend/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
-        ("apps/desci-platform/biolinker/services/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
+        ("apps/desci-platform/backend/services/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
         (
             "automation/DailyNews/src/antigravity_mcp/apps/subscribe_api.py",
             "SUBSCRIBE_ALLOWED_ORIGINS",

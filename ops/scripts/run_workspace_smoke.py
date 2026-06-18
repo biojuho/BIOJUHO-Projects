@@ -85,6 +85,8 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "slowapi>=0.1.9,<1.0",
         "stripe>=9.0.0,<12.0",
         "prometheus_client>=0.21.0",
+        "redis>=5.0.0,<6.0.0",
+        "pika>=1.3.0,<2.0.0",
     ),
     "getdaytrends tests": (
         "respx>=0.21.0,<1.0",
@@ -300,7 +302,7 @@ def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[C
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
     desci_frontend = rel_unit_path("desci-platform", "frontend")
-    desci_biolinker = rel_unit_path("desci-platform", "biolinker")
+    desci_biolinker = rel_unit_path("desci-platform", "backend")
     agriguard_frontend = rel_unit_path("agriguard", "frontend")
     agriguard_backend = rel_unit_path("agriguard", "backend")
     github_mcp = rel_unit_path("github-mcp")

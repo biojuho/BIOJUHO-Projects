@@ -12,8 +12,8 @@ OLD_ROOT_MARKERS = (
 )
 RUNTIME_FILES = [
     "apps/dashboard/api.py",
-    "apps/desci-platform/biolinker/mcp_server.py",
-    "apps/desci-platform/biolinker/services/analyzer.py",
+    "apps/desci-platform/backend/mcp_server.py",
+    "apps/desci-platform/backend/services/analyzer.py",
     "automation/content-intelligence/config.py",
     "automation/getdaytrends/main.py",
     "automation/getdaytrends/GetDayTrends_NewTask.xml",
