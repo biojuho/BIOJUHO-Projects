@@ -1,9 +1,14 @@
 {
+  "id": "/",
   "name": "AgriGuard",
   "short_name": "AgriGuard",
   "description": "Agricultural Guardian — IoT Farm Monitoring & Blockchain Traceability",
+  "lang": "ko-KR",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#0b1120",
   "theme_color": "#4ade80",
   "orientation": "portrait-primary",
@@ -21,5 +26,28 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["agriculture", "business", "productivity"]
+  "categories": ["agriculture", "business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "QR 스캔",
+      "short_name": "스캔",
+      "description": "제품 QR 코드 스캔",
+      "url": "/scan",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "제품 등록부",
+      "short_name": "등록부",
+      "description": "제품 이력 등록부 보기",
+      "url": "/registry",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "콜드체인 모니터",
+      "short_name": "콜드체인",
+      "description": "저온 유통망 실시간 모니터링",
+      "url": "/cold-chain",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
 }
