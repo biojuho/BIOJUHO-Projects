@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import client from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useJobProgress } from '../hooks/useJobProgress';
+import { formatSupportError } from '../lib/support';
 import GlassCard from './ui/GlassCard';
 import { Button } from './ui/Button';
 import { SkeletonList } from './ui/Skeleton';
+import JobProgressPanel from './JobProgressPanel';
 
 export default function Notices() {
     const { showToast } = useToast();
@@ -19,8 +22,13 @@ export default function Notices() {
     const [searchTerm, setSearchTerm] = useState('');
     const [limit, setLimit] = useState(30);
 
-    const fetchNotices = async () => {
-        setLoading(true);
+    const text = (key, fallback, values) => {
+        const message = t(key, values);
+        return message === key ? fallback : message;
+    };
+
+    const fetchNotices = useCallback(async ({ showLoading = true } = {}) => {
+        if (showLoading) setLoading(true);
         try {
             const params = { limit };
             if (sourceFilter) params.source = sourceFilter;
@@ -28,28 +36,77 @@ export default function Notices() {
             setNotices(Array.isArray(response.data) ? response.data : []);
         } catch (err) {
             console.error('Failed to fetch notices:', err);
-            showToast({ key: 'notices.fetchFailed' }, 'error');
+            showToast(formatSupportError(err, t('notices.fetchFailed')), 'error');
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
-    };
+    }, [limit, showToast, sourceFilter, t]);
+
+    const handleJobSuccess = useCallback((result) => {
+        const collected = result?.collected ?? 0;
+        showToast({ key: 'notices.collectSuccess', values: { count: collected } }, 'success');
+        setCollecting(false);
+        fetchNotices({ showLoading: false });
+    }, [fetchNotices, showToast]);
+
+    const handleJobError = useCallback((error) => {
+        showToast({
+            key: 'notices.collectFailed',
+            values: { message: formatSupportError(error, t('common.unknownError')) },
+        }, 'error');
+        setCollecting(false);
+    }, [showToast, t]);
+
+    const { job: jobStatus, watchJob } = useJobProgress({
+        onSuccess: handleJobSuccess,
+        onError: handleJobError,
+    });
 
     const handleCollect = async () => {
         setCollecting(true);
         try {
-            const response = await client.post('/notices/collect');
-            showToast({ key: 'notices.collectSuccess', values: { count: response.data.collected } }, 'success');
-            fetchNotices();
+            const response = await client.post('/jobs/notices/collect');
+            const job = response.data?.job;
+            if (!job?.id) {
+                throw new Error('Collection job was not created.');
+            }
+            watchJob(job).catch(() => {});
         } catch (err) {
-            showToast({ key: 'notices.collectFailed', values: { message: err.response?.data?.detail || err.message } }, 'error');
-        } finally {
+            showToast({
+                key: 'notices.collectFailed',
+                values: { message: formatSupportError(err, t('common.unknownError')) },
+            }, 'error');
             setCollecting(false);
         }
     };
 
     useEffect(() => {
-        fetchNotices();
-    }, [sourceFilter, limit]); // eslint-disable-line react-hooks/exhaustive-deps
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const params = { limit };
+                if (sourceFilter) params.source = sourceFilter;
+                const response = await client.get('/notices', { params });
+                if (!cancelled) {
+                    setNotices(Array.isArray(response.data) ? response.data : []);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Failed to fetch notices:', err);
+                    showToast(formatSupportError(err, t('notices.fetchFailed')), 'error');
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [limit, showToast, sourceFilter, t]);
 
     const filtered = notices.filter((notice) => {
         if (!searchTerm) return true;
@@ -77,6 +134,13 @@ export default function Notices() {
                     </Button>
                 </div>
             </GlassCard>
+
+            {jobStatus && (
+                <JobProgressPanel
+                    job={jobStatus}
+                    title={text('notices.collectionProgress', 'Collection progress')}
+                />
+            )}
 
             <GlassCard className="p-5">
                 <div className="grid gap-3 lg:grid-cols-[1fr,180px,140px]">

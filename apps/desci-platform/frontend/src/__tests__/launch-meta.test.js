@@ -1,4 +1,5 @@
 // @vitest-environment node
+/* global process */
 /**
  * Launch-meta regression guard.
  *

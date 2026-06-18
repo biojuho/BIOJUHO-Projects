@@ -1,5 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { queryClient } from '../lib/queryClient';
 import client from '../services/api';
 import { clearApiCache, useFetch } from './useApi';
 
@@ -21,6 +23,10 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+function wrapper({ children }) {
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+
 describe('useFetch', () => {
   beforeEach(() => {
     client.get.mockReset();
@@ -35,7 +41,7 @@ describe('useFetch', () => {
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
 
-    const { result } = renderHook(() => useFetch('/papers/me'));
+    const { result } = renderHook(() => useFetch('/papers/me'), { wrapper });
 
     await waitFor(() => {
       expect(client.get).toHaveBeenCalledTimes(1);
@@ -75,6 +81,7 @@ describe('useFetch', () => {
     const { result, rerender } = renderHook(
       ({ url, enabled }) => useFetch(url, { enabled }),
       {
+        wrapper,
         initialProps: { url: '/papers/me', enabled: true },
       },
     );

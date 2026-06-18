@@ -1,11 +1,21 @@
 /* global describe, it, expect, vi, beforeEach */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { uid: 'user-123' },
   }),
 }));
+
+vi.mock('../../contexts/LocaleContext', async () => {
+  const { createLocaleMock } = await import('../mocks/locale-messages.js');
+  return createLocaleMock({
+    'locale.switchLabel': 'Switch language',
+    'locale.shortKo': 'KO',
+    'locale.shortEn': 'EN',
+  });
+});
 
 vi.mock('../../services/api', () => ({
   default: {
@@ -17,6 +27,14 @@ vi.mock('../../services/api', () => ({
 import PricingPage from '../../components/PricingPage';
 import api from '../../services/api';
 
+function renderPricingPage() {
+  return render(
+    <MemoryRouter initialEntries={['/pricing']}>
+      <PricingPage />
+    </MemoryRouter>
+  );
+}
+
 describe('PricingPage', () => {
   beforeEach(() => {
     api.get.mockReset();
@@ -26,7 +44,7 @@ describe('PricingPage', () => {
   it('loads the current subscription tier through the shared api client', async () => {
     api.get.mockResolvedValue({ data: { tier: 'pro' } });
 
-    render(<PricingPage />);
+    renderPricingPage();
 
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith('/subscription/tier');
@@ -37,18 +55,19 @@ describe('PricingPage', () => {
     api.get.mockResolvedValue({ data: { tier: 'free' } });
     api.post.mockResolvedValue({ data: {} });
 
-    render(<PricingPage />);
+    renderPricingPage();
 
-    const proCard = await screen.findByRole('heading', { name: 'Pro' });
-    const proButton = proCard.closest('div').querySelector('button');
+    await screen.findByRole('heading', { name: 'Pro' });
+    const proButton = screen.getByRole('button', { name: 'Upgrade to Pro' });
 
     fireEvent.click(proButton);
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith('/subscription/checkout', {
-        tier: 'pro',
-        billing: 'monthly',
-      });
+      expect(api.post).toHaveBeenCalledWith(
+        '/subscription/checkout',
+        { tier: 'pro', billing: 'monthly' },
+        { suppressErrorLog: true },
+      );
     });
   });
 });
