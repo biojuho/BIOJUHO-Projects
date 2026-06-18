@@ -154,7 +154,7 @@ services:
   # BioLinker API - Research Matching Engine
   biolinker:
     build:
-      context: ./apps/desci-platform/biolinker
+      context: ./apps/desci-platform/backend
       dockerfile: Dockerfile
       target: development  # Multi-stage build의 dev stage
     container_name: dev-biolinker
@@ -179,9 +179,9 @@ services:
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
     env_file:
       - .env
-      - apps/desci-platform/biolinker/.env
+      - apps/desci-platform/backend/.env
     volumes:
-      - ./apps/desci-platform/biolinker:/app
+      - ./apps/desci-platform/backend:/app
       - ./packages/shared:/app/shared:ro  # Shared libraries (read-only)
       - biolinker-uploads:/app/uploads
     depends_on:
