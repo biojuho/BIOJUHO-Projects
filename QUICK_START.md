@@ -54,7 +54,7 @@ python scripts/run_workspace_smoke.py --scope all
 ### DeSci Platform
 
 ```bash
-cd apps/desci-platform/biolinker
+cd apps/desci-platform/backend
 pip install -r requirements.txt
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```

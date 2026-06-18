@@ -26,7 +26,7 @@ Install the dependencies you need in the project you are changing. Examples:
 ```bash
 npm install --prefix apps/AgriGuard/frontend
 npm install --prefix apps/desci-platform/frontend
-pip install -r apps/desci-platform/biolinker/requirements.txt
+pip install -r apps/desci-platform/backend/requirements.txt
 pip install -r automation/getdaytrends/requirements.txt
 ```
 
