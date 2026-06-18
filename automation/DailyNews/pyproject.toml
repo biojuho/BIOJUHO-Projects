@@ -24,6 +24,12 @@ dependencies = [
     "fastapi>=0.110.0,<1.0",  # newsletter subscribe/unsubscribe + signals endpoints
 ]
 
+# Console entry point. The pyproject migration dropped this (it survived only in
+# the stale egg-info), which left `pip install` producing no `antigravity-mcp`
+# command — breaking the Docker CMD and the documented `antigravity-mcp serve`.
+[project.scripts]
+antigravity-mcp = "antigravity_mcp.cli:main"
+
 [project.optional-dependencies]
 newsletter = [
     "resend>=2.0.0",
