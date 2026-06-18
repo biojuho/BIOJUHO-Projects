@@ -1,0 +1,24 @@
+# DecentBio — robots policy
+# Public marketing/discovery routes are crawlable; the authenticated app and
+# post-checkout pages are not useful in search results.
+
+User-agent: *
+Allow: /$
+Allow: /pricing
+Allow: /explore
+Allow: /investors
+Disallow: /login
+Disallow: /subscription/
+Disallow: /dashboard
+Disallow: /biolinker
+Disallow: /upload
+Disallow: /wallet
+Disallow: /mylab
+Disallow: /vc-portal
+Disallow: /notices
+Disallow: /ai-lab
+Disallow: /peer-review
+Disallow: /assets
+Disallow: /governance
+
+Sitemap: https://decentbio.xyz/sitemap.xml
