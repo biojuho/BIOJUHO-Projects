@@ -3,6 +3,7 @@ import { FileText, RefreshCw, Upload } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
 import api from '../services/api';
+import { formatSupportError } from '../lib/support';
 import { Button } from './ui/Button';
 import GlassCard from './ui/GlassCard';
 
@@ -10,7 +11,7 @@ export default function AssetManager() {
     const { showToast } = useToast();
     const { t } = useLocale();
     const [assets, setAssets] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [selectedType, setSelectedType] = useState('ir');
 
@@ -28,15 +29,37 @@ export default function AssetManager() {
             setAssets(response.data);
         } catch (error) {
             console.error(error);
-            showToast({ key: 'assetManager.loadFailed' }, 'error');
+            showToast(formatSupportError(error, t('assetManager.loadFailed')), 'error');
         } finally {
             setLoading(false);
         }
-    }, [showToast]);
+    }, [showToast, t]);
 
     useEffect(() => {
-        fetchAssets();
-    }, [fetchAssets]);
+        let cancelled = false;
+
+        api.get('/assets')
+            .then((response) => {
+                if (!cancelled) {
+                    setAssets(response.data);
+                }
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    console.error(error);
+                    showToast(formatSupportError(error, t('assetManager.loadFailed')), 'error');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [showToast, t]);
 
     const handleFileUpload = async (event) => {
         const file = event.target.files?.[0];
@@ -55,7 +78,7 @@ export default function AssetManager() {
             fetchAssets();
         } catch (error) {
             console.error(error);
-            showToast({ key: 'assetManager.uploadFailed' }, 'error');
+            showToast(formatSupportError(error, t('assetManager.uploadFailed')), 'error');
         } finally {
             setUploading(false);
         }

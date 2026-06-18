@@ -1,6 +1,7 @@
 /* global beforeEach, describe, expect, it */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { LocaleProvider, useLocale } from '../../contexts/LocaleContext';
+import { formatMessage } from '../../i18n/messages';
 
 function LocaleProbe() {
   const { locale, outputLanguage, setLocale, toggleLocale } = useLocale();
@@ -49,5 +50,10 @@ describe('LocaleContext', () => {
     expect(window.localStorage.getItem('dsci.locale')).toBe('en-US');
     expect(window.localStorage.getItem('dsci.outputLanguage')).toBe('en');
     expect(document.documentElement.lang).toBe('en-US');
+  });
+
+  it('keeps Korean mode readable and applies product readiness copy', () => {
+    expect(formatMessage('ko-KR', 'common.copy')).toBe('복사');
+    expect(formatMessage('ko-KR', 'readiness.title')).toBe('출시 준비도');
   });
 });

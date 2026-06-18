@@ -4,6 +4,7 @@ import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { formatSupportError } from '../lib/support';
 import Button from './ui/Button';
 import { Card, CardContent } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -23,6 +24,7 @@ export default function Wallet() {
                 setLoading(false);
                 return;
             }
+
             try {
                 setLoading(true);
                 const [balanceRes, rewardsRes, txRes] = await Promise.allSettled([
@@ -35,13 +37,14 @@ export default function Wallet() {
                 if (txRes.status === 'fulfilled') setTransactions(txRes.value.data || []);
             } catch (err) {
                 console.error('Wallet fetch failed', err);
-                showToast({ key: 'wallet.fetchFailed' }, 'error');
+                showToast(formatSupportError(err, t('wallet.fetchFailed')), 'error');
             } finally {
                 setLoading(false);
             }
         };
+
         fetchData();
-    }, [walletAddress, showToast]);
+    }, [showToast, t, walletAddress]);
 
     if (!walletAddress) {
         return (
@@ -51,9 +54,12 @@ export default function Wallet() {
                 </div>
                 <h2 className="font-display text-3xl font-semibold text-ink">{t('wallet.connectTitle')}</h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-ink-muted">{t('wallet.connectDescription')}</p>
-                <Button onClick={connectWallet} size="lg" className="mt-6 justify-center text-white">
-                    {t('wallet.connectButton')}
-                </Button>
+                <div className="mt-6 flex justify-center">
+                    <Button onClick={connectWallet} size="lg" className="justify-center text-white">
+                        <WalletMinimal className="h-5 w-5" />
+                        {t('layout.connectWallet')}
+                    </Button>
+                </div>
             </div>
         );
     }
@@ -88,9 +94,18 @@ export default function Wallet() {
                     <CardContent className="p-0">
                         <h2 className="mb-4 font-display text-2xl font-semibold text-ink">{t('wallet.rewardPolicy')}</h2>
                         <div className="space-y-4 text-sm text-ink-muted">
-                            <div className="flex justify-between gap-3"><span>{t('wallet.rewardPaperUpload')}</span><span className="font-semibold text-primary">+{rewards?.paper_upload || 100} DSCI</span></div>
-                            <div className="flex justify-between gap-3"><span>{t('wallet.rewardPeerReview')}</span><span className="font-semibold text-primary">+{rewards?.peer_review || 50} DSCI</span></div>
-                            <div className="flex justify-between gap-3"><span>{t('wallet.rewardDataShare')}</span><span className="font-semibold text-primary">+{rewards?.data_share || 200} DSCI</span></div>
+                            <div className="flex justify-between gap-3">
+                                <span>{t('wallet.rewardPaperUpload')}</span>
+                                <span className="font-semibold text-primary">+{rewards?.paper_upload || 100} DSCI</span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                                <span>{t('wallet.rewardPeerReview')}</span>
+                                <span className="font-semibold text-primary">+{rewards?.peer_review || 50} DSCI</span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                                <span>{t('wallet.rewardDataShare')}</span>
+                                <span className="font-semibold text-primary">+{rewards?.data_share || 200} DSCI</span>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

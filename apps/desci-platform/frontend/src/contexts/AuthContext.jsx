@@ -49,18 +49,21 @@ export function AuthProvider({ children }) {
         return () => unsubscribe();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Connect Wallet (MetaMask/Rabby)
     const connectWallet = async () => {
-        if (typeof window.ethereum !== 'undefined') {
-            try {
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                setWalletAddress(accounts[0]);
-                return { success: true, address: accounts[0] };
-            } catch (error) {
-                return { success: false, error: error.message };
+        if (!window.ethereum?.request) {
+            return { success: false, error: 'Wallet extension not found.' };
+        }
+
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const nextAddress = accounts?.[0];
+            if (!nextAddress) {
+                return { success: false, error: 'No wallet account selected.' };
             }
-        } else {
-            return { success: false, error: "지갑이 설치되어 있지 않습니다." };
+            setWalletAddress(nextAddress);
+            return { success: true, address: nextAddress };
+        } catch (error) {
+            return { success: false, error: error?.message || 'Wallet connection failed.' };
         }
     };
 

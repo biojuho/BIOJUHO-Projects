@@ -6,6 +6,7 @@ import { useLocale } from '../contexts/LocaleContext';
 import client from '../services/api';
 import RecommendationList from './dashboard/RecommendationList';
 import VCMatchList from './dashboard/VCMatchList';
+import ProductReadinessPanel from './ProductReadinessPanel';
 import GlassCard from './ui/GlassCard';
 import { Badge } from './ui/Badge';
 
@@ -158,6 +159,8 @@ export default function Dashboard() {
                     );
                 })}
             </div>
+
+            <ProductReadinessPanel />
 
             <div className="grid gap-6 xl:grid-cols-[1.4fr,1fr]">
                 <GlassCard className="p-7">

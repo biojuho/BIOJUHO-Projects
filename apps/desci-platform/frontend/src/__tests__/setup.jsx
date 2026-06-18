@@ -16,39 +16,29 @@ import '@testing-library/jest-dom/vitest';
 
 /* global vi, afterEach */
 
-function createStorageShim() {
-  const store = new Map();
-
-  return {
-    get length() {
-      return store.size;
-    },
-    clear: () => store.clear(),
-    getItem: (key) => {
-      const value = store.get(String(key));
-      return value === undefined ? null : value;
-    },
-    key: (index) => Array.from(store.keys())[index] ?? null,
-    removeItem: (key) => store.delete(String(key)),
-    setItem: (key, value) => store.set(String(key), String(value)),
-  };
-}
-
-if (typeof window !== 'undefined') {
-  const storage = createStorageShim();
-  Object.defineProperty(window, 'localStorage', {
-    value: storage,
-    configurable: true,
-  });
-  Object.defineProperty(globalThis, 'localStorage', {
-    value: storage,
-    configurable: true,
-  });
-}
-
 afterEach(() => {
   cleanup();
 });
+
+class MockIntersectionObserver {
+  constructor(callback = () => {}) {
+    this.callback = callback;
+  }
+
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+globalThis.IntersectionObserver ??= MockIntersectionObserver;
+globalThis.ResizeObserver ??= class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 // ── Global mocks ───────────────────────────────────────────────────────────
 // These replace the vi.mock() boilerplate that was copy-pasted across

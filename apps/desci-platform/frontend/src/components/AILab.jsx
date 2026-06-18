@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import { ChevronDown, Copy, Loader2, Microscope, PenTool, RefreshCw, Send, Youtube } from 'lucide-react';
+import { ChevronDown, Copy, Loader2, Microscope, MonitorPlay, PenTool, RefreshCw, Send } from 'lucide-react';
 import GlassCard from './ui/GlassCard';
 import { Button } from './ui/Button';
 import { useAgentTools } from '../hooks/useAgentTools';
@@ -14,7 +14,7 @@ export default function AILab() {
     const tools = [
         { id: 'research', label: t('ailab.toolResearch'), icon: Microscope, descriptionKey: 'ailab.researchDescription', placeholder: t('ailab.researchPlaceholder') },
         { id: 'write', label: t('ailab.toolWrite'), icon: PenTool, descriptionKey: 'ailab.writeDescription', placeholder: t('ailab.writePlaceholder') },
-        { id: 'youtube', label: t('ailab.toolYoutube'), icon: Youtube, descriptionKey: 'ailab.youtubeDescription', placeholder: t('ailab.youtubePlaceholder') },
+        { id: 'youtube', label: t('ailab.toolYoutube'), icon: MonitorPlay, descriptionKey: 'ailab.youtubeDescription', placeholder: t('ailab.youtubePlaceholder') },
     ];
 
     const formatTypes = [

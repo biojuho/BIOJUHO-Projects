@@ -1,13 +1,35 @@
+import { useMemo, useState } from 'react';
 import { ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary';
-import { AlertTriangle, RotateCcw, Home } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Home, RotateCcw } from 'lucide-react';
 import { formatMessage } from '../i18n/messages';
 import { getStoredLocale } from '../contexts/LocaleContext';
+import { createSupportId } from '../lib/support';
 
 function t(key) {
   return formatMessage(getStoredLocale(), key);
 }
 
 function ErrorFallback({ error, resetErrorBoundary }) {
+  const [copied, setCopied] = useState(false);
+  const supportId = useMemo(() => createSupportId('ui'), []);
+  const diagnostics = useMemo(() => JSON.stringify({
+    support_id: supportId,
+    message: error?.message || 'Unknown error',
+    path: typeof window !== 'undefined' ? window.location.pathname : '',
+    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    occurred_at: new Date().toISOString(),
+  }, null, 2), [error?.message, supportId]);
+
+  const copyDiagnostics = async () => {
+    try {
+      await navigator.clipboard.writeText(diagnostics);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="glass-card max-w-lg p-10 text-center">
@@ -16,6 +38,10 @@ function ErrorFallback({ error, resetErrorBoundary }) {
         </div>
         <h1 className="mb-3 font-display text-3xl font-semibold text-ink">{t('errors.title')}</h1>
         <p className="mb-4 text-sm leading-7 text-ink-muted">{t('errors.body')}</p>
+        <div className="clay-panel-pressed mb-5 rounded-[1.4rem] p-4 text-left">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink-soft">{t('errors.supportId')}</p>
+          <p className="mt-2 break-all font-mono text-sm font-semibold text-ink">{supportId}</p>
+        </div>
         {error?.message && (
           <pre className="clay-panel-pressed mb-6 max-h-28 overflow-auto rounded-[1.5rem] p-4 text-left text-xs text-error-dark whitespace-pre-wrap break-words">
             {error.message}
@@ -25,6 +51,10 @@ function ErrorFallback({ error, resetErrorBoundary }) {
           <button onClick={resetErrorBoundary} className="clay-button clay-button-primary text-white">
             <RotateCcw className="h-4 w-4" />
             {t('errors.retry')}
+          </button>
+          <button onClick={copyDiagnostics} className="clay-button">
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? t('common.copied') : t('errors.copyDiagnostics')}
           </button>
           <button
             onClick={() => {

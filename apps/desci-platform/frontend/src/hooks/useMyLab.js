@@ -3,6 +3,7 @@ import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { formatSupportError } from '../lib/support';
 
 const EMPTY_MINT_RESULT = { title: '', message: '', txHash: '' };
 
@@ -13,14 +14,16 @@ export function useMyLab() {
     const showToastRef = useRef(showToast);
     const tRef = useRef(t);
 
-    showToastRef.current = showToast;
-    tRef.current = t;
-
     const [papers, setPapers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [mintingIds, setMintingIds] = useState({});
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [mintResult, setMintResult] = useState(EMPTY_MINT_RESULT);
+
+    useEffect(() => {
+        showToastRef.current = showToast;
+        tRef.current = t;
+    }, [showToast, t]);
 
     useEffect(() => {
         let cancelled = false;
@@ -31,9 +34,9 @@ export function useMyLab() {
                     setPapers(response.data);
                 }
             })
-            .catch(() => {
+            .catch((error) => {
                 if (!cancelled) {
-                    showToastRef.current(tRef.current('myLab.loadFailed'), 'error');
+                    showToastRef.current(formatSupportError(error, tRef.current('myLab.loadFailed')), 'error');
                 }
             })
             .finally(() => {
@@ -79,7 +82,7 @@ export function useMyLab() {
                 showToast(t('myLab.mintFailed', { message: reason }), 'error');
             }
         } catch (err) {
-            showToast(t('myLab.mintFailed', { message: err.response?.data?.detail || err.message || t('common.unknownError') }), 'error');
+            showToast(t('myLab.mintFailed', { message: formatSupportError(err, t('common.unknownError')) }), 'error');
             console.error('[mintNFT]', err);
         } finally {
             setMintingIds((prev) => ({ ...prev, [paper.id]: false }));
