@@ -1,0 +1,5 @@
+# DecentBio (DSCI) — Security contact / responsible disclosure (RFC 9116)
+Contact: mailto:hello@decentbio.xyz
+Expires: 2027-06-18T00:00:00.000Z
+Preferred-Languages: ko, en
+Canonical: https://decentbio.xyz/.well-known/security.txt
