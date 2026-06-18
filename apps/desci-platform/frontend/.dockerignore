@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.vite/
+.env
+.env.*
+!.env.example
+*.log
+build_*.txt
+build*.log
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+coverage/
