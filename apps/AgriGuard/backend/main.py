@@ -186,6 +186,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AgriGuard API", version="0.2.0", lifespan=lifespan)
 
+
+@app.get("/health", tags=["system"])
+async def health():
+    """Liveness/readiness probe (rate-limit exempt) for load balancers and orchestrators.
+
+    The rate-limit middleware already special-cases /health, but no route was
+    defined, so probes received 404. Reports DB reachability so deploy targets
+    (Railway/Docker/k8s) can gate traffic on readiness.
+    """
+    database_ok = True
+    try:
+        verify_database_connection()
+    except Exception:  # noqa: BLE001 - any DB error means not ready
+        database_ok = False
+    return {
+        "status": "healthy" if database_ok else "degraded",
+        "service": "agriguard",
+        "database": database_ok,
+    }
+
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
