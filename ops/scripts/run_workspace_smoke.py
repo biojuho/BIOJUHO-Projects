@@ -85,6 +85,8 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "slowapi>=0.1.9,<1.0",
         "stripe>=9.0.0,<12.0",
         "prometheus_client>=0.21.0",
+        "redis>=5.0.0,<6.0.0",
+        "pika>=1.3.0,<2.0.0",
     ),
     "getdaytrends tests": (
         "respx>=0.21.0,<1.0",
