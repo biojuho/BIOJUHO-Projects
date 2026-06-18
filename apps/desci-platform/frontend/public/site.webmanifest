@@ -1,14 +1,18 @@
 {
+  "id": "/",
   "name": "DecentBio — AI-Powered DeSci Platform",
   "short_name": "DecentBio",
   "description": "바이오 연구를 AI로 가속화하는 탈중앙 사이언스 플랫폼. 정부과제 매칭, VC 연결, AI 제안서, IPFS 논문 저장.",
   "lang": "ko-KR",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#040811",
   "theme_color": "#040811",
+  "categories": ["business", "productivity", "science", "finance"],
   "icons": [
     {
       "src": "/favicon.svg",
@@ -26,6 +30,29 @@
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "요금제 보기",
+      "short_name": "요금제",
+      "description": "Starter / Pro / Enterprise 플랜",
+      "url": "/pricing",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "연구 피드",
+      "short_name": "탐색",
+      "description": "최신 바이오 연구 탐색",
+      "url": "/explore",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "투자자 디렉토리",
+      "short_name": "투자자",
+      "description": "바이오 VC 디렉토리",
+      "url": "/investors",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
