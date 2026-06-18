@@ -9,6 +9,7 @@ Brand: bg #040811 (theme-color), accent #20BB8A (--primary HSL 161 71% 43%).
 from __future__ import annotations
 
 import os
+
 from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1200, 630
