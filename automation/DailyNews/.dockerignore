@@ -1,0 +1,50 @@
+# Keep the Docker build context small and free of runtime/secret artifacts.
+# The Dockerfile copies only src/, scripts/, config/ and pyproject.toml, but
+# excluding everything else here also speeds up context transfer to the daemon
+# and prevents accidental leakage if a future COPY widens its scope.
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test / coverage / lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+tests/
+
+# Runtime state — SQLite pipeline DB (WAL), logs, generated output
+data/
+logs/
+output/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Secrets / local env (never ship into an image)
+.env
+.env.*
+*.key
+*.pem
+serviceAccountKey.json
+
+# VCS / editor / OS noise
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+.DS_Store
+*.md
