@@ -1,0 +1,4 @@
+# AgriGuard — Security contact / responsible disclosure (RFC 9116)
+Contact: mailto:security@agriguard.example
+Expires: 2027-06-18T00:00:00.000Z
+Preferred-Languages: ko, en
