@@ -2,7 +2,8 @@ services:
   # --- Dev profile (default) ---
   biolinker:
     container_name: desci-biolinker
-    build: ./biolinker
+    # Package/service name stays `biolinker`; the source dir moved to backend/.
+    build: ./backend
     ports:
       - "8000:8000"
     environment:
@@ -18,7 +19,7 @@ services:
       - GROBID_URL=${GROBID_URL:-http://grobid:8070/api}
       - GROBID_TIMEOUT_SECONDS=${GROBID_TIMEOUT_SECONDS:-60}
     volumes:
-      - ./biolinker/chroma_db:/app/chroma_db
+      - ./backend/chroma_db:/app/chroma_db
     depends_on:
       - chromadb
       - qdrant
