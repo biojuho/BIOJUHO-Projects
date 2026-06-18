@@ -53,5 +53,9 @@
     "tailwindcss": "^4.2.1",
     "vite": "^7.2.4",
     "vitest": "^4.0.7"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1",
+    "@grpc/grpc-js": "^1.14.4"
   }
 }
