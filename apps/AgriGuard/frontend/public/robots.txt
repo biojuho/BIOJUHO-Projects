@@ -1,0 +1,13 @@
+# AgriGuard — Smart Farm Guardian — robots policy
+# Public product and discovery routes are crawlable; the API proxy is not
+# useful in search results. Add a `Sitemap:` line once a production domain
+# is assigned.
+
+User-agent: *
+Allow: /$
+Allow: /scan
+Allow: /registry
+Allow: /supply-chain
+Allow: /cold-chain
+Allow: /product/
+Disallow: /api/
