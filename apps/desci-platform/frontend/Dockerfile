@@ -39,6 +39,7 @@ RUN echo 'server { \
     listen 80; \
     root /usr/share/nginx/html; \
     index index.html; \
+    server_tokens off; \
     gzip on; \
     gzip_vary on; \
     gzip_comp_level 6; \
@@ -52,6 +53,7 @@ RUN echo 'server { \
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always; \
     add_header Cross-Origin-Opener-Policy "same-origin-allow-popups" always; \
     add_header X-Permitted-Cross-Domain-Policies "none" always; \
+    add_header Cache-Control "no-cache" always; \
     location / { \
     try_files $uri $uri/ /index.html; \
     } \
