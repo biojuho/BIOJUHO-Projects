@@ -23,6 +23,7 @@ python apps/desci-platform/scripts/env_doctor.py   # target: 0 warnings
   - `REDIS_URL`, `RABBITMQ_URL`, `PINATA_JWT` (optional features)
   - Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY`
   - Web3 (optional): `WEB3_RPC_URL` + contract addresses; keep `DISTRIBUTOR_PRIVATE_KEY` in a secret manager
+- **Set env in one shot**: after `railway login && railway link`, put the values above in a local `.env.production` (gitignored) and run `scripts/set_railway_env.sh .env.production` to push them all via `railway variable set` (warns about missing required keys; supports `--dry-run`).
 - **Deploy**: `cd apps/desci-platform/backend && railway up` (or `scripts/deploy.sh backend`).
 
 ## 2. DeSci frontend → Vercel
