@@ -20,4 +20,9 @@ USER appuser
 
 EXPOSE 8002
 
+# Container-level health probe (parity with the desci backend). start-period
+# covers the run_migrations step before the first check counts against retries.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')" || exit 1
+
 CMD ["sh", "-c", "python scripts/run_migrations.py && uvicorn main:app --host 0.0.0.0 --port 8002"]
