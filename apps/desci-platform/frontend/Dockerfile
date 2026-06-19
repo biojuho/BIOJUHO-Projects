@@ -39,6 +39,12 @@ RUN echo 'server { \
     listen 80; \
     root /usr/share/nginx/html; \
     index index.html; \
+    gzip on; \
+    gzip_vary on; \
+    gzip_comp_level 6; \
+    gzip_min_length 1024; \
+    gzip_proxied any; \
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml application/xml application/manifest+json font/woff2; \
     add_header X-Frame-Options "DENY" always; \
     add_header X-Content-Type-Options "nosniff" always; \
     add_header Referrer-Policy "strict-origin-when-cross-origin" always; \
