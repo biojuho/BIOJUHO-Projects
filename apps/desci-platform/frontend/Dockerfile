@@ -44,6 +44,8 @@ RUN echo 'server { \
     add_header Referrer-Policy "strict-origin-when-cross-origin" always; \
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always; \
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always; \
+    add_header Cross-Origin-Opener-Policy "same-origin-allow-popups" always; \
+    add_header X-Permitted-Cross-Domain-Policies "none" always; \
     location / { \
     try_files $uri $uri/ /index.html; \
     } \
