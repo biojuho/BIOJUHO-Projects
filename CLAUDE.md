@@ -37,7 +37,7 @@ This generates local compatibility aliases such as:
 
 | Unit | Path | Purpose |
 | --- | --- | --- |
-| BioLinker API | `apps/desci-platform/biolinker` | RFP matching and research backend |
+| BioLinker API | `apps/desci-platform/backend` | RFP matching and research backend (Python package still `biolinker`) |
 | DeSci frontend | `apps/desci-platform/frontend` | Web UI for the DeSci platform |
 | DeSci contracts | `apps/desci-platform/contracts` | Smart contracts |
 | AgriGuard backend | `apps/AgriGuard/backend` | Supply chain tracking API |
@@ -63,7 +63,7 @@ docker compose config
 ### BioLinker
 
 ```bash
-cd apps/desci-platform/biolinker
+cd apps/desci-platform/backend
 pip install -r requirements.txt
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
