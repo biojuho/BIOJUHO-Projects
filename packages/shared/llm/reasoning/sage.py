@@ -53,6 +53,9 @@ SCORE: [0-100]
 REASON: [한 줄 요약]"""
 
 
+_CONFIDENCE_SYSTEM_PROMPT = "You are a quality evaluator. Be strict and precise."
+
+
 @dataclass
 class SAGEResult:
     """Result from SAGE adaptive reasoning."""
@@ -180,7 +183,7 @@ class SAGEEngine:
                     }
                 ],
                 max_tokens=200,
-                system="You are a quality evaluator. Be strict and precise.",
+                system=_CONFIDENCE_SYSTEM_PROMPT,
                 policy=policy,
             )
             confidence = _parse_confidence_score(conf_resp.text)
@@ -259,7 +262,7 @@ class SAGEEngine:
                 tier=TaskTier.LIGHTWEIGHT,
                 messages=[{"role": "user", "content": _CONFIDENCE_PROMPT.format(response=initial_resp.text)}],
                 max_tokens=200,
-                system="You are a quality evaluator. Be strict and precise.",
+                system=_CONFIDENCE_SYSTEM_PROMPT,
                 policy=policy,
             )
             confidence = _parse_confidence_score(conf_resp.text)

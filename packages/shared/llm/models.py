@@ -38,6 +38,10 @@ TaskKind = Literal[
 ResponseMode = Literal["text", "json"]
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 @dataclass
 class LLMPolicy:
     """Runtime language and routing policy for an LLM request."""
@@ -50,6 +54,10 @@ class LLMPolicy:
     allow_source_quotes: bool = False
     preserve_terms: list[str] = field(default_factory=list)
     response_mode: ResponseMode = "text"
+    # opt-in 네이티브 구조화 출력 스키마(JSON Schema dict). 제공 시 provider별로
+    # Anthropic output_config.format / OpenAI·Grok response_format json_schema(strict) /
+    # Gemini response_json_schema 로 변환. None(기본)이면 기존 loose-JSON 경로 유지.
+    json_schema: dict | None = None
 
 
 @dataclass
@@ -83,7 +91,7 @@ class LLMResponse:
 class CostRecord:
     """Per-call cost tracking record."""
 
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=_utc_now)
     backend: str = ""
     model: str = ""
     tier: TaskTier = TaskTier.MEDIUM

@@ -36,7 +36,8 @@ from .models import LLMPolicy, TaskTier
 if TYPE_CHECKING:
     from .client import LLMClient
 
-log = logging.getLogger("shared.llm.context_condenser")
+LOGGER_NAME = "shared.llm.context_condenser"
+log = logging.getLogger(LOGGER_NAME)
 
 Message = dict[str, Any]
 Metrics = dict[str, int | float]
@@ -50,9 +51,33 @@ _MIN_HISTORY_FOR_CONDENSATION = 6
 
 # Default number of recent messages to preserve verbatim
 _DEFAULT_KEEP_RECENT = 3
+_DEFAULT_SUMMARY_MAX_TOKENS = 500
+_DEFAULT_PIPELINE_SUMMARY_MAX_TOKENS = 400
 
 # Rough chars per token for estimation
 _CHARS_PER_TOKEN = 3.5
+_MILLISECONDS_PER_SECOND = 1000
+_MESSAGE_ROLE_KEY = "role"
+_MESSAGE_CONTENT_KEY = "content"
+_USER_ROLE = "user"
+_PIPELINE_CATEGORY_KEY = "category"
+_PIPELINE_RESULT_KEY = "result"
+_PIPELINE_STAGE_PREFIX = "Stage"
+_DEFAULT_MESSAGE_ROLE = "unknown"
+_DEFAULT_MESSAGE_CONTENT = ""
+_MESSAGE_TRUNCATE_CHARS = 1000
+_MESSAGE_TRUNCATION_SUFFIX = "... [truncated]"
+_PIPELINE_RESULT_PREVIEW_CHARS = 500
+_PIPELINE_FALLBACK_RESULT_CHARS = 100
+_UNKNOWN_PIPELINE_CATEGORY = "?"
+_METRIC_TOTAL_CONDENSATIONS = "total_condensations"
+_METRIC_TOTAL_TOKENS_SAVED = "total_tokens_saved"
+_METRIC_TOTAL_COST_USD = "total_cost_usd"
+_CONVERSATION_SUMMARY_SYSTEM = "You are a precise conversation summarizer. Output only Korean."
+_PIPELINE_SUMMARY_SYSTEM = "You are a pipeline context optimizer. Be concise."
+_LOG_CONTEXT_CONDENSATION_FAILED = "Context condensation failed: %s. Returning truncated history."
+_LOG_ASYNC_CONTEXT_CONDENSATION_FAILED = "Async context condensation failed: %s"
+_LOG_PIPELINE_CONDENSATION_FAILED = "Pipeline condensation failed: %s"
 
 # Summary prompt template
 _SUMMARY_PROMPT = """아래는 AI 어시스턴트와의 이전 대화 히스토리입니다.
@@ -123,6 +148,83 @@ class PipelineContext:
     state_changes: dict[str, Any] = field(default_factory=dict)
 
 
+def _summary_policy() -> LLMPolicy:
+    return LLMPolicy(
+        task_kind="summary",
+        output_language="ko",
+        enforce_korean_output=True,
+    )
+
+
+def _estimate_tokens_saved(old_messages: list[Message], summary_text: str) -> int:
+    old_chars = sum(len(m.get(_MESSAGE_CONTENT_KEY, _DEFAULT_MESSAGE_CONTENT)) for m in old_messages)
+    summary_chars = len(summary_text)
+    return int((old_chars - summary_chars) / _CHARS_PER_TOKEN)
+
+
+def _non_negative_tokens_saved(tokens_saved: int) -> int:
+    return max(tokens_saved, 0)
+
+
+def _elapsed_ms(start: float) -> float:
+    return (time.perf_counter() - start) * _MILLISECONDS_PER_SECOND
+
+
+def _user_message(content: str) -> Message:
+    return {
+        _MESSAGE_ROLE_KEY: _USER_ROLE,
+        _MESSAGE_CONTENT_KEY: content,
+    }
+
+
+def _summary_prompt(history_text: str) -> str:
+    return _SUMMARY_PROMPT.format(history_text=history_text)
+
+
+def _pipeline_summary_prompt(results_text: str) -> str:
+    return _PIPELINE_SUMMARY_PROMPT.format(results_text=results_text)
+
+
+def _split_history(history: list[Message], keep_recent: int) -> tuple[list[Message], list[Message]]:
+    return history[:-keep_recent], history[-keep_recent:]
+
+
+def _recent_only_result(recent_messages: list[Message], original_count: int) -> CondensationResult:
+    return CondensationResult(
+        messages=recent_messages,
+        original_count=original_count,
+        condensed_count=len(recent_messages),
+    )
+
+
+def _unchanged_result(history: list[Message], original_count: int) -> CondensationResult:
+    return CondensationResult(
+        messages=list(history),
+        original_count=original_count,
+        condensed_count=original_count,
+    )
+
+
+def _condensed_result(
+    *,
+    messages: list[Message],
+    original_count: int,
+    summary_text: str,
+    tokens_saved: int,
+    condensation_cost: float,
+    elapsed_ms: float,
+) -> CondensationResult:
+    return CondensationResult(
+        messages=messages,
+        original_count=original_count,
+        condensed_count=len(messages),
+        summary_text=summary_text,
+        tokens_saved_estimate=_non_negative_tokens_saved(tokens_saved),
+        condensation_cost_usd=condensation_cost,
+        condensation_latency_ms=elapsed_ms,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Core condenser
 # ---------------------------------------------------------------------------
@@ -148,15 +250,30 @@ class ContextCondenser:
         self._client = client
         self._lock = threading.Lock()
         self._metrics: Metrics = {
-            "total_condensations": 0,
-            "total_tokens_saved": 0,
-            "total_cost_usd": 0.0,
+            _METRIC_TOTAL_CONDENSATIONS: 0,
+            _METRIC_TOTAL_TOKENS_SAVED: 0,
+            _METRIC_TOTAL_COST_USD: 0.0,
         }
 
     @staticmethod
     def _sanitize_for_prompt(text: str) -> str:
         """Escape XML-like tags in user content to prevent prompt injection."""
         return re.sub(r"<(/?)(\w+)", r"&lt;\1\2", text)
+
+    @staticmethod
+    def _should_skip_condensation(original_count: int, keep_recent: int) -> bool:
+        return original_count <= max(keep_recent, _MIN_HISTORY_FOR_CONDENSATION)
+
+    def _record_conversation_metrics(self, condensation_cost: float, tokens_saved: int) -> None:
+        with self._lock:
+            self._metrics[_METRIC_TOTAL_CONDENSATIONS] += 1
+            self._metrics[_METRIC_TOTAL_TOKENS_SAVED] += _non_negative_tokens_saved(tokens_saved)
+            self._metrics[_METRIC_TOTAL_COST_USD] += condensation_cost
+
+    def _record_pipeline_metrics(self, condensation_cost: float) -> None:
+        with self._lock:
+            self._metrics[_METRIC_TOTAL_CONDENSATIONS] += 1
+            self._metrics[_METRIC_TOTAL_COST_USD] += condensation_cost
 
     # -- Conversation condensation -----------------------------------------
 
@@ -165,7 +282,7 @@ class ContextCondenser:
         history: list[Message],
         *,
         keep_recent: int = _DEFAULT_KEEP_RECENT,
-        summary_max_tokens: int = 500,
+        summary_max_tokens: int = _DEFAULT_SUMMARY_MAX_TOKENS,
     ) -> CondensationResult:
         """Condense a conversation history synchronously.
 
@@ -180,18 +297,13 @@ class ContextCondenser:
         original_count = len(history)
 
         # Skip if history is too short
-        if original_count <= max(keep_recent, _MIN_HISTORY_FOR_CONDENSATION):
-            return CondensationResult(
-                messages=list(history),
-                original_count=original_count,
-                condensed_count=original_count,
-            )
+        if self._should_skip_condensation(original_count, keep_recent):
+            return _unchanged_result(history, original_count)
 
         t0 = time.perf_counter()
 
         # Split history
-        old_messages = history[:-keep_recent]
-        recent_messages = history[-keep_recent:]
+        old_messages, recent_messages = _split_history(history, keep_recent)
 
         # Format old messages for summarization (sanitize to prevent prompt injection)
         history_text = self._sanitize_for_prompt(self._format_messages(old_messages))
@@ -200,25 +312,17 @@ class ContextCondenser:
         try:
             resp = self._client.create(
                 tier=TaskTier.LIGHTWEIGHT,
-                messages=[{"role": "user", "content": _SUMMARY_PROMPT.format(history_text=history_text)}],
+                messages=[_user_message(_summary_prompt(history_text))],
                 max_tokens=summary_max_tokens,
-                system="You are a precise conversation summarizer. Output only Korean.",
-                policy=LLMPolicy(
-                    task_kind="summary",
-                    output_language="ko",
-                    enforce_korean_output=True,
-                ),
+                system=_CONVERSATION_SUMMARY_SYSTEM,
+                policy=_summary_policy(),
             )
             summary_text = resp.text
             condensation_cost = resp.cost_usd
         except Exception as e:
-            log.warning("Context condensation failed: %s. Returning truncated history.", e)
+            log.warning(_LOG_CONTEXT_CONDENSATION_FAILED, e)
             # Fallback: just keep recent messages without summary
-            return CondensationResult(
-                messages=recent_messages,
-                original_count=original_count,
-                condensed_count=len(recent_messages),
-            )
+            return _recent_only_result(recent_messages, original_count)
 
         # Build condensed message list
         condensed = [
@@ -227,17 +331,11 @@ class ContextCondenser:
         ]
 
         # Estimate tokens saved
-        old_chars = sum(len(m.get("content", "")) for m in old_messages)
-        summary_chars = len(summary_text)
-        tokens_saved = int((old_chars - summary_chars) / _CHARS_PER_TOKEN)
+        tokens_saved = _estimate_tokens_saved(old_messages, summary_text)
 
-        elapsed_ms = (time.perf_counter() - t0) * 1000
+        elapsed_ms = _elapsed_ms(t0)
 
-        # Update metrics (thread-safe)
-        with self._lock:
-            self._metrics["total_condensations"] += 1
-            self._metrics["total_tokens_saved"] += max(tokens_saved, 0)
-            self._metrics["total_cost_usd"] += condensation_cost
+        self._record_conversation_metrics(condensation_cost, tokens_saved)
 
         log.info(
             "Condensed %d→%d messages (saved ~%d tokens, cost=$%.4f, %.0fms)",
@@ -248,14 +346,13 @@ class ContextCondenser:
             elapsed_ms,
         )
 
-        return CondensationResult(
+        return _condensed_result(
             messages=condensed,
             original_count=original_count,
-            condensed_count=len(condensed),
             summary_text=summary_text,
-            tokens_saved_estimate=max(tokens_saved, 0),
-            condensation_cost_usd=condensation_cost,
-            condensation_latency_ms=elapsed_ms,
+            tokens_saved=tokens_saved,
+            condensation_cost=condensation_cost,
+            elapsed_ms=elapsed_ms,
         )
 
     async def acondense(
@@ -263,68 +360,49 @@ class ContextCondenser:
         history: list[Message],
         *,
         keep_recent: int = _DEFAULT_KEEP_RECENT,
-        summary_max_tokens: int = 500,
+        summary_max_tokens: int = _DEFAULT_SUMMARY_MAX_TOKENS,
     ) -> CondensationResult:
         """Async version of condense()."""
         original_count = len(history)
 
-        if original_count <= max(keep_recent, _MIN_HISTORY_FOR_CONDENSATION):
-            return CondensationResult(
-                messages=list(history),
-                original_count=original_count,
-                condensed_count=original_count,
-            )
+        if self._should_skip_condensation(original_count, keep_recent):
+            return _unchanged_result(history, original_count)
 
         t0 = time.perf_counter()
-        old_messages = history[:-keep_recent]
-        recent_messages = history[-keep_recent:]
+        old_messages, recent_messages = _split_history(history, keep_recent)
         history_text = self._sanitize_for_prompt(self._format_messages(old_messages))
 
         try:
             resp = await self._client.acreate(
                 tier=TaskTier.LIGHTWEIGHT,
-                messages=[{"role": "user", "content": _SUMMARY_PROMPT.format(history_text=history_text)}],
+                messages=[_user_message(_summary_prompt(history_text))],
                 max_tokens=summary_max_tokens,
-                system="You are a precise conversation summarizer. Output only Korean.",
-                policy=LLMPolicy(
-                    task_kind="summary",
-                    output_language="ko",
-                    enforce_korean_output=True,
-                ),
+                system=_CONVERSATION_SUMMARY_SYSTEM,
+                policy=_summary_policy(),
             )
             summary_text = resp.text
             condensation_cost = resp.cost_usd
         except Exception as e:
-            log.warning("Async context condensation failed: %s", e)
-            return CondensationResult(
-                messages=recent_messages,
-                original_count=original_count,
-                condensed_count=len(recent_messages),
-            )
+            log.warning(_LOG_ASYNC_CONTEXT_CONDENSATION_FAILED, e)
+            return _recent_only_result(recent_messages, original_count)
 
         condensed = [
             {"role": "system", "content": f"[이전 대화 요약]\n{summary_text}"},
             *recent_messages,
         ]
 
-        old_chars = sum(len(m.get("content", "")) for m in old_messages)
-        summary_chars = len(summary_text)
-        tokens_saved = int((old_chars - summary_chars) / _CHARS_PER_TOKEN)
-        elapsed_ms = (time.perf_counter() - t0) * 1000
+        tokens_saved = _estimate_tokens_saved(old_messages, summary_text)
+        elapsed_ms = _elapsed_ms(t0)
 
-        with self._lock:
-            self._metrics["total_condensations"] += 1
-            self._metrics["total_tokens_saved"] += max(tokens_saved, 0)
-            self._metrics["total_cost_usd"] += condensation_cost
+        self._record_conversation_metrics(condensation_cost, tokens_saved)
 
-        return CondensationResult(
+        return _condensed_result(
             messages=condensed,
             original_count=original_count,
-            condensed_count=len(condensed),
             summary_text=summary_text,
-            tokens_saved_estimate=max(tokens_saved, 0),
-            condensation_cost_usd=condensation_cost,
-            condensation_latency_ms=elapsed_ms,
+            tokens_saved=tokens_saved,
+            condensation_cost=condensation_cost,
+            elapsed_ms=elapsed_ms,
         )
 
     # -- Pipeline condensation ---------------------------------------------
@@ -334,7 +412,7 @@ class ContextCondenser:
         previous_results: list[dict[str, Any]],
         *,
         pipeline_goal: str = "",
-        summary_max_tokens: int = 400,
+        summary_max_tokens: int = _DEFAULT_PIPELINE_SUMMARY_MAX_TOKENS,
     ) -> str:
         """Condense previous pipeline stage results for the next stage.
 
@@ -354,7 +432,8 @@ class ContextCondenser:
             return ""
 
         results_text = "\n\n".join(
-            f"### {r.get('category', f'Stage {i + 1}')}\n{r.get('result', '')[:500]}"
+            f"### {r.get(_PIPELINE_CATEGORY_KEY, f'{_PIPELINE_STAGE_PREFIX} {i + 1}')}\n"
+            f"{r.get(_PIPELINE_RESULT_KEY, '')[:_PIPELINE_RESULT_PREVIEW_CHARS]}"
             for i, r in enumerate(previous_results)
         )
 
@@ -367,29 +446,22 @@ class ContextCondenser:
         try:
             resp = self._client.create(
                 tier=TaskTier.LIGHTWEIGHT,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": _PIPELINE_SUMMARY_PROMPT.format(results_text=results_text),
-                    }
-                ],
+                messages=[_user_message(_pipeline_summary_prompt(results_text))],
                 max_tokens=summary_max_tokens,
-                system="You are a pipeline context optimizer. Be concise.",
-                policy=LLMPolicy(
-                    task_kind="summary",
-                    output_language="ko",
-                    enforce_korean_output=True,
-                ),
+                system=_PIPELINE_SUMMARY_SYSTEM,
+                policy=_summary_policy(),
             )
-            with self._lock:
-                self._metrics["total_condensations"] += 1
-                self._metrics["total_cost_usd"] += resp.cost_usd
+            self._record_pipeline_metrics(resp.cost_usd)
             response_text: str = resp.text
             return response_text
         except Exception as e:
-            log.warning("Pipeline condensation failed: %s", e)
+            log.warning(_LOG_PIPELINE_CONDENSATION_FAILED, e)
             # Fallback: return truncated results
-            return "\n".join(f"- {r.get('category', '?')}: {r.get('result', '')[:100]}" for r in previous_results)
+            return "\n".join(
+                f"- {r.get(_PIPELINE_CATEGORY_KEY, _UNKNOWN_PIPELINE_CATEGORY)}: "
+                f"{r.get(_PIPELINE_RESULT_KEY, '')[:_PIPELINE_FALLBACK_RESULT_CHARS]}"
+                for r in previous_results
+            )
 
     # -- Helpers -----------------------------------------------------------
 
@@ -398,11 +470,11 @@ class ContextCondenser:
         """Format messages into a readable text block."""
         lines = []
         for m in messages:
-            role = m.get("role", "unknown").upper()
-            content = m.get("content", "")
+            role = m.get(_MESSAGE_ROLE_KEY, _DEFAULT_MESSAGE_ROLE).upper()
+            content = m.get(_MESSAGE_CONTENT_KEY, _DEFAULT_MESSAGE_CONTENT)
             # Truncate very long messages
-            if len(content) > 1000:
-                content = content[:1000] + "... [truncated]"
+            if len(content) > _MESSAGE_TRUNCATE_CHARS:
+                content = content[:_MESSAGE_TRUNCATE_CHARS] + _MESSAGE_TRUNCATION_SUFFIX
             lines.append(f"[{role}]: {content}")
         return "\n\n".join(lines)
 

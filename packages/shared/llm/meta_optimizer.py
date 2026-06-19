@@ -181,6 +181,87 @@ class MetaOptimizer:
             self._tracer = WorkflowTracer()
         return self._tracer
 
+    def _record_repeated_patterns(self, report: OptimizationReport, patterns: list[PromptPattern]) -> None:
+        report.repeated_patterns = [
+            {
+                "hash": pattern.prompt_hash,
+                "count": pattern.occurrence_count,
+                "total_cost": pattern.total_cost_usd,
+                "pipelines": pattern.pipelines,
+            }
+            for pattern in patterns
+        ]
+
+    def _add_template_suggestions(self, report: OptimizationReport, patterns: list[PromptPattern]) -> None:
+        for pattern in patterns:
+            if pattern.total_cost_usd >= _TEMPLATE_MIN_COST:
+                report.suggestions.append(self._suggest_template_conversion(pattern))
+
+    @staticmethod
+    def _known_pipelines(patterns: list[PromptPattern]) -> set[str]:
+        known_pipelines = set()
+        for pattern in patterns:
+            known_pipelines.update(pattern.pipelines)
+        return known_pipelines
+
+    @staticmethod
+    def _pipeline_summary(stages: list[dict]) -> dict:
+        total_calls = sum(stage["calls"] for stage in stages)
+        return {
+            "calls": total_calls,
+            "total_cost_usd": round(sum(stage["total_cost_usd"] for stage in stages), 4),
+            "avg_latency_ms": round(
+                sum(stage["avg_latency_ms"] * stage["calls"] for stage in stages) / max(total_calls, 1),
+                1,
+            ),
+            "failures": sum(stage["failures"] for stage in stages),
+            "stages": stages,
+        }
+
+    @staticmethod
+    def _failure_suggestion(pipeline: str, stage: dict) -> OptimizationSuggestion | None:
+        if stage["calls"] <= 0:
+            return None
+        failure_rate = stage["failures"] / stage["calls"]
+        if failure_rate < _HIGH_FAILURE_RATE:
+            return None
+        return OptimizationSuggestion(
+            type=OptimizationType.TIER_DOWNGRADE,
+            priority="high",
+            pipeline=pipeline,
+            stage=stage["stage"],
+            description=f"{pipeline}/{stage['stage']} failure rate {failure_rate:.0%}",
+            confidence=0.9,
+            action=f"Review model/tier or prompt. Current failures: {stage['failures']}/{stage['calls']}.",
+        )
+
+    def _add_pipeline_analysis(
+        self,
+        report: OptimizationReport,
+        tracer: WorkflowTracer,
+        pipelines: set[str],
+        days: int,
+    ) -> None:
+        for pipeline in pipelines:
+            stages = tracer.get_stage_summary(pipeline, days=days)
+            if not stages:
+                continue
+
+            summary = self._pipeline_summary(stages)
+            report.pipeline_summaries[pipeline] = summary
+            report.total_traces_analyzed += summary["calls"]
+            report.total_cost_usd += summary["total_cost_usd"]
+
+            for stage in stages:
+                suggestion = self._failure_suggestion(pipeline, stage)
+                if suggestion is not None:
+                    report.suggestions.append(suggestion)
+
+    @staticmethod
+    def _sort_suggestions(report: OptimizationReport) -> None:
+        priority_order = {"high": 0, "medium": 1, "low": 2}
+        report.suggestions.sort(key=lambda suggestion: (priority_order.get(suggestion.priority, 3), -suggestion.estimated_savings_usd))
+
     def generate_report(self, *, days: int = 7) -> OptimizationReport:
         """Generate a full optimization report from trace data.
 
@@ -193,70 +274,11 @@ class MetaOptimizer:
         tracer = self._get_tracer()
         report = OptimizationReport(analysis_period_days=days)
 
-        # 1. Find repeated patterns
         patterns = tracer.find_repeated_patterns(min_count=_TEMPLATE_MIN_OCCURRENCES, days=days)
-        report.repeated_patterns = [
-            {
-                "hash": p.prompt_hash,
-                "count": p.occurrence_count,
-                "total_cost": p.total_cost_usd,
-                "pipelines": p.pipelines,
-            }
-            for p in patterns
-        ]
-
-        # 2. Generate template conversion suggestions
-        for pattern in patterns:
-            if pattern.total_cost_usd >= _TEMPLATE_MIN_COST:
-                suggestion = self._suggest_template_conversion(pattern)
-                report.suggestions.append(suggestion)
-
-        # 3. Analyze pipelines for per-stage insights
-        known_pipelines = set()
-        for pattern in patterns:
-            known_pipelines.update(pattern.pipelines)
-
-        for pipeline in known_pipelines:
-            stages = tracer.get_stage_summary(pipeline, days=days)
-            if stages:
-                total_calls = sum(s["calls"] for s in stages)
-                total_cost = sum(s["total_cost_usd"] for s in stages)
-                total_failures = sum(s["failures"] for s in stages)
-
-                report.pipeline_summaries[pipeline] = {
-                    "calls": total_calls,
-                    "total_cost_usd": round(total_cost, 4),
-                    "avg_latency_ms": round(
-                        sum(s["avg_latency_ms"] * s["calls"] for s in stages) / max(total_calls, 1),
-                        1,
-                    ),
-                    "failures": total_failures,
-                    "stages": stages,
-                }
-                report.total_traces_analyzed += total_calls
-                report.total_cost_usd += total_cost
-
-                # Check for high-failure stages
-                for stage in stages:
-                    if stage["calls"] > 0:
-                        failure_rate = stage["failures"] / stage["calls"]
-                        if failure_rate >= _HIGH_FAILURE_RATE:
-                            report.suggestions.append(
-                                OptimizationSuggestion(
-                                    type=OptimizationType.TIER_DOWNGRADE,
-                                    priority="high",
-                                    pipeline=pipeline,
-                                    stage=stage["stage"],
-                                    description=f"{pipeline}/{stage['stage']} 실패율 {failure_rate:.0%}",
-                                    confidence=0.9,
-                                    action=f"모델/티어 변경 또는 프롬프트 개선 필요. "
-                                    f"현재 {stage['failures']}/{stage['calls']} 실패.",
-                                )
-                            )
-
-        # 4. Sort suggestions by priority and estimated savings
-        priority_order = {"high": 0, "medium": 1, "low": 2}
-        report.suggestions.sort(key=lambda s: (priority_order.get(s.priority, 3), -s.estimated_savings_usd))
+        self._record_repeated_patterns(report, patterns)
+        self._add_template_suggestions(report, patterns)
+        self._add_pipeline_analysis(report, tracer, self._known_pipelines(patterns), days)
+        self._sort_suggestions(report)
 
         log.info(
             "MetaOptimizer: %d traces, %d patterns, %d suggestions, savings=$%.4f",
@@ -267,7 +289,6 @@ class MetaOptimizer:
         )
 
         return report
-
     def suggest_optimizations(self, *, days: int = 7) -> list[OptimizationSuggestion]:
         """Shortcut: generate report and return just the suggestions."""
         return self.generate_report(days=days).suggestions

@@ -106,50 +106,102 @@ def _extract_docstring(node: ast.AST) -> str:
 
 def _format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     """Format a function signature from AST, including all argument types."""
-    parts: list[str] = []
-
-    def _fmt_arg(arg: ast.arg) -> str:
-        annotation = ""
-        if arg.annotation:
-            with contextlib.suppress(Exception):
-                annotation = f": {ast.unparse(arg.annotation)}"
-        return f"{arg.arg}{annotation}"
-
-    # Positional-only args (before /)
-    for arg in getattr(node.args, "posonlyargs", []):
-        if arg.arg != "self":
-            parts.append(_fmt_arg(arg))
-    if getattr(node.args, "posonlyargs", []):
-        parts.append("/")
-
-    # Regular positional args
-    for arg in node.args.args:
-        if arg.arg == "self":
-            continue
-        parts.append(_fmt_arg(arg))
-
-    # *args or bare *
-    if node.args.vararg:
-        parts.append(f"*{_fmt_arg(node.args.vararg)}")
-    elif node.args.kwonlyargs:
-        parts.append("*")
-
-    # Keyword-only args (after *)
-    for arg in node.args.kwonlyargs:
-        parts.append(_fmt_arg(arg))
-
-    # **kwargs
-    if node.args.kwarg:
-        parts.append(f"**{_fmt_arg(node.args.kwarg)}")
-
-    # Return annotation
-    ret = ""
-    if node.returns:
-        with contextlib.suppress(Exception):
-            ret = f" -> {ast.unparse(node.returns)}"
-
+    parts = _signature_args(node.args)
+    ret = _return_annotation(node)
     prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
     return f"{prefix} {node.name}({', '.join(parts)}){ret}"
+
+
+def _format_arg(arg: ast.arg) -> str:
+    annotation = ""
+    if arg.annotation:
+        with contextlib.suppress(Exception):
+            annotation = f": {ast.unparse(arg.annotation)}"
+    return f"{arg.arg}{annotation}"
+
+
+def _signature_args(args: ast.arguments) -> list[str]:
+    parts: list[str] = []
+    for arg in getattr(args, "posonlyargs", []):
+        if arg.arg != "self":
+            parts.append(_format_arg(arg))
+    if getattr(args, "posonlyargs", []):
+        parts.append("/")
+
+    for arg in args.args:
+        if arg.arg == "self":
+            continue
+        parts.append(_format_arg(arg))
+
+    if args.vararg:
+        parts.append(f"*{_format_arg(args.vararg)}")
+    elif args.kwonlyargs:
+        parts.append("*")
+
+    for arg in args.kwonlyargs:
+        parts.append(_format_arg(arg))
+
+    if args.kwarg:
+        parts.append(f"**{_format_arg(args.kwarg)}")
+    return parts
+
+
+def _return_annotation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+    if node.returns:
+        with contextlib.suppress(Exception):
+            return f" -> {ast.unparse(node.returns)}"
+    return ""
+
+
+def _function_symbol(node: ast.FunctionDef | ast.AsyncFunctionDef, rel_path: str) -> Symbol:
+    return Symbol(
+        name=node.name,
+        kind="function",
+        file_path=rel_path,
+        line_number=node.lineno,
+        signature=_format_signature(node),
+        docstring=_extract_docstring(node),
+    )
+
+
+def _class_symbol(node: ast.ClassDef, rel_path: str) -> Symbol:
+    return Symbol(
+        name=node.name,
+        kind="class",
+        file_path=rel_path,
+        line_number=node.lineno,
+        signature=f"class {node.name}",
+        docstring=_extract_docstring(node),
+    )
+
+
+def _method_symbols(node: ast.ClassDef, rel_path: str) -> list[Symbol]:
+    symbols: list[Symbol] = []
+    for item in node.body:
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+            not item.name.startswith("_") or item.name == "__init__"
+        ):
+            symbols.append(
+                Symbol(
+                    name=item.name,
+                    kind="method",
+                    file_path=rel_path,
+                    line_number=item.lineno,
+                    signature=_format_signature(item),
+                    docstring=_extract_docstring(item),
+                    parent_class=node.name,
+                )
+            )
+    return symbols
+
+
+def _import_symbol(node: ast.ImportFrom, rel_path: str) -> Symbol:
+    return Symbol(
+        name=node.module or "",
+        kind="import",
+        file_path=rel_path,
+        line_number=node.lineno,
+    )
 
 
 def parse_python_file(file_path: Path, project_root: Path) -> list[Symbol]:
@@ -172,54 +224,13 @@ def parse_python_file(file_path: Path, project_root: Path) -> list[Symbol]:
 
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            symbols.append(
-                Symbol(
-                    name=node.name,
-                    kind="function",
-                    file_path=rel_path,
-                    line_number=node.lineno,
-                    signature=_format_signature(node),
-                    docstring=_extract_docstring(node),
-                )
-            )
+            symbols.append(_function_symbol(node, rel_path))
         elif isinstance(node, ast.ClassDef):
-            class_doc = _extract_docstring(node)
-            symbols.append(
-                Symbol(
-                    name=node.name,
-                    kind="class",
-                    file_path=rel_path,
-                    line_number=node.lineno,
-                    signature=f"class {node.name}",
-                    docstring=class_doc,
-                )
-            )
-            # Extract methods
-            for item in node.body:
-                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
-                    not item.name.startswith("_") or item.name == "__init__"
-                ):
-                    symbols.append(
-                        Symbol(
-                            name=item.name,
-                            kind="method",
-                            file_path=rel_path,
-                            line_number=item.lineno,
-                            signature=_format_signature(item),
-                            docstring=_extract_docstring(item),
-                            parent_class=node.name,
-                        )
-                    )
+            symbols.append(_class_symbol(node, rel_path))
+            symbols.extend(_method_symbols(node, rel_path))
         elif isinstance(node, ast.ImportFrom) and node.module:
             # Track from-imports for dependency mapping
-            symbols.append(
-                Symbol(
-                    name=node.module,
-                    kind="import",
-                    file_path=rel_path,
-                    line_number=node.lineno,
-                )
-            )
+            symbols.append(_import_symbol(node, rel_path))
 
     return symbols
 
@@ -317,6 +328,30 @@ def _tokenize_query(query: str) -> set[str]:
     return {t for t in raw_tokens if len(t) > 1 and t not in _STOPWORDS}
 
 
+def _name_match_score(token: str, symbol_name: str) -> float:
+    if token == symbol_name:
+        return 10.0
+    if token in symbol_name or symbol_name in token:
+        return 5.0
+    return 0.0
+
+
+def _text_match_score(token: str, value: str, weight: float) -> float:
+    return weight if value and token in value.lower() else 0.0
+
+
+def _symbol_score(sym: Symbol, query_tokens: set[str]) -> float:
+    symbol_name = sym.name.lower()
+    score = 0.0
+    for token in query_tokens:
+        score += _name_match_score(token, symbol_name)
+        score += _text_match_score(token, sym.docstring, 3.0)
+        score += _text_match_score(token, sym.file_path, 2.0)
+        score += _text_match_score(token, sym.signature, 1.0)
+        score += _text_match_score(token, sym.parent_class, 2.0)
+    return score
+
+
 def rank_symbols(query: str, index: SymbolIndex, top_k: int = 30) -> list[Symbol]:
     """Rank symbols by relevance to the query using keyword matching.
 
@@ -337,32 +372,7 @@ def rank_symbols(query: str, index: SymbolIndex, top_k: int = 30) -> list[Symbol
         if sym.kind == "import":
             continue  # don't surface raw imports as context
 
-        score = 0.0
-        sym_name_lower = sym.name.lower()
-
-        for token in query_tokens:
-            # Name matching
-            if token == sym_name_lower:
-                score += 10
-            elif token in sym_name_lower or sym_name_lower in token:
-                score += 5
-
-            # Docstring matching
-            if sym.docstring and token in sym.docstring.lower():
-                score += 3
-
-            # File path matching
-            if token in sym.file_path.lower():
-                score += 2
-
-            # Signature matching
-            if sym.signature and token in sym.signature.lower():
-                score += 1
-
-            # Parent class matching (for methods)
-            if sym.parent_class and token in sym.parent_class.lower():
-                score += 2
-
+        score = _symbol_score(sym, query_tokens)
         if score > 0:
             scored.append((score, sym))
 

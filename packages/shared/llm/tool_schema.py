@@ -39,7 +39,24 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-log = logging.getLogger("shared.llm")
+LOGGER_NAME = "shared.llm"
+log = logging.getLogger(LOGGER_NAME)
+PYDANTIC_SCHEMA_TITLE_KEY = "title"
+OPENAI_TOOL_TYPE_KEY = "type"
+OPENAI_TOOL_FUNCTION_KEY = "function"
+OPENAI_FUNCTION_NAME_KEY = "name"
+OPENAI_FUNCTION_DESCRIPTION_KEY = "description"
+OPENAI_FUNCTION_PARAMETERS_KEY = "parameters"
+OPENAI_TOOL_TYPE_VALUE = "function"
+VALIDATION_ERROR_TYPE_KEY = "type"
+VALIDATION_ERROR_MESSAGE_KEY = "msg"
+JSON_PARSE_ERROR_TYPE = "json_parse_error"
+LOG_TOOL_VALIDATION_FAILED = "Tool validation failed: %s"
+LOG_TOOL_EXECUTION_FAILED = "Tool execution failed: %s: %s"
+LOG_TOOL_REGISTERED = "Registered tool: %s"
+EXECUTION_ERROR_MESSAGE = "Execution error: {error}"
+UNKNOWN_TOOL_MESSAGE = "Unknown tool: {name}"
+VALIDATION_FAILED_MESSAGE = "Validation failed for tool '{tool_name}': {errors_json}"
 
 
 class ToolValidationError(Exception):
@@ -48,7 +65,12 @@ class ToolValidationError(Exception):
     def __init__(self, tool_name: str, errors: list[dict]) -> None:
         self.tool_name = tool_name
         self.errors = errors
-        super().__init__(f"Validation failed for tool '{tool_name}': {json.dumps(errors, ensure_ascii=False)}")
+        super().__init__(
+            VALIDATION_FAILED_MESSAGE.format(
+                tool_name=tool_name,
+                errors_json=json.dumps(errors, ensure_ascii=False),
+            )
+        )
 
 
 @dataclass
@@ -83,6 +105,12 @@ class ToolDefinition:
         self.input_schema = input_schema
         self.execute = execute
 
+    def _openai_parameters_schema(self) -> dict[str, Any]:
+        schema = self.input_schema.model_json_schema()
+        # Clean up Pydantic metadata that OpenAI doesn't need
+        schema.pop(PYDANTIC_SCHEMA_TITLE_KEY, None)
+        return schema
+
     def to_openai_tool(self) -> dict[str, Any]:
         """Convert to OpenAI function calling format.
 
@@ -96,16 +124,12 @@ class ToolDefinition:
             }
         }
         """
-        schema = self.input_schema.model_json_schema()
-        # Clean up Pydantic metadata that OpenAI doesn't need
-        schema.pop("title", None)
-
         return {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": schema,
+            OPENAI_TOOL_TYPE_KEY: OPENAI_TOOL_TYPE_VALUE,
+            OPENAI_TOOL_FUNCTION_KEY: {
+                OPENAI_FUNCTION_NAME_KEY: self.name,
+                OPENAI_FUNCTION_DESCRIPTION_KEY: self.description,
+                OPENAI_FUNCTION_PARAMETERS_KEY: self._openai_parameters_schema(),
             },
         }
 
@@ -127,7 +151,12 @@ class ToolDefinition:
             except json.JSONDecodeError as e:
                 raise ToolValidationError(
                     self.name,
-                    [{"type": "json_parse_error", "msg": str(e)}],
+                    [
+                        {
+                            VALIDATION_ERROR_TYPE_KEY: JSON_PARSE_ERROR_TYPE,
+                            VALIDATION_ERROR_MESSAGE_KEY: str(e),
+                        }
+                    ],
                 ) from e
 
         try:
@@ -153,18 +182,18 @@ class ToolDefinition:
                 output=result,
             )
         except ToolValidationError as e:
-            log.warning("Tool validation failed: %s", e)
+            log.warning(LOG_TOOL_VALIDATION_FAILED, e)
             return ToolResult(
                 tool_name=self.name,
                 success=False,
                 error=str(e),
             )
         except Exception as e:
-            log.error("Tool execution failed: %s: %s", self.name, e)
+            log.error(LOG_TOOL_EXECUTION_FAILED, self.name, e)
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                error=f"Execution error: {e}",
+                error=EXECUTION_ERROR_MESSAGE.format(error=e),
             )
 
     def __repr__(self) -> str:
@@ -183,7 +212,7 @@ class ToolRegistry:
     def register(self, tool: ToolDefinition) -> None:
         """Register a tool definition."""
         self._tools[tool.name] = tool
-        log.debug("Registered tool: %s", tool.name)
+        log.debug(LOG_TOOL_REGISTERED, tool.name)
 
     def get(self, name: str) -> ToolDefinition | None:
         """Get a tool by name."""
@@ -204,7 +233,7 @@ class ToolRegistry:
             return ToolResult(
                 tool_name=name,
                 success=False,
-                error=f"Unknown tool: {name}",
+                error=UNKNOWN_TOOL_MESSAGE.format(name=name),
             )
         return tool.validate_and_execute(raw_args)
 

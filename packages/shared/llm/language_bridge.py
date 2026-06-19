@@ -51,24 +51,38 @@ _MULTILINGUAL_TASKS = {"search_query_generation"}
 _BLOCKING_FLAGS = {"empty_response", "json_invalid", "contains_excessive_hanzi", "low_hangul_ratio"}
 
 
-def normalize_policy(policy: LLMPolicy | None) -> LLMPolicy:
-    """Normalize missing values and merge glossary hints."""
-    if policy is None:
-        policy = LLMPolicy()
+def _policy_or_default(policy: LLMPolicy | None) -> LLMPolicy:
+    return policy or LLMPolicy()
+
+
+def _merge_preserve_terms(policy_terms: list[str]) -> list[str]:
     preserve_terms = []
-    for term in [*policy.preserve_terms, *_BIO_GLOSSARY]:
+    for term in [*policy_terms, *_BIO_GLOSSARY]:
         if term and term not in preserve_terms:
             preserve_terms.append(term)
-    output_language = policy.output_language or "ko"
-    enforce_korean_output = policy.enforce_korean_output or output_language == "ko"
+    return preserve_terms
+
+
+def _normalized_output_language(policy: LLMPolicy) -> str:
+    return policy.output_language or "ko"
+
+
+def _should_enforce_korean_output(policy: LLMPolicy, output_language: str) -> bool:
+    return policy.enforce_korean_output or output_language == "ko"
+
+
+def normalize_policy(policy: LLMPolicy | None) -> LLMPolicy:
+    """Normalize missing values and merge glossary hints."""
+    policy = _policy_or_default(policy)
+    output_language = _normalized_output_language(policy)
     return replace(
         policy,
         locale=policy.locale or "ko-KR",
         input_language=policy.input_language or "auto",
         output_language=output_language,
         task_kind=policy.task_kind or "generic",
-        enforce_korean_output=enforce_korean_output,
-        preserve_terms=preserve_terms,
+        enforce_korean_output=_should_enforce_korean_output(policy, output_language),
+        preserve_terms=_merge_preserve_terms(policy.preserve_terms),
         response_mode=policy.response_mode or "text",
     )
 
@@ -167,26 +181,51 @@ def inspect_response(text: str, policy: LLMPolicy, base_meta: BridgeMeta | None 
     flags: list[str] = []
     if not body:
         flags.append("empty_response")
-
-    if policy.response_mode == "json" and body:
-        payload = _extract_json_payload(body)
-        if payload is None:
-            flags.append("json_invalid")
-
-    if policy.enforce_korean_output and policy.output_language == "ko" and body:
-        ratios = _script_ratios(body)
-        if ratios["hanzi_ratio"] > 0.12:
-            flags.append("contains_excessive_hanzi")
-        if policy.task_kind in _LONGFORM_TASKS and len(body) > 80 and ratios["hangul_ratio"] < 0.28:
-            flags.append("low_hangul_ratio")
-        if re.search(r"(中文|简体|繁體|翻译如下|以下是)", body):
-            flags.append("literal_translation_pattern")
-        if re.search(r"[。！？；]", body) and ratios["hanzi_ratio"] > 0.05:
-            flags.append("forbidden_script_pattern")
+    flags.extend(_json_quality_flags(body, policy))
+    flags.extend(_korean_quality_flags(body, policy))
 
     meta.quality_flags = flags
     return meta
 
+
+def _json_quality_flags(body: str, policy: LLMPolicy) -> list[str]:
+    if policy.response_mode != "json" or not body:
+        return []
+    return [] if _extract_json_payload(body) is not None else ["json_invalid"]
+
+
+def _korean_quality_flags(body: str, policy: LLMPolicy) -> list[str]:
+    if not (policy.enforce_korean_output and policy.output_language == "ko" and body):
+        return []
+
+    ratios = _script_ratios(body)
+    flags: list[str] = []
+    if ratios["hanzi_ratio"] > 0.12:
+        flags.append("contains_excessive_hanzi")
+    if policy.task_kind in _LONGFORM_TASKS and len(body) > 80 and ratios["hangul_ratio"] < 0.28:
+        flags.append("low_hangul_ratio")
+    if _has_literal_translation_pattern(body):
+        flags.append("literal_translation_pattern")
+    if _has_forbidden_script_pattern(body, ratios["hanzi_ratio"]):
+        flags.append("forbidden_script_pattern")
+    return flags
+
+
+_LITERAL_TRANSLATION_MARKERS = (
+    "\u4e2d\u6587",
+    "\u7b80\u4f53",
+    "\u7e41\u9ad4",
+    "\u7ffb\u8bd1\u5982\u4e0b",
+    "\u4ee5\u4e0b\u662f",
+)
+
+
+def _has_literal_translation_pattern(body: str) -> bool:
+    return any(marker in body for marker in _LITERAL_TRANSLATION_MARKERS)
+
+
+def _has_forbidden_script_pattern(body: str, hanzi_ratio: float) -> bool:
+    return re.search(r"[\u3002\uff01\uff1f\uff1b]", body) is not None and hanzi_ratio > 0.05
 
 def should_retry_after_quality_gate(backend: str, policy: LLMPolicy, meta: BridgeMeta) -> bool:
     """Return True when the response should be discarded and retried on another backend."""

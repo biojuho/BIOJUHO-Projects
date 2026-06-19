@@ -304,7 +304,7 @@ class TestDispatchAllFail:
         def mock_prepare(*, resolved_tier, backend_name, messages, system, policy):
             return ("sys", messages, None, policy)
 
-        def mock_call(backend, model, messages, max_tokens, system, tier, response_mode):
+        def mock_call(backend, model, messages, max_tokens, system, tier, response_mode, json_schema=None):
             nonlocal call_count
             call_count += 1
             if backend == "deepseek":

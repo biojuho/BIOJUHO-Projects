@@ -69,6 +69,49 @@ def _structural_hash(text: str) -> str:
     return hashlib.md5(skeleton.encode("utf-8")).hexdigest()
 
 
+def _should_stop_after_two_samples(sample_texts: list[str], n_samples: int, consensus_threshold: float) -> bool:
+    if len(sample_texts) != 2 or n_samples <= 2:
+        return False
+    return _text_similarity(sample_texts[0], sample_texts[1]) >= consensus_threshold
+
+
+def _consensus_scores(sample_texts: list[str]) -> list[float]:
+    n = len(sample_texts)
+    return [
+        sum(_text_similarity(sample_texts[idx], sample_texts[j]) for j in range(n) if j != idx) / max(n - 1, 1)
+        for idx in range(n)
+    ]
+
+
+def _best_consensus_index(consensus_scores: list[float]) -> int:
+    return max(range(len(consensus_scores)), key=lambda idx: consensus_scores[idx])
+
+
+def _build_cot_result(
+    *,
+    samples: list[LLMResponse],
+    sample_texts: list[str],
+    consensus_scores: list[float],
+    n_samples: int,
+    early_stopped: bool,
+    total_latency_ms: float,
+) -> CoTResult:
+    best_idx = _best_consensus_index(consensus_scores)
+    return CoTResult(
+        text=sample_texts[best_idx],
+        confidence=consensus_scores[best_idx],
+        samples_used=len(sample_texts),
+        total_samples_requested=n_samples,
+        early_stopped=early_stopped,
+        sample_texts=sample_texts,
+        consensus_scores=consensus_scores,
+        total_cost_usd=sum(sample.cost_usd for sample in samples),
+        total_latency_ms=total_latency_ms,
+        total_input_tokens=sum(sample.input_tokens for sample in samples),
+        total_output_tokens=sum(sample.output_tokens for sample in samples),
+    )
+
+
 class ChainOfThoughtEngine:
     """Test-Time Compute Scaling via multi-sample consensus.
 
@@ -97,7 +140,7 @@ class ChainOfThoughtEngine:
         sample_texts: list[str] = []
         early_stopped = False
 
-        for i in range(n_samples):
+        for _ in range(n_samples):
             resp = self._client.create(
                 tier=tier,
                 messages=messages,
@@ -109,46 +152,25 @@ class ChainOfThoughtEngine:
             sample_texts.append(resp.text)
 
             # Early stopping: if first 2 samples are highly similar, skip rest
-            if i == 1 and n_samples > 2:
+            if _should_stop_after_two_samples(sample_texts, n_samples, consensus_threshold):
                 sim = _text_similarity(sample_texts[0], sample_texts[1])
-                if sim >= consensus_threshold:
-                    log.info(
-                        "CoT early stop: 2/%d samples agree (sim=%.2f >= threshold=%.2f)",
-                        n_samples,
-                        sim,
-                        consensus_threshold,
-                    )
-                    early_stopped = True
-                    break
-
-        # Compute pairwise consensus scores
-        n = len(sample_texts)
-        consensus_scores = []
-        for idx in range(n):
-            avg_sim = sum(_text_similarity(sample_texts[idx], sample_texts[j]) for j in range(n) if j != idx) / max(
-                n - 1, 1
-            )
-            consensus_scores.append(avg_sim)
-
-        # Select the response with highest average consensus
-        best_idx = max(range(n), key=lambda i: consensus_scores[i])
-        best_text = sample_texts[best_idx]
-        best_confidence = consensus_scores[best_idx]
+                log.info(
+                    "CoT early stop: 2/%d samples agree (sim=%.2f >= threshold=%.2f)",
+                    n_samples,
+                    sim,
+                    consensus_threshold,
+                )
+                early_stopped = True
+                break
 
         total_latency = (time.perf_counter() - t0) * 1000
-
-        return CoTResult(
-            text=best_text,
-            confidence=best_confidence,
-            samples_used=n,
-            total_samples_requested=n_samples,
-            early_stopped=early_stopped,
+        return _build_cot_result(
+            samples=samples,
             sample_texts=sample_texts,
-            consensus_scores=consensus_scores,
-            total_cost_usd=sum(s.cost_usd for s in samples),
+            consensus_scores=_consensus_scores(sample_texts),
+            n_samples=n_samples,
+            early_stopped=early_stopped,
             total_latency_ms=total_latency,
-            total_input_tokens=sum(s.input_tokens for s in samples),
-            total_output_tokens=sum(s.output_tokens for s in samples),
         )
 
     async def arun(
@@ -168,7 +190,7 @@ class ChainOfThoughtEngine:
         sample_texts: list[str] = []
         early_stopped = False
 
-        for i in range(n_samples):
+        for _ in range(n_samples):
             resp = await self._client.acreate(
                 tier=tier,
                 messages=messages,
@@ -179,33 +201,16 @@ class ChainOfThoughtEngine:
             samples.append(resp)
             sample_texts.append(resp.text)
 
-            if i == 1 and n_samples > 2:
-                sim = _text_similarity(sample_texts[0], sample_texts[1])
-                if sim >= consensus_threshold:
-                    log.info("CoT async early stop: sim=%.2f", sim)
-                    early_stopped = True
-                    break
+            if _should_stop_after_two_samples(sample_texts, n_samples, consensus_threshold):
+                log.info("CoT async early stop: sim=%.2f", _text_similarity(sample_texts[0], sample_texts[1]))
+                early_stopped = True
+                break
 
-        n = len(sample_texts)
-        consensus_scores = []
-        for idx in range(n):
-            avg_sim = sum(_text_similarity(sample_texts[idx], sample_texts[j]) for j in range(n) if j != idx) / max(
-                n - 1, 1
-            )
-            consensus_scores.append(avg_sim)
-
-        best_idx = max(range(n), key=lambda i: consensus_scores[i])
-
-        return CoTResult(
-            text=sample_texts[best_idx],
-            confidence=consensus_scores[best_idx],
-            samples_used=n,
-            total_samples_requested=n_samples,
-            early_stopped=early_stopped,
+        return _build_cot_result(
+            samples=samples,
             sample_texts=sample_texts,
-            consensus_scores=consensus_scores,
-            total_cost_usd=sum(s.cost_usd for s in samples),
+            consensus_scores=_consensus_scores(sample_texts),
+            n_samples=n_samples,
+            early_stopped=early_stopped,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
-            total_input_tokens=sum(s.input_tokens for s in samples),
-            total_output_tokens=sum(s.output_tokens for s in samples),
         )

@@ -63,11 +63,11 @@ class AgentState(TypedDict):
 
 
 # --- 2. Worker Subgraphs ---
-def create_specialized_subgraph(chat_model, tools: list, domain_name: str, domain_prompt: str):
+def create_specialized_subgraph(chat_model: Any, tools: list, domain_name: str, domain_prompt: str) -> Any:
     """Creates a distinct CompiledStateGraph for a specialized Domain Worker."""
     subgraph_builder = StateGraph(AgentState)
 
-    def specialized_node(state: AgentState):
+    def specialized_node(state: AgentState) -> dict[str, Any]:
         vid = state.get("variant_id", 0)
         vdesc = state.get("variant_desc", f"Variant {vid}")
         system_prompt = f"You are expert Vibe Coder Variant {vid} ({vdesc}). Domain: {domain_name}. {domain_prompt}\nAnswer based on vibe_input and generate clean code."
@@ -97,10 +97,10 @@ def create_specialized_subgraph(chat_model, tools: list, domain_name: str, domai
     return subgraph_builder.compile()
 
 
-def create_reflection_subgraph(chat_model, tools: list):
+def create_reflection_subgraph(chat_model: Any, tools: list) -> Any:
     subgraph_builder = StateGraph(AgentState)
 
-    def generate_node(state: AgentState):
+    def generate_node(state: AgentState) -> dict[str, Any]:
         latest_code = state["code_variants"][-1]["code"] if state.get("code_variants") else state.get("code_base", "")
         prompt = f"""바이브: {state.get("vibe_input", "")}
         이전 피드백: {state.get("feedback", [])}
@@ -117,7 +117,7 @@ def create_reflection_subgraph(chat_model, tools: list):
             "messages": [HumanMessage(content=f"Reflection {state.get('reflection_count', 0)}회: 코드 재생성 완료")],
         }
 
-    def evaluate_reflect_node(state: AgentState):
+    def evaluate_reflect_node(state: AgentState) -> dict[str, Any]:
         latest_code = state["code_variants"][-1]["code"] if state.get("code_variants") else state.get("code_base", "")
 
         # Test tool output (assuming run_test_tool is available in tools list)
@@ -185,7 +185,7 @@ def create_reflection_subgraph(chat_model, tools: list):
             ],
         }
 
-    def should_continue(state: AgentState):
+    def should_continue(state: AgentState) -> str:
         if state.get("reflection_count", 0) >= 5:
             return END
         if state.get("confidence", 0.0) >= 0.85:
@@ -206,7 +206,7 @@ def create_reflection_subgraph(chat_model, tools: list):
 def make_intent_analyzer_node(chat_model) -> Any:
     """Pre-planner step evaluating vibe domain."""
 
-    def intent_analyzer(state: AgentState):
+    def intent_analyzer(state: AgentState) -> dict[str, Any]:
         prompt = f"""사용자 바이브: {state.get("vibe_input", "")}
         이 요청의 핵심 도메인을 다음 중 하나로 분류하세요:
         ["frontend", "backend", "database", "general"]
@@ -295,10 +295,10 @@ def make_supervisor_node(invoke_func) -> Any:
 
 
 # --- 4. Parallel Execution Nodes (Map-Reduce) ---
-def make_planner_node(chat_model):
+def make_planner_node(chat_model: Any) -> Any:
     """Dynamic Fan-out Router (Planner Node)."""
 
-    def planner_node(state: AgentState):
+    def planner_node(state: AgentState) -> dict[str, Any]:
         # Prevent infinite retry loops
         if state.get("retry_count", 0) > 2:
             return {"next": "planner_dispatch", "variant_configs": []}
@@ -337,7 +337,7 @@ def make_planner_node(chat_model):
     return planner_node
 
 
-def aggregator_node(state: AgentState):
+def aggregator_node(state: AgentState) -> dict[str, Any]:
     """Fan-in Aggregator to select the best variant and handle partial failures."""
     variants = state.get("code_variants", [])
     errors = state.get("errors", [])
@@ -383,7 +383,7 @@ def tester_router(state: AgentState) -> str:
 
 
 # --- 6. Graph Construction Factory ---
-def build_vibe_graph(chat_model):
+def build_vibe_graph(chat_model: Any) -> Any:
     """
     Assembles the Vibe Coding Advanced LangGraph.
 
@@ -436,7 +436,7 @@ def build_vibe_graph(chat_model):
     workflow.add_edge("intent_analyzer", "supervisor")
 
     # Supervisor Router
-    def route_supervisor(state: AgentState):
+    def route_supervisor(state: AgentState) -> str:
         if not state.get("vibe_input"):
             return END
         if state.get("confidence", 0.0) >= 0.85:
@@ -446,7 +446,7 @@ def build_vibe_graph(chat_model):
     workflow.add_conditional_edges("supervisor", route_supervisor, {"planner": "planner", END: END})
 
     # Dynamic Fan-out (Map) Planner -> Specialized domain coders
-    def distribute_variants(state: AgentState):
+    def distribute_variants(state: AgentState) -> list[Send]:
         domain = state.get("domain_category", "general")
         target_node = f"{domain}_worker"
 
@@ -473,7 +473,7 @@ def build_vibe_graph(chat_model):
         workflow.add_edge(target, "aggregator")
 
     # Aggregator Router based on State settings
-    def route_aggregator(state: AgentState):
+    def route_aggregator(state: AgentState) -> str:
         return state.get("next", "supervisor")
 
     workflow.add_conditional_edges(

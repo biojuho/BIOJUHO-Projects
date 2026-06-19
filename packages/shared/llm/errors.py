@@ -21,7 +21,9 @@ from __future__ import annotations
 import logging
 import re
 
-log = logging.getLogger("shared.llm")
+LOGGER_NAME = "shared.llm"
+log = logging.getLogger(LOGGER_NAME)
+CLASSIFY_LOG_MESSAGE_CHARS = 80
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +91,17 @@ class ContentFilterError(LLMError):
     error_type = "content_filter"
 
 
+class RefusalError(LLMError):
+    """Model declined to answer (e.g. Claude stop_reason='refusal').
+
+    Distinct from ContentFilterError (a terminal input-safety block): a single
+    model's refusal should fall through to the next backend in the chain.
+    """
+
+    retryable = True  # retryable via different backend
+    error_type = "refusal"
+
+
 class ModelNotFoundError(LLMError):
     """Requested model does not exist on the provider."""
 
@@ -137,6 +150,8 @@ _PATTERNS: list[tuple[re.Pattern[str], type[LLMError]]] = [
     (re.compile(r"maximum.?context", re.I), ContextLengthError),
     (re.compile(r"token.?limit", re.I), ContextLengthError),
     (re.compile(r"too.?long", re.I), ContextLengthError),
+    # Refusal (model declined — fall through to the next backend, unlike a terminal content filter)
+    (re.compile(r"\brefusal\b", re.I), RefusalError),
     # Content filter
     (re.compile(r"content.?filter", re.I), ContentFilterError),
     (re.compile(r"safety", re.I), ContentFilterError),
@@ -158,6 +173,16 @@ _PATTERNS: list[tuple[re.Pattern[str], type[LLMError]]] = [
     (re.compile(r"invalid request", re.I), QuotaExhaustedError),
 ]
 
+_FALLBACK_ERROR_TYPES = (
+    QuotaExhaustedError,
+    RateLimitError,
+    ServerError,
+    NetworkError,
+    ModelNotFoundError,
+    QualityGateError,
+    RefusalError,
+)
+
 
 def classify_error(error: Exception) -> LLMError:
     """Classify a raw exception into a typed LLMError.
@@ -173,7 +198,7 @@ def classify_error(error: Exception) -> LLMError:
     for pattern, error_cls in _PATTERNS:
         if pattern.search(msg):
             classified = error_cls(msg, original=error)
-            log.debug("Classified error as %s: %s", error_cls.error_type, msg[:80])
+            log.debug("Classified error as %s: %s", error_cls.error_type, msg[:CLASSIFY_LOG_MESSAGE_CHARS])
             return classified
 
     # Unknown error — not retryable by default
@@ -193,14 +218,4 @@ def should_fallback_to_next_backend(error: Exception) -> bool:
     """
     classified = classify_error(error)
     # These error types should trigger backend fallback
-    return isinstance(
-        classified,
-        (
-            QuotaExhaustedError,
-            RateLimitError,
-            ServerError,
-            NetworkError,
-            ModelNotFoundError,
-            QualityGateError,
-        ),
-    )
+    return isinstance(classified, _FALLBACK_ERROR_TYPES)

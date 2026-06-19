@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import threading
 import time
 from collections import OrderedDict
@@ -21,7 +22,7 @@ from .config import (
     get_routing_chain,
     load_keys,
 )
-from .errors import classify_error, should_fallback_to_next_backend
+from .errors import AuthError, classify_error, should_fallback_to_next_backend
 from .language_bridge import (
     inspect_response,
     merge_bridge_meta,
@@ -41,7 +42,7 @@ _CACHE_TTL: dict[str, int] = {
     "heavy": 600,  # deep analysis — worth reusing longer
 }
 _CACHE_MAX = 128
-_ASYNC_BACKEND_TIMEOUT_SECONDS = 20.0
+_ASYNC_BACKEND_TIMEOUT_SECONDS = float(os.getenv("DAILYNEWS_LLM_BACKEND_TIMEOUT_SECONDS", "20.0"))
 _CACHE_TTL_HEAVY = 600  # B-001 fix: 미정의 변수 → heavy 티어 TTL 상수 명시
 
 _failed_backends: dict[TaskTier, dict[str, float]] = {
@@ -76,6 +77,12 @@ def _mark_failed(tier: TaskTier, backend: str) -> None:
 def _should_fallback(error: Exception) -> bool:
     # Primary: structured error classification (GiniGen-inspired)
     if should_fallback_to_next_backend(error):
+        return True
+    # A revoked/leaked key on ONE backend must not abort the whole chain — skip
+    # this backend and try the next (the 2026-06-15 Gemini-key incident). AuthError
+    # stays retryable=False: pointless to retry the SAME backend's bad key, but the
+    # chain has 5-8 other valid backends, so fall through instead of hard-failing.
+    if isinstance(classify_error(error), AuthError):
         return True
     # Legacy fallback: string pattern matching (backward compat)
     msg = str(error).lower()
@@ -639,6 +646,8 @@ class LLMClient:
             messages=wrapped_messages,
             max_tokens=max_tokens,
             system=wrapped_system,
+            response_mode=policy.response_mode,
+            json_schema=policy.json_schema,
         )
         response.policy = resolved_policy
         self._record_success_usage(
@@ -669,6 +678,8 @@ class LLMClient:
                 messages=wrapped_messages,
                 max_tokens=max_tokens,
                 system=wrapped_system,
+                response_mode=policy.response_mode,
+                json_schema=policy.json_schema,
             ),
             timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
         )
@@ -752,6 +763,7 @@ class LLMClient:
                         system=wrapped_system,
                         tier=resolved_tier,
                         response_mode=policy.response_mode,
+                        json_schema=policy.json_schema,
                     )
                     final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
                         response=response,
@@ -842,6 +854,7 @@ class LLMClient:
                             system=wrapped_system,
                             tier=resolved_tier,
                             response_mode=policy.response_mode,
+                            json_schema=policy.json_schema,
                         ),
                         timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
                     )

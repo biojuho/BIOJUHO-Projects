@@ -116,6 +116,35 @@ class TestOpenAICompatEmptyChoices:
         result = mgr._call_openai_compat("openai", "gpt-4o", MESSAGES, 100, "", TaskTier.MEDIUM)
         assert result.text == "Hi"
 
+    def test_gpt5_uses_max_completion_tokens(self, mgr: BackendManager) -> None:
+        resp = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="Hi"))],
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=3),
+        )
+        mgr = self._make_mgr_with_mock(mgr, resp)
+
+        with patch("shared.llm.backends.LITELLM_AVAILABLE", False):
+            result = mgr._call_openai_compat("openai", "gpt-5.4-mini", MESSAGES, 100, "", TaskTier.MEDIUM)
+
+        kwargs = mgr._clients["openai"].chat.completions.create.call_args.kwargs
+        assert result.text == "Hi"
+        assert kwargs["max_completion_tokens"] == 100
+        assert "max_tokens" not in kwargs
+
+    def test_legacy_gpt_models_keep_max_tokens(self, mgr: BackendManager) -> None:
+        resp = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="Hi"))],
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=3),
+        )
+        mgr = self._make_mgr_with_mock(mgr, resp)
+
+        result = mgr._call_openai_compat("openai", "gpt-4o", MESSAGES, 100, "", TaskTier.MEDIUM)
+
+        kwargs = mgr._clients["openai"].chat.completions.create.call_args.kwargs
+        assert result.text == "Hi"
+        assert kwargs["max_tokens"] == 100
+        assert "max_completion_tokens" not in kwargs
+
 
 # ── 3. Gemini sync: IndexError on resp.text ──────────────────────────
 

@@ -52,7 +52,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.HEAVY: [
         ("anthropic", "claude-sonnet-4-6"),  # Sonnet 4.6 — 최신 플래그십급, $3/$15
         ("gemini", "gemini-3.1-pro-preview"),  # Gemini 3.1 Pro — 최신 추론 모델
-        ("mimo", "mimo-v2-pro"),  # $0.09/1M, GPT-5급 성능
+        ("mimo", "mimo-v2.5-pro"),  # $0.435/$0.87, GPT-5급 성능 (v2-pro는 2026-06-30 폐기)
         ("grok", "grok-4.3"),  # Grok 4.3 — xAI 최신 플래그십
         ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),  # ★ 로컬 $0: 코드생성·추론 특화
         ("openai", "gpt-5.5"),  # GPT-5.5 — OpenAI 최신 프런티어
@@ -60,17 +60,17 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.MEDIUM: [
         ("gemini", "gemini-3.1-flash-lite"),  # Gemini 3.1 Flash-Lite — 초저비용 $0.25/$1.50
         ("gemini", "gemini-3.5-flash"),  # Gemini 3.5 Flash — Pro급 성능 (안정 버전)
-        ("mimo", "mimo-v2-pro"),  # $0.09/1M, Haiku 대체 폴백
+        ("mimo", "mimo-v2.5-pro"),  # $0.435/$0.87, Haiku 대체 폴백
         ("anthropic", "claude-haiku-4-5-20251001"),  # Haiku 4.5 — 최신 Haiku
-        ("grok", "grok-4.1-fast"),  # Grok 4.1 Fast — 저렴·고속 ($0.20/$0.50)
+        ("grok", "grok-4.3"),  # Grok 4.3 fallback
         ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),  # ★ 로컬 $0 폴백
         ("openai", "gpt-5.4-mini"),  # GPT-5.4 mini — 경량 최신
     ],
     TaskTier.LIGHTWEIGHT: [
         ("gemini", "gemini-3.1-flash-lite"),  # ★ 주력: Gemini 3.1 Flash-Lite, $0.25/$1.50
         ("gemini", "gemini-3.5-flash"),  # Gemini 3.5 Flash — Pro급 성능 (안정 버전)
-        ("mimo", "mimo-v2-pro"),  # $0.09/1M, 한국어 안정 + 초저비용
-        ("grok", "grok-4.1-fast"),  # 저렴 $0.20/$0.50, 빠름
+        ("mimo", "mimo-v2.5-pro"),  # $0.435/$0.87, 한국어 안정 + 저비용
+        ("grok", "grok-4.3"),  # Grok 4.3 fallback
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
         ("openai", "gpt-5.4-mini"),  # GPT-5.4 mini — 경량 최신
         ("ollama", "deepseek-r1:14b"),  # 로컬 추론 특화 (API 비용 $0)
@@ -92,6 +92,8 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
     "claude-3-5-haiku-20241022": TaskTier.MEDIUM,
     "claude-haiku-4-5-20251001": TaskTier.MEDIUM,
     "claude-sonnet-4-6": TaskTier.HEAVY,
+    "claude-opus-4-8": TaskTier.HEAVY,  # 2026-06 플래그십 (HEAVY가 최상위 티어)
+    "claude-fable-5": TaskTier.HEAVY,  # 2026-06 최상위 역량 (HEAVY가 최상위 티어)
     "claude-sonnet-4-20250514": TaskTier.HEAVY,
     "claude-3-5-sonnet-20241022": TaskTier.HEAVY,
     # Ollama local models
@@ -104,6 +106,9 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
 # Model cost table (USD per 1M tokens: input, output)
 # ---------------------------------------------------------------------------
 MODEL_COSTS: dict[str, tuple[float, float]] = {
+    # --- 2026-06 최신 모델 ---
+    "claude-opus-4-8": (5.0, 25.0),  # 2026-06 플래그십, 1M ctx
+    "claude-fable-5": (10.0, 50.0),  # 2026-06 최상위 역량
     # --- 2026-05 최신 모델 ---
     "claude-sonnet-4-6": (3.0, 15.0),
     "gemini-3.1-pro-preview": (2.0, 12.0),
@@ -112,11 +117,10 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "gpt-5.5": (5.0, 30.0),
     "gpt-5.4-mini": (0.75, 4.50),
     "grok-4.3": (1.25, 2.50),
-    "grok-4.1-fast": (0.20, 0.50),
     # --- 레거시 (폴백 호환용 비용 테이블 유지) ---
     "claude-sonnet-4-20250514": (3.0, 15.0),
     "claude-3-5-sonnet-20241022": (3.0, 15.0),
-    "claude-haiku-4-5-20251001": (0.8, 4.0),
+    "claude-haiku-4-5-20251001": (1.0, 5.0),  # 2026-06 실제 가격 ($1/$5)
     "claude-3-5-haiku-20241022": (0.8, 4.0),
     "claude-3-haiku-20240307": (0.25, 1.25),
     "gemini-2.5-pro-preview-03-25": (1.25, 10.0),
@@ -128,7 +132,7 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "grok-3": (3.0, 15.0),
     "grok-3-mini-fast": (0.3, 0.5),
     "deepseek-chat": (0.14, 0.28),
-    "mimo-v2-pro": (0.09, 0.09),  # Xiaomi MiMo-V2-Pro
+    "mimo-v2.5-pro": (0.435, 0.87),  # Xiaomi MiMo-V2.5-Pro (2026-04 출시 가격)
     # Local inference — no API cost
     "bitnet-b1.58-2b-4t": (0.0, 0.0),
     "qwen3-coder:30b-a3b-q4_K_M": (0.0, 0.0),  # Ollama: Qwen3-Coder 30B quantized
@@ -201,7 +205,59 @@ def get_routing_chain(tier: TaskTier, policy: LLMPolicy | None = None) -> list[t
         preferred.extend(item for item in chain if item[0] == "gemini")
         chain = _dedupe_chain(preferred or chain)
 
+    chain = _apply_provider_order_overrides(chain)
     return chain
+
+
+_PROVIDER_ALIASES = {
+    "anthropic": "anthropic",
+    "claude": "anthropic",
+    "gemini": "gemini",
+    "google": "gemini",
+    "openai": "openai",
+    "ollama": "ollama",
+    "local": "ollama",
+    "grok": "grok",
+    "xai": "grok",
+    "mimo": "mimo",
+    "xiaomi": "mimo",
+    "deepseek": "deepseek",
+    "moonshot": "moonshot",
+    "bitnet": "bitnet",
+}
+
+
+def _normalize_provider_names(raw: str) -> list[str]:
+    providers: list[str] = []
+    for token in raw.replace(";", ",").split(","):
+        provider = _PROVIDER_ALIASES.get(token.strip().lower())
+        if provider and provider not in providers:
+            providers.append(provider)
+    return providers
+
+
+def _apply_provider_order_overrides(chain: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    requested = _normalize_provider_names(_key("DAILYNEWS_LLM_PROVIDER_ORDER"))
+    disabled = set(_normalize_provider_names(_key("DAILYNEWS_DISABLED_LLM_PROVIDERS")))
+    if not requested and not disabled:
+        return chain
+
+    available = [item for item in chain if item[0] not in disabled]
+    if not requested:
+        return available
+
+    ordered: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for provider in requested:
+        for item in available:
+            if item[0] == provider and item not in seen:
+                ordered.append(item)
+                seen.add(item)
+    for item in available:
+        if item not in seen:
+            ordered.append(item)
+            seen.add(item)
+    return ordered
 
 
 def _dedupe_chain(chain: list[tuple[str, str]]) -> list[tuple[str, str]]:

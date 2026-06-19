@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import re
 import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -37,6 +38,13 @@ llm_calls_table = Table(
     Column("error", String, default=""),
     Column("project", String, default=""),
 )
+
+
+def _mask_db_error(value: object) -> str:
+    text = str(value)
+    text = re.sub(r"((?:postgresql|postgres)://)[^@\s]+@", r"\1***:***@", text)
+    text = re.sub(r"(tenant/user\s+)[^\s)]+", r"\1***", text, flags=re.IGNORECASE)
+    return text
 
 
 def _ensure_dirs() -> None:
@@ -84,7 +92,7 @@ class CostTracker:
             self._engine = get_sqlalchemy_engine("llm_costs")
             metadata.create_all(self._engine)
         except Exception as e:
-            log.warning("Failed to init cost DB: %s (falling back to in-memory)", e)
+            log.warning("Failed to init cost DB: %s (falling back to in-memory)", _mask_db_error(e))
             self._engine = None
 
     def record(

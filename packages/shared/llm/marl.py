@@ -167,6 +167,8 @@ _SYNTHESIS_PROMPT = """다음은 같은 주제에 대한 여러 단계의 분석
 # Pipeline
 # ---------------------------------------------------------------------------
 
+_CRITIQUE_SYSTEM_PROMPT = "You are a critical reviewer. Find flaws and suggest improvements."
+
 
 class MARLPipeline:
     """MARL 5-stage metacognitive pipeline.
@@ -214,7 +216,7 @@ class MARLPipeline:
             tier=cfg.critique_tier,
             messages=[{"role": "user", "content": _CRITIQUE_PROMPT.format(response=current_text)}],
             max_tokens=cfg.max_tokens_per_stage,
-            system="You are a critical reviewer. Find flaws and suggest improvements.",
+            system=_CRITIQUE_SYSTEM_PROMPT,
             policy=policy,
         )
         stages.append(self._log_stage(2, "critique", critique_response))
@@ -317,7 +319,7 @@ class MARLPipeline:
             tier=cfg.critique_tier,
             messages=[{"role": "user", "content": _CRITIQUE_PROMPT.format(response=current_text)}],
             max_tokens=cfg.max_tokens_per_stage,
-            system="You are a critical reviewer. Find flaws and suggest improvements.",
+            system=_CRITIQUE_SYSTEM_PROMPT,
             policy=policy,
         )
         stages.append(self._log_stage(2, "critique", critique_response))

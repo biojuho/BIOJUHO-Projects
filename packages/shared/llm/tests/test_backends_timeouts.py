@@ -1,34 +1,41 @@
 import asyncio
-from unittest.mock import MagicMock, patch
+import sys
+from types import ModuleType
+from unittest.mock import MagicMock
 
 import pytest
 
 from shared.llm import backends as backends_mod
 
 
-def test_openai_client_uses_explicit_timeout():
+def test_openai_client_uses_explicit_timeout(monkeypatch):
     manager = backends_mod.BackendManager({"openai": "test-key"})
+    fake_openai = ModuleType("openai")
+    fake_openai.OpenAI = MagicMock(return_value=MagicMock())
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
 
-    with patch("openai.OpenAI", return_value=MagicMock()) as mock_openai:
-        manager._get_openai()
+    manager._get_openai()
 
-    assert mock_openai.call_args.kwargs["timeout"] == backends_mod._DEFAULT_TIMEOUT
+    assert fake_openai.OpenAI.call_args.kwargs["timeout"] == backends_mod._DEFAULT_TIMEOUT
 
 
-def test_gemini_client_uses_http_timeout_options():
+def test_gemini_client_uses_http_timeout_options(monkeypatch):
     manager = backends_mod.BackendManager({"gemini": "test-key"})
+    fake_google = ModuleType("google")
+    fake_genai = ModuleType("google.genai")
+    fake_types = ModuleType("google.genai.types")
+    fake_genai.Client = MagicMock(return_value=MagicMock())
+    fake_types.HttpOptions = MagicMock(side_effect=lambda **kwargs: kwargs)
+    fake_google.genai = fake_genai
+    fake_genai.types = fake_types
+    monkeypatch.setitem(sys.modules, "google", fake_google)
+    monkeypatch.setitem(sys.modules, "google.genai", fake_genai)
+    monkeypatch.setitem(sys.modules, "google.genai.types", fake_types)
 
-    with (
-        patch("google.genai.Client", return_value=MagicMock()) as mock_client,
-        patch(
-            "google.genai.types.HttpOptions",
-            side_effect=lambda **kwargs: kwargs,
-        ) as mock_http_options,
-    ):
-        manager._get_gemini()
+    manager._get_gemini()
 
-    assert mock_http_options.call_args.kwargs["timeout"] == 120_000  # ms (google-genai SDK 1.x)
-    assert mock_client.call_args.kwargs["http_options"]["timeout"] == 120_000
+    assert fake_types.HttpOptions.call_args.kwargs["timeout"] == 120_000  # ms
+    assert fake_genai.Client.call_args.kwargs["http_options"]["timeout"] == 120_000
 
 
 def test_close_awaits_async_clients_without_running_loop():

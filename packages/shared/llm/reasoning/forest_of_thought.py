@@ -146,6 +146,10 @@ def _parse_subtasks(text: str) -> list[str]:
     return subtasks
 
 
+def _normalized_result_text(result: FoTSubtaskResult) -> str:
+    return result.text.strip()
+
+
 class ForestOfThoughtEngine:
     """Forest-of-Thought: recursive sub-task decomposition and synthesis.
 
@@ -398,7 +402,7 @@ class ForestOfThoughtEngine:
         - Dominated by error messages
         - Empty or whitespace-only
         """
-        text = result.text.strip()
+        text = _normalized_result_text(result)
 
         # Empty or near-empty
         if len(text) < _MIN_QUALITY_LENGTH:

@@ -8,7 +8,13 @@ import os
 import shlex
 import sys
 
-from langchain_core.tools import tool
+try:
+    from langchain_core.tools import tool
+except ImportError:
+    def tool(func):
+        """Fallback dummy tool decorator when langchain_core is not installed."""
+        func.is_tool = True
+        return func
 
 _ALLOWED_DIRECT_COMMANDS = {"pytest", "ruff", "mypy"}
 _ALLOWED_NPM_COMMANDS = {"test", "lint", "typecheck", "build"}
@@ -22,27 +28,51 @@ def _split_command(test_command: str) -> list[str]:
     return parts
 
 
+def _normalized_executable(command: str) -> str:
+    executable = os.path.basename(command).lower()
+    return executable.removesuffix(".exe")
+
+
+def _is_python_executable(executable: str) -> bool:
+    current_python = os.path.basename(sys.executable).lower().removesuffix(".exe")
+    return executable in {"python", "python3", current_python}
+
+
+def _validate_python_module_command(parts: list[str], executable: str) -> list[str] | None:
+    if not _is_python_executable(executable):
+        return None
+    if len(parts) >= 3 and parts[1] == "-m" and parts[2] in _ALLOWED_PYTHON_MODULES:
+        return [sys.executable, *parts[1:]]
+    return None
+
+
+def _validate_uv_command(parts: list[str], executable: str) -> list[str] | None:
+    if executable == "uv" and len(parts) >= 4 and parts[1] == "run":
+        _validate_test_command(parts[2:])
+        return parts
+    return None
+
+
+def _validate_npm_command(parts: list[str], executable: str) -> list[str] | None:
+    if executable != "npm" or len(parts) < 2:
+        return None
+    if parts[1] in _ALLOWED_NPM_COMMANDS:
+        return parts
+    if len(parts) >= 3 and parts[1] == "run" and parts[2] in _ALLOWED_NPM_COMMANDS:
+        return parts
+    return None
+
+
 def _validate_test_command(parts: list[str]) -> list[str]:
-    executable = os.path.basename(parts[0]).lower()
-    if executable.endswith(".exe"):
-        executable = executable[:-4]
+    executable = _normalized_executable(parts[0])
 
     if executable in _ALLOWED_DIRECT_COMMANDS:
         return parts
 
-    if executable in {"python", "python3", os.path.basename(sys.executable).lower().removesuffix(".exe")}:
-        if len(parts) >= 3 and parts[1] == "-m" and parts[2] in _ALLOWED_PYTHON_MODULES:
-            return [sys.executable, *parts[1:]]
-
-    if executable == "uv" and len(parts) >= 4 and parts[1] == "run":
-        _validate_test_command(parts[2:])
-        return parts
-
-    if executable == "npm" and len(parts) >= 2:
-        if parts[1] in _ALLOWED_NPM_COMMANDS:
-            return parts
-        if len(parts) >= 3 and parts[1] == "run" and parts[2] in _ALLOWED_NPM_COMMANDS:
-            return parts
+    for validator in (_validate_python_module_command, _validate_uv_command, _validate_npm_command):
+        validated = validator(parts, executable)
+        if validated is not None:
+            return validated
 
     raise ValueError(f"Command is not allowed: {parts[0]}")
 

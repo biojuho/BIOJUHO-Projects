@@ -159,6 +159,41 @@ _MEDIUM_KEYWORDS = frozenset(
 )
 
 
+def _weighted_keyword_score(query_lower: str) -> int:
+    return (
+        sum(3 for keyword in _CRITICAL_KEYWORDS if keyword in query_lower)
+        + sum(2 for keyword in _HIGH_KEYWORDS if keyword in query_lower)
+        + sum(1 for keyword in _MEDIUM_KEYWORDS if keyword in query_lower)
+    )
+
+
+def _threshold_score(value: int, thresholds: tuple[tuple[int, int], ...]) -> int:
+    for minimum, score in thresholds:
+        if value > minimum:
+            return score
+    return 0
+
+
+def _structure_score(query: str) -> int:
+    return (
+        _threshold_score(len(query), ((2000, 3), (1000, 2), (500, 1)))
+        + _threshold_score(query.count("\n") + 1, ((20, 3), (10, 2), (5, 1)))
+        + len(re.findall(r"```", query))
+        + _threshold_score(query.count("?"), ((3, 2), (1, 1)))
+        + _threshold_score(len(re.findall(r"^\s*\d+[.)]\s", query, re.MULTILINE)), ((5, 3), (2, 1)))
+    )
+
+
+def _classify_score(score: int) -> QueryComplexity:
+    if score >= 10:
+        return QueryComplexity.CRITICAL
+    if score >= 6:
+        return QueryComplexity.HIGH
+    if score >= 3:
+        return QueryComplexity.MEDIUM
+    return QueryComplexity.LOW
+
+
 def estimate_complexity(query: str) -> QueryComplexity:
     """Estimate query complexity using keyword heuristics and structural analysis.
 
@@ -166,68 +201,8 @@ def estimate_complexity(query: str) -> QueryComplexity:
     to avoid additional API cost overhead.
     """
     query_lower = query.lower()
-    query_len = len(query)
-
-    # Score accumulation
-    score = 0
-
-    # Keyword matching (weighted)
-    for kw in _CRITICAL_KEYWORDS:
-        if kw in query_lower:
-            score += 3
-
-    for kw in _HIGH_KEYWORDS:
-        if kw in query_lower:
-            score += 2
-
-    for kw in _MEDIUM_KEYWORDS:
-        if kw in query_lower:
-            score += 1
-
-    # Length-based scoring
-    if query_len > 2000:
-        score += 3
-    elif query_len > 1000:
-        score += 2
-    elif query_len > 500:
-        score += 1
-
-    # Multi-line queries indicate more complexity
-    line_count = query.count("\n") + 1
-    if line_count > 20:
-        score += 3
-    elif line_count > 10:
-        score += 2
-    elif line_count > 5:
-        score += 1
-
-    # Code blocks in the query suggest technical complexity
-    code_blocks = len(re.findall(r"```", query))
-    score += code_blocks
-
-    # Multiple questions/requirements
-    question_marks = query.count("?")
-    if question_marks > 3:
-        score += 2
-    elif question_marks > 1:
-        score += 1
-
-    # Numbered requirements lists
-    numbered_items = len(re.findall(r"^\s*\d+[.)]\s", query, re.MULTILINE))
-    if numbered_items > 5:
-        score += 3
-    elif numbered_items > 2:
-        score += 1
-
-    # Classify based on total score
-    if score >= 10:
-        return QueryComplexity.CRITICAL
-    elif score >= 6:
-        return QueryComplexity.HIGH
-    elif score >= 3:
-        return QueryComplexity.MEDIUM
-    else:
-        return QueryComplexity.LOW
+    score = _weighted_keyword_score(query_lower) + _structure_score(query)
+    return _classify_score(score)
 
 
 # ---------------------------------------------------------------------------
