@@ -31,17 +31,26 @@ RUN npm run build
 # ── Stage 4: Production (nginx) ───────────────────────
 FROM nginx:alpine AS production
 
-# SPA fallback 설정
+# SPA fallback + security headers. The Vercel deploy sets these via vercel.json;
+# mirror them here so the Docker/compose/self-host path is hardened too. nginx
+# drops inherited add_header in any location that sets its own, so /assets
+# re-adds nosniff.
 RUN echo 'server { \
     listen 80; \
     root /usr/share/nginx/html; \
     index index.html; \
+    add_header X-Frame-Options "DENY" always; \
+    add_header X-Content-Type-Options "nosniff" always; \
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always; \
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always; \
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always; \
     location / { \
     try_files $uri $uri/ /index.html; \
     } \
     location /assets { \
     expires 1y; \
     add_header Cache-Control "public, immutable"; \
+    add_header X-Content-Type-Options "nosniff" always; \
     } \
     }' > /etc/nginx/conf.d/default.conf
 
