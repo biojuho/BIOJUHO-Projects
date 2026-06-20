@@ -97,13 +97,13 @@ python main.py --one-shot --dry-run --verbose
 ```bash
 cd automation/DailyNews
 pip install -e .           # pyproject.toml is source of truth for deps
-python -m pytest tests/ -q --tb=short   # 180+ tests, ~45s
+python -m pytest tests/ -q --tb=short   # 750+ tests, ~3-4 min
 python scripts/run_daily_news.py --mode full
 ```
 
 - Package: `src/antigravity_mcp/`, entry point `antigravity-mcp`
 - State: SQLite at `data/pipeline_state.db` (WAL mode)
-- `tests/test_qc_pipeline_fix.py` queries live DB — may flake on stale data
+- `tests/test_qc_pipeline_fix.py` queries live DB; `integration`-marked and deselected by default (`-m integration` to include)
 - Linter auto-adds helper functions on save; verify edits persisted
 
 ## Shared and ops paths
