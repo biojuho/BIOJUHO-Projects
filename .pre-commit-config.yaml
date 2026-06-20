@@ -19,6 +19,20 @@ repos:
       - id: ruff-format
         types: [python]
 
+  # Python - mypy (strict on packages/shared, matches pyproject.toml override)
+  # Uses the workspace's installed mypy so module resolution matches CI.
+  # Opt-in: run manually with `pre-commit run --hook-stage manual mypy-shared --all-files`.
+  - repo: local
+    hooks:
+      - id: mypy-shared
+        name: mypy (packages/shared, strict)
+        entry: uv run --frozen mypy packages/shared
+        language: system
+        types: [python]
+        files: ^packages/shared/.*\.py$
+        pass_filenames: false
+        stages: [manual]
+
   # YAML validation
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
