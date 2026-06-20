@@ -5,20 +5,21 @@ import json
 import logging
 import os
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 from antigravity_mcp.config import emit_metric, get_settings
+from antigravity_mcp.integrations.llm.response_parser import is_meta_response
 from antigravity_mcp.integrations.llm_providers import (
     call_anthropic,
     call_google_genai,
     call_ollama,
     call_openai,
 )
-from shared.circuit_breaker import CircuitBreaker
-from shared.harness.token_tracker import TokenBudget
 from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
 from antigravity_mcp.state.store import PipelineStateStore
-from antigravity_mcp.integrations.llm.response_parser import is_meta_response
+from shared.circuit_breaker import CircuitBreaker
+from shared.harness.token_tracker import TokenBudget
 from shared.llm import tracing
 from shared.llm.models import TaskTier
 
@@ -40,6 +41,32 @@ _llm_breakers: dict[str, CircuitBreaker] = {
 
 _L1_MAX_SIZE = 128
 _L1_CACHE: OrderedDict[str, str] = OrderedDict()
+WORKSPACE_SMOKE_USAGE_ENV = "WORKSPACE_SMOKE_USAGE_OUT"
+
+
+def _initial_meta(cache_scope: str) -> dict[str, Any]:
+    return {
+        "cache_scope": cache_scope,
+        "provider": "",
+        "model_name": "",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
+
+
+def _merged_prompt(prompt: str | tuple[str, str]) -> str:
+    return f"{prompt[0]}\n\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
+
+
+def _meta_retry_prompt(prompt: str | tuple[str, str]) -> str | tuple[str, str]:
+    instruction = (
+        "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
+        "Do NOT reference any previous conversation or report. "
+        "Do NOT ask for clarification. Output the brief directly."
+    )
+    if isinstance(prompt, tuple):
+        return prompt[0], f"{instruction}\n\n{prompt[1]}"
+    return f"{instruction}\n\n{prompt}"
 
 
 def _l1_get(key: str) -> str | None:
@@ -54,6 +81,41 @@ def _l1_put(key: str, value: str) -> None:
     _L1_CACHE.move_to_end(key)
     if len(_L1_CACHE) > _L1_MAX_SIZE:
         _L1_CACHE.popitem(last=False)
+
+
+def _emit_workspace_smoke_usage(meta: dict[str, Any], *, cache_scope: str) -> None:
+    out_path = os.getenv(WORKSPACE_SMOKE_USAGE_ENV)
+    if not out_path:
+        return
+    input_tokens = int(meta.get("input_tokens", 0) or 0)
+    output_tokens = int(meta.get("output_tokens", 0) or 0)
+    cost_value = meta.get("cost_usd")
+    cost_usd = float(cost_value) if isinstance(cost_value, (int, float)) and not isinstance(cost_value, bool) else None
+    if input_tokens <= 0 and output_tokens <= 0 and cost_usd is None:
+        return
+
+    usage: dict[str, int | float] = {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+    if cost_usd is not None and cost_usd >= 0:
+        usage["cost_usd"] = round(cost_usd, 6)
+    payload = {
+        "usage": usage,
+        "provider": meta.get("provider", ""),
+        "model_name": meta.get("model_name", ""),
+        "cache_scope": cache_scope,
+    }
+    try:
+        path = Path(out_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Append one JSONL record per LLM call: a smoke check may issue several
+        # calls and write_text would keep only the last one (undercount + race).
+        with path.open("a", encoding="utf-8") as sidecar:
+            sidecar.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        logger.warning("failed to write workspace smoke usage sidecar: %s", exc)
 
 
 class LLMClientWrapper:
@@ -117,75 +179,96 @@ class LLMClientWrapper:
     ) -> tuple[str, dict[str, Any], list[str]]:
         warnings: list[str] = []
         prompt_hash = self._build_prompt_hash(prompt=prompt, cache_scope=cache_scope)
-        meta: dict[str, Any] = {
-            "cache_scope": cache_scope,
-            "provider": "",
-            "model_name": "",
-            "input_tokens": 0,
-            "output_tokens": 0,
-        }
+        meta = _initial_meta(cache_scope)
 
+        cached = self._cached_text(prompt_hash, meta)
+        if cached is not None:
+            return cached, meta, warnings
+
+        text = await self._generate_uncached_text(prompt=prompt, max_tokens=max_tokens, meta=meta, warnings=warnings)
+
+        if not text:
+            logger.error("All LLM providers failed for cache_scope=%s", cache_scope)
+            raise LLMUnavailableError(
+                f"All LLM providers failed for scope '{cache_scope}'. Check API keys and provider availability."
+            )
+
+        text = await self._retry_meta_response(
+            text=text,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            cache_scope=cache_scope,
+            meta=meta,
+            warnings=warnings,
+        )
+        self._record_success(prompt_hash=prompt_hash, text=text, meta=meta, cache_scope=cache_scope)
+
+        return text, meta, warnings
+
+    def _cached_text(self, prompt_hash: str, meta: dict[str, Any]) -> str | None:
         cached = _l1_get(prompt_hash)
         if cached is not None:
             if self._state_store is not None:
                 self._state_store.increment_llm_cache_hits(prompt_hash)
             meta["provider"] = "l1-cache"
-            return cached, meta, warnings
+            return cached
 
-        if self._state_store is not None:
-            cached_text = self._state_store.get_cached_llm_response(prompt_hash)
-            if cached_text:
-                _l1_put(prompt_hash, cached_text)
-                meta["provider"] = "sqlite-cache"
-                return cached_text, meta, warnings
+        if self._state_store is None:
+            return None
+        cached_text = self._state_store.get_cached_llm_response(prompt_hash)
+        if cached_text:
+            _l1_put(prompt_hash, cached_text)
+            meta["provider"] = "sqlite-cache"
+            return cached_text
+        return None
 
-        text = await self._try_shared_llm(
-            prompt=prompt, max_tokens=max_tokens, meta=meta, warnings=warnings
+    async def _generate_uncached_text(
+        self,
+        *,
+        prompt: str | tuple[str, str],
+        max_tokens: int,
+        meta: dict[str, Any],
+        warnings: list[str],
+    ) -> str | None:
+        text = await self._try_shared_llm(prompt=prompt, max_tokens=max_tokens, meta=meta, warnings=warnings)
+        if text:
+            return text
+        return await self._try_fallback_providers(_merged_prompt(prompt), meta, warnings)
+
+    async def _retry_meta_response(
+        self,
+        *,
+        text: str,
+        prompt: str | tuple[str, str],
+        max_tokens: int,
+        cache_scope: str,
+        meta: dict[str, Any],
+        warnings: list[str],
+    ) -> str:
+        if not is_meta_response(text):
+            return text
+
+        logger.warning(
+            "Meta-response detected for scope=%s (provider=%s); retrying with explicit context.",
+            cache_scope,
+            meta.get("provider"),
         )
-        if not text:
-            merged_prompt = f"{prompt[0]}\n\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
-            text = await self._try_fallback_providers(merged_prompt, meta, warnings)
+        warnings.append(f"meta_response_detected:{cache_scope}; retrying")
+        meta2 = dict(meta)
+        retry_prompt = _meta_retry_prompt(prompt)
+        retry_text = await self._generate_uncached_text(
+            prompt=retry_prompt,
+            max_tokens=max_tokens,
+            meta=meta2,
+            warnings=warnings,
+        )
+        if retry_text and not is_meta_response(retry_text):
+            meta.update(meta2)
+            warnings.append("meta_response_retry_succeeded")
+            return retry_text
+        return text
 
-        if not text:
-            logger.error("All LLM providers failed for cache_scope=%s", cache_scope)
-            raise LLMUnavailableError(
-                f"All LLM providers failed for scope '{cache_scope}'. "
-                "Check API keys and provider availability."
-            )
-
-        if is_meta_response(text):
-            logger.warning(
-                "Meta-response detected for scope=%s (provider=%s); retrying with explicit context.",
-                cache_scope, meta.get("provider"),
-            )
-            warnings.append(f"meta_response_detected:{cache_scope}; retrying")
-            meta2: dict[str, Any] = {k: v for k, v in meta.items()}
-            merged_prompt_retry = (
-                f"{prompt[0]}\n\n"
-                "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
-                "Do NOT reference any previous conversation or report. "
-                "Do NOT ask for clarification. Output the brief directly.\n\n"
-                f"{prompt[1]}"
-                if isinstance(prompt, tuple)
-                else (
-                    "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
-                    "Do NOT reference any previous conversation or report. "
-                    "Do NOT ask for clarification. Output the brief directly.\n\n"
-                    + prompt
-                )
-            )
-            retry_text = await self._try_shared_llm(
-                prompt=merged_prompt_retry if isinstance(prompt, str) else (prompt[0], merged_prompt_retry.split("\n\n", 1)[-1]),
-                max_tokens=max_tokens, meta=meta2, warnings=warnings,
-            )
-            if not retry_text:
-                merged = merged_prompt_retry if isinstance(merged_prompt_retry, str) else "\n\n".join(merged_prompt_retry)
-                retry_text = await self._try_fallback_providers(merged, meta2, warnings)
-            if retry_text and not is_meta_response(retry_text):
-                text = retry_text
-                meta.update(meta2)
-                warnings.append("meta_response_retry_succeeded")
-
+    def _record_success(self, *, prompt_hash: str, text: str, meta: dict[str, Any], cache_scope: str) -> None:
         if self._state_store is not None:
             self._state_store.put_llm_cache(
                 prompt_hash,
@@ -203,16 +286,15 @@ class LLMClientWrapper:
             input_tokens=meta["input_tokens"],
             output_tokens=meta["output_tokens"],
         )
+        _emit_workspace_smoke_usage(meta, cache_scope=cache_scope)
 
         total_tokens = meta.get("input_tokens", 0) + meta.get("output_tokens", 0)
         if total_tokens > 0:
             self.token_budget.record(
                 tool_name=f"llm_{cache_scope.split(':')[0]}",
                 tokens=total_tokens,
-                detail_level=self.token_budget.get_detail_level().value
+                detail_level=self.token_budget.get_detail_level().value,
             )
-
-        return text, meta, warnings
 
     async def _try_shared_llm(
         self,
@@ -255,9 +337,7 @@ class LLMClientWrapper:
             warnings.append(f"shared.llm_failed:{type(exc).__name__}")
             return None
 
-    async def _try_fallback_providers(
-        self, prompt: str, meta: dict[str, Any], warnings: list[str]
-    ) -> str | None:
+    async def _try_fallback_providers(self, prompt: str, meta: dict[str, Any], warnings: list[str]) -> str | None:
         # Resolve API keys from environment for each fallback provider
         _PROVIDER_KEY_MAP = {
             "gemini": os.getenv("GOOGLE_API_KEY", ""),
@@ -267,9 +347,9 @@ class LLMClientWrapper:
         }
         clients = [
             ("gemini", call_google_genai),
-            ("ollama", call_ollama),
             ("anthropic", call_anthropic),
             ("openai", call_openai),
+            ("ollama", call_ollama),
         ]
         for provider_name, call_fn in clients:
             api_key = _PROVIDER_KEY_MAP.get(provider_name, "")
@@ -280,6 +360,11 @@ class LLMClientWrapper:
                 continue
             try:
                 result = await call_fn(prompt, api_key)
+                if not result:
+                    _llm_breakers[provider_name].record_failure()
+                    logger.warning("Fallback provider %s returned no text", provider_name)
+                    warnings.append(f"{provider_name}_fallback_empty")
+                    continue
                 _llm_breakers[provider_name].record_success()
                 meta["provider"] = provider_name
                 meta["model_name"] = "fallback_model"
