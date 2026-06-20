@@ -11,7 +11,7 @@
     "devDependencies": {
         "@nomicfoundation/hardhat-ethers": "4.0.12",
         "@nomicfoundation/hardhat-ethers-chai-matchers": "3.0.9",
-        "@nomicfoundation/hardhat-mocha": "3.0.20",
+        "@nomicfoundation/hardhat-mocha": "3.0.21",
         "@nomicfoundation/hardhat-network-helpers": "3.0.9",
         "chai": "6.2.2",
         "dotenv": "^16.3.1",
