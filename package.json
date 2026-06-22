@@ -16,6 +16,6 @@
     "typecheck:all": "node ops/scripts/run_workspace_package_script.mjs typecheck"
   },
   "dependencies": {
-    "playwright": "^1.60.0"
+    "playwright": "^1.61.0"
   }
 }
