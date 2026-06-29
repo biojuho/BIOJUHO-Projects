@@ -4,7 +4,7 @@
   "private": true,
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "turbo": "^2.9.16"
+    "turbo": "^2.10.0"
   },
   "scripts": {
     "bootstrap:legacy-paths": "python bootstrap_legacy_paths.py",
