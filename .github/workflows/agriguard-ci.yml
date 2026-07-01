@@ -19,7 +19,7 @@ jobs:
         working-directory: apps/AgriGuard/backend
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Bootstrap legacy paths
         working-directory: .
@@ -55,7 +55,7 @@ jobs:
         working-directory: apps/AgriGuard/frontend
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Bootstrap legacy paths
         working-directory: .
@@ -86,7 +86,7 @@ jobs:
     needs: [backend-test, frontend-test]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
