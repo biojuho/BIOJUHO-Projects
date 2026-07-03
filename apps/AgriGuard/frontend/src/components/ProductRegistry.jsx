@@ -180,8 +180,11 @@ export default function ProductRegistry() {
                 <p className="text-primary text-sm mt-1">
                   Batch ID: <Badge variant="outline" className="font-mono">{uiState.success.id}</Badge>
                 </p>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Public verify label
+                </p>
                 <div className="mt-4 p-3 bg-background/50 rounded-lg font-mono text-xs text-muted-foreground break-all">
-                  TX: {uiState.success.qr_code}
+                  {uiState.success.qr_code}
                 </div>
               </div>
             </div>
