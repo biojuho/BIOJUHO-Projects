@@ -37,6 +37,12 @@ def test_desci_provider_apply_workflow_handoff_contract() -> None:
         "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0",
         "var/provider-workflow-downloaded-artifact",
         "var/provider-workflow-downloaded-artifact/desci-provider-workflow-artifact-index-machine.json",
+        "Verify downloaded provider apply workflow attestations",
+        "gh attestation verify",
+        "--repo \"${GITHUB_REPOSITORY}\"",
+        "--format json",
+        "var/provider-workflow-attestation-verify",
+        "var/provider-workflow-attestation-verify/**",
         "provider-apply-workflow-post-download-verification-${{ github.run_id }}-${{ github.run_attempt }}",
         "var/provider-workflow-downloaded-artifact-bundle-verify.json",
         "var/provider-workflow-downloaded-artifact-bundle-verify.md",
@@ -105,7 +111,23 @@ def test_desci_provider_apply_workflow_post_download_job_contract() -> None:
         "",
         "Download provider apply workflow artifact",
         "Verify downloaded provider apply workflow artifact bundle",
+        "Verify downloaded provider apply workflow attestations",
         "Upload downloaded provider apply workflow verification",
     ]
     assert post_download_steps[1]["uses"] == "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0"
     assert post_download_steps[1]["with"]["path"] == "var/provider-workflow-downloaded-artifact"
+    attestation_verify = post_download_steps[3]
+    assert attestation_verify["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert attestation_verify["shell"] == "bash"
+    attestation_verify_script = attestation_verify["run"]
+    for marker in (
+        "gh attestation verify",
+        '--repo "${GITHUB_REPOSITORY}"',
+        "--format json",
+        "var/provider-workflow-attestation-verify",
+        "desci-provider-workflow-artifact-index-machine.json",
+        "external-gate-provider-workflow-machine-verify.md",
+    ):
+        assert marker in attestation_verify_script
+    upload_verification = post_download_steps[4]
+    assert "var/provider-workflow-attestation-verify/**" in upload_verification["with"]["path"]

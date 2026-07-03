@@ -218,6 +218,57 @@ jobs:
             --markdown-out var/provider-workflow-downloaded-artifact-bundle-verify.md \
             --append-github-step-summary
 
+      - name: Verify downloaded provider apply workflow attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          output_dir="var/provider-workflow-attestation-verify"
+          mkdir -p "$output_dir"
+          summary_path="$output_dir/summary.md"
+          subjects=(
+            "var/provider-workflow-downloaded-artifact/desci-provider-workflow-artifact-index-machine.json"
+            "var/provider-workflow-downloaded-artifact/desci-provider-workflow-artifact-bundle-verify.json"
+            "var/provider-workflow-downloaded-artifact/external-gate-provider-workflow-machine-results.json"
+            "var/provider-workflow-downloaded-artifact/external-gate-provider-workflow-machine-verify.md"
+          )
+
+          {
+            echo "## DeSci Provider Workflow Attestation Verification"
+            echo
+            echo "| Subject | Verified | Evidence |"
+            echo "|---|---|---|"
+          } > "$summary_path"
+
+          failures=0
+          for subject in "${subjects[@]}"; do
+            subject_name="$(basename "$subject")"
+            json_out="$output_dir/${subject_name}.json"
+            stderr_out="$output_dir/${subject_name}.stderr.txt"
+            verified=false
+            for attempt in 1 2 3; do
+              if gh attestation verify "$subject" --repo "${GITHUB_REPOSITORY}" --format json > "$json_out" 2> "$stderr_out"; then
+                verified=true
+                break
+              fi
+              sleep $((attempt * 5))
+            done
+            if [ "$verified" = true ]; then
+              echo "| \`$subject\` | yes | \`$json_out\` |" >> "$summary_path"
+            else
+              failures=$((failures + 1))
+              echo "| \`$subject\` | no | \`$stderr_out\` |" >> "$summary_path"
+            fi
+          done
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            cat "$summary_path" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$failures" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Upload downloaded provider apply workflow verification
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
@@ -226,5 +277,6 @@ jobs:
           path: |
             var/provider-workflow-downloaded-artifact-bundle-verify.json
             var/provider-workflow-downloaded-artifact-bundle-verify.md
+            var/provider-workflow-attestation-verify/**
           if-no-files-found: error
           retention-days: 30
