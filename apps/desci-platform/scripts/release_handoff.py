@@ -219,6 +219,15 @@ def write_json_report(path: str | Path, payload: dict[str, Any]) -> Path:
     return write_json_atomic(path, payload, trailing_newline=True)
 
 
+def write_text_report(path: str | Path, body: str) -> Path:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = output_path.with_name(f"{output_path.name}.tmp")
+    temp_path.write_text(body, encoding="utf-8")
+    temp_path.replace(output_path)
+    return output_path
+
+
 def _append_env_template_group(
     lines: list[str],
     seen_keys: set[str],
@@ -288,10 +297,100 @@ def render_env_template(payload: dict[str, Any]) -> str:
 
 
 def write_env_template(path: str | Path, payload: dict[str, Any]) -> Path:
-    output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(render_env_template(payload), encoding="utf-8")
-    return output_path
+    return write_text_report(path, render_env_template(payload))
+
+
+def _markdown_values(values: Any) -> str:
+    items = _string_list(values)
+    return ", ".join(f"`{item}`" for item in items) if items else "`none`"
+
+
+def _markdown_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return str(value).lower()
+    if value is None:
+        return "unknown"
+    return str(value)
+
+
+def render_markdown_report(payload: dict[str, Any]) -> str:
+    launch = _as_dict(payload.get("launch"))
+    coverage = _as_dict(payload.get("coverage"))
+    lines = [
+        "# DeSci Release Handoff",
+        "",
+        "## Decision",
+        f"- Release decision: `{_markdown_scalar(payload.get('release_decision'))}`",
+        f"- Overall ok: `{_markdown_scalar(payload.get('ok'))}`",
+        f"- Product smoke ok: `{_markdown_scalar(payload.get('product_smoke_ok'))}`",
+        f"- Deploy readiness ok: `{_markdown_scalar(payload.get('deploy_readiness_ok'))}`",
+        f"- Operator phase: `{_markdown_scalar(launch.get('operator_phase'))}`",
+        f"- Readiness status: `{_markdown_scalar(launch.get('readiness_status'))}`",
+        f"- Launch blockers: {_markdown_values(launch.get('launch_blockers'))}",
+        "",
+        "## Coverage",
+        f"- Product actions: `{_markdown_scalar(coverage.get('product_action_count', 0))}`",
+        f"- Covered product actions: {_markdown_values(coverage.get('covered_product_actions'))}",
+        f"- Product-only actions: {_markdown_values(coverage.get('product_only_actions'))}",
+        f"- Missing required coverage: {_markdown_values(coverage.get('missing_required_coverage'))}",
+        f"- Deploy-only action count: `{_markdown_scalar(coverage.get('deploy_only_action_count', 0))}`",
+        "",
+        "## Product Action Checklist",
+    ]
+
+    checklist = [item for item in payload.get("operator_checklist") or [] if isinstance(item, dict)]
+    if not checklist:
+        lines.append("- None.")
+    for item in checklist:
+        lines.extend(
+            [
+                f"### {item.get('id')}",
+                f"- Status: `{_markdown_scalar(item.get('status'))}`",
+                f"- Required: `{_markdown_scalar(item.get('required'))}`",
+                f"- Coverage: `{_markdown_scalar(item.get('coverage'))}`",
+                f"- Required env: {_markdown_values(item.get('required_env'))}",
+            ]
+        )
+        remediation = item.get("remediation")
+        if isinstance(remediation, str) and remediation:
+            lines.append(f"- Product remediation: {remediation}")
+        surfaces = [surface for surface in item.get("deploy_surfaces") or [] if isinstance(surface, dict)]
+        if surfaces:
+            lines.append("- Deploy surfaces:")
+            for surface in surfaces:
+                keys = _markdown_values(surface.get("keys"))
+                remediation = surface.get("remediation")
+                suffix = f" - {remediation}" if isinstance(remediation, str) and remediation else ""
+                lines.append(
+                    f"  - {surface.get('owner')} / {surface.get('surface')}: "
+                    f"`{_markdown_scalar(surface.get('id'))}` `{_markdown_scalar(surface.get('status'))}` env={keys}{suffix}"
+                )
+        lines.append("")
+
+    lines.append("## Deploy-Only Actions")
+    deploy_only = [action for action in payload.get("deploy_only_actions") or [] if isinstance(action, dict)]
+    if not deploy_only:
+        lines.append("- None.")
+    for action in deploy_only:
+        keys = _markdown_values(action.get("keys"))
+        remediation = action.get("remediation")
+        suffix = f" - {remediation}" if isinstance(remediation, str) and remediation else ""
+        lines.append(
+            f"- {action.get('owner')} / {action.get('surface')}: "
+            f"`{_markdown_scalar(action.get('id'))}` `{_markdown_scalar(action.get('status'))}` env={keys}{suffix}"
+        )
+
+    lines.extend(["", "## Evidence Sources"])
+    sources = _as_dict(payload.get("sources"))
+    if not sources:
+        lines.append("- None.")
+    for key in sorted(sources):
+        lines.append(f"- {key}: `{sources[key]}`")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_markdown_report(path: str | Path, payload: dict[str, Any]) -> Path:
+    return write_text_report(path, render_markdown_report(payload))
 
 
 def print_report(payload: dict[str, Any]) -> None:
@@ -329,6 +428,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json", action="store_true", help="Print the handoff as JSON.")
     parser.add_argument("--json-out", help="Write the handoff JSON to a file.")
     parser.add_argument("--env-template-out", help="Write a no-secret env template for unresolved handoff actions.")
+    parser.add_argument("--markdown-out", help="Write a human-readable Markdown release handoff packet.")
     return parser.parse_args(argv)
 
 
@@ -355,6 +455,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.env_template_out:
         template_path = write_env_template(args.env_template_out, payload)
         print(f"[release-handoff] env template written: {template_path}")
+    if args.markdown_out:
+        markdown_path = write_markdown_report(args.markdown_out, payload)
+        print(f"[release-handoff] markdown written: {markdown_path}")
     return 0 if payload["ok"] else 1
 
 

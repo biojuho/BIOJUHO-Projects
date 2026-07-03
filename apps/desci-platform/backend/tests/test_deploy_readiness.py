@@ -630,3 +630,81 @@ def test_release_handoff_env_template_contains_only_unresolved_keys(tmp_path: Pa
     assert "VITE_FIREBASE_API_KEY=" not in text
     assert "not-a-real-test-private-key" not in text
     assert text.count("FIREBASE_SERVICE_ACCOUNT_JSON=") == 1
+
+
+def test_release_handoff_markdown_report_summarizes_operator_packet(tmp_path: Path) -> None:
+    product_payload = _product_smoke_handoff_payload(
+        [
+            {
+                "id": "auth",
+                "required": True,
+                "status": "fail",
+                "remediation": "Set Firebase credentials.",
+                "required_env": ["GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_SERVICE_ACCOUNT_JSON"],
+            }
+        ]
+    )
+    env = _ready_env()
+    env.pop("FIREBASE_SERVICE_ACCOUNT_JSON")
+    checks = deploy_readiness.run_checks(env, targets=("railway", "vercel"))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway", "vercel"))
+    payload = release_handoff.build_handoff(
+        product_payload,
+        deploy_payload,
+        sources={"product_smoke_json": "var/product.json", "deploy_readiness_json": "var/deploy.json"},
+    )
+    output_path = tmp_path / "handoff.md"
+
+    release_handoff.write_markdown_report(output_path, payload)
+
+    text = output_path.read_text(encoding="utf-8")
+    assert "# DeSci Release Handoff" in text
+    assert "Release decision: `no-go`" in text
+    assert "Overall ok: `false`" in text
+    assert "## Product Action Checklist" in text
+    assert "### auth" in text
+    assert "Required: `true`" in text
+    assert "`railway_auth` `fail`" in text
+    assert "FIREBASE_SERVICE_ACCOUNT_JSON" in text
+    assert "product_smoke_json: `var/product.json`" in text
+    assert "not-a-real-test-private-key" not in text
+    assert not (output_path.parent / "handoff.md.tmp").exists()
+
+
+def test_release_handoff_cli_writes_markdown_report(tmp_path: Path, capsys) -> None:
+    product_payload = _product_smoke_handoff_payload(
+        [
+            {
+                "id": "auth",
+                "required": True,
+                "status": "fail",
+                "remediation": "Set Firebase credentials.",
+                "required_env": ["FIREBASE_SERVICE_ACCOUNT_JSON"],
+            }
+        ]
+    )
+    env = _ready_env()
+    env.pop("FIREBASE_SERVICE_ACCOUNT_JSON")
+    checks = deploy_readiness.run_checks(env, targets=("railway",))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway",))
+    product_path = tmp_path / "product.json"
+    deploy_path = tmp_path / "deploy.json"
+    markdown_path = tmp_path / "handoff.md"
+    product_path.write_text(json.dumps(product_payload), encoding="utf-8")
+    deploy_path.write_text(json.dumps(deploy_payload), encoding="utf-8")
+
+    code = release_handoff.main(
+        [
+            "--product-smoke-json",
+            str(product_path),
+            "--deploy-readiness-json",
+            str(deploy_path),
+            "--markdown-out",
+            str(markdown_path),
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert code == 1
+    assert "[release-handoff] markdown written:" in output
+    assert markdown_path.read_text(encoding="utf-8").startswith("# DeSci Release Handoff")
