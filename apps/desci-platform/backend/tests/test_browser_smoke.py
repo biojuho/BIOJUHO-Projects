@@ -633,6 +633,7 @@ def test_browser_smoke_public_action_checks_include_public_click_paths() -> None
         "explore-analyze-intent",
         "investors-filter-directory",
         "pricing-enterprise-contact-intent",
+        "pricing-layout-inset",
     ]
 
 
@@ -704,6 +705,16 @@ def test_pricing_subscription_browser_smoke_mocks_tier_fetch_after_redirects() -
         assert "page.route(tier_route_pattern, fulfill_tier)" in source
         assert "page.unroute(tier_route_pattern, fulfill_tier)" in source
         assert '"tier": "free"' in source
+
+
+def test_pricing_layout_smoke_checks_responsive_inset_and_touch_target() -> None:
+    source = inspect.getsource(browser_smoke._run_pricing_layout_inset_check)  # pylint: disable=protected-access
+
+    assert '"mobile", {"width": 390, "height": 844}' in source
+    assert '"desktop", {"width": 1440, "height": 900}' in source
+    assert ".pricing-page-container h1" in source
+    assert "pricing CTA is below touch target height" in source
+    assert "horizontal document overflow" in source
 
 
 def test_protected_mobile_layout_smoke_checks_mobile_inset() -> None:

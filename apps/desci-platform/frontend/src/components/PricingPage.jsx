@@ -306,10 +306,10 @@ export default function PricingPage() {
     }
 
     return (
-        <div className="relative min-h-screen" style={{ background: 'var(--bg-primary, #f0ece6)' }}>
+        <div className="pricing-page-shell relative min-h-screen" style={{ background: 'var(--bg-primary, #f0ece6)' }}>
             <div className="ambient-bg" aria-hidden="true" />
 
-            <nav className="relative z-20 flex items-center justify-between px-6 py-5 lg:px-12">
+            <nav className="pricing-page-nav relative z-20 flex items-center justify-between px-6 py-5 lg:px-12">
                 <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-ink-muted hover:text-ink">
                     <ArrowLeft className="h-4 w-4" />
                     {isKo ? '홈으로' : 'Back to home'}
@@ -329,7 +329,7 @@ export default function PricingPage() {
                 </div>
             </nav>
 
-            <div className="relative z-10 mx-auto max-w-7xl px-6 py-12 lg:px-12">
+            <div className="pricing-page-container relative z-10 mx-auto max-w-7xl px-6 py-12 lg:px-12">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -461,7 +461,7 @@ export default function PricingPage() {
                     )}
                 </motion.div>
 
-                <div className="grid gap-6 md:grid-cols-3">
+                <div className="pricing-tier-grid grid gap-6 md:grid-cols-3">
                     {TIERS.map((tier, index) => {
                         const Icon = tier.icon;
                         const price = billing === 'monthly' ? tier.price.monthly : tier.price.yearly;

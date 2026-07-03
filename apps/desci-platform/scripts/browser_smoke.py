@@ -1709,6 +1709,85 @@ def _run_pricing_enterprise_contact_intent_check(page, base_url: str, timeout_ms
     return failures
 
 
+def _run_pricing_layout_inset_check(page, base_url: str, timeout_ms: int) -> list[str]:
+    route_name = "pricing-layout-inset"
+    failures: list[str] = []
+    console_errors: list[str] = []
+    page_errors: list[str] = []
+    viewports = (
+        ("mobile", {"width": 390, "height": 844}, 12),
+        ("desktop", {"width": 1440, "height": 900}, 12),
+    )
+
+    def collect_console(message) -> None:
+        if message.type == "error":
+            console_errors.append(message.text)
+
+    def collect_page_error(error) -> None:
+        page_errors.append(str(error))
+
+    page.on("console", collect_console)
+    page.on("pageerror", collect_page_error)
+
+    try:
+        for viewport_name, viewport, min_inset in viewports:
+            page.set_viewport_size(viewport)
+            response = _goto_app_route(page, base_url, "/pricing", timeout_ms)
+            status = response.status if response is not None else 0
+            if status >= 400:
+                failures.append(f"{route_name}: {viewport_name} HTTP status {status}")
+
+            page.locator(".pricing-page-container h1").first.wait_for(state="visible", timeout=timeout_ms)
+            metrics = page.evaluate(
+                """
+                () => {
+                  const rectFor = (element) => {
+                    const rect = element?.getBoundingClientRect();
+                    return rect
+                      ? { left: rect.left, right: rect.right, width: rect.width, height: rect.height }
+                      : null;
+                  };
+                  const cards = Array.from(document.querySelectorAll('.pricing-tier-grid .glass-card'));
+                  return {
+                    viewportWidth: window.innerWidth,
+                    scrollWidth: document.documentElement.scrollWidth,
+                    navPrimary: rectFor(document.querySelector('.pricing-page-nav .clay-button')),
+                    h1: rectFor(document.querySelector('.pricing-page-container h1')),
+                    grid: rectFor(document.querySelector('.pricing-tier-grid')),
+                    firstCard: rectFor(cards[0]),
+                    lastCard: rectFor(cards[cards.length - 1]),
+                    cta: rectFor(document.querySelector('.pricing-tier-grid .clay-button, .pricing-tier-grid .clay-panel-pressed')),
+                  };
+                }
+                """
+            )
+            viewport_width = metrics.get("viewportWidth", viewport["width"])
+            max_right = viewport_width - min_inset
+            if metrics.get("scrollWidth", 0) > viewport_width + 2:
+                failures.append(f"{route_name}: {viewport_name} has horizontal document overflow ({metrics!r})")
+            for key in ("h1", "grid", "firstCard"):
+                box = metrics.get(key) or {}
+                if box.get("left", -1) < min_inset:
+                    failures.append(f"{route_name}: {viewport_name} {key} starts too close to edge ({metrics!r})")
+            for key in ("grid", "lastCard", "navPrimary"):
+                box = metrics.get(key) or {}
+                if box.get("right", viewport_width + 1) > max_right + 0.5:
+                    failures.append(f"{route_name}: {viewport_name} {key} ends too close to edge ({metrics!r})")
+            cta_box = metrics.get("cta") or {}
+            if cta_box.get("height", 0) < 44:
+                failures.append(f"{route_name}: {viewport_name} pricing CTA is below touch target height ({metrics!r})")
+    except PlaywrightTimeoutError as exc:
+        failures.append(f"{route_name}: timed out ({exc})")
+    except PlaywrightError as exc:
+        failures.append(f"{route_name}: browser error ({exc})")
+    finally:
+        page.remove_listener("console", collect_console)
+        page.remove_listener("pageerror", collect_page_error)
+
+    failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
+    return failures
+
+
 def _run_pricing_billing_portal_check(page, base_url: str, timeout_ms: int) -> list[str]:
     route_name = "pricing-billing-portal"
     failures: list[str] = []
@@ -6442,6 +6521,7 @@ PUBLIC_ACTION_CHECKS = (
     ("explore-analyze-intent", "/explore -> /login or /biolinker", _run_explore_analyze_intent_check),
     ("investors-filter-directory", "/investors", _run_investors_filter_directory_check),
     ("pricing-enterprise-contact-intent", "/pricing enterprise -> sales contact", _run_pricing_enterprise_contact_intent_check),
+    ("pricing-layout-inset", "/pricing responsive layout", _run_pricing_layout_inset_check),
 )
 
 
