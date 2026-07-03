@@ -495,11 +495,18 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
         "python scripts/external_release_gate.py "
         f"--provider-template-dir {template_dir} --target all --json-out {aggregate_json_out}"
     )
+    promotion_gate_json_out = "var/post-apply-evidence-gate.json"
+    promotion_gate_command = (
+        "python scripts/post_apply_evidence_gate.py "
+        f"--external-gate-json {aggregate_json_out} --json-out {promotion_gate_json_out}"
+    )
     return {
         "required": bool(template_dir and provider_keys),
-        "success_condition": "external_release_gate.ok=true",
+        "success_condition": "post_apply_evidence_gate.ok=true",
         "aggregate_json_out": aggregate_json_out if template_dir else "",
         "aggregate_command": aggregate_command if template_dir else "",
+        "promotion_gate_json_out": promotion_gate_json_out if template_dir else "",
+        "promotion_gate_command": promotion_gate_command if template_dir else "",
         "provider_json_outputs": {
             provider: f"var/external-release-gate-post-apply-{provider}.json" for provider in provider_keys
         },
@@ -606,6 +613,8 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Success condition: `{_markdown_scalar(completion_evidence.get('success_condition'))}`",
                 f"- Aggregate JSON: `{_markdown_scalar(completion_evidence.get('aggregate_json_out'))}`",
                 f"- Aggregate command: `{_markdown_scalar(completion_evidence.get('aggregate_command'))}`",
+                f"- Promotion gate JSON: `{_markdown_scalar(completion_evidence.get('promotion_gate_json_out'))}`",
+                f"- Promotion gate command: `{_markdown_scalar(completion_evidence.get('promotion_gate_command'))}`",
             ]
         )
         provider_outputs = _as_dict(completion_evidence.get("provider_json_outputs"))

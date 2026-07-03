@@ -252,12 +252,19 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert provider["ready_to_apply"] is False
     assert provider["blank_key_count"] == 2
     assert plan["post_apply_completion_evidence"]["required"] is True
-    assert plan["post_apply_completion_evidence"]["success_condition"] == "external_release_gate.ok=true"
+    assert plan["post_apply_completion_evidence"]["success_condition"] == "post_apply_evidence_gate.ok=true"
     assert (
         plan["post_apply_completion_evidence"]["aggregate_command"]
         == "python scripts/external_release_gate.py "
         f"--provider-template-dir {tmp_path / 'providers'} --target all "
         "--json-out var/external-release-gate-post-apply-all.json"
+    )
+    assert plan["post_apply_completion_evidence"]["promotion_gate_json_out"] == "var/post-apply-evidence-gate.json"
+    assert (
+        plan["post_apply_completion_evidence"]["promotion_gate_command"]
+        == "python scripts/post_apply_evidence_gate.py "
+        "--external-gate-json var/external-release-gate-post-apply-all.json "
+        "--json-out var/post-apply-evidence-gate.json"
     )
     assert plan["post_apply_completion_evidence"]["provider_json_outputs"] == {
         "railway": "var/external-release-gate-post-apply-railway.json"
@@ -282,6 +289,8 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "Post-Apply Evidence" in markdown
     assert "external-release-gate-post-apply-all.json" in markdown
     assert "external-release-gate-post-apply-railway.json" in markdown
+    assert "post_apply_evidence_gate.py" in markdown
+    assert "post-apply-evidence-gate.json" in markdown
     assert "PowerShell: `Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>'" in markdown
     assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
 
