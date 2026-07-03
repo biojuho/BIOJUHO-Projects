@@ -215,8 +215,23 @@ def test_nginx_api_websocket_proxy_strips_api_prefix_with_upgrade_headers() -> N
         assert "proxy_http_version 1.1;" in block
         assert "proxy_set_header Upgrade $http_upgrade;" in block
         assert 'proxy_set_header Connection "upgrade";' in block
+        assert "proxy_set_header X-Forwarded-Proto $scheme;" in block
         assert "proxy_read_timeout 3600s;" in block
         assert "proxy_send_timeout 3600s;" in block
+
+
+def test_edge_nginx_direct_websocket_proxy_forwards_scheme() -> None:
+    edge = (WORKSPACE_ROOT / "apps/AgriGuard/nginx/nginx.conf").read_text(encoding="utf-8")
+    block = _nginx_location_block(edge, "/ws/")
+
+    assert "proxy_pass http://backend;" in block
+    assert "proxy_http_version 1.1;" in block
+    assert "proxy_set_header Upgrade $http_upgrade;" in block
+    assert 'proxy_set_header Connection "upgrade";' in block
+    assert "proxy_set_header Host $host;" in block
+    assert "proxy_set_header X-Real-IP $remote_addr;" in block
+    assert "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;" in block
+    assert "proxy_set_header X-Forwarded-Proto $scheme;" in block
 
 
 def test_nginx_configs_set_baseline_security_headers() -> None:
