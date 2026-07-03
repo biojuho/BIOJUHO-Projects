@@ -213,5 +213,15 @@ def test_nginx_configs_set_baseline_security_headers() -> None:
     edge = (WORKSPACE_ROOT / "apps/AgriGuard/nginx/nginx.conf").read_text(encoding="utf-8")
 
     for header in headers:
-        assert frontend.count(header) >= 2
+        assert frontend.count(header) >= 3
         assert header in edge
+
+
+def test_frontend_nginx_does_not_cache_spa_shell() -> None:
+    frontend = (WORKSPACE_ROOT / "apps/AgriGuard/frontend/nginx.conf").read_text(encoding="utf-8")
+    block = _nginx_location_block(frontend, "/")
+
+    assert 'add_header Cache-Control "no-cache" always;' in block
+    assert 'add_header X-Content-Type-Options "nosniff" always;' in block
+    assert 'add_header X-Frame-Options "DENY" always;' in block
+    assert 'add_header Referrer-Policy "strict-origin-when-cross-origin" always;' in block
