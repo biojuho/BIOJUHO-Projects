@@ -43,6 +43,7 @@ npm run test -- SupplyChain.test.jsx
 npm run lint
 npm run build:lts
 python apps\AgriGuard\scripts\supply_chain_browser_smoke.py --url http://127.0.0.1:5174/supply-chain?smoke=status-normalization --json-out var\agriguard-supply-chain-browser-smoke-status-normalization.json --screenshot var\agriguard-supply-chain-browser-smoke-status-normalization.png --operator-token browser-smoke-token --timeout-ms 30000
+python ops\scripts\run_workspace_smoke.py --scope agriguard --json-out var\workspace-smoke-agriguard-status-normalization.json
 ```
 
 Results:
@@ -53,5 +54,7 @@ Results:
 - Browser smoke: `19/19 PASS`
 - Browser JSON text sample includes `Current Status: Delivered & Available`
 - Browser JSON text sample has no `Unknown Status` for the searched product
+- Workspace AgriGuard smoke after the commit: `5/5 PASS`
 - Screenshot: `var/agriguard-supply-chain-browser-smoke-status-normalization.png`
 - JSON: `var/agriguard-supply-chain-browser-smoke-status-normalization.json`
+- Workspace smoke JSON: `var/workspace-smoke-agriguard-status-normalization.json`
