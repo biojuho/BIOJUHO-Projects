@@ -167,3 +167,41 @@ jobs:
           if ($failed) {
             exit 1
           }
+
+  provider-apply-workflow-artifact-post-download:
+    name: Provider Apply Workflow Artifact Post-Download Verification
+    runs-on: ubuntu-latest
+    needs: provider-apply-workflow-handoff
+    if: always()
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Download provider apply workflow artifact
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: provider-apply-workflow-handoff-${{ github.run_id }}-${{ github.run_attempt }}
+          path: var/provider-workflow-downloaded-artifact
+
+      - name: Verify downloaded provider apply workflow artifact bundle
+        run: |
+          python3 ops/scripts/verify_desci_provider_workflow_artifact_bundle.py \
+            --index var/provider-workflow-downloaded-artifact/desci-provider-workflow-artifact-index-machine.json \
+            --artifact-root var/provider-workflow-downloaded-artifact \
+            --json-out var/provider-workflow-downloaded-artifact-bundle-verify.json \
+            --markdown-out var/provider-workflow-downloaded-artifact-bundle-verify.md \
+            --append-github-step-summary
+
+      - name: Upload downloaded provider apply workflow verification
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: provider-apply-workflow-post-download-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            var/provider-workflow-downloaded-artifact-bundle-verify.json
+            var/provider-workflow-downloaded-artifact-bundle-verify.md
+          if-no-files-found: error
+          retention-days: 30
