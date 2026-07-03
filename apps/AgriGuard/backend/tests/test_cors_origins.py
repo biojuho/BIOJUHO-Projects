@@ -100,7 +100,11 @@ def test_backend_dockerignore_excludes_local_runtime_and_test_artifacts() -> Non
 def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
-    assert "DATABASE_URL=${AGRIGUARD_DATABASE_URL:-postgresql://agriguard:agriguard_secret@postgres:5432/agriguard}" in compose
+    assert (
+        "DATABASE_URL=${AGRIGUARD_DATABASE_URL:-postgresql://${AGRIGUARD_DB_USER:-agriguard}:"
+        "${AGRIGUARD_DB_PASSWORD:-agriguard_secret}@postgres:5432/${AGRIGUARD_DB_NAME:-agriguard}}" in compose
+    )
+    assert "postgresql://agriguard:agriguard_secret@postgres:5432/agriguard" not in compose
     assert "DATABASE_URL=${DATABASE_URL:-" not in compose
     assert "ALLOWED_ORIGINS=${AGRIGUARD_ALLOWED_ORIGINS:-" in compose
     assert "ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-" not in compose
