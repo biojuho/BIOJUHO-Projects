@@ -62,6 +62,23 @@ def test_frontend_dockerfile_uses_node_runtime_matching_package_engine() -> None
     assert "FROM node:22" not in dockerfile
 
 
+def test_frontend_dockerignore_excludes_local_build_and_test_artifacts() -> None:
+    dockerignore = (WORKSPACE_ROOT / "apps/AgriGuard/frontend/.dockerignore").read_text(encoding="utf-8")
+
+    for pattern in [
+        "node_modules/",
+        "dist/",
+        "coverage/",
+        "playwright-report/",
+        "test-results/",
+        ".env.*",
+        "build_*.out",
+        "build_err.txt",
+        "build_out.txt",
+    ]:
+        assert pattern in dockerignore
+
+
 def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
