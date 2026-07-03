@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     container_name: agriguard-postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${AGRIGUARD_DB_USER:-agriguard}
       POSTGRES_PASSWORD: ${AGRIGUARD_DB_PASSWORD:-agriguard_secret}
