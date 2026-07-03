@@ -69,6 +69,10 @@ describe('ProductDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Organic Apples')).toBeInTheDocument();
       expect(screen.getByText('Seoul Farm')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Product verification QR' })).toBeInTheDocument();
+      expect(screen.getByText('QR-12345')).toBeInTheDocument();
+      expect(screen.queryByAltText('QR Code')).not.toBeInTheDocument();
+      expect(document.querySelector('img[src*="api.qrserver.com"]')).toBeNull();
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toBeDisabled();
       expect(screen.getByRole('button', { name: /Add Certification/i })).toBeDisabled();
       expect(screen.getByText('Operator updates locked')).toBeInTheDocument();
