@@ -338,6 +338,19 @@ def test_supply_chain_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
 
 
+def test_supply_chain_browser_smoke_defaults_operator_token_for_local_dev(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "supply_chain_browser_smoke.py",
+        "supply_chain_browser_smoke_operator_token_under_test",
+    )
+
+    monkeypatch.delenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", raising=False)
+    monkeypatch.setattr(sys, "argv", ["supply_chain_browser_smoke.py"])
+    args = script.parse_args()
+
+    assert args.operator_token == script.DEFAULT_OPERATOR_TOKEN
+
+
 def test_supply_chain_browser_smoke_accepts_proxy_prefixed_products_page():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "supply_chain_browser_smoke.py",

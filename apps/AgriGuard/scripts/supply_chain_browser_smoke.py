@@ -14,6 +14,7 @@ from playwright.sync_api import Page, Response, sync_playwright
 DEFAULT_URL = "http://127.0.0.1:5174/supply-chain"
 DEFAULT_DESKTOP_VIEWPORT = "1440x960"
 DEFAULT_MOBILE_VIEWPORT = "390x844"
+DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 RANGE_RE = re.compile(r"Showing\s+(\d+)-(\d+)\s+of\s+(\d+)\s+products")
 
 
@@ -34,8 +35,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mobile", action="store_true", help="Use mobile browser emulation with touch enabled.")
     parser.add_argument(
         "--operator-token",
-        default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", ""),
-        help="Optional operator token to store in localStorage before opening the app.",
+        default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN") or DEFAULT_OPERATOR_TOKEN,
+        help=(
+            "Operator token to store in localStorage before opening the app. Defaults to "
+            "AGRIGUARD_BROWSER_OPERATOR_TOKEN or the local dev-fallback smoke token."
+        ),
     )
     parser.add_argument(
         "--allow-unpaginated-fallback",
