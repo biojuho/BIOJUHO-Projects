@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -430,6 +431,10 @@ def _same_path_text(left: str | Path, right: str | Path) -> bool:
     return Path(str(left)) == Path(str(right))
 
 
+def _iso_now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
 def _provider_apply_commands(provider: str, template_path: str, keys: list[str]) -> list[dict[str, Any]]:
     if provider == "github":
         return [
@@ -535,16 +540,27 @@ def _provider_apply_results_verification(plan_path: str | Path) -> dict[str, Any
     results_json = _json_path_with_suffix(plan_path, "-results")
     verify_json_out = _json_path_with_suffix(plan_path, "-results-verify")
     template_json_out = _json_path_with_suffix(plan_path, "-results-template")
+    dry_run_json_out = _json_path_with_suffix(plan_path, "-results-dry-run")
     plan_json = str(plan_path)
     return {
         "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
         "provider_apply_plan_json": plan_json,
         "provider_apply_results_json": results_json,
         "template_json_out": template_json_out,
+        "dry_run_json_out": dry_run_json_out,
         "verify_json_out": verify_json_out,
         "template_command": (
             "python scripts/external_gate_handoff.py "
             f"--provider-apply-results-template-from-plan {plan_json} --json-out {template_json_out}"
+        ),
+        "dry_run_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--record-provider-apply-results-from-plan {plan_json} --json-out {dry_run_json_out}"
+        ),
+        "execute_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--record-provider-apply-results-from-plan {plan_json} --execute-provider-apply-commands "
+            f"--json-out {results_json}"
         ),
         "verify_command": (
             "python scripts/external_gate_handoff.py "
@@ -754,6 +770,237 @@ def write_provider_apply_results_template(
     plan_path: str | Path,
 ) -> Path:
     return write_json_report(path, provider_apply_results_template_payload(plan, plan_path=plan_path))
+
+
+def _read_env_template_values(path: str | Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw_line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def _provider_lookup(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        str(provider.get("provider") or ""): provider
+        for provider in _as_list(plan.get("providers"))
+        if isinstance(provider, dict) and str(provider.get("provider") or "")
+    }
+
+
+def _provider_env_values(plan: dict[str, Any]) -> dict[str, dict[str, str]]:
+    values: dict[str, dict[str, str]] = {}
+    for provider_key, provider in _provider_lookup(plan).items():
+        template_path = str(provider.get("template_path") or "")
+        if not template_path:
+            continue
+        try:
+            values[provider_key] = _read_env_template_values(template_path)
+        except OSError:
+            values[provider_key] = {}
+    return values
+
+
+def _env_key_for_command(provider: dict[str, Any], command_id: str, prefix: str) -> str:
+    raw_key = command_id.removeprefix(prefix)
+    lower_to_key = {key.lower(): key for key in _string_list(provider.get("env_keys"))}
+    return lower_to_key.get(raw_key, raw_key.upper())
+
+
+def _recorded_excerpt(value: Any, *, limit: int = 800) -> tuple[str, list[str]]:
+    text = str(value or "")
+    markers = secret_marker_names_in_text(text)
+    if markers:
+        return "[redacted secret-shaped output]", markers
+    compact = " ".join(text.replace("\r", "\n").split())
+    return compact[:limit], []
+
+
+def _provider_apply_invocation(
+    plan: dict[str, Any],
+    command: dict[str, Any],
+    env_values: dict[str, dict[str, str]],
+) -> tuple[list[str] | str | None, str | None, str]:
+    provider_key = str(command.get("provider") or "")
+    command_id = str(command.get("command_id") or "")
+    providers = _provider_lookup(plan)
+    provider = providers.get(provider_key, {})
+    if provider_key == "github" and command_id == "github_secret_env_file":
+        template_path = str(provider.get("template_path") or "")
+        if not template_path:
+            return None, None, "github provider template path is missing"
+        return ["gh", "secret", "set", "--env-file", template_path], None, ""
+    if provider_key == "railway" and command_id.startswith("railway_variable_set_"):
+        key = _env_key_for_command(provider, command_id, "railway_variable_set_")
+        value = env_values.get(provider_key, {}).get(key, "")
+        if not value:
+            return None, None, f"{provider_key}/{command_id} private stdin value is blank"
+        return ["railway", "variable", "set", key, "--stdin"], value, ""
+    if provider_key == "vercel" and command_id.startswith("vercel_env_add_"):
+        key = _env_key_for_command(provider, command_id, "vercel_env_add_")
+        value = env_values.get(provider_key, {}).get(key, "")
+        if not value:
+            return None, None, f"{provider_key}/{command_id} private stdin value is blank"
+        return ["vercel", "env", "add", key, "production"], value, ""
+    command_text = str(command.get("command") or "")
+    if not command_text:
+        return None, None, f"{provider_key}/{command_id} command is missing"
+    return command_text, None, ""
+
+
+def _record_provider_command_result(
+    plan: dict[str, Any],
+    command: dict[str, Any],
+    env_values: dict[str, dict[str, str]],
+    *,
+    execute: bool,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    provider = str(command.get("provider") or "")
+    command_id = str(command.get("command_id") or "")
+    result: dict[str, Any] = {
+        "provider": provider,
+        "command_id": command_id,
+        "status": "dry_run",
+        "exit_code": None,
+        "started_at": "",
+        "finished_at": "",
+        "stdout_excerpt": "dry run only; command not executed",
+        "stderr_excerpt": "",
+        "redacted_secret_marker_names": [],
+    }
+    if not execute:
+        return result
+
+    invocation, stdin_value, blocked_reason = _provider_apply_invocation(plan, command, env_values)
+    result["started_at"] = _iso_now()
+    if blocked_reason:
+        result.update(
+            {
+                "status": "blocked",
+                "finished_at": _iso_now(),
+                "stdout_excerpt": "",
+                "stderr_excerpt": blocked_reason,
+            }
+        )
+        return result
+
+    try:
+        completed = subprocess.run(
+            invocation,
+            input=stdin_value,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            shell=isinstance(invocation, str),
+            check=False,
+        )
+        stdout_excerpt, stdout_markers = _recorded_excerpt(completed.stdout)
+        stderr_excerpt, stderr_markers = _recorded_excerpt(completed.stderr)
+        markers = _dedupe([*stdout_markers, *stderr_markers])
+        result.update(
+            {
+                "status": "success" if completed.returncode == 0 and not markers else "failure",
+                "exit_code": completed.returncode,
+                "finished_at": _iso_now(),
+                "stdout_excerpt": stdout_excerpt,
+                "stderr_excerpt": stderr_excerpt,
+                "redacted_secret_marker_names": markers,
+            }
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout_excerpt, stdout_markers = _recorded_excerpt(exc.stdout)
+        stderr_excerpt, stderr_markers = _recorded_excerpt(exc.stderr)
+        result.update(
+            {
+                "status": "timeout",
+                "exit_code": None,
+                "finished_at": _iso_now(),
+                "stdout_excerpt": stdout_excerpt,
+                "stderr_excerpt": stderr_excerpt,
+                "redacted_secret_marker_names": _dedupe([*stdout_markers, *stderr_markers]),
+            }
+        )
+    except OSError as exc:
+        result.update(
+            {
+                "status": "failure",
+                "exit_code": None,
+                "finished_at": _iso_now(),
+                "stdout_excerpt": "",
+                "stderr_excerpt": str(exc),
+            }
+        )
+    return result
+
+
+def record_provider_apply_results(
+    plan_path: str | Path,
+    *,
+    execute: bool = False,
+    timeout_seconds: float = 120.0,
+) -> dict[str, Any]:
+    plan = load_provider_apply_plan(plan_path)
+    expected = _expected_apply_commands(plan)
+    env_values = _provider_env_values(plan)
+    operator_status = _as_dict(plan.get("operator_status"))
+    plan_not_ready = execute and operator_status and operator_status.get("ready_to_apply") is not True
+    results: list[dict[str, Any]] = []
+    for command in expected:
+        if plan_not_ready:
+            results.append(
+                {
+                    "provider": command["provider"],
+                    "command_id": command["command_id"],
+                    "status": "blocked",
+                    "exit_code": None,
+                    "started_at": "",
+                    "finished_at": "",
+                    "stdout_excerpt": "",
+                    "stderr_excerpt": "provider apply plan is not ready_to_apply",
+                    "redacted_secret_marker_names": [],
+                }
+            )
+            continue
+        results.append(
+            _record_provider_command_result(
+                plan,
+                command,
+                env_values,
+                execute=execute,
+                timeout_seconds=timeout_seconds,
+            )
+        )
+    all_succeeded = bool(results) and all(
+        result.get("status") == "success" and result.get("exit_code") == 0 for result in results
+    )
+    return {
+        "schema_version": 1,
+        "generated_at": _iso_now(),
+        "ok": all_succeeded,
+        "execution_mode": "execute" if execute else "dry_run",
+        "provider_apply_plan_json": str(plan_path),
+        "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
+        "provider_count": int(plan.get("provider_count") or 0),
+        "command_count": len(expected),
+        "results": results,
+    }
+
+
+def write_recorded_provider_apply_results(
+    path: str | Path,
+    plan_path: str | Path,
+    *,
+    execute: bool = False,
+    timeout_seconds: float = 120.0,
+) -> Path:
+    return write_json_report(
+        path,
+        record_provider_apply_results(plan_path, execute=execute, timeout_seconds=timeout_seconds),
+    )
 
 
 def write_provider_apply_plan(
@@ -1077,8 +1324,11 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Success condition: `{_markdown_scalar(results_verification.get('success_condition'))}`",
                 f"- Results JSON: `{_markdown_scalar(results_verification.get('provider_apply_results_json'))}`",
                 f"- Results template JSON: `{_markdown_scalar(results_verification.get('template_json_out'))}`",
+                f"- Dry-run results JSON: `{_markdown_scalar(results_verification.get('dry_run_json_out'))}`",
                 f"- Verify JSON: `{_markdown_scalar(results_verification.get('verify_json_out'))}`",
                 f"- Template command: `{_markdown_scalar(results_verification.get('template_command'))}`",
+                f"- Dry-run recorder command: `{_markdown_scalar(results_verification.get('dry_run_command'))}`",
+                f"- Execute recorder command: `{_markdown_scalar(results_verification.get('execute_command'))}`",
                 f"- Verify command: `{_markdown_scalar(results_verification.get('verify_command'))}`",
                 "",
             ]
@@ -1281,6 +1531,24 @@ def print_provider_apply_results_verification_report(payload: dict[str, Any]) ->
                 print(f"  - {label}: {failure}")
 
 
+def print_provider_apply_results_record_report(payload: dict[str, Any]) -> None:
+    results = [item for item in _as_list(payload.get("results")) if isinstance(item, dict)]
+    failed = [item for item in results if item.get("status") != "success" or item.get("exit_code") != 0]
+    print(f"[external-gate-handoff] provider_apply_results_recorded={payload.get('ok')}")
+    print(
+        "[external-gate-handoff] "
+        f"execution_mode={payload.get('execution_mode')} "
+        f"command_count={payload.get('command_count')} "
+        f"failed_commands={len(failed)}"
+    )
+    for command in failed:
+        label = f"{command.get('provider')}/{command.get('command_id')}"
+        status = command.get("status")
+        exit_code = command.get("exit_code")
+        stderr = command.get("stderr_excerpt")
+        print(f"  - {label}: status={status} exit_code={exit_code} stderr={stderr}")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a DeSci external gate operator handoff.")
     parser.add_argument(
@@ -1292,6 +1560,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--provider-apply-results-template-from-plan",
         help="Path to a provider apply plan used to write a redacted apply-results template.",
+    )
+    parser.add_argument(
+        "--record-provider-apply-results-from-plan",
+        help="Path to a provider apply plan used to write a dry-run or execution apply-results receipt.",
+    )
+    parser.add_argument(
+        "--execute-provider-apply-commands",
+        action="store_true",
+        help="With --record-provider-apply-results-from-plan, actually run provider apply commands.",
+    )
+    parser.add_argument(
+        "--provider-apply-command-timeout",
+        type=float,
+        default=120.0,
+        help="Timeout in seconds for each provider apply command in execute mode.",
     )
     parser.add_argument("--verify-provider-apply-results", help="Path to redacted provider apply results to verify.")
     parser.add_argument(
@@ -1319,6 +1602,7 @@ def main(argv: list[str] | None = None) -> int:
     source_modes = [
         bool(args.verify_provider_apply_plan),
         bool(args.provider_apply_results_template_from_plan),
+        bool(args.record_provider_apply_results_from_plan),
         bool(args.verify_provider_apply_results),
     ]
     if sum(1 for item in source_modes if item) > 1:
@@ -1336,6 +1620,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.provider_apply_plan and not args.verify_provider_apply_results:
         print(
             "[external-gate-handoff] --provider-apply-plan requires --verify-provider-apply-results",
+            file=sys.stderr,
+        )
+        return 2
+    if args.execute_provider_apply_commands and not args.record_provider_apply_results_from_plan:
+        print(
+            "[external-gate-handoff] --execute-provider-apply-commands requires "
+            "--record-provider-apply-results-from-plan",
             file=sys.stderr,
         )
         return 2
@@ -1405,6 +1696,50 @@ def main(argv: list[str] | None = None) -> int:
         output_path = write_provider_apply_results_template(args.json_out, plan, plan_path=plan_path)
         print(f"[external-gate-handoff] provider apply results template written: {output_path}")
         return 0
+
+    if args.record_provider_apply_results_from_plan:
+        if not args.json_out:
+            print(
+                "[external-gate-handoff] --record-provider-apply-results-from-plan requires --json-out",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            payload = record_provider_apply_results(
+                args.record_provider_apply_results_from_plan,
+                execute=args.execute_provider_apply_commands,
+                timeout_seconds=args.provider_apply_command_timeout,
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            payload = {
+                "schema_version": 1,
+                "generated_at": datetime.now(UTC).isoformat(),
+                "ok": False,
+                "execution_mode": "execute" if args.execute_provider_apply_commands else "dry_run",
+                "provider_apply_plan_json": str(args.record_provider_apply_results_from_plan),
+                "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
+                "provider_count": 0,
+                "command_count": 0,
+                "results": [
+                    {
+                        "provider": "operator",
+                        "command_id": "record_provider_apply_results",
+                        "status": "failure",
+                        "exit_code": None,
+                        "started_at": "",
+                        "finished_at": "",
+                        "stdout_excerpt": "",
+                        "stderr_excerpt": str(exc),
+                    }
+                ],
+            }
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print_provider_apply_results_record_report(payload)
+        output_path = write_json_report(args.json_out, payload)
+        print(f"[external-gate-handoff] provider apply results receipt written: {output_path}")
+        return 0 if payload["ok"] else 1
 
     if args.verify_provider_apply_results:
         if not args.provider_apply_plan:

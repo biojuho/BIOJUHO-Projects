@@ -275,6 +275,9 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert plan["provider_apply_results_verification"]["template_json_out"] == str(
         tmp_path / "apply-plan-results-template.json"
     )
+    assert plan["provider_apply_results_verification"]["dry_run_json_out"] == str(
+        tmp_path / "apply-plan-results-dry-run.json"
+    )
     assert plan["provider_apply_results_verification"]["verify_json_out"] == str(
         tmp_path / "apply-plan-results-verify.json"
     )
@@ -283,6 +286,18 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
         == "python scripts/external_gate_handoff.py "
         f"--provider-apply-results-template-from-plan {plan_path} "
         f"--json-out {tmp_path / 'apply-plan-results-template.json'}"
+    )
+    assert (
+        plan["provider_apply_results_verification"]["dry_run_command"]
+        == "python scripts/external_gate_handoff.py "
+        f"--record-provider-apply-results-from-plan {plan_path} "
+        f"--json-out {tmp_path / 'apply-plan-results-dry-run.json'}"
+    )
+    assert (
+        plan["provider_apply_results_verification"]["execute_command"]
+        == "python scripts/external_gate_handoff.py "
+        f"--record-provider-apply-results-from-plan {plan_path} --execute-provider-apply-commands "
+        f"--json-out {tmp_path / 'apply-plan-results.json'}"
     )
     assert (
         plan["provider_apply_results_verification"]["verify_command"]
@@ -393,8 +408,11 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "Provider Apply Results Verification" in markdown
     assert "apply-plan-results.json" in markdown
     assert "apply-plan-results-template.json" in markdown
+    assert "apply-plan-results-dry-run.json" in markdown
     assert "apply-plan-results-verify.json" in markdown
     assert "--provider-apply-results-template-from-plan" in markdown
+    assert "--record-provider-apply-results-from-plan" in markdown
+    assert "--execute-provider-apply-commands" in markdown
     assert "--verify-provider-apply-results" in markdown
     assert "Post-Apply Evidence" in markdown
     assert "external-release-gate-post-apply-all.json" in markdown
@@ -766,6 +784,123 @@ def test_external_gate_handoff_cli_writes_and_verifies_provider_apply_results_te
     assert verify_rc == 0
     assert verification["ok"] is True
     assert verification["all_commands_succeeded"] is True
+
+
+def apply_results_recorder_plan(tmp_path: Path, command: str, *, ready: bool = True) -> Path:
+    plan_path = tmp_path / "apply-plan.json"
+    plan = {
+        "schema_version": 1,
+        "provider_count": 1,
+        "operator_status": {"ready_to_apply": ready},
+        "providers": [
+            {
+                "provider": "local",
+                "label": "Local",
+                "env_keys": [],
+                "commands": [
+                    {
+                        "id": "local_apply",
+                        "command": command,
+                        "stdin_required": False,
+                    }
+                ],
+            }
+        ],
+    }
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    return plan_path
+
+
+def test_external_gate_handoff_provider_apply_results_recorder_dry_run_does_not_execute(
+    tmp_path: Path,
+) -> None:
+    marker_path = tmp_path / "should-not-exist.txt"
+    command = f'"{sys.executable}" -c "from pathlib import Path; Path({str(marker_path)!r}).write_text(\'ran\')"'
+    plan_path = apply_results_recorder_plan(tmp_path, command)
+
+    payload = external_gate_handoff.record_provider_apply_results(plan_path)
+
+    assert payload["ok"] is False
+    assert payload["execution_mode"] == "dry_run"
+    assert payload["results"][0]["status"] == "dry_run"
+    assert payload["results"][0]["exit_code"] is None
+    assert marker_path.exists() is False
+
+
+def test_external_gate_handoff_provider_apply_results_recorder_executes_and_verifies_success(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+
+    payload = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, payload)
+    verification = external_gate_handoff.verify_provider_apply_results(results_path, plan_path=plan_path)
+
+    assert payload["ok"] is True
+    assert payload["execution_mode"] == "execute"
+    assert payload["results"][0]["status"] == "success"
+    assert payload["results"][0]["exit_code"] == 0
+    assert payload["results"][0]["stdout_excerpt"] == "applied"
+    assert verification["ok"] is True
+    assert verification["all_commands_succeeded"] is True
+
+
+def test_external_gate_handoff_provider_apply_results_recorder_records_failed_exit(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "import sys; sys.exit(7)"')
+
+    payload = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+
+    assert payload["ok"] is False
+    assert payload["results"][0]["status"] == "failure"
+    assert payload["results"][0]["exit_code"] == 7
+
+
+def test_external_gate_handoff_provider_apply_results_recorder_redacts_secret_shaped_output(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'token=ghp_abc123\')"')
+
+    payload = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    serialized = json.dumps(payload)
+
+    assert payload["ok"] is False
+    assert payload["results"][0]["status"] == "failure"
+    assert payload["results"][0]["stdout_excerpt"] == "[redacted secret-shaped output]"
+    assert "ghp_abc123" not in serialized
+    assert "github_token" in payload["results"][0]["redacted_secret_marker_names"]
+
+
+def test_external_gate_handoff_cli_records_provider_apply_results_dry_run(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    output_path = tmp_path / "apply-results-dry-run.json"
+
+    rc = external_gate_handoff.main(
+        [
+            "--record-provider-apply-results-from-plan",
+            str(plan_path),
+            "--json-out",
+            str(output_path),
+        ]
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert rc == 1
+    assert payload["ok"] is False
+    assert payload["execution_mode"] == "dry_run"
+    assert payload["results"][0]["status"] == "dry_run"
+
+
+def test_external_gate_handoff_cli_rejects_execute_without_record(capsys) -> None:
+    rc = external_gate_handoff.main(["--execute-provider-apply-commands"])
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires --record-provider-apply-results-from-plan" in captured.err
 
 
 def test_external_gate_handoff_cli_requires_plan_for_apply_results(capsys) -> None:
