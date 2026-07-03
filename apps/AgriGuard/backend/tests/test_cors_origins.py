@@ -145,6 +145,14 @@ def test_agriguard_compose_persists_mosquitto_data_volume() -> None:
     assert "\n  mosquitto-data:" in compose
 
 
+def test_agriguard_compose_waits_for_mosquitto_health_before_backend() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "mosquitto_pub -h localhost -p 1883 -t agriguard/healthcheck -m healthy -q 0" in compose
+    assert "mosquitto:\n        condition: service_healthy" in compose
+    assert "mosquitto:\n        condition: service_started" not in compose
+
+
 def test_agriguard_backend_healthcheck_uses_api_root_not_docs_ui() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 

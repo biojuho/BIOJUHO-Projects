@@ -30,6 +30,12 @@ services:
     networks:
       - agriguard-net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -p 1883 -t agriguard/healthcheck -m healthy -q 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   nginx:
     build:
@@ -78,7 +84,7 @@ services:
       postgres:
         condition: service_healthy
       mosquitto:
-        condition: service_started
+        condition: service_healthy
     networks:
       - agriguard-net
     restart: unless-stopped
