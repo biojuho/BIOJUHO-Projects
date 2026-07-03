@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -27,6 +28,10 @@ SECRET_PATTERNS = {
 }
 
 
+def secret_marker_names_in_text(serialized: str) -> list[str]:
+    return [name for name, pattern in SECRET_PATTERNS.items() if pattern.search(serialized)]
+
+
 def _as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -44,7 +49,7 @@ def load_external_gate_payload(path: str | Path) -> dict[str, Any]:
 
 def secret_marker_names(payload: dict[str, Any]) -> list[str]:
     serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
-    return [name for name, pattern in SECRET_PATTERNS.items() if pattern.search(serialized)]
+    return secret_marker_names_in_text(serialized)
 
 
 def validate_post_apply_payload(payload: dict[str, Any], *, evidence_path: str | Path) -> dict[str, Any]:
@@ -103,6 +108,91 @@ def write_json_report(path: str | Path, payload: dict[str, Any]) -> Path:
     return write_json_atomic(path, payload, trailing_newline=True)
 
 
+def _file_sha256(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def evidence_artifact_entry(path: str | Path, *, role: str, required: bool = True) -> dict[str, Any]:
+    artifact_path = Path(path)
+    entry: dict[str, Any] = {
+        "role": role,
+        "path": str(path),
+        "required": required,
+        "exists": artifact_path.exists(),
+        "bytes": 0,
+        "sha256": "",
+        "secret_marker_names": [],
+        "secret_marker_count": 0,
+        "ok": False,
+    }
+    if not entry["exists"]:
+        entry["ok"] = not required
+        return entry
+
+    raw = artifact_path.read_bytes()
+    markers = secret_marker_names_in_text(raw.decode("utf-8", errors="ignore"))
+    entry.update(
+        {
+            "bytes": len(raw),
+            "sha256": _file_sha256(raw),
+            "secret_marker_names": markers,
+            "secret_marker_count": len(markers),
+            "ok": len(markers) == 0,
+        }
+    )
+    return entry
+
+
+def build_evidence_manifest(
+    *,
+    external_gate_path: str | Path,
+    gate_payload: dict[str, Any],
+    gate_report_path: str | Path | None = None,
+    extra_artifacts: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    artifacts = [
+        evidence_artifact_entry(external_gate_path, role="external_gate_json"),
+    ]
+    if gate_report_path:
+        artifacts.append(evidence_artifact_entry(gate_report_path, role="post_apply_evidence_gate_json"))
+    for artifact in extra_artifacts or []:
+        path = artifact.get("path")
+        if not path:
+            continue
+        artifacts.append(
+            evidence_artifact_entry(
+                path,
+                role=str(artifact.get("role") or "extra_artifact"),
+                required=artifact.get("required") is not False,
+            )
+        )
+
+    missing_required_count = sum(
+        1 for item in artifacts if item.get("required") is True and item.get("exists") is not True
+    )
+    secret_marker_count = sum(int(item.get("secret_marker_count") or 0) for item in artifacts)
+    failed_artifact_count = sum(1 for item in artifacts if item.get("ok") is not True)
+    promotion_gate_ok = gate_payload.get("ok") is True
+    ok = promotion_gate_ok and missing_required_count == 0 and secret_marker_count == 0 and failed_artifact_count == 0
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "ok": ok,
+        "success_condition": "post_apply_evidence_gate.ok=true and evidence_manifest.ok=true",
+        "promotion_gate": {
+            "condition": "post_apply_evidence_gate.ok=true",
+            "ok": promotion_gate_ok,
+            "external_gate_json": str(external_gate_path),
+            "gate_report_json": str(gate_report_path or ""),
+        },
+        "artifact_count": len(artifacts),
+        "missing_required_count": missing_required_count,
+        "secret_marker_count": secret_marker_count,
+        "failed_artifact_count": failed_artifact_count,
+        "artifacts": artifacts,
+    }
+
+
 def print_report(payload: dict[str, Any]) -> None:
     summary = _as_dict(payload.get("summary"))
     print(f"[post-apply-evidence-gate] ok={payload.get('ok')}")
@@ -122,6 +212,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--external-gate-json", required=True, help="Path to external_release_gate.py JSON evidence.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable validation JSON.")
     parser.add_argument("--json-out", help="Write machine-readable validation JSON.")
+    parser.add_argument("--manifest-out", help="Write a hash manifest for the post-apply evidence artifacts.")
     return parser.parse_args(argv)
 
 
@@ -156,7 +247,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_out:
         write_json_report(args.json_out, payload)
         print(f"[post-apply-evidence-gate] json written: {args.json_out}")
-    return 0 if payload["ok"] else 1
+    manifest: dict[str, Any] | None = None
+    if args.manifest_out:
+        manifest = build_evidence_manifest(
+            external_gate_path=evidence_path,
+            gate_payload=payload,
+            gate_report_path=args.json_out,
+        )
+        write_json_report(args.manifest_out, manifest)
+        print(f"[post-apply-evidence-gate] manifest written: {args.manifest_out}")
+    return 0 if payload["ok"] and (manifest is None or manifest["ok"]) else 1
 
 
 if __name__ == "__main__":

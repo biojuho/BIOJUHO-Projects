@@ -261,10 +261,15 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     )
     assert plan["post_apply_completion_evidence"]["promotion_gate_json_out"] == "var/post-apply-evidence-gate.json"
     assert (
+        plan["post_apply_completion_evidence"]["promotion_manifest_json_out"]
+        == "var/post-apply-evidence-manifest.json"
+    )
+    assert (
         plan["post_apply_completion_evidence"]["promotion_gate_command"]
         == "python scripts/post_apply_evidence_gate.py "
         "--external-gate-json var/external-release-gate-post-apply-all.json "
-        "--json-out var/post-apply-evidence-gate.json"
+        "--json-out var/post-apply-evidence-gate.json "
+        "--manifest-out var/post-apply-evidence-manifest.json"
     )
     assert plan["post_apply_completion_evidence"]["provider_json_outputs"] == {
         "railway": "var/external-release-gate-post-apply-railway.json"
@@ -291,6 +296,7 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "external-release-gate-post-apply-railway.json" in markdown
     assert "post_apply_evidence_gate.py" in markdown
     assert "post-apply-evidence-gate.json" in markdown
+    assert "post-apply-evidence-manifest.json" in markdown
     assert "PowerShell: `Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>'" in markdown
     assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
 
@@ -315,6 +321,10 @@ def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaki
     assert plan["operator_status"]["completion_marker"] == "external_release_gate.ok=true"
     assert "external_release_gate.py" in plan["operator_status"]["next_required_action"]
     assert plan["post_apply_completion_evidence"]["aggregate_json_out"] == "var/external-release-gate-post-apply-all.json"
+    assert (
+        plan["post_apply_completion_evidence"]["promotion_manifest_json_out"]
+        == "var/post-apply-evidence-manifest.json"
+    )
     assert plan["providers"][0]["ready_to_apply"] is True
     assert plan["providers"][0]["blank_key_count"] == 0
     assert "super-secret" not in serialized

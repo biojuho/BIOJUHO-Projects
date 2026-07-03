@@ -87,6 +87,79 @@ def test_post_apply_evidence_gate_writes_json_report_atomically(tmp_path: Path) 
     assert not (tmp_path / "post-apply-gate.json.tmp").exists()
 
 
+def test_post_apply_evidence_manifest_records_gate_and_report_hashes(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    source = external_gate_payload()
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    artifacts = {item["role"]: item for item in manifest["artifacts"]}
+
+    assert manifest["ok"] is True
+    assert manifest["promotion_gate"]["ok"] is True
+    assert manifest["artifact_count"] == 2
+    assert manifest["missing_required_count"] == 0
+    assert manifest["secret_marker_count"] == 0
+    assert set(artifacts) == {"external_gate_json", "post_apply_evidence_gate_json"}
+    assert artifacts["external_gate_json"]["exists"] is True
+    assert artifacts["external_gate_json"]["bytes"] > 0
+    assert len(artifacts["external_gate_json"]["sha256"]) == 64
+    assert artifacts["post_apply_evidence_gate_json"]["exists"] is True
+    assert len(artifacts["post_apply_evidence_gate_json"]["sha256"]) == 64
+
+
+def test_post_apply_evidence_manifest_fails_for_missing_or_secret_artifacts(tmp_path: Path) -> None:
+    unsafe_log = tmp_path / "unsafe.log"
+    unsafe_log.write_text("token=ghp_abc123", encoding="utf-8")
+
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=tmp_path / "missing-external-gate.json",
+        gate_payload={"ok": True},
+        extra_artifacts=[{"path": unsafe_log, "role": "operator_log"}],
+    )
+    artifacts = {item["role"]: item for item in manifest["artifacts"]}
+
+    assert manifest["ok"] is False
+    assert manifest["missing_required_count"] == 1
+    assert manifest["secret_marker_count"] >= 1
+    assert artifacts["external_gate_json"]["exists"] is False
+    assert artifacts["operator_log"]["ok"] is False
+    assert "github_token" in artifacts["operator_log"]["secret_marker_names"]
+
+
+def test_post_apply_evidence_gate_cli_writes_report_and_manifest(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    external_path.write_text(json.dumps(external_gate_payload()), encoding="utf-8")
+
+    rc = post_apply_evidence_gate.main(
+        [
+            "--external-gate-json",
+            str(external_path),
+            "--json-out",
+            str(report_path),
+            "--manifest-out",
+            str(manifest_path),
+        ]
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    roles = {item["role"] for item in manifest["artifacts"]}
+    assert rc == 0
+    assert report["ok"] is True
+    assert manifest["ok"] is True
+    assert roles == {"external_gate_json", "post_apply_evidence_gate_json"}
+
+
 def test_post_apply_evidence_gate_cli_reports_missing_json(tmp_path: Path) -> None:
     output = tmp_path / "gate.json"
     missing = tmp_path / "missing.json"
