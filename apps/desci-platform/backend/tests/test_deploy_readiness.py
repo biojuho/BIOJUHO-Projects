@@ -588,3 +588,45 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
     assert written["schema_version"] == 1
     assert written["sources"]["product_smoke_json"] == str(product_path)
     assert not (output_path.parent / "handoff.json.tmp").exists()
+
+
+def test_release_handoff_env_template_contains_only_unresolved_keys(tmp_path: Path) -> None:
+    product_payload = _product_smoke_handoff_payload(
+        [
+            {
+                "id": "auth",
+                "required": True,
+                "status": "fail",
+                "remediation": "Set Firebase credentials.",
+                "required_env": ["GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_SERVICE_ACCOUNT_JSON"],
+            },
+            {
+                "id": "grobid",
+                "required": False,
+                "status": "warn",
+                "remediation": "Set GROBID.",
+                "required_env": ["GROBID_ENABLED", "GROBID_URL"],
+            },
+        ]
+    )
+    env = _ready_env()
+    env.pop("FIREBASE_SERVICE_ACCOUNT_JSON")
+    env.pop("GROBID_URL")
+    env["GROBID_ENABLED"] = "false"
+    checks = deploy_readiness.run_checks(env, targets=("railway", "vercel"))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway", "vercel"))
+    payload = release_handoff.build_handoff(product_payload, deploy_payload)
+    output_path = tmp_path / "release.env"
+
+    release_handoff.write_env_template(output_path, payload)
+
+    text = output_path.read_text(encoding="utf-8")
+    assert "# Firebase / Backend authentication" in text
+    assert "GOOGLE_APPLICATION_CREDENTIALS=" in text
+    assert "FIREBASE_SERVICE_ACCOUNT_JSON=" in text
+    assert "# GROBID / PDF parsing" in text
+    assert "GROBID_ENABLED=" in text
+    assert "GROBID_URL=" in text
+    assert "VITE_FIREBASE_API_KEY=" not in text
+    assert "not-a-real-test-private-key" not in text
+    assert text.count("FIREBASE_SERVICE_ACCOUNT_JSON=") == 1
