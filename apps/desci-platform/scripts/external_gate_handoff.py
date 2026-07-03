@@ -272,6 +272,23 @@ def _markdown_scalar(value: Any) -> str:
     return str(value)
 
 
+def _github_command_data(value: Any) -> str:
+    return (
+        str(value)
+        .replace("%", "%25")
+        .replace("\r", "%0D")
+        .replace("\n", "%0A")
+    )
+
+
+def _github_command_property(value: Any) -> str:
+    return (
+        _github_command_data(value)
+        .replace(":", "%3A")
+        .replace(",", "%2C")
+    )
+
+
 def _provider_actions_with_env(payload: dict[str, Any], provider: str) -> list[dict[str, Any]]:
     provider_key = provider.strip().lower()
     actions: list[dict[str, Any]] = []
@@ -1733,6 +1750,35 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
     return "\n".join(lines).rstrip() + "\n"
 
 
+def provider_apply_workflow_github_annotations(payload: dict[str, Any]) -> list[str]:
+    title = "DeSci provider apply workflow"
+    if payload.get("ok") is True:
+        message = "Provider apply workflow verified; release promotion can proceed."
+        return [f"::notice title={_github_command_property(title)}::{_github_command_data(message)}"]
+
+    failures = _string_list(payload.get("failures"))
+    if not failures:
+        failures = ["provider apply workflow verification failed"]
+    annotations = [
+        (
+            f"::error title={_github_command_property(title)}::"
+            f"{_github_command_data(failure)}"
+        )
+        for failure in failures[:10]
+    ]
+    if len(failures) > 10:
+        annotations.append(
+            f"::warning title={_github_command_property(title)}::"
+            f"{_github_command_data(f'{len(failures) - 10} additional workflow failures omitted')}"
+        )
+    return annotations
+
+
+def print_provider_apply_workflow_github_annotations(payload: dict[str, Any]) -> None:
+    for annotation in provider_apply_workflow_github_annotations(payload):
+        print(annotation)
+
+
 def write_markdown_report(path: str | Path, payload: dict[str, Any]) -> Path:
     return write_text_report(path, render_markdown_report(payload))
 
@@ -1879,6 +1925,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="With --verify-provider-apply-workflow, append Markdown evidence to GITHUB_STEP_SUMMARY.",
     )
+    parser.add_argument(
+        "--github-annotations",
+        action="store_true",
+        help="With --verify-provider-apply-workflow, print GitHub Actions notice/error annotations.",
+    )
     parser.add_argument("--provider-template-dir", help="Write no-secret env templates split by provider target.")
     parser.add_argument("--preserve-provider-templates", action="store_true", help="Do not overwrite existing provider templates.")
     parser.add_argument("--provider-template-index-out", help="Write an audit index for generated provider templates.")
@@ -1925,6 +1976,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.github_step_summary and not args.verify_provider_apply_workflow:
         print(
             "[external-gate-handoff] --github-step-summary requires --verify-provider-apply-workflow",
+            file=sys.stderr,
+        )
+        return 2
+    if args.github_annotations and not args.verify_provider_apply_workflow:
+        print(
+            "[external-gate-handoff] --github-annotations requires --verify-provider-apply-workflow",
             file=sys.stderr,
         )
         return 2
@@ -2114,6 +2171,8 @@ def main(argv: list[str] | None = None) -> int:
                     "[external-gate-handoff] "
                     f"provider apply workflow GitHub step summary appended: {summary_path}"
                 )
+        if args.github_annotations:
+            print_provider_apply_workflow_github_annotations(verification)
         return 0 if verification["ok"] else 1
 
     if args.verify_provider_apply_results:

@@ -958,7 +958,7 @@ def test_external_gate_handoff_provider_apply_results_recorder_redacts_secret_sh
 def test_external_gate_handoff_cli_records_provider_apply_results_dry_run(
     tmp_path: Path,
 ) -> None:
-    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"', ready=False)
     output_path = tmp_path / "apply-results-dry-run.json"
 
     rc = external_gate_handoff.main(
@@ -1100,6 +1100,19 @@ def test_external_gate_handoff_provider_apply_workflow_markdown_reports_resoluti
     assert "Keep the release blocked" in markdown
 
 
+def test_external_gate_handoff_provider_apply_workflow_github_annotations_escape_values() -> None:
+    annotations = external_gate_handoff.provider_apply_workflow_github_annotations(
+        {
+            "ok": False,
+            "failures": ["bad 50% value\nwith newline, colon: detail"],
+        }
+    )
+
+    assert annotations == [
+        "::error title=DeSci provider apply workflow::bad 50%25 value%0Awith newline, colon: detail"
+    ]
+
+
 def test_external_gate_handoff_provider_apply_workflow_blocks_no_go_receipt(
     tmp_path: Path,
 ) -> None:
@@ -1218,6 +1231,30 @@ def test_external_gate_handoff_cli_writes_workflow_markdown_and_step_summary(
     assert "Proceed with the release promotion handoff." in summary
 
 
+def test_external_gate_handoff_cli_prints_workflow_github_annotations(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"', ready=False)
+    workflow_path = tmp_path / "workflow.json"
+
+    rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-workflow",
+            str(plan_path),
+            "--require-promotion-go",
+            "--json-out",
+            str(workflow_path),
+            "--github-annotations",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "::error title=DeSci provider apply workflow::provider apply plan is not ready" in captured.out
+    assert "::error title=DeSci provider apply workflow::provider apply results are not successful" in captured.out
+
+
 def test_external_gate_handoff_cli_rejects_step_summary_without_env(capsys, monkeypatch) -> None:
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
 
@@ -1232,6 +1269,14 @@ def test_external_gate_handoff_cli_rejects_step_summary_without_env(capsys, monk
 
     assert rc == 2
     assert "requires GITHUB_STEP_SUMMARY to be set" in captured.err
+
+
+def test_external_gate_handoff_cli_rejects_annotations_without_workflow(capsys) -> None:
+    rc = external_gate_handoff.main(["--github-annotations"])
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "--github-annotations requires --verify-provider-apply-workflow" in captured.err
 
 
 def test_external_gate_handoff_cli_rejects_workflow_artifacts_without_workflow(capsys) -> None:
