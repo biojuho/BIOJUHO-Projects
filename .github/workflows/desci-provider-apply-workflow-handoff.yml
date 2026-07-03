@@ -100,6 +100,16 @@ jobs:
             --markdown-summary-out var/desci-provider-workflow-artifact-index-summary.md \
             --append-github-step-summary
 
+      - name: Verify provider apply workflow artifact bundle
+        if: always()
+        run: |
+          uv run python ops/scripts/verify_desci_provider_workflow_artifact_bundle.py \
+            --index var/desci-provider-workflow-artifact-index-machine.json \
+            --artifact-root . \
+            --json-out var/desci-provider-workflow-artifact-bundle-verify.json \
+            --markdown-out var/desci-provider-workflow-artifact-bundle-verify.md \
+            --append-github-step-summary
+
       - name: Upload provider apply workflow artifacts
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
@@ -108,6 +118,8 @@ jobs:
           path: |
             var/desci-provider-workflow-artifact-index-machine.json
             var/desci-provider-workflow-artifact-index-summary.md
+            var/desci-provider-workflow-artifact-bundle-verify.json
+            var/desci-provider-workflow-artifact-bundle-verify.md
             var/external-release-gate-provider-workflow-machine.json
             var/external-gate-handoff-provider-workflow-machine.json
             var/external-gate-handoff-provider-workflow-machine.md
