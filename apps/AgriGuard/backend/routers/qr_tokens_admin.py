@@ -6,10 +6,12 @@ from datetime import UTC, datetime
 import models
 import schemas
 from auth import get_current_user, user_owner_keys, user_roles
-from dependencies import get_db
+from dependencies import get_tenant_rls_db
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from services.qr_tokens import build_public_qr_code, is_token_expired, reissue_qr_token, revoke_qr_token
 from sqlalchemy.orm import Session
+
+get_db = get_tenant_rls_db
 
 router = APIRouter(prefix="/qr-tokens")
 
@@ -146,7 +148,7 @@ def list_product_qr_tokens(
     token_status: str = Query(default="all", max_length=16),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_qr_token_operator),
 ) -> schemas.QRTokenListResponse:
     normalized_status = token_status.strip().lower()
@@ -195,7 +197,7 @@ def list_product_qr_tokens(
 def reissue_product_qr_token(
     product_id: str,
     request: schemas.QRTokenReissueRequest | None = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_qr_token_operator),
 ) -> schemas.QRTokenReissueResponse:
     product = _get_manageable_product(db, product_id, current_user)
@@ -241,7 +243,7 @@ def reissue_product_qr_token(
 @router.post("/{token_id}/revoke", response_model=schemas.QRTokenRevokeResponse)
 def revoke_product_qr_token(
     token_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_qr_token_operator),
 ) -> schemas.QRTokenRevokeResponse:
     qr_token = _get_manageable_qr_token(db, token_id, current_user)

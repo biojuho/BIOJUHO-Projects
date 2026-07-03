@@ -6,12 +6,14 @@ from datetime import UTC, datetime
 import models
 import schemas
 from auth import can_access_owner, get_current_user, is_operator_user, user_owner_keys
-from dependencies import get_db
+from dependencies import get_tenant_rls_db
 from fastapi import APIRouter, Depends, HTTPException, Query
 from services.chain_simulator import get_chain
 from services.qr_tokens import build_public_qr_code, issue_qr_token
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
+
+get_db = get_tenant_rls_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,7 +48,7 @@ def _get_visible_product(db: Session, product_id: str, current_user: dict) -> mo
 def create_product(
     product: schemas.ProductCreate,
     owner_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(get_current_user),
 ) -> models.Product:
     if not can_access_owner(current_user, owner_id):
@@ -81,7 +83,7 @@ def create_product(
 
 @router.get("/products/", response_model=list[schemas.Product])
 def list_products(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(get_current_user),
 ) -> list[models.Product]:
     return _scoped_products_query(db, current_user).all()
@@ -92,7 +94,7 @@ def list_products_page(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None, max_length=120),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(get_current_user),
 ) -> schemas.ProductPage:
     query = _scoped_products_query(db, current_user)
@@ -124,7 +126,7 @@ def list_products_page(
 @router.get("/products/{product_id}", response_model=schemas.Product)
 def get_product(
     product_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(get_current_user),
 ) -> models.Product:
     return _get_visible_product(db, product_id, current_user)
@@ -133,7 +135,7 @@ def get_product(
 @router.get("/products/{product_id}/history")
 def get_product_history(
     product_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     _get_visible_product(db, product_id, current_user)
@@ -147,7 +149,7 @@ def add_certification(
     product_id: str,
     cert_type: str,
     issued_by: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(get_current_user),
 ) -> models.Product:
     product = _get_visible_product(db, product_id, current_user)
@@ -186,7 +188,7 @@ def add_tracking_event(
     status: str,
     location: str,
     handler_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     _get_visible_product(db, product_id, current_user)

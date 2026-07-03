@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 import models
 import schemas
 from auth import get_current_user, user_owner_keys, user_roles
-from dependencies import get_db
+from dependencies import get_tenant_rls_db
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from services.mqtt_broker_provisioning import (
     build_acl_file,
@@ -16,6 +16,8 @@ from services.mqtt_broker_provisioning import (
 )
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
+get_db = get_tenant_rls_db
 
 router = APIRouter(prefix="/sensor-devices")
 
@@ -298,7 +300,7 @@ def list_sensor_devices(
     zone: str | None = Query(default=None, max_length=120),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.SensorDeviceListResponse:
     normalized_status = sensor_status.strip().lower()
@@ -350,7 +352,7 @@ def list_sensor_devices(
 def get_mqtt_broker_provisioning(
     password_file_path: str = Query(default="/etc/mosquitto/passwd", min_length=1, max_length=240),
     dynamic_security_role: str = Query(default="agriguard-sensor", min_length=1, max_length=80),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.MQTTBrokerProvisioningResponse:
     normalized_password_file_path = password_file_path.strip()
@@ -411,7 +413,7 @@ def get_mqtt_broker_provisioning(
     response_model=schemas.MQTTBrokerProvisioningEvidenceResponse,
 )
 def get_mqtt_broker_provisioning_evidence(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.MQTTBrokerProvisioningEvidenceResponse:
     latest = _latest_broker_provisioning_evidence(db, current_user)
@@ -429,7 +431,7 @@ def list_mqtt_broker_provisioning_evidence_history(
     broker_host: str | None = Query(default=None, max_length=160),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.MQTTBrokerProvisioningEvidenceHistoryResponse:
     normalized_broker_host = _normalize_optional_text(broker_host)
@@ -476,7 +478,7 @@ def list_mqtt_broker_provisioning_evidence_history(
 )
 def record_mqtt_broker_provisioning_evidence(
     request: schemas.MQTTBrokerProvisioningEvidenceRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.MQTTBrokerProvisioningEvidenceResponse:
     mode = request.mode.strip().lower()
@@ -534,7 +536,7 @@ def record_mqtt_broker_provisioning_evidence(
 
 @router.get("/unsupported-identities", response_model=schemas.UnsupportedSensorIdentityListResponse)
 def list_unsupported_sensor_identities(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.UnsupportedSensorIdentityListResponse:
     sensors = _broker_unsupported_sensors(db, current_user)
@@ -558,7 +560,7 @@ def list_unsupported_sensor_identities(
 @router.post("/unsupported-identities/disable", response_model=schemas.UnsupportedSensorIdentityCleanupResponse)
 def disable_unsupported_sensor_identities(
     request: schemas.UnsupportedSensorIdentityCleanupRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.UnsupportedSensorIdentityCleanupResponse:
     requested_sensor_ids = _normalized_cleanup_sensor_ids(request.sensor_ids)
@@ -612,7 +614,7 @@ def disable_unsupported_sensor_identities(
 @router.post("/unsupported-identities/reissue", response_model=schemas.UnsupportedSensorIdentityReissueResponse)
 def reissue_unsupported_sensor_identity(
     request: schemas.UnsupportedSensorIdentityReissueRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.UnsupportedSensorIdentityReissueResponse:
     old_sensor_id = request.old_sensor_id.strip()
@@ -703,7 +705,7 @@ def list_mqtt_rejections(
     reason: str | None = Query(default=None, max_length=80),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.MQTTRejectionListResponse:
     cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=window_hours)
@@ -765,7 +767,7 @@ def list_mqtt_rejections(
 def upsert_sensor_device(
     request: schemas.SensorDeviceUpsertRequest,
     sensor_id: str = Path(min_length=1, max_length=120),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.SensorDeviceActionResponse:
     normalized_sensor_id = _normalize_registry_sensor_id(sensor_id)
@@ -849,7 +851,7 @@ def _set_sensor_active_state(
 @router.post("/{sensor_id}/disable", response_model=schemas.SensorDeviceActionResponse)
 def disable_sensor_device(
     sensor_id: str = Path(min_length=1, max_length=120),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.SensorDeviceActionResponse:
     return _set_sensor_active_state(
@@ -864,7 +866,7 @@ def disable_sensor_device(
 @router.post("/{sensor_id}/reactivate", response_model=schemas.SensorDeviceActionResponse)
 def reactivate_sensor_device(
     sensor_id: str = Path(min_length=1, max_length=120),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_rls_db),
     current_user: dict = Depends(require_sensor_operator),
 ) -> schemas.SensorDeviceActionResponse:
     return _set_sensor_active_state(
