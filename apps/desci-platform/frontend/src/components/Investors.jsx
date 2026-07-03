@@ -19,6 +19,90 @@ const STAGE_OPTIONS = [
 ];
 
 const COUNTRY_OPTIONS = ['', 'KR', 'US', 'FR'];
+const FALLBACK_NOTICE_COPY = {
+  empty: 'Live VC sync returned no entries, so the curated launch directory is shown.',
+  load: 'Live VC sync is unavailable, so the curated launch directory is shown.',
+};
+
+const LAUNCH_DIRECTORY_VCS = Object.freeze([
+  {
+    id: 'vc-kip-001',
+    name: 'Korea Investment Partners',
+    country: 'KR',
+    website: 'https://www.kipvc.com',
+    investment_thesis: 'Leading biotech investor in Korea with a focus on drug discovery, digital health, medical devices, and global expansion.',
+    preferred_stages: ['Series A', 'Series B', 'Growth'],
+    portfolio_keywords: ['Oncology', 'CNS', 'Medical Device', 'Digital Health', 'Global'],
+    contact_email: 'bio@kipvc.com',
+  },
+  {
+    id: 'vc-intervest-002',
+    name: 'InterVest',
+    country: 'KR',
+    website: 'https://www.intervest.co.kr',
+    investment_thesis: 'Deep-tech and biotech specialist backing gene therapy, cell therapy, and AI-driven drug discovery platforms.',
+    preferred_stages: ['Seed', 'Series A'],
+    portfolio_keywords: ['Gene Therapy', 'AI Drug Discovery', 'Platform Technology'],
+    contact_email: 'invest@intervest.co.kr',
+  },
+  {
+    id: 'vc-dsc-003',
+    name: 'DSC Investment',
+    country: 'KR',
+    website: 'https://www.dscinvestment.com',
+    investment_thesis: 'Investor in digital healthcare, telemedicine, and bio-IT convergence companies with rapid execution signals.',
+    preferred_stages: ['Pre-Series A', 'Series A', 'Series B'],
+    portfolio_keywords: ['Digital Health', 'Telemedicine', 'Bio-IT Convergence'],
+    contact_email: 'hello@dsc.co.kr',
+  },
+  {
+    id: 'vc-kb-004',
+    name: 'KB Investment',
+    country: 'KR',
+    website: 'https://www.kbic.co.kr',
+    investment_thesis: 'Financial group VC arm focused on clinical biotech, pre-IPO companies, and pharma partnership opportunities.',
+    preferred_stages: ['Series B', 'Series C', 'Pre-IPO'],
+    portfolio_keywords: ['Late Stage Clinical', 'Pharma Partnership', 'Pre-IPO'],
+    contact_email: 'bio_team@kbic.co.kr',
+  },
+  {
+    id: 'vc-bluepoint-005',
+    name: 'Bluepoint Partners',
+    country: 'KR',
+    website: 'https://bluepoint.ac',
+    investment_thesis: 'Deep-tech accelerator investing in scientist-founders from lab validation to company formation.',
+    preferred_stages: ['Seed', 'Pre-Series A'],
+    portfolio_keywords: ['Deep Tech', 'Synthetic Biology', 'Diagnostics', 'Accelerator'],
+    contact_email: 'apply@bluepoint.ac',
+  },
+]);
+
+function normalizeStringArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean).map((item) => String(item)) : [];
+}
+
+function normalizeVcRecord(vc, index) {
+  return {
+    id: String(vc?.id || `launch-vc-${index + 1}`),
+    name: String(vc?.name || 'Unnamed investor').trim(),
+    country: String(vc?.country || 'KR').trim().toUpperCase(),
+    website: String(vc?.website || ''),
+    investment_thesis: String(vc?.investment_thesis || ''),
+    preferred_stages: normalizeStringArray(vc?.preferred_stages),
+    portfolio_keywords: normalizeStringArray(vc?.portfolio_keywords),
+    contact_email: String(vc?.contact_email || ''),
+  };
+}
+
+function normalizeVcList(data) {
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data
+    .map((vc, index) => normalizeVcRecord(vc, index))
+    .filter((vc) => vc.id && vc.name);
+}
 
 function safeExternalWebUrl(candidate) {
   if (!candidate) return '';
@@ -139,7 +223,7 @@ export default function Investors() {
   });
   const [allVcs, setAllVcs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [fallbackReason, setFallbackReason] = useState(null);
   const [country, setCountry] = useState('');
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -156,13 +240,20 @@ export default function Investors() {
       try {
         const response = await client.get('/vcs', { params: { limit: 500 } });
         if (!cancelled) {
-          setAllVcs(Array.isArray(response.data) ? response.data : []);
-          setError(null);
+          const rows = normalizeVcList(response.data);
+          if (rows.length > 0) {
+            setAllVcs(rows);
+            setFallbackReason(null);
+          } else {
+            setAllVcs(LAUNCH_DIRECTORY_VCS);
+            setFallbackReason('empty');
+          }
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Failed to fetch VCs:', err);
-          setError(tRef.current('investors.loadFailed'));
+          console.warn('Failed to fetch VCs; using launch directory fallback.', err);
+          setAllVcs(LAUNCH_DIRECTORY_VCS);
+          setFallbackReason('load');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -249,10 +340,14 @@ export default function Investors() {
         </div>
       </GlassCard>
 
-      {error && (
-        <GlassCard className="p-6 text-center">
-          <p className="font-semibold text-error-dark">{error}</p>
-        </GlassCard>
+      {fallbackReason && !loading && (
+        <div data-testid="investors-fallback-banner" role="status">
+          <GlassCard className="p-4">
+            <p className="text-sm font-medium text-ink-muted">
+              {FALLBACK_NOTICE_COPY[fallbackReason]}
+            </p>
+          </GlassCard>
+        </div>
       )}
 
       <p className="text-sm text-ink-muted">

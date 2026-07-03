@@ -632,10 +632,21 @@ def test_browser_smoke_public_action_checks_include_public_click_paths() -> None
         "landing-cta-intent",
         "explore-analyze-intent",
         "investors-filter-directory",
+        "investors-seed-directory-fallback",
         "pricing-enterprise-contact-intent",
         "pricing-layout-inset",
         "public-touch-targets",
     ]
+
+
+def test_investors_seed_directory_fallback_smoke_mocks_empty_vc_list() -> None:
+    source = inspect.getsource(browser_smoke._run_investors_seed_directory_fallback_check)  # pylint: disable=protected-access
+
+    assert 'vcs_route_pattern = "**/vcs?*"' in source
+    assert "fulfill_empty_vcs" in source
+    assert "json.dumps([])" in source
+    assert "investors-fallback-banner" in source
+    assert "investor-card-vc-kip-001" in source
 
 
 def test_browser_smoke_anonymous_action_checks_include_paid_plan_login_redirect() -> None:

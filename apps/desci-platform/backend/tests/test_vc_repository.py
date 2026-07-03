@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 
 import pytest
+from models import VCFirm
 
 
 @pytest.fixture(autouse=True)
@@ -32,6 +33,80 @@ def test_pg_backend_selected_when_database_url_set(monkeypatch):
     vc_repo.reset_vc_repository()
     repo = vc_repo.get_vc_repository()
     assert repo.backend == "postgres"
+
+
+@pytest.mark.asyncio
+async def test_pg_runtime_failure_falls_back_to_memory_seed():
+    import services.vc_repository as vc_repo
+
+    class FailingPostgresRepository:
+        backend = "postgres"
+
+        async def list_vcs(self, **kwargs):  # noqa: ANN001, ARG002
+            raise RuntimeError("postgres tenant not found")
+
+        async def get_vc(self, vc_id):  # noqa: ANN001, ARG002
+            raise RuntimeError("postgres tenant not found")
+
+    repo = vc_repo.ResilientVCRepository(
+        FailingPostgresRepository(),
+        vc_repo.MemoryVCRepository(),
+    )
+
+    rows = await repo.list_vcs(limit=3)
+    assert len(rows) == 3
+    assert rows[0].id
+
+    hit = await repo.get_vc("vc-kip-001")
+    assert hit is not None
+    assert hit.country == "KR"
+
+
+@pytest.mark.asyncio
+async def test_pg_empty_unfiltered_list_falls_back_to_memory_seed():
+    import services.vc_repository as vc_repo
+
+    class EmptyPostgresRepository:
+        backend = "postgres"
+
+        async def list_vcs(self, **kwargs):  # noqa: ANN001, ARG002
+            return []
+
+        async def get_vc(self, vc_id):  # noqa: ANN001, ARG002
+            return None
+
+    repo = vc_repo.ResilientVCRepository(
+        EmptyPostgresRepository(),
+        vc_repo.MemoryVCRepository(),
+    )
+
+    rows = await repo.list_vcs(limit=3)
+
+    assert len(rows) == 3
+    assert rows[0].id
+
+
+@pytest.mark.asyncio
+async def test_pg_empty_filtered_list_stays_empty():
+    import services.vc_repository as vc_repo
+
+    class EmptyPostgresRepository:
+        backend = "postgres"
+
+        async def list_vcs(self, **kwargs):  # noqa: ANN001, ARG002
+            return []
+
+        async def get_vc(self, vc_id):  # noqa: ANN001, ARG002
+            return None
+
+    repo = vc_repo.ResilientVCRepository(
+        EmptyPostgresRepository(),
+        vc_repo.MemoryVCRepository(),
+    )
+
+    rows = await repo.list_vcs(country="AQ", limit=3)
+
+    assert rows == []
 
 
 def test_pg_backend_falls_back_when_asyncpg_missing(monkeypatch):
@@ -86,6 +161,49 @@ async def test_list_vcs_filters_by_stage_and_keyword():
 
     oncology = await repo.list_vcs(keyword="oncology", limit=200)
     assert oncology, "expected oncology-related VCs in the seed"
+
+
+def test_filter_in_memory_combines_case_insensitive_predicates():
+    import services.vc_repository as vc_repo
+
+    rows = [
+        VCFirm(
+            id="hit",
+            name="Nova Seed Capital",
+            country="KR",
+            website="https://example.com",
+            investment_thesis="Oncology therapeutics",
+            preferred_stages=["Seed", "Series A"],
+            portfolio_keywords=["biotech"],
+        ),
+        VCFirm(
+            id="wrong-country",
+            name="Nova US",
+            country="US",
+            website="https://example.com",
+            investment_thesis="Oncology therapeutics",
+            preferred_stages=["Seed"],
+            portfolio_keywords=["biotech"],
+        ),
+        VCFirm(
+            id="wrong-stage",
+            name="Nova Growth",
+            country="KR",
+            website="https://example.com",
+            investment_thesis="Oncology therapeutics",
+            preferred_stages=["Growth"],
+            portfolio_keywords=["biotech"],
+        ),
+    ]
+
+    filtered = vc_repo._filter_in_memory(
+        rows,
+        country="kr",
+        stage="seed",
+        keyword="ONCOLOGY",
+    )
+
+    assert [vc.id for vc in filtered] == ["hit"]
 
 
 @pytest.mark.asyncio

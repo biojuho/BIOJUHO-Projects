@@ -63,24 +63,37 @@ def _filter_in_memory(
     stage_norm = stage.lower() if stage else None
     keyword_norm = keyword.lower() if keyword else None
 
-    out: list[VCFirm] = []
-    for vc in vcs:
-        if country_norm and vc.country.upper() != country_norm:
-            continue
-        if stage_norm and not any(s.lower() == stage_norm for s in vc.preferred_stages):
-            continue
-        if keyword_norm:
-            haystack = " ".join(
-                [
-                    vc.name,
-                    vc.investment_thesis or "",
-                    " ".join(vc.portfolio_keywords),
-                ]
-            ).lower()
-            if keyword_norm not in haystack:
-                continue
-        out.append(vc)
-    return out
+    return [
+        vc
+        for vc in vcs
+        if _matches_country(vc, country_norm)
+        and _matches_stage(vc, stage_norm)
+        and _matches_keyword(vc, keyword_norm)
+    ]
+
+
+def _matches_country(vc: VCFirm, country_norm: str | None) -> bool:
+    return country_norm is None or vc.country.upper() == country_norm
+
+
+def _matches_stage(vc: VCFirm, stage_norm: str | None) -> bool:
+    return stage_norm is None or any(
+        stage.lower() == stage_norm for stage in vc.preferred_stages
+    )
+
+
+def _matches_keyword(vc: VCFirm, keyword_norm: str | None) -> bool:
+    if keyword_norm is None:
+        return True
+
+    haystack = " ".join(
+        [
+            vc.name,
+            vc.investment_thesis or "",
+            " ".join(vc.portfolio_keywords),
+        ]
+    ).lower()
+    return keyword_norm in haystack
 
 
 class MemoryVCRepository:
@@ -125,7 +138,7 @@ class PostgresVCRepository:
         self._database_url = database_url
         self._pool = None
 
-    async def _get_pool(self):
+    async def _get_pool(self) -> object:
         if self._pool is None:
             import asyncpg
 
@@ -190,6 +203,57 @@ class PostgresVCRepository:
             self._pool = None
 
 
+class ResilientVCRepository:
+    """Postgres-first repository with memory fallback for runtime outages."""
+
+    backend = "postgres"
+
+    def __init__(self, primary: VCRepository, fallback: VCRepository | None = None) -> None:
+        self._primary = primary
+        self._fallback = fallback or MemoryVCRepository()
+
+    async def list_vcs(
+        self,
+        *,
+        country: str | None = None,
+        stage: str | None = None,
+        keyword: str | None = None,
+        limit: int = 100,
+    ) -> list[VCFirm]:
+        try:
+            rows = await self._primary.list_vcs(country=country, stage=stage, keyword=keyword, limit=limit)
+            if not rows and country is None and stage is None and keyword is None:
+                log.warning(
+                    "vc_repository_empty_primary_fallback",
+                    operation="list_vcs",
+                )
+                return await self._fallback.list_vcs(country=country, stage=stage, keyword=keyword, limit=limit)
+            return rows
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "vc_repository_runtime_fallback",
+                operation="list_vcs",
+                error_type=type(exc).__name__,
+            )
+            return await self._fallback.list_vcs(country=country, stage=stage, keyword=keyword, limit=limit)
+
+    async def get_vc(self, vc_id: str) -> VCFirm | None:
+        try:
+            return await self._primary.get_vc(vc_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "vc_repository_runtime_fallback",
+                operation="get_vc",
+                error_type=type(exc).__name__,
+            )
+            return await self._fallback.get_vc(vc_id)
+
+    async def close(self) -> None:
+        close = getattr(self._primary, "close", None)
+        if close is not None:
+            await close()
+
+
 _repository: VCRepository | None = None
 
 
@@ -205,7 +269,7 @@ def _build_repository() -> VCRepository:
             )
         else:
             log.info("vc_repository_backend", backend="postgres")
-            return PostgresVCRepository(database_url)
+            return ResilientVCRepository(PostgresVCRepository(database_url))
     log.info("vc_repository_backend", backend="memory")
     return MemoryVCRepository()
 

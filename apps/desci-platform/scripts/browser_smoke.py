@@ -6608,10 +6608,80 @@ def _run_investors_filter_directory_check(page, base_url: str, timeout_ms: int) 
     return failures
 
 
+def _run_investors_seed_directory_fallback_check(page, base_url: str, timeout_ms: int) -> list[str]:
+    route_name = "investors-seed-directory-fallback"
+    failures: list[str] = []
+    console_errors: list[str] = []
+    page_errors: list[str] = []
+    vcs_route_pattern = "**/vcs?*"
+
+    def collect_console(message) -> None:
+        if message.type == "error":
+            console_errors.append(message.text)
+
+    def collect_page_error(error) -> None:
+        page_errors.append(str(error))
+
+    def fulfill_empty_vcs(route) -> None:
+        request = route.request
+        if request.method.upper() != "GET" or request.resource_type not in {"fetch", "xhr"}:
+            route.continue_()
+            return
+        route.fulfill(status=200, content_type="application/json", body=json.dumps([]))
+
+    page.on("console", collect_console)
+    page.on("pageerror", collect_page_error)
+    page.route(vcs_route_pattern, fulfill_empty_vcs)
+
+    try:
+        page.add_init_script(
+            """
+            (() => {
+              window.localStorage.setItem('dsci.locale', 'en-US');
+              window.localStorage.setItem('dsci.outputLanguage', 'en');
+            })();
+            """
+        )
+        response = _goto_app_route(page, base_url, "/investors", timeout_ms)
+        status = response.status if response is not None else 0
+        if status >= 400:
+            failures.append(f"{route_name}: HTTP status {status}")
+
+        fallback_banner = page.get_by_test_id("investors-fallback-banner")
+        fallback_banner.wait_for(state="visible", timeout=timeout_ms)
+        fallback_text = fallback_banner.inner_text(timeout=timeout_ms)
+        if "curated launch directory" not in fallback_text:
+            failures.append(f"{route_name}: fallback banner copy mismatch: {fallback_text!r}")
+
+        seed_card = page.get_by_test_id("investor-card-vc-kip-001")
+        seed_card.wait_for(state="visible", timeout=timeout_ms)
+        page.get_by_text("Korea Investment Partners").first.wait_for(state="visible", timeout=timeout_ms)
+
+        empty_state_count = page.get_by_text("No investors match your filters").count()
+        if empty_state_count:
+            failures.append(f"{route_name}: rendered empty state while seed directory fallback was active")
+
+        result_count = page.get_by_test_id("investors-result-count").inner_text(timeout=timeout_ms)
+        if "5" not in result_count:
+            failures.append(f"{route_name}: result count did not include fallback seed count: {result_count!r}")
+    except PlaywrightTimeoutError as exc:
+        failures.append(f"{route_name}: timed out ({exc})")
+    except PlaywrightError as exc:
+        failures.append(f"{route_name}: browser error ({exc})")
+    finally:
+        page.remove_listener("console", collect_console)
+        page.remove_listener("pageerror", collect_page_error)
+        page.unroute(vcs_route_pattern, fulfill_empty_vcs)
+
+    failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
+    return failures
+
+
 PUBLIC_ACTION_CHECKS = (
     ("landing-cta-intent", "/ -> /explore, /pricing, /login or /upload", _run_landing_cta_intent_check),
     ("explore-analyze-intent", "/explore -> /login or /biolinker", _run_explore_analyze_intent_check),
     ("investors-filter-directory", "/investors", _run_investors_filter_directory_check),
+    ("investors-seed-directory-fallback", "/investors empty /vcs -> launch seed directory", _run_investors_seed_directory_fallback_check),
     ("pricing-enterprise-contact-intent", "/pricing enterprise -> sales contact", _run_pricing_enterprise_contact_intent_check),
     ("pricing-layout-inset", "/pricing responsive layout", _run_pricing_layout_inset_check),
     ("public-touch-targets", "/, /explore, /investors, /pricing mobile touch targets", _run_public_touch_targets_check),
