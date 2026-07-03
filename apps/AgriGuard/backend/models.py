@@ -80,6 +80,14 @@ class QRScanEvent(Base):
         Index("ix_qr_scan_events_session_id", "session_id"),
         Index("ix_qr_scan_events_event_type", "event_type"),
         Index("ix_qr_scan_events_occurred_at", "occurred_at"),
+        Index("ix_qr_scan_events_occurred_session_event", "occurred_at", "session_id", "event_type"),
+        Index(
+            "ix_qr_scan_events_variant_occurred_session_event",
+            "variant_id",
+            "occurred_at",
+            "session_id",
+            "event_type",
+        ),
     )
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))

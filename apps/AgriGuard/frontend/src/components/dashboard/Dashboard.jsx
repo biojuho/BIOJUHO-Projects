@@ -1,19 +1,42 @@
 import { useState, useEffect } from 'react';
-import { Activity, Package, ShieldCheck, Thermometer, AlertTriangle, CheckCircle2, TrendingUp, MapPin } from 'lucide-react';
+import { Activity, Package, ShieldCheck, Thermometer, AlertTriangle, CheckCircle2, TrendingUp, MapPin, Clock3 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
-import api from '../../services/api';
+import api, { withOperatorAuth } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 
+const QR_KPI_TIMEZONE_STORAGE_KEY = 'agriguard.qrKpi.reportingTimezone';
+const DEFAULT_REPORTING_TIMEZONES = ['UTC', 'Asia/Seoul', 'America/Los_Angeles', 'Europe/Amsterdam'];
+
+function getBrowserTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
+function getInitialReportingTimezone() {
+  try {
+    return window.localStorage.getItem(QR_KPI_TIMEZONE_STORAGE_KEY) || getBrowserTimezone();
+  } catch {
+    return getBrowserTimezone();
+  }
+}
+
+function getReportingTimezoneOptions(selectedTimezone) {
+  return Array.from(new Set([getBrowserTimezone(), ...DEFAULT_REPORTING_TIMEZONES, selectedTimezone].filter(Boolean)));
+}
+
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [qrKpis, setQrKpis] = useState(null);
+  const [qrKpiTrend, setQrKpiTrend] = useState(null);
+  const [qrKpiTimezone, setQrKpiTimezone] = useState(getInitialReportingTimezone);
+  const [qrKpiError, setQrKpiError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { showToast } = useToast();
 
   useEffect(() => {
-    api.get('/dashboard/summary')
+    api.get('/dashboard/summary', withOperatorAuth())
       .then(res => {
         setData(res.data);
         setLoading(false);
@@ -24,6 +47,50 @@ export default function Dashboard() {
         showToast('백엔드 연결 실패: 포트 8002 서버를 확인해주세요.', 'error');
       });
   }, [showToast]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(QR_KPI_TIMEZONE_STORAGE_KEY, qrKpiTimezone);
+    } catch {
+      // Storage is optional; the selected timezone still applies for the active session.
+    }
+  }, [qrKpiTimezone]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    Promise.allSettled([
+      api.get('/qr-events/kpis'),
+      api.get('/qr-events/kpis/trend', { params: { days: 7, timezone: qrKpiTimezone } }),
+    ])
+      .then(([kpiResult, trendResult]) => {
+        if (isCancelled) return;
+
+        if (kpiResult.status === 'fulfilled') {
+          setQrKpis(kpiResult.value.data);
+          setQrKpiError(null);
+        } else {
+          setQrKpis(null);
+          setQrKpiError(kpiResult.reason?.message || 'QR KPI data unavailable');
+        }
+
+        if (trendResult.status === 'fulfilled') {
+          setQrKpiTrend(trendResult.value.data);
+        } else {
+          setQrKpiTrend(null);
+        }
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        setQrKpis(null);
+        setQrKpiTrend(null);
+        setQrKpiError(err.message || 'QR KPI data unavailable');
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [qrKpiTimezone]);
 
   if (loading) return <DashboardSkeleton />;
 
@@ -61,6 +128,15 @@ export default function Dashboard() {
           실시간 데이터
         </Badge>
       </div>
+
+      <ConsumerQrKpiStrip
+        qrKpis={qrKpis}
+        trend={qrKpiTrend}
+        error={qrKpiError}
+        selectedTimezone={qrKpiTimezone}
+        timezoneOptions={getReportingTimezoneOptions(qrKpiTimezone)}
+        onTimezoneChange={setQrKpiTimezone}
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -182,6 +258,169 @@ export default function Dashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function formatPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0%';
+  return `${Math.round(numeric * 1000) / 10}%`;
+}
+
+function formatKpiStatus(status) {
+  if (status === 'on_track') return 'On track';
+  if (status === 'below_target') return 'Below target';
+  return 'No data';
+}
+
+function formatTrendDate(date) {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: '2-digit', timeZone: 'UTC' });
+}
+
+function kpiTone(status) {
+  if (status === 'on_track') {
+    return {
+      border: 'border-emerald-500/25',
+      bg: 'bg-emerald-500/10',
+      text: 'text-emerald-300',
+      badge: 'success',
+      icon: <ShieldCheck className="h-4 w-4" />,
+    };
+  }
+  if (status === 'below_target') {
+    return {
+      border: 'border-amber-500/25',
+      bg: 'bg-amber-500/10',
+      text: 'text-amber-300',
+      badge: 'warning',
+      icon: <AlertTriangle className="h-4 w-4" />,
+    };
+  }
+  return {
+    border: 'border-slate-500/25',
+    bg: 'bg-slate-500/10',
+    text: 'text-slate-300',
+    badge: 'secondary',
+    icon: <Activity className="h-4 w-4" />,
+  };
+}
+
+function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOptions, onTimezoneChange }) {
+  const successTone = kpiTone(qrKpis?.scan_success_status);
+  const dailyTone = kpiTone(qrKpis?.daily_scan_status);
+  const trendItems = Array.isArray(trend?.items) ? trend.items : [];
+  const trendScope = trend?.variant_id === 'all' ? 'All variants' : trend?.variant_id;
+
+  return (
+    <Card className="border-sky-500/20 bg-sky-500/[0.04]">
+      <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Activity className="h-4 w-4 text-sky-300" />
+          Consumer QR KPIs
+        </CardTitle>
+        <label htmlFor="qr-kpi-reporting-timezone" className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Clock3 className="h-3.5 w-3.5 text-sky-300" />
+          <span>Reporting day</span>
+          <select
+            id="qr-kpi-reporting-timezone"
+            value={selectedTimezone}
+            onChange={(event) => onTimezoneChange(event.target.value)}
+            className="h-8 max-w-[220px] rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {timezoneOptions.map((timezone) => (
+              <option key={timezone} value={timezone}>
+                {timezone}
+              </option>
+            ))}
+          </select>
+        </label>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+            QR KPI service unavailable: {error}
+          </div>
+        )}
+        {qrKpis ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className={`rounded-lg border p-4 ${successTone.border} ${successTone.bg}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">QR scan success</p>
+                  <p className="mt-2 text-3xl font-bold text-foreground">{formatPercent(qrKpis.scan_success_rate)}</p>
+                </div>
+                <Badge variant={successTone.badge} className="gap-1.5">
+                  {successTone.icon}
+                  {formatKpiStatus(qrKpis.scan_success_status)}
+                </Badge>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {qrKpis.scan_success_sessions} of {qrKpis.scan_start_sessions} scan sessions reached verification.
+                Target {formatPercent(qrKpis.target_scan_success_rate)}.
+              </p>
+            </div>
+            <div className={`rounded-lg border p-4 ${dailyTone.border} ${dailyTone.bg}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Consumer scans today</p>
+                  <p className="mt-2 text-3xl font-bold text-foreground">{qrKpis.consumer_scan_sessions}</p>
+                </div>
+                <Badge variant={dailyTone.badge} className="gap-1.5">
+                  {dailyTone.icon}
+                  {formatKpiStatus(qrKpis.daily_scan_status)}
+                </Badge>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-black/20">
+                <div
+                  className="h-full rounded-full bg-sky-400"
+                  style={{ width: `${Math.round((qrKpis.daily_scan_progress || 0) * 100)}%` }}
+                />
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Target {qrKpis.target_daily_scans.toLocaleString()} scans in {qrKpis.hours} hours.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+            QR KPI data has not loaded yet.
+          </p>
+        )}
+        {trendItems.length > 0 && (
+          <div className="mt-5 border-t border-border pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-foreground">7-day QR trend</p>
+              <span className="text-xs text-muted-foreground">
+                {trendScope} / {trend?.timezone || 'UTC'}
+              </span>
+            </div>
+            <div className="mt-3 overflow-x-auto">
+              <div
+                className="grid min-w-[680px] overflow-hidden rounded-md border border-border/70"
+                style={{ gridTemplateColumns: `repeat(${trendItems.length}, minmax(88px, 1fr))` }}
+              >
+                {trendItems.map((item) => {
+                  const tone = kpiTone(item.scan_success_status);
+                  return (
+                    <div key={item.date} className="min-w-0 border-l border-border/70 px-3 py-2 first:border-l-0">
+                      <p className="truncate text-xs font-medium text-muted-foreground">{formatTrendDate(item.date)}</p>
+                      <p className={`mt-1 text-sm font-semibold ${tone.text}`}>
+                        {formatPercent(item.scan_success_rate)}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {item.verification_complete_sessions.toLocaleString()} scans
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

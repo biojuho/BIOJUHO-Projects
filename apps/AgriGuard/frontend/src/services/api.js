@@ -37,7 +37,7 @@ export function setOperatorToken(token) {
   window.localStorage.removeItem('agriguard-operator-token');
 }
 
-function withOperatorAuth(config = {}) {
+export function withOperatorAuth(config = {}) {
   const token = getOperatorToken();
   if (!token) {
     return config;

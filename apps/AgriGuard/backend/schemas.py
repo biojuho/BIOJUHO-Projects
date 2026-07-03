@@ -53,6 +53,7 @@ class ProductPage(BaseModel):
     page_size: int
     total_pages: int
 
+
 class UserBase(BaseModel):
     role: str  # Farmer, Distributor, Retailer, Consumer
     name: str
@@ -110,6 +111,46 @@ class QRScanEventCreate(BaseModel):
 class QRScanEventResponse(BaseModel):
     status: str
     event_id: str
+
+
+class QRKPISummaryResponse(BaseModel):
+    status: str
+    hours: int
+    variant_id: str
+    since: datetime
+    scan_start_sessions: int
+    scan_success_sessions: int
+    scan_failure_sessions: int
+    verification_complete_sessions: int
+    consumer_scan_sessions: int
+    scan_success_rate: float
+    target_scan_success_rate: float
+    scan_success_status: str
+    target_daily_scans: int
+    daily_scan_progress: float
+    daily_scan_status: str
+
+
+class QRKPITrendPoint(BaseModel):
+    date: str
+    scan_start_sessions: int
+    scan_success_sessions: int
+    verification_complete_sessions: int
+    scan_success_rate: float
+    daily_scan_progress: float
+    scan_success_status: str
+    daily_scan_status: str
+
+
+class QRKPITrendResponse(BaseModel):
+    status: str
+    days: int
+    variant_id: str
+    timezone: str
+    target_scan_success_rate: float
+    target_daily_scans: int
+    items: list[QRKPITrendPoint] = Field(default_factory=list)
+
 
 class QRTrustBadge(BaseModel):
     status: str
