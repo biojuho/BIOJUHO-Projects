@@ -6755,6 +6755,19 @@ AUTHENTICATED_ACTION_CHECKS = (
 )
 
 
+LAUNCH_CLICK_SUITE_CHECKS = (
+    "landing-cta-intent",
+    "explore-analyze-intent",
+    "pricing-enterprise-contact-intent",
+    "dashboard-quick-upload-click",
+    "dashboard-readiness-refresh",
+    "pricing-checkout-mocked",
+    "upload-form-readiness",
+    "upload-submit-receipt",
+    "asset-upload-readiness",
+)
+
+
 def _run_check(page, base_url: str, check: RouteCheck, timeout_ms: int) -> list[str]:
     failures: list[str] = []
     console_errors: list[str] = []
@@ -6883,6 +6896,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "and validate protected screens instead of anonymous redirects."
         ),
     )
+    parser.add_argument(
+        "--launch-click-suite",
+        action="store_true",
+        help=(
+            "Run the launch-critical browser click preset. Requires --expect-dev-auth "
+            "because it covers dashboard, checkout, upload, and asset paths."
+        ),
+    )
     parser.add_argument("--json-out", help="Optional JSON evidence output file")
     parser.add_argument(
         "--trace-on-failure-dir",
@@ -6891,8 +6912,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _requested_check_names(args: argparse.Namespace) -> set[str]:
+    requested = set(args.only_check or [])
+    if args.launch_click_suite:
+        requested.update(LAUNCH_CLICK_SUITE_CHECKS)
+    return requested
+
+
 def _selected_by_name(args: argparse.Namespace, name: str) -> bool:
-    return not args.only_check or name in set(args.only_check)
+    requested = _requested_check_names(args)
+    return not requested or name in requested
 
 
 def _base_checks_for_args(args: argparse.Namespace) -> list[RouteCheck]:
@@ -6935,13 +6964,16 @@ def _should_run_login_validation(args: argparse.Namespace) -> bool:
 
 
 def _validate_only_checks(args: argparse.Namespace) -> None:
-    if not args.only_check:
+    if args.launch_click_suite and not args.expect_dev_auth:
+        raise ValueError("--launch-click-suite requires --expect-dev-auth")
+    requested = _requested_check_names(args)
+    if not requested:
         return
     available = {check.name for check in _base_checks_for_args(args)}
     available.update(check[0] for check in _base_action_checks_for_args(args))
     if not args.skip_login_validation:
         available.add("login-validation")
-    missing = sorted(set(args.only_check) - available)
+    missing = sorted(requested - available)
     if missing:
         raise ValueError(f"Unknown or unavailable browser smoke check(s): {', '.join(missing)}")
 
@@ -6957,6 +6989,7 @@ def write_json_report(
     skip_protected: bool | None = None,
     skip_login_validation: bool | None = None,
     expect_dev_auth: bool | None = None,
+    launch_click_suite: bool | None = None,
 ) -> None:
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -6964,6 +6997,7 @@ def write_json_report(
     if failures and not failed_count:
         failed_count = len(failures)
     launch_control = browser_launch_control_report(reports)
+    launch_click_suite_report = browser_launch_click_suite_report(reports) if launch_click_suite else None
     trace_artifacts = [
         {"check_name": report.name, "path": report.trace_path}
         for report in reports
@@ -6978,6 +7012,7 @@ def write_json_report(
         "skip_protected": skip_protected,
         "skip_login_validation": skip_login_validation,
         "expect_dev_auth": expect_dev_auth,
+        "launch_click_suite": launch_click_suite,
         "playwright_available": playwright_available,
         "summary": {
             "total": len(reports),
@@ -6985,6 +7020,7 @@ def write_json_report(
             "failed": failed_count,
         },
         "launch_control": launch_control,
+        "launch_click_suite_report": launch_click_suite_report,
         "trace_artifacts": trace_artifacts,
         "failures": failures,
         "checks": [],
@@ -7001,6 +7037,10 @@ def write_json_report(
         payload["checks"].append(check_payload)
     if launch_control is None:
         payload.pop("launch_control")
+    if launch_click_suite is None:
+        payload.pop("launch_click_suite")
+    if launch_click_suite_report is None:
+        payload.pop("launch_click_suite_report")
     if not trace_artifacts:
         payload.pop("trace_artifacts")
     write_json_atomic(output_path, payload, trailing_newline=True)
@@ -7039,6 +7079,23 @@ def browser_launch_control_report(reports: list[BrowserCheckReport]) -> dict[str
     if next_action_required_env:
         report["next_action_required_env"] = next_action_required_env
     return report
+
+
+def browser_launch_click_suite_report(reports: list[BrowserCheckReport]) -> dict[str, Any]:
+    report_by_name = {report.name: report for report in reports}
+    selected_reports = [report_by_name[name] for name in LAUNCH_CLICK_SUITE_CHECKS if name in report_by_name]
+    missing = [name for name in LAUNCH_CLICK_SUITE_CHECKS if name not in report_by_name]
+    failed = [report.name for report in selected_reports if not report.ok]
+    return {
+        "suite": "launch-click",
+        "expected_check_count": len(LAUNCH_CLICK_SUITE_CHECKS),
+        "executed_check_count": len(selected_reports),
+        "passed_check_count": sum(1 for report in selected_reports if report.ok),
+        "failed_check_count": len(failed),
+        "missing_checks": missing,
+        "failed_checks": failed,
+        "check_names": list(LAUNCH_CLICK_SUITE_CHECKS),
+    }
 
 
 def _launch_action_coverage(next_actions: list[Any]) -> tuple[list[str], list[str]]:
@@ -7086,6 +7143,7 @@ def main(argv: list[str] | None = None) -> int:
                 skip_protected=args.skip_protected,
                 skip_login_validation=args.skip_login_validation,
                 expect_dev_auth=args.expect_dev_auth,
+                launch_click_suite=args.launch_click_suite,
             )
         return 2
 
@@ -7178,6 +7236,7 @@ def main(argv: list[str] | None = None) -> int:
             skip_protected=args.skip_protected,
             skip_login_validation=args.skip_login_validation,
             expect_dev_auth=args.expect_dev_auth,
+            launch_click_suite=args.launch_click_suite,
         )
 
     if failures:

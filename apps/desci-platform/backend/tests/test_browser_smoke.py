@@ -408,6 +408,48 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
     }
 
 
+def test_browser_smoke_json_evidence_exposes_launch_click_suite(tmp_path) -> None:
+    output = tmp_path / "browser-smoke-launch-click-suite.json"
+    reports = [
+        browser_smoke.BrowserCheckReport(name=name, path=f"/{name}", ok=True, failures=[])
+        for name in browser_smoke.LAUNCH_CLICK_SUITE_CHECKS[:-1]
+    ]
+    reports.append(
+        browser_smoke.BrowserCheckReport(
+            name=browser_smoke.LAUNCH_CLICK_SUITE_CHECKS[-1],
+            path="/assets",
+            ok=False,
+            failures=["asset-upload-readiness: missing uploader"],
+        )
+    )
+
+    browser_smoke.write_json_report(
+        output,
+        frontend="http://frontend",
+        reports=reports,
+        failures=["asset-upload-readiness: missing uploader"],
+        playwright_available=True,
+        timeout_seconds=15.0,
+        skip_protected=False,
+        skip_login_validation=True,
+        expect_dev_auth=True,
+        launch_click_suite=True,
+    )
+
+    payload = browser_smoke.json.loads(output.read_text(encoding="utf-8"))
+    assert payload["launch_click_suite"] is True
+    assert payload["launch_click_suite_report"] == {
+        "suite": "launch-click",
+        "expected_check_count": len(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS),
+        "executed_check_count": len(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS),
+        "passed_check_count": len(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS) - 1,
+        "failed_check_count": 1,
+        "missing_checks": [],
+        "failed_checks": ["asset-upload-readiness"],
+        "check_names": list(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS),
+    }
+
+
 def test_browser_smoke_json_evidence_records_failure_traces(tmp_path) -> None:
     output = tmp_path / "browser-smoke-trace.json"
     trace_path = tmp_path / "traces" / "pricing.trace.zip"
@@ -504,9 +546,41 @@ def test_browser_smoke_parse_args_accepts_json_out_and_login_validation_skip() -
     assert args.frontend == "http://frontend"
     assert args.skip_login_validation is True
     assert args.expect_dev_auth is False
+    assert args.launch_click_suite is False
     assert args.only_check == []
     assert args.json_out == "browser.json"
     assert args.trace_on_failure_dir is None
+
+
+def test_browser_smoke_launch_click_suite_selects_release_click_paths() -> None:
+    args = browser_smoke.parse_args([
+        "--frontend",
+        "http://frontend",
+        "--expect-dev-auth",
+        "--launch-click-suite",
+    ])
+
+    browser_smoke._validate_only_checks(args)  # pylint: disable=protected-access
+    assert browser_smoke._checks_for_args(args) == []  # pylint: disable=protected-access
+    assert [check[0] for check in browser_smoke._action_checks_for_args(args)] == list(  # pylint: disable=protected-access
+        browser_smoke.LAUNCH_CLICK_SUITE_CHECKS
+    )
+    assert browser_smoke._should_run_login_validation(args) is False  # pylint: disable=protected-access
+
+
+def test_browser_smoke_launch_click_suite_requires_dev_auth() -> None:
+    args = browser_smoke.parse_args([
+        "--frontend",
+        "http://frontend",
+        "--launch-click-suite",
+    ])
+
+    try:
+        browser_smoke._validate_only_checks(args)  # pylint: disable=protected-access
+    except ValueError as exc:
+        assert "--launch-click-suite requires --expect-dev-auth" in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("expected launch click suite without dev auth to raise ValueError")
 
 
 def test_browser_smoke_only_check_filters_available_dev_auth_check() -> None:
