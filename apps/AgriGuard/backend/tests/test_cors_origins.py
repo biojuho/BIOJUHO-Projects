@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -50,6 +51,15 @@ def test_backend_dockerfile_uses_existing_dependency_manifest() -> None:
     assert "COPY pyproject.toml" in dockerfile
     assert "pip install --no-cache-dir ." in dockerfile
     assert "requirements.txt" not in dockerfile
+
+
+def test_frontend_dockerfile_uses_node_runtime_matching_package_engine() -> None:
+    dockerfile = (WORKSPACE_ROOT / "apps/AgriGuard/frontend/Dockerfile").read_text(encoding="utf-8")
+    package = json.loads((WORKSPACE_ROOT / "apps/AgriGuard/frontend/package.json").read_text(encoding="utf-8"))
+
+    assert package["engines"]["node"].startswith(">=24")
+    assert "FROM node:24-alpine AS build" in dockerfile
+    assert "FROM node:22" not in dockerfile
 
 
 def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
