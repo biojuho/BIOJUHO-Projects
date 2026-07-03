@@ -11,7 +11,9 @@ from urllib.parse import urlparse
 
 MIN_SECRET_LENGTH = 32
 MIN_QR_TOKEN_PEPPER_LENGTH = 32
+MIN_DATABASE_PASSWORD_LENGTH = 16
 PLACEHOLDER_SECRETS = {
+    "agriguard_secret",
     "change_me",
     "changeme",
     "change-me",
@@ -73,11 +75,50 @@ def _database_url_for_runtime(env: dict[str, str], runtime: str) -> tuple[str, s
         value = (env.get("AGRIGUARD_DATABASE_URL") or "").strip()
         return value, "AGRIGUARD_DATABASE_URL" if value else None
 
-    value = (env.get("AGRIGUARD_DATABASE_URL") or "").strip()
-    if value:
-        return value, "AGRIGUARD_DATABASE_URL"
     value = (env.get("DATABASE_URL") or "").strip()
     return value, "DATABASE_URL" if value else None
+
+
+def _is_postgresql_url(value: str) -> bool:
+    scheme = urlparse(value).scheme.lower().split("+", 1)[0]
+    return scheme in {"postgres", "postgresql"}
+
+
+def _database_password_errors(password: str, *, source: str) -> list[str]:
+    if not password:
+        return [f"{source} must include a database password for launch."]
+    if _is_placeholder_value(password):
+        return [f"{source} uses a placeholder or development-only database password."]
+    if len(password) < MIN_DATABASE_PASSWORD_LENGTH:
+        return [f"{source} database password must be at least {MIN_DATABASE_PASSWORD_LENGTH} characters."]
+    return []
+
+
+def _database_credential_errors(
+    env: dict[str, str],
+    *,
+    runtime: str,
+    database_url: str,
+    database_url_source: str | None,
+) -> tuple[list[str], str | None]:
+    if database_url:
+        parsed = urlparse(database_url)
+        password_source = f"{database_url_source} password"
+        return _database_password_errors(parsed.password or "", source=password_source), password_source
+
+    if runtime == "compose":
+        db_password = (env.get("AGRIGUARD_DB_PASSWORD") or "").strip()
+        if not db_password:
+            return [
+                "Set AGRIGUARD_DB_PASSWORD or AGRIGUARD_DATABASE_URL before compose launch."
+            ], None
+        return _database_password_errors(db_password, source="AGRIGUARD_DB_PASSWORD"), "AGRIGUARD_DB_PASSWORD"
+
+    if (env.get("AGRIGUARD_DATABASE_URL") or "").strip():
+        return [
+            "Set DATABASE_URL for direct backend launch; AGRIGUARD_DATABASE_URL is only bridged by compose."
+        ], None
+    return ["Set DATABASE_URL before direct backend launch."], None
 
 
 def _auto_create_schema_for_runtime(env: dict[str, str], runtime: str) -> tuple[str, str]:
@@ -284,6 +325,15 @@ def validate_launch_env_with_options(
     database_url, database_url_source = _database_url_for_runtime(env, runtime)
     if database_url.lower().startswith("sqlite"):
         errors.append(f"Use a PostgreSQL {database_url_source} for launch, not SQLite.")
+    elif database_url and not _is_postgresql_url(database_url):
+        errors.append(f"Use a PostgreSQL {database_url_source} for launch.")
+    database_credential_errors, database_password_source = _database_credential_errors(
+        env,
+        runtime=runtime,
+        database_url=database_url,
+        database_url_source=database_url_source,
+    )
+    errors.extend(database_credential_errors)
 
     origins, origins_source = _allowed_origins_for_runtime(env, runtime)
     if "*" in origins:
@@ -315,6 +365,8 @@ def validate_launch_env_with_options(
             "auto_create_schema_source": auto_create_schema_source,
             "database_url_present": bool(database_url),
             "database_url_source": database_url_source,
+            "database_password_source": database_password_source,
+            "database_password_min_length": MIN_DATABASE_PASSWORD_LENGTH,
             "allowed_origins_count": len(origins),
             "allowed_origins_source": origins_source,
             "allow_runtime_default_origins": allow_runtime_default_origins,

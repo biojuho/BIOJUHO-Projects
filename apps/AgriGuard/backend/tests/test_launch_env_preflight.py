@@ -16,9 +16,10 @@ def _healthy_env() -> dict[str, str]:
     return {
         "AGRIGUARD_SECRET_KEY": "s" * 32,
         "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
-        "AGRIGUARD_DATABASE_URL": "postgresql://agriguard:secret@postgres:5432/agriguard",
+        "AGRIGUARD_DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@postgres:5432/agriguard",
         "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
     }
 
 
@@ -45,6 +46,7 @@ def test_launch_env_preflight_compose_rejects_generic_secret_by_default() -> Non
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -60,6 +62,7 @@ def test_launch_env_preflight_compose_can_allow_generic_secret_for_local_checks(
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         },
         allow_generic_secret_key=True,
     )
@@ -76,6 +79,7 @@ def test_launch_env_preflight_direct_mode_requires_backend_secret_key() -> None:
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         },
         runtime="direct",
     )
@@ -97,6 +101,7 @@ def test_launch_env_preflight_rejects_missing_qr_token_pepper() -> None:
             "AGRIGUARD_SECRET_KEY": "s" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -111,6 +116,7 @@ def test_launch_env_preflight_compose_rejects_generic_qr_token_pepper_by_default
             "QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -129,6 +135,7 @@ def test_launch_env_preflight_compose_can_allow_generic_qr_token_pepper_for_loca
             "QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         },
         allow_generic_qr_token_pepper=True,
     )
@@ -145,6 +152,7 @@ def test_launch_env_preflight_direct_mode_requires_backend_qr_token_pepper() -> 
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "ALLOWED_ORIGINS": "https://generic.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
         },
         runtime="direct",
     )
@@ -163,6 +171,7 @@ def test_launch_env_preflight_rejects_placeholder_qr_token_pepper() -> None:
             "AGRIGUARD_QR_TOKEN_PEPPER": "change_me_qr_token_hash_pepper",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -177,6 +186,7 @@ def test_launch_env_preflight_rejects_short_qr_token_pepper() -> None:
             "AGRIGUARD_QR_TOKEN_PEPPER": "too-short",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -204,6 +214,7 @@ def test_launch_env_preflight_compose_rejects_generic_public_verify_base_url_by_
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -222,6 +233,7 @@ def test_launch_env_preflight_compose_can_allow_generic_public_verify_base_url_f
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         },
         allow_generic_public_verify_base_url=True,
     )
@@ -238,6 +250,8 @@ def test_launch_env_preflight_direct_mode_requires_backend_public_verify_base_ur
             "QR_TOKEN_PEPPER": "p" * 32,
             "ALLOWED_ORIGINS": "https://generic.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
         },
         runtime="direct",
     )
@@ -256,6 +270,7 @@ def test_launch_env_preflight_rejects_insecure_public_verify_base_url() -> None:
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "http://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -270,6 +285,7 @@ def test_launch_env_preflight_rejects_public_verify_base_url_with_path() -> None
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example/app",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -284,6 +300,7 @@ def test_launch_env_preflight_can_allow_local_public_verify_base_url_for_local_c
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://localhost:5173",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         },
         allow_local_public_verify_base_url=True,
     )
@@ -298,6 +315,7 @@ def test_launch_env_preflight_can_allow_legacy_qr_scheme_for_local_checks() -> N
             "AGRIGUARD_SECRET_KEY": "s" * 32,
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         },
         allow_legacy_qr_scheme=True,
     )
@@ -313,6 +331,7 @@ def test_launch_env_preflight_rejects_short_secret() -> None:
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -345,6 +364,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_auto_create_schema() -> 
             "AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -362,6 +382,7 @@ def test_launch_env_preflight_direct_mode_rejects_host_auto_create_schema() -> N
             "AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
         },
         runtime="direct",
     )
@@ -378,6 +399,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_database_url() -> None:
             "DATABASE_URL": "sqlite:///workspace-default.db",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         }
     )
 
@@ -405,6 +427,7 @@ def test_launch_env_preflight_can_allow_runtime_default_origins_for_local_checks
             "AGRIGUARD_SECRET_KEY": "s" * 32,
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
         },
         allow_runtime_default_origins=True,
     )
@@ -421,6 +444,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins_but_requ
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "ALLOWED_ORIGINS": "https://generic.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
         }
     )
 
@@ -437,6 +461,7 @@ def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None
             "QR_TOKEN_PEPPER": "p" * 32,
             "ALLOWED_ORIGINS": "https://generic.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
         },
         runtime="direct",
     )
@@ -475,6 +500,81 @@ def test_launch_env_preflight_direct_mode_rejects_host_sqlite_database_url() -> 
     assert "Use a PostgreSQL DATABASE_URL for launch, not SQLite." in report["errors"]
 
 
+def test_launch_env_preflight_compose_requires_database_password_without_database_url() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+            "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "Set AGRIGUARD_DB_PASSWORD or AGRIGUARD_DATABASE_URL before compose launch." in report["errors"]
+
+
+def test_launch_env_preflight_compose_rejects_default_database_password() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+            "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+            "AGRIGUARD_DB_PASSWORD": "agriguard_secret",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "AGRIGUARD_DB_PASSWORD uses a placeholder or development-only database password." in report["errors"]
+
+
+def test_launch_env_preflight_rejects_database_url_without_password() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
+            "AGRIGUARD_DATABASE_URL": "postgresql://agriguard@postgres:5432/agriguard",
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+            "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "AGRIGUARD_DATABASE_URL password must include a database password for launch." in report["errors"]
+
+
+def test_launch_env_preflight_direct_mode_requires_backend_database_url() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
+            "ALLOWED_ORIGINS": "https://generic.example",
+            "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "fail"
+    assert "Set DATABASE_URL before direct backend launch." in report["errors"]
+
+
+def test_launch_env_preflight_direct_mode_rejects_app_scoped_database_url() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
+            "AGRIGUARD_DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@postgres:5432/agriguard",
+            "ALLOWED_ORIGINS": "https://generic.example",
+            "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "fail"
+    assert "Set DATABASE_URL for direct backend launch; AGRIGUARD_DATABASE_URL is only bridged by compose." in report["errors"]
+
+
 def test_launch_env_preflight_passes_with_strong_secret_and_scoped_origins() -> None:
     report = launch_env_preflight.validate_launch_env(_healthy_env())
 
@@ -489,7 +589,7 @@ def test_launch_env_preflight_loads_env_file_and_environment_override(tmp_path: 
             [
                 "AGRIGUARD_SECRET_KEY=change_me",
                 "AGRIGUARD_QR_TOKEN_PEPPER=change_me_qr_token_hash_pepper",
-                "AGRIGUARD_DATABASE_URL=postgresql://agriguard:secret@postgres:5432/agriguard",
+                "AGRIGUARD_DATABASE_URL=postgresql://agriguard:dbpassword1234567890@postgres:5432/agriguard",
                 "AGRIGUARD_ALLOWED_ORIGINS=https://agriguard.example",
                 "AGRIGUARD_PUBLIC_VERIFY_BASE_URL=https://verify.agriguard.example",
             ]
@@ -523,6 +623,7 @@ def test_launch_report_can_allow_runtime_default_origins_for_local_checks() -> N
         "AGRIGUARD_SECRET_KEY": "s" * 32,
         "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
     }
 
     report = launch_env_preflight.build_launch_report(
@@ -540,6 +641,7 @@ def test_launch_report_can_allow_generic_secret_for_local_compose_checks() -> No
         "QR_TOKEN_PEPPER": "p" * 32,
         "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
     }
 
     report = launch_env_preflight.build_launch_report(
