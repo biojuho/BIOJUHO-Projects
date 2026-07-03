@@ -87,12 +87,27 @@ jobs:
 
           exit 0
 
+      - name: Write provider apply workflow artifact index
+        if: always()
+        env:
+          EXTERNAL_RELEASE_GATE_EXIT_CODE: ${{ steps.provider-apply-workflow.outputs.external_exit_code }}
+          PROVIDER_HANDOFF_EXIT_CODE: ${{ steps.provider-apply-workflow.outputs.handoff_exit_code }}
+          PROVIDER_APPLY_RESULTS_EXIT_CODE: ${{ steps.provider-apply-workflow.outputs.results_exit_code }}
+          PROVIDER_WORKFLOW_VERIFY_EXIT_CODE: ${{ steps.provider-apply-workflow.outputs.verify_exit_code }}
+        run: |
+          uv run python ops/scripts/write_desci_provider_workflow_artifact_index.py \
+            --json-out var/desci-provider-workflow-artifact-index-machine.json \
+            --markdown-summary-out var/desci-provider-workflow-artifact-index-summary.md \
+            --append-github-step-summary
+
       - name: Upload provider apply workflow artifacts
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: provider-apply-workflow-handoff-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
+            var/desci-provider-workflow-artifact-index-machine.json
+            var/desci-provider-workflow-artifact-index-summary.md
             var/external-release-gate-provider-workflow-machine.json
             var/external-gate-handoff-provider-workflow-machine.json
             var/external-gate-handoff-provider-workflow-machine.md
