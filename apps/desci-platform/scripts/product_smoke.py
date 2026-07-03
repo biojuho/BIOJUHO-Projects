@@ -472,6 +472,71 @@ def launch_handoff_report(reports: list[dict[str, Any]]) -> dict[str, Any] | Non
     }
 
 
+def launch_env_handoff_report(launch_handoff: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(launch_handoff, dict):
+        return None
+    next_actions = launch_handoff.get("next_actions")
+    if not isinstance(next_actions, list):
+        return None
+
+    required_actions = _launch_actions_by_required(next_actions, required=True)
+    optional_actions = _launch_actions_by_required(next_actions, required=False)
+    required_env = _launch_actions_required_env(required_actions)
+    optional_env = _ordered_difference(_launch_actions_required_env(optional_actions), required_env)
+    return {
+        "schema_version": 1,
+        "status": _launch_env_handoff_status(required_env, optional_env),
+        "secret_policy": "placeholder_only_no_secret_values",
+        "required_action_ids": _launch_action_ids(required_actions),
+        "optional_action_ids": _launch_action_ids(optional_actions),
+        "required_env": required_env,
+        "optional_env": optional_env,
+        "operator_copy_lines": _launch_env_operator_copy_lines(required_env, optional_env),
+    }
+
+
+def _launch_actions_by_required(actions: list[Any], *, required: bool) -> list[dict[str, Any]]:
+    return [
+        action
+        for action in actions
+        if isinstance(action, dict) and action.get("required") is required and action.get("status") in {"fail", "warn"}
+    ]
+
+
+def _launch_actions_required_env(actions: list[dict[str, Any]]) -> list[str]:
+    _action_ids, required_env = _launch_action_coverage(actions)
+    return required_env
+
+
+def _launch_action_ids(actions: list[dict[str, Any]]) -> list[str]:
+    action_ids, _required_env = _launch_action_coverage(actions)
+    return action_ids
+
+
+def _launch_env_handoff_status(required_env: list[str], optional_env: list[str]) -> str:
+    if required_env:
+        return "blocked"
+    if optional_env:
+        return "watch"
+    return "clear"
+
+
+def _launch_env_operator_copy_lines(required_env: list[str], optional_env: list[str]) -> list[str]:
+    lines: list[str] = [
+        "# DSCI launch env handoff",
+        "# Replace placeholders in the target secret manager or runtime env.",
+    ]
+    if required_env:
+        lines.append("# Required before release")
+        lines.extend(f"{name}=<set-secure-value>" for name in required_env)
+    if optional_env:
+        lines.append("# Optional before public launch hardening")
+        lines.extend(f"{name}=<set-secure-value>" for name in optional_env)
+    if len(lines) == 2:
+        lines.append("# No launch env blockers reported by product smoke.")
+    return lines
+
+
 def ready_web3_report(reports: list[dict[str, Any]]) -> dict[str, Any] | None:
     ready_report = next((report for report in reports if report.get("name") == "ready"), None)
     if ready_report is None:
@@ -715,6 +780,7 @@ def run_checks(args: argparse.Namespace) -> list[str]:
 def write_json_report(path: str | Path, *, failures: list[str], reports: list[dict[str, Any]], args: argparse.Namespace) -> None:
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    launch_handoff = launch_handoff_report(reports)
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -730,7 +796,8 @@ def write_json_report(path: str | Path, *, failures: list[str], reports: list[di
             "failed": sum(1 for report in reports if report.get("ok") is False),
             "strict_ready": bool(args.strict_ready),
         },
-        "launch_handoff": launch_handoff_report(reports),
+        "launch_handoff": launch_handoff,
+        "launch_env_handoff": launch_env_handoff_report(launch_handoff),
         "ready_web3": ready_web3_report(reports),
         "ready_launch_action_coverage": ready_launch_action_coverage_report(reports),
         "failures": failures,
