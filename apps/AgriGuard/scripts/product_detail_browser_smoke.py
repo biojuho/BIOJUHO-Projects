@@ -143,6 +143,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     observations: dict[str, object] = {}
     console_messages: list[dict[str, str]] = []
     request_failures: list[dict[str, str]] = []
+    external_qr_requests: list[str] = []
     page_errors: list[dict[str, str]] = []
     screenshot_dir = Path(args.screenshot_dir)
     screenshot_dir.mkdir(parents=True, exist_ok=True)
@@ -175,11 +176,17 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
             "requestfailed",
             lambda req: request_failures.append({"url": req.url, "failure": req.failure or "unknown"}),
         )
+        page.on(
+            "request",
+            lambda req: external_qr_requests.append(req.url)
+            if "api.qrserver.com" in req.url
+            else None,
+        )
         page.on("pageerror", lambda exc: page_errors.append({"message": str(exc)}))
 
         page.goto(route_url(args.base_url, f"/product/{product_id}"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         page.get_by_role("heading", name=product_name).wait_for(timeout=args.timeout_ms)
-        page.get_by_alt_text("QR Code").wait_for(timeout=args.timeout_ms)
+        page.get_by_role("img", name="Product verification QR").wait_for(timeout=args.timeout_ms)
         initial_text = body_text(page)
         initial_metrics = read_metrics(page)
         observations["initial"] = {
@@ -191,7 +198,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("product_id_visible", product_id in initial_text, product_id))
         checks.append(check("origin_visible", "Detail Smoke Farm" in initial_text))
         checks.append(check("cold_chain_visible", "Required (Strict)" in initial_text))
-        checks.append(check("qr_code_visible", page.get_by_alt_text("QR Code").is_visible()))
+        checks.append(check("local_qr_code_visible", page.get_by_role("img", name="Product verification QR").is_visible()))
         checks.append(check("initial_no_horizontal_overflow", has_no_horizontal_overflow(initial_metrics), str(initial_metrics)))
         page.screenshot(path=str(screenshot_dir / "product-detail-initial.png"), full_page=False)
 
@@ -243,6 +250,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     ]
     checks.append(check("no_page_errors", not page_errors, json.dumps(page_errors[:3])))
     checks.append(check("no_request_failures", not request_failures, json.dumps(request_failures[:3])))
+    checks.append(check("no_external_qr_requests", not external_qr_requests, json.dumps(external_qr_requests[:3])))
     checks.append(check("no_console_errors", not critical_logs, json.dumps(critical_logs[:3])))
 
     ok = all(item["ok"] for item in checks)
@@ -257,6 +265,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         "observations": observations,
         "consoleMessages": console_messages,
         "requestFailures": request_failures,
+        "externalQrRequests": external_qr_requests,
         "pageErrors": page_errors,
         "screenshotDir": str(screenshot_dir),
     }

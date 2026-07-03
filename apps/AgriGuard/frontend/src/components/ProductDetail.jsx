@@ -4,6 +4,7 @@ import { Sprout, Loader2, ArrowLeft, ThermometerSnowflake, MapPin, Calendar, Che
 import { hasOperatorToken, productApi } from '../services/api';
 import { trackQrEvent } from '../services/qrAnalytics';
 import ProductTimeline from './ProductTimeline';
+import QRTracker from './QRTracker';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
@@ -224,6 +225,7 @@ export default function ProductDetail() {
   }
 
   const { product, history } = data;
+  const qrCodeValue = String(product.qr_code || product.id);
   const formInputClass = "w-full bg-white/5 border border-input rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
 
   return (
@@ -255,8 +257,10 @@ export default function ProductDetail() {
 
             <Card className="min-w-[200px]">
               <CardContent className="p-4">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(product.qr_code)}&bgcolor=22C55E`} alt="QR Code" className="w-full rounded-lg mb-2 opacity-90 hover:opacity-100 transition-opacity" />
-                <p className="text-center text-xs text-muted-foreground font-mono break-all">{product.qr_code}</p>
+                <div className="flex justify-center mb-2">
+                  <QRTracker value={qrCodeValue} ariaLabel="Product verification QR" />
+                </div>
+                <p className="text-center text-xs text-muted-foreground font-mono break-all">{qrCodeValue}</p>
               </CardContent>
             </Card>
           </div>
