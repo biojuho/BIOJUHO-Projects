@@ -106,6 +106,13 @@ def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
     assert "ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-" not in compose
 
 
+def test_agriguard_compose_postgres_healthcheck_uses_configured_database_identity() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "pg_isready -U agriguard -d agriguard" not in compose
+    assert "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" in compose
+
+
 def test_agriguard_compose_waits_for_frontend_health_before_nginx() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
