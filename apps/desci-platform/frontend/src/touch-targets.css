@@ -1,0 +1,73 @@
+.clay-button {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  gap: 0.5rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding-block: max(0.625rem, var(--touch-target-padding-block, 0.625rem));
+  text-align: center;
+}
+
+.clay-input {
+  box-sizing: border-box;
+  min-height: 2.75rem;
+  padding-block: 0.625rem;
+}
+
+.locale-toggle {
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 2.75rem;
+  padding: 0.25rem;
+}
+
+.locale-toggle-button {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.locale-toggle .locale-toggle-button {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.pricing-page-nav .locale-toggle .locale-toggle-button {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+button[class*="rounded-[1.2rem]"] {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+a.inline-flex,
+button.inline-flex {
+  box-sizing: border-box;
+  min-height: 2.75rem;
+}
+
+@media (max-width: 640px) {
+  nav .clay-button {
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+  }
+
+  .pricing-page-nav .clay-button {
+    min-height: 2.75rem;
+  }
+
+  nav a.flex.items-center {
+    min-height: 2.75rem;
+  }
+}

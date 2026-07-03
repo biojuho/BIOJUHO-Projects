@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './protected-mobile-layout.css'
 import './pricing-layout.css'
+import './touch-targets.css'
 import App from './App.jsx'
 import { queryClient } from './lib/queryClient'
 

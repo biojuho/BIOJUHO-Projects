@@ -634,6 +634,7 @@ def test_browser_smoke_public_action_checks_include_public_click_paths() -> None
         "investors-filter-directory",
         "pricing-enterprise-contact-intent",
         "pricing-layout-inset",
+        "public-touch-targets",
     ]
 
 
@@ -714,6 +715,16 @@ def test_pricing_layout_smoke_checks_responsive_inset_and_touch_target() -> None
     assert '"desktop", {"width": 1440, "height": 900}' in source
     assert ".pricing-page-container h1" in source
     assert "pricing CTA is below touch target height" in source
+    assert "horizontal document overflow" in source
+
+
+def test_public_touch_target_smoke_checks_public_mobile_controls() -> None:
+    source = inspect.getsource(browser_smoke._run_public_touch_targets_check)  # pylint: disable=protected-access
+
+    assert 'set_viewport_size({"width": 390, "height": 844})' in source
+    assert 'routes = ("/", "/explore", "/investors", "/pricing")' in source
+    assert ".locale-toggle-button" in source
+    assert "controls below 44px touch target" in source
     assert "horizontal document overflow" in source
 
 

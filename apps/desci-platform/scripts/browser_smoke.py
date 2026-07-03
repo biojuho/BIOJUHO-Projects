@@ -1788,6 +1788,98 @@ def _run_pricing_layout_inset_check(page, base_url: str, timeout_ms: int) -> lis
     return failures
 
 
+def _run_public_touch_targets_check(page, base_url: str, timeout_ms: int) -> list[str]:
+    route_name = "public-touch-targets"
+    failures: list[str] = []
+    console_errors: list[str] = []
+    page_errors: list[str] = []
+    routes = ("/", "/explore", "/investors", "/pricing")
+
+    def collect_console(message) -> None:
+        if message.type == "error":
+            console_errors.append(message.text)
+
+    def collect_page_error(error) -> None:
+        page_errors.append(str(error))
+
+    page.on("console", collect_console)
+    page.on("pageerror", collect_page_error)
+
+    try:
+        page.set_viewport_size({"width": 390, "height": 844})
+        for path in routes:
+            response = _goto_app_route(page, base_url, path, timeout_ms)
+            status = response.status if response is not None else 0
+            if status >= 400:
+                failures.append(f"{route_name}: {path} HTTP status {status}")
+            page.locator("body").wait_for(state="visible", timeout=timeout_ms)
+            metrics = page.evaluate(
+                """
+                () => {
+                  const isVisible = (element) => {
+                    const style = getComputedStyle(element);
+                    const rect = element.getBoundingClientRect();
+                    return style.display !== 'none'
+                      && style.visibility !== 'hidden'
+                      && rect.width > 0
+                      && rect.height > 0
+                      && rect.bottom > 0
+                      && rect.top < window.innerHeight;
+                  };
+                  const labelFor = (element) => (
+                    element.innerText
+                    || element.getAttribute('aria-label')
+                    || element.getAttribute('title')
+                    || ''
+                  ).trim().replace(/\\s+/g, ' ').slice(0, 80);
+                  const selector = [
+                    'nav a',
+                    'nav button',
+                    '.locale-toggle-button',
+                    '.clay-button',
+                    '.clay-input',
+                    'button[class*="rounded-[1.2rem]"]',
+                    'a.inline-flex',
+                    'button.inline-flex',
+                  ].join(',');
+                  const controls = Array.from(document.querySelectorAll(selector))
+                    .filter((element) => isVisible(element) && labelFor(element))
+                    .map((element) => {
+                      const rect = element.getBoundingClientRect();
+                      return {
+                        tag: element.tagName.toLowerCase(),
+                        text: labelFor(element),
+                        width: rect.width,
+                        height: rect.height,
+                        left: rect.left,
+                        top: rect.top,
+                      };
+                    });
+                  return {
+                    scrollWidth: document.documentElement.scrollWidth,
+                    viewportWidth: window.innerWidth,
+                    tooSmall: controls.filter((item) => item.width < 44 || item.height < 44),
+                  };
+                }
+                """
+            )
+            if metrics.get("scrollWidth", 0) > metrics.get("viewportWidth", 390) + 2:
+                failures.append(f"{route_name}: {path} has horizontal document overflow ({metrics!r})")
+            too_small = metrics.get("tooSmall") or []
+            if too_small:
+                failures.append(f"{route_name}: {path} has controls below 44px touch target ({too_small[:5]!r})")
+    except PlaywrightTimeoutError as exc:
+        failures.append(f"{route_name}: timed out ({exc})")
+    except PlaywrightError as exc:
+        failures.append(f"{route_name}: browser error ({exc})")
+    finally:
+        page.remove_listener("console", collect_console)
+        page.remove_listener("pageerror", collect_page_error)
+
+    failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
+    return failures
+
+
 def _run_pricing_billing_portal_check(page, base_url: str, timeout_ms: int) -> list[str]:
     route_name = "pricing-billing-portal"
     failures: list[str] = []
@@ -6522,6 +6614,7 @@ PUBLIC_ACTION_CHECKS = (
     ("investors-filter-directory", "/investors", _run_investors_filter_directory_check),
     ("pricing-enterprise-contact-intent", "/pricing enterprise -> sales contact", _run_pricing_enterprise_contact_intent_check),
     ("pricing-layout-inset", "/pricing responsive layout", _run_pricing_layout_inset_check),
+    ("public-touch-targets", "/, /explore, /investors, /pricing mobile touch targets", _run_public_touch_targets_check),
 )
 
 
