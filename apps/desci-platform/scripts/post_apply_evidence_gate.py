@@ -323,6 +323,99 @@ def verify_evidence_manifest(
     }
 
 
+def _promotion_blocking_reasons(
+    *,
+    gate_payload: dict[str, Any],
+    manifest_payload: dict[str, Any] | None,
+    verification_payload: dict[str, Any] | None,
+) -> list[str]:
+    reasons: list[str] = []
+    if gate_payload.get("ok") is not True:
+        gate_failures = [str(item) for item in _as_list(gate_payload.get("failures")) if str(item)]
+        reasons.extend(gate_failures or ["post_apply_evidence_gate.ok must be true"])
+
+    if manifest_payload is None:
+        reasons.append("evidence manifest was not generated")
+    elif manifest_payload.get("ok") is not True:
+        reasons.append("evidence_manifest.ok must be true")
+
+    if verification_payload is None:
+        reasons.append("evidence manifest verification was not generated")
+    else:
+        reasons.extend(
+            str(item) for item in _as_list(verification_payload.get("failures")) if str(item)
+        )
+        for artifact in _as_list(verification_payload.get("artifacts")):
+            if not isinstance(artifact, dict) or artifact.get("ok") is True:
+                continue
+            role = str(artifact.get("role") or "artifact")
+            for failure in _as_list(artifact.get("failures")):
+                if str(failure):
+                    reasons.append(f"{role}: {failure}")
+    return reasons
+
+
+def build_promotion_receipt(
+    *,
+    gate_payload: dict[str, Any],
+    external_gate_path: str | Path,
+    gate_report_path: str | Path | None = None,
+    manifest_payload: dict[str, Any] | None = None,
+    manifest_path: str | Path | None = None,
+    verification_payload: dict[str, Any] | None = None,
+    verification_path: str | Path | None = None,
+) -> dict[str, Any]:
+    gate_summary = _as_dict(gate_payload.get("summary"))
+    verification_summary = _as_dict(verification_payload.get("summary") if verification_payload else {})
+    gate_ok = gate_payload.get("ok") is True
+    manifest_ok = manifest_payload is not None and manifest_payload.get("ok") is True
+    verification_ok = verification_payload is not None and verification_payload.get("ok") is True
+    ok = gate_ok and manifest_ok and verification_ok
+    blocking_reasons = _promotion_blocking_reasons(
+        gate_payload=gate_payload,
+        manifest_payload=manifest_payload,
+        verification_payload=verification_payload,
+    )
+
+    return {
+        "schema_version": 1,
+        "generated_at": _utc_now(),
+        "ok": ok,
+        "release_decision": "go" if ok else "no-go",
+        "operator_phase": "post_apply_launch_ready" if ok else "post_apply_launch_blocked",
+        "success_condition": (
+            "post_apply_evidence_gate.ok=true and evidence_manifest.ok=true and "
+            "evidence_manifest_verification.ok=true"
+        ),
+        "external_gate_json": str(external_gate_path),
+        "post_apply_evidence_gate_json": str(gate_report_path or ""),
+        "evidence_manifest_json": str(manifest_path or ""),
+        "evidence_manifest_verification_json": str(verification_path or ""),
+        "checks": {
+            "post_apply_evidence_gate": gate_ok,
+            "evidence_manifest": manifest_ok,
+            "evidence_manifest_verification": verification_ok,
+        },
+        "summary": {
+            "blocking_reason_count": len(blocking_reasons),
+            "gate_failure_count": int(gate_summary.get("failure_count") or 0),
+            "manifest_artifact_count": int(manifest_payload.get("artifact_count") or 0)
+            if manifest_payload
+            else 0,
+            "verification_artifact_failure_count": int(
+                verification_summary.get("artifact_failure_count") or 0
+            ),
+            "verification_digest_mismatch_count": int(
+                verification_summary.get("digest_mismatch_count") or 0
+            ),
+            "verification_secret_marker_count": int(
+                verification_summary.get("secret_marker_count") or 0
+            ),
+        },
+        "blocking_reasons": blocking_reasons,
+    }
+
+
 def print_report(payload: dict[str, Any]) -> None:
     summary = _as_dict(payload.get("summary"))
     print(f"[post-apply-evidence-gate] ok={payload.get('ok')}")
@@ -368,12 +461,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json-out", help="Write machine-readable validation JSON.")
     parser.add_argument("--manifest-out", help="Write a hash manifest for the post-apply evidence artifacts.")
     parser.add_argument("--verify-manifest-out", help="Write verification JSON for the generated evidence manifest.")
+    parser.add_argument(
+        "--promotion-receipt-out",
+        help="Write a compact launch promotion receipt for the generated post-apply artifacts.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.verify_manifest:
+        if args.promotion_receipt_out:
+            print(
+                "[post-apply-evidence-gate] --promotion-receipt-out requires --external-gate-json mode",
+                file=sys.stderr,
+            )
+            return 2
         try:
             verification = verify_evidence_manifest(args.verify_manifest, artifact_root=args.artifact_root)
         except (OSError, json.JSONDecodeError, ValueError) as exc:
@@ -410,6 +513,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.verify_manifest_out and not args.manifest_out:
         print(
             "[post-apply-evidence-gate] --verify-manifest-out requires --manifest-out",
+            file=sys.stderr,
+        )
+        return 2
+    if args.promotion_receipt_out and not (args.json_out and args.manifest_out and args.verify_manifest_out):
+        print(
+            "[post-apply-evidence-gate] "
+            "--promotion-receipt-out requires --json-out, --manifest-out, and --verify-manifest-out",
             file=sys.stderr,
         )
         return 2
@@ -455,11 +565,25 @@ def main(argv: list[str] | None = None) -> int:
         verification = verify_evidence_manifest(args.manifest_out, artifact_root=args.artifact_root)
         write_json_report(args.verify_manifest_out, verification)
         print(f"[post-apply-evidence-manifest] json written: {args.verify_manifest_out}")
+    receipt: dict[str, Any] | None = None
+    if args.promotion_receipt_out:
+        receipt = build_promotion_receipt(
+            gate_payload=payload,
+            external_gate_path=evidence_path,
+            gate_report_path=args.json_out,
+            manifest_payload=manifest,
+            manifest_path=args.manifest_out,
+            verification_payload=verification,
+            verification_path=args.verify_manifest_out,
+        )
+        write_json_report(args.promotion_receipt_out, receipt)
+        print(f"[post-apply-promotion] receipt written: {args.promotion_receipt_out}")
     return (
         0
         if payload["ok"]
         and (manifest is None or manifest["ok"])
         and (verification is None or verification["ok"])
+        and (receipt is None or receipt["ok"])
         else 1
     )
 

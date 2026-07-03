@@ -254,7 +254,8 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert plan["post_apply_completion_evidence"]["required"] is True
     assert (
         plan["post_apply_completion_evidence"]["success_condition"]
-        == "post_apply_evidence_gate.ok=true and evidence_manifest_verification.ok=true"
+        == "post_apply_evidence_gate.ok=true and evidence_manifest_verification.ok=true and "
+        "post_apply_promotion_receipt.ok=true"
     )
     assert (
         plan["post_apply_completion_evidence"]["aggregate_command"]
@@ -272,12 +273,17 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
         == "var/post-apply-evidence-manifest-verify.json"
     )
     assert (
+        plan["post_apply_completion_evidence"]["promotion_receipt_json_out"]
+        == "var/post-apply-promotion-receipt.json"
+    )
+    assert (
         plan["post_apply_completion_evidence"]["promotion_gate_command"]
         == "python scripts/post_apply_evidence_gate.py "
         "--external-gate-json var/external-release-gate-post-apply-all.json "
         "--json-out var/post-apply-evidence-gate.json "
         "--manifest-out var/post-apply-evidence-manifest.json "
-        "--verify-manifest-out var/post-apply-evidence-manifest-verify.json"
+        "--verify-manifest-out var/post-apply-evidence-manifest-verify.json "
+        "--promotion-receipt-out var/post-apply-promotion-receipt.json"
     )
     assert (
         plan["post_apply_completion_evidence"]["promotion_single_command"]
@@ -316,7 +322,9 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "post-apply-evidence-gate.json" in markdown
     assert "post-apply-evidence-manifest.json" in markdown
     assert "post-apply-evidence-manifest-verify.json" in markdown
+    assert "post-apply-promotion-receipt.json" in markdown
     assert "--verify-manifest-out var/post-apply-evidence-manifest-verify.json" in markdown
+    assert "--promotion-receipt-out var/post-apply-promotion-receipt.json" in markdown
     assert "--verify-manifest var/post-apply-evidence-manifest.json" in markdown
     assert "PowerShell: `Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>'" in markdown
     assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
@@ -349,6 +357,10 @@ def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaki
     assert (
         plan["post_apply_completion_evidence"]["promotion_manifest_verify_json_out"]
         == "var/post-apply-evidence-manifest-verify.json"
+    )
+    assert (
+        plan["post_apply_completion_evidence"]["promotion_receipt_json_out"]
+        == "var/post-apply-promotion-receipt.json"
     )
     assert plan["providers"][0]["ready_to_apply"] is True
     assert plan["providers"][0]["blank_key_count"] == 0

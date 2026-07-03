@@ -191,6 +191,148 @@ def test_post_apply_evidence_gate_cli_writes_manifest_verification_in_one_promot
     assert verification["summary"]["digest_mismatch_count"] == 0
 
 
+def test_post_apply_promotion_receipt_accepts_complete_ready_evidence(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    verify_path = tmp_path / "post-apply-manifest-verify.json"
+    source = external_gate_payload()
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+    post_apply_evidence_gate.write_json_report(verify_path, verification)
+
+    receipt = post_apply_evidence_gate.build_promotion_receipt(
+        gate_payload=payload,
+        external_gate_path=external_path,
+        gate_report_path=report_path,
+        manifest_payload=manifest,
+        manifest_path=manifest_path,
+        verification_payload=verification,
+        verification_path=verify_path,
+    )
+
+    assert receipt["ok"] is True
+    assert receipt["release_decision"] == "go"
+    assert receipt["operator_phase"] == "post_apply_launch_ready"
+    assert receipt["checks"] == {
+        "post_apply_evidence_gate": True,
+        "evidence_manifest": True,
+        "evidence_manifest_verification": True,
+    }
+    assert receipt["post_apply_evidence_gate_json"] == str(report_path)
+    assert receipt["evidence_manifest_json"] == str(manifest_path)
+    assert receipt["evidence_manifest_verification_json"] == str(verify_path)
+    assert receipt["summary"]["manifest_artifact_count"] == 2
+    assert receipt["blocking_reasons"] == []
+
+
+def test_post_apply_promotion_receipt_blocks_no_go_without_artifact_failures(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    verify_path = tmp_path / "post-apply-manifest-verify.json"
+    source = external_gate_payload(ok=False)
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+    post_apply_evidence_gate.write_json_report(verify_path, verification)
+
+    receipt = post_apply_evidence_gate.build_promotion_receipt(
+        gate_payload=payload,
+        external_gate_path=external_path,
+        gate_report_path=report_path,
+        manifest_payload=manifest,
+        manifest_path=manifest_path,
+        verification_payload=verification,
+        verification_path=verify_path,
+    )
+
+    assert receipt["ok"] is False
+    assert receipt["release_decision"] == "no-go"
+    assert receipt["operator_phase"] == "post_apply_launch_blocked"
+    assert receipt["checks"] == {
+        "post_apply_evidence_gate": False,
+        "evidence_manifest": False,
+        "evidence_manifest_verification": False,
+    }
+    assert receipt["summary"]["verification_artifact_failure_count"] == 0
+    assert receipt["summary"]["verification_digest_mismatch_count"] == 0
+    assert receipt["summary"]["verification_secret_marker_count"] == 0
+    assert "external gate ok must be true" in receipt["blocking_reasons"]
+    assert "evidence_manifest.ok must be true" in receipt["blocking_reasons"]
+
+
+def test_post_apply_evidence_gate_cli_writes_complete_promotion_receipt(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    verify_path = tmp_path / "post-apply-manifest-verify.json"
+    receipt_path = tmp_path / "post-apply-promotion-receipt.json"
+    external_path.write_text(json.dumps(external_gate_payload()), encoding="utf-8")
+
+    rc = post_apply_evidence_gate.main(
+        [
+            "--external-gate-json",
+            str(external_path),
+            "--json-out",
+            str(report_path),
+            "--manifest-out",
+            str(manifest_path),
+            "--verify-manifest-out",
+            str(verify_path),
+            "--promotion-receipt-out",
+            str(receipt_path),
+        ]
+    )
+
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert receipt["ok"] is True
+    assert receipt["release_decision"] == "go"
+    assert receipt["checks"]["post_apply_evidence_gate"] is True
+    assert receipt["checks"]["evidence_manifest"] is True
+    assert receipt["checks"]["evidence_manifest_verification"] is True
+    assert receipt["summary"]["blocking_reason_count"] == 0
+
+
+def test_post_apply_evidence_gate_cli_requires_all_outputs_for_promotion_receipt(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    external_path = tmp_path / "external-gate.json"
+    external_path.write_text(json.dumps(external_gate_payload()), encoding="utf-8")
+
+    rc = post_apply_evidence_gate.main(
+        [
+            "--external-gate-json",
+            str(external_path),
+            "--json-out",
+            str(tmp_path / "post-apply-gate.json"),
+            "--promotion-receipt-out",
+            str(tmp_path / "post-apply-promotion-receipt.json"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires --json-out, --manifest-out, and --verify-manifest-out" in captured.err
+
+
 def test_post_apply_evidence_gate_cli_requires_manifest_for_inline_verification(
     tmp_path: Path,
     capsys,

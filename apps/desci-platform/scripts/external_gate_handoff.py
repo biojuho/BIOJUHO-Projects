@@ -498,12 +498,14 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
     promotion_gate_json_out = "var/post-apply-evidence-gate.json"
     promotion_manifest_json_out = "var/post-apply-evidence-manifest.json"
     promotion_manifest_verify_json_out = "var/post-apply-evidence-manifest-verify.json"
+    promotion_receipt_json_out = "var/post-apply-promotion-receipt.json"
     promotion_gate_command = (
         "python scripts/post_apply_evidence_gate.py "
         f"--external-gate-json {aggregate_json_out} "
         f"--json-out {promotion_gate_json_out} "
         f"--manifest-out {promotion_manifest_json_out} "
-        f"--verify-manifest-out {promotion_manifest_verify_json_out}"
+        f"--verify-manifest-out {promotion_manifest_verify_json_out} "
+        f"--promotion-receipt-out {promotion_receipt_json_out}"
     )
     promotion_manifest_verify_command = (
         "python scripts/post_apply_evidence_gate.py "
@@ -512,12 +514,16 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
     )
     return {
         "required": bool(template_dir and provider_keys),
-        "success_condition": "post_apply_evidence_gate.ok=true and evidence_manifest_verification.ok=true",
+        "success_condition": (
+            "post_apply_evidence_gate.ok=true and evidence_manifest_verification.ok=true and "
+            "post_apply_promotion_receipt.ok=true"
+        ),
         "aggregate_json_out": aggregate_json_out if template_dir else "",
         "aggregate_command": aggregate_command if template_dir else "",
         "promotion_gate_json_out": promotion_gate_json_out if template_dir else "",
         "promotion_manifest_json_out": promotion_manifest_json_out if template_dir else "",
         "promotion_manifest_verify_json_out": promotion_manifest_verify_json_out if template_dir else "",
+        "promotion_receipt_json_out": promotion_receipt_json_out if template_dir else "",
         "promotion_gate_command": promotion_gate_command if template_dir else "",
         "promotion_single_command": promotion_gate_command if template_dir else "",
         "promotion_manifest_verify_command": promotion_manifest_verify_command if template_dir else "",
@@ -634,6 +640,8 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Promotion single command: `{_markdown_scalar(completion_evidence.get('promotion_single_command'))}`",
                 f"- Promotion manifest verify JSON: "
                 f"`{_markdown_scalar(completion_evidence.get('promotion_manifest_verify_json_out'))}`",
+                f"- Promotion receipt JSON: "
+                f"`{_markdown_scalar(completion_evidence.get('promotion_receipt_json_out'))}`",
                 f"- Promotion manifest verify command: "
                 f"`{_markdown_scalar(completion_evidence.get('promotion_manifest_verify_command'))}`",
             ]
