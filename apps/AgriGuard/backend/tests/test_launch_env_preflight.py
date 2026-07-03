@@ -561,6 +561,60 @@ def test_launch_env_preflight_compose_mode_rejects_app_scoped_wildcard_origin() 
     assert "AGRIGUARD_ALLOWED_ORIGINS must not include wildcard '*'." in report["errors"]
 
 
+def test_launch_env_preflight_rejects_insecure_allowed_origin_for_launch() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        _healthy_env() | {"AGRIGUARD_ALLOWED_ORIGINS": "http://agriguard.example"}
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "AGRIGUARD_ALLOWED_ORIGINS origin 'http://agriguard.example' must use an https:// URL for launch."
+        in report["errors"]
+    )
+
+
+def test_launch_env_preflight_rejects_local_allowed_origin_for_launch() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        _healthy_env() | {"AGRIGUARD_ALLOWED_ORIGINS": "http://localhost:5174"}
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "AGRIGUARD_ALLOWED_ORIGINS origin 'http://localhost:5174' must use an https:// URL for launch."
+        in report["errors"]
+    )
+    assert (
+        "AGRIGUARD_ALLOWED_ORIGINS origin 'http://localhost:5174' must not use a local host for launch."
+        in report["errors"]
+    )
+
+
+def test_launch_env_preflight_rejects_allowed_origin_with_path_or_query() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        _healthy_env() | {"AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example/app?debug=1"}
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "AGRIGUARD_ALLOWED_ORIGINS origin 'https://agriguard.example/app?debug=1' must not include a path."
+        in report["errors"]
+    )
+    assert (
+        "AGRIGUARD_ALLOWED_ORIGINS origin 'https://agriguard.example/app?debug=1' must not include params, query, or fragment."
+        in report["errors"]
+    )
+
+
+def test_launch_env_preflight_can_allow_local_allowed_origins_for_local_checks() -> None:
+    report = launch_env_preflight.validate_launch_env_with_options(
+        _healthy_env() | {"AGRIGUARD_ALLOWED_ORIGINS": "http://localhost:5174"},
+        allow_local_allowed_origins=True,
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["allow_local_allowed_origins"] is True
+
+
 def test_launch_env_preflight_direct_mode_rejects_host_sqlite_database_url() -> None:
     report = launch_env_preflight.validate_launch_env(
         {

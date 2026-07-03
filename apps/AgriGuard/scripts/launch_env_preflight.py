@@ -267,6 +267,32 @@ def _public_verify_base_url_errors(
     return errors
 
 
+def _allowed_origin_errors(
+    origins: list[str],
+    *,
+    source: str,
+    allow_local_allowed_origins: bool,
+) -> list[str]:
+    errors: list[str] = []
+    for origin in origins:
+        parsed = urlparse(origin)
+        hostname = parsed.hostname or ""
+        is_local = hostname.lower() in LOCAL_PUBLIC_VERIFY_HOSTS
+        if parsed.scheme != "https" and not (
+            allow_local_allowed_origins and parsed.scheme == "http" and is_local
+        ):
+            errors.append(f"{source} origin {origin!r} must use an https:// URL for launch.")
+        if not parsed.netloc:
+            errors.append(f"{source} origin {origin!r} must include a host.")
+        if parsed.path not in {"", "/"}:
+            errors.append(f"{source} origin {origin!r} must not include a path.")
+        if parsed.params or parsed.query or parsed.fragment:
+            errors.append(f"{source} origin {origin!r} must not include params, query, or fragment.")
+        if is_local and not allow_local_allowed_origins:
+            errors.append(f"{source} origin {origin!r} must not use a local host for launch.")
+    return errors
+
+
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -284,6 +310,7 @@ def validate_launch_env_with_options(
     allow_generic_public_verify_base_url: bool = False,
     allow_legacy_qr_scheme: bool = False,
     allow_local_public_verify_base_url: bool = False,
+    allow_local_allowed_origins: bool = False,
 ) -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
@@ -374,6 +401,14 @@ def validate_launch_env_with_options(
             warnings.append(message)
         else:
             errors.append(message)
+    elif origins_source:
+        errors.extend(
+            _allowed_origin_errors(
+                origins,
+                source=origins_source,
+                allow_local_allowed_origins=allow_local_allowed_origins,
+            )
+        )
 
     return {
         "status": "fail" if errors else "pass",
@@ -402,6 +437,7 @@ def validate_launch_env_with_options(
             "allowed_origins_count": len(origins),
             "allowed_origins_source": origins_source,
             "allow_runtime_default_origins": allow_runtime_default_origins,
+            "allow_local_allowed_origins": allow_local_allowed_origins,
         },
     }
 
@@ -492,6 +528,7 @@ def build_launch_report(
     allow_generic_public_verify_base_url: bool = False,
     allow_legacy_qr_scheme: bool = False,
     allow_local_public_verify_base_url: bool = False,
+    allow_local_allowed_origins: bool = False,
     app_root: Path | None = None,
     command_runner: CommandRunner = subprocess.run,
 ) -> dict[str, object]:
@@ -504,6 +541,7 @@ def build_launch_report(
         allow_generic_public_verify_base_url=allow_generic_public_verify_base_url,
         allow_legacy_qr_scheme=allow_legacy_qr_scheme,
         allow_local_public_verify_base_url=allow_local_public_verify_base_url,
+        allow_local_allowed_origins=allow_local_allowed_origins,
     )
     checks = report["checks"]
     assert isinstance(checks, dict)
@@ -578,6 +616,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Permit localhost/loopback PUBLIC_VERIFY_BASE_URL values for local smoke checks.",
     )
+    parser.add_argument(
+        "--allow-local-allowed-origins",
+        action="store_true",
+        help="Permit localhost/loopback HTTP allowed origins for local smoke checks.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
@@ -592,6 +635,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_generic_public_verify_base_url=args.allow_generic_public_verify_base_url,
         allow_legacy_qr_scheme=args.allow_legacy_qr_scheme,
         allow_local_public_verify_base_url=args.allow_local_public_verify_base_url,
+        allow_local_allowed_origins=args.allow_local_allowed_origins,
     )
 
     output = json.dumps(report, indent=2, sort_keys=True)
