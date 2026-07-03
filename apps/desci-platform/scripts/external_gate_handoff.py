@@ -26,6 +26,9 @@ PROVIDER_APPLY_PLAN_VERIFY_CONDITION = "provider_apply_plan_verification.ok=true
 PROVIDER_APPLY_PLAN_READY_CONDITION = (
     "provider_apply_plan_verification.ok=true and provider_apply_plan.ready_to_apply=true"
 )
+PROVIDER_APPLY_RESULTS_CONDITION = (
+    "provider_apply_results_verification.ok=true and provider_apply_results.all_commands_succeeded=true"
+)
 
 
 def load_external_gate_payload(path: str | Path) -> dict[str, Any]:
@@ -41,6 +44,13 @@ def load_external_gate_payload(path: str | Path) -> dict[str, Any]:
 
 def load_provider_apply_plan(path: str | Path) -> dict[str, Any]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
+def load_provider_apply_results(path: str | Path) -> dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return payload
@@ -416,6 +426,10 @@ def _json_path_with_suffix(path: str | Path, suffix: str) -> str:
     return str(output_path.with_name(f"{output_path.stem}{suffix}{file_suffix}"))
 
 
+def _same_path_text(left: str | Path, right: str | Path) -> bool:
+    return Path(str(left)) == Path(str(right))
+
+
 def _provider_apply_commands(provider: str, template_path: str, keys: list[str]) -> list[dict[str, Any]]:
     if provider == "github":
         return [
@@ -513,6 +527,29 @@ def _provider_apply_plan_verification(plan_path: str | Path) -> dict[str, Any]:
             "python scripts/external_gate_handoff.py "
             f"--verify-provider-apply-plan {plan_json} --require-ready-to-apply "
             f"--json-out {require_ready_json_out}"
+        ),
+    }
+
+
+def _provider_apply_results_verification(plan_path: str | Path) -> dict[str, Any]:
+    results_json = _json_path_with_suffix(plan_path, "-results")
+    verify_json_out = _json_path_with_suffix(plan_path, "-results-verify")
+    template_json_out = _json_path_with_suffix(plan_path, "-results-template")
+    plan_json = str(plan_path)
+    return {
+        "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
+        "provider_apply_plan_json": plan_json,
+        "provider_apply_results_json": results_json,
+        "template_json_out": template_json_out,
+        "verify_json_out": verify_json_out,
+        "template_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--provider-apply-results-template-from-plan {plan_json} --json-out {template_json_out}"
+        ),
+        "verify_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--verify-provider-apply-results {results_json} --provider-apply-plan {plan_json} "
+            f"--json-out {verify_json_out}"
         ),
     }
 
@@ -647,11 +684,76 @@ def provider_apply_plan_payload(
         "provider_apply_plan_verification": _provider_apply_plan_verification(
             plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
         ),
+        "provider_apply_results_verification": _provider_apply_results_verification(
+            plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
+        ),
         "post_apply_completion_evidence": _post_apply_completion_evidence(template_dir, providers),
         "ready_provider_count": operator_status["ready_provider_count"],
         "provider_count": len(providers),
         "providers": providers,
     }
+
+
+def _expected_apply_commands(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    expected: list[dict[str, Any]] = []
+    for provider in _as_list(plan.get("providers")):
+        if not isinstance(provider, dict):
+            continue
+        provider_key = str(provider.get("provider") or "")
+        for command in _as_list(provider.get("commands")):
+            if not isinstance(command, dict):
+                continue
+            command_id = str(command.get("id") or "")
+            if not provider_key or not command_id:
+                continue
+            expected.append(
+                {
+                    "provider": provider_key,
+                    "command_id": command_id,
+                    "command": str(command.get("command") or ""),
+                    "stdin_required": command.get("stdin_required") is True,
+                }
+            )
+    return expected
+
+
+def provider_apply_results_template_payload(
+    plan: dict[str, Any],
+    *,
+    plan_path: str | Path,
+) -> dict[str, Any]:
+    expected = _expected_apply_commands(plan)
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "ok": False,
+        "provider_apply_plan_json": str(plan_path),
+        "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
+        "provider_count": int(plan.get("provider_count") or 0),
+        "command_count": len(expected),
+        "results": [
+            {
+                "provider": item["provider"],
+                "command_id": item["command_id"],
+                "status": "pending",
+                "exit_code": None,
+                "started_at": "",
+                "finished_at": "",
+                "stdout_excerpt": "",
+                "stderr_excerpt": "",
+            }
+            for item in expected
+        ],
+    }
+
+
+def write_provider_apply_results_template(
+    path: str | Path,
+    plan: dict[str, Any],
+    *,
+    plan_path: str | Path,
+) -> Path:
+    return write_json_report(path, provider_apply_results_template_payload(plan, plan_path=plan_path))
 
 
 def write_provider_apply_plan(
@@ -812,6 +914,116 @@ def verify_provider_apply_plan(
     }
 
 
+def verify_provider_apply_results(
+    results_path: str | Path,
+    *,
+    plan_path: str | Path,
+) -> dict[str, Any]:
+    plan = load_provider_apply_plan(plan_path)
+    results = load_provider_apply_results(results_path)
+    expected_commands = _expected_apply_commands(plan)
+    expected_by_key = {
+        (item["provider"], item["command_id"]): item
+        for item in expected_commands
+    }
+    result_items = [item for item in _as_list(results.get("results")) if isinstance(item, dict)]
+    seen_keys: set[tuple[str, str]] = set()
+    command_checks: list[dict[str, Any]] = []
+    failures: list[str] = []
+    serialized = json.dumps(results, ensure_ascii=False, sort_keys=True)
+    secret_markers = secret_marker_names_in_text(serialized)
+
+    if results.get("schema_version") != 1:
+        failures.append("provider apply results must be schema_version=1")
+    if not _same_path_text(str(results.get("provider_apply_plan_json") or ""), plan_path):
+        failures.append("provider_apply_plan_json must match the verified plan path")
+    if secret_markers:
+        failures.append("provider apply results contain secret-shaped markers")
+    if int(results.get("command_count") or 0) != len(expected_commands):
+        failures.append("provider apply results command_count must match expected commands")
+
+    for item in result_items:
+        provider = str(item.get("provider") or "")
+        command_id = str(item.get("command_id") or "")
+        key = (provider, command_id)
+        item_failures: list[str] = []
+        expected = expected_by_key.get(key)
+        status = str(item.get("status") or "")
+        exit_code = item.get("exit_code")
+
+        if key in seen_keys:
+            item_failures.append("duplicate provider command result")
+        seen_keys.add(key)
+        if expected is None:
+            item_failures.append("provider command result is not expected by the apply plan")
+        if status != "success":
+            item_failures.append("provider command status must be success")
+        if exit_code != 0:
+            item_failures.append("provider command exit_code must be 0")
+        if str(item.get("stdout_excerpt") or "").strip() and secret_marker_names_in_text(
+            str(item.get("stdout_excerpt"))
+        ):
+            item_failures.append("provider command stdout_excerpt contains secret-shaped markers")
+        if str(item.get("stderr_excerpt") or "").strip() and secret_marker_names_in_text(
+            str(item.get("stderr_excerpt"))
+        ):
+            item_failures.append("provider command stderr_excerpt contains secret-shaped markers")
+        command_checks.append(
+            {
+                "provider": provider,
+                "command_id": command_id,
+                "expected": expected is not None,
+                "status": status,
+                "exit_code": exit_code,
+                "ok": not item_failures,
+                "failures": item_failures,
+            }
+        )
+
+    missing_expected = [
+        {"provider": provider, "command_id": command_id}
+        for provider, command_id in sorted(expected_by_key)
+        if (provider, command_id) not in seen_keys
+    ]
+    if missing_expected:
+        failures.append("provider apply results are missing expected commands")
+        for item in missing_expected:
+            command_checks.append(
+                {
+                    "provider": item["provider"],
+                    "command_id": item["command_id"],
+                    "expected": True,
+                    "status": "missing",
+                    "exit_code": None,
+                    "ok": False,
+                    "failures": ["provider command result is missing"],
+                }
+            )
+
+    command_failure_count = sum(1 for item in command_checks if item.get("ok") is not True)
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "ok": not failures and command_failure_count == 0,
+        "provider_apply_results_json": str(results_path),
+        "provider_apply_plan_json": str(plan_path),
+        "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
+        "all_commands_succeeded": command_failure_count == 0 and len(command_checks) == len(expected_commands),
+        "summary": {
+            "failure_count": len(failures),
+            "expected_command_count": len(expected_commands),
+            "reported_command_count": len(result_items),
+            "checked_command_count": len(command_checks),
+            "missing_command_count": len(missing_expected),
+            "command_failure_count": command_failure_count,
+            "secret_marker_count": len(secret_markers),
+        },
+        "secret_marker_names": secret_markers,
+        "failures": failures,
+        "commands": command_checks,
+    }
+
+
 def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# DeSci Provider Apply Plan",
@@ -854,6 +1066,20 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Verify command: `{_markdown_scalar(plan_verification.get('verify_command'))}`",
                 f"- Require-ready command: "
                 f"`{_markdown_scalar(plan_verification.get('require_ready_command'))}`",
+                "",
+            ]
+        )
+    results_verification = _as_dict(payload.get("provider_apply_results_verification"))
+    if results_verification:
+        lines.extend(
+            [
+                "## Provider Apply Results Verification",
+                f"- Success condition: `{_markdown_scalar(results_verification.get('success_condition'))}`",
+                f"- Results JSON: `{_markdown_scalar(results_verification.get('provider_apply_results_json'))}`",
+                f"- Results template JSON: `{_markdown_scalar(results_verification.get('template_json_out'))}`",
+                f"- Verify JSON: `{_markdown_scalar(results_verification.get('verify_json_out'))}`",
+                f"- Template command: `{_markdown_scalar(results_verification.get('template_command'))}`",
+                f"- Verify command: `{_markdown_scalar(results_verification.get('verify_command'))}`",
                 "",
             ]
         )
@@ -1034,6 +1260,27 @@ def print_provider_apply_plan_verification_report(payload: dict[str, Any]) -> No
                 print(f"  - {label}: {failure}")
 
 
+def print_provider_apply_results_verification_report(payload: dict[str, Any]) -> None:
+    summary = _as_dict(payload.get("summary"))
+    print(f"[external-gate-handoff] provider_apply_results_ok={payload.get('ok')}")
+    print(
+        "[external-gate-handoff] "
+        f"all_commands_succeeded={payload.get('all_commands_succeeded')} "
+        f"expected={summary.get('expected_command_count')} "
+        f"reported={summary.get('reported_command_count')} "
+        f"command_failures={summary.get('command_failure_count')} "
+        f"failures={summary.get('failure_count')} "
+        f"secret_markers={summary.get('secret_marker_count')}"
+    )
+    for failure in _string_list(payload.get("failures")):
+        print(f"  - {failure}")
+    for command in _as_list(payload.get("commands")):
+        if isinstance(command, dict) and command.get("ok") is not True:
+            label = f"{command.get('provider')}/{command.get('command_id')}"
+            for failure in _string_list(command.get("failures")):
+                print(f"  - {label}: {failure}")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a DeSci external gate operator handoff.")
     parser.add_argument(
@@ -1042,6 +1289,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to external_release_gate.py JSON evidence.",
     )
     parser.add_argument("--verify-provider-apply-plan", help="Path to a redacted provider apply plan to verify.")
+    parser.add_argument(
+        "--provider-apply-results-template-from-plan",
+        help="Path to a provider apply plan used to write a redacted apply-results template.",
+    )
+    parser.add_argument("--verify-provider-apply-results", help="Path to redacted provider apply results to verify.")
+    parser.add_argument(
+        "--provider-apply-plan",
+        help="Provider apply plan path used with --verify-provider-apply-results.",
+    )
     parser.add_argument(
         "--require-ready-to-apply",
         action="store_true",
@@ -1060,9 +1316,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    source_modes = [
+        bool(args.verify_provider_apply_plan),
+        bool(args.provider_apply_results_template_from_plan),
+        bool(args.verify_provider_apply_results),
+    ]
+    if sum(1 for item in source_modes if item) > 1:
+        print(
+            "[external-gate-handoff] provider verification/template modes are mutually exclusive",
+            file=sys.stderr,
+        )
+        return 2
     if args.require_ready_to_apply and not args.verify_provider_apply_plan:
         print(
             "[external-gate-handoff] --require-ready-to-apply requires --verify-provider-apply-plan",
+            file=sys.stderr,
+        )
+        return 2
+    if args.provider_apply_plan and not args.verify_provider_apply_results:
+        print(
+            "[external-gate-handoff] --provider-apply-plan requires --verify-provider-apply-results",
             file=sys.stderr,
         )
         return 2
@@ -1118,6 +1391,62 @@ def main(argv: list[str] | None = None) -> int:
         if args.json_out:
             output_path = write_json_report(args.json_out, verification)
             print(f"[external-gate-handoff] provider apply plan verification written: {output_path}")
+        return 0 if verification["ok"] else 1
+
+    if args.provider_apply_results_template_from_plan:
+        if not args.json_out:
+            print(
+                "[external-gate-handoff] --provider-apply-results-template-from-plan requires --json-out",
+                file=sys.stderr,
+            )
+            return 2
+        plan_path = Path(args.provider_apply_results_template_from_plan)
+        plan = load_provider_apply_plan(plan_path)
+        output_path = write_provider_apply_results_template(args.json_out, plan, plan_path=plan_path)
+        print(f"[external-gate-handoff] provider apply results template written: {output_path}")
+        return 0
+
+    if args.verify_provider_apply_results:
+        if not args.provider_apply_plan:
+            print(
+                "[external-gate-handoff] --verify-provider-apply-results requires --provider-apply-plan",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            verification = verify_provider_apply_results(
+                args.verify_provider_apply_results,
+                plan_path=args.provider_apply_plan,
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            verification = {
+                "schema_version": 1,
+                "generated_at": datetime.now(UTC).isoformat(),
+                "ok": False,
+                "provider_apply_results_json": str(args.verify_provider_apply_results),
+                "provider_apply_plan_json": str(args.provider_apply_plan),
+                "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
+                "all_commands_succeeded": False,
+                "summary": {
+                    "failure_count": 1,
+                    "expected_command_count": 0,
+                    "reported_command_count": 0,
+                    "checked_command_count": 0,
+                    "missing_command_count": 0,
+                    "command_failure_count": 0,
+                    "secret_marker_count": 0,
+                },
+                "secret_marker_names": [],
+                "failures": [str(exc)],
+                "commands": [],
+            }
+        if args.json:
+            print(json.dumps(verification, indent=2))
+        else:
+            print_provider_apply_results_verification_report(verification)
+        if args.json_out:
+            output_path = write_json_report(args.json_out, verification)
+            print(f"[external-gate-handoff] provider apply results verification written: {output_path}")
         return 0 if verification["ok"] else 1
 
     needs_provider_templates = any(

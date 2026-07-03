@@ -486,6 +486,14 @@ def _run_dashboard_quick_upload_click_check(page, base_url: str, timeout_ms: int
     failures: list[str] = []
     console_errors: list[str] = []
     page_errors: list[str] = []
+    ready_requests: list[str] = []
+    launch_requests: list[str] = []
+    dashboard_shell_requests: list[str] = []
+    dashboard_shell_routes = _dashboard_shell_api_routes(dashboard_shell_requests)
+    ready_route_pattern = "**/ready"
+    launch_route_pattern = "**/launch"
+    ready_payload = _dashboard_readiness_payload()
+    launch_payload = _dashboard_launch_payload()
 
     def collect_console(message) -> None:
         if message.type == "error":
@@ -494,8 +502,18 @@ def _run_dashboard_quick_upload_click_check(page, base_url: str, timeout_ms: int
     def collect_page_error(error) -> None:
         page_errors.append(str(error))
 
+    def fulfill_ready(route) -> None:
+        _fulfill_json_api_route(route, request_urls=ready_requests, payload=ready_payload)
+
+    def fulfill_launch(route) -> None:
+        _fulfill_json_api_route(route, request_urls=launch_requests, payload=launch_payload)
+
     page.on("console", collect_console)
     page.on("pageerror", collect_page_error)
+    page.route(ready_route_pattern, fulfill_ready)
+    page.route(launch_route_pattern, fulfill_launch)
+    for pattern, handler in dashboard_shell_routes:
+        page.route(pattern, handler)
 
     try:
         response = _goto_app_route(page, base_url, "/dashboard", timeout_ms)
@@ -514,6 +532,10 @@ def _run_dashboard_quick_upload_click_check(page, base_url: str, timeout_ms: int
         page.wait_for_url(re.compile(r".*/upload$"), timeout=timeout_ms)
         if not _any_text_visible(page, ("Research Submission", "IPFS에 저장하고 제출 등록"), timeout_ms=timeout_ms):
             failures.append(f"{route_name}: upload page did not render after click")
+        for pattern, handler in dashboard_shell_routes:
+            page.unroute(pattern, handler)
+        page.unroute(ready_route_pattern, fulfill_ready)
+        page.unroute(launch_route_pattern, fulfill_launch)
     except PlaywrightTimeoutError as exc:
         failures.append(f"{route_name}: timed out ({exc})")
     except PlaywrightError as exc:

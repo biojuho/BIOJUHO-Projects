@@ -709,6 +709,16 @@ def test_dashboard_readiness_smoke_routes_launch_control_contract() -> None:
     }
 
 
+def test_dashboard_quick_upload_smoke_mocks_dashboard_shell_routes() -> None:
+    source = inspect.getsource(browser_smoke._run_dashboard_quick_upload_click_check)  # pylint: disable=protected-access
+
+    assert "_dashboard_shell_api_routes" in source
+    assert 'ready_route_pattern = "**/ready"' in source
+    assert 'launch_route_pattern = "**/launch"' in source
+    assert "page.route(pattern, handler)" in source
+    assert "page.unroute(pattern, handler)" in source
+
+
 def test_dashboard_clipboard_failure_smoke_routes_launch_control_contract() -> None:
     source = inspect.getsource(browser_smoke._run_dashboard_readiness_clipboard_failure_check)  # pylint: disable=protected-access
 

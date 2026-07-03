@@ -23,7 +23,10 @@ SECRET_PATTERNS = {
     "stripe_webhook_secret": re.compile(r"whsec_[A-Za-z0-9_/-]+"),
     "github_token": re.compile(r"(?:github_pat|gh[pousr])_[A-Za-z0-9_/-]+"),
     "google_api_key": re.compile(r"AIza[0-9A-Za-z_-]+"),
-    "private_assignment": re.compile(r"(?i)(token|secret|password|private[_-]?key)\s*[:=]\s*\S+"),
+    "private_assignment": re.compile(
+        r"(?im)^[^\S\r\n]*(?!#).*?(token|secret|password|private[_-]?key)"
+        r"[^\S\r\n]*[:=][^\S\r\n]*[^\s\"']+"
+    ),
     "credential_url": re.compile(r"(?i)\b(?:postgres(?:ql)?|mysql|redis|amqp)://[^@\s\"']+:[^@\s\"']+@"),
 }
 

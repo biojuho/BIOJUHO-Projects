@@ -265,6 +265,31 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert plan["provider_apply_plan_verification"]["require_ready_json_out"] == str(
         tmp_path / "apply-plan-require-ready.json"
     )
+    assert plan["provider_apply_results_verification"]["success_condition"] == (
+        "provider_apply_results_verification.ok=true and provider_apply_results.all_commands_succeeded=true"
+    )
+    assert plan["provider_apply_results_verification"]["provider_apply_plan_json"] == str(plan_path)
+    assert plan["provider_apply_results_verification"]["provider_apply_results_json"] == str(
+        tmp_path / "apply-plan-results.json"
+    )
+    assert plan["provider_apply_results_verification"]["template_json_out"] == str(
+        tmp_path / "apply-plan-results-template.json"
+    )
+    assert plan["provider_apply_results_verification"]["verify_json_out"] == str(
+        tmp_path / "apply-plan-results-verify.json"
+    )
+    assert (
+        plan["provider_apply_results_verification"]["template_command"]
+        == "python scripts/external_gate_handoff.py "
+        f"--provider-apply-results-template-from-plan {plan_path} "
+        f"--json-out {tmp_path / 'apply-plan-results-template.json'}"
+    )
+    assert (
+        plan["provider_apply_results_verification"]["verify_command"]
+        == "python scripts/external_gate_handoff.py "
+        f"--verify-provider-apply-results {tmp_path / 'apply-plan-results.json'} "
+        f"--provider-apply-plan {plan_path} --json-out {tmp_path / 'apply-plan-results-verify.json'}"
+    )
     assert (
         plan["provider_apply_plan_verification"]["verify_command"]
         == "python scripts/external_gate_handoff.py "
@@ -365,6 +390,12 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "apply-plan-require-ready.json" in markdown
     assert "--verify-provider-apply-plan" in markdown
     assert "--require-ready-to-apply" in markdown
+    assert "Provider Apply Results Verification" in markdown
+    assert "apply-plan-results.json" in markdown
+    assert "apply-plan-results-template.json" in markdown
+    assert "apply-plan-results-verify.json" in markdown
+    assert "--provider-apply-results-template-from-plan" in markdown
+    assert "--verify-provider-apply-results" in markdown
     assert "Post-Apply Evidence" in markdown
     assert "external-release-gate-post-apply-all.json" in markdown
     assert "external-release-gate-post-apply-railway.json" in markdown
@@ -503,6 +534,129 @@ def test_external_gate_handoff_provider_apply_plan_verifier_detects_template_dri
     assert "provider template populated_key_count does not match apply plan" in verification["providers"][0]["failures"]
 
 
+def test_external_gate_handoff_provider_apply_results_template_is_redacted(tmp_path: Path) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+    plan_path = tmp_path / "apply-plan.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+
+    template = external_gate_handoff.provider_apply_results_template_payload(plan, plan_path=plan_path)
+    serialized = json.dumps(template)
+
+    assert template["ok"] is False
+    assert template["provider_apply_plan_json"] == str(plan_path)
+    assert template["command_count"] == 2
+    assert {item["status"] for item in template["results"]} == {"pending"}
+    assert {item["exit_code"] for item in template["results"]} == {None}
+    assert "super-secret" not in serialized
+    assert "jwt-secret" not in serialized
+
+
+def test_external_gate_handoff_provider_apply_results_verifier_accepts_successful_redacted_results(
+    tmp_path: Path,
+) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+    plan_path = tmp_path / "apply-plan.json"
+    results_path = tmp_path / "apply-results.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    template = external_gate_handoff.provider_apply_results_template_payload(plan, plan_path=plan_path)
+    for item in template["results"]:
+        item["status"] = "success"
+        item["exit_code"] = 0
+        item["stdout_excerpt"] = "applied"
+    template["ok"] = True
+    results_path.write_text(json.dumps(template), encoding="utf-8")
+
+    verification = external_gate_handoff.verify_provider_apply_results(results_path, plan_path=plan_path)
+    serialized = json.dumps(verification)
+
+    assert verification["ok"] is True
+    assert verification["all_commands_succeeded"] is True
+    assert verification["summary"]["command_failure_count"] == 0
+    assert verification["summary"]["missing_command_count"] == 0
+    assert "super-secret" not in serialized
+    assert "jwt-secret" not in serialized
+
+
+def test_external_gate_handoff_provider_apply_results_verifier_accepts_powershell_bom_and_path_separators(
+    tmp_path: Path,
+) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+    plan_path = tmp_path / "apply-plan.json"
+    results_path = tmp_path / "apply-results.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    template = external_gate_handoff.provider_apply_results_template_payload(plan, plan_path=plan_path)
+    template["provider_apply_plan_json"] = str(plan_path).replace("\\", "/")
+    for item in template["results"]:
+        item["status"] = "success"
+        item["exit_code"] = 0
+    results_path.write_text(json.dumps(template), encoding="utf-8-sig")
+
+    verification = external_gate_handoff.verify_provider_apply_results(results_path, plan_path=plan_path)
+
+    assert verification["ok"] is True
+    assert verification["all_commands_succeeded"] is True
+
+
+def test_external_gate_handoff_provider_apply_results_verifier_blocks_failed_or_missing_results(
+    tmp_path: Path,
+) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+    plan_path = tmp_path / "apply-plan.json"
+    results_path = tmp_path / "apply-results.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    template = external_gate_handoff.provider_apply_results_template_payload(plan, plan_path=plan_path)
+    template["results"] = template["results"][:1]
+    template["results"][0]["status"] = "failure"
+    template["results"][0]["exit_code"] = 1
+    template["ok"] = False
+    results_path.write_text(json.dumps(template), encoding="utf-8")
+
+    verification = external_gate_handoff.verify_provider_apply_results(results_path, plan_path=plan_path)
+
+    assert verification["ok"] is False
+    assert verification["all_commands_succeeded"] is False
+    assert "provider apply results are missing expected commands" in verification["failures"]
+    assert verification["summary"]["missing_command_count"] == 1
+    assert verification["summary"]["command_failure_count"] == 2
+
+
+def test_external_gate_handoff_provider_apply_results_verifier_blocks_secret_shaped_output(
+    tmp_path: Path,
+) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+    plan_path = tmp_path / "apply-plan.json"
+    results_path = tmp_path / "apply-results.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    template = external_gate_handoff.provider_apply_results_template_payload(plan, plan_path=plan_path)
+    for item in template["results"]:
+        item["status"] = "success"
+        item["exit_code"] = 0
+    template["results"][0]["stderr_excerpt"] = "token=ghp_abc123"
+    results_path.write_text(json.dumps(template), encoding="utf-8")
+
+    verification = external_gate_handoff.verify_provider_apply_results(results_path, plan_path=plan_path)
+
+    assert verification["ok"] is False
+    assert verification["summary"]["secret_marker_count"] >= 1
+    assert "provider apply results contain secret-shaped markers" in verification["failures"]
+    assert "provider command stderr_excerpt contains secret-shaped markers" in verification["commands"][0]["failures"]
+
+
 def test_external_gate_handoff_provider_apply_commands_are_shell_specific() -> None:
     github = external_gate_handoff._provider_apply_commands("github", "var/providers/github.env", ["GITLEAKS_LICENSE"])
     vercel = external_gate_handoff._provider_apply_commands("vercel", "var/providers/vercel.env", ["VITE_API_BASE_URL"])
@@ -568,6 +722,58 @@ def test_external_gate_handoff_cli_verifies_provider_apply_plan_and_can_require_
     assert require_ready_rc == 1
     assert require_ready["ok"] is False
     assert "provider apply plan must be ready_to_apply" in require_ready["failures"]
+
+
+def test_external_gate_handoff_cli_writes_and_verifies_provider_apply_results_template(
+    tmp_path: Path,
+) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+    plan_path = tmp_path / "apply-plan.json"
+    template_path = tmp_path / "apply-results-template.json"
+    verify_path = tmp_path / "apply-results-verify.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+
+    template_rc = external_gate_handoff.main(
+        [
+            "--provider-apply-results-template-from-plan",
+            str(plan_path),
+            "--json-out",
+            str(template_path),
+        ]
+    )
+    template = json.loads(template_path.read_text(encoding="utf-8"))
+    for item in template["results"]:
+        item["status"] = "success"
+        item["exit_code"] = 0
+        item["stdout_excerpt"] = "applied"
+    template["ok"] = True
+    template_path.write_text(json.dumps(template), encoding="utf-8")
+    verify_rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-results",
+            str(template_path),
+            "--provider-apply-plan",
+            str(plan_path),
+            "--json-out",
+            str(verify_path),
+        ]
+    )
+
+    verification = json.loads(verify_path.read_text(encoding="utf-8"))
+    assert template_rc == 0
+    assert verify_rc == 0
+    assert verification["ok"] is True
+    assert verification["all_commands_succeeded"] is True
+
+
+def test_external_gate_handoff_cli_requires_plan_for_apply_results(capsys) -> None:
+    rc = external_gate_handoff.main(["--verify-provider-apply-results", "results.json"])
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires --provider-apply-plan" in captured.err
 
 
 def test_external_gate_handoff_cli_rejects_require_ready_without_apply_plan(capsys) -> None:

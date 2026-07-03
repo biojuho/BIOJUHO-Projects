@@ -109,6 +109,18 @@ def test_post_apply_evidence_gate_fails_closed_for_secret_shaped_evidence() -> N
     assert "external gate evidence contains secret-shaped markers" in payload["failures"]
 
 
+def test_secret_marker_scan_does_not_cross_lines_for_empty_template_assignments() -> None:
+    text = "# amoy_private_key: Set a funded testnet wallet PRIVATE_KEY.\nPRIVATE_KEY=\nPOLYGONSCAN_API_KEY=\n"
+
+    assert post_apply_evidence_gate.secret_marker_names_in_text(text) == []
+
+
+def test_secret_marker_scan_detects_populated_private_assignment_same_line() -> None:
+    markers = post_apply_evidence_gate.secret_marker_names_in_text("PRIVATE_KEY=super-secret")
+
+    assert "private_assignment" in markers
+
+
 def test_post_apply_evidence_gate_writes_json_report_atomically(tmp_path: Path) -> None:
     output = tmp_path / "post-apply-gate.json"
     payload = post_apply_evidence_gate.validate_post_apply_payload(
