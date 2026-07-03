@@ -279,8 +279,21 @@ def test_qr_path_browser_smoke_keeps_invalid_manual_probe_distinct(monkeypatch):
     args = script.parse_args()
 
     assert args.invalid_manual_value == script.DEFAULT_INVALID_MANUAL_VALUE
+    assert args.manual_token is None
     assert args.invalid_manual_value != args.manual_token
     assert args.invalid_manual_value != args.invalid_token
+    assert args.invalid_manual_value != script.DEFAULT_MANUAL_TOKEN
+
+
+def test_qr_path_browser_smoke_extracts_public_verify_tokens():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_token_extract_under_test",
+    )
+
+    assert script.extract_verify_token("agri://verify/public-token-1") == "public-token-1"
+    assert script.extract_verify_token("https://verify.agriguard.test/verify/public-token-2") == "public-token-2"
+    assert script.extract_verify_token("raw-token") == "raw-token"
 
 
 def test_supply_chain_browser_smoke_uses_phone_viewport_for_mobile_default():

@@ -3,12 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import uuid
 from pathlib import Path
+from urllib import error, parse, request
 
 from playwright.sync_api import Page, sync_playwright
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
+DEFAULT_API_URL = ""
+DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 DEFAULT_MANUAL_TOKEN = "mock-0"
 DEFAULT_INVALID_MANUAL_VALUE = "not a valid AgriGuard QR"
 DEFAULT_INVALID_TOKEN = "not-a-real-token"
@@ -17,7 +21,13 @@ DEFAULT_INVALID_TOKEN = "not-a-real-token"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the AgriGuard QR scanner and consumer verification browser smoke.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Preview base URL. Defaults to {DEFAULT_BASE_URL}.")
-    parser.add_argument("--manual-token", default=DEFAULT_MANUAL_TOKEN)
+    parser.add_argument(
+        "--api-url",
+        default=DEFAULT_API_URL,
+        help="Optional backend API URL used to seed a valid manual token when --manual-token is omitted.",
+    )
+    parser.add_argument("--operator-token", default=DEFAULT_OPERATOR_TOKEN)
+    parser.add_argument("--manual-token", default=None)
     parser.add_argument("--invalid-manual-value", default=DEFAULT_INVALID_MANUAL_VALUE)
     parser.add_argument("--invalid-token", default=DEFAULT_INVALID_TOKEN)
     parser.add_argument("--json-out", default="var/agriguard-qr-path-browser-smoke.json")
@@ -51,6 +61,74 @@ def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def api_request(
+    *,
+    api_url: str,
+    method: str,
+    path: str,
+    token: str,
+    payload: dict[str, object] | None = None,
+    timeout: int = 20,
+) -> dict[str, object]:
+    body = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = request.Request(
+        api_url.rstrip("/") + path,
+        data=body,
+        method=method,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    try:
+        with request.urlopen(req, timeout=timeout) as response:
+            raw = response.read().decode("utf-8")
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"{method} {path} failed with HTTP {exc.code}: {detail}") from exc
+    return json.loads(raw) if raw else {}
+
+
+def extract_verify_token(qr_code: str) -> str:
+    value = str(qr_code or "").strip()
+    if not value:
+        return ""
+
+    parsed = parse.urlparse(value)
+    if parsed.scheme == "agri" and parsed.netloc == "verify":
+        return parse.unquote(parsed.path.lstrip("/"))
+    if parsed.path.startswith("/verify/"):
+        return parse.unquote(parsed.path.removeprefix("/verify/"))
+    return value
+
+
+def seed_manual_verify_token(api_url: str, operator_token: str) -> dict[str, object]:
+    owner_id = "dev-user-id"
+    payload = {
+        "name": f"QR Path Smoke Batch {uuid.uuid4().hex[:8]}",
+        "description": "Browser smoke product for QR path public verification.",
+        "category": "Vegetables",
+        "origin": "QR Path Smoke Farm",
+        "requires_cold_chain": True,
+    }
+    product = api_request(
+        api_url=api_url,
+        method="POST",
+        path=f"/products/?owner_id={parse.quote(owner_id)}",
+        token=operator_token,
+        payload=payload,
+    )
+    token = extract_verify_token(str(product.get("qr_code") or ""))
+    if not token:
+        raise RuntimeError("Seeded product did not include a public verification token.")
+    return {
+        "token": token,
+        "product_id": product.get("id"),
+        "product_name": product.get("name"),
+        "qr_code_prefix": str(product.get("qr_code") or "")[:48],
+    }
 
 
 def page_text(page: Page) -> str:
@@ -105,6 +183,13 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     page_errors: list[dict[str, str]] = []
     screenshot_dir = Path(args.screenshot_dir)
     viewport = parse_viewport(args.viewport)
+    manual_token = args.manual_token or DEFAULT_MANUAL_TOKEN
+
+    if args.api_url and args.manual_token is None:
+        seeded = seed_manual_verify_token(args.api_url, args.operator_token)
+        manual_token = str(seeded["token"])
+        observations["seededManualToken"] = seeded
+        checks.append(check("seed_manual_verify_token", bool(manual_token), str(seeded.get("product_id") or "")))
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -169,9 +254,9 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("invalid_manual_scanner_paused_visible", bool(observations["invalidManual"]["scannerPausedVisible"])))
         checks.append(check("invalid_manual_stays_on_scan_route", bool(observations["invalidManual"]["stillOnScanRoute"]), page.url))
 
-        manual_input.fill(args.manual_token)
+        manual_input.fill(manual_token)
         verify_button.click(timeout=args.timeout_ms)
-        page.wait_for_url(f"**/verify/{args.manual_token}**", timeout=args.timeout_ms)
+        page.wait_for_url(f"**/verify/{manual_token}**", timeout=args.timeout_ms)
         wait_for_public_verify(page, args.timeout_ms)
         valid_text = page_text(page)
         valid_metrics = read_metrics(page)
@@ -184,7 +269,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
             "metrics": valid_metrics,
             "screenshot": capture(page, screenshot_dir, "manual-verify"),
         }
-        checks.append(check("manual_verify_url_opened", f"/verify/{args.manual_token}" in page.url, page.url))
+        checks.append(check("manual_verify_url_opened", f"/verify/{manual_token}" in page.url, page.url))
         checks.append(check("manual_verify_public_view_visible", bool(observations["manualVerify"]["publicViewVisible"])))
         checks.append(check("manual_verify_trust_copy_visible", bool(observations["manualVerify"]["trustCopyVisible"])))
         checks.append(check("manual_verify_batch_evidence_visible", bool(observations["manualVerify"]["batchEvidenceVisible"])))
@@ -228,7 +313,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "schema_version": 1,
         "baseUrl": args.base_url,
         "viewport": viewport,
-        "manualToken": args.manual_token,
+        "manualToken": manual_token,
         "invalidToken": args.invalid_token,
         "passed": passed,
         "total": len(checks),
