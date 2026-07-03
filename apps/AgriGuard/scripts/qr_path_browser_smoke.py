@@ -10,6 +10,7 @@ from playwright.sync_api import Page, sync_playwright
 
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_MANUAL_TOKEN = "mock-0"
+DEFAULT_INVALID_MANUAL_VALUE = "not a valid AgriGuard QR"
 DEFAULT_INVALID_TOKEN = "not-a-real-token"
 
 
@@ -17,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the AgriGuard QR scanner and consumer verification browser smoke.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Preview base URL. Defaults to {DEFAULT_BASE_URL}.")
     parser.add_argument("--manual-token", default=DEFAULT_MANUAL_TOKEN)
+    parser.add_argument("--invalid-manual-value", default=DEFAULT_INVALID_MANUAL_VALUE)
     parser.add_argument("--invalid-token", default=DEFAULT_INVALID_TOKEN)
     parser.add_argument("--json-out", default="var/agriguard-qr-path-browser-smoke.json")
     parser.add_argument("--screenshot-dir", default="var/agriguard-qr-path-browser-smoke-screens")
@@ -148,6 +150,24 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("scan_verify_button_disabled_until_input", bool(observations["scan"]["verifyButtonInitiallyDisabled"])))
         checks.append(check("scan_camera_fallback_copy_visible", bool(observations["scan"]["showsCameraFallbackCopy"])))
         checks.append(check("scan_no_horizontal_overflow", has_no_horizontal_overflow(initial_metrics), str(initial_metrics)))
+
+        manual_input.fill(args.invalid_manual_value)
+        verify_button.click(timeout=args.timeout_ms)
+        invalid_manual_error = "Enter a valid AgriGuard verification link or token."
+        page.get_by_text(invalid_manual_error).wait_for(timeout=args.timeout_ms)
+        invalid_manual_text = page_text(page)
+        observations["invalidManual"] = {
+            "url": page.url,
+            "value": args.invalid_manual_value,
+            "errorVisible": invalid_manual_error in invalid_manual_text,
+            "retryVisible": page.get_by_role("button", name="Retry scan").is_visible(),
+            "scannerPausedVisible": "Scanner paused" in invalid_manual_text,
+            "stillOnScanRoute": page.url.rstrip("/").endswith("/scan"),
+        }
+        checks.append(check("invalid_manual_error_visible", bool(observations["invalidManual"]["errorVisible"])))
+        checks.append(check("invalid_manual_retry_visible", bool(observations["invalidManual"]["retryVisible"])))
+        checks.append(check("invalid_manual_scanner_paused_visible", bool(observations["invalidManual"]["scannerPausedVisible"])))
+        checks.append(check("invalid_manual_stays_on_scan_route", bool(observations["invalidManual"]["stillOnScanRoute"]), page.url))
 
         manual_input.fill(args.manual_token)
         verify_button.click(timeout=args.timeout_ms)

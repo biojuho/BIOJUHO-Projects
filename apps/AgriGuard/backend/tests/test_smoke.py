@@ -266,3 +266,17 @@ def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=False, viewport=None) == {"width": 1440, "height": 960}
     assert script.resolve_viewport(mobile=True, viewport=None) == {"width": 390, "height": 844}
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
+
+
+def test_qr_path_browser_smoke_keeps_invalid_manual_probe_distinct(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_under_test",
+    )
+
+    monkeypatch.setattr(sys, "argv", ["qr_path_browser_smoke.py"])
+    args = script.parse_args()
+
+    assert args.invalid_manual_value == script.DEFAULT_INVALID_MANUAL_VALUE
+    assert args.invalid_manual_value != args.manual_token
+    assert args.invalid_manual_value != args.invalid_token
