@@ -68,7 +68,7 @@ services:
     environment:
       - ENV=${ENV:-production}
       - DATABASE_URL=${AGRIGUARD_DATABASE_URL:-postgresql://${AGRIGUARD_DB_USER:-agriguard}:${AGRIGUARD_DB_PASSWORD:-agriguard_secret}@postgres:5432/${AGRIGUARD_DB_NAME:-agriguard}}
-      - AUTO_CREATE_SCHEMA=${AUTO_CREATE_SCHEMA:-false}
+      - AUTO_CREATE_SCHEMA=${AGRIGUARD_AUTO_CREATE_SCHEMA:-false}
       - ALLOWED_ORIGINS=${AGRIGUARD_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
       - SECRET_KEY=${AGRIGUARD_SECRET_KEY:-${SECRET_KEY:-}}
       - MQTT_BROKER_HOST=mosquitto

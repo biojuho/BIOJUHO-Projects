@@ -36,16 +36,45 @@ def test_launch_env_preflight_rejects_production_unsafe_runtime_values() -> None
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "a" * 32,
-            "AUTO_CREATE_SCHEMA": "true",
+            "AGRIGUARD_AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_DATABASE_URL": "sqlite:///local.db",
             "ALLOWED_ORIGINS": "*",
         }
     )
 
     assert report["status"] == "fail"
-    assert "AUTO_CREATE_SCHEMA must not be enabled for launch." in report["errors"]
+    assert "AGRIGUARD_AUTO_CREATE_SCHEMA must not be enabled for launch." in report["errors"]
     assert "Use a PostgreSQL AGRIGUARD_DATABASE_URL for launch, not SQLite." in report["errors"]
     assert "ALLOWED_ORIGINS/AGRIGUARD_ALLOWED_ORIGINS must not include wildcard '*'." in report["errors"]
+
+
+def test_launch_env_preflight_compose_mode_ignores_host_auto_create_schema() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AUTO_CREATE_SCHEMA": "true",
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        }
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["runtime"] == "compose"
+    assert report["checks"]["auto_create_schema"] is None
+    assert report["checks"]["auto_create_schema_source"] == "AGRIGUARD_AUTO_CREATE_SCHEMA"
+
+
+def test_launch_env_preflight_direct_mode_rejects_host_auto_create_schema() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AUTO_CREATE_SCHEMA": "true",
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "fail"
+    assert "AUTO_CREATE_SCHEMA must not be enabled for launch." in report["errors"]
 
 
 def test_launch_env_preflight_compose_mode_ignores_host_database_url() -> None:

@@ -108,6 +108,8 @@ def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
     assert "DATABASE_URL=${DATABASE_URL:-" not in compose
     assert "ALLOWED_ORIGINS=${AGRIGUARD_ALLOWED_ORIGINS:-" in compose
     assert "ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-" not in compose
+    assert "AUTO_CREATE_SCHEMA=${AGRIGUARD_AUTO_CREATE_SCHEMA:-false}" in compose
+    assert "AUTO_CREATE_SCHEMA=${AUTO_CREATE_SCHEMA:-" not in compose
 
 
 def test_agriguard_compose_postgres_healthcheck_uses_configured_database_identity() -> None:

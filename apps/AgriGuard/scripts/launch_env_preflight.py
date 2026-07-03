@@ -68,6 +68,12 @@ def _database_url_for_runtime(env: dict[str, str], runtime: str) -> tuple[str, s
     return value, "DATABASE_URL" if value else None
 
 
+def _auto_create_schema_for_runtime(env: dict[str, str], runtime: str) -> tuple[str, str]:
+    if runtime == "compose":
+        return (env.get("AGRIGUARD_AUTO_CREATE_SCHEMA") or "").strip().lower(), "AGRIGUARD_AUTO_CREATE_SCHEMA"
+    return (env.get("AUTO_CREATE_SCHEMA") or "").strip().lower(), "AUTO_CREATE_SCHEMA"
+
+
 def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
@@ -86,9 +92,9 @@ def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dic
     elif len(secret) < MIN_SECRET_LENGTH:
         errors.append(f"{secret_source} must be at least {MIN_SECRET_LENGTH} characters.")
 
-    auto_create_schema = (env.get("AUTO_CREATE_SCHEMA") or "").strip().lower()
+    auto_create_schema, auto_create_schema_source = _auto_create_schema_for_runtime(env, runtime)
     if auto_create_schema in {"1", "true", "yes", "on"}:
-        errors.append("AUTO_CREATE_SCHEMA must not be enabled for launch.")
+        errors.append(f"{auto_create_schema_source} must not be enabled for launch.")
 
     database_url, database_url_source = _database_url_for_runtime(env, runtime)
     if database_url.lower().startswith("sqlite"):
@@ -109,6 +115,7 @@ def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dic
             "secret_source": secret_source if secret else None,
             "secret_min_length": MIN_SECRET_LENGTH,
             "auto_create_schema": auto_create_schema or None,
+            "auto_create_schema_source": auto_create_schema_source,
             "database_url_present": bool(database_url),
             "database_url_source": database_url_source,
             "allowed_origins_count": len(origins),
