@@ -20,6 +20,7 @@ def _healthy_env() -> dict[str, str]:
         "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
         "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+        "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
     }
 
 
@@ -71,6 +72,7 @@ def test_launch_env_preflight_compose_can_allow_generic_secret_for_local_checks(
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         },
         allow_generic_secret_key=True,
     )
@@ -133,6 +135,40 @@ def test_launch_env_preflight_rejects_dev_auth_fallback_role() -> None:
     assert report["checks"]["dev_auth_fallback_role_set"] is True
 
 
+def test_launch_env_preflight_requires_firebase_credentials() -> None:
+    env = _healthy_env()
+    env.pop("GOOGLE_APPLICATION_CREDENTIALS")
+
+    report = launch_env_preflight.validate_launch_env(env)
+
+    assert report["status"] == "fail"
+    assert "Set GOOGLE_APPLICATION_CREDENTIALS to a Firebase service account file before launch." in report["errors"]
+    assert report["checks"]["firebase_credentials_source"] is None
+
+
+def test_launch_env_preflight_rejects_placeholder_firebase_credentials() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        _healthy_env() | {"GOOGLE_APPLICATION_CREDENTIALS": "change_me"}
+    )
+
+    assert report["status"] == "fail"
+    assert "GOOGLE_APPLICATION_CREDENTIALS uses a placeholder or development-only value." in report["errors"]
+
+
+def test_launch_env_preflight_can_allow_missing_firebase_credentials_for_local_checks() -> None:
+    env = _healthy_env()
+    env.pop("GOOGLE_APPLICATION_CREDENTIALS")
+
+    report = launch_env_preflight.validate_launch_env_with_options(
+        env,
+        allow_missing_firebase_credentials=True,
+    )
+
+    assert report["status"] == "pass"
+    assert "Set GOOGLE_APPLICATION_CREDENTIALS to a Firebase service account file before launch." in report["warnings"]
+    assert report["checks"]["allow_missing_firebase_credentials"] is True
+
+
 def test_launch_env_preflight_rejects_missing_qr_token_pepper() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
@@ -140,6 +176,7 @@ def test_launch_env_preflight_rejects_missing_qr_token_pepper() -> None:
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         }
     )
 
@@ -174,6 +211,7 @@ def test_launch_env_preflight_compose_can_allow_generic_qr_token_pepper_for_loca
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         },
         allow_generic_qr_token_pepper=True,
     )
@@ -272,6 +310,7 @@ def test_launch_env_preflight_compose_can_allow_generic_public_verify_base_url_f
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         },
         allow_generic_public_verify_base_url=True,
     )
@@ -339,6 +378,7 @@ def test_launch_env_preflight_can_allow_local_public_verify_base_url_for_local_c
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://localhost:5173",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         },
         allow_local_public_verify_base_url=True,
     )
@@ -354,6 +394,7 @@ def test_launch_env_preflight_can_allow_legacy_qr_scheme_for_local_checks() -> N
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         },
         allow_legacy_qr_scheme=True,
     )
@@ -403,6 +444,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_auto_create_schema() -> 
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         }
     )
 
@@ -438,6 +480,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_database_url() -> None:
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         }
     )
 
@@ -466,6 +509,7 @@ def test_launch_env_preflight_can_allow_runtime_default_origins_for_local_checks
             "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         },
         allow_runtime_default_origins=True,
     )
@@ -524,6 +568,7 @@ def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None
             "ALLOWED_ORIGINS": "https://generic.example",
             "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
             "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
+            "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
         },
         runtime="direct",
     )
@@ -723,6 +768,7 @@ def test_launch_env_preflight_loads_env_file_and_environment_override(tmp_path: 
                 "AGRIGUARD_DATABASE_URL=postgresql://agriguard:dbpassword1234567890@postgres:5432/agriguard",
                 "AGRIGUARD_ALLOWED_ORIGINS=https://agriguard.example",
                 "AGRIGUARD_PUBLIC_VERIFY_BASE_URL=https://verify.agriguard.example",
+                "GOOGLE_APPLICATION_CREDENTIALS=firebase-service-account.json",
             ]
         ),
         encoding="utf-8",
@@ -755,6 +801,7 @@ def test_launch_report_can_allow_runtime_default_origins_for_local_checks() -> N
         "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
         "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+        "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
     }
 
     report = launch_env_preflight.build_launch_report(
@@ -773,6 +820,7 @@ def test_launch_report_can_allow_generic_secret_for_local_compose_checks() -> No
         "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
         "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
+        "GOOGLE_APPLICATION_CREDENTIALS": "firebase-service-account.json",
     }
 
     report = launch_env_preflight.build_launch_report(

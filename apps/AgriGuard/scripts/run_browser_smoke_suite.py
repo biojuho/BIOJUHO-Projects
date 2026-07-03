@@ -1,0 +1,306 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+DEFAULT_BASE_URL = "http://127.0.0.1:5174"
+DEFAULT_API_URL = "http://127.0.0.1:8002"
+DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
+
+
+class BrowserSmokeStep:
+    def __init__(self, *, name: str, command: list[str], json_out: Path) -> None:
+        self.name = name
+        self.command = command
+        self.json_out = json_out
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the AgriGuard live-backend browser smoke suite.")
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Frontend base URL. Defaults to {DEFAULT_BASE_URL}.")
+    parser.add_argument("--api-url", default=DEFAULT_API_URL, help=f"Backend API base URL. Defaults to {DEFAULT_API_URL}.")
+    parser.add_argument(
+        "--operator-token",
+        default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN") or DEFAULT_OPERATOR_TOKEN,
+        help="Operator token for authenticated browser paths. Redacted from the aggregate report.",
+    )
+    parser.add_argument("--output-dir", default="var/agriguard-browser-smoke-suite")
+    parser.add_argument("--json-out", default="var/agriguard-browser-smoke-suite.json")
+    parser.add_argument("--timeout-ms", type=int, default=30_000)
+    parser.add_argument("--mobile", action="store_true", help="Run mobile variants where the child smoke supports it.")
+    parser.add_argument(
+        "--include-unavailable-check",
+        action="store_true",
+        help=(
+            "Also run the consumer verify unavailable smoke. Use only when the frontend is up and "
+            "the backend/proxy target is intentionally unavailable."
+        ),
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Write the aggregate command plan without executing it.")
+    return parser.parse_args()
+
+
+def route_url(base_url: str, path: str) -> str:
+    return base_url.rstrip("/") + path
+
+
+def _script_path(name: str) -> str:
+    return str(Path(__file__).resolve().parent / name)
+
+
+def _json_path(output_dir: Path, name: str) -> Path:
+    return output_dir / f"{name}.json"
+
+
+def _add_mobile(command: list[str], *, mobile: bool) -> list[str]:
+    if mobile:
+        return command + ["--mobile"]
+    return command
+
+
+def build_steps(args: argparse.Namespace) -> list[BrowserSmokeStep]:
+    output_dir = Path(args.output_dir)
+    python = sys.executable
+    steps = [
+        BrowserSmokeStep(
+            name="nav",
+            json_out=_json_path(output_dir, "nav"),
+            command=_add_mobile(
+                [
+                    python,
+                    _script_path("nav_browser_smoke.py"),
+                    "--base-url",
+                    args.base_url,
+                    "--operator-token",
+                    args.operator_token,
+                    "--click-nav",
+                    "--json-out",
+                    str(_json_path(output_dir, "nav")),
+                    "--screenshot-dir",
+                    str(output_dir / "nav-screens"),
+                    "--timeout-ms",
+                    str(args.timeout_ms),
+                ],
+                mobile=args.mobile,
+            ),
+        ),
+        BrowserSmokeStep(
+            name="supply_chain",
+            json_out=_json_path(output_dir, "supply-chain"),
+            command=_add_mobile(
+                [
+                    python,
+                    _script_path("supply_chain_browser_smoke.py"),
+                    "--url",
+                    route_url(args.base_url, "/supply-chain"),
+                    "--operator-token",
+                    args.operator_token,
+                    "--json-out",
+                    str(_json_path(output_dir, "supply-chain")),
+                    "--screenshot",
+                    str(output_dir / "supply-chain.png"),
+                    "--timeout-ms",
+                    str(args.timeout_ms),
+                ],
+                mobile=args.mobile,
+            ),
+        ),
+        BrowserSmokeStep(
+            name="qr_path",
+            json_out=_json_path(output_dir, "qr-path"),
+            command=[
+                python,
+                _script_path("qr_path_browser_smoke.py"),
+                "--base-url",
+                args.base_url,
+                "--api-url",
+                args.api_url,
+                "--operator-token",
+                args.operator_token,
+                "--json-out",
+                str(_json_path(output_dir, "qr-path")),
+                "--screenshot-dir",
+                str(output_dir / "qr-path-screens"),
+                "--timeout-ms",
+                str(args.timeout_ms),
+            ],
+        ),
+        BrowserSmokeStep(
+            name="admin_routes",
+            json_out=_json_path(output_dir, "admin-routes"),
+            command=[
+                python,
+                _script_path("admin_routes_browser_smoke.py"),
+                "--base-url",
+                args.base_url,
+                "--api-url",
+                args.api_url,
+                "--operator-token",
+                args.operator_token,
+                "--json-out",
+                str(_json_path(output_dir, "admin-routes")),
+                "--screenshot-dir",
+                str(output_dir / "admin-routes-screens"),
+                "--timeout-ms",
+                str(args.timeout_ms),
+            ],
+        ),
+        BrowserSmokeStep(
+            name="product_detail",
+            json_out=_json_path(output_dir, "product-detail"),
+            command=_add_mobile(
+                [
+                    python,
+                    _script_path("product_detail_browser_smoke.py"),
+                    "--base-url",
+                    args.base_url,
+                    "--api-url",
+                    args.api_url,
+                    "--operator-token",
+                    args.operator_token,
+                    "--json-out",
+                    str(_json_path(output_dir, "product-detail")),
+                    "--screenshot-dir",
+                    str(output_dir / "product-detail-screens"),
+                    "--timeout-ms",
+                    str(args.timeout_ms),
+                ],
+                mobile=args.mobile,
+            ),
+        ),
+    ]
+
+    if args.include_unavailable_check:
+        steps.append(
+            BrowserSmokeStep(
+                name="consumer_verify_unavailable",
+                json_out=_json_path(output_dir, "consumer-verify-unavailable"),
+                command=[
+                    python,
+                    _script_path("consumer_verify_unavailable_browser_smoke.py"),
+                    "--base-url",
+                    args.base_url,
+                    "--json-out",
+                    str(_json_path(output_dir, "consumer-verify-unavailable")),
+                    "--screenshot",
+                    str(output_dir / "consumer-verify-unavailable.png"),
+                    "--timeout-ms",
+                    str(args.timeout_ms),
+                ],
+            )
+        )
+    return steps
+
+
+def redact_command(command: list[str], *, operator_token: str) -> list[str]:
+    redacted: list[str] = []
+    skip_next = False
+    for value in command:
+        if skip_next:
+            redacted.append("<redacted>")
+            skip_next = False
+            continue
+        redacted.append(value)
+        if value == "--operator-token":
+            skip_next = True
+    if operator_token:
+        redacted = ["<redacted>" if value == operator_token else value for value in redacted]
+    return redacted
+
+
+def _tail(value: str, *, limit: int = 1200) -> str:
+    value = value.strip()
+    return value[-limit:] if len(value) > limit else value
+
+
+def summarize_child_report(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {"report_found": False, "checks_total": 0, "checks_passed": 0, "checks_failed": 0}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    checks = payload.get("checks")
+    if not isinstance(checks, list):
+        return {"report_found": True, "checks_total": 0, "checks_passed": 0, "checks_failed": 0}
+    checks_passed = sum(1 for check in checks if isinstance(check, dict) and check.get("ok") is True)
+    checks_total = len(checks)
+    return {
+        "report_found": True,
+        "checks_total": checks_total,
+        "checks_passed": checks_passed,
+        "checks_failed": checks_total - checks_passed,
+    }
+
+
+def run_step(step: BrowserSmokeStep, *, operator_token: str, timeout_ms: int, dry_run: bool) -> dict[str, object]:
+    if dry_run:
+        return {
+            "name": step.name,
+            "ok": True,
+            "dry_run": True,
+            "command": redact_command(step.command, operator_token=operator_token),
+            "json_out": str(step.json_out),
+        }
+    completed = subprocess.run(
+        step.command,
+        capture_output=True,
+        text=True,
+        timeout=max(30, int(timeout_ms / 1000) + 30),
+        check=False,
+    )
+    child_summary = summarize_child_report(step.json_out)
+    return {
+        "name": step.name,
+        "ok": completed.returncode == 0 and child_summary.get("checks_failed") == 0,
+        "dry_run": False,
+        "command": redact_command(step.command, operator_token=operator_token),
+        "json_out": str(step.json_out),
+        "returncode": completed.returncode,
+        "stdout_tail": _tail(completed.stdout),
+        "stderr_tail": _tail(completed.stderr),
+        **child_summary,
+    }
+
+
+def write_json(path: str | Path, payload: dict[str, object]) -> None:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    args = parse_args()
+    steps = build_steps(args)
+    results = [
+        run_step(step, operator_token=args.operator_token, timeout_ms=args.timeout_ms, dry_run=args.dry_run)
+        for step in steps
+    ]
+    passed = sum(1 for result in results if result.get("ok") is True)
+    failed = len(results) - passed
+    report = {
+        "status": "pass" if failed == 0 else "fail",
+        "base_url": args.base_url,
+        "api_url": args.api_url,
+        "mobile": args.mobile,
+        "include_unavailable_check": args.include_unavailable_check,
+        "dry_run": args.dry_run,
+        "summary": {
+            "total": len(results),
+            "passed": passed,
+            "failed": failed,
+            "checks_total": sum(int(result.get("checks_total", 0)) for result in results),
+            "checks_passed": sum(int(result.get("checks_passed", 0)) for result in results),
+            "checks_failed": sum(int(result.get("checks_failed", 0)) for result in results),
+        },
+        "results": results,
+    }
+    write_json(args.json_out, report)
+    print(json.dumps(report["summary"], indent=2, sort_keys=True))
+    return 0 if failed == 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

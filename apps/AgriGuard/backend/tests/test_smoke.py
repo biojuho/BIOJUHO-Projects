@@ -269,6 +269,77 @@ def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
 
 
+def test_browser_smoke_suite_builds_live_backend_steps_and_redacts_operator_token(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_under_test",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_browser_smoke_suite.py",
+            "--base-url",
+            "http://127.0.0.1:5174",
+            "--api-url",
+            "http://127.0.0.1:8002",
+            "--operator-token",
+            "secret-operator-token",
+            "--output-dir",
+            "var/browser-suite",
+            "--mobile",
+        ],
+    )
+    args = script.parse_args()
+    steps = script.build_steps(args)
+
+    assert [step.name for step in steps] == ["nav", "supply_chain", "qr_path", "admin_routes", "product_detail"]
+    assert "--click-nav" in steps[0].command
+    assert "--mobile" in steps[0].command
+    assert "--mobile" in steps[1].command
+    assert "--mobile" in steps[4].command
+    redacted = script.redact_command(steps[0].command, operator_token=args.operator_token)
+    assert "secret-operator-token" not in redacted
+    assert "<redacted>" in redacted
+
+
+def test_browser_smoke_suite_unavailable_check_is_explicit_opt_in(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_unavailable_under_test",
+    )
+
+    monkeypatch.setattr(sys, "argv", ["run_browser_smoke_suite.py"])
+    default_steps = script.build_steps(script.parse_args())
+    assert "consumer_verify_unavailable" not in [step.name for step in default_steps]
+
+    monkeypatch.setattr(sys, "argv", ["run_browser_smoke_suite.py", "--include-unavailable-check"])
+    opted_in_steps = script.build_steps(script.parse_args())
+    assert opted_in_steps[-1].name == "consumer_verify_unavailable"
+
+
+def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_summary_under_test",
+    )
+    report_path = tmp_path / "child.json"
+    report_path.write_text(
+        json.dumps({"checks": [{"ok": True}, {"ok": False}, {"ok": True}]}),
+        encoding="utf-8",
+    )
+
+    summary = script.summarize_child_report(report_path)
+
+    assert summary == {
+        "report_found": True,
+        "checks_total": 3,
+        "checks_passed": 2,
+        "checks_failed": 1,
+    }
+
+
 def test_nav_browser_smoke_defaults_operator_token_for_local_dev(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",

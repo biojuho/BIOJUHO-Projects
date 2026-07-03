@@ -311,6 +311,7 @@ def validate_launch_env_with_options(
     allow_legacy_qr_scheme: bool = False,
     allow_local_public_verify_base_url: bool = False,
     allow_local_allowed_origins: bool = False,
+    allow_missing_firebase_credentials: bool = False,
 ) -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
@@ -324,6 +325,17 @@ def validate_launch_env_with_options(
     dev_auth_fallback_role_set = bool((env.get("DEV_AUTH_FALLBACK_ROLE") or "").strip())
     if dev_auth_fallback_role_set:
         errors.append("DEV_AUTH_FALLBACK_ROLE must not be set for launch.")
+
+    firebase_credentials = (env.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
+    firebase_credentials_source = "GOOGLE_APPLICATION_CREDENTIALS" if firebase_credentials else None
+    if not firebase_credentials:
+        message = "Set GOOGLE_APPLICATION_CREDENTIALS to a Firebase service account file before launch."
+        if allow_missing_firebase_credentials:
+            warnings.append(message)
+        else:
+            errors.append(message)
+    elif _is_placeholder_value(firebase_credentials):
+        errors.append("GOOGLE_APPLICATION_CREDENTIALS uses a placeholder or development-only value.")
 
     secret, secret_source, secret_error = _secret_for_runtime(
         env,
@@ -418,6 +430,8 @@ def validate_launch_env_with_options(
             "runtime": runtime,
             "forbidden_launch_flags_enabled": forbidden_enabled_flags,
             "dev_auth_fallback_role_set": dev_auth_fallback_role_set,
+            "firebase_credentials_source": firebase_credentials_source,
+            "allow_missing_firebase_credentials": allow_missing_firebase_credentials,
             "secret_source": secret_source,
             "secret_min_length": MIN_SECRET_LENGTH,
             "allow_generic_secret_key": allow_generic_secret_key,
@@ -529,6 +543,7 @@ def build_launch_report(
     allow_legacy_qr_scheme: bool = False,
     allow_local_public_verify_base_url: bool = False,
     allow_local_allowed_origins: bool = False,
+    allow_missing_firebase_credentials: bool = False,
     app_root: Path | None = None,
     command_runner: CommandRunner = subprocess.run,
 ) -> dict[str, object]:
@@ -542,6 +557,7 @@ def build_launch_report(
         allow_legacy_qr_scheme=allow_legacy_qr_scheme,
         allow_local_public_verify_base_url=allow_local_public_verify_base_url,
         allow_local_allowed_origins=allow_local_allowed_origins,
+        allow_missing_firebase_credentials=allow_missing_firebase_credentials,
     )
     checks = report["checks"]
     assert isinstance(checks, dict)
@@ -621,6 +637,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Permit localhost/loopback HTTP allowed origins for local smoke checks.",
     )
+    parser.add_argument(
+        "--allow-missing-firebase-credentials",
+        action="store_true",
+        help="Permit missing GOOGLE_APPLICATION_CREDENTIALS for local auth-fallback diagnostics.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
@@ -636,6 +657,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_legacy_qr_scheme=args.allow_legacy_qr_scheme,
         allow_local_public_verify_base_url=args.allow_local_public_verify_base_url,
         allow_local_allowed_origins=args.allow_local_allowed_origins,
+        allow_missing_firebase_credentials=args.allow_missing_firebase_credentials,
     )
 
     output = json.dumps(report, indent=2, sort_keys=True)
