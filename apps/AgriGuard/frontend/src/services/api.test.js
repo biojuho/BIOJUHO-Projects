@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import api, { productApi, resolveApiBaseUrl } from './api';
+import api, { productApi, qrVerifyApi, resolveApiBaseUrl } from './api';
 
 const API_URL = resolveApiBaseUrl();
 
@@ -17,6 +17,16 @@ const server = setupServer(
       return HttpResponse.json({ message: 'Invalid ID format' }, { status: 400 });
     }
     return HttpResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+  }),
+  http.get(`${API_URL}/api/qr/:qrToken/verify`, ({ params, request }) => {
+    const url = new URL(request.url);
+
+    return HttpResponse.json({
+      qrToken: params.qrToken,
+      sessionId: url.searchParams.get('session_id'),
+      source: url.searchParams.get('source'),
+      variantId: url.searchParams.get('variant_id'),
+    });
   }),
 );
 
@@ -54,6 +64,23 @@ describe('productApi', () => {
         status: 500,
         data: { message: 'Internal Server Error' },
       },
+    });
+  });
+});
+
+describe('qrVerifyApi', () => {
+  it('keeps the backend public QR route behind the same-origin API proxy', async () => {
+    const response = await qrVerifyApi.verify('token-123', {
+      sessionId: 'session-123',
+      source: 'browser_smoke',
+      variantId: 'qr_page_v2',
+    });
+
+    expect(response.data).toEqual({
+      qrToken: 'token-123',
+      sessionId: 'session-123',
+      source: 'browser_smoke',
+      variantId: 'qr_page_v2',
     });
   });
 });
