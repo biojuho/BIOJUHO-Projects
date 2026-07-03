@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from database import Base
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 
@@ -34,6 +34,30 @@ class Product(Base):
     # Relationships
     tracking_history = relationship("TrackingEvent", back_populates="product", cascade="all, delete-orphan")
     certificates = relationship("Certificate", back_populates="product", cascade="all, delete-orphan")
+    qr_tokens = relationship("QRToken", back_populates="product", cascade="all, delete-orphan")
+
+
+class QRToken(Base):
+    __tablename__ = "qr_tokens"
+    __table_args__ = (
+        Index("ix_qr_tokens_token_hash", "token_hash", unique=True),
+        Index("ix_qr_tokens_product_id", "product_id"),
+        Index("ix_qr_tokens_expires_at", "expires_at"),
+        Index("ix_qr_tokens_revoked_at", "revoked_at"),
+    )
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    product_id = Column(String, ForeignKey("products.id"), nullable=False)
+    token_hash = Column(String, nullable=False)
+    token_prefix = Column(String, nullable=False)
+    batch_code = Column(String, nullable=False)
+    issued_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+    last_verified_at = Column(DateTime, nullable=True)
+    scan_count = Column(Integer, default=0, nullable=False)
+
+    product = relationship("Product", back_populates="qr_tokens")
 
 
 class TrackingEvent(Base):

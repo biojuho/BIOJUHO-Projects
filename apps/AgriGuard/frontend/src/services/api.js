@@ -75,4 +75,16 @@ export const analyticsApi = {
   trackQrEvent: (payload) => api.post('/qr-events', payload),
 };
 
+export const qrVerifyApi = {
+  verify: (qrToken, { sessionId, variantId = 'qr_consumer_v1', source = 'consumer_verify_page' } = {}) => (
+    api.get(`/api/qr/${encodeURIComponent(qrToken)}/verify`, {
+      params: {
+        session_id: sessionId || undefined,
+        variant_id: variantId,
+        source,
+      },
+    })
+  ),
+};
+
 export default api;

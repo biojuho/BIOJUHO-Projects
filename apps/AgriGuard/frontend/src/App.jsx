@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
 const ProductRegistry = lazy(() => import('./components/ProductRegistry'));
 const ProductDetail = lazy(() => import('./components/ProductDetail'));
+const ConsumerVerify = lazy(() => import('./components/ConsumerVerify'));
 const SupplyChain = lazy(() => import('./components/SupplyChain'));
 const QRReader = lazy(() => import('./components/QRReader'));
 const ColdChainMonitor = lazy(() => import('./components/ColdChainMonitor'));
@@ -24,6 +25,7 @@ function App() {
     <ToastProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/verify/:qrToken" element={<Suspense fallback={<LoadingSpinner />}><ConsumerVerify /></Suspense>} />
           <Route path="/" element={<Layout />}>
             <Route index element={<Suspense fallback={<LoadingSpinner />}><Dashboard /></Suspense>} />
             <Route path="registry" element={<Suspense fallback={<LoadingSpinner />}><ProductRegistry /></Suspense>} />

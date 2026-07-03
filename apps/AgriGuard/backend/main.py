@@ -276,12 +276,13 @@ async def rate_limit_middleware(request, call_next):
     return response
 
 
-from routers import dashboard, iot, products, qr_events, users
+from routers import dashboard, iot, products, qr_events, qr_verify, users
 
 app.include_router(dashboard.router, tags=["Dashboard"])
 app.include_router(users.router, tags=["Users"])
 app.include_router(products.router, tags=["Products"])
 app.include_router(qr_events.router, tags=["QR Events"])
+app.include_router(qr_verify.router, tags=["QR Verification"])
 app.include_router(iot.router, tags=["IoT"])
 
 
