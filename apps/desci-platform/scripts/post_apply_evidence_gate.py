@@ -27,6 +27,22 @@ SECRET_PATTERNS = {
     "credential_url": re.compile(r"(?i)\b(?:postgres(?:ql)?|mysql|redis|amqp)://[^@\s\"']+:[^@\s\"']+@"),
 }
 
+PROMOTION_RECEIPT_SUCCESS_CONDITION = (
+    "post_apply_evidence_gate.ok=true and evidence_manifest.ok=true and "
+    "evidence_manifest_verification.ok=true"
+)
+PROMOTION_RECEIPT_CHECK_KEYS = (
+    "post_apply_evidence_gate",
+    "evidence_manifest",
+    "evidence_manifest_verification",
+)
+PROMOTION_RECEIPT_ARTIFACT_FIELDS = (
+    ("external_gate_json", "external_gate_json"),
+    ("post_apply_evidence_gate_json", "post_apply_evidence_gate_json"),
+    ("evidence_manifest_json", "evidence_manifest_json"),
+    ("evidence_manifest_verification_json", "evidence_manifest_verification_json"),
+)
+
 
 def secret_marker_names_in_text(serialized: str) -> list[str]:
     return [name for name, pattern in SECRET_PATTERNS.items() if pattern.search(serialized)]
@@ -209,6 +225,13 @@ def load_evidence_manifest(path: str | Path) -> dict[str, Any]:
     return payload
 
 
+def load_promotion_receipt(path: str | Path) -> dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
 def _resolve_manifest_artifact_path(path: str, artifact_root: str | Path) -> Path:
     artifact_path = Path(path)
     if artifact_path.is_absolute():
@@ -323,6 +346,179 @@ def verify_evidence_manifest(
     }
 
 
+def _verify_receipt_artifact(
+    receipt: dict[str, Any],
+    *,
+    role: str,
+    field_name: str,
+    artifact_root: str | Path,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    path_value = str(receipt.get(field_name) or "")
+    failures: list[str] = []
+    payload: dict[str, Any] | None = None
+
+    if not path_value:
+        return (
+            {
+                "role": role,
+                "field": field_name,
+                "path": "",
+                "resolved_path": "",
+                "required": True,
+                "exists": False,
+                "bytes": 0,
+                "sha256": "",
+                "secret_marker_names": [],
+                "secret_marker_count": 0,
+                "ok": False,
+                "failures": ["receipt artifact path is required"],
+            },
+            None,
+        )
+
+    resolved_path = _resolve_manifest_artifact_path(path_value, artifact_root)
+    entry = evidence_artifact_entry(resolved_path, role=role, required=True)
+    if entry.get("exists") is not True:
+        failures.append("receipt artifact is missing")
+    if entry.get("read_error"):
+        failures.append("receipt artifact could not be read")
+    if int(entry.get("secret_marker_count") or 0) != 0:
+        failures.append("receipt artifact contains secret-shaped markers")
+    if entry.get("exists") is True and not entry.get("read_error"):
+        try:
+            payload = json.loads(resolved_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                failures.append("receipt artifact must contain a JSON object")
+                payload = None
+        except (OSError, json.JSONDecodeError) as exc:
+            failures.append(f"receipt artifact JSON could not be loaded: {exc}")
+
+    entry.update(
+        {
+            "field": field_name,
+            "path": path_value,
+            "resolved_path": str(resolved_path),
+            "failures": failures,
+            "ok": not failures,
+        }
+    )
+    return entry, payload
+
+
+def verify_promotion_receipt(
+    receipt_path: str | Path,
+    *,
+    artifact_root: str | Path = ".",
+    require_go: bool = False,
+) -> dict[str, Any]:
+    receipt = load_promotion_receipt(receipt_path)
+    summary = _as_dict(receipt.get("summary"))
+    checks = _as_dict(receipt.get("checks"))
+    blocking_reasons = [str(item) for item in _as_list(receipt.get("blocking_reasons")) if str(item)]
+    receipt_ok = receipt.get("ok") is True
+    expected_ok = all(checks.get(key) is True for key in PROMOTION_RECEIPT_CHECK_KEYS)
+    failures: list[str] = []
+
+    if receipt.get("schema_version") != 1:
+        failures.append("promotion receipt must be schema_version=1")
+    if secret_marker_names(receipt):
+        failures.append("promotion receipt contains secret-shaped markers")
+    for key in PROMOTION_RECEIPT_CHECK_KEYS:
+        if not isinstance(checks.get(key), bool):
+            failures.append(f"promotion receipt check {key} must be a boolean")
+    if receipt_ok != expected_ok:
+        failures.append("promotion receipt ok must equal all receipt checks")
+    if receipt.get("release_decision") != ("go" if receipt_ok else "no-go"):
+        failures.append("promotion receipt release_decision does not match ok")
+    if receipt.get("operator_phase") != (
+        "post_apply_launch_ready" if receipt_ok else "post_apply_launch_blocked"
+    ):
+        failures.append("promotion receipt operator_phase does not match ok")
+    if receipt.get("success_condition") != PROMOTION_RECEIPT_SUCCESS_CONDITION:
+        failures.append("promotion receipt success_condition is not recognized")
+    if int(summary.get("blocking_reason_count") or 0) != len(blocking_reasons):
+        failures.append("promotion receipt blocking_reason_count does not match blocking_reasons length")
+    if receipt_ok and blocking_reasons:
+        failures.append("go promotion receipt must not include blocking_reasons")
+    if not receipt_ok and not blocking_reasons:
+        failures.append("no-go promotion receipt must include blocking_reasons")
+    if require_go and not receipt_ok:
+        failures.append("promotion receipt ok must be true")
+
+    artifacts: list[dict[str, Any]] = []
+    payloads: dict[str, dict[str, Any]] = {}
+    for role, field_name in PROMOTION_RECEIPT_ARTIFACT_FIELDS:
+        entry, payload = _verify_receipt_artifact(
+            receipt,
+            role=role,
+            field_name=field_name,
+            artifact_root=artifact_root,
+        )
+        artifacts.append(entry)
+        if payload is not None:
+            payloads[role] = payload
+
+    gate_payload = _as_dict(payloads.get("post_apply_evidence_gate_json"))
+    if gate_payload:
+        gate_ok = gate_payload.get("ok") is True
+        if checks.get("post_apply_evidence_gate") is not gate_ok:
+            failures.append("receipt check post_apply_evidence_gate does not match gate artifact")
+        if int(summary.get("gate_failure_count") or 0) != int(
+            _as_dict(gate_payload.get("summary")).get("failure_count") or 0
+        ):
+            failures.append("promotion receipt gate_failure_count does not match gate artifact")
+
+    manifest_payload = _as_dict(payloads.get("evidence_manifest_json"))
+    if manifest_payload:
+        manifest_ok = manifest_payload.get("ok") is True
+        if checks.get("evidence_manifest") is not manifest_ok:
+            failures.append("receipt check evidence_manifest does not match manifest artifact")
+        if int(summary.get("manifest_artifact_count") or 0) != int(
+            manifest_payload.get("artifact_count") or 0
+        ):
+            failures.append("promotion receipt manifest_artifact_count does not match manifest artifact")
+
+    verification_payload = _as_dict(payloads.get("evidence_manifest_verification_json"))
+    if verification_payload:
+        verification_summary = _as_dict(verification_payload.get("summary"))
+        verification_ok = verification_payload.get("ok") is True
+        if checks.get("evidence_manifest_verification") is not verification_ok:
+            failures.append(
+                "receipt check evidence_manifest_verification does not match verification artifact"
+            )
+        expected_counts = {
+            "verification_artifact_failure_count": "artifact_failure_count",
+            "verification_digest_mismatch_count": "digest_mismatch_count",
+            "verification_secret_marker_count": "secret_marker_count",
+        }
+        for receipt_key, verification_key in expected_counts.items():
+            if int(summary.get(receipt_key) or 0) != int(verification_summary.get(verification_key) or 0):
+                failures.append(f"promotion receipt {receipt_key} does not match verification artifact")
+
+    artifact_failure_count = sum(1 for artifact in artifacts if artifact.get("ok") is not True)
+    artifact_secret_marker_count = sum(int(artifact.get("secret_marker_count") or 0) for artifact in artifacts)
+    return {
+        "schema_version": 1,
+        "generated_at": _utc_now(),
+        "ok": not failures and artifact_failure_count == 0,
+        "promotion_receipt_json": str(receipt_path),
+        "artifact_root": str(artifact_root),
+        "require_go": require_go,
+        "promotion_receipt_ok": receipt_ok,
+        "release_decision": receipt.get("release_decision"),
+        "operator_phase": receipt.get("operator_phase"),
+        "summary": {
+            "failure_count": len(failures),
+            "artifact_count": len(artifacts),
+            "artifact_failure_count": artifact_failure_count,
+            "artifact_secret_marker_count": artifact_secret_marker_count,
+            "blocking_reason_count": len(blocking_reasons),
+        },
+        "failures": failures,
+        "artifacts": artifacts,
+    }
+
+
 def _promotion_blocking_reasons(
     *,
     gate_payload: dict[str, Any],
@@ -383,10 +579,7 @@ def build_promotion_receipt(
         "ok": ok,
         "release_decision": "go" if ok else "no-go",
         "operator_phase": "post_apply_launch_ready" if ok else "post_apply_launch_blocked",
-        "success_condition": (
-            "post_apply_evidence_gate.ok=true and evidence_manifest.ok=true and "
-            "evidence_manifest_verification.ok=true"
-        ),
+        "success_condition": PROMOTION_RECEIPT_SUCCESS_CONDITION,
         "external_gate_json": str(external_gate_path),
         "post_apply_evidence_gate_json": str(gate_report_path or ""),
         "evidence_manifest_json": str(manifest_path or ""),
@@ -451,11 +644,33 @@ def print_manifest_verification_report(payload: dict[str, Any]) -> None:
                 print(f"  - {role}: {failure}")
 
 
+def print_promotion_receipt_verification_report(payload: dict[str, Any]) -> None:
+    summary = _as_dict(payload.get("summary"))
+    print(f"[post-apply-promotion-receipt] ok={payload.get('ok')}")
+    print(
+        "[post-apply-promotion-receipt] "
+        f"receipt_ok={payload.get('promotion_receipt_ok')} "
+        f"decision={payload.get('release_decision')} "
+        f"require_go={payload.get('require_go')} "
+        f"artifact_failures={summary.get('artifact_failure_count')} "
+        f"secret_markers={summary.get('artifact_secret_marker_count')} "
+        f"failures={summary.get('failure_count')}"
+    )
+    for failure in _as_list(payload.get("failures")):
+        print(f"  - {failure}")
+    for artifact in _as_list(payload.get("artifacts")):
+        if isinstance(artifact, dict) and artifact.get("ok") is not True:
+            role = artifact.get("role") or "artifact"
+            for failure in _as_list(artifact.get("failures")):
+                print(f"  - {role}: {failure}")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate DeSci post-apply external gate JSON evidence.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--external-gate-json", help="Path to external_release_gate.py JSON evidence.")
     source.add_argument("--verify-manifest", help="Path to a post-apply evidence manifest to verify.")
+    source.add_argument("--verify-promotion-receipt", help="Path to a post-apply promotion receipt to verify.")
     parser.add_argument("--artifact-root", default=".", help="Root used to resolve relative artifact paths in verify mode.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable validation JSON.")
     parser.add_argument("--json-out", help="Write machine-readable validation JSON.")
@@ -465,11 +680,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--promotion-receipt-out",
         help="Write a compact launch promotion receipt for the generated post-apply artifacts.",
     )
+    parser.add_argument(
+        "--require-go",
+        action="store_true",
+        help="In --verify-promotion-receipt mode, fail unless the receipt is a launch go decision.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.require_go and not args.verify_promotion_receipt:
+        print(
+            "[post-apply-evidence-gate] --require-go requires --verify-promotion-receipt",
+            file=sys.stderr,
+        )
+        return 2
     if args.verify_manifest:
         if args.promotion_receipt_out:
             print(
@@ -508,6 +734,49 @@ def main(argv: list[str] | None = None) -> int:
             write_json_report(args.json_out, verification)
             print(f"[post-apply-evidence-manifest] json written: {args.json_out}")
         return 0 if verification["ok"] else 1
+
+    if args.verify_promotion_receipt:
+        if args.promotion_receipt_out:
+            print(
+                "[post-apply-evidence-gate] --promotion-receipt-out requires --external-gate-json mode",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            receipt_verification = verify_promotion_receipt(
+                args.verify_promotion_receipt,
+                artifact_root=args.artifact_root,
+                require_go=args.require_go,
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            receipt_verification = {
+                "schema_version": 1,
+                "generated_at": _utc_now(),
+                "ok": False,
+                "promotion_receipt_json": str(args.verify_promotion_receipt),
+                "artifact_root": str(args.artifact_root),
+                "require_go": args.require_go,
+                "promotion_receipt_ok": False,
+                "release_decision": "",
+                "operator_phase": "",
+                "summary": {
+                    "failure_count": 1,
+                    "artifact_count": 0,
+                    "artifact_failure_count": 0,
+                    "artifact_secret_marker_count": 0,
+                    "blocking_reason_count": 0,
+                },
+                "failures": [str(exc)],
+                "artifacts": [],
+            }
+        if args.json:
+            print(json.dumps(receipt_verification, indent=2))
+        else:
+            print_promotion_receipt_verification_report(receipt_verification)
+        if args.json_out:
+            write_json_report(args.json_out, receipt_verification)
+            print(f"[post-apply-promotion-receipt] json written: {args.json_out}")
+        return 0 if receipt_verification["ok"] else 1
 
     evidence_path = Path(args.external_gate_json)
     if args.verify_manifest_out and not args.manifest_out:

@@ -499,6 +499,8 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
     promotion_manifest_json_out = "var/post-apply-evidence-manifest.json"
     promotion_manifest_verify_json_out = "var/post-apply-evidence-manifest-verify.json"
     promotion_receipt_json_out = "var/post-apply-promotion-receipt.json"
+    promotion_receipt_verify_json_out = "var/post-apply-promotion-receipt-verify.json"
+    promotion_receipt_require_go_json_out = "var/post-apply-promotion-receipt-require-go.json"
     promotion_gate_command = (
         "python scripts/post_apply_evidence_gate.py "
         f"--external-gate-json {aggregate_json_out} "
@@ -512,6 +514,16 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
         f"--verify-manifest {promotion_manifest_json_out} "
         f"--json-out {promotion_manifest_verify_json_out}"
     )
+    promotion_receipt_verify_command = (
+        "python scripts/post_apply_evidence_gate.py "
+        f"--verify-promotion-receipt {promotion_receipt_json_out} "
+        f"--json-out {promotion_receipt_verify_json_out}"
+    )
+    promotion_receipt_require_go_command = (
+        "python scripts/post_apply_evidence_gate.py "
+        f"--verify-promotion-receipt {promotion_receipt_json_out} "
+        f"--require-go --json-out {promotion_receipt_require_go_json_out}"
+    )
     return {
         "required": bool(template_dir and provider_keys),
         "success_condition": (
@@ -524,9 +536,13 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
         "promotion_manifest_json_out": promotion_manifest_json_out if template_dir else "",
         "promotion_manifest_verify_json_out": promotion_manifest_verify_json_out if template_dir else "",
         "promotion_receipt_json_out": promotion_receipt_json_out if template_dir else "",
+        "promotion_receipt_verify_json_out": promotion_receipt_verify_json_out if template_dir else "",
+        "promotion_receipt_require_go_json_out": promotion_receipt_require_go_json_out if template_dir else "",
         "promotion_gate_command": promotion_gate_command if template_dir else "",
         "promotion_single_command": promotion_gate_command if template_dir else "",
         "promotion_manifest_verify_command": promotion_manifest_verify_command if template_dir else "",
+        "promotion_receipt_verify_command": promotion_receipt_verify_command if template_dir else "",
+        "promotion_receipt_require_go_command": promotion_receipt_require_go_command if template_dir else "",
         "provider_json_outputs": {
             provider: f"var/external-release-gate-post-apply-{provider}.json" for provider in provider_keys
         },
@@ -642,8 +658,16 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"`{_markdown_scalar(completion_evidence.get('promotion_manifest_verify_json_out'))}`",
                 f"- Promotion receipt JSON: "
                 f"`{_markdown_scalar(completion_evidence.get('promotion_receipt_json_out'))}`",
+                f"- Promotion receipt verify JSON: "
+                f"`{_markdown_scalar(completion_evidence.get('promotion_receipt_verify_json_out'))}`",
+                f"- Promotion receipt require-go JSON: "
+                f"`{_markdown_scalar(completion_evidence.get('promotion_receipt_require_go_json_out'))}`",
                 f"- Promotion manifest verify command: "
                 f"`{_markdown_scalar(completion_evidence.get('promotion_manifest_verify_command'))}`",
+                f"- Promotion receipt verify command: "
+                f"`{_markdown_scalar(completion_evidence.get('promotion_receipt_verify_command'))}`",
+                f"- Promotion receipt require-go command: "
+                f"`{_markdown_scalar(completion_evidence.get('promotion_receipt_require_go_command'))}`",
             ]
         )
         provider_outputs = _as_dict(completion_evidence.get("provider_json_outputs"))

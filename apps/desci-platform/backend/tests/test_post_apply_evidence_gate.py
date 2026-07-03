@@ -31,6 +31,43 @@ def external_gate_payload(*, ok: bool = True) -> dict[str, object]:
     }
 
 
+def write_promotion_receipt_artifacts(tmp_path: Path, *, source_ok: bool = True) -> dict[str, Path]:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    verify_path = tmp_path / "post-apply-manifest-verify.json"
+    receipt_path = tmp_path / "post-apply-promotion-receipt.json"
+    source = external_gate_payload(ok=source_ok)
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+    post_apply_evidence_gate.write_json_report(verify_path, verification)
+    receipt = post_apply_evidence_gate.build_promotion_receipt(
+        gate_payload=payload,
+        external_gate_path=external_path,
+        gate_report_path=report_path,
+        manifest_payload=manifest,
+        manifest_path=manifest_path,
+        verification_payload=verification,
+        verification_path=verify_path,
+    )
+    post_apply_evidence_gate.write_json_report(receipt_path, receipt)
+    return {
+        "external": external_path,
+        "report": report_path,
+        "manifest": manifest_path,
+        "verify": verify_path,
+        "receipt": receipt_path,
+    }
+
+
 def test_post_apply_evidence_gate_accepts_ready_external_gate() -> None:
     payload = post_apply_evidence_gate.validate_post_apply_payload(
         external_gate_payload(),
@@ -331,6 +368,93 @@ def test_post_apply_evidence_gate_cli_requires_all_outputs_for_promotion_receipt
 
     assert rc == 2
     assert "requires --json-out, --manifest-out, and --verify-manifest-out" in captured.err
+
+
+def test_post_apply_promotion_receipt_verifier_accepts_valid_no_go_receipt(tmp_path: Path) -> None:
+    paths = write_promotion_receipt_artifacts(tmp_path, source_ok=False)
+
+    verification = post_apply_evidence_gate.verify_promotion_receipt(paths["receipt"])
+
+    assert verification["ok"] is True
+    assert verification["promotion_receipt_ok"] is False
+    assert verification["release_decision"] == "no-go"
+    assert verification["summary"]["artifact_failure_count"] == 0
+    assert verification["summary"]["artifact_secret_marker_count"] == 0
+    assert verification["summary"]["blocking_reason_count"] > 0
+
+
+def test_post_apply_promotion_receipt_verifier_require_go_blocks_valid_no_go_receipt(tmp_path: Path) -> None:
+    paths = write_promotion_receipt_artifacts(tmp_path, source_ok=False)
+
+    verification = post_apply_evidence_gate.verify_promotion_receipt(paths["receipt"], require_go=True)
+
+    assert verification["ok"] is False
+    assert verification["promotion_receipt_ok"] is False
+    assert "promotion receipt ok must be true" in verification["failures"]
+
+
+def test_post_apply_promotion_receipt_verifier_detects_tampered_gate_report(tmp_path: Path) -> None:
+    paths = write_promotion_receipt_artifacts(tmp_path)
+    gate_report = json.loads(paths["report"].read_text(encoding="utf-8"))
+    gate_report["ok"] = False
+    gate_report["summary"]["failure_count"] = 1
+    gate_report["failures"] = ["tampered"]
+    paths["report"].write_text(json.dumps(gate_report), encoding="utf-8")
+
+    verification = post_apply_evidence_gate.verify_promotion_receipt(paths["receipt"])
+
+    assert verification["ok"] is False
+    assert "receipt check post_apply_evidence_gate does not match gate artifact" in verification["failures"]
+    assert "promotion receipt gate_failure_count does not match gate artifact" in verification["failures"]
+
+
+def test_post_apply_evidence_gate_cli_verifies_promotion_receipt_and_can_require_go(
+    tmp_path: Path,
+) -> None:
+    paths = write_promotion_receipt_artifacts(tmp_path, source_ok=False)
+    verify_path = tmp_path / "receipt-verify.json"
+    require_go_path = tmp_path / "receipt-require-go.json"
+
+    rc = post_apply_evidence_gate.main(
+        [
+            "--verify-promotion-receipt",
+            str(paths["receipt"]),
+            "--json-out",
+            str(verify_path),
+        ]
+    )
+    require_go_rc = post_apply_evidence_gate.main(
+        [
+            "--verify-promotion-receipt",
+            str(paths["receipt"]),
+            "--require-go",
+            "--json-out",
+            str(require_go_path),
+        ]
+    )
+
+    verification = json.loads(verify_path.read_text(encoding="utf-8"))
+    require_go = json.loads(require_go_path.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert verification["ok"] is True
+    assert verification["promotion_receipt_ok"] is False
+    assert require_go_rc == 1
+    assert require_go["ok"] is False
+    assert "promotion receipt ok must be true" in require_go["failures"]
+
+
+def test_post_apply_evidence_gate_cli_rejects_require_go_outside_receipt_verify(capsys) -> None:
+    rc = post_apply_evidence_gate.main(
+        [
+            "--verify-manifest",
+            "missing.json",
+            "--require-go",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires --verify-promotion-receipt" in captured.err
 
 
 def test_post_apply_evidence_gate_cli_requires_manifest_for_inline_verification(
