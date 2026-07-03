@@ -44,6 +44,20 @@ Covered checks:
 - `agriguard contracts tests`
 - `agriguard backend tests`
 
+## Refresh After Compose Hardening
+
+After the optional backend env file, compose secret bridge, and Mosquitto persistence-volume changes, the full AgriGuard smoke was rerun:
+
+`python ops/scripts/run_workspace_smoke.py --scope agriguard --json-out var/workspace-smoke-agriguard-launch-hardening-2026-07-04-final.json`
+
+Result:
+
+- Status: pass
+- Passed: 5/5
+- Failed: 0
+- Total elapsed: 4m9s
+- Slowest check: `agriguard backend tests`, 3m32s
+
 ## Decision
 
 Use the completed smoke result as the aggregate verification for the July 4 launch-hardening loop. The backend suite is valid but takes longer than the earlier 5-minute command timeout, so future full AgriGuard smoke invocations should allow at least 10 minutes.
