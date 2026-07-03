@@ -19,13 +19,14 @@ workspace_dir = os.path.abspath(os.path.join(backend_dir, "..", "..", ".."))
 temp_root = os.path.join(workspace_dir, ".smoke-tmp", "agriguard-backend")
 os.makedirs(temp_root, exist_ok=True)
 PYTHON = sys.executable
+SMOKE_DB_PATH = os.path.join(temp_root, "subprocess-smoke.db")
 
 
 def _subprocess_env() -> dict[str, str]:
     env = os.environ.copy()
-    env.pop("DATABASE_URL", None)
-    env.pop("AUTO_CREATE_SCHEMA", None)
-    env.pop("AGRIGUARD_ENV_FILE", None)
+    env["DATABASE_URL"] = f"sqlite:///{SMOKE_DB_PATH}"
+    env["AUTO_CREATE_SCHEMA"] = "1"
+    env["AGRIGUARD_ENV_FILE"] = os.path.join(temp_root, "missing.env")
     env["TMP"] = temp_root
     env["TEMP"] = temp_root
     env["TMPDIR"] = temp_root
@@ -172,9 +173,16 @@ def test_run_migrations_script_applies_head_revision():
             tables = {
                 row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             }
+            qr_indexes = {row[1] for row in connection.execute("PRAGMA index_list('qr_scan_events')").fetchall()}
+            sensor_indexes = {row[1] for row in connection.execute("PRAGMA index_list('sensor_devices')").fetchall()}
 
-        assert revision == ("0002_add_qr_scan_events",)
+        assert revision == ("0006_add_sensor_device_owner_scope",)
         assert "qr_scan_events" in tables
+        assert "qr_tokens" in tables
+        assert "sensor_devices" in tables
+        assert "ix_qr_scan_events_occurred_session_event" in qr_indexes
+        assert "ix_qr_scan_events_variant_occurred_session_event" in qr_indexes
+        assert "ix_sensor_devices_owner_id" in sensor_indexes
     finally:
         try:
             os.remove(db_path)
