@@ -166,6 +166,15 @@ def test_agriguard_compose_passes_secret_key_without_backend_env_file() -> None:
     assert "SECRET_KEY=${AGRIGUARD_SECRET_KEY:-${SECRET_KEY:-}}" in compose
 
 
+def test_agriguard_compose_does_not_publish_unconfigured_https_port() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+    edge_nginx = (WORKSPACE_ROOT / "apps/AgriGuard/nginx/nginx.conf").read_text(encoding="utf-8")
+
+    assert '"443:443"' not in compose
+    assert "listen 443" not in edge_nginx
+    assert "ssl_certificate" not in edge_nginx
+
+
 def test_agriguard_compose_waits_for_frontend_health_before_nginx() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
