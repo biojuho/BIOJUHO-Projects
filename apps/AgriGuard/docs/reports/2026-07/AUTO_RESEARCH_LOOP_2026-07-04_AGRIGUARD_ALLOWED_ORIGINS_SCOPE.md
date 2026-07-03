@@ -18,3 +18,4 @@ AgriGuard compose passes backend CORS origins from `AGRIGUARD_ALLOWED_ORIGINS`, 
 - Pass: `uv run --isolated --no-project --with pytest>=8.0 python -m pytest apps/AgriGuard/backend/tests/test_launch_env_preflight.py -q --basetemp "D:\AI project\var\tmp\pytest-agriguard-allowed-origins-scope"` (`17 passed`)
 - Pass: current local env-only preflight wrote `var/agriguard-launch-env-preflight-current-continuation.json` with status `pass` and warning `No explicit allowed origins configured; runtime defaults may be used.`
 - Expected fail-closed: current local `--check-docker` preflight still fails only because Docker daemon is not reachable; compose config remains valid.
+- Superseded by the strict origin preflight cycle: missing `AGRIGUARD_ALLOWED_ORIGINS` now fails closed by default, with `--allow-runtime-default-origins` available for local default-origin checks.

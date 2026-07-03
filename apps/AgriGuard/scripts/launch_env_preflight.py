@@ -91,6 +91,15 @@ CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dict[str, object]:
+    return validate_launch_env_with_options(env, runtime=runtime)
+
+
+def validate_launch_env_with_options(
+    env: dict[str, str],
+    *,
+    runtime: str = "compose",
+    allow_runtime_default_origins: bool = False,
+) -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
 
@@ -120,7 +129,11 @@ def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dic
     if "*" in origins:
         errors.append(f"{origins_source} must not include wildcard '*'.")
     elif not origins:
-        warnings.append("No explicit allowed origins configured; runtime defaults may be used.")
+        message = "Set AGRIGUARD_ALLOWED_ORIGINS for launch instead of relying on runtime defaults."
+        if allow_runtime_default_origins:
+            warnings.append(message)
+        else:
+            errors.append(message)
 
     return {
         "status": "fail" if errors else "pass",
@@ -136,6 +149,7 @@ def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dic
             "database_url_source": database_url_source,
             "allowed_origins_count": len(origins),
             "allowed_origins_source": origins_source,
+            "allow_runtime_default_origins": allow_runtime_default_origins,
         },
     }
 
@@ -220,10 +234,15 @@ def build_launch_report(
     *,
     runtime: str = "compose",
     check_docker: bool = False,
+    allow_runtime_default_origins: bool = False,
     app_root: Path | None = None,
     command_runner: CommandRunner = subprocess.run,
 ) -> dict[str, object]:
-    report = validate_launch_env(env, runtime=runtime)
+    report = validate_launch_env_with_options(
+        env,
+        runtime=runtime,
+        allow_runtime_default_origins=allow_runtime_default_origins,
+    )
     checks = report["checks"]
     assert isinstance(checks, dict)
     checks["docker_checked"] = check_docker
@@ -267,6 +286,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Also require Docker daemon reachability and compose config validation.",
     )
+    parser.add_argument(
+        "--allow-runtime-default-origins",
+        action="store_true",
+        help="Permit missing explicit allowed origins and report a warning instead of a launch-blocking error.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
@@ -275,6 +299,7 @@ def main(argv: list[str] | None = None) -> int:
         build_effective_env(env_files),
         runtime=args.runtime,
         check_docker=args.check_docker,
+        allow_runtime_default_origins=args.allow_runtime_default_origins,
     )
 
     output = json.dumps(report, indent=2, sort_keys=True)

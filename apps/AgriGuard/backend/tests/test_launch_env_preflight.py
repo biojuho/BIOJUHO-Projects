@@ -110,7 +110,31 @@ def test_launch_env_preflight_compose_mode_ignores_host_database_url() -> None:
     assert report["checks"]["database_url_source"] is None
 
 
-def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins() -> None:
+def test_launch_env_preflight_requires_explicit_allowed_origins_by_default() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "Set AGRIGUARD_ALLOWED_ORIGINS for launch instead of relying on runtime defaults." in report["errors"]
+
+
+def test_launch_env_preflight_can_allow_runtime_default_origins_for_local_checks() -> None:
+    report = launch_env_preflight.validate_launch_env_with_options(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+        },
+        allow_runtime_default_origins=True,
+    )
+
+    assert report["status"] == "pass"
+    assert report["errors"] == []
+    assert "Set AGRIGUARD_ALLOWED_ORIGINS for launch instead of relying on runtime defaults." in report["warnings"]
+
+
+def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins_but_requires_app_scope() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
@@ -118,10 +142,10 @@ def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins() -> Non
         }
     )
 
-    assert report["status"] == "pass"
+    assert report["status"] == "fail"
     assert report["checks"]["allowed_origins_count"] == 0
     assert report["checks"]["allowed_origins_source"] is None
-    assert "No explicit allowed origins configured; runtime defaults may be used." in report["warnings"]
+    assert "Set AGRIGUARD_ALLOWED_ORIGINS for launch instead of relying on runtime defaults." in report["errors"]
 
 
 def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None:
@@ -200,6 +224,20 @@ def test_launch_report_skips_docker_checks_by_default() -> None:
     assert report["status"] == "pass"
     assert report["checks"]["docker_checked"] is False
     assert "docker" not in report["checks"]
+
+
+def test_launch_report_can_allow_runtime_default_origins_for_local_checks() -> None:
+    env = {
+        "AGRIGUARD_SECRET_KEY": "s" * 32,
+    }
+
+    report = launch_env_preflight.build_launch_report(
+        env,
+        allow_runtime_default_origins=True,
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["allow_runtime_default_origins"] is True
 
 
 def test_launch_report_docker_check_passes_when_daemon_and_compose_config_pass(tmp_path: Path) -> None:
