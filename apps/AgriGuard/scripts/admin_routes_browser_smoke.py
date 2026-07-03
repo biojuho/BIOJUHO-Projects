@@ -14,6 +14,7 @@ from playwright.sync_api import Page, sync_playwright
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = "http://127.0.0.1:8002"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
+MISSING_AUTH_DETAIL = "Authorization header missing"
 
 
 def parse_args() -> argparse.Namespace:
@@ -109,6 +110,43 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
+
+        anonymous_page = browser.new_page(viewport={"width": 1440, "height": 960})
+        anonymous_page.add_init_script("window.localStorage.removeItem('agriguard-operator-token');")
+        anonymous_page.goto(route_url(args.base_url, "/qr-tokens"), wait_until="domcontentloaded", timeout=args.timeout_ms)
+        anonymous_page.get_by_text("QR Token Management").wait_for(timeout=args.timeout_ms)
+        anonymous_page.get_by_text("No token saved. Protected actions will return 401.").wait_for(timeout=args.timeout_ms)
+        anonymous_page.get_by_label("Product ID").fill(product_id)
+        with anonymous_page.expect_response(
+            lambda response: "/qr-tokens/products/" in response.url and response.status == 401,
+            timeout=args.timeout_ms,
+        ):
+            anonymous_page.get_by_role("button", name=re.compile("load tokens", re.I)).click(timeout=args.timeout_ms)
+        anonymous_page.get_by_text(MISSING_AUTH_DETAIL).first.wait_for(timeout=args.timeout_ms)
+        checks.append(check("qr_tokens_missing_token_notice_visible", True))
+        checks.append(check("qr_tokens_missing_token_blocked", True, MISSING_AUTH_DETAIL))
+        anonymous_page.screenshot(path=str(screenshot_dir / "qr-tokens-missing-token.png"), full_page=True)
+
+        anonymous_page.goto(route_url(args.base_url, "/sensor-devices"), wait_until="domcontentloaded", timeout=args.timeout_ms)
+        anonymous_page.get_by_text("Sensor Device Registry").wait_for(timeout=args.timeout_ms)
+        anonymous_page.get_by_text("No token saved. Protected actions will return 401.").wait_for(timeout=args.timeout_ms)
+        anonymous_page.get_by_label("Sensor ID", exact=True).fill(f"{sensor_id}-anon")
+        anonymous_page.get_by_label("Label").fill("Anonymous browser smoke probe")
+        anonymous_page.get_by_label("Assigned zone").fill("Packhouse")
+        anonymous_page.get_by_label("Expected interval minutes").fill("5")
+        with anonymous_page.expect_response(
+            lambda response: "/sensor-devices/" in response.url
+            and response.request.method == "PUT"
+            and response.status == 401,
+            timeout=args.timeout_ms,
+        ):
+            anonymous_page.get_by_role("button", name=re.compile("register sensor", re.I)).click(timeout=args.timeout_ms)
+        anonymous_page.get_by_text(MISSING_AUTH_DETAIL).first.wait_for(timeout=args.timeout_ms)
+        checks.append(check("sensor_devices_missing_token_notice_visible", True))
+        checks.append(check("sensor_devices_missing_token_blocked", True, MISSING_AUTH_DETAIL))
+        anonymous_page.screenshot(path=str(screenshot_dir / "sensor-devices-missing-token.png"), full_page=True)
+        anonymous_page.close()
+
         page = browser.new_page(viewport={"width": 1440, "height": 960})
         page.add_init_script(
             "window.localStorage.setItem('agriguard-operator-token', "
