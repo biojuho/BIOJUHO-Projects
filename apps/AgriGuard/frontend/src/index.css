@@ -95,6 +95,22 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Keep nested app grids from widening the mobile document shell. */
+main,
+main > *,
+main .grid,
+main .grid > *,
+main .flex,
+main .flex > *,
+main section,
+main pre {
+  min-width: 0;
+}
+
+main pre {
+  max-width: 100%;
+}
+
 /* Focus visible for accessibility */
 :focus-visible {
   outline: none;
