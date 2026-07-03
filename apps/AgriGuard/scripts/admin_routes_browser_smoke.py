@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import uuid
@@ -21,7 +22,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Exercise AgriGuard QR-token and sensor admin routes in a browser.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Preview base URL. Defaults to {DEFAULT_BASE_URL}.")
     parser.add_argument("--api-url", default=DEFAULT_API_URL, help=f"Backend API base URL. Defaults to {DEFAULT_API_URL}.")
-    parser.add_argument("--operator-token", default=DEFAULT_OPERATOR_TOKEN)
+    parser.add_argument(
+        "--operator-token",
+        default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN") or DEFAULT_OPERATOR_TOKEN,
+    )
     parser.add_argument("--json-out", default="var/agriguard-admin-routes-browser-smoke.json")
     parser.add_argument("--screenshot-dir", default="var/agriguard-admin-routes-browser-smoke-screens")
     parser.add_argument("--timeout-ms", type=int, default=20_000)

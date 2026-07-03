@@ -298,6 +298,19 @@ def test_qr_path_browser_smoke_keeps_invalid_manual_probe_distinct(monkeypatch):
     assert args.invalid_manual_value != script.LEGACY_FIXTURE_MANUAL_TOKEN
 
 
+def test_qr_path_browser_smoke_uses_operator_token_env(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_operator_token_under_test",
+    )
+
+    monkeypatch.setenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", "staging-operator-token")
+    monkeypatch.setattr(sys, "argv", ["qr_path_browser_smoke.py"])
+    args = script.parse_args()
+
+    assert args.operator_token == "staging-operator-token"
+
+
 def test_qr_path_browser_smoke_resolves_seed_api_url_from_base_proxy(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
@@ -362,6 +375,19 @@ def test_supply_chain_browser_smoke_accepts_proxy_prefixed_products_page():
     assert script.api_response_path({"url": "http://127.0.0.1:5174/api/products?page=1"}) == "/products"
 
 
+def test_admin_routes_browser_smoke_uses_operator_token_env(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_operator_token_under_test",
+    )
+
+    monkeypatch.setenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", "staging-admin-token")
+    monkeypatch.setattr(sys, "argv", ["admin_routes_browser_smoke.py"])
+    args = script.parse_args()
+
+    assert args.operator_token == "staging-admin-token"
+
+
 def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",
@@ -371,3 +397,16 @@ def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=False, viewport=None) == {"width": 1440, "height": 960}
     assert script.resolve_viewport(mobile=True, viewport=None) == {"width": 390, "height": 844}
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
+
+
+def test_product_detail_browser_smoke_uses_operator_token_env(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",
+        "product_detail_browser_smoke_operator_token_under_test",
+    )
+
+    monkeypatch.setenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", "staging-detail-token")
+    monkeypatch.setattr(sys, "argv", ["product_detail_browser_smoke.py"])
+    args = script.parse_args()
+
+    assert args.operator_token == "staging-detail-token"

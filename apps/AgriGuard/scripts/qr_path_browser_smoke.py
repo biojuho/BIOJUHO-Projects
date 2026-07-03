@@ -30,7 +30,10 @@ def parse_args() -> argparse.Namespace:
             "Defaults to AGRIGUARD_BROWSER_API_URL or BASE_URL/api."
         ),
     )
-    parser.add_argument("--operator-token", default=DEFAULT_OPERATOR_TOKEN)
+    parser.add_argument(
+        "--operator-token",
+        default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN") or DEFAULT_OPERATOR_TOKEN,
+    )
     parser.add_argument("--manual-token", default=None)
     parser.add_argument("--invalid-manual-value", default=DEFAULT_INVALID_MANUAL_VALUE)
     parser.add_argument("--invalid-token", default=DEFAULT_INVALID_TOKEN)
