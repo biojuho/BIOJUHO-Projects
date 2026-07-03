@@ -18,7 +18,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import release_handoff
 from evidence_io import write_json_atomic
-from post_apply_evidence_gate import secret_marker_names_in_text
+from post_apply_evidence_gate import secret_marker_names_in_text, verify_promotion_receipt
 
 DEFAULT_EXTERNAL_GATE_JSON = Path("var/external-release-gate-provider-2026-07-04.json")
 DEFAULT_PROVIDER = "operator"
@@ -29,6 +29,12 @@ PROVIDER_APPLY_PLAN_READY_CONDITION = (
 )
 PROVIDER_APPLY_RESULTS_CONDITION = (
     "provider_apply_results_verification.ok=true and provider_apply_results.all_commands_succeeded=true"
+)
+PROVIDER_APPLY_WORKFLOW_CONDITION = (
+    "provider_apply_plan_verification.ready_to_apply=true and "
+    "provider_apply_results_verification.ok=true and "
+    "provider_apply_results.all_commands_succeeded=true and "
+    "post_apply_promotion_receipt.ok=true"
 )
 
 
@@ -570,6 +576,34 @@ def _provider_apply_results_verification(plan_path: str | Path) -> dict[str, Any
     }
 
 
+def _provider_apply_workflow_verification(plan_path: str | Path) -> dict[str, Any]:
+    plan_json = str(plan_path)
+    results_json = _json_path_with_suffix(plan_path, "-results")
+    workflow_json_out = _json_path_with_suffix(plan_path, "-workflow-verify")
+    promotion_receipt_json = "var/post-apply-promotion-receipt.json"
+    return {
+        "success_condition": PROVIDER_APPLY_WORKFLOW_CONDITION,
+        "provider_apply_plan_json": plan_json,
+        "provider_apply_results_json": results_json,
+        "promotion_receipt_json": promotion_receipt_json,
+        "verify_json_out": workflow_json_out,
+        "verify_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--verify-provider-apply-workflow {plan_json} "
+            f"--provider-apply-results {results_json} "
+            f"--promotion-receipt {promotion_receipt_json} "
+            f"--json-out {workflow_json_out}"
+        ),
+        "require_go_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--verify-provider-apply-workflow {plan_json} "
+            f"--provider-apply-results {results_json} "
+            f"--promotion-receipt {promotion_receipt_json} "
+            f"--require-promotion-go --json-out {workflow_json_out}"
+        ),
+    }
+
+
 def _post_apply_verify_command(template_dir: str, provider: str) -> str:
     json_out = f"var/external-release-gate-post-apply-{provider}.json"
     return (
@@ -701,6 +735,9 @@ def provider_apply_plan_payload(
             plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
         ),
         "provider_apply_results_verification": _provider_apply_results_verification(
+            plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
+        ),
+        "provider_apply_workflow_verification": _provider_apply_workflow_verification(
             plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
         ),
         "post_apply_completion_evidence": _post_apply_completion_evidence(template_dir, providers),
@@ -1271,6 +1308,94 @@ def verify_provider_apply_results(
     }
 
 
+def _missing_artifact_verification(path: str | Path, label: str) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "generated_at": _iso_now(),
+        "ok": False,
+        "path": str(path),
+        "summary": {"failure_count": 1},
+        "failures": [f"{label} is required"],
+    }
+
+
+def verify_provider_apply_workflow(
+    plan_path: str | Path,
+    *,
+    results_path: str | Path | None = None,
+    promotion_receipt_path: str | Path | None = None,
+    require_promotion_go: bool = False,
+) -> dict[str, Any]:
+    failures: list[str] = []
+    plan_verification = verify_provider_apply_plan(plan_path, require_ready_to_apply=True)
+    if plan_verification.get("ok") is not True:
+        failures.append("provider apply plan is not ready")
+
+    if results_path and Path(results_path).exists():
+        results_verification = verify_provider_apply_results(results_path, plan_path=plan_path)
+    else:
+        results_verification = _missing_artifact_verification(
+            results_path or "",
+            "provider apply results receipt",
+        )
+    if results_verification.get("ok") is not True:
+        failures.append("provider apply results are not successful")
+    if results_verification.get("all_commands_succeeded") is not True:
+        failures.append("provider apply results must have all_commands_succeeded=true")
+
+    if promotion_receipt_path and Path(promotion_receipt_path).exists():
+        promotion_verification = verify_promotion_receipt(
+            promotion_receipt_path,
+            require_go=require_promotion_go,
+        )
+    else:
+        promotion_verification = _missing_artifact_verification(
+            promotion_receipt_path or "",
+            "post-apply promotion receipt",
+        )
+    if promotion_verification.get("ok") is not True:
+        failures.append("post-apply promotion receipt verification failed")
+    if promotion_verification.get("promotion_receipt_ok") is not True:
+        failures.append("post-apply promotion receipt must be go")
+
+    ready_to_apply = plan_verification.get("ready_to_apply") is True
+    all_commands_succeeded = results_verification.get("all_commands_succeeded") is True
+    promotion_receipt_ok = promotion_verification.get("promotion_receipt_ok") is True
+    workflow_ok = ready_to_apply and all_commands_succeeded and promotion_receipt_ok and not failures
+    return {
+        "schema_version": 1,
+        "generated_at": _iso_now(),
+        "ok": workflow_ok,
+        "provider_apply_plan_json": str(plan_path),
+        "provider_apply_results_json": str(results_path or ""),
+        "promotion_receipt_json": str(promotion_receipt_path or ""),
+        "require_promotion_go": require_promotion_go,
+        "success_condition": PROVIDER_APPLY_WORKFLOW_CONDITION,
+        "operator_phase": "provider_apply_workflow_ready" if workflow_ok else "provider_apply_workflow_blocked",
+        "ready_to_apply": ready_to_apply,
+        "all_commands_succeeded": all_commands_succeeded,
+        "promotion_receipt_ok": promotion_receipt_ok,
+        "summary": {
+            "failure_count": len(failures),
+            "plan_ok": plan_verification.get("ok") is True,
+            "results_ok": results_verification.get("ok") is True,
+            "promotion_verification_ok": promotion_verification.get("ok") is True,
+            "plan_failure_count": int(_as_dict(plan_verification.get("summary")).get("failure_count") or 0),
+            "results_failure_count": int(_as_dict(results_verification.get("summary")).get("failure_count") or 0),
+            "results_command_failure_count": int(
+                _as_dict(results_verification.get("summary")).get("command_failure_count") or 0
+            ),
+            "promotion_failure_count": int(
+                _as_dict(promotion_verification.get("summary")).get("failure_count") or 0
+            ),
+        },
+        "failures": failures,
+        "provider_apply_plan_verification": plan_verification,
+        "provider_apply_results_verification": results_verification,
+        "post_apply_promotion_receipt_verification": promotion_verification,
+    }
+
+
 def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# DeSci Provider Apply Plan",
@@ -1330,6 +1455,21 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Dry-run recorder command: `{_markdown_scalar(results_verification.get('dry_run_command'))}`",
                 f"- Execute recorder command: `{_markdown_scalar(results_verification.get('execute_command'))}`",
                 f"- Verify command: `{_markdown_scalar(results_verification.get('verify_command'))}`",
+                "",
+            ]
+        )
+    workflow_verification = _as_dict(payload.get("provider_apply_workflow_verification"))
+    if workflow_verification:
+        lines.extend(
+            [
+                "## Provider Apply Workflow Verification",
+                f"- Success condition: `{_markdown_scalar(workflow_verification.get('success_condition'))}`",
+                f"- Provider apply plan JSON: `{_markdown_scalar(workflow_verification.get('provider_apply_plan_json'))}`",
+                f"- Provider apply results JSON: `{_markdown_scalar(workflow_verification.get('provider_apply_results_json'))}`",
+                f"- Promotion receipt JSON: `{_markdown_scalar(workflow_verification.get('promotion_receipt_json'))}`",
+                f"- Verify JSON: `{_markdown_scalar(workflow_verification.get('verify_json_out'))}`",
+                f"- Verify command: `{_markdown_scalar(workflow_verification.get('verify_command'))}`",
+                f"- Require-go command: `{_markdown_scalar(workflow_verification.get('require_go_command'))}`",
                 "",
             ]
         )
@@ -1549,6 +1689,20 @@ def print_provider_apply_results_record_report(payload: dict[str, Any]) -> None:
         print(f"  - {label}: status={status} exit_code={exit_code} stderr={stderr}")
 
 
+def print_provider_apply_workflow_verification_report(payload: dict[str, Any]) -> None:
+    summary = _as_dict(payload.get("summary"))
+    print(f"[external-gate-handoff] provider_apply_workflow_ok={payload.get('ok')}")
+    print(
+        "[external-gate-handoff] "
+        f"ready_to_apply={payload.get('ready_to_apply')} "
+        f"all_commands_succeeded={payload.get('all_commands_succeeded')} "
+        f"promotion_receipt_ok={payload.get('promotion_receipt_ok')} "
+        f"failures={summary.get('failure_count')}"
+    )
+    for failure in _string_list(payload.get("failures")):
+        print(f"  - {failure}")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a DeSci external gate operator handoff.")
     parser.add_argument(
@@ -1577,6 +1731,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Timeout in seconds for each provider apply command in execute mode.",
     )
     parser.add_argument("--verify-provider-apply-results", help="Path to redacted provider apply results to verify.")
+    parser.add_argument("--verify-provider-apply-workflow", help="Path to a provider apply plan to verify end-to-end.")
+    parser.add_argument("--provider-apply-results", help="Provider apply results path used with workflow verification.")
+    parser.add_argument("--promotion-receipt", help="Post-apply promotion receipt path used with workflow verification.")
+    parser.add_argument(
+        "--require-promotion-go",
+        action="store_true",
+        help="With --verify-provider-apply-workflow, require the promotion receipt to be go.",
+    )
     parser.add_argument(
         "--provider-apply-plan",
         help="Provider apply plan path used with --verify-provider-apply-results.",
@@ -1604,6 +1766,7 @@ def main(argv: list[str] | None = None) -> int:
         bool(args.provider_apply_results_template_from_plan),
         bool(args.record_provider_apply_results_from_plan),
         bool(args.verify_provider_apply_results),
+        bool(args.verify_provider_apply_workflow),
     ]
     if sum(1 for item in source_modes if item) > 1:
         print(
@@ -1620,6 +1783,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.provider_apply_plan and not args.verify_provider_apply_results:
         print(
             "[external-gate-handoff] --provider-apply-plan requires --verify-provider-apply-results",
+            file=sys.stderr,
+        )
+        return 2
+    if (args.provider_apply_results or args.promotion_receipt or args.require_promotion_go) and not (
+        args.verify_provider_apply_workflow
+    ):
+        print(
+            "[external-gate-handoff] workflow artifact flags require --verify-provider-apply-workflow",
             file=sys.stderr,
         )
         return 2
@@ -1740,6 +1911,52 @@ def main(argv: list[str] | None = None) -> int:
         output_path = write_json_report(args.json_out, payload)
         print(f"[external-gate-handoff] provider apply results receipt written: {output_path}")
         return 0 if payload["ok"] else 1
+
+    if args.verify_provider_apply_workflow:
+        try:
+            verification = verify_provider_apply_workflow(
+                args.verify_provider_apply_workflow,
+                results_path=args.provider_apply_results,
+                promotion_receipt_path=args.promotion_receipt,
+                require_promotion_go=args.require_promotion_go,
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            verification = {
+                "schema_version": 1,
+                "generated_at": datetime.now(UTC).isoformat(),
+                "ok": False,
+                "provider_apply_plan_json": str(args.verify_provider_apply_workflow),
+                "provider_apply_results_json": str(args.provider_apply_results or ""),
+                "promotion_receipt_json": str(args.promotion_receipt or ""),
+                "require_promotion_go": args.require_promotion_go,
+                "success_condition": PROVIDER_APPLY_WORKFLOW_CONDITION,
+                "operator_phase": "provider_apply_workflow_blocked",
+                "ready_to_apply": False,
+                "all_commands_succeeded": False,
+                "promotion_receipt_ok": False,
+                "summary": {
+                    "failure_count": 1,
+                    "plan_ok": False,
+                    "results_ok": False,
+                    "promotion_verification_ok": False,
+                    "plan_failure_count": 1,
+                    "results_failure_count": 0,
+                    "results_command_failure_count": 0,
+                    "promotion_failure_count": 0,
+                },
+                "failures": [str(exc)],
+                "provider_apply_plan_verification": {},
+                "provider_apply_results_verification": {},
+                "post_apply_promotion_receipt_verification": {},
+            }
+        if args.json:
+            print(json.dumps(verification, indent=2))
+        else:
+            print_provider_apply_workflow_verification_report(verification)
+        if args.json_out:
+            output_path = write_json_report(args.json_out, verification)
+            print(f"[external-gate-handoff] provider apply workflow verification written: {output_path}")
+        return 0 if verification["ok"] else 1
 
     if args.verify_provider_apply_results:
         if not args.provider_apply_plan:

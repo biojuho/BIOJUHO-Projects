@@ -11,6 +11,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import external_gate_handoff  # noqa: E402
+import post_apply_evidence_gate  # noqa: E402
 
 
 def gate_payload(*, ok: bool = False) -> dict[str, object]:
@@ -305,6 +306,38 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
         f"--verify-provider-apply-results {tmp_path / 'apply-plan-results.json'} "
         f"--provider-apply-plan {plan_path} --json-out {tmp_path / 'apply-plan-results-verify.json'}"
     )
+    assert plan["provider_apply_workflow_verification"]["success_condition"] == (
+        "provider_apply_plan_verification.ready_to_apply=true and "
+        "provider_apply_results_verification.ok=true and "
+        "provider_apply_results.all_commands_succeeded=true and "
+        "post_apply_promotion_receipt.ok=true"
+    )
+    assert plan["provider_apply_workflow_verification"]["provider_apply_plan_json"] == str(plan_path)
+    assert plan["provider_apply_workflow_verification"]["provider_apply_results_json"] == str(
+        tmp_path / "apply-plan-results.json"
+    )
+    assert plan["provider_apply_workflow_verification"]["promotion_receipt_json"] == (
+        "var/post-apply-promotion-receipt.json"
+    )
+    assert plan["provider_apply_workflow_verification"]["verify_json_out"] == str(
+        tmp_path / "apply-plan-workflow-verify.json"
+    )
+    assert (
+        plan["provider_apply_workflow_verification"]["verify_command"]
+        == "python scripts/external_gate_handoff.py "
+        f"--verify-provider-apply-workflow {plan_path} "
+        f"--provider-apply-results {tmp_path / 'apply-plan-results.json'} "
+        "--promotion-receipt var/post-apply-promotion-receipt.json "
+        f"--json-out {tmp_path / 'apply-plan-workflow-verify.json'}"
+    )
+    assert (
+        plan["provider_apply_workflow_verification"]["require_go_command"]
+        == "python scripts/external_gate_handoff.py "
+        f"--verify-provider-apply-workflow {plan_path} "
+        f"--provider-apply-results {tmp_path / 'apply-plan-results.json'} "
+        "--promotion-receipt var/post-apply-promotion-receipt.json "
+        f"--require-promotion-go --json-out {tmp_path / 'apply-plan-workflow-verify.json'}"
+    )
     assert (
         plan["provider_apply_plan_verification"]["verify_command"]
         == "python scripts/external_gate_handoff.py "
@@ -414,6 +447,10 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "--record-provider-apply-results-from-plan" in markdown
     assert "--execute-provider-apply-commands" in markdown
     assert "--verify-provider-apply-results" in markdown
+    assert "Provider Apply Workflow Verification" in markdown
+    assert "apply-plan-workflow-verify.json" in markdown
+    assert "--verify-provider-apply-workflow" in markdown
+    assert "--require-promotion-go" in markdown
     assert "Post-Apply Evidence" in markdown
     assert "external-release-gate-post-apply-all.json" in markdown
     assert "external-release-gate-post-apply-railway.json" in markdown
@@ -788,15 +825,40 @@ def test_external_gate_handoff_cli_writes_and_verifies_provider_apply_results_te
 
 def apply_results_recorder_plan(tmp_path: Path, command: str, *, ready: bool = True) -> Path:
     plan_path = tmp_path / "apply-plan.json"
+    template_path = tmp_path / "local.env"
+    template_value = "filled" if ready else ""
+    template_path.write_text(f"DUMMY={template_value}\n", encoding="utf-8")
+    populated_key_count = 1 if ready else 0
     plan = {
         "schema_version": 1,
+        "ok": True,
         "provider_count": 1,
-        "operator_status": {"ready_to_apply": ready},
+        "ready_provider_count": 1 if ready else 0,
+        "provider_template_index": {
+            "safe_to_commit": not ready,
+            "provider_template_count": 1,
+            "populated_key_count": populated_key_count,
+        },
+        "operator_status": {
+            "stage": "apply_provider_values" if ready else "fill_provider_templates",
+            "ready_to_apply": ready,
+            "ready_provider_count": 1 if ready else 0,
+            "blocked_provider_count": 0 if ready else 1,
+            "provider_templates_safe_to_commit": not ready,
+            "apply_plan_safe_to_commit": True,
+            "private_template_values_present": ready,
+            "completion_marker": "external_release_gate.ok=true",
+        },
         "providers": [
             {
                 "provider": "local",
                 "label": "Local",
-                "env_keys": [],
+                "template_path": str(template_path),
+                "env_keys": ["DUMMY"],
+                "env_key_count": 1,
+                "populated_key_count": populated_key_count,
+                "blank_key_count": 0 if ready else 1,
+                "ready_to_apply": ready,
                 "commands": [
                     {
                         "id": "local_apply",
@@ -901,6 +963,140 @@ def test_external_gate_handoff_cli_rejects_execute_without_record(capsys) -> Non
 
     assert rc == 2
     assert "requires --record-provider-apply-results-from-plan" in captured.err
+
+
+def write_provider_apply_workflow_receipt(tmp_path: Path, *, ok: bool = True) -> Path:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    verify_path = tmp_path / "post-apply-manifest-verify.json"
+    receipt_path = tmp_path / "post-apply-promotion-receipt.json"
+    source = gate_payload(ok=ok)
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+    post_apply_evidence_gate.write_json_report(verify_path, verification)
+    receipt = post_apply_evidence_gate.build_promotion_receipt(
+        gate_payload=payload,
+        external_gate_path=external_path,
+        gate_report_path=report_path,
+        manifest_payload=manifest,
+        manifest_path=manifest_path,
+        verification_payload=verification,
+        verification_path=verify_path,
+    )
+    post_apply_evidence_gate.write_json_report(receipt_path, receipt)
+    return receipt_path
+
+
+def test_external_gate_handoff_provider_apply_workflow_accepts_complete_go(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+
+    assert verification["ok"] is True
+    assert verification["operator_phase"] == "provider_apply_workflow_ready"
+    assert verification["ready_to_apply"] is True
+    assert verification["all_commands_succeeded"] is True
+    assert verification["promotion_receipt_ok"] is True
+    assert verification["failures"] == []
+
+
+def test_external_gate_handoff_provider_apply_workflow_blocks_missing_results(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=tmp_path / "missing-results.json",
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+
+    assert verification["ok"] is False
+    assert verification["operator_phase"] == "provider_apply_workflow_blocked"
+    assert "provider apply results are not successful" in verification["failures"]
+    assert "provider apply results must have all_commands_succeeded=true" in verification["failures"]
+
+
+def test_external_gate_handoff_provider_apply_workflow_blocks_no_go_receipt(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=False)
+
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+
+    assert verification["ok"] is False
+    assert verification["promotion_receipt_ok"] is False
+    assert "post-apply promotion receipt verification failed" in verification["failures"]
+    assert "post-apply promotion receipt must be go" in verification["failures"]
+
+
+def test_external_gate_handoff_cli_verifies_provider_apply_workflow(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+    workflow_path = tmp_path / "workflow.json"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+
+    rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-workflow",
+            str(plan_path),
+            "--provider-apply-results",
+            str(results_path),
+            "--promotion-receipt",
+            str(receipt_path),
+            "--require-promotion-go",
+            "--json-out",
+            str(workflow_path),
+        ]
+    )
+
+    payload = json.loads(workflow_path.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert payload["ok"] is True
+    assert payload["operator_phase"] == "provider_apply_workflow_ready"
+
+
+def test_external_gate_handoff_cli_rejects_workflow_artifacts_without_workflow(capsys) -> None:
+    rc = external_gate_handoff.main(["--provider-apply-results", "results.json"])
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "workflow artifact flags require --verify-provider-apply-workflow" in captured.err
 
 
 def test_external_gate_handoff_cli_requires_plan_for_apply_results(capsys) -> None:
