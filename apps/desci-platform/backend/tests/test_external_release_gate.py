@@ -1,0 +1,121 @@
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import external_release_gate  # noqa: E402
+import provider_preflight  # noqa: E402
+
+
+def _provider_runner_ok(
+    spec: provider_preflight.CommandSpec,
+    timeout_seconds: int,
+) -> provider_preflight.CommandExecution:
+    assert timeout_seconds == 5
+    return provider_preflight.CommandExecution(exit_code=0, duration_ms=1)
+
+
+def _provider_runner_missing_auth(
+    spec: provider_preflight.CommandSpec,
+    timeout_seconds: int,
+) -> provider_preflight.CommandExecution:
+    return provider_preflight.CommandExecution(
+        exit_code=None,
+        duration_ms=0,
+        auth_context_missing=True,
+        error=f"{spec.provider} auth missing",
+    )
+
+
+def test_external_release_gate_normalizes_all_targets() -> None:
+    assert external_release_gate.normalize_targets(["all"]) == ["railway", "vercel", "amoy", "github"]
+    assert external_release_gate.provider_targets_for(["railway", "amoy", "github"]) == ["railway", "github"]
+
+
+def test_external_release_gate_passes_when_env_and_provider_checks_are_ready(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("GITLEAKS_LICENSE=license-token\n", encoding="utf-8")
+
+    payload = external_release_gate.run_external_gate(
+        targets=("github",),
+        env_files=[env_file],
+        include_process_env=False,
+        provider_timeout_seconds=5,
+        provider_runner=_provider_runner_ok,
+    )
+
+    assert payload["ok"] is True
+    assert payload["failed_surfaces"] == []
+    assert payload["summary"]["deploy_failed"] == 0
+    assert payload["summary"]["provider_ready"] == 1
+    assert payload["provider_preflight"]["summary"]["passed_check_count"] == 2
+
+
+def test_external_release_gate_fails_closed_for_deploy_and_provider_blockers(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+
+    payload = external_release_gate.run_external_gate(
+        targets=("github",),
+        env_files=[env_file],
+        include_process_env=False,
+        provider_timeout_seconds=5,
+        provider_runner=_provider_runner_missing_auth,
+    )
+
+    assert payload["ok"] is False
+    assert payload["failed_surfaces"] == ["deploy_readiness", "provider_preflight"]
+    assert payload["deploy_readiness"]["summary"]["failed_checks"] == ["github_gitleaks_license"]
+    assert payload["provider_preflight"]["summary"]["auth_context_missing_count"] == 2
+    assert payload["provider_preflight"]["failed_checks"][0]["failure_reason"] == "auth_context_missing"
+
+
+def test_external_release_gate_skips_provider_preflight_for_amoy_only(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+
+    payload = external_release_gate.run_external_gate(
+        targets=("amoy",),
+        env_files=[env_file],
+        include_process_env=False,
+        provider_timeout_seconds=5,
+        provider_runner=_provider_runner_missing_auth,
+    )
+
+    assert payload["ok"] is False
+    assert payload["failed_surfaces"] == ["deploy_readiness"]
+    assert payload["provider_targets"] == []
+    assert payload["provider_preflight"]["skipped"] is True
+    assert payload["provider_preflight"]["summary"]["provider_count"] == 0
+
+
+def test_external_release_gate_writes_json_report_atomically(tmp_path: Path) -> None:
+    output = tmp_path / "external-release-gate.json"
+    payload = external_release_gate.run_external_gate(
+        targets=("github",),
+        env_files=[tmp_path / "missing.env"],
+        include_process_env=False,
+        provider_timeout_seconds=5,
+        provider_runner=_provider_runner_ok,
+    )
+
+    external_release_gate.write_json_report(output, payload)
+
+    written = json.loads(output.read_text(encoding="utf-8"))
+    assert written["schema_version"] == 1
+    assert written["ok"] is False
+    assert not (output.parent / "external-release-gate.json.tmp").exists()
+
+
+def test_external_release_gate_parse_args_defaults() -> None:
+    args = external_release_gate.parse_args([])
+
+    assert args.target == []
+    assert args.env_file == []
+    assert args.provider_timeout == 12
+    assert args.ignore_process_env is False
