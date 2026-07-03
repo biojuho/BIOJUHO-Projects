@@ -32,6 +32,14 @@ def _runner_from_results(
     return runner
 
 
+def test_launch_env_preflight_default_env_files_include_backend_env_before_app_env() -> None:
+    env_files = launch_env_preflight._default_env_files()
+
+    assert [path.name for path in env_files] == [".env", ".env"]
+    assert env_files[0].parent.name == "backend"
+    assert env_files[1].parent.name == "AgriGuard"
+
+
 def test_launch_env_preflight_fails_without_secret() -> None:
     report = launch_env_preflight.validate_launch_env({})
 
@@ -93,6 +101,36 @@ def test_launch_env_preflight_rejects_placeholder_secret() -> None:
 
     assert report["status"] == "fail"
     assert "AGRIGUARD_SECRET_KEY uses a placeholder or development-only value." in report["errors"]
+
+
+def test_launch_env_preflight_rejects_test_bypass_enabled() -> None:
+    env = _healthy_env() | {"ALLOW_TEST_BYPASS": "true"}
+
+    report = launch_env_preflight.validate_launch_env(env)
+
+    assert report["status"] == "fail"
+    assert "ALLOW_TEST_BYPASS must not be enabled for launch." in report["errors"]
+    assert report["checks"]["forbidden_launch_flags_enabled"] == ["ALLOW_TEST_BYPASS"]
+
+
+def test_launch_env_preflight_rejects_dev_auth_fallback_enabled() -> None:
+    env = _healthy_env() | {"ALLOW_DEV_AUTH_FALLBACK": "yes"}
+
+    report = launch_env_preflight.validate_launch_env(env)
+
+    assert report["status"] == "fail"
+    assert "ALLOW_DEV_AUTH_FALLBACK must not be enabled for launch." in report["errors"]
+    assert report["checks"]["forbidden_launch_flags_enabled"] == ["ALLOW_DEV_AUTH_FALLBACK"]
+
+
+def test_launch_env_preflight_rejects_dev_auth_fallback_role() -> None:
+    env = _healthy_env() | {"DEV_AUTH_FALLBACK_ROLE": "operator"}
+
+    report = launch_env_preflight.validate_launch_env(env)
+
+    assert report["status"] == "fail"
+    assert "DEV_AUTH_FALLBACK_ROLE must not be set for launch." in report["errors"]
+    assert report["checks"]["dev_auth_fallback_role_set"] is True
 
 
 def test_launch_env_preflight_rejects_missing_qr_token_pepper() -> None:

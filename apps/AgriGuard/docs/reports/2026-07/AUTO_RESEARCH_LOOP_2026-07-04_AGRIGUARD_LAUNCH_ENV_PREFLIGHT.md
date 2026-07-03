@@ -17,6 +17,7 @@ The broad AgriGuard smoke still imports the backend with no `SECRET_KEY` and rec
 - Later QR token hardening requires app-scoped `AGRIGUARD_QR_TOKEN_PEPPER` for compose launch and direct `QR_TOKEN_PEPPER` for direct backend launch.
 - Later public QR URL hardening requires app-scoped `AGRIGUARD_PUBLIC_VERIFY_BASE_URL` for compose launch and direct `PUBLIC_VERIFY_BASE_URL` for direct backend launch.
 - Later database hardening requires a PostgreSQL `AGRIGUARD_DATABASE_URL` or strong `AGRIGUARD_DB_PASSWORD` for compose launch, and direct `DATABASE_URL` for direct backend launch.
+- Later auth hardening loads backend `.env` by default and rejects test bypass, dev auth fallback, and dev fallback role settings for launch.
 - Missing explicit allowed origins fail closed by default; `--allow-runtime-default-origins` is available for local checks that intentionally accept runtime defaults.
 - `--check-docker` adds Docker daemon reachability and compose config validation for launch startup readiness.
 - Added focused tests for missing, placeholder, short, unsafe, passing, and env-file override cases.

@@ -25,6 +25,7 @@ PLACEHOLDER_SECRETS = {
 }
 PLACEHOLDER_PREFIXES = ("change_me", "changeme", "your_", "insecure-dev")
 LOCAL_PUBLIC_VERIFY_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+FORBIDDEN_LAUNCH_TRUE_FLAGS = ("ALLOW_TEST_BYPASS", "ALLOW_DEV_AUTH_FALLBACK")
 
 
 def _strip_optional_quotes(value: str) -> str:
@@ -61,6 +62,10 @@ def build_effective_env(env_files: Iterable[Path], environ: dict[str, str] | Non
 
 def _split_origins(raw_value: str) -> list[str]:
     return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+
+
+def _env_flag_enabled(env: dict[str, str], name: str) -> bool:
+    return (env.get(name) or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _is_placeholder_value(value: str) -> bool:
@@ -273,6 +278,13 @@ def validate_launch_env_with_options(
     errors: list[str] = []
     warnings: list[str] = []
 
+    forbidden_enabled_flags = [name for name in FORBIDDEN_LAUNCH_TRUE_FLAGS if _env_flag_enabled(env, name)]
+    for flag_name in forbidden_enabled_flags:
+        errors.append(f"{flag_name} must not be enabled for launch.")
+    dev_auth_fallback_role_set = bool((env.get("DEV_AUTH_FALLBACK_ROLE") or "").strip())
+    if dev_auth_fallback_role_set:
+        errors.append("DEV_AUTH_FALLBACK_ROLE must not be set for launch.")
+
     secret, secret_source, secret_error = _secret_for_runtime(
         env,
         runtime,
@@ -351,6 +363,8 @@ def validate_launch_env_with_options(
         "warnings": warnings,
         "checks": {
             "runtime": runtime,
+            "forbidden_launch_flags_enabled": forbidden_enabled_flags,
+            "dev_auth_fallback_role_set": dev_auth_fallback_role_set,
             "secret_source": secret_source,
             "secret_min_length": MIN_SECRET_LENGTH,
             "allow_generic_secret_key": allow_generic_secret_key,
@@ -493,7 +507,7 @@ def build_launch_report(
 
 def _default_env_files() -> list[Path]:
     app_root = Path(__file__).resolve().parents[1]
-    return [app_root / ".env"]
+    return [app_root / "backend" / ".env", app_root / ".env"]
 
 
 def main(argv: list[str] | None = None) -> int:
