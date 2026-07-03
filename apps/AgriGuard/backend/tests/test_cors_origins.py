@@ -110,7 +110,7 @@ def test_agriguard_compose_waits_for_frontend_health_before_nginx() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
     assert "frontend:\n        condition: service_healthy" in compose
-    assert 'test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]' in compose
+    assert compose.count('test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]') >= 2
     assert "start_period: 10s" in compose
 
 
