@@ -18,7 +18,7 @@ JooPark Workspace는 빌드 단계 없는 정적 SPA지만, 모노레포(biojuho
 2. **actions/upload-pages-artifact** — 배포할 폴더를 "아티팩트"(워크플로가 만든 결과물 묶음)로 업로드. 형식은 단일 gzip tar 하나여야 하고, 심볼릭 링크 불가, 권장 1GB·최대 10GB 제한([upload-pages-artifact README](https://github.com/actions/upload-pages-artifact)).
 3. **actions/deploy-pages** — 그 아티팩트를 실제 사이트로 배포.
 
-공식 문서 예시 버전(2026-06-11 기준)은 `configure-pages@v5`, `upload-pages-artifact@v4`, `deploy-pages@v4`로, **우리 로컬 워크플로와 동일**하다. 각 저장소에는 더 새 메이저(configure-pages v6.0.0, deploy-pages v5.0.0 — 2026-03-25 릴리스, upload-pages-artifact v5.0.0 — 2026-04-10 릴리스)도 있으나, deploy-pages README는 여전히 `@v4`를 예시로 쓴다([deploy-pages README](https://github.com/actions/deploy-pages)). 첫 배포는 문서 예시 버전으로 가고, 메이저 업그레이드는 별도 작업으로 미루는 게 안전하다.
+공식 action 릴리스 기준(2026-07-03 확인)은 `configure-pages@v6`, `upload-pages-artifact@v5`, `deploy-pages@v5`, `setup-node@v6`가 현재 major다. `deploy-pages@v4` 기반 첫 배포는 artifact 생성까지는 통과했지만 Pages deployment 단계에서 실패했으므로, 우리 워크플로는 Node 24 호환 major로 고정한다. attestation은 최신 major가 `actions/attest@v4`이므로 그대로 유지한다.
 
 ### 필요한 permissions 세 가지
 

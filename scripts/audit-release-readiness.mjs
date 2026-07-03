@@ -2986,7 +2986,7 @@ function buildChecklist() {
 
   const workflowHandoffDryRun = githubPagesWorkflowHandoffDryRun();
   const workflowHandoffTerms = [
-    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "--check-scope", "workflowScopeRequired", "workflowScopeAvailable", "missing workflow scope", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath", "attestations: write", "actions/checkout@v6", "actions/configure-pages@v5", "actions/attest@v4", "subject-path: dist/release/**", "actions/upload-pages-artifact@v4", "actions/deploy-pages@v4", "search-empty-state.js", "calendar-view.js", "todo-view.js", "notes-view.js", "habits-view.js", "stats-view.js", "portfolio-view.js", "kanban-view.js", "gantt-view.js", "team-view.js", "workspace-storage.js", "storage-status-view.js", "settings-view.js", "system-status-view.js", "backup-import-guards.js", "backup-import-ui.js", "release-status.js", "project-picker.js", "global-search.js", "command-palette.js", "db-catalog.js", "review-handoff.js", "review-result-view.js", "review-execution-checklist.js", "review-issue-payload.js", "review-result-state.js", "review-result-draft-state.js", "review-creation-actions.js", "icons/**", "site.webmanifest", "social-preview.png", "social-preview.svg"] },
+    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "--check-scope", "workflowScopeRequired", "workflowScopeAvailable", "missing workflow scope", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath", "attestations: write", "actions/checkout@v6", "actions/setup-node@v6", "actions/configure-pages@v6", "actions/attest@v4", "subject-path: dist/release/**", "actions/upload-pages-artifact@v5", "actions/deploy-pages@v5", "search-empty-state.js", "calendar-view.js", "todo-view.js", "notes-view.js", "habits-view.js", "stats-view.js", "portfolio-view.js", "kanban-view.js", "gantt-view.js", "team-view.js", "workspace-storage.js", "storage-status-view.js", "settings-view.js", "system-status-view.js", "backup-import-guards.js", "backup-import-ui.js", "release-status.js", "project-picker.js", "global-search.js", "command-palette.js", "db-catalog.js", "review-handoff.js", "review-result-view.js", "review-execution-checklist.js", "review-issue-payload.js", "review-result-state.js", "review-result-draft-state.js", "review-creation-actions.js", "icons/**", "site.webmanifest", "social-preview.png", "social-preview.svg"] },
     { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope", "node scripts/prepare-github-pages-workflow.mjs --write", "repository root", "workflowScopeAvailable", "workflow` scope", "attestations: write", "actions/attest@v4", "subject-path: dist/release/**", "search-empty-state.js", "calendar-view.js", "todo-view.js", "notes-view.js", "habits-view.js", "stats-view.js", "portfolio-view.js", "kanban-view.js", "gantt-view.js", "team-view.js", "workspace-storage.js", "storage-status-view.js", "settings-view.js", "system-status-view.js", "backup-import-ui.js", "release-status.js", "global-search.js", "command-palette.js", "db-catalog.js", "review-handoff.js", "review-result-view.js", "review-execution-checklist.js", "review-issue-payload.js", "review-result-state.js", "review-result-draft-state.js", "review-creation-actions.js"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const workflowHandoffFiles = workflowHandoffScripts.map((path) => ({ path, exists: fileExists(path) }));
@@ -3002,7 +3002,7 @@ function buildChecklist() {
   });
 
   const driftWorkflowTerms = [
-    { file: "docs/github-drift-watch-workflow.yml", terms: ["workflow_dispatch:", "schedule:", "cron: \"23 2 * * 1\"", "permissions:", "contents: read", "actions/checkout@v6", "actions/setup-node@v4", "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "node scripts/check-candidate-freshness-drift.mjs --snapshot-only", "node scripts/check-candidate-freshness-drift.mjs --live", "node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift", "DRIFT_REPO", "fail-on-drift"] },
+    { file: "docs/github-drift-watch-workflow.yml", terms: ["workflow_dispatch:", "schedule:", "cron: \"23 2 * * 1\"", "permissions:", "contents: read", "actions/checkout@v6", "actions/setup-node@v6", "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "node scripts/check-candidate-freshness-drift.mjs --snapshot-only", "node scripts/check-candidate-freshness-drift.mjs --live", "node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift", "DRIFT_REPO", "fail-on-drift"] },
     { file: "README.md", terms: ["docs/github-drift-watch-workflow.yml", "Watch JooPark Candidate Drift", "schedule", "workflow_dispatch", ".github/workflows/joopark-drift-watch.yml", "GH_TOKEN", "secrets.GITHUB_TOKEN", "fail-on-drift"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const driftWorkflowEvidence = driftWorkflowFiles.map((path) => ({ path, exists: fileExists(path) }));
@@ -3018,7 +3018,7 @@ function buildChecklist() {
 
   const driftWorkflowHandoffDryRun = githubDriftWatchWorkflowHandoffDryRun();
   const driftWorkflowHandoffTerms = [
-    { file: "scripts/prepare-github-drift-watch-workflow.mjs", terms: ["--dry-run", "--write", "--check-scope", "workflowScopeRequired", "workflowScopeAvailable", "missing workflow scope", "docs/github-drift-watch-workflow.yml", ".github/workflows/joopark-drift-watch.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath", "schedule:", "workflow_dispatch:", "actions/checkout@v6", "actions/setup-node@v4", "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}"] },
+    { file: "scripts/prepare-github-drift-watch-workflow.mjs", terms: ["--dry-run", "--write", "--check-scope", "workflowScopeRequired", "workflowScopeAvailable", "missing workflow scope", "docs/github-drift-watch-workflow.yml", ".github/workflows/joopark-drift-watch.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath", "schedule:", "workflow_dispatch:", "actions/checkout@v6", "actions/setup-node@v6", "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}"] },
     { file: "README.md", terms: ["node scripts/prepare-github-drift-watch-workflow.mjs --dry-run", "node scripts/prepare-github-drift-watch-workflow.mjs --dry-run --check-scope", "node scripts/prepare-github-drift-watch-workflow.mjs --write", ".github/workflows/joopark-drift-watch.yml", "workflowScopeAvailable", "workflow` scope"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const driftWorkflowHandoffFiles = driftWorkflowHandoffScripts.map((path) => ({ path, exists: fileExists(path) }));
@@ -3870,11 +3870,12 @@ function buildChecklist() {
     "id-token: write",
     "attestations: write",
     "actions/checkout@v6",
-    "actions/configure-pages@v5",
+    "actions/setup-node@v6",
+    "actions/configure-pages@v6",
     "actions/attest@v4",
     "subject-path: dist/release/**",
-    "actions/upload-pages-artifact@v4",
-    "actions/deploy-pages@v4",
+    "actions/upload-pages-artifact@v5",
+    "actions/deploy-pages@v5",
     "node scripts/package-release.mjs",
     "node scripts/verify-release.mjs",
     ...pagesWorkflowRuntimeAssets,

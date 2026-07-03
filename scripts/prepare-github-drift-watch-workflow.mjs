@@ -33,7 +33,7 @@ const requiredTerms = [
   "permissions:",
   "contents: read",
   "actions/checkout@v6",
-  "actions/setup-node@v4",
+  "actions/setup-node@v6",
   "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}",
   "node scripts/check-candidate-freshness-drift.mjs --snapshot-only",
   "node scripts/check-candidate-freshness-drift.mjs --live",
