@@ -94,6 +94,35 @@ def test_external_release_gate_skips_provider_preflight_for_amoy_only(tmp_path: 
     assert payload["provider_preflight"]["summary"]["provider_count"] == 0
 
 
+def test_external_release_gate_loads_provider_template_dir_after_default_env_files(tmp_path: Path) -> None:
+    provider_dir = tmp_path / "provider-templates"
+    provider_dir.mkdir()
+    github_env = provider_dir / "github.env"
+    github_env.write_text("GITLEAKS_LICENSE=license-token\n", encoding="utf-8")
+
+    env_files = external_release_gate.resolve_env_files(
+        [tmp_path / "missing.env"],
+        provider_template_dir=provider_dir,
+    )
+    payload = external_release_gate.run_external_gate(
+        targets=("github",),
+        env_files=env_files,
+        include_process_env=False,
+        provider_timeout_seconds=5,
+        provider_runner=_provider_runner_ok,
+    )
+
+    assert env_files == [tmp_path / "missing.env", github_env]
+    assert payload["ok"] is True
+    assert payload["deploy_readiness"]["summary"]["failed_checks"] == []
+
+
+def test_external_release_gate_rejects_missing_provider_template_dir() -> None:
+    code = external_release_gate.main(["--provider-template-dir", "missing-provider-templates"])
+
+    assert code == 2
+
+
 def test_external_release_gate_writes_json_report_atomically(tmp_path: Path) -> None:
     output = tmp_path / "external-release-gate.json"
     payload = external_release_gate.run_external_gate(

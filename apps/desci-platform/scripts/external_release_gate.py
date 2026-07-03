@@ -20,6 +20,13 @@ from evidence_io import write_json_atomic
 
 DEFAULT_TARGETS = ("railway", "vercel", "amoy", "github")
 PROVIDER_TARGETS = ("railway", "vercel", "github")
+DEFAULT_ENV_FILES = (
+    Path(".env.production"),
+    Path(".env"),
+    Path("backend/.env"),
+    Path("frontend/.env"),
+    Path("contracts/.env"),
+)
 
 
 def normalize_targets(targets: list[str] | tuple[str, ...] | None) -> list[str]:
@@ -31,6 +38,27 @@ def normalize_targets(targets: list[str] | tuple[str, ...] | None) -> list[str]:
 
 def provider_targets_for(targets: list[str] | tuple[str, ...]) -> list[str]:
     return [target for target in targets if target in PROVIDER_TARGETS]
+
+
+def provider_template_env_files(directory: str | Path | None) -> list[Path]:
+    if directory is None:
+        return []
+    template_dir = Path(directory)
+    if not template_dir.exists():
+        raise ValueError(f"provider template directory does not exist: {template_dir}")
+    if not template_dir.is_dir():
+        raise ValueError(f"provider template path is not a directory: {template_dir}")
+    return sorted(template_dir.glob("*.env"))
+
+
+def resolve_env_files(
+    env_files: list[Path] | tuple[Path, ...] | None,
+    *,
+    provider_template_dir: str | Path | None = None,
+) -> list[Path]:
+    selected = list(env_files) if env_files else list(DEFAULT_ENV_FILES)
+    selected.extend(provider_template_env_files(provider_template_dir))
+    return selected
 
 
 def deploy_readiness_payload(
@@ -57,13 +85,7 @@ def run_external_gate(
     provider_runner: provider_preflight.CommandRunner = provider_preflight.execute_command,
 ) -> dict[str, Any]:
     normalized_targets = normalize_targets(list(targets or ("all",)))
-    resolved_env_files = env_files or [
-        Path(".env.production"),
-        Path(".env"),
-        Path("backend/.env"),
-        Path("frontend/.env"),
-        Path("contracts/.env"),
-    ]
+    resolved_env_files = resolve_env_files(env_files)
     deploy_payload = deploy_readiness_payload(
         targets=normalized_targets,
         env_files=resolved_env_files,
@@ -156,6 +178,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Deployment target to check. Repeatable. Defaults to all.",
     )
     parser.add_argument("--env-file", action="append", default=[], help="Env file to load; repeatable.")
+    parser.add_argument(
+        "--provider-template-dir",
+        help="Append generated provider .env templates after the default or explicit env files.",
+    )
     parser.add_argument("--ignore-process-env", action="store_true")
     parser.add_argument("--check-cli", action="store_true", help="Also check local deployment CLI availability in deploy readiness.")
     parser.add_argument("--provider-timeout", type=int, default=12, help="Timeout per provider CLI command in seconds.")
@@ -166,7 +192,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    env_files = [Path(path) for path in args.env_file] if args.env_file else None
+    try:
+        env_files = resolve_env_files(
+            [Path(path) for path in args.env_file] if args.env_file else None,
+            provider_template_dir=args.provider_template_dir,
+        )
+    except ValueError as exc:
+        print(f"[external-release-gate] {exc}", file=sys.stderr)
+        return 2
     payload = run_external_gate(
         targets=tuple(args.target or ("all",)),
         env_files=env_files,
