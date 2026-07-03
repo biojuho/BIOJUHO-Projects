@@ -17,9 +17,15 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import release_handoff
 from evidence_io import write_json_atomic
+from post_apply_evidence_gate import secret_marker_names_in_text
 
 DEFAULT_EXTERNAL_GATE_JSON = Path("var/external-release-gate-provider-2026-07-04.json")
 DEFAULT_PROVIDER = "operator"
+DEFAULT_PROVIDER_APPLY_PLAN_JSON = Path("var/external-gate-provider-apply-plan.json")
+PROVIDER_APPLY_PLAN_VERIFY_CONDITION = "provider_apply_plan_verification.ok=true"
+PROVIDER_APPLY_PLAN_READY_CONDITION = (
+    "provider_apply_plan_verification.ok=true and provider_apply_plan.ready_to_apply=true"
+)
 
 
 def load_external_gate_payload(path: str | Path) -> dict[str, Any]:
@@ -30,6 +36,13 @@ def load_external_gate_payload(path: str | Path) -> dict[str, Any]:
         raise ValueError(f"{path} must be schema_version=1 external release gate evidence")
     if "deploy_readiness" not in payload or "provider_preflight" not in payload:
         raise ValueError(f"{path} is missing external release gate child evidence")
+    return payload
+
+
+def load_provider_apply_plan(path: str | Path) -> dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
     return payload
 
 
@@ -397,6 +410,12 @@ def _powershell_single_quoted(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
+def _json_path_with_suffix(path: str | Path, suffix: str) -> str:
+    output_path = Path(path)
+    file_suffix = output_path.suffix or ".json"
+    return str(output_path.with_name(f"{output_path.stem}{suffix}{file_suffix}"))
+
+
 def _provider_apply_commands(provider: str, template_path: str, keys: list[str]) -> list[dict[str, Any]]:
     if provider == "github":
         return [
@@ -476,6 +495,28 @@ def _provider_apply_operator_status(index: dict[str, Any], providers: list[dict[
     }
 
 
+def _provider_apply_plan_verification(plan_path: str | Path) -> dict[str, Any]:
+    verify_json_out = _json_path_with_suffix(plan_path, "-verify")
+    require_ready_json_out = _json_path_with_suffix(plan_path, "-require-ready")
+    plan_json = str(plan_path)
+    return {
+        "success_condition": PROVIDER_APPLY_PLAN_VERIFY_CONDITION,
+        "ready_success_condition": PROVIDER_APPLY_PLAN_READY_CONDITION,
+        "provider_apply_plan_json": plan_json,
+        "verify_json_out": verify_json_out,
+        "require_ready_json_out": require_ready_json_out,
+        "verify_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--verify-provider-apply-plan {plan_json} --json-out {verify_json_out}"
+        ),
+        "require_ready_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--verify-provider-apply-plan {plan_json} --require-ready-to-apply "
+            f"--json-out {require_ready_json_out}"
+        ),
+    }
+
+
 def _post_apply_verify_command(template_dir: str, provider: str) -> str:
     json_out = f"var/external-release-gate-post-apply-{provider}.json"
     return (
@@ -549,7 +590,12 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
     }
 
 
-def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[str, Path]) -> dict[str, Any]:
+def provider_apply_plan_payload(
+    payload: dict[str, Any],
+    provider_paths: dict[str, Path],
+    *,
+    plan_path: str | Path | None = None,
+) -> dict[str, Any]:
     index = provider_template_index_payload(payload, provider_paths)
     template_dirs = sorted({str(Path(provider["path"]).parent) for provider in _as_list(index.get("providers"))})
     template_dir = template_dirs[0] if len(template_dirs) == 1 else ""
@@ -571,6 +617,7 @@ def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[st
                 "template_filename": provider.get("template_filename"),
                 "docs_url": guidance.get("docs_url") if isinstance(guidance.get("docs_url"), str) else "",
                 "preflight_commands": _string_list(guidance.get("preflight_commands")),
+                "env_keys": keys,
                 "env_key_count": env_key_count,
                 "populated_key_count": populated_key_count,
                 "blank_key_count": max(env_key_count - populated_key_count, 0),
@@ -597,6 +644,9 @@ def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[st
             "populated_key_count": index.get("populated_key_count"),
         },
         "operator_status": operator_status,
+        "provider_apply_plan_verification": _provider_apply_plan_verification(
+            plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
+        ),
         "post_apply_completion_evidence": _post_apply_completion_evidence(template_dir, providers),
         "ready_provider_count": operator_status["ready_provider_count"],
         "provider_count": len(providers),
@@ -609,7 +659,157 @@ def write_provider_apply_plan(
     payload: dict[str, Any],
     provider_paths: dict[str, Path],
 ) -> Path:
-    return write_json_report(path, provider_apply_plan_payload(payload, provider_paths))
+    return write_json_report(path, provider_apply_plan_payload(payload, provider_paths, plan_path=path))
+
+
+def _provider_apply_plan_provider_verification(provider: dict[str, Any]) -> dict[str, Any]:
+    provider_key = str(provider.get("provider") or "")
+    template_path = str(provider.get("template_path") or "")
+    env_keys = _string_list(provider.get("env_keys"))
+    env_key_count = int(provider.get("env_key_count") or 0)
+    populated_key_count = int(provider.get("populated_key_count") or 0)
+    blank_key_count = int(provider.get("blank_key_count") or 0)
+    expected_blank_key_count = max(env_key_count - populated_key_count, 0)
+    ready_to_apply = provider.get("ready_to_apply") is True
+    expected_ready = env_key_count > 0 and populated_key_count == env_key_count
+    failures: list[str] = []
+    template_audit: dict[str, Any] = {
+        "exists": False,
+        "env_key_count": 0,
+        "populated_key_count": 0,
+        "blank_key_count": 0,
+    }
+
+    if not provider_key:
+        failures.append("provider is required")
+    if env_key_count < 0 or populated_key_count < 0 or blank_key_count < 0:
+        failures.append("provider env counts must be non-negative")
+    if populated_key_count > env_key_count:
+        failures.append("provider populated_key_count must not exceed env_key_count")
+    if blank_key_count != expected_blank_key_count:
+        failures.append("provider blank_key_count must equal env_key_count minus populated_key_count")
+    if ready_to_apply is not expected_ready:
+        failures.append("provider ready_to_apply does not match env counts")
+    if not template_path:
+        failures.append("provider template_path is required")
+    else:
+        path = Path(template_path)
+        template_audit["exists"] = path.exists()
+        if not path.exists():
+            failures.append("provider template_path is missing")
+        else:
+            try:
+                audit = _env_template_audit(path)
+                audit_env_key_count = int(audit.get("env_key_count") or 0)
+                audit_populated_key_count = int(audit.get("populated_key_count") or 0)
+                template_audit.update(
+                    {
+                        "env_key_count": audit_env_key_count,
+                        "populated_key_count": audit_populated_key_count,
+                        "blank_key_count": max(audit_env_key_count - audit_populated_key_count, 0),
+                    }
+                )
+                if _string_list(audit.get("env_keys")) != env_keys:
+                    failures.append("provider template env_keys do not match apply plan")
+                if audit_populated_key_count != populated_key_count:
+                    failures.append("provider template populated_key_count does not match apply plan")
+            except OSError as exc:
+                failures.append(f"provider template could not be read: {exc}")
+
+    for command in [item for item in _as_list(provider.get("commands")) if isinstance(item, dict)]:
+        placeholder = str(command.get("value_placeholder") or "")
+        if placeholder and not (placeholder.startswith("<") and placeholder.endswith(">")):
+            failures.append("provider command value_placeholder must be redacted")
+
+    return {
+        "provider": provider_key,
+        "template_path": template_path,
+        "ready_to_apply": ready_to_apply,
+        "env_key_count": env_key_count,
+        "populated_key_count": populated_key_count,
+        "blank_key_count": blank_key_count,
+        "template_audit": template_audit,
+        "ok": not failures,
+        "failures": failures,
+    }
+
+
+def verify_provider_apply_plan(
+    plan_path: str | Path,
+    *,
+    require_ready_to_apply: bool = False,
+) -> dict[str, Any]:
+    plan = load_provider_apply_plan(plan_path)
+    operator_status = _as_dict(plan.get("operator_status"))
+    template_index = _as_dict(plan.get("provider_template_index"))
+    providers = [item for item in _as_list(plan.get("providers")) if isinstance(item, dict)]
+    provider_checks = [_provider_apply_plan_provider_verification(provider) for provider in providers]
+    ready_provider_count = sum(1 for provider in providers if provider.get("ready_to_apply") is True)
+    blocked_provider_count = max(len(providers) - ready_provider_count, 0)
+    failures: list[str] = []
+    serialized = json.dumps(plan, ensure_ascii=False, sort_keys=True)
+    secret_markers = secret_marker_names_in_text(serialized)
+
+    if plan.get("schema_version") != 1:
+        failures.append("provider apply plan must be schema_version=1")
+    if plan.get("ok") is not True:
+        failures.append("provider apply plan ok must be true")
+    if secret_markers:
+        failures.append("provider apply plan contains secret-shaped markers")
+    if int(plan.get("provider_count") or 0) != len(providers):
+        failures.append("provider_count must match providers length")
+    if int(plan.get("ready_provider_count") or 0) != ready_provider_count:
+        failures.append("ready_provider_count must match ready providers")
+    if int(template_index.get("provider_template_count") or 0) != len(providers):
+        failures.append("provider_template_count must match providers length")
+    if int(template_index.get("populated_key_count") or 0) != sum(
+        int(provider.get("populated_key_count") or 0) for provider in providers
+    ):
+        failures.append("provider_template_index populated_key_count must match providers")
+
+    expected_ready = len(providers) > 0 and blocked_provider_count == 0
+    if operator_status.get("ready_to_apply") is not expected_ready:
+        failures.append("operator_status.ready_to_apply does not match provider readiness")
+    if int(operator_status.get("ready_provider_count") or 0) != ready_provider_count:
+        failures.append("operator_status.ready_provider_count does not match providers")
+    if int(operator_status.get("blocked_provider_count") or 0) != blocked_provider_count:
+        failures.append("operator_status.blocked_provider_count does not match providers")
+    if operator_status.get("apply_plan_safe_to_commit") is not True:
+        failures.append("operator_status.apply_plan_safe_to_commit must be true")
+    if operator_status.get("completion_marker") != "external_release_gate.ok=true":
+        failures.append("operator_status.completion_marker is not recognized")
+    if require_ready_to_apply and operator_status.get("ready_to_apply") is not True:
+        failures.append("provider apply plan must be ready_to_apply")
+    if require_ready_to_apply:
+        for provider in provider_checks:
+            if provider.get("ready_to_apply") is not True:
+                provider.setdefault("failures", []).append("provider template has blank values")
+                provider["ok"] = False
+
+    provider_failure_count = sum(1 for provider in provider_checks if provider.get("ok") is not True)
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "ok": not failures and provider_failure_count == 0,
+        "provider_apply_plan_json": str(plan_path),
+        "require_ready_to_apply": require_ready_to_apply,
+        "ready_to_apply": operator_status.get("ready_to_apply") is True,
+        "operator_stage": operator_status.get("stage"),
+        "success_condition": PROVIDER_APPLY_PLAN_VERIFY_CONDITION
+        if not require_ready_to_apply
+        else PROVIDER_APPLY_PLAN_READY_CONDITION,
+        "summary": {
+            "failure_count": len(failures),
+            "provider_count": len(providers),
+            "ready_provider_count": ready_provider_count,
+            "blocked_provider_count": blocked_provider_count,
+            "provider_failure_count": provider_failure_count,
+            "secret_marker_count": len(secret_markers),
+        },
+        "secret_marker_names": secret_markers,
+        "failures": failures,
+        "providers": provider_checks,
+    }
 
 
 def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
@@ -641,6 +841,22 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
         )
     else:
         lines.extend(["- Unknown.", ""])
+    plan_verification = _as_dict(payload.get("provider_apply_plan_verification"))
+    if plan_verification:
+        lines.extend(
+            [
+                "## Provider Apply Plan Verification",
+                f"- Success condition: `{_markdown_scalar(plan_verification.get('success_condition'))}`",
+                f"- Ready success condition: "
+                f"`{_markdown_scalar(plan_verification.get('ready_success_condition'))}`",
+                f"- Verify JSON: `{_markdown_scalar(plan_verification.get('verify_json_out'))}`",
+                f"- Require-ready JSON: `{_markdown_scalar(plan_verification.get('require_ready_json_out'))}`",
+                f"- Verify command: `{_markdown_scalar(plan_verification.get('verify_command'))}`",
+                f"- Require-ready command: "
+                f"`{_markdown_scalar(plan_verification.get('require_ready_command'))}`",
+                "",
+            ]
+        )
     completion_evidence = _as_dict(payload.get("post_apply_completion_evidence"))
     lines.append("## Post-Apply Evidence")
     if completion_evidence and completion_evidence.get("required") is True:
@@ -797,12 +1013,39 @@ def print_report(payload: dict[str, Any]) -> None:
         print(f"[external-gate-handoff] failed_surfaces={', '.join(payload['failed_surfaces'])}")
 
 
+def print_provider_apply_plan_verification_report(payload: dict[str, Any]) -> None:
+    summary = _as_dict(payload.get("summary"))
+    print(f"[external-gate-handoff] provider_apply_plan_ok={payload.get('ok')}")
+    print(
+        "[external-gate-handoff] "
+        f"ready_to_apply={payload.get('ready_to_apply')} "
+        f"require_ready={payload.get('require_ready_to_apply')} "
+        f"providers={summary.get('ready_provider_count')}/{summary.get('provider_count')} "
+        f"provider_failures={summary.get('provider_failure_count')} "
+        f"failures={summary.get('failure_count')} "
+        f"secret_markers={summary.get('secret_marker_count')}"
+    )
+    for failure in _string_list(payload.get("failures")):
+        print(f"  - {failure}")
+    for provider in _as_list(payload.get("providers")):
+        if isinstance(provider, dict) and provider.get("ok") is not True:
+            label = provider.get("provider") or "provider"
+            for failure in _string_list(provider.get("failures")):
+                print(f"  - {label}: {failure}")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a DeSci external gate operator handoff.")
     parser.add_argument(
         "--external-gate-json",
         default=str(DEFAULT_EXTERNAL_GATE_JSON),
         help="Path to external_release_gate.py JSON evidence.",
+    )
+    parser.add_argument("--verify-provider-apply-plan", help="Path to a redacted provider apply plan to verify.")
+    parser.add_argument(
+        "--require-ready-to-apply",
+        action="store_true",
+        help="In --verify-provider-apply-plan mode, fail unless all provider templates are filled.",
     )
     parser.add_argument("--json", action="store_true", help="Print the handoff as JSON.")
     parser.add_argument("--json-out", help="Write handoff JSON evidence.")
@@ -817,6 +1060,66 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.require_ready_to_apply and not args.verify_provider_apply_plan:
+        print(
+            "[external-gate-handoff] --require-ready-to-apply requires --verify-provider-apply-plan",
+            file=sys.stderr,
+        )
+        return 2
+    if args.verify_provider_apply_plan:
+        disallowed_outputs = any(
+            (
+                args.markdown_out,
+                args.provider_template_dir,
+                args.provider_template_index_out,
+                args.provider_apply_plan_out,
+                args.provider_apply_plan_markdown_out,
+            )
+        )
+        if disallowed_outputs:
+            print(
+                "[external-gate-handoff] --verify-provider-apply-plan only accepts --json and --json-out outputs",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            verification = verify_provider_apply_plan(
+                args.verify_provider_apply_plan,
+                require_ready_to_apply=args.require_ready_to_apply,
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            verification = {
+                "schema_version": 1,
+                "generated_at": datetime.now(UTC).isoformat(),
+                "ok": False,
+                "provider_apply_plan_json": str(args.verify_provider_apply_plan),
+                "require_ready_to_apply": args.require_ready_to_apply,
+                "ready_to_apply": False,
+                "operator_stage": "",
+                "success_condition": PROVIDER_APPLY_PLAN_VERIFY_CONDITION
+                if not args.require_ready_to_apply
+                else PROVIDER_APPLY_PLAN_READY_CONDITION,
+                "summary": {
+                    "failure_count": 1,
+                    "provider_count": 0,
+                    "ready_provider_count": 0,
+                    "blocked_provider_count": 0,
+                    "provider_failure_count": 0,
+                    "secret_marker_count": 0,
+                },
+                "secret_marker_names": [],
+                "failures": [str(exc)],
+                "providers": [],
+            }
+        if args.json:
+            print(json.dumps(verification, indent=2))
+        else:
+            print_provider_apply_plan_verification_report(verification)
+        if args.json_out:
+            output_path = write_json_report(args.json_out, verification)
+            print(f"[external-gate-handoff] provider apply plan verification written: {output_path}")
+        return 0 if verification["ok"] else 1
+
     needs_provider_templates = any(
         (
             args.provider_template_index_out,
@@ -856,7 +1159,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[external-gate-handoff] provider template index written: {index_path}")
     apply_plan_payload: dict[str, Any] | None = None
     if args.provider_apply_plan_out:
-        apply_plan_payload = provider_apply_plan_payload(payload, provider_paths)
+        apply_plan_payload = provider_apply_plan_payload(
+            payload,
+            provider_paths,
+            plan_path=args.provider_apply_plan_out,
+        )
         output_path = write_json_report(args.provider_apply_plan_out, apply_plan_payload)
         print(f"[external-gate-handoff] provider apply plan written: {output_path}")
     if args.provider_apply_plan_markdown_out:
