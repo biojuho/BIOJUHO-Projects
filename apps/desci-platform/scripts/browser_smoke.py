@@ -2002,6 +2002,74 @@ def _run_upload_form_readiness_check(page, base_url: str, timeout_ms: int) -> li
     return failures
 
 
+def _run_protected_mobile_layout_inset_check(page, base_url: str, timeout_ms: int) -> list[str]:
+    route_name = "protected-mobile-layout-inset"
+    failures: list[str] = []
+    console_errors: list[str] = []
+    page_errors: list[str] = []
+
+    def collect_console(message) -> None:
+        if message.type == "error":
+            console_errors.append(message.text)
+
+    def collect_page_error(error) -> None:
+        page_errors.append(str(error))
+
+    page.on("console", collect_console)
+    page.on("pageerror", collect_page_error)
+
+    try:
+        page.set_viewport_size({"width": 390, "height": 844})
+        response = _goto_app_route(page, base_url, "/upload", timeout_ms)
+        status = response.status if response is not None else 0
+        if status >= 400:
+            failures.append(f"{route_name}: HTTP status {status}")
+
+        page.locator("main h1").first.wait_for(state="visible", timeout=timeout_ms)
+        metrics = page.evaluate(
+            """
+            () => {
+              const main = document.querySelector('main');
+              const content = main?.querySelector('.mx-auto.flex.w-full.max-w-7xl.flex-1.flex-col');
+              const h1 = main?.querySelector('h1');
+              const menuButton = Array.from(main?.querySelectorAll('button') || []).find((button) => {
+                const rect = button.getBoundingClientRect();
+                return rect.y < 130 && rect.x < 120;
+              });
+              const rectFor = (element) => {
+                const rect = element?.getBoundingClientRect();
+                return rect ? { left: rect.left, width: rect.width } : null;
+              };
+              const mainStyle = main ? getComputedStyle(main) : null;
+              return {
+                mainPaddingLeft: Number.parseFloat(mainStyle?.paddingLeft || '0'),
+                mainPaddingRight: Number.parseFloat(mainStyle?.paddingRight || '0'),
+                contentLeft: rectFor(content)?.left ?? -1,
+                h1Left: rectFor(h1)?.left ?? -1,
+                menuLeft: rectFor(menuButton)?.left ?? -1,
+                menuWidth: rectFor(menuButton)?.width ?? -1,
+              };
+            }
+            """
+        )
+        if metrics.get("mainPaddingLeft", 0) < 12 or metrics.get("mainPaddingRight", 0) < 12:
+            failures.append(f"{route_name}: mobile main padding collapsed ({metrics!r})")
+        if metrics.get("contentLeft", -1) < 12 or metrics.get("h1Left", -1) < 12:
+            failures.append(f"{route_name}: mobile content starts too close to viewport edge ({metrics!r})")
+        if metrics.get("menuLeft", -1) < 12 or metrics.get("menuWidth", -1) < 40:
+            failures.append(f"{route_name}: mobile navigation button collapsed ({metrics!r})")
+    except PlaywrightTimeoutError as exc:
+        failures.append(f"{route_name}: timed out ({exc})")
+    except PlaywrightError as exc:
+        failures.append(f"{route_name}: browser error ({exc})")
+    finally:
+        page.remove_listener("console", collect_console)
+        page.remove_listener("pageerror", collect_page_error)
+
+    failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
+    return failures
+
+
 def _run_upload_submit_receipt_check(page, base_url: str, timeout_ms: int) -> list[str]:
     route_name = "upload-submit-receipt"
     failures: list[str] = []
@@ -6394,6 +6462,7 @@ AUTHENTICATED_ACTION_CHECKS = (
     ("pricing-billing-portal", "/pricing paid account -> billing portal", _run_pricing_billing_portal_check),
     ("pricing-billing-portal-error-visible", "/pricing billing portal failure", _run_pricing_billing_portal_error_check),
     ("upload-form-readiness", "/upload", _run_upload_form_readiness_check),
+    ("protected-mobile-layout-inset", "/upload mobile layout", _run_protected_mobile_layout_inset_check),
     ("upload-submit-receipt", "/upload submit -> durable receipt", _run_upload_submit_receipt_check),
     ("upload-submit-wallet-receipt", "/upload connected wallet -> mint/reward receipt", _run_upload_submit_wallet_receipt_check),
     ("asset-upload-readiness", "/assets", _run_asset_upload_readiness_check),

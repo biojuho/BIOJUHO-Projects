@@ -1,0 +1,22 @@
+@media (max-width: 1023px) {
+  body main.flex.min-h-screen.flex-1.flex-col {
+    box-sizing: border-box;
+    min-width: 0;
+    padding-inline: 0.75rem;
+  }
+
+  body main.flex.min-h-screen.flex-1.flex-col > .glass-card {
+    width: 100%;
+  }
+
+  body main.flex.min-h-screen.flex-1.flex-col > .mx-auto.flex.w-full.max-w-7xl.flex-1.flex-col {
+    box-sizing: border-box;
+    padding-inline: 0.25rem;
+  }
+
+  body main.flex.min-h-screen.flex-1.flex-col .clay-button.h-11.w-11 {
+    flex: 0 0 2.75rem;
+    min-width: 2.75rem;
+    width: 2.75rem;
+  }
+}

@@ -659,6 +659,7 @@ def test_browser_smoke_dev_auth_action_checks_include_vc_selector() -> None:
         "pricing-billing-portal",
         "pricing-billing-portal-error-visible",
         "upload-form-readiness",
+        "protected-mobile-layout-inset",
         "upload-submit-receipt",
         "upload-submit-wallet-receipt",
         "asset-upload-readiness",
@@ -703,6 +704,16 @@ def test_pricing_subscription_browser_smoke_mocks_tier_fetch_after_redirects() -
         assert "page.route(tier_route_pattern, fulfill_tier)" in source
         assert "page.unroute(tier_route_pattern, fulfill_tier)" in source
         assert '"tier": "free"' in source
+
+
+def test_protected_mobile_layout_smoke_checks_mobile_inset() -> None:
+    source = inspect.getsource(browser_smoke._run_protected_mobile_layout_inset_check)  # pylint: disable=protected-access
+
+    assert 'set_viewport_size({"width": 390, "height": 844})' in source
+    assert "mainPaddingLeft" in source
+    assert "contentLeft" in source
+    assert "menuWidth" in source
+    assert "mobile navigation button collapsed" in source
 
 
 def test_ai_lab_browser_fixture_passes_strict_quality_scorer() -> None:

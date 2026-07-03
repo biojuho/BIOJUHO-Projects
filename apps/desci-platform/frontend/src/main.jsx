@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './protected-mobile-layout.css'
 import App from './App.jsx'
 import { queryClient } from './lib/queryClient'
 
