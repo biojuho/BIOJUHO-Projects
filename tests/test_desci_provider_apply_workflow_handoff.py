@@ -16,6 +16,8 @@ def test_desci_provider_apply_workflow_handoff_contract() -> None:
         "workflow_dispatch",
         "permissions:",
         "contents: read",
+        "id-token: write",
+        "attestations: write",
         "Provider Apply Workflow Handoff",
         "Provider Apply Workflow Artifact Post-Download Verification",
         "external_release_gate.py",
@@ -29,6 +31,9 @@ def test_desci_provider_apply_workflow_handoff_contract() -> None:
         "desci-provider-workflow-artifact-index-summary.md",
         "desci-provider-workflow-artifact-bundle-verify.json",
         "desci-provider-workflow-artifact-bundle-verify.md",
+        "Attest provider apply workflow evidence",
+        "actions/attest@f6bf1532d7d6793fce74eac584813a8eee607999",
+        "var/external-gate-provider-workflow-machine-verify.md",
         "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0",
         "var/provider-workflow-downloaded-artifact",
         "var/provider-workflow-downloaded-artifact/desci-provider-workflow-artifact-index-machine.json",
@@ -59,17 +64,37 @@ def test_desci_provider_apply_workflow_post_download_job_contract() -> None:
     assert "provider-apply-workflow-handoff" in jobs
     assert "provider-apply-workflow-artifact-post-download" in jobs
 
-    handoff_steps = jobs["provider-apply-workflow-handoff"]["steps"]
+    handoff = jobs["provider-apply-workflow-handoff"]
+    assert handoff["permissions"] == {
+        "contents": "read",
+        "id-token": "write",
+        "attestations": "write",
+    }
+
+    handoff_steps = handoff["steps"]
     handoff_step_names = [step.get("name", "") for step in handoff_steps]
     assert handoff_step_names.index("Write provider apply workflow artifact index") < handoff_step_names.index(
         "Verify provider apply workflow artifact bundle"
     )
     assert handoff_step_names.index("Verify provider apply workflow artifact bundle") < handoff_step_names.index(
+        "Attest provider apply workflow evidence"
+    )
+    assert handoff_step_names.index("Attest provider apply workflow evidence") < handoff_step_names.index(
         "Upload provider apply workflow artifacts"
     )
     assert handoff_step_names.index("Upload provider apply workflow artifacts") < handoff_step_names.index(
         "Fail closed on provider apply workflow blockers"
     )
+    attest_step = handoff_steps[handoff_step_names.index("Attest provider apply workflow evidence")]
+    assert attest_step["uses"] == "actions/attest@f6bf1532d7d6793fce74eac584813a8eee607999"
+    attested_subjects = attest_step["with"]["subject-path"]
+    for subject in (
+        "var/desci-provider-workflow-artifact-index-machine.json",
+        "var/desci-provider-workflow-artifact-bundle-verify.json",
+        "var/external-gate-provider-workflow-machine-results.json",
+        "var/external-gate-provider-workflow-machine-verify.md",
+    ):
+        assert subject in attested_subjects
 
     post_download = jobs["provider-apply-workflow-artifact-post-download"]
     assert post_download["needs"] == "provider-apply-workflow-handoff"

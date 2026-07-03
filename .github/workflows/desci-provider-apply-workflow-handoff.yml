@@ -17,6 +17,10 @@ jobs:
     name: Provider Apply Workflow Handoff
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -109,6 +113,25 @@ jobs:
             --json-out var/desci-provider-workflow-artifact-bundle-verify.json \
             --markdown-out var/desci-provider-workflow-artifact-bundle-verify.md \
             --append-github-step-summary
+
+      - name: Attest provider apply workflow evidence
+        if: always()
+        uses: actions/attest@f6bf1532d7d6793fce74eac584813a8eee607999 # v4
+        with:
+          subject-path: |
+            var/desci-provider-workflow-artifact-index-machine.json
+            var/desci-provider-workflow-artifact-index-summary.md
+            var/desci-provider-workflow-artifact-bundle-verify.json
+            var/desci-provider-workflow-artifact-bundle-verify.md
+            var/external-release-gate-provider-workflow-machine.json
+            var/external-gate-handoff-provider-workflow-machine.json
+            var/external-gate-handoff-provider-workflow-machine.md
+            var/external-gate-provider-workflow-index-machine.json
+            var/external-gate-provider-workflow-machine.json
+            var/external-gate-provider-workflow-machine.md
+            var/external-gate-provider-workflow-machine-results.json
+            var/external-gate-provider-workflow-machine-verify.json
+            var/external-gate-provider-workflow-machine-verify.md
 
       - name: Upload provider apply workflow artifacts
         if: always()
