@@ -1,0 +1,3 @@
+backend/firebase-service-account*.json
+backend/*service-account*.json
+backend/serviceAccountKey.json

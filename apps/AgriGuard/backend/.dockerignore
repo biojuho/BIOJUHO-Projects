@@ -14,6 +14,9 @@ tests/
 test_*.py
 .env
 .env.*
+firebase-service-account*.json
+*service-account*.json
+serviceAccountKey.json
 *.db
 .git/
 .vscode/

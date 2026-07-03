@@ -93,6 +93,9 @@ def test_backend_dockerignore_excludes_local_runtime_and_test_artifacts() -> Non
         "tests/",
         "test_*.py",
         ".env.*",
+        "firebase-service-account*.json",
+        "*service-account*.json",
+        "serviceAccountKey.json",
     ]:
         assert pattern in dockerignore
 
