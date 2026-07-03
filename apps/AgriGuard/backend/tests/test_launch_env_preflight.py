@@ -489,7 +489,31 @@ def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins_but_requ
     assert report["status"] == "fail"
     assert report["checks"]["allowed_origins_count"] == 0
     assert report["checks"]["allowed_origins_source"] is None
-    assert "Set AGRIGUARD_ALLOWED_ORIGINS for launch instead of relying on runtime defaults." in report["errors"]
+    assert (
+        "Set AGRIGUARD_ALLOWED_ORIGINS for compose launch instead of relying on generic ALLOWED_ORIGINS."
+        in report["errors"]
+    )
+
+
+def test_launch_env_preflight_direct_mode_rejects_app_scoped_allowed_origins() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
+            "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://app-scoped.example",
+            "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "fail"
+    assert report["checks"]["allowed_origins_count"] == 0
+    assert report["checks"]["allowed_origins_source"] is None
+    assert (
+        "Set ALLOWED_ORIGINS for direct backend launch; AGRIGUARD_ALLOWED_ORIGINS is only bridged by compose."
+        in report["errors"]
+    )
 
 
 def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None:
@@ -507,6 +531,21 @@ def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None
     assert report["status"] == "pass"
     assert report["checks"]["allowed_origins_count"] == 1
     assert report["checks"]["allowed_origins_source"] == "ALLOWED_ORIGINS"
+
+
+def test_launch_env_preflight_direct_mode_requires_explicit_allowed_origins_by_default() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
+            "DATABASE_URL": "postgresql://agriguard:dbpassword1234567890@localhost:5432/agriguard",
+            "PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "fail"
+    assert "Set ALLOWED_ORIGINS for launch instead of relying on runtime defaults." in report["errors"]
 
 
 def test_launch_env_preflight_compose_mode_rejects_app_scoped_wildcard_origin() -> None:

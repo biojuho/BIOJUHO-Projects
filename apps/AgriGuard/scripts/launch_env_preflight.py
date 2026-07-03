@@ -132,16 +132,29 @@ def _auto_create_schema_for_runtime(env: dict[str, str], runtime: str) -> tuple[
     return (env.get("AUTO_CREATE_SCHEMA") or "").strip().lower(), "AUTO_CREATE_SCHEMA"
 
 
-def _allowed_origins_for_runtime(env: dict[str, str], runtime: str) -> tuple[list[str], str | None]:
+def _allowed_origins_for_runtime(env: dict[str, str], runtime: str) -> tuple[list[str], str | None, str | None]:
     if runtime == "compose":
         raw_value = env.get("AGRIGUARD_ALLOWED_ORIGINS") or ""
-        return _split_origins(raw_value), "AGRIGUARD_ALLOWED_ORIGINS" if raw_value.strip() else None
+        if raw_value.strip():
+            return _split_origins(raw_value), "AGRIGUARD_ALLOWED_ORIGINS", None
+        if (env.get("ALLOWED_ORIGINS") or "").strip():
+            return (
+                [],
+                None,
+                "Set AGRIGUARD_ALLOWED_ORIGINS for compose launch instead of relying on generic ALLOWED_ORIGINS.",
+            )
+        return [], None, None
 
-    raw_value = env.get("AGRIGUARD_ALLOWED_ORIGINS") or ""
-    if raw_value.strip():
-        return _split_origins(raw_value), "AGRIGUARD_ALLOWED_ORIGINS"
     raw_value = env.get("ALLOWED_ORIGINS") or ""
-    return _split_origins(raw_value), "ALLOWED_ORIGINS" if raw_value.strip() else None
+    if raw_value.strip():
+        return _split_origins(raw_value), "ALLOWED_ORIGINS", None
+    if (env.get("AGRIGUARD_ALLOWED_ORIGINS") or "").strip():
+        return (
+            [],
+            None,
+            "Set ALLOWED_ORIGINS for direct backend launch; AGRIGUARD_ALLOWED_ORIGINS is only bridged by compose.",
+        )
+    return [], None, None
 
 
 def _secret_for_runtime(
@@ -347,11 +360,16 @@ def validate_launch_env_with_options(
     )
     errors.extend(database_credential_errors)
 
-    origins, origins_source = _allowed_origins_for_runtime(env, runtime)
+    origins, origins_source, origins_error = _allowed_origins_for_runtime(env, runtime)
     if "*" in origins:
         errors.append(f"{origins_source} must not include wildcard '*'.")
+    elif origins_error:
+        errors.append(origins_error)
     elif not origins:
-        message = "Set AGRIGUARD_ALLOWED_ORIGINS for launch instead of relying on runtime defaults."
+        if runtime == "compose":
+            message = "Set AGRIGUARD_ALLOWED_ORIGINS for launch instead of relying on runtime defaults."
+        else:
+            message = "Set ALLOWED_ORIGINS for launch instead of relying on runtime defaults."
         if allow_runtime_default_origins:
             warnings.append(message)
         else:
