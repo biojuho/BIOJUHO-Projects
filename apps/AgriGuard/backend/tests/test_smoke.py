@@ -307,6 +307,17 @@ def test_supply_chain_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
 
 
+def test_supply_chain_browser_smoke_accepts_proxy_prefixed_products_page():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "supply_chain_browser_smoke.py",
+        "supply_chain_browser_smoke_proxy_path_under_test",
+    )
+
+    assert script.api_response_path({"url": "http://127.0.0.1:5174/api/products/page?page=1"}) == "/products/page"
+    assert script.api_response_path({"url": "http://127.0.0.1:8002/products/page?page=1"}) == "/products/page"
+    assert script.api_response_path({"url": "http://127.0.0.1:5174/api/products?page=1"}) == "/products"
+
+
 def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",

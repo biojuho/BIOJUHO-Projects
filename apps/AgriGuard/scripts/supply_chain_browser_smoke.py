@@ -149,6 +149,13 @@ def response_path(response: dict[str, object]) -> str:
         return ""
 
 
+def api_response_path(response: dict[str, object]) -> str:
+    path = response_path(response)
+    if path.startswith("/api/"):
+        return path.removeprefix("/api")
+    return path
+
+
 def run_browser(args: argparse.Namespace) -> dict[str, object]:
     checks: list[dict[str, object]] = []
     observations: dict[str, object] = {}
@@ -323,7 +330,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         failure for failure in request_failures if "ERR_ABORTED" not in failure.get("failure", "")
     ]
     product_page_responses = [
-        response for response in product_api_responses if response_path(response) == "/products/page"
+        response for response in product_api_responses if api_response_path(response) == "/products/page"
     ]
     successful_product_page_responses = [
         response for response in product_page_responses if 200 <= int(response["status"]) < 300
@@ -331,7 +338,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     unpaginated_responses = [
         response
         for response in product_api_responses
-        if response.get("method") == "GET" and response_path(response) == "/products"
+        if response.get("method") == "GET" and api_response_path(response) == "/products"
     ]
     page_payloads_bounded = all(
         isinstance(response.get("payload"), dict)
