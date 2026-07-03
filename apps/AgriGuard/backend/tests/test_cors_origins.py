@@ -106,6 +106,14 @@ def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
     assert "ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-" not in compose
 
 
+def test_agriguard_compose_waits_for_frontend_health_before_nginx() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "frontend:\n        condition: service_healthy" in compose
+    assert 'test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]' in compose
+    assert "start_period: 10s" in compose
+
+
 def test_workspace_root_resolution_supports_container_copy_layout() -> None:
     assert main._resolve_workspace_root(Path("/app/main.py")) == Path("/app").resolve()
 
