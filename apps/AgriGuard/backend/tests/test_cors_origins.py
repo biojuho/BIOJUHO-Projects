@@ -118,6 +118,7 @@ def test_agriguard_compose_env_example_includes_launch_scoped_keys() -> None:
     for key in [
         "AGRIGUARD_SECRET_KEY=",
         "AGRIGUARD_QR_TOKEN_PEPPER=",
+        "AGRIGUARD_PUBLIC_VERIFY_BASE_URL=",
         "AGRIGUARD_ALLOWED_ORIGINS=",
     ]:
         assert key in env_example
@@ -191,6 +192,12 @@ def test_agriguard_compose_passes_qr_token_pepper_without_backend_env_file() -> 
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
     assert "QR_TOKEN_PEPPER=${AGRIGUARD_QR_TOKEN_PEPPER:-${QR_TOKEN_PEPPER:-}}" in compose
+
+
+def test_agriguard_compose_passes_public_verify_base_url_without_backend_env_file() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "PUBLIC_VERIFY_BASE_URL=${AGRIGUARD_PUBLIC_VERIFY_BASE_URL:-${PUBLIC_VERIFY_BASE_URL:-}}" in compose
 
 
 def test_agriguard_compose_does_not_publish_unconfigured_https_port() -> None:

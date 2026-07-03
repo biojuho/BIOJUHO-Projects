@@ -58,9 +58,10 @@ python apps/AgriGuard/scripts/launch_env_preflight.py --check-docker --json-out 
 ```
 
 Compose launch requires strong, non-placeholder `AGRIGUARD_SECRET_KEY` and
-`AGRIGUARD_QR_TOKEN_PEPPER` values, explicit `AGRIGUARD_ALLOWED_ORIGINS`, and a
-reachable Docker daemon. Direct backend launches use `SECRET_KEY`,
-`QR_TOKEN_PEPPER`, and `ALLOWED_ORIGINS` instead.
+`AGRIGUARD_QR_TOKEN_PEPPER` values, explicit `AGRIGUARD_ALLOWED_ORIGINS`, an
+HTTPS `AGRIGUARD_PUBLIC_VERIFY_BASE_URL`, and a reachable Docker daemon. Direct
+backend launches use `SECRET_KEY`, `QR_TOKEN_PEPPER`, `ALLOWED_ORIGINS`, and
+`PUBLIC_VERIFY_BASE_URL` instead.
 
 ### Frontend
 

@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Iterable
+from urllib.parse import urlparse
 
 MIN_SECRET_LENGTH = 32
 MIN_QR_TOKEN_PEPPER_LENGTH = 32
@@ -21,6 +22,7 @@ PLACEHOLDER_SECRETS = {
     "password",
 }
 PLACEHOLDER_PREFIXES = ("change_me", "changeme", "your_", "insecure-dev")
+LOCAL_PUBLIC_VERIFY_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 
 
 def _strip_optional_quotes(value: str) -> str:
@@ -146,6 +148,66 @@ def _qr_token_pepper_for_runtime(
     return "", None, "Set QR_TOKEN_PEPPER before direct backend launch."
 
 
+def _public_verify_base_url_for_runtime(
+    env: dict[str, str],
+    runtime: str,
+    *,
+    allow_generic_public_verify_base_url: bool,
+    allow_legacy_qr_scheme: bool,
+) -> tuple[str, str | None, str | None]:
+    if runtime == "compose":
+        app_scoped_url = (env.get("AGRIGUARD_PUBLIC_VERIFY_BASE_URL") or "").strip()
+        if app_scoped_url:
+            return app_scoped_url, "AGRIGUARD_PUBLIC_VERIFY_BASE_URL", None
+        generic_url = (env.get("PUBLIC_VERIFY_BASE_URL") or "").strip()
+        if generic_url and allow_generic_public_verify_base_url:
+            return generic_url, "PUBLIC_VERIFY_BASE_URL", None
+        if generic_url:
+            return (
+                "",
+                None,
+                "Set AGRIGUARD_PUBLIC_VERIFY_BASE_URL for compose launch instead of relying on generic PUBLIC_VERIFY_BASE_URL.",
+            )
+        if allow_legacy_qr_scheme:
+            return "", None, None
+        return "", None, "Set AGRIGUARD_PUBLIC_VERIFY_BASE_URL before compose launch."
+
+    direct_url = (env.get("PUBLIC_VERIFY_BASE_URL") or "").strip()
+    if direct_url:
+        return direct_url, "PUBLIC_VERIFY_BASE_URL", None
+    if (env.get("AGRIGUARD_PUBLIC_VERIFY_BASE_URL") or "").strip():
+        return (
+            "",
+            None,
+            "Set PUBLIC_VERIFY_BASE_URL for direct backend launch; AGRIGUARD_PUBLIC_VERIFY_BASE_URL is only bridged by compose.",
+        )
+    if allow_legacy_qr_scheme:
+        return "", None, None
+    return "", None, "Set PUBLIC_VERIFY_BASE_URL before direct backend launch."
+
+
+def _public_verify_base_url_errors(
+    value: str,
+    *,
+    source: str,
+    allow_local_public_verify_base_url: bool,
+) -> list[str]:
+    parsed = urlparse(value)
+    errors: list[str] = []
+    if parsed.scheme != "https":
+        errors.append(f"{source} must use an https:// URL for launch.")
+    if not parsed.netloc:
+        errors.append(f"{source} must include a host.")
+    if parsed.path not in {"", "/"}:
+        errors.append(f"{source} must be a base URL without a path.")
+    if parsed.params or parsed.query or parsed.fragment:
+        errors.append(f"{source} must not include params, query, or fragment.")
+    hostname = parsed.hostname or ""
+    if hostname.lower() in LOCAL_PUBLIC_VERIFY_HOSTS and not allow_local_public_verify_base_url:
+        errors.append(f"{source} must not use a local host for launch.")
+    return errors
+
+
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -160,6 +222,9 @@ def validate_launch_env_with_options(
     allow_runtime_default_origins: bool = False,
     allow_generic_secret_key: bool = False,
     allow_generic_qr_token_pepper: bool = False,
+    allow_generic_public_verify_base_url: bool = False,
+    allow_legacy_qr_scheme: bool = False,
+    allow_local_public_verify_base_url: bool = False,
 ) -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
@@ -191,6 +256,27 @@ def validate_launch_env_with_options(
     elif len(qr_token_pepper) < MIN_QR_TOKEN_PEPPER_LENGTH:
         errors.append(f"{qr_token_pepper_source} must be at least {MIN_QR_TOKEN_PEPPER_LENGTH} characters.")
 
+    public_verify_base_url, public_verify_base_url_source, public_verify_base_url_error = (
+        _public_verify_base_url_for_runtime(
+            env,
+            runtime,
+            allow_generic_public_verify_base_url=allow_generic_public_verify_base_url,
+            allow_legacy_qr_scheme=allow_legacy_qr_scheme,
+        )
+    )
+    if public_verify_base_url_error:
+        errors.append(public_verify_base_url_error)
+    elif public_verify_base_url_source:
+        errors.extend(
+            _public_verify_base_url_errors(
+                public_verify_base_url,
+                source=public_verify_base_url_source,
+                allow_local_public_verify_base_url=allow_local_public_verify_base_url,
+            )
+        )
+    elif allow_legacy_qr_scheme:
+        warnings.append("PUBLIC_VERIFY_BASE_URL is unset; new labels will use the legacy agri:// QR scheme.")
+
     auto_create_schema, auto_create_schema_source = _auto_create_schema_for_runtime(env, runtime)
     if auto_create_schema in {"1", "true", "yes", "on"}:
         errors.append(f"{auto_create_schema_source} must not be enabled for launch.")
@@ -221,6 +307,10 @@ def validate_launch_env_with_options(
             "qr_token_pepper_source": qr_token_pepper_source,
             "qr_token_pepper_min_length": MIN_QR_TOKEN_PEPPER_LENGTH,
             "allow_generic_qr_token_pepper": allow_generic_qr_token_pepper,
+            "public_verify_base_url_source": public_verify_base_url_source,
+            "allow_generic_public_verify_base_url": allow_generic_public_verify_base_url,
+            "allow_legacy_qr_scheme": allow_legacy_qr_scheme,
+            "allow_local_public_verify_base_url": allow_local_public_verify_base_url,
             "auto_create_schema": auto_create_schema or None,
             "auto_create_schema_source": auto_create_schema_source,
             "database_url_present": bool(database_url),
@@ -315,6 +405,9 @@ def build_launch_report(
     allow_runtime_default_origins: bool = False,
     allow_generic_secret_key: bool = False,
     allow_generic_qr_token_pepper: bool = False,
+    allow_generic_public_verify_base_url: bool = False,
+    allow_legacy_qr_scheme: bool = False,
+    allow_local_public_verify_base_url: bool = False,
     app_root: Path | None = None,
     command_runner: CommandRunner = subprocess.run,
 ) -> dict[str, object]:
@@ -324,6 +417,9 @@ def build_launch_report(
         allow_runtime_default_origins=allow_runtime_default_origins,
         allow_generic_secret_key=allow_generic_secret_key,
         allow_generic_qr_token_pepper=allow_generic_qr_token_pepper,
+        allow_generic_public_verify_base_url=allow_generic_public_verify_base_url,
+        allow_legacy_qr_scheme=allow_legacy_qr_scheme,
+        allow_local_public_verify_base_url=allow_local_public_verify_base_url,
     )
     checks = report["checks"]
     assert isinstance(checks, dict)
@@ -383,6 +479,21 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Permit compose launch preflight to accept generic QR_TOKEN_PEPPER when AGRIGUARD_QR_TOKEN_PEPPER is not set.",
     )
+    parser.add_argument(
+        "--allow-generic-public-verify-base-url",
+        action="store_true",
+        help="Permit compose launch preflight to accept generic PUBLIC_VERIFY_BASE_URL when AGRIGUARD_PUBLIC_VERIFY_BASE_URL is not set.",
+    )
+    parser.add_argument(
+        "--allow-legacy-qr-scheme",
+        action="store_true",
+        help="Permit missing PUBLIC_VERIFY_BASE_URL and report a warning that new labels will use agri:// URLs.",
+    )
+    parser.add_argument(
+        "--allow-local-public-verify-base-url",
+        action="store_true",
+        help="Permit localhost/loopback PUBLIC_VERIFY_BASE_URL values for local smoke checks.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
@@ -394,6 +505,9 @@ def main(argv: list[str] | None = None) -> int:
         allow_runtime_default_origins=args.allow_runtime_default_origins,
         allow_generic_secret_key=args.allow_generic_secret_key,
         allow_generic_qr_token_pepper=args.allow_generic_qr_token_pepper,
+        allow_generic_public_verify_base_url=args.allow_generic_public_verify_base_url,
+        allow_legacy_qr_scheme=args.allow_legacy_qr_scheme,
+        allow_local_public_verify_base_url=args.allow_local_public_verify_base_url,
     )
 
     output = json.dumps(report, indent=2, sort_keys=True)

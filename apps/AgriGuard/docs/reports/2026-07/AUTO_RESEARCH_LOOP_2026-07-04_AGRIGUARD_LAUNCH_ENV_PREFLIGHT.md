@@ -15,6 +15,7 @@ The broad AgriGuard smoke still imports the backend with no `SECRET_KEY` and rec
 - Compose launch requires app-scoped `AGRIGUARD_SECRET_KEY` by default; `--allow-generic-secret-key` is available for local checks that intentionally accept generic `SECRET_KEY`.
 - Direct backend launch validates `SECRET_KEY`, because `AGRIGUARD_SECRET_KEY` is only bridged by compose.
 - Later QR token hardening requires app-scoped `AGRIGUARD_QR_TOKEN_PEPPER` for compose launch and direct `QR_TOKEN_PEPPER` for direct backend launch.
+- Later public QR URL hardening requires app-scoped `AGRIGUARD_PUBLIC_VERIFY_BASE_URL` for compose launch and direct `PUBLIC_VERIFY_BASE_URL` for direct backend launch.
 - Missing explicit allowed origins fail closed by default; `--allow-runtime-default-origins` is available for local checks that intentionally accept runtime defaults.
 - `--check-docker` adds Docker daemon reachability and compose config validation for launch startup readiness.
 - Added focused tests for missing, placeholder, short, unsafe, passing, and env-file override cases.
@@ -26,4 +27,4 @@ The broad AgriGuard smoke still imports the backend with no `SECRET_KEY` and rec
 - Pass: CLI with strong `AGRIGUARD_SECRET_KEY`, PostgreSQL URL, scoped allowed origin, and `AUTO_CREATE_SCHEMA=false` returned status `pass`.
 - Pass: CLI with `AGRIGUARD_SECRET_KEY=change_me` returned exit code `1` and status `fail`.
 - Pass: CLI with `--runtime direct`, strong secret, PostgreSQL URL, scoped allowed origin, and `AUTO_CREATE_SCHEMA=false` returned status `pass`.
-- Superseded current-state note: later strict QR-token-pepper hardening now blocks current compose-mode launch preflight until `AGRIGUARD_QR_TOKEN_PEPPER` is set.
+- Superseded current-state note: later strict QR-token-pepper and public-URL hardening now blocks current compose-mode launch preflight until `AGRIGUARD_QR_TOKEN_PEPPER` and `AGRIGUARD_PUBLIC_VERIFY_BASE_URL` are set.
