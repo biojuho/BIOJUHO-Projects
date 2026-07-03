@@ -22,6 +22,7 @@ vi.mock('@yudiel/react-qr-scanner', () => ({
     scannerApi = {
       triggerSuccess: () => onScan([{ rawValue: 'https://agriguard.test/product/prod-1' }]),
       triggerAgriVerify: () => onScan([{ rawValue: 'agri://verify/prod-2' }]),
+      triggerPublicVerifyUrl: () => onScan([{ rawValue: 'https://verify.agriguard.test/verify/prod-3?utm=label' }]),
       triggerInvalid: () => onScan([{ rawValue: 'not-a-valid-qr' }]),
       triggerError: () => onError(new Error('permission denied')),
     };
@@ -33,6 +34,9 @@ vi.mock('@yudiel/react-qr-scanner', () => ({
         </button>
         <button type="button" onClick={scannerApi.triggerAgriVerify}>
         trigger-agri-verify
+        </button>
+        <button type="button" onClick={scannerApi.triggerPublicVerifyUrl}>
+        trigger-public-verify-url
         </button>
         <button type="button" onClick={scannerApi.triggerInvalid}>
         trigger-invalid
@@ -159,6 +163,20 @@ describe('QRReader', () => {
     );
   });
 
+  it('accepts public verify URLs generated for QR labels', async () => {
+    vi.useFakeTimers();
+    renderReader();
+
+    fireEvent.click(screen.getByRole('button', { name: 'trigger-public-verify-url' }));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/verify/prod-3?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
+    );
+  });
+
   it('navigates with a manual token when camera scanning is unavailable', async () => {
     renderReader();
 
@@ -179,6 +197,21 @@ describe('QRReader', () => {
         qr_value: 'mock-0',
       }),
     );
+  });
+
+  it('navigates with a full public verify URL entered manually', async () => {
+    renderReader();
+
+    fireEvent.change(screen.getByLabelText(/Manual verification code/i), {
+      target: { value: ' https://verify.agriguard.test/verify/manual-token?utm=label ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify code/i }));
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith(
+        '/verify/manual-token?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
+      );
+    });
   });
 
   it('rejects malformed manual entries before navigation', async () => {
