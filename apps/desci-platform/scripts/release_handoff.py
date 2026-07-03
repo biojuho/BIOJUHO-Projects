@@ -70,8 +70,9 @@ PROVIDER_APPLY_GUIDANCE = {
     },
     "vercel": {
         "docs_url": "https://vercel.com/docs/cli/env",
-        "preflight_commands": ["vercel whoami", "vercel link", "vercel env ls production"],
+        "preflight_commands": ["vercel whoami", "vercel env ls production"],
         "apply_steps": [
+            "Ensure the local checkout is linked to the intended Vercel project before applying variables.",
             "Run vercel env add <KEY> production for each key, or provide values via stdin/file for secret values.",
             "Redeploy the production frontend after variables are added because existing deployments do not receive changed env values.",
         ],
