@@ -2035,6 +2035,21 @@ def _run_pricing_billing_portal_error_check(page, base_url: str, timeout_ms: int
     return failures
 
 
+def _pricing_authenticated_session_present(page, timeout_ms: int | None = None) -> bool:
+    try:
+        if timeout_ms:
+            page.wait_for_function(
+                """() => {
+                    const nav = document.querySelector('nav.pricing-page-nav');
+                    return Boolean(nav?.querySelector('a[href="/dashboard"], a[href="/login"]'));
+                }""",
+                timeout=min(timeout_ms, 2000),
+            )
+        return page.locator('nav.pricing-page-nav a[href="/dashboard"]').count() > 0
+    except (PlaywrightTimeoutError, PlaywrightError):
+        return False
+
+
 def _run_pricing_anonymous_paid_redirect_check(page, base_url: str, timeout_ms: int) -> list[str]:
     route_name = "pricing-anonymous-paid-redirect"
     failures: list[str] = []
@@ -2072,21 +2087,27 @@ def _run_pricing_anonymous_paid_redirect_check(page, base_url: str, timeout_ms: 
         if status >= 400:
             failures.append(f"{route_name}: pricing HTTP status {status}")
 
-        page.get_by_test_id("pricing-pro-cta").click(timeout=timeout_ms)
-        page.wait_for_url(re.compile(r".*/login\?.*"), timeout=timeout_ms)
+        if _pricing_authenticated_session_present(page, timeout_ms):
+            failures.append(
+                f"{route_name}: frontend is already authenticated; rerun with --expect-dev-auth "
+                "or restart the frontend without VITE_ENABLE_DEV_AUTH_BYPASS for anonymous redirect checks"
+            )
+        else:
+            page.get_by_test_id("pricing-pro-cta").click(timeout=timeout_ms)
+            page.wait_for_url(re.compile(r".*/login\?.*"), timeout=timeout_ms)
 
-        parsed_url = urlparse(page.url)
-        query = parse_qs(parsed_url.query)
-        if parsed_url.path.rstrip("/") != "/login":
-            failures.append(f"{route_name}: expected /login after anonymous Pro click, got {parsed_url.path}")
-        if query.get("next") != ["/pricing"]:
-            failures.append(f"{route_name}: expected next=/pricing, got {query.get('next')}")
-        if query.get("plan") != ["pro"]:
-            failures.append(f"{route_name}: expected plan=pro, got {query.get('plan')}")
-        if checkout_posts:
-            failures.append(f"{route_name}: anonymous click posted checkout before login: {checkout_posts!r}")
-        if page.get_by_test_id("pricing-success-panel").count() > 0:
-            failures.append(f"{route_name}: anonymous redirect rendered the checkout success panel")
+            parsed_url = urlparse(page.url)
+            query = parse_qs(parsed_url.query)
+            if parsed_url.path.rstrip("/") != "/login":
+                failures.append(f"{route_name}: expected /login after anonymous Pro click, got {parsed_url.path}")
+            if query.get("next") != ["/pricing"]:
+                failures.append(f"{route_name}: expected next=/pricing, got {query.get('next')}")
+            if query.get("plan") != ["pro"]:
+                failures.append(f"{route_name}: expected plan=pro, got {query.get('plan')}")
+            if checkout_posts:
+                failures.append(f"{route_name}: anonymous click posted checkout before login: {checkout_posts!r}")
+            if page.get_by_test_id("pricing-success-panel").count() > 0:
+                failures.append(f"{route_name}: anonymous redirect rendered the checkout success panel")
     except PlaywrightTimeoutError as exc:
         failures.append(f"{route_name}: timed out ({exc})")
     except PlaywrightError as exc:

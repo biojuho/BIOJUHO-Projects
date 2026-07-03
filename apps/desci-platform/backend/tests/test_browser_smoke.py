@@ -68,6 +68,24 @@ class _FakePage:
         self.closed = True
 
 
+class _CountLocator:
+    def __init__(self, count: int) -> None:
+        self._count = count
+
+    def count(self) -> int:
+        return self._count
+
+
+class _PricingSessionProbePage:
+    def __init__(self, dashboard_link_count: int) -> None:
+        self.dashboard_link_count = dashboard_link_count
+        self.selectors: list[str] = []
+
+    def locator(self, selector: str):
+        self.selectors.append(selector)
+        return _CountLocator(self.dashboard_link_count)
+
+
 class _NeverVisibleTextLocator:
     @property
     def first(self):
@@ -655,6 +673,21 @@ def test_browser_smoke_anonymous_action_checks_include_paid_plan_login_redirect(
     assert names == [
         "pricing-anonymous-paid-redirect",
     ]
+
+
+def test_browser_smoke_detects_authenticated_pricing_session() -> None:
+    page = _PricingSessionProbePage(dashboard_link_count=1)
+
+    assert browser_smoke._pricing_authenticated_session_present(page) is True  # pylint: disable=protected-access
+    assert page.selectors == ['nav.pricing-page-nav a[href="/dashboard"]']
+
+
+def test_browser_smoke_anonymous_pricing_refuses_authenticated_frontend() -> None:
+    source = inspect.getsource(browser_smoke._run_pricing_anonymous_paid_redirect_check)  # pylint: disable=protected-access
+
+    assert "_pricing_authenticated_session_present(page, timeout_ms)" in source
+    assert "rerun with --expect-dev-auth" in source
+    assert "VITE_ENABLE_DEV_AUTH_BYPASS" in source
 
 
 def test_browser_smoke_dev_auth_action_checks_include_vc_selector() -> None:
