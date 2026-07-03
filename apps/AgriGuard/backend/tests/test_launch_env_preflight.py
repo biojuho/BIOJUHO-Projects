@@ -33,7 +33,47 @@ def test_launch_env_preflight_fails_without_secret() -> None:
     report = launch_env_preflight.validate_launch_env({})
 
     assert report["status"] == "fail"
-    assert "Set AGRIGUARD_SECRET_KEY or SECRET_KEY before launch." in report["errors"]
+    assert "Set AGRIGUARD_SECRET_KEY before compose launch." in report["errors"]
+
+
+def test_launch_env_preflight_compose_rejects_generic_secret_by_default() -> None:
+    report = launch_env_preflight.validate_launch_env_with_options(
+        {
+            "SECRET_KEY": "s" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "Set AGRIGUARD_SECRET_KEY for compose launch instead of relying on generic SECRET_KEY." in report["errors"]
+    assert report["checks"]["secret_source"] is None
+
+
+def test_launch_env_preflight_compose_can_allow_generic_secret_for_local_checks() -> None:
+    report = launch_env_preflight.validate_launch_env_with_options(
+        {
+            "SECRET_KEY": "s" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        },
+        allow_generic_secret_key=True,
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["secret_source"] == "SECRET_KEY"
+    assert report["checks"]["allow_generic_secret_key"] is True
+
+
+def test_launch_env_preflight_direct_mode_requires_backend_secret_key() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "fail"
+    assert "Set SECRET_KEY for direct backend launch; AGRIGUARD_SECRET_KEY is only bridged by compose." in report["errors"]
 
 
 def test_launch_env_preflight_rejects_placeholder_secret() -> None:
@@ -44,10 +84,15 @@ def test_launch_env_preflight_rejects_placeholder_secret() -> None:
 
 
 def test_launch_env_preflight_rejects_short_secret() -> None:
-    report = launch_env_preflight.validate_launch_env({"SECRET_KEY": "too-short"})
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "too-short",
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        }
+    )
 
     assert report["status"] == "fail"
-    assert "SECRET_KEY must be at least 32 characters." in report["errors"]
+    assert "AGRIGUARD_SECRET_KEY must be at least 32 characters." in report["errors"]
 
 
 def test_launch_env_preflight_rejects_production_unsafe_runtime_values() -> None:
@@ -84,7 +129,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_auto_create_schema() -> 
 def test_launch_env_preflight_direct_mode_rejects_host_auto_create_schema() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
-            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "SECRET_KEY": "s" * 32,
             "AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         },
@@ -151,7 +196,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins_but_requ
 def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
-            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "SECRET_KEY": "s" * 32,
             "ALLOWED_ORIGINS": "https://generic.example",
         },
         runtime="direct",
@@ -177,7 +222,7 @@ def test_launch_env_preflight_compose_mode_rejects_app_scoped_wildcard_origin() 
 def test_launch_env_preflight_direct_mode_rejects_host_sqlite_database_url() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
-            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "SECRET_KEY": "s" * 32,
             "DATABASE_URL": "sqlite:///workspace-default.db",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         },
@@ -238,6 +283,21 @@ def test_launch_report_can_allow_runtime_default_origins_for_local_checks() -> N
 
     assert report["status"] == "pass"
     assert report["checks"]["allow_runtime_default_origins"] is True
+
+
+def test_launch_report_can_allow_generic_secret_for_local_compose_checks() -> None:
+    env = {
+        "SECRET_KEY": "s" * 32,
+        "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+    }
+
+    report = launch_env_preflight.build_launch_report(
+        env,
+        allow_generic_secret_key=True,
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["secret_source"] == "SECRET_KEY"
 
 
 def test_launch_report_docker_check_passes_when_daemon_and_compose_config_pass(tmp_path: Path) -> None:

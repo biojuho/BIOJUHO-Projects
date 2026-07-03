@@ -87,6 +87,31 @@ def _allowed_origins_for_runtime(env: dict[str, str], runtime: str) -> tuple[lis
     return _split_origins(raw_value), "ALLOWED_ORIGINS" if raw_value.strip() else None
 
 
+def _secret_for_runtime(
+    env: dict[str, str],
+    runtime: str,
+    *,
+    allow_generic_secret_key: bool,
+) -> tuple[str, str | None, str | None]:
+    if runtime == "compose":
+        app_scoped_secret = (env.get("AGRIGUARD_SECRET_KEY") or "").strip()
+        if app_scoped_secret:
+            return app_scoped_secret, "AGRIGUARD_SECRET_KEY", None
+        generic_secret = (env.get("SECRET_KEY") or "").strip()
+        if generic_secret and allow_generic_secret_key:
+            return generic_secret, "SECRET_KEY", None
+        if generic_secret:
+            return "", None, "Set AGRIGUARD_SECRET_KEY for compose launch instead of relying on generic SECRET_KEY."
+        return "", None, "Set AGRIGUARD_SECRET_KEY before compose launch."
+
+    direct_secret = (env.get("SECRET_KEY") or "").strip()
+    if direct_secret:
+        return direct_secret, "SECRET_KEY", None
+    if (env.get("AGRIGUARD_SECRET_KEY") or "").strip():
+        return "", None, "Set SECRET_KEY for direct backend launch; AGRIGUARD_SECRET_KEY is only bridged by compose."
+    return "", None, "Set SECRET_KEY before direct backend launch."
+
+
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -99,6 +124,7 @@ def validate_launch_env_with_options(
     *,
     runtime: str = "compose",
     allow_runtime_default_origins: bool = False,
+    allow_generic_secret_key: bool = False,
 ) -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
@@ -106,12 +132,15 @@ def validate_launch_env_with_options(
     errors: list[str] = []
     warnings: list[str] = []
 
-    secret_source = "AGRIGUARD_SECRET_KEY" if env.get("AGRIGUARD_SECRET_KEY") else "SECRET_KEY"
-    secret = (env.get(secret_source) or "").strip()
+    secret, secret_source, secret_error = _secret_for_runtime(
+        env,
+        runtime,
+        allow_generic_secret_key=allow_generic_secret_key,
+    )
     normalized_secret = secret.lower()
 
-    if not secret:
-        errors.append("Set AGRIGUARD_SECRET_KEY or SECRET_KEY before launch.")
+    if secret_error:
+        errors.append(secret_error)
     elif normalized_secret in PLACEHOLDER_SECRETS or normalized_secret.startswith("insecure-dev-only"):
         errors.append(f"{secret_source} uses a placeholder or development-only value.")
     elif len(secret) < MIN_SECRET_LENGTH:
@@ -141,8 +170,9 @@ def validate_launch_env_with_options(
         "warnings": warnings,
         "checks": {
             "runtime": runtime,
-            "secret_source": secret_source if secret else None,
+            "secret_source": secret_source,
             "secret_min_length": MIN_SECRET_LENGTH,
+            "allow_generic_secret_key": allow_generic_secret_key,
             "auto_create_schema": auto_create_schema or None,
             "auto_create_schema_source": auto_create_schema_source,
             "database_url_present": bool(database_url),
@@ -235,6 +265,7 @@ def build_launch_report(
     runtime: str = "compose",
     check_docker: bool = False,
     allow_runtime_default_origins: bool = False,
+    allow_generic_secret_key: bool = False,
     app_root: Path | None = None,
     command_runner: CommandRunner = subprocess.run,
 ) -> dict[str, object]:
@@ -242,6 +273,7 @@ def build_launch_report(
         env,
         runtime=runtime,
         allow_runtime_default_origins=allow_runtime_default_origins,
+        allow_generic_secret_key=allow_generic_secret_key,
     )
     checks = report["checks"]
     assert isinstance(checks, dict)
@@ -291,6 +323,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Permit missing explicit allowed origins and report a warning instead of a launch-blocking error.",
     )
+    parser.add_argument(
+        "--allow-generic-secret-key",
+        action="store_true",
+        help="Permit compose launch preflight to accept generic SECRET_KEY when AGRIGUARD_SECRET_KEY is not set.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
@@ -300,6 +337,7 @@ def main(argv: list[str] | None = None) -> int:
         runtime=args.runtime,
         check_docker=args.check_docker,
         allow_runtime_default_origins=args.allow_runtime_default_origins,
+        allow_generic_secret_key=args.allow_generic_secret_key,
     )
 
     output = json.dumps(report, indent=2, sort_keys=True)

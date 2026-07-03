@@ -19,3 +19,4 @@ The compose preflight correctly ignored generic host `ALLOWED_ORIGINS`, but stil
 - Expected fail-closed: current env-only preflight wrote `var/agriguard-launch-env-preflight-strict-origin-current.json` with status `fail` because `AGRIGUARD_ALLOWED_ORIGINS` is not set.
 - Pass: current `--allow-runtime-default-origins` preflight wrote `var/agriguard-launch-env-preflight-allow-default-origin-current.json` with status `pass` and a missing-origin warning.
 - Expected fail-closed: current strict `--check-docker` preflight wrote `var/agriguard-launch-env-preflight-strict-origin-docker-current.json` with two launch blockers: missing `AGRIGUARD_ALLOWED_ORIGINS` and unavailable Docker daemon.
+- Superseded by the strict secret-source preflight cycle: compose launch now also fails closed when `AGRIGUARD_SECRET_KEY` is missing.

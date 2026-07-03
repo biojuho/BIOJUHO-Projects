@@ -21,3 +21,4 @@ The current AgriGuard environment preflight passed after app-scoped compose env 
 - Expected fail-closed: `python apps/AgriGuard/scripts/launch_env_preflight.py --check-docker --json-out var/agriguard-launch-env-preflight-docker-current.json` returned status `fail` because Docker daemon is not reachable.
 - Docker compose config still passed inside the same `--check-docker` report, so the Docker-specific blocker is engine availability rather than YAML/config shape.
 - Later strict origin preflight now also blocks launch when `AGRIGUARD_ALLOWED_ORIGINS` is unset. Use `--allow-runtime-default-origins` only when intentionally isolating Docker readiness from production-origin configuration.
+- Later strict secret-source preflight now also blocks compose launch when `AGRIGUARD_SECRET_KEY` is unset. Use `--allow-generic-secret-key` only when intentionally isolating local Docker readiness from production secret-source configuration.

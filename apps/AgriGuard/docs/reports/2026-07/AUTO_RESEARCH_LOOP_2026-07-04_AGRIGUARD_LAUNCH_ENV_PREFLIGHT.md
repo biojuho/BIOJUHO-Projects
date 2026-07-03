@@ -12,6 +12,8 @@ The broad AgriGuard smoke still imports the backend with no `SECRET_KEY` and rec
 - The preflight fails when `AGRIGUARD_SECRET_KEY`/`SECRET_KEY` is missing, placeholder-like, or shorter than 32 characters.
 - The preflight also rejects launch-unsafe `AUTO_CREATE_SCHEMA=true`, SQLite database URLs, and wildcard allowed origins.
 - The CLI defaults to compose runtime semantics, so host `DATABASE_URL`, `AUTO_CREATE_SCHEMA`, and `ALLOWED_ORIGINS` are ignored unless `AGRIGUARD_DATABASE_URL`, `AGRIGUARD_AUTO_CREATE_SCHEMA`, or `AGRIGUARD_ALLOWED_ORIGINS` is explicitly set; `--runtime direct` validates direct backend launches against the generic backend env names.
+- Compose launch requires app-scoped `AGRIGUARD_SECRET_KEY` by default; `--allow-generic-secret-key` is available for local checks that intentionally accept generic `SECRET_KEY`.
+- Direct backend launch validates `SECRET_KEY`, because `AGRIGUARD_SECRET_KEY` is only bridged by compose.
 - Missing explicit allowed origins fail closed by default; `--allow-runtime-default-origins` is available for local checks that intentionally accept runtime defaults.
 - `--check-docker` adds Docker daemon reachability and compose config validation for launch startup readiness.
 - Added focused tests for missing, placeholder, short, unsafe, passing, and env-file override cases.
