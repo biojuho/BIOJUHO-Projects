@@ -69,10 +69,19 @@ workflow-only fixes can trigger the gate.
   - Current checkout backend/frontend on temporary ports `8008/5183` produced
     `47/47 PASS` with
     `apps/AgriGuard/var/agriguard-nav-browser-smoke-quality-workflow-current-backend-2026-07-04.json`.
+- Post-push remote Actions:
+  - Commit: `071775aff13fd03d9903082570c185ec414984a5`
+  - Run: `28687348976`
+  - URL: `https://github.com/biojuho/BIOJUHO-Projects/actions/runs/28687348976`
+  - Workflow: `AgriGuard Quality Gate`
+  - Job: `quality (24.15.0)`
+  - Result: success in 53s
+  - Steps completed successfully: checkout, bootstrap legacy paths, setup-node,
+    install dependencies, lint, unit tests, build, and bundle budget check.
 
 ## Remaining risk
 
-The fix still needs a fresh GitHub Actions run on the pushed commit to prove the
-remote runner now creates and executes the `quality` job. Local workflow parsing,
-contract tests, AgriGuard workspace smoke, and current-code browser smoke are
-green.
+The prior zero-job remote failure is fixed. Remaining launch risk is outside
+this workflow repair: production launch still needs current provider/runtime
+values and operator promotion approval before it should be treated as fully
+released.
