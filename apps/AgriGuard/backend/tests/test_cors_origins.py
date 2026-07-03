@@ -153,6 +153,12 @@ def test_agriguard_backend_local_env_file_is_optional_for_clean_checkout() -> No
     assert "- ./backend/.env" not in compose
 
 
+def test_agriguard_compose_passes_secret_key_without_backend_env_file() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "SECRET_KEY=${AGRIGUARD_SECRET_KEY:-${SECRET_KEY:-}}" in compose
+
+
 def test_agriguard_compose_waits_for_frontend_health_before_nginx() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
