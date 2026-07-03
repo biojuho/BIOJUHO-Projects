@@ -233,6 +233,20 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert plan["ok"] is True
     assert plan["ready_provider_count"] == 0
     assert plan["provider_count"] == 1
+    assert plan["operator_status"] == {
+        "stage": "fill_provider_templates",
+        "ready_to_apply": False,
+        "ready_provider_count": 0,
+        "blocked_provider_count": 1,
+        "provider_templates_safe_to_commit": True,
+        "apply_plan_safe_to_commit": True,
+        "private_template_values_present": False,
+        "completion_marker": "external_release_gate.ok=true",
+        "next_required_action": (
+            "Fill blank provider templates in a private local directory, then regenerate this apply plan with "
+            "--preserve-provider-templates."
+        ),
+    }
     provider = plan["providers"][0]
     assert provider["provider"] == "railway"
     assert provider["ready_to_apply"] is False
@@ -247,6 +261,8 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
         == "railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin < <private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>"
     )
     assert "super-secret" not in json.dumps(plan)
+    assert "Stage: `fill_provider_templates`" in markdown
+    assert "Completion marker: `external_release_gate.ok=true`" in markdown
     assert "PowerShell: `Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>'" in markdown
     assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
 
@@ -262,6 +278,14 @@ def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaki
     assert plan["ready_provider_count"] == 1
     assert plan["provider_template_index"]["safe_to_commit"] is False
     assert plan["provider_template_index"]["populated_key_count"] == 2
+    assert plan["operator_status"]["stage"] == "apply_provider_values"
+    assert plan["operator_status"]["ready_to_apply"] is True
+    assert plan["operator_status"]["blocked_provider_count"] == 0
+    assert plan["operator_status"]["provider_templates_safe_to_commit"] is False
+    assert plan["operator_status"]["apply_plan_safe_to_commit"] is True
+    assert plan["operator_status"]["private_template_values_present"] is True
+    assert plan["operator_status"]["completion_marker"] == "external_release_gate.ok=true"
+    assert "external_release_gate.py" in plan["operator_status"]["next_required_action"]
     assert plan["providers"][0]["ready_to_apply"] is True
     assert plan["providers"][0]["blank_key_count"] == 0
     assert "super-secret" not in serialized

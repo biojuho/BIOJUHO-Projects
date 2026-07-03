@@ -442,6 +442,40 @@ def _provider_apply_commands(provider: str, template_path: str, keys: list[str])
     return []
 
 
+def _provider_apply_operator_status(index: dict[str, Any], providers: list[dict[str, Any]]) -> dict[str, Any]:
+    provider_count = len(providers)
+    ready_provider_count = sum(1 for provider in providers if provider.get("ready_to_apply") is True)
+    blocked_provider_count = max(provider_count - ready_provider_count, 0)
+    populated_key_count = int(index.get("populated_key_count") or 0)
+    ready_to_apply = provider_count > 0 and blocked_provider_count == 0
+    if provider_count == 0:
+        stage = "no_provider_templates"
+        next_required_action = "Regenerate the handoff with --provider-template-dir after external gate evidence exists."
+    elif not ready_to_apply:
+        stage = "fill_provider_templates"
+        next_required_action = (
+            "Fill blank provider templates in a private local directory, then regenerate this apply plan with "
+            "--preserve-provider-templates."
+        )
+    else:
+        stage = "apply_provider_values"
+        next_required_action = (
+            "Run the provider apply commands, then rerun scripts/external_release_gate.py with the filled "
+            "provider template directory."
+        )
+    return {
+        "stage": stage,
+        "ready_to_apply": ready_to_apply,
+        "ready_provider_count": ready_provider_count,
+        "blocked_provider_count": blocked_provider_count,
+        "provider_templates_safe_to_commit": index.get("safe_to_commit") is True,
+        "apply_plan_safe_to_commit": True,
+        "private_template_values_present": populated_key_count > 0,
+        "completion_marker": "external_release_gate.ok=true",
+        "next_required_action": next_required_action,
+    }
+
+
 def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[str, Path]) -> dict[str, Any]:
     index = provider_template_index_payload(payload, provider_paths)
     template_dirs = sorted({str(Path(provider["path"]).parent) for provider in _as_list(index.get("providers"))})
@@ -477,6 +511,7 @@ def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[st
                 else [],
             }
         )
+    operator_status = _provider_apply_operator_status(index, providers)
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -488,7 +523,8 @@ def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[st
             "provider_template_count": index.get("provider_template_count"),
             "populated_key_count": index.get("populated_key_count"),
         },
-        "ready_provider_count": sum(1 for provider in providers if provider["ready_to_apply"]),
+        "operator_status": operator_status,
+        "ready_provider_count": operator_status["ready_provider_count"],
         "provider_count": len(providers),
         "providers": providers,
     }
@@ -511,8 +547,27 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
         f"- Providers ready to apply: `{_markdown_scalar(payload.get('ready_provider_count', 0))}`/"
         f"`{_markdown_scalar(payload.get('provider_count', 0))}`",
         "",
-        "## Providers",
+        "## Operator Status",
     ]
+    operator_status = _as_dict(payload.get("operator_status"))
+    if operator_status:
+        lines.extend(
+            [
+                f"- Stage: `{_markdown_scalar(operator_status.get('stage'))}`",
+                f"- Ready to apply: `{_markdown_scalar(operator_status.get('ready_to_apply'))}`",
+                f"- Blocked providers: `{_markdown_scalar(operator_status.get('blocked_provider_count', 0))}`",
+                f"- Provider templates safe to commit: "
+                f"`{_markdown_scalar(operator_status.get('provider_templates_safe_to_commit'))}`",
+                f"- Apply plan safe to commit: "
+                f"`{_markdown_scalar(operator_status.get('apply_plan_safe_to_commit'))}`",
+                f"- Completion marker: `{_markdown_scalar(operator_status.get('completion_marker'))}`",
+                f"- Next required action: {operator_status.get('next_required_action')}",
+                "",
+            ]
+        )
+    else:
+        lines.extend(["- Unknown.", ""])
+    lines.append("## Providers")
     providers = [provider for provider in _as_list(payload.get("providers")) if isinstance(provider, dict)]
     if not providers:
         lines.append("- None.")
