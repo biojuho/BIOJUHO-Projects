@@ -5,6 +5,7 @@ Pattern adapted from desci-platform/biolinker/services/auth.py.
 """
 
 import os
+import sys
 
 from env_loader import load_backend_env
 from fastapi import Header, HTTPException, status
@@ -16,7 +17,7 @@ try:
     FIREBASE_AVAILABLE = True
 except ImportError:
     FIREBASE_AVAILABLE = False
-    print("[WARNING] firebase-admin not installed. Auth will use mock user fallback.")
+    print("[WARNING] firebase-admin not installed. Auth will use mock user fallback.", file=sys.stderr)
 
 load_backend_env(override=False)
 
@@ -29,13 +30,54 @@ if FIREBASE_AVAILABLE and not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
         _firebase_initialized = True
     else:
-        print("[WARNING] No Firebase service account key found. Token verification disabled.")
+        print("[WARNING] No Firebase service account key found. Token verification disabled.", file=sys.stderr)
 elif FIREBASE_AVAILABLE and firebase_admin._apps:
     _firebase_initialized = True
 
 
 def _env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+OPERATOR_ROLES = frozenset({"admin", "operator", "quality_manager"})
+
+
+def user_roles(user: dict) -> set[str]:
+    values: list[str] = []
+    role = user.get("role")
+    if isinstance(role, str):
+        values.append(role)
+    roles = user.get("roles")
+    if isinstance(roles, str):
+        values.extend(roles.split(","))
+    if isinstance(roles, list):
+        values.extend(str(value) for value in roles)
+    return {value.strip().lower() for value in values if value and value.strip()}
+
+
+def is_operator_user(user: dict, *, extra_roles: set[str] | None = None) -> bool:
+    roles = set(OPERATOR_ROLES)
+    if extra_roles:
+        roles.update(value.strip().lower() for value in extra_roles if value.strip())
+    return bool(user_roles(user) & roles)
+
+
+def user_owner_keys(user: dict) -> set[str]:
+    keys = {
+        str(user.get("uid") or "").strip(),
+        str(user.get("email") or "").strip(),
+        str(user.get("owner_id") or "").strip(),
+        str(user.get("tenant_id") or "").strip(),
+        str(user.get("organization") or "").strip(),
+    }
+    return {key for key in keys if key}
+
+
+def can_access_owner(user: dict, owner_id: str | None) -> bool:
+    if is_operator_user(user):
+        return True
+    normalized_owner = str(owner_id or "").strip()
+    return bool(normalized_owner and normalized_owner in user_owner_keys(user))
 
 
 def verify_firebase_token(token: str) -> dict:

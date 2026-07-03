@@ -1,14 +1,27 @@
+from collections.abc import Generator
 from typing import Any
 
+from auth import get_current_user
 from database import SessionLocal
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from tenant_rls import apply_tenant_rls_context
 
 
-def get_db():
+def get_db() -> Generator[Any, None, None]:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+def get_tenant_rls_db(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> Session:
+    apply_tenant_rls_context(db, current_user)
+    return db
 
 
 try:
@@ -41,7 +54,7 @@ except ImportError:
 
         _CACHE_FALLBACK = _NoOpCache()
 
-        def get_cache():
+        def get_cache() -> _NoOpCache:
             return _CACHE_FALLBACK
 
         async def close_cache() -> None:
