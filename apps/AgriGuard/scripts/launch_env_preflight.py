@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 MIN_SECRET_LENGTH = 32
+MIN_QR_TOKEN_PEPPER_LENGTH = 32
 PLACEHOLDER_SECRETS = {
     "change_me",
     "changeme",
@@ -19,6 +20,7 @@ PLACEHOLDER_SECRETS = {
     "test",
     "password",
 }
+PLACEHOLDER_PREFIXES = ("change_me", "changeme", "your_", "insecure-dev")
 
 
 def _strip_optional_quotes(value: str) -> str:
@@ -55,6 +57,13 @@ def build_effective_env(env_files: Iterable[Path], environ: dict[str, str] | Non
 
 def _split_origins(raw_value: str) -> list[str]:
     return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+
+
+def _is_placeholder_value(value: str) -> bool:
+    normalized = value.strip().lower()
+    return normalized in PLACEHOLDER_SECRETS or any(
+        normalized.startswith(prefix) for prefix in PLACEHOLDER_PREFIXES
+    )
 
 
 def _database_url_for_runtime(env: dict[str, str], runtime: str) -> tuple[str, str | None]:
@@ -112,6 +121,31 @@ def _secret_for_runtime(
     return "", None, "Set SECRET_KEY before direct backend launch."
 
 
+def _qr_token_pepper_for_runtime(
+    env: dict[str, str],
+    runtime: str,
+    *,
+    allow_generic_qr_token_pepper: bool,
+) -> tuple[str, str | None, str | None]:
+    if runtime == "compose":
+        app_scoped_pepper = (env.get("AGRIGUARD_QR_TOKEN_PEPPER") or "").strip()
+        if app_scoped_pepper:
+            return app_scoped_pepper, "AGRIGUARD_QR_TOKEN_PEPPER", None
+        generic_pepper = (env.get("QR_TOKEN_PEPPER") or "").strip()
+        if generic_pepper and allow_generic_qr_token_pepper:
+            return generic_pepper, "QR_TOKEN_PEPPER", None
+        if generic_pepper:
+            return "", None, "Set AGRIGUARD_QR_TOKEN_PEPPER for compose launch instead of relying on generic QR_TOKEN_PEPPER."
+        return "", None, "Set AGRIGUARD_QR_TOKEN_PEPPER before compose launch."
+
+    direct_pepper = (env.get("QR_TOKEN_PEPPER") or "").strip()
+    if direct_pepper:
+        return direct_pepper, "QR_TOKEN_PEPPER", None
+    if (env.get("AGRIGUARD_QR_TOKEN_PEPPER") or "").strip():
+        return "", None, "Set QR_TOKEN_PEPPER for direct backend launch; AGRIGUARD_QR_TOKEN_PEPPER is only bridged by compose."
+    return "", None, "Set QR_TOKEN_PEPPER before direct backend launch."
+
+
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -125,6 +159,7 @@ def validate_launch_env_with_options(
     runtime: str = "compose",
     allow_runtime_default_origins: bool = False,
     allow_generic_secret_key: bool = False,
+    allow_generic_qr_token_pepper: bool = False,
 ) -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
@@ -137,14 +172,24 @@ def validate_launch_env_with_options(
         runtime,
         allow_generic_secret_key=allow_generic_secret_key,
     )
-    normalized_secret = secret.lower()
-
     if secret_error:
         errors.append(secret_error)
-    elif normalized_secret in PLACEHOLDER_SECRETS or normalized_secret.startswith("insecure-dev-only"):
+    elif _is_placeholder_value(secret):
         errors.append(f"{secret_source} uses a placeholder or development-only value.")
     elif len(secret) < MIN_SECRET_LENGTH:
         errors.append(f"{secret_source} must be at least {MIN_SECRET_LENGTH} characters.")
+
+    qr_token_pepper, qr_token_pepper_source, qr_token_pepper_error = _qr_token_pepper_for_runtime(
+        env,
+        runtime,
+        allow_generic_qr_token_pepper=allow_generic_qr_token_pepper,
+    )
+    if qr_token_pepper_error:
+        errors.append(qr_token_pepper_error)
+    elif _is_placeholder_value(qr_token_pepper):
+        errors.append(f"{qr_token_pepper_source} uses a placeholder or development-only value.")
+    elif len(qr_token_pepper) < MIN_QR_TOKEN_PEPPER_LENGTH:
+        errors.append(f"{qr_token_pepper_source} must be at least {MIN_QR_TOKEN_PEPPER_LENGTH} characters.")
 
     auto_create_schema, auto_create_schema_source = _auto_create_schema_for_runtime(env, runtime)
     if auto_create_schema in {"1", "true", "yes", "on"}:
@@ -173,6 +218,9 @@ def validate_launch_env_with_options(
             "secret_source": secret_source,
             "secret_min_length": MIN_SECRET_LENGTH,
             "allow_generic_secret_key": allow_generic_secret_key,
+            "qr_token_pepper_source": qr_token_pepper_source,
+            "qr_token_pepper_min_length": MIN_QR_TOKEN_PEPPER_LENGTH,
+            "allow_generic_qr_token_pepper": allow_generic_qr_token_pepper,
             "auto_create_schema": auto_create_schema or None,
             "auto_create_schema_source": auto_create_schema_source,
             "database_url_present": bool(database_url),
@@ -266,6 +314,7 @@ def build_launch_report(
     check_docker: bool = False,
     allow_runtime_default_origins: bool = False,
     allow_generic_secret_key: bool = False,
+    allow_generic_qr_token_pepper: bool = False,
     app_root: Path | None = None,
     command_runner: CommandRunner = subprocess.run,
 ) -> dict[str, object]:
@@ -274,6 +323,7 @@ def build_launch_report(
         runtime=runtime,
         allow_runtime_default_origins=allow_runtime_default_origins,
         allow_generic_secret_key=allow_generic_secret_key,
+        allow_generic_qr_token_pepper=allow_generic_qr_token_pepper,
     )
     checks = report["checks"]
     assert isinstance(checks, dict)
@@ -328,6 +378,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Permit compose launch preflight to accept generic SECRET_KEY when AGRIGUARD_SECRET_KEY is not set.",
     )
+    parser.add_argument(
+        "--allow-generic-qr-token-pepper",
+        action="store_true",
+        help="Permit compose launch preflight to accept generic QR_TOKEN_PEPPER when AGRIGUARD_QR_TOKEN_PEPPER is not set.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
@@ -338,6 +393,7 @@ def main(argv: list[str] | None = None) -> int:
         check_docker=args.check_docker,
         allow_runtime_default_origins=args.allow_runtime_default_origins,
         allow_generic_secret_key=args.allow_generic_secret_key,
+        allow_generic_qr_token_pepper=args.allow_generic_qr_token_pepper,
     )
 
     output = json.dumps(report, indent=2, sort_keys=True)

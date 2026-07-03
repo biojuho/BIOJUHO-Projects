@@ -112,6 +112,17 @@ def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
     assert "AUTO_CREATE_SCHEMA=${AUTO_CREATE_SCHEMA:-" not in compose
 
 
+def test_agriguard_compose_env_example_includes_launch_scoped_keys() -> None:
+    env_example = (WORKSPACE_ROOT / "apps/AgriGuard/.env.example").read_text(encoding="utf-8")
+
+    for key in [
+        "AGRIGUARD_SECRET_KEY=",
+        "AGRIGUARD_QR_TOKEN_PEPPER=",
+        "AGRIGUARD_ALLOWED_ORIGINS=",
+    ]:
+        assert key in env_example
+
+
 def test_agriguard_compose_postgres_healthcheck_uses_configured_database_identity() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
@@ -174,6 +185,12 @@ def test_agriguard_compose_passes_secret_key_without_backend_env_file() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
     assert "SECRET_KEY=${AGRIGUARD_SECRET_KEY:-${SECRET_KEY:-}}" in compose
+
+
+def test_agriguard_compose_passes_qr_token_pepper_without_backend_env_file() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "QR_TOKEN_PEPPER=${AGRIGUARD_QR_TOKEN_PEPPER:-${QR_TOKEN_PEPPER:-}}" in compose
 
 
 def test_agriguard_compose_does_not_publish_unconfigured_https_port() -> None:

@@ -48,6 +48,20 @@ cd apps/AgriGuard
 docker compose up -d postgres mosquitto backend frontend
 ```
 
+### Launch preflight
+
+Before treating the compose stack as launch-ready, set app-scoped values in
+`apps/AgriGuard/.env` and run the fail-closed preflight from the workspace root:
+
+```bash
+python apps/AgriGuard/scripts/launch_env_preflight.py --check-docker --json-out var/agriguard-launch-env-preflight.json
+```
+
+Compose launch requires strong, non-placeholder `AGRIGUARD_SECRET_KEY` and
+`AGRIGUARD_QR_TOKEN_PEPPER` values, explicit `AGRIGUARD_ALLOWED_ORIGINS`, and a
+reachable Docker daemon. Direct backend launches use `SECRET_KEY`,
+`QR_TOKEN_PEPPER`, and `ALLOWED_ORIGINS` instead.
+
 ### Frontend
 
 ```bash

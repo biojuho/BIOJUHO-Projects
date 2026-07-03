@@ -15,6 +15,7 @@ SPEC.loader.exec_module(launch_env_preflight)
 def _healthy_env() -> dict[str, str]:
     return {
         "AGRIGUARD_SECRET_KEY": "s" * 32,
+        "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
         "AGRIGUARD_DATABASE_URL": "postgresql://agriguard:secret@postgres:5432/agriguard",
         "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
     }
@@ -40,6 +41,7 @@ def test_launch_env_preflight_compose_rejects_generic_secret_by_default() -> Non
     report = launch_env_preflight.validate_launch_env_with_options(
         {
             "SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         }
     )
@@ -53,6 +55,7 @@ def test_launch_env_preflight_compose_can_allow_generic_secret_for_local_checks(
     report = launch_env_preflight.validate_launch_env_with_options(
         {
             "SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         },
         allow_generic_secret_key=True,
@@ -67,6 +70,7 @@ def test_launch_env_preflight_direct_mode_requires_backend_secret_key() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         },
         runtime="direct",
@@ -83,10 +87,98 @@ def test_launch_env_preflight_rejects_placeholder_secret() -> None:
     assert "AGRIGUARD_SECRET_KEY uses a placeholder or development-only value." in report["errors"]
 
 
+def test_launch_env_preflight_rejects_missing_qr_token_pepper() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "Set AGRIGUARD_QR_TOKEN_PEPPER before compose launch." in report["errors"]
+
+
+def test_launch_env_preflight_compose_rejects_generic_qr_token_pepper_by_default() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "Set AGRIGUARD_QR_TOKEN_PEPPER for compose launch instead of relying on generic QR_TOKEN_PEPPER."
+        in report["errors"]
+    )
+    assert report["checks"]["qr_token_pepper_source"] is None
+
+
+def test_launch_env_preflight_compose_can_allow_generic_qr_token_pepper_for_local_checks() -> None:
+    report = launch_env_preflight.validate_launch_env_with_options(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        },
+        allow_generic_qr_token_pepper=True,
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["qr_token_pepper_source"] == "QR_TOKEN_PEPPER"
+    assert report["checks"]["allow_generic_qr_token_pepper"] is True
+
+
+def test_launch_env_preflight_direct_mode_requires_backend_qr_token_pepper() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
+            "ALLOWED_ORIGINS": "https://generic.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "Set QR_TOKEN_PEPPER for direct backend launch; AGRIGUARD_QR_TOKEN_PEPPER is only bridged by compose."
+        in report["errors"]
+    )
+
+
+def test_launch_env_preflight_rejects_placeholder_qr_token_pepper() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "change_me_qr_token_hash_pepper",
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "AGRIGUARD_QR_TOKEN_PEPPER uses a placeholder or development-only value." in report["errors"]
+
+
+def test_launch_env_preflight_rejects_short_qr_token_pepper() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "too-short",
+            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "AGRIGUARD_QR_TOKEN_PEPPER must be at least 32 characters." in report["errors"]
+
+
 def test_launch_env_preflight_rejects_short_secret() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "too-short",
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         }
     )
@@ -99,6 +191,7 @@ def test_launch_env_preflight_rejects_production_unsafe_runtime_values() -> None
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "a" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_DATABASE_URL": "sqlite:///local.db",
             "AGRIGUARD_ALLOWED_ORIGINS": "*",
@@ -115,6 +208,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_auto_create_schema() -> 
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         }
@@ -130,6 +224,7 @@ def test_launch_env_preflight_direct_mode_rejects_host_auto_create_schema() -> N
     report = launch_env_preflight.validate_launch_env(
         {
             "SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
             "AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         },
@@ -144,6 +239,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_database_url() -> None:
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "DATABASE_URL": "sqlite:///workspace-default.db",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         }
@@ -159,6 +255,7 @@ def test_launch_env_preflight_requires_explicit_allowed_origins_by_default() -> 
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
         }
     )
 
@@ -170,6 +267,7 @@ def test_launch_env_preflight_can_allow_runtime_default_origins_for_local_checks
     report = launch_env_preflight.validate_launch_env_with_options(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
         },
         allow_runtime_default_origins=True,
     )
@@ -183,6 +281,7 @@ def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins_but_requ
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "ALLOWED_ORIGINS": "https://generic.example",
         }
     )
@@ -197,6 +296,7 @@ def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None
     report = launch_env_preflight.validate_launch_env(
         {
             "SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
             "ALLOWED_ORIGINS": "https://generic.example",
         },
         runtime="direct",
@@ -211,6 +311,7 @@ def test_launch_env_preflight_compose_mode_rejects_app_scoped_wildcard_origin() 
     report = launch_env_preflight.validate_launch_env(
         {
             "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
             "AGRIGUARD_ALLOWED_ORIGINS": "*",
         }
     )
@@ -223,6 +324,7 @@ def test_launch_env_preflight_direct_mode_rejects_host_sqlite_database_url() -> 
     report = launch_env_preflight.validate_launch_env(
         {
             "SECRET_KEY": "s" * 32,
+            "QR_TOKEN_PEPPER": "p" * 32,
             "DATABASE_URL": "sqlite:///workspace-default.db",
             "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         },
@@ -246,6 +348,7 @@ def test_launch_env_preflight_loads_env_file_and_environment_override(tmp_path: 
         "\n".join(
             [
                 "AGRIGUARD_SECRET_KEY=change_me",
+                "AGRIGUARD_QR_TOKEN_PEPPER=change_me_qr_token_hash_pepper",
                 "AGRIGUARD_DATABASE_URL=postgresql://agriguard:secret@postgres:5432/agriguard",
                 "AGRIGUARD_ALLOWED_ORIGINS=https://agriguard.example",
             ]
@@ -255,7 +358,7 @@ def test_launch_env_preflight_loads_env_file_and_environment_override(tmp_path: 
 
     effective = launch_env_preflight.build_effective_env(
         [env_file],
-        environ={"AGRIGUARD_SECRET_KEY": "o" * 32},
+        environ={"AGRIGUARD_SECRET_KEY": "o" * 32, "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32},
     )
     report = launch_env_preflight.validate_launch_env(effective)
 
@@ -274,6 +377,7 @@ def test_launch_report_skips_docker_checks_by_default() -> None:
 def test_launch_report_can_allow_runtime_default_origins_for_local_checks() -> None:
     env = {
         "AGRIGUARD_SECRET_KEY": "s" * 32,
+        "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
     }
 
     report = launch_env_preflight.build_launch_report(
@@ -288,12 +392,14 @@ def test_launch_report_can_allow_runtime_default_origins_for_local_checks() -> N
 def test_launch_report_can_allow_generic_secret_for_local_compose_checks() -> None:
     env = {
         "SECRET_KEY": "s" * 32,
+        "QR_TOKEN_PEPPER": "p" * 32,
         "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
     }
 
     report = launch_env_preflight.build_launch_report(
         env,
         allow_generic_secret_key=True,
+        allow_generic_qr_token_pepper=True,
     )
 
     assert report["status"] == "pass"
