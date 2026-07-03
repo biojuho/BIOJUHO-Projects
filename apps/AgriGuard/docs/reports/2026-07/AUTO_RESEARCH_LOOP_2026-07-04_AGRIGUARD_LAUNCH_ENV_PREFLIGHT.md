@@ -1,0 +1,21 @@
+# AgriGuard AutoResearch Loop - launch environment preflight
+
+Date: 2026-07-04
+
+## Source-backed observation
+
+The broad AgriGuard smoke still imports the backend with no `SECRET_KEY` and records the expected insecure-default warning. Runtime startup remains compatible for local tests, but launch operations need a fail-closed preflight that blocks missing or placeholder secrets before production use.
+
+## Adopted variant
+
+- Added `apps/AgriGuard/scripts/launch_env_preflight.py`.
+- The preflight fails when `AGRIGUARD_SECRET_KEY`/`SECRET_KEY` is missing, placeholder-like, or shorter than 32 characters.
+- The preflight also rejects launch-unsafe `AUTO_CREATE_SCHEMA=true`, SQLite database URLs, and wildcard allowed origins.
+- Added focused tests for missing, placeholder, short, unsafe, passing, and env-file override cases.
+
+## Verification
+
+- Pass: `python -m py_compile apps/AgriGuard/scripts/launch_env_preflight.py`
+- Pass: `uv run --isolated --no-project --with pytest>=8.0 python -m pytest apps/AgriGuard/backend/tests/test_launch_env_preflight.py -q --basetemp "D:\AI project\var\tmp\pytest-agriguard-launch-env-preflight"` (`6 passed`)
+- Pass: CLI with strong `AGRIGUARD_SECRET_KEY`, PostgreSQL URL, scoped allowed origin, and `AUTO_CREATE_SCHEMA=false` returned status `pass`.
+- Pass: CLI with `AGRIGUARD_SECRET_KEY=change_me` returned exit code `1` and status `fail`.
