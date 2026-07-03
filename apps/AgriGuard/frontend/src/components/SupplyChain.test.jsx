@@ -50,4 +50,29 @@ describe('SupplyChain', () => {
     expect(screen.getByText('Product 25')).toBeInTheDocument();
     expect(screen.getByText('Page 2 / 2')).toBeInTheDocument();
   });
+
+  it('normalizes backend tracking labels before rendering current status', async () => {
+    productApi.getAll.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'batch-verified',
+          name: 'Verified Batch',
+          origin: 'Seoul Farm',
+          tracking_history: [
+            { status: 'Delivered to Warehouse', timestamp: '2026-07-02T10:00:00Z' },
+            { status: 'Quality Check Passed', timestamp: '2026-07-03T10:00:00Z' },
+            { status: 'In Transit', timestamp: '2026-07-01T10:00:00Z' },
+          ],
+        },
+      ],
+    });
+
+    render(<SupplyChain />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Delivered & Available')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Unknown Status')).not.toBeInTheDocument();
+  });
 });

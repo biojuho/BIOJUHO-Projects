@@ -8,6 +8,35 @@ import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 
 const PAGE_SIZE = 20;
+const STATUS_ALIASES = new Map([
+  ['REGISTERED', 'REGISTERED'],
+  ['PLANTED', 'REGISTERED'],
+  ['HARVESTED', 'REGISTERED'],
+  ['IN_TRANSIT', 'IN_TRANSIT'],
+  ['DELIVERED', 'DELIVERED'],
+  ['DELIVERED_TO_WAREHOUSE', 'DELIVERED'],
+  ['VERIFIED', 'VERIFIED'],
+  ['QUALITY_CHECK_PASSED', 'VERIFIED'],
+]);
+
+const normalizeStatusKey = (status) => String(status || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+
+const normalizeSupplyChainStatus = (status) => STATUS_ALIASES.get(normalizeStatusKey(status)) || 'UNKNOWN';
+
+const getEventTime = (event) => {
+  const parsed = Date.parse(event?.timestamp || '');
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+};
+
+const getLatestTrackingEvent = (history) =>
+  history
+    .map((event, index) => ({ event, index, time: getEventTime(event) }))
+    .reduce((latest, candidate) => {
+      if (!latest) return candidate;
+      if (candidate.time > latest.time) return candidate;
+      if (candidate.time === latest.time && candidate.index > latest.index) return candidate;
+      return latest;
+    }, null)?.event;
 
 export default function SupplyChain() {
   const [products, setProducts] = useState([]);
@@ -33,7 +62,7 @@ export default function SupplyChain() {
   const getProductStatus = (product) => {
     const history = product.tracking_history || [];
     if (history.length === 0) return 'REGISTERED';
-    return history[history.length - 1].status || 'REGISTERED';
+    return normalizeSupplyChainStatus(getLatestTrackingEvent(history)?.status);
   };
 
   const filteredProducts = products.filter(
