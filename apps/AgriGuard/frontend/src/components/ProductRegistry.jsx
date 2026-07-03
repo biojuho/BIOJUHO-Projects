@@ -16,6 +16,15 @@ const EMPTY_FORM = {
   owner_id: '',
 };
 
+const FIELD_IDS = {
+  name: 'registry-crop-name',
+  owner_id: 'registry-owner-id',
+  category: 'registry-category',
+  origin: 'registry-origin',
+  harvest_date: 'registry-harvest-date',
+  description: 'registry-description',
+};
+
 export default function ProductRegistry() {
   const [uiState, setUiState] = useState({
     loading: false,
@@ -68,8 +77,9 @@ export default function ProductRegistry() {
         <CardContent className="p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Crop Name</label>
+              <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.name}>Crop Name</label>
               <Input
+                id={FIELD_IDS.name}
                 type="text"
                 required
                 value={formData.name}
@@ -80,8 +90,9 @@ export default function ProductRegistry() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Owner ID <span className="text-destructive">*</span></label>
+              <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.owner_id}>Owner ID <span className="text-destructive">*</span></label>
               <Input
+                id={FIELD_IDS.owner_id}
                 type="text"
                 required
                 value={formData.owner_id}
@@ -93,8 +104,9 @@ export default function ProductRegistry() {
 
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Category</label>
+                <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.category}>Category</label>
                 <select
+                  id={FIELD_IDS.category}
                   value={formData.category}
                   onChange={(e) => handleChange('category', e.target.value)}
                   className={inputClass}
@@ -105,8 +117,9 @@ export default function ProductRegistry() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Origin Region</label>
+                <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.origin}>Origin Region</label>
                 <Input
+                  id={FIELD_IDS.origin}
                   type="text"
                   value={formData.origin}
                   onChange={(e) => handleChange('origin', e.target.value)}
@@ -118,8 +131,9 @@ export default function ProductRegistry() {
 
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Harvest Date</label>
+                <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.harvest_date}>Harvest Date</label>
                 <Input
+                  id={FIELD_IDS.harvest_date}
                   type="date"
                   value={formData.harvest_date}
                   onChange={(e) => handleChange('harvest_date', e.target.value)}
@@ -140,8 +154,9 @@ export default function ProductRegistry() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Description</label>
+              <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.description}>Description</label>
               <textarea
+                id={FIELD_IDS.description}
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
                 className={`${inputClass} h-32 resize-none`}

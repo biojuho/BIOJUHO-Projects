@@ -28,10 +28,10 @@ describe('ProductRegistry', () => {
   it('shows the issued public verify label after registration', async () => {
     render(<ProductRegistry />);
 
-    fireEvent.change(screen.getByPlaceholderText('e.g. Organic Tomatoes'), {
+    fireEvent.change(screen.getByLabelText('Crop Name'), {
       target: { value: 'Organic Tomatoes' },
     });
-    fireEvent.change(screen.getByPlaceholderText('e.g. farmer-001'), {
+    fireEvent.change(screen.getByLabelText(/Owner ID/), {
       target: { value: 'farmer-001' },
     });
     fireEvent.click(screen.getByRole('button', { name: /register harvest/i }));
