@@ -56,14 +56,14 @@ def test_launch_env_preflight_rejects_production_unsafe_runtime_values() -> None
             "AGRIGUARD_SECRET_KEY": "a" * 32,
             "AGRIGUARD_AUTO_CREATE_SCHEMA": "true",
             "AGRIGUARD_DATABASE_URL": "sqlite:///local.db",
-            "ALLOWED_ORIGINS": "*",
+            "AGRIGUARD_ALLOWED_ORIGINS": "*",
         }
     )
 
     assert report["status"] == "fail"
     assert "AGRIGUARD_AUTO_CREATE_SCHEMA must not be enabled for launch." in report["errors"]
     assert "Use a PostgreSQL AGRIGUARD_DATABASE_URL for launch, not SQLite." in report["errors"]
-    assert "ALLOWED_ORIGINS/AGRIGUARD_ALLOWED_ORIGINS must not include wildcard '*'." in report["errors"]
+    assert "AGRIGUARD_ALLOWED_ORIGINS must not include wildcard '*'." in report["errors"]
 
 
 def test_launch_env_preflight_compose_mode_ignores_host_auto_create_schema() -> None:
@@ -108,6 +108,46 @@ def test_launch_env_preflight_compose_mode_ignores_host_database_url() -> None:
     assert report["checks"]["runtime"] == "compose"
     assert report["checks"]["database_url_present"] is False
     assert report["checks"]["database_url_source"] is None
+
+
+def test_launch_env_preflight_compose_mode_ignores_host_allowed_origins() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "ALLOWED_ORIGINS": "https://generic.example",
+        }
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["allowed_origins_count"] == 0
+    assert report["checks"]["allowed_origins_source"] is None
+    assert "No explicit allowed origins configured; runtime defaults may be used." in report["warnings"]
+
+
+def test_launch_env_preflight_direct_mode_accepts_host_allowed_origins() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "ALLOWED_ORIGINS": "https://generic.example",
+        },
+        runtime="direct",
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["allowed_origins_count"] == 1
+    assert report["checks"]["allowed_origins_source"] == "ALLOWED_ORIGINS"
+
+
+def test_launch_env_preflight_compose_mode_rejects_app_scoped_wildcard_origin() -> None:
+    report = launch_env_preflight.validate_launch_env(
+        {
+            "AGRIGUARD_SECRET_KEY": "s" * 32,
+            "AGRIGUARD_ALLOWED_ORIGINS": "*",
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert "AGRIGUARD_ALLOWED_ORIGINS must not include wildcard '*'." in report["errors"]
 
 
 def test_launch_env_preflight_direct_mode_rejects_host_sqlite_database_url() -> None:

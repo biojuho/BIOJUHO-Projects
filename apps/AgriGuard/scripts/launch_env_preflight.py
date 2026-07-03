@@ -75,6 +75,18 @@ def _auto_create_schema_for_runtime(env: dict[str, str], runtime: str) -> tuple[
     return (env.get("AUTO_CREATE_SCHEMA") or "").strip().lower(), "AUTO_CREATE_SCHEMA"
 
 
+def _allowed_origins_for_runtime(env: dict[str, str], runtime: str) -> tuple[list[str], str | None]:
+    if runtime == "compose":
+        raw_value = env.get("AGRIGUARD_ALLOWED_ORIGINS") or ""
+        return _split_origins(raw_value), "AGRIGUARD_ALLOWED_ORIGINS" if raw_value.strip() else None
+
+    raw_value = env.get("AGRIGUARD_ALLOWED_ORIGINS") or ""
+    if raw_value.strip():
+        return _split_origins(raw_value), "AGRIGUARD_ALLOWED_ORIGINS"
+    raw_value = env.get("ALLOWED_ORIGINS") or ""
+    return _split_origins(raw_value), "ALLOWED_ORIGINS" if raw_value.strip() else None
+
+
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -104,11 +116,11 @@ def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dic
     if database_url.lower().startswith("sqlite"):
         errors.append(f"Use a PostgreSQL {database_url_source} for launch, not SQLite.")
 
-    origins = _split_origins(env.get("AGRIGUARD_ALLOWED_ORIGINS") or env.get("ALLOWED_ORIGINS") or "")
+    origins, origins_source = _allowed_origins_for_runtime(env, runtime)
     if "*" in origins:
-        errors.append("ALLOWED_ORIGINS/AGRIGUARD_ALLOWED_ORIGINS must not include wildcard '*'.")
+        errors.append(f"{origins_source} must not include wildcard '*'.")
     elif not origins:
-        warnings.append("No explicit allowed origins configured; compose defaults may be used.")
+        warnings.append("No explicit allowed origins configured; runtime defaults may be used.")
 
     return {
         "status": "fail" if errors else "pass",
@@ -123,6 +135,7 @@ def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dic
             "database_url_present": bool(database_url),
             "database_url_source": database_url_source,
             "allowed_origins_count": len(origins),
+            "allowed_origins_source": origins_source,
         },
     }
 

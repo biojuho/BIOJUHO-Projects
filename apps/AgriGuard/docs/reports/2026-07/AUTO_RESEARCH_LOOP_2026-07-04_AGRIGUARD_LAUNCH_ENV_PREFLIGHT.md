@@ -11,7 +11,7 @@ The broad AgriGuard smoke still imports the backend with no `SECRET_KEY` and rec
 - Added `apps/AgriGuard/scripts/launch_env_preflight.py`.
 - The preflight fails when `AGRIGUARD_SECRET_KEY`/`SECRET_KEY` is missing, placeholder-like, or shorter than 32 characters.
 - The preflight also rejects launch-unsafe `AUTO_CREATE_SCHEMA=true`, SQLite database URLs, and wildcard allowed origins.
-- The CLI defaults to compose runtime semantics, so host `DATABASE_URL` and `AUTO_CREATE_SCHEMA` are ignored unless `AGRIGUARD_DATABASE_URL` or `AGRIGUARD_AUTO_CREATE_SCHEMA` is explicitly set; `--runtime direct` validates direct backend launches against `DATABASE_URL` and `AUTO_CREATE_SCHEMA`.
+- The CLI defaults to compose runtime semantics, so host `DATABASE_URL`, `AUTO_CREATE_SCHEMA`, and `ALLOWED_ORIGINS` are ignored unless `AGRIGUARD_DATABASE_URL`, `AGRIGUARD_AUTO_CREATE_SCHEMA`, or `AGRIGUARD_ALLOWED_ORIGINS` is explicitly set; `--runtime direct` validates direct backend launches against the generic backend env names.
 - `--check-docker` adds Docker daemon reachability and compose config validation for launch startup readiness.
 - Added focused tests for missing, placeholder, short, unsafe, passing, and env-file override cases.
 
