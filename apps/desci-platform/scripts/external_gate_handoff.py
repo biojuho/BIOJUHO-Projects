@@ -437,6 +437,13 @@ def _same_path_text(left: str | Path, right: str | Path) -> bool:
     return Path(str(left)) == Path(str(right))
 
 
+def _metadata_path(metadata: dict[str, Any], key: str, fallback: str | Path) -> tuple[str, str]:
+    value = metadata.get(key)
+    if isinstance(value, str) and value.strip():
+        return value, "plan_metadata"
+    return str(fallback), "fallback"
+
+
 def _iso_now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -587,6 +594,15 @@ def _provider_apply_workflow_verification(plan_path: str | Path) -> dict[str, An
         "provider_apply_results_json": results_json,
         "promotion_receipt_json": promotion_receipt_json,
         "verify_json_out": workflow_json_out,
+        "default_verify_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--verify-provider-apply-workflow {plan_json} --json-out {workflow_json_out}"
+        ),
+        "default_require_go_command": (
+            "python scripts/external_gate_handoff.py "
+            f"--verify-provider-apply-workflow {plan_json} "
+            f"--require-promotion-go --json-out {workflow_json_out}"
+        ),
         "verify_command": (
             "python scripts/external_gate_handoff.py "
             f"--verify-provider-apply-workflow {plan_json} "
@@ -1327,15 +1343,36 @@ def verify_provider_apply_workflow(
     require_promotion_go: bool = False,
 ) -> dict[str, Any]:
     failures: list[str] = []
+    plan = load_provider_apply_plan(plan_path)
+    workflow_metadata = _as_dict(plan.get("provider_apply_workflow_verification"))
+    default_results_path, results_path_source = _metadata_path(
+        workflow_metadata,
+        "provider_apply_results_json",
+        _json_path_with_suffix(plan_path, "-results"),
+    )
+    default_promotion_receipt_path, promotion_receipt_path_source = _metadata_path(
+        workflow_metadata,
+        "promotion_receipt_json",
+        "var/post-apply-promotion-receipt.json",
+    )
+    resolved_results_path = str(results_path) if results_path is not None else default_results_path
+    resolved_promotion_receipt_path = (
+        str(promotion_receipt_path) if promotion_receipt_path is not None else default_promotion_receipt_path
+    )
+    if results_path is not None:
+        results_path_source = "argument"
+    if promotion_receipt_path is not None:
+        promotion_receipt_path_source = "argument"
+
     plan_verification = verify_provider_apply_plan(plan_path, require_ready_to_apply=True)
     if plan_verification.get("ok") is not True:
         failures.append("provider apply plan is not ready")
 
-    if results_path and Path(results_path).exists():
-        results_verification = verify_provider_apply_results(results_path, plan_path=plan_path)
+    if resolved_results_path and Path(resolved_results_path).exists():
+        results_verification = verify_provider_apply_results(resolved_results_path, plan_path=plan_path)
     else:
         results_verification = _missing_artifact_verification(
-            results_path or "",
+            resolved_results_path,
             "provider apply results receipt",
         )
     if results_verification.get("ok") is not True:
@@ -1343,14 +1380,14 @@ def verify_provider_apply_workflow(
     if results_verification.get("all_commands_succeeded") is not True:
         failures.append("provider apply results must have all_commands_succeeded=true")
 
-    if promotion_receipt_path and Path(promotion_receipt_path).exists():
+    if resolved_promotion_receipt_path and Path(resolved_promotion_receipt_path).exists():
         promotion_verification = verify_promotion_receipt(
-            promotion_receipt_path,
+            resolved_promotion_receipt_path,
             require_go=require_promotion_go,
         )
     else:
         promotion_verification = _missing_artifact_verification(
-            promotion_receipt_path or "",
+            resolved_promotion_receipt_path,
             "post-apply promotion receipt",
         )
     if promotion_verification.get("ok") is not True:
@@ -1367,8 +1404,12 @@ def verify_provider_apply_workflow(
         "generated_at": _iso_now(),
         "ok": workflow_ok,
         "provider_apply_plan_json": str(plan_path),
-        "provider_apply_results_json": str(results_path or ""),
-        "promotion_receipt_json": str(promotion_receipt_path or ""),
+        "provider_apply_results_json": resolved_results_path,
+        "promotion_receipt_json": resolved_promotion_receipt_path,
+        "artifact_resolution": {
+            "provider_apply_results_json": results_path_source,
+            "promotion_receipt_json": promotion_receipt_path_source,
+        },
         "require_promotion_go": require_promotion_go,
         "success_condition": PROVIDER_APPLY_WORKFLOW_CONDITION,
         "operator_phase": "provider_apply_workflow_ready" if workflow_ok else "provider_apply_workflow_blocked",
@@ -1468,6 +1509,9 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Provider apply results JSON: `{_markdown_scalar(workflow_verification.get('provider_apply_results_json'))}`",
                 f"- Promotion receipt JSON: `{_markdown_scalar(workflow_verification.get('promotion_receipt_json'))}`",
                 f"- Verify JSON: `{_markdown_scalar(workflow_verification.get('verify_json_out'))}`",
+                f"- Default verify command: `{_markdown_scalar(workflow_verification.get('default_verify_command'))}`",
+                f"- Default require-go command: "
+                f"`{_markdown_scalar(workflow_verification.get('default_require_go_command'))}`",
                 f"- Verify command: `{_markdown_scalar(workflow_verification.get('verify_command'))}`",
                 f"- Require-go command: `{_markdown_scalar(workflow_verification.get('require_go_command'))}`",
                 "",
@@ -1928,6 +1972,10 @@ def main(argv: list[str] | None = None) -> int:
                 "provider_apply_plan_json": str(args.verify_provider_apply_workflow),
                 "provider_apply_results_json": str(args.provider_apply_results or ""),
                 "promotion_receipt_json": str(args.promotion_receipt or ""),
+                "artifact_resolution": {
+                    "provider_apply_results_json": "argument" if args.provider_apply_results else "unresolved",
+                    "promotion_receipt_json": "argument" if args.promotion_receipt else "unresolved",
+                },
                 "require_promotion_go": args.require_promotion_go,
                 "success_condition": PROVIDER_APPLY_WORKFLOW_CONDITION,
                 "operator_phase": "provider_apply_workflow_blocked",
