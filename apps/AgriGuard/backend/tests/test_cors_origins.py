@@ -113,6 +113,13 @@ def test_agriguard_compose_postgres_healthcheck_uses_configured_database_identit
     assert "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" in compose
 
 
+def test_agriguard_backend_healthcheck_uses_api_root_not_docs_ui() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "urllib.request.urlopen('http://localhost:8002/')" in compose
+    assert "http://localhost:8002/docs" not in compose
+
+
 def test_agriguard_compose_waits_for_frontend_health_before_nginx() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
