@@ -49,6 +49,8 @@ PLACEHOLDER_FRAGMENTS = (
     "your-project",
     "your_project",
     "use_secret_manager_not_plaintext",
+    "<set-secure-value>",
+    "set-secure-value",
     "0x0000000000000000000000000000000000000000",
     "0x...",
 )

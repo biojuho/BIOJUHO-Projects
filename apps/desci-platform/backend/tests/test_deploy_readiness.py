@@ -67,13 +67,21 @@ def test_placeholder_values_fail_required_checks() -> None:
     env = _ready_env()
     env["DATABASE_URL"] = "postgresql://example.com/desci"
     env["REDIS_URL"] = "rediss://example.com/0"
+    env["STRIPE_SECRET_KEY"] = "<set-secure-value>"
+    env["STRIPE_PRICE_PRO_MONTHLY"] = "your_stripe_price_pro_monthly"
     env["PRIVATE_KEY"] = "your_wallet_private_key"
     env["GITLEAKS_LICENSE"] = ""
 
     checks = deploy_readiness.run_checks(env, targets=("railway", "amoy", "github"))
     failed = {check.id for check in checks if check.status == "fail"}
 
-    assert {"railway_database", "railway_queue", "amoy_private_key", "github_gitleaks_license"} <= failed
+    assert {
+        "railway_database",
+        "railway_queue",
+        "railway_stripe",
+        "amoy_private_key",
+        "github_gitleaks_license",
+    } <= failed
 
 
 def test_railway_stripe_requires_paid_checkout_launch_keys() -> None:
