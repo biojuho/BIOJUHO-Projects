@@ -212,6 +212,7 @@ def add_tracking_event(
     _log_chain_event_after_commit(
         product_id,
         {
+            "action": status.upper(),
             "timestamp": event_timestamp.isoformat(),
             "status": status,
             "location": location,

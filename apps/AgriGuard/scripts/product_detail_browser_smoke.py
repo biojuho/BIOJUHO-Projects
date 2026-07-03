@@ -231,6 +231,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         }
         checks.append(check("certification_saved", "Certificate saved" in final_text))
         checks.append(check("certified_badge_visible", "Certified" in final_text))
+        checks.append(check("tracking_event_action_label_visible", "UNKNOWN EVENT" not in final_text and "IN TRANSIT" in final_text))
         checks.append(check("final_no_horizontal_overflow", has_no_horizontal_overflow(final_metrics), str(final_metrics)))
         page.screenshot(path=str(screenshot_dir / "product-detail-final.png"), full_page=False)
         browser.close()
