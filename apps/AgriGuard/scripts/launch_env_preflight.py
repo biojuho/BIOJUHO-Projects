@@ -3,9 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 MIN_SECRET_LENGTH = 32
 PLACEHOLDER_SECRETS = {
@@ -74,6 +75,9 @@ def _auto_create_schema_for_runtime(env: dict[str, str], runtime: str) -> tuple[
     return (env.get("AUTO_CREATE_SCHEMA") or "").strip().lower(), "AUTO_CREATE_SCHEMA"
 
 
+CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
+
+
 def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dict[str, object]:
     if runtime not in {"compose", "direct"}:
         raise ValueError("runtime must be 'compose' or 'direct'")
@@ -123,6 +127,108 @@ def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dic
     }
 
 
+def _tail(value: str | bytes | None, *, limit: int = 500) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    value = value.strip()
+    return value[-limit:] if len(value) > limit else value
+
+
+def _run_preflight_command(
+    command: list[str],
+    *,
+    cwd: Path,
+    command_runner: CommandRunner,
+) -> dict[str, object]:
+    try:
+        result = command_runner(command, cwd=str(cwd), capture_output=True, text=True, timeout=30)
+    except FileNotFoundError as exc:
+        return {
+            "command": command,
+            "returncode": None,
+            "ok": False,
+            "stdout_tail": "",
+            "stderr_tail": str(exc),
+        }
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "command": command,
+            "returncode": None,
+            "ok": False,
+            "stdout_tail": _tail(exc.stdout or ""),
+            "stderr_tail": "command timed out",
+        }
+
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "ok": result.returncode == 0,
+        "stdout_tail": _tail(result.stdout or ""),
+        "stderr_tail": _tail(result.stderr or ""),
+    }
+
+
+def check_docker_readiness(
+    *,
+    app_root: Path,
+    command_runner: CommandRunner = subprocess.run,
+) -> dict[str, object]:
+    docker_info = _run_preflight_command(
+        ["docker", "info", "--format", "{{.ServerVersion}}"],
+        cwd=app_root,
+        command_runner=command_runner,
+    )
+    compose_config = _run_preflight_command(
+        ["docker", "compose", "-f", str(app_root / "docker-compose.yml"), "config", "--quiet"],
+        cwd=app_root,
+        command_runner=command_runner,
+    )
+
+    errors: list[str] = []
+    if not docker_info["ok"]:
+        errors.append("Docker daemon is not reachable for launch compose startup.")
+    if not compose_config["ok"]:
+        errors.append("AgriGuard docker-compose.yml failed compose config validation.")
+
+    return {
+        "status": "fail" if errors else "pass",
+        "errors": errors,
+        "checks": {
+            "docker_info": docker_info,
+            "compose_config": compose_config,
+        },
+    }
+
+
+def build_launch_report(
+    env: dict[str, str],
+    *,
+    runtime: str = "compose",
+    check_docker: bool = False,
+    app_root: Path | None = None,
+    command_runner: CommandRunner = subprocess.run,
+) -> dict[str, object]:
+    report = validate_launch_env(env, runtime=runtime)
+    checks = report["checks"]
+    assert isinstance(checks, dict)
+    checks["docker_checked"] = check_docker
+
+    if check_docker:
+        docker_report = check_docker_readiness(
+            app_root=app_root or Path(__file__).resolve().parents[1],
+            command_runner=command_runner,
+        )
+        checks["docker"] = docker_report["checks"]
+        errors = report["errors"]
+        assert isinstance(errors, list)
+        errors.extend(docker_report["errors"])
+        report["status"] = "fail" if errors else "pass"
+
+    return report
+
+
 def _default_env_files() -> list[Path]:
     app_root = Path(__file__).resolve().parents[1]
     return [app_root / ".env"]
@@ -143,11 +249,20 @@ def main(argv: list[str] | None = None) -> int:
         default="compose",
         help="Launch runtime to validate. Compose mode ignores host DATABASE_URL unless AGRIGUARD_DATABASE_URL is set.",
     )
+    parser.add_argument(
+        "--check-docker",
+        action="store_true",
+        help="Also require Docker daemon reachability and compose config validation.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
     env_files = args.env_file if args.env_file is not None else _default_env_files()
-    report = validate_launch_env(build_effective_env(env_files), runtime=args.runtime)
+    report = build_launch_report(
+        build_effective_env(env_files),
+        runtime=args.runtime,
+        check_docker=args.check_docker,
+    )
 
     output = json.dumps(report, indent=2, sort_keys=True)
     if args.json_out:

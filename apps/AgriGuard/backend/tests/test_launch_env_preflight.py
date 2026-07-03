@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "launch_env_preflight.py"
@@ -9,6 +10,23 @@ assert SPEC is not None
 launch_env_preflight = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(launch_env_preflight)
+
+
+def _healthy_env() -> dict[str, str]:
+    return {
+        "AGRIGUARD_SECRET_KEY": "s" * 32,
+        "AGRIGUARD_DATABASE_URL": "postgresql://agriguard:secret@postgres:5432/agriguard",
+        "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
+    }
+
+
+def _runner_from_results(
+    results: dict[tuple[str, ...], subprocess.CompletedProcess[str]],
+):
+    def runner(command, **kwargs):
+        return results[tuple(command)]
+
+    return runner
 
 
 def test_launch_env_preflight_fails_without_secret() -> None:
@@ -107,13 +125,7 @@ def test_launch_env_preflight_direct_mode_rejects_host_sqlite_database_url() -> 
 
 
 def test_launch_env_preflight_passes_with_strong_secret_and_scoped_origins() -> None:
-    report = launch_env_preflight.validate_launch_env(
-        {
-            "AGRIGUARD_SECRET_KEY": "s" * 32,
-            "AGRIGUARD_DATABASE_URL": "postgresql://agriguard:secret@postgres:5432/agriguard",
-            "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
-        }
-    )
+    report = launch_env_preflight.validate_launch_env(_healthy_env())
 
     assert report["status"] == "pass"
     assert report["errors"] == []
@@ -140,3 +152,108 @@ def test_launch_env_preflight_loads_env_file_and_environment_override(tmp_path: 
 
     assert effective["AGRIGUARD_SECRET_KEY"] == "o" * 32
     assert report["status"] == "pass"
+
+
+def test_launch_report_skips_docker_checks_by_default() -> None:
+    report = launch_env_preflight.build_launch_report(_healthy_env())
+
+    assert report["status"] == "pass"
+    assert report["checks"]["docker_checked"] is False
+    assert "docker" not in report["checks"]
+
+
+def test_launch_report_docker_check_passes_when_daemon_and_compose_config_pass(tmp_path: Path) -> None:
+    app_root = tmp_path
+    compose_path = str(app_root / "docker-compose.yml")
+    runner = _runner_from_results(
+        {
+            ("docker", "info", "--format", "{{.ServerVersion}}"): subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="29.2.1\n",
+                stderr="",
+            ),
+            ("docker", "compose", "-f", compose_path, "config", "--quiet"): subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="",
+                stderr="",
+            ),
+        }
+    )
+
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env(),
+        check_docker=True,
+        app_root=app_root,
+        command_runner=runner,
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["docker_checked"] is True
+    assert report["checks"]["docker"]["docker_info"]["ok"] is True
+    assert report["checks"]["docker"]["compose_config"]["ok"] is True
+
+
+def test_launch_report_docker_check_fails_when_daemon_unreachable(tmp_path: Path) -> None:
+    app_root = tmp_path
+    compose_path = str(app_root / "docker-compose.yml")
+    runner = _runner_from_results(
+        {
+            ("docker", "info", "--format", "{{.ServerVersion}}"): subprocess.CompletedProcess(
+                args=[],
+                returncode=1,
+                stdout="",
+                stderr="failed to connect to the docker API",
+            ),
+            ("docker", "compose", "-f", compose_path, "config", "--quiet"): subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="",
+                stderr="",
+            ),
+        }
+    )
+
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env(),
+        check_docker=True,
+        app_root=app_root,
+        command_runner=runner,
+    )
+
+    assert report["status"] == "fail"
+    assert "Docker daemon is not reachable for launch compose startup." in report["errors"]
+    assert report["checks"]["docker"]["docker_info"]["stderr_tail"] == "failed to connect to the docker API"
+
+
+def test_launch_report_docker_check_fails_when_compose_config_is_invalid(tmp_path: Path) -> None:
+    app_root = tmp_path
+    compose_path = str(app_root / "docker-compose.yml")
+    runner = _runner_from_results(
+        {
+            ("docker", "info", "--format", "{{.ServerVersion}}"): subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="29.2.1\n",
+                stderr="",
+            ),
+            ("docker", "compose", "-f", compose_path, "config", "--quiet"): subprocess.CompletedProcess(
+                args=[],
+                returncode=15,
+                stdout="",
+                stderr="invalid compose file",
+            ),
+        }
+    )
+
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env(),
+        check_docker=True,
+        app_root=app_root,
+        command_runner=runner,
+    )
+
+    assert report["status"] == "fail"
+    assert "AgriGuard docker-compose.yml failed compose config validation." in report["errors"]
+    assert report["checks"]["docker"]["compose_config"]["stderr_tail"] == "invalid compose file"
