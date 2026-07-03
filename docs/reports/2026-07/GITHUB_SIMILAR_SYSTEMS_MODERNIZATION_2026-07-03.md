@@ -6,8 +6,8 @@
 - Adoption counts: adopted=8, partially_adopted=0, watch=0
 - Local evidence tracking: all 103 paths exist and are git-tracked
 - Generated at: `2026-06-11T19:02:02+09:00`
-- Rendered at: `2026-07-03T10:45:45.815115+00:00`
-- Latest commit refresh: 8 GitHub HEAD refs checked at `2026-07-03T10:45:39.740166+00:00`; updated=6, failed=0, review_required=6
+- Rendered at: `2026-07-03T12:10:09.099131+00:00`
+- Latest commit refresh: 8 GitHub HEAD refs checked at `2026-07-03T12:10:02.688551+00:00`; updated=6, failed=0, review_required=6
 
 ## Search Context
 

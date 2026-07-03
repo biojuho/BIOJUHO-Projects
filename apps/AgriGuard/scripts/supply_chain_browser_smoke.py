@@ -172,10 +172,12 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
 
             initial_range = read_range(page, args.timeout_ms)
             initial_links = page.locator('a[href^="/product/"]').count()
+            initial_unknown_statuses = page.get_by_text("Unknown Status", exact=True).count()
             initial_metrics = read_metrics(page)
             observations["initial"] = {
                 "range": initial_range,
                 "productLinks": initial_links,
+                "unknownStatuses": initial_unknown_statuses,
                 "metrics": initial_metrics,
             }
             checks.append(check("initial_range_visible", bool(initial_range), str(initial_range)))
@@ -201,6 +203,13 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                     "no_horizontal_overflow",
                     int(initial_metrics["scrollWidth"]) <= int(initial_metrics["clientWidth"]) + 1,
                     str(initial_metrics),
+                )
+            )
+            checks.append(
+                check(
+                    "initial_statuses_are_normalized",
+                    initial_links == 0 or initial_unknown_statuses == 0,
+                    f"{initial_unknown_statuses} Unknown Status labels",
                 )
             )
 
@@ -242,10 +251,12 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
             )
             search_range = read_range(page, args.timeout_ms)
             search_links = page.locator('a[href^="/product/"]').count()
+            search_unknown_statuses = page.get_by_text("Unknown Status", exact=True).count()
             search_metrics = read_metrics(page)
             observations["search"] = {
                 "range": search_range,
                 "productLinks": search_links,
+                "unknownStatuses": search_unknown_statuses,
                 "metrics": search_metrics,
             }
             checks.append(check("search_resets_to_first_page", bool(search_range and search_range["first"] == 1), str(search_range)))
@@ -255,6 +266,13 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                     "search_renders_at_most_twenty_product_cards",
                     0 < search_links <= 20,
                     f"{search_links} product links",
+                )
+            )
+            checks.append(
+                check(
+                    "search_status_is_normalized",
+                    search_links == 0 or search_unknown_statuses == 0,
+                    f"{search_unknown_statuses} Unknown Status labels",
                 )
             )
 
