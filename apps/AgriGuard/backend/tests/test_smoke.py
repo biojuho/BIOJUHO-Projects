@@ -10,7 +10,9 @@ import os
 import sqlite3
 import subprocess
 import sys
+import types
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -227,3 +229,40 @@ def test_qr_ab_script_handles_missing_variant_data():
             os.remove(dataset_path)
         except OSError:
             pass
+
+
+def _load_script_module(script_path: Path, module_name: str):
+    sync_api = types.ModuleType("playwright.sync_api")
+    sync_api.Page = object
+    sync_api.sync_playwright = lambda: None
+    playwright = types.ModuleType("playwright")
+    previous_playwright = sys.modules.get("playwright")
+    previous_sync_api = sys.modules.get("playwright.sync_api")
+    sys.modules["playwright"] = playwright
+    sys.modules["playwright.sync_api"] = sync_api
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, script_path)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if previous_playwright is None:
+            sys.modules.pop("playwright", None)
+        else:
+            sys.modules["playwright"] = previous_playwright
+        if previous_sync_api is None:
+            sys.modules.pop("playwright.sync_api", None)
+        else:
+            sys.modules["playwright.sync_api"] = previous_sync_api
+
+
+def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
+        "nav_browser_smoke_under_test",
+    )
+
+    assert script.resolve_viewport(mobile=False, viewport=None) == {"width": 1440, "height": 960}
+    assert script.resolve_viewport(mobile=True, viewport=None) == {"width": 390, "height": 844}
+    assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}

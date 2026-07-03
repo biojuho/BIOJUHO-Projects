@@ -10,6 +10,8 @@ from playwright.sync_api import Page, sync_playwright
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
+DEFAULT_DESKTOP_VIEWPORT = "1440x960"
+DEFAULT_MOBILE_VIEWPORT = "390x844"
 DEFAULT_ROUTES = [
     {"name": "dashboard", "label": "Dashboard", "path": "/", "expected": ["Consumer QR KPIs"]},
     {"name": "registry", "label": "Registry", "path": "/registry", "expected": ["Crop Registry"]},
@@ -29,8 +31,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-ms", type=int, default=20_000)
     parser.add_argument(
         "--viewport",
-        default="1440x960",
-        help="Viewport size as WIDTHxHEIGHT. Defaults to 1440x960.",
+        default=None,
+        help=(
+            "Viewport size as WIDTHxHEIGHT. Defaults to "
+            f"{DEFAULT_DESKTOP_VIEWPORT}, or {DEFAULT_MOBILE_VIEWPORT} with --mobile."
+        ),
     )
     parser.add_argument("--mobile", action="store_true", help="Use mobile browser emulation with touch enabled.")
     parser.add_argument(
@@ -70,6 +75,12 @@ def parse_viewport(value: str) -> dict[str, int]:
     if width <= 0 or height <= 0:
         raise argparse.ArgumentTypeError("Viewport width and height must be positive integers.")
     return {"width": width, "height": height}
+
+
+def resolve_viewport(*, mobile: bool, viewport: str | None) -> dict[str, int]:
+    if viewport:
+        return parse_viewport(viewport)
+    return parse_viewport(DEFAULT_MOBILE_VIEWPORT if mobile else DEFAULT_DESKTOP_VIEWPORT)
 
 
 def read_metrics(page: Page) -> dict[str, object]:
@@ -139,7 +150,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     request_failures: list[dict[str, str]] = []
     page_errors: list[dict[str, str]] = []
     screenshot_dir = Path(args.screenshot_dir)
-    viewport = parse_viewport(args.viewport)
+    viewport = resolve_viewport(mobile=args.mobile, viewport=args.viewport)
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
