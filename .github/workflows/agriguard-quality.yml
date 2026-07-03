@@ -6,14 +6,17 @@ concurrency:
 permissions:
   contents: read
 
-﻿name: AgriGuard Quality Gate
+name: AgriGuard Quality Gate
 
 on:
+  workflow_dispatch: {}
   push:
     paths:
+      - '.github/workflows/agriguard-quality.yml'
       - 'apps/AgriGuard/**'
   pull_request:
     paths:
+      - '.github/workflows/agriguard-quality.yml'
       - 'apps/AgriGuard/**'
 
 defaults:

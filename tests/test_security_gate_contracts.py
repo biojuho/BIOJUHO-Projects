@@ -74,8 +74,33 @@ def test_github_workflows_are_valid_yaml() -> None:
 
     assert workflow_paths
     for path in workflow_paths:
-        parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+        raw = path.read_bytes()
+        assert b"\xef\xbb\xbf" not in raw[1:], path
+        parsed = yaml.safe_load(raw.decode("utf-8-sig"))
         assert isinstance(parsed, dict), path
+        assert "name" in parsed, path
+        assert "jobs" in parsed, path
+        assert ("on" in parsed or True in parsed), path
+
+
+def test_agriguard_quality_workflow_is_named_and_self_triggering() -> None:
+    workflow_path = ROOT / ".github" / "workflows" / "agriguard-quality.yml"
+    raw = workflow_path.read_bytes()
+    workflow = raw.decode("utf-8-sig")
+    parsed = yaml.safe_load(workflow)
+    triggers = parsed.get("on") or parsed.get(True)
+
+    assert b"\xef\xbb\xbf" not in raw
+    assert parsed["name"] == "AgriGuard Quality Gate"
+    assert "workflow_dispatch" in triggers
+    assert ".github/workflows/agriguard-quality.yml" in triggers["push"]["paths"]
+    assert ".github/workflows/agriguard-quality.yml" in triggers["pull_request"]["paths"]
+    assert "apps/AgriGuard/**" in triggers["push"]["paths"]
+    assert "apps/AgriGuard/**" in triggers["pull_request"]["paths"]
+    assert parsed["jobs"]["quality"]["steps"][0]["uses"] == (
+        "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+    )
+    assert "actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e" in workflow
 
 
 def test_security_quality_gate_does_not_mask_hard_gate_failures() -> None:
