@@ -76,6 +76,47 @@ const TIERS = [
 const ENTERPRISE_CONTACT_HREF = 'mailto:hello@decentbio.xyz?subject=Enterprise Plan Inquiry';
 const STRIPE_CHECKOUT_HOSTS = new Set(['checkout.stripe.com']);
 const STRIPE_PORTAL_HOSTS = new Set(['billing.stripe.com']);
+const CENTERED_CONTROL_ROW_STYLE = {
+    display: 'flex',
+    justifyContent: 'center',
+};
+const TRUST_MARKER_STYLE = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    borderRadius: '1rem',
+    background: 'rgba(255, 255, 255, 0.6)',
+    padding: '0.5rem 1rem',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    color: 'hsl(var(--muted-foreground))',
+    boxShadow: '10px 10px 18px rgba(15, 23, 42, 0.03), -8px -8px 18px rgba(255, 255, 255, 0.8)',
+};
+const BILLING_TOGGLE_STYLE = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    borderRadius: '1.2rem',
+    background: 'rgba(255, 255, 255, 0.5)',
+    padding: '0.25rem',
+    boxShadow: '10px 10px 18px rgba(15, 23, 42, 0.03), -8px -8px 18px rgba(255, 255, 255, 0.8)',
+    backdropFilter: 'blur(8px)',
+};
+
+function billingToggleButtonStyle(active) {
+    return {
+        border: 0,
+        borderRadius: '1rem',
+        padding: '0.5rem 1.25rem',
+        fontSize: '0.875rem',
+        fontWeight: 600,
+        cursor: 'pointer',
+        transition: 'background 200ms ease, color 200ms ease, box-shadow 200ms ease',
+        background: active ? 'linear-gradient(90deg, #10b981 0%, #6366f1 100%)' : 'transparent',
+        color: active ? '#fff' : 'hsl(var(--muted-foreground))',
+        boxShadow: active ? '10px 10px 18px rgba(99, 102, 241, 0.15)' : 'none',
+    };
+}
 
 function buildStripeRedirectUrl(candidate, allowedHosts) {
     const value = String(candidate || '').trim();
@@ -307,33 +348,50 @@ export default function PricingPage() {
                     </p>
 
                     <div
-                        data-testid="pricing-trust-marker"
-                        className="mt-5 inline-flex items-center gap-2 rounded-[1rem] bg-white/60 px-4 py-2 text-sm font-semibold text-ink-muted shadow-clay-soft"
+                        className="mt-5 flex justify-center"
+                        data-testid="pricing-trust-marker-row"
+                        style={{ ...CENTERED_CONTROL_ROW_STYLE, marginTop: '1.25rem' }}
                     >
-                        <Lock className="h-4 w-4 text-primary" />
-                        {isKo ? 'Stripe 蹂댁븞 寃곗젣' : 'Secured by Stripe'}
+                        <div
+                            data-testid="pricing-trust-marker"
+                            className="inline-flex items-center gap-2 rounded-[1rem] bg-white/60 px-4 py-2 text-sm font-semibold text-ink-muted shadow-clay-soft"
+                            style={TRUST_MARKER_STYLE}
+                        >
+                            <Lock className="h-4 w-4 text-primary" />
+                            {isKo ? 'Stripe 蹂댁븞 寃곗젣' : 'Secured by Stripe'}
+                        </div>
                     </div>
 
-                    <div className="mt-8 inline-flex items-center gap-1 rounded-[1.2rem] bg-white/50 p-1 shadow-clay-soft backdrop-blur-sm">
-                        {[
-                            { value: 'monthly', labelKo: '월간', labelEn: 'Monthly' },
-                            { value: 'yearly', labelKo: '연간 17% 절약', labelEn: 'Yearly, save 17%' },
-                        ].map((option) => (
-                            <button
-                                key={option.value}
-                                type="button"
-                                data-testid={`pricing-billing-${option.value}`}
-                                onClick={() => setBilling(option.value)}
-                                className={[
-                                    'rounded-[1rem] px-5 py-2 text-sm font-semibold transition-all duration-200',
-                                    billing === option.value
-                                        ? 'bg-gradient-to-r from-primary to-accent text-white shadow-clay-soft'
-                                        : 'text-ink-muted hover:text-ink',
-                                ].join(' ')}
-                            >
-                                {isKo ? option.labelKo : option.labelEn}
-                            </button>
-                        ))}
+                    <div
+                        data-testid="pricing-billing-toggle"
+                        className="mt-8 flex justify-center"
+                        style={{ ...CENTERED_CONTROL_ROW_STYLE, marginTop: '2rem' }}
+                    >
+                        <div
+                            className="inline-flex items-center gap-1 rounded-[1.2rem] bg-white/50 p-1 shadow-clay-soft backdrop-blur-sm"
+                            style={BILLING_TOGGLE_STYLE}
+                        >
+                            {[
+                                { value: 'monthly', labelKo: '월간', labelEn: 'Monthly' },
+                                { value: 'yearly', labelKo: '연간 17% 절약', labelEn: 'Yearly, save 17%' },
+                            ].map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    data-testid={`pricing-billing-${option.value}`}
+                                    onClick={() => setBilling(option.value)}
+                                    className={[
+                                        'rounded-[1rem] px-5 py-2 text-sm font-semibold transition-all duration-200',
+                                        billing === option.value
+                                            ? 'bg-gradient-to-r from-primary to-accent text-white shadow-clay-soft'
+                                            : 'text-ink-muted hover:text-ink',
+                                    ].join(' ')}
+                                    style={billingToggleButtonStyle(billing === option.value)}
+                                >
+                                    {isKo ? option.labelKo : option.labelEn}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {checkoutError && (
@@ -433,7 +491,7 @@ export default function PricingPage() {
                             >
                                 <GlassCard className={`relative flex h-full flex-col p-7 transition-all ${tier.popular ? 'ring-2 ring-primary/40' : ''}`}>
                                     {tier.popular && (
-                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                        <div className="-mt-2 mb-4 flex justify-center" data-testid="pricing-popular-badge">
                                             <Badge variant="default" className="px-4 py-1 text-xs">
                                                 {isKo ? '인기 플랜' : 'Most popular'}
                                             </Badge>
