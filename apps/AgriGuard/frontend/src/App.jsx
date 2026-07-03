@@ -8,6 +8,8 @@ const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
 const ProductRegistry = lazy(() => import('./components/ProductRegistry'));
 const ProductDetail = lazy(() => import('./components/ProductDetail'));
 const ConsumerVerify = lazy(() => import('./components/ConsumerVerify'));
+const QRTokenManager = lazy(() => import('./components/QRTokenManager'));
+const SensorDeviceManager = lazy(() => import('./components/SensorDeviceManager'));
 const SupplyChain = lazy(() => import('./components/SupplyChain'));
 const QRReader = lazy(() => import('./components/QRReader'));
 const ColdChainMonitor = lazy(() => import('./components/ColdChainMonitor'));
@@ -30,6 +32,8 @@ function App() {
             <Route index element={<Suspense fallback={<LoadingSpinner />}><Dashboard /></Suspense>} />
             <Route path="registry" element={<Suspense fallback={<LoadingSpinner />}><ProductRegistry /></Suspense>} />
             <Route path="product/:id" element={<Suspense fallback={<LoadingSpinner />}><ProductDetail /></Suspense>} />
+            <Route path="qr-tokens" element={<Suspense fallback={<LoadingSpinner />}><QRTokenManager /></Suspense>} />
+            <Route path="sensor-devices" element={<Suspense fallback={<LoadingSpinner />}><SensorDeviceManager /></Suspense>} />
             <Route path="supply-chain" element={<Suspense fallback={<LoadingSpinner />}><SupplyChain /></Suspense>} />
             <Route path="scan" element={<Suspense fallback={<LoadingSpinner />}><QRReader /></Suspense>} />
             <Route path="cold-chain" element={<Suspense fallback={<LoadingSpinner />}><ColdChainMonitor /></Suspense>} />

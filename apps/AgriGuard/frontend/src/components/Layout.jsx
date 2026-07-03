@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Sprout, ShieldCheck, Truck, Menu, X, Scan, Thermometer } from 'lucide-react';
+import { Sprout, ShieldCheck, Truck, Menu, X, Scan, Thermometer, KeyRound, RadioTower } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
@@ -12,6 +12,8 @@ export default function Layout() {
     { name: 'Dashboard', path: '/', icon: Sprout },
     { name: 'Registry', path: '/registry', icon: ShieldCheck },
     { name: 'Supply Chain', path: '/supply-chain', icon: Truck },
+    { name: 'QR Tokens', path: '/qr-tokens', icon: KeyRound },
+    { name: 'Sensors', path: '/sensor-devices', icon: RadioTower },
     { name: 'Cold-Chain', path: '/cold-chain', icon: Thermometer },
     { name: 'Scanner', path: '/scan', icon: Scan },
   ];

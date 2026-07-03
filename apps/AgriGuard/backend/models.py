@@ -127,3 +127,26 @@ class SensorReading(Base):
     battery = Column(Float)
     zone = Column(String)
     status = Column(String, default="normal")
+
+
+class SensorDevice(Base):
+    __tablename__ = "sensor_devices"
+    __table_args__ = (
+        Index("ix_sensor_devices_owner_id", "owner_id"),
+        Index("ix_sensor_devices_zone", "zone"),
+        Index("ix_sensor_devices_is_active", "is_active"),
+        Index("ix_sensor_devices_last_seen_at", "last_seen_at"),
+    )
+
+    sensor_id = Column(String, primary_key=True)
+    owner_id = Column(String, nullable=True)
+    label = Column(String, nullable=True)
+    zone = Column(String, nullable=True)
+    expected_interval_minutes = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    registered_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    first_seen_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+    last_battery = Column(Float, nullable=True)
+    last_status = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)

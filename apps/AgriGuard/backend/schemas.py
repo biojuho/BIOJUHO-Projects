@@ -168,3 +168,208 @@ class QRVerifyResponse(BaseModel):
     temperature_summary: QRTemperatureSummary
     blockchain_proof: QRBlockchainProof
     consumer_notice: str
+
+
+class QRTokenAdminSummary(BaseModel):
+    id: str
+    product_id: str
+    token_prefix: str
+    batch_code: str
+    issued_at: datetime
+    expires_at: datetime | None = None
+    revoked_at: datetime | None = None
+    last_verified_at: datetime | None = None
+    scan_count: int = 0
+    is_active: bool
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QRTokenListResponse(BaseModel):
+    status: str
+    product_id: str
+    items: list[QRTokenAdminSummary] = Field(default_factory=list)
+    total: int
+    active_count: int
+    revoked_count: int
+    expired_count: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class QRTokenReissueRequest(BaseModel):
+    revoke_existing: bool = True
+    expires_at: datetime | None = None
+
+
+class QRTokenReissueResponse(BaseModel):
+    status: str
+    product_id: str
+    qr_code: str
+    token: str
+    token_summary: QRTokenAdminSummary
+    revoked_token_ids: list[str] = Field(default_factory=list)
+
+
+class QRTokenRevokeResponse(BaseModel):
+    status: str
+    token_summary: QRTokenAdminSummary
+
+
+class SensorDeviceUpsertRequest(BaseModel):
+    owner_id: str | None = Field(default=None, max_length=120)
+    clear_owner: bool = False
+    label: str | None = Field(default=None, max_length=120)
+    zone: str | None = Field(default=None, max_length=120)
+    expected_interval_minutes: int | None = Field(default=None, ge=1, le=1440)
+    is_active: bool = True
+
+
+class SensorDeviceSummary(BaseModel):
+    sensor_id: str
+    owner_id: str | None = None
+    label: str | None = None
+    zone: str | None = None
+    expected_interval_minutes: int | None = None
+    is_active: bool
+    registered_at: datetime
+    first_seen_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    last_battery: float | None = None
+    last_status: str | None = None
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SensorDeviceListResponse(BaseModel):
+    status: str
+    items: list[SensorDeviceSummary] = Field(default_factory=list)
+    total: int
+    active_count: int
+    disabled_count: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class SensorDeviceActionResponse(BaseModel):
+    status: str
+    sensor: SensorDeviceSummary
+
+
+class UnsupportedSensorIdentityListResponse(BaseModel):
+    status: str
+    items: list[SensorDeviceSummary] = Field(default_factory=list)
+    total: int
+    active_count: int
+    disabled_count: int
+    safe_pattern: str
+    notes: list[str] = Field(default_factory=list)
+
+
+class UnsupportedSensorIdentityCleanupRequest(BaseModel):
+    sensor_ids: list[str] | None = Field(default=None, max_length=100)
+
+
+class UnsupportedSensorIdentityCleanupResponse(BaseModel):
+    status: str
+    disabled_count: int
+    disabled_sensor_ids: list[str] = Field(default_factory=list)
+    skipped_sensor_ids: list[str] = Field(default_factory=list)
+    items: list[SensorDeviceSummary] = Field(default_factory=list)
+
+
+class UnsupportedSensorIdentityReissueRequest(BaseModel):
+    old_sensor_id: str = Field(min_length=1, max_length=120)
+    new_sensor_id: str = Field(min_length=1, max_length=120)
+
+
+class UnsupportedSensorIdentityReissueResponse(BaseModel):
+    status: str
+    source_sensor: SensorDeviceSummary
+    replacement_sensor: SensorDeviceSummary
+    broker_rotation_required: bool = True
+    notes: list[str] = Field(default_factory=list)
+
+
+class MQTTRejectionEventSummary(BaseModel):
+    id: str
+    sensor_id: str | None = None
+    reason: str | None = None
+    occurred_at: datetime
+    error_message: str | None = None
+    registry_required: bool | None = None
+
+
+class MQTTRejectionListResponse(BaseModel):
+    status: str
+    items: list[MQTTRejectionEventSummary] = Field(default_factory=list)
+    total: int
+    reason_counts: dict[str, int] = Field(default_factory=dict)
+    window_hours: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class MQTTBrokerProvisioningResponse(BaseModel):
+    status: str
+    generated_at: datetime
+    active_sensor_count: int
+    disabled_sensor_count: int
+    unsupported_sensor_ids: list[str] = Field(default_factory=list)
+    acl_file: str
+    password_file_commands: list[str] = Field(default_factory=list)
+    password_file_delete_commands: list[str] = Field(default_factory=list)
+    dynamic_security_commands: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class MQTTBrokerProvisioningEvidenceRequest(BaseModel):
+    mode: str = Field(default="combined", max_length=40)
+    artifact_hash: str = Field(min_length=64, max_length=64)
+    artifact_generated_at: datetime | None = None
+    applied_at: datetime | None = None
+    broker_host: str | None = Field(default=None, max_length=160)
+    runbook_reference: str | None = Field(default=None, max_length=240)
+    active_sensor_count: int = Field(ge=0)
+    disabled_sensor_count: int = Field(ge=0)
+    unsupported_sensor_count: int = Field(ge=0)
+    credential_rotation_required: bool = True
+    rotation_note: str | None = Field(default=None, max_length=500)
+
+
+class MQTTBrokerProvisioningEvidenceSummary(BaseModel):
+    id: str
+    recorded_at: datetime
+    applied_at: datetime
+    mode: str
+    artifact_hash: str
+    artifact_generated_at: datetime | None = None
+    broker_host: str | None = None
+    runbook_reference: str | None = None
+    active_sensor_count: int
+    disabled_sensor_count: int
+    unsupported_sensor_count: int
+    credential_rotation_required: bool
+    actor_uid: str | None = None
+    actor_email: str | None = None
+    rotation_note: str | None = None
+
+
+class MQTTBrokerProvisioningEvidenceResponse(BaseModel):
+    status: str
+    latest: MQTTBrokerProvisioningEvidenceSummary | None = None
+
+
+class MQTTBrokerProvisioningEvidenceHistoryResponse(BaseModel):
+    status: str
+    items: list[MQTTBrokerProvisioningEvidenceSummary] = Field(default_factory=list)
+    total: int
+    broker_host: str | None = None
+    page: int
+    page_size: int
+    total_pages: int

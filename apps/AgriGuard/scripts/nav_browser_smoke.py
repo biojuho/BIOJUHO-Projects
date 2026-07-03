@@ -14,6 +14,8 @@ DEFAULT_ROUTES = [
     {"name": "dashboard", "label": "Dashboard", "path": "/", "expected": ["Consumer QR KPIs"]},
     {"name": "registry", "label": "Registry", "path": "/registry", "expected": ["Crop Registry"]},
     {"name": "supply_chain", "label": "Supply Chain", "path": "/supply-chain", "expected": ["Supply Chain Overview"]},
+    {"name": "qr_tokens", "label": "QR Tokens", "path": "/qr-tokens", "expected": ["QR Token Management"]},
+    {"name": "sensors", "label": "Sensors", "path": "/sensor-devices", "expected": ["Sensor Device Registry"]},
     {"name": "cold_chain", "label": "Cold-Chain", "path": "/cold-chain", "expected": ["Cold-Chain Monitor"]},
     {"name": "scanner", "label": "Scanner", "path": "/scan", "expected": ["Scan Product QR"]},
 ]
