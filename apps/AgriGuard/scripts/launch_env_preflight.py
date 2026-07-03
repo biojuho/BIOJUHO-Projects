@@ -56,7 +56,22 @@ def _split_origins(raw_value: str) -> list[str]:
     return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
 
 
-def validate_launch_env(env: dict[str, str]) -> dict[str, object]:
+def _database_url_for_runtime(env: dict[str, str], runtime: str) -> tuple[str, str | None]:
+    if runtime == "compose":
+        value = (env.get("AGRIGUARD_DATABASE_URL") or "").strip()
+        return value, "AGRIGUARD_DATABASE_URL" if value else None
+
+    value = (env.get("AGRIGUARD_DATABASE_URL") or "").strip()
+    if value:
+        return value, "AGRIGUARD_DATABASE_URL"
+    value = (env.get("DATABASE_URL") or "").strip()
+    return value, "DATABASE_URL" if value else None
+
+
+def validate_launch_env(env: dict[str, str], *, runtime: str = "compose") -> dict[str, object]:
+    if runtime not in {"compose", "direct"}:
+        raise ValueError("runtime must be 'compose' or 'direct'")
+
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -75,9 +90,9 @@ def validate_launch_env(env: dict[str, str]) -> dict[str, object]:
     if auto_create_schema in {"1", "true", "yes", "on"}:
         errors.append("AUTO_CREATE_SCHEMA must not be enabled for launch.")
 
-    database_url = (env.get("AGRIGUARD_DATABASE_URL") or env.get("DATABASE_URL") or "").strip().lower()
-    if database_url.startswith("sqlite"):
-        errors.append("Use a PostgreSQL DATABASE_URL/AGRIGUARD_DATABASE_URL for launch, not SQLite.")
+    database_url, database_url_source = _database_url_for_runtime(env, runtime)
+    if database_url.lower().startswith("sqlite"):
+        errors.append(f"Use a PostgreSQL {database_url_source} for launch, not SQLite.")
 
     origins = _split_origins(env.get("AGRIGUARD_ALLOWED_ORIGINS") or env.get("ALLOWED_ORIGINS") or "")
     if "*" in origins:
@@ -90,10 +105,12 @@ def validate_launch_env(env: dict[str, str]) -> dict[str, object]:
         "errors": errors,
         "warnings": warnings,
         "checks": {
+            "runtime": runtime,
             "secret_source": secret_source if secret else None,
             "secret_min_length": MIN_SECRET_LENGTH,
             "auto_create_schema": auto_create_schema or None,
             "database_url_present": bool(database_url),
+            "database_url_source": database_url_source,
             "allowed_origins_count": len(origins),
         },
     }
@@ -113,11 +130,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional env file to load before process environment values. May be repeated.",
     )
+    parser.add_argument(
+        "--runtime",
+        choices=["compose", "direct"],
+        default="compose",
+        help="Launch runtime to validate. Compose mode ignores host DATABASE_URL unless AGRIGUARD_DATABASE_URL is set.",
+    )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)
 
     env_files = args.env_file if args.env_file is not None else _default_env_files()
-    report = validate_launch_env(build_effective_env(env_files))
+    report = validate_launch_env(build_effective_env(env_files), runtime=args.runtime)
 
     output = json.dumps(report, indent=2, sort_keys=True)
     if args.json_out:

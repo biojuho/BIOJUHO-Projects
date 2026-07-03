@@ -11,11 +11,14 @@ The broad AgriGuard smoke still imports the backend with no `SECRET_KEY` and rec
 - Added `apps/AgriGuard/scripts/launch_env_preflight.py`.
 - The preflight fails when `AGRIGUARD_SECRET_KEY`/`SECRET_KEY` is missing, placeholder-like, or shorter than 32 characters.
 - The preflight also rejects launch-unsafe `AUTO_CREATE_SCHEMA=true`, SQLite database URLs, and wildcard allowed origins.
+- The CLI defaults to compose runtime semantics, so host `DATABASE_URL` is ignored unless `AGRIGUARD_DATABASE_URL` is explicitly set; `--runtime direct` validates direct backend launches against `DATABASE_URL`.
 - Added focused tests for missing, placeholder, short, unsafe, passing, and env-file override cases.
 
 ## Verification
 
 - Pass: `python -m py_compile apps/AgriGuard/scripts/launch_env_preflight.py`
-- Pass: `uv run --isolated --no-project --with pytest>=8.0 python -m pytest apps/AgriGuard/backend/tests/test_launch_env_preflight.py -q --basetemp "D:\AI project\var\tmp\pytest-agriguard-launch-env-preflight"` (`6 passed`)
+- Pass: `uv run --isolated --no-project --with pytest>=8.0 python -m pytest apps/AgriGuard/backend/tests/test_launch_env_preflight.py -q --basetemp "D:\AI project\var\tmp\pytest-agriguard-launch-env-preflight-runtime"` (`8 passed`)
 - Pass: CLI with strong `AGRIGUARD_SECRET_KEY`, PostgreSQL URL, scoped allowed origin, and `AUTO_CREATE_SCHEMA=false` returned status `pass`.
 - Pass: CLI with `AGRIGUARD_SECRET_KEY=change_me` returned exit code `1` and status `fail`.
+- Pass: CLI with `--runtime direct`, strong secret, PostgreSQL URL, scoped allowed origin, and `AUTO_CREATE_SCHEMA=false` returned status `pass`.
+- Current local compose-mode preflight evidence: `var/agriguard-launch-env-preflight-current.json` returns status `fail` only because `AUTO_CREATE_SCHEMA=true` is set in the current environment.
