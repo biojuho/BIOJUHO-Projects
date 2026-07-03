@@ -410,3 +410,15 @@ def test_product_detail_browser_smoke_uses_operator_token_env(monkeypatch):
     args = script.parse_args()
 
     assert args.operator_token == "staging-detail-token"
+
+
+def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "consumer_verify_unavailable_browser_smoke.py",
+        "consumer_verify_unavailable_browser_smoke_under_test",
+    )
+
+    assert script.parse_viewport("390x844") == {"width": 390, "height": 844}
+    assert script.route_url("http://127.0.0.1:5174/", "offline-token").startswith(
+        "http://127.0.0.1:5174/verify/offline-token?scan_source=unavailable_smoke"
+    )
