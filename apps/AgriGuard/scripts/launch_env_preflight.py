@@ -26,6 +26,7 @@ PLACEHOLDER_SECRETS = {
 PLACEHOLDER_PREFIXES = ("change_me", "changeme", "your_", "insecure-dev")
 LOCAL_PUBLIC_VERIFY_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 FORBIDDEN_LAUNCH_TRUE_FLAGS = ("ALLOW_TEST_BYPASS", "ALLOW_DEV_AUTH_FALLBACK")
+COMPOSE_FIREBASE_CREDENTIALS_FILE = "/run/secrets/agriguard_firebase_service_account"
 
 
 def _strip_optional_quotes(value: str) -> str:
@@ -245,6 +246,52 @@ def _public_verify_base_url_for_runtime(
     return "", None, "Set PUBLIC_VERIFY_BASE_URL before direct backend launch."
 
 
+def _firebase_credentials_for_runtime(env: dict[str, str], runtime: str) -> tuple[str, str | None, str | None]:
+    if runtime == "compose":
+        host_file = (env.get("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE") or "").strip()
+        if host_file:
+            return host_file, "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE", None
+        if (env.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip():
+            return (
+                "",
+                None,
+                "Set AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE for compose launch instead of relying on generic GOOGLE_APPLICATION_CREDENTIALS.",
+            )
+        return (
+            "",
+            None,
+            "Set AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE to a Firebase service account JSON before compose launch.",
+        )
+
+    credentials = (env.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
+    if credentials:
+        return credentials, "GOOGLE_APPLICATION_CREDENTIALS", None
+    if (env.get("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE") or "").strip():
+        return (
+            "",
+            None,
+            "Set GOOGLE_APPLICATION_CREDENTIALS for direct backend launch; AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE is only mounted by compose.",
+        )
+    return "", None, "Set GOOGLE_APPLICATION_CREDENTIALS to a Firebase service account file before launch."
+
+
+def _resolve_app_relative_path(value: str, *, app_root: Path) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return (app_root / path).resolve()
+
+
+def _firebase_credentials_file_errors(value: str, *, source: str, app_root: Path) -> list[str]:
+    path = _resolve_app_relative_path(value, app_root=app_root)
+    errors: list[str] = []
+    if path.suffix.lower() != ".json":
+        errors.append(f"{source} must point to a JSON Firebase service account file.")
+    if not path.is_file():
+        errors.append(f"{source} file does not exist.")
+    return errors
+
+
 def _public_verify_base_url_errors(
     value: str,
     *,
@@ -326,16 +373,18 @@ def validate_launch_env_with_options(
     if dev_auth_fallback_role_set:
         errors.append("DEV_AUTH_FALLBACK_ROLE must not be set for launch.")
 
-    firebase_credentials = (env.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
-    firebase_credentials_source = "GOOGLE_APPLICATION_CREDENTIALS" if firebase_credentials else None
-    if not firebase_credentials:
-        message = "Set GOOGLE_APPLICATION_CREDENTIALS to a Firebase service account file before launch."
+    firebase_credentials, firebase_credentials_source, firebase_credentials_error = _firebase_credentials_for_runtime(
+        env,
+        runtime,
+    )
+    if firebase_credentials_error:
+        message = firebase_credentials_error
         if allow_missing_firebase_credentials:
             warnings.append(message)
         else:
             errors.append(message)
     elif _is_placeholder_value(firebase_credentials):
-        errors.append("GOOGLE_APPLICATION_CREDENTIALS uses a placeholder or development-only value.")
+        errors.append(f"{firebase_credentials_source} uses a placeholder or development-only value.")
 
     secret, secret_source, secret_error = _secret_for_runtime(
         env,
@@ -431,6 +480,7 @@ def validate_launch_env_with_options(
             "forbidden_launch_flags_enabled": forbidden_enabled_flags,
             "dev_auth_fallback_role_set": dev_auth_fallback_role_set,
             "firebase_credentials_source": firebase_credentials_source,
+            "compose_firebase_credentials_file": COMPOSE_FIREBASE_CREDENTIALS_FILE,
             "allow_missing_firebase_credentials": allow_missing_firebase_credentials,
             "secret_source": secret_source,
             "secret_min_length": MIN_SECRET_LENGTH,
@@ -563,6 +613,26 @@ def build_launch_report(
     assert isinstance(checks, dict)
     checks["docker_checked"] = check_docker
 
+    firebase_credentials_source = checks.get("firebase_credentials_source")
+    if firebase_credentials_source in {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE", "GOOGLE_APPLICATION_CREDENTIALS"}:
+        firebase_credentials = (
+            env.get(str(firebase_credentials_source)) or ""
+        ).strip()
+        firebase_credential_errors = _firebase_credentials_file_errors(
+            firebase_credentials,
+            source=str(firebase_credentials_source),
+            app_root=app_root or Path(__file__).resolve().parents[1],
+        )
+        if firebase_credential_errors and not allow_missing_firebase_credentials:
+            errors = report["errors"]
+            assert isinstance(errors, list)
+            errors.extend(firebase_credential_errors)
+            report["status"] = "fail"
+        checks["firebase_credentials_file_checked"] = True
+        checks["firebase_credentials_file_exists"] = not firebase_credential_errors
+    else:
+        checks["firebase_credentials_file_checked"] = False
+
     if check_docker:
         docker_report = check_docker_readiness(
             app_root=app_root or Path(__file__).resolve().parents[1],
@@ -640,7 +710,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--allow-missing-firebase-credentials",
         action="store_true",
-        help="Permit missing GOOGLE_APPLICATION_CREDENTIALS for local auth-fallback diagnostics.",
+        help="Permit missing Firebase Admin credentials for local auth-fallback diagnostics.",
     )
     parser.add_argument("--json-out", type=Path, help="Optional path to write the JSON preflight report.")
     args = parser.parse_args(argv)

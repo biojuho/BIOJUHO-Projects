@@ -203,6 +203,14 @@ def test_agriguard_compose_passes_public_verify_base_url_without_backend_env_fil
     assert "PUBLIC_VERIFY_BASE_URL=${AGRIGUARD_PUBLIC_VERIFY_BASE_URL:-${PUBLIC_VERIFY_BASE_URL:-}}" in compose
 
 
+def test_agriguard_compose_mounts_firebase_credentials_as_secret() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/agriguard_firebase_service_account" in compose
+    assert "secrets:\n      - agriguard_firebase_service_account" in compose
+    assert "agriguard_firebase_service_account:\n    file: ${AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE:-./backend/firebase-service-account.json}" in compose
+
+
 def test_agriguard_compose_does_not_publish_unconfigured_https_port() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
     edge_nginx = (WORKSPACE_ROOT / "apps/AgriGuard/nginx/nginx.conf").read_text(encoding="utf-8")
