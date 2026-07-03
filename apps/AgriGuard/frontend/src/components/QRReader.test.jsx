@@ -21,6 +21,7 @@ vi.mock('@yudiel/react-qr-scanner', () => ({
   Scanner: ({ onScan, onError }) => {
     scannerApi = {
       triggerSuccess: () => onScan([{ rawValue: 'https://agriguard.test/product/prod-1' }]),
+      triggerAgriVerify: () => onScan([{ rawValue: 'agri://verify/prod-2' }]),
       triggerInvalid: () => onScan([{ rawValue: 'not-a-valid-qr' }]),
       triggerError: () => onError(new Error('permission denied')),
     };
@@ -29,6 +30,9 @@ vi.mock('@yudiel/react-qr-scanner', () => ({
       <div data-testid="scanner-mock">
         <button type="button" onClick={scannerApi.triggerSuccess}>
         trigger-success
+        </button>
+        <button type="button" onClick={scannerApi.triggerAgriVerify}>
+        trigger-agri-verify
         </button>
         <button type="button" onClick={scannerApi.triggerInvalid}>
         trigger-invalid
@@ -137,8 +141,60 @@ describe('QRReader', () => {
     });
 
     expect(navigateMock).toHaveBeenCalledWith(
-      '/product/prod-1?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
+      '/verify/prod-1?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
     );
+  });
+
+  it('accepts registered agri verify QR values', async () => {
+    vi.useFakeTimers();
+    renderReader();
+
+    fireEvent.click(screen.getByRole('button', { name: 'trigger-agri-verify' }));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/verify/prod-2?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
+    );
+  });
+
+  it('navigates with a manual token when camera scanning is unavailable', async () => {
+    renderReader();
+
+    fireEvent.change(screen.getByLabelText(/Manual verification code/i), {
+      target: { value: ' mock-0 ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify code/i }));
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith(
+        '/verify/mock-0?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
+      );
+    });
+    expect(trackQrEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: 'scan_recovery',
+        recovery_method: 'manual_entry',
+        qr_value: 'mock-0',
+      }),
+    );
+  });
+
+  it('rejects malformed manual entries before navigation', async () => {
+    renderReader();
+
+    fireEvent.change(screen.getByLabelText(/Manual verification code/i), {
+      target: { value: '###' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify code/i }));
+
+    await waitFor(() => {
+      expect(trackQrEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ event_type: 'scan_failure', error_code: 'manual_qr_format' }),
+      );
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('does not schedule duplicate navigation for repeated scan callbacks', async () => {

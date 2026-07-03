@@ -1,0 +1,236 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from playwright.sync_api import Page, sync_playwright
+
+
+DEFAULT_BASE_URL = "http://127.0.0.1:5174"
+DEFAULT_MANUAL_TOKEN = "mock-0"
+DEFAULT_INVALID_TOKEN = "not-a-real-token"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the AgriGuard QR scanner and consumer verification browser smoke.")
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Preview base URL. Defaults to {DEFAULT_BASE_URL}.")
+    parser.add_argument("--manual-token", default=DEFAULT_MANUAL_TOKEN)
+    parser.add_argument("--invalid-token", default=DEFAULT_INVALID_TOKEN)
+    parser.add_argument("--json-out", default="var/agriguard-qr-path-browser-smoke.json")
+    parser.add_argument("--screenshot-dir", default="var/agriguard-qr-path-browser-smoke-screens")
+    parser.add_argument("--timeout-ms", type=int, default=20_000)
+    parser.add_argument("--viewport", default="390x844", help="Viewport size as WIDTHxHEIGHT. Defaults to 390x844.")
+    return parser.parse_args()
+
+
+def parse_viewport(value: str) -> dict[str, int]:
+    try:
+        width_text, height_text = value.lower().split("x", 1)
+        width = int(width_text)
+        height = int(height_text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("Viewport must use WIDTHxHEIGHT, for example 390x844.") from exc
+    if width <= 0 or height <= 0:
+        raise argparse.ArgumentTypeError("Viewport width and height must be positive integers.")
+    return {"width": width, "height": height}
+
+
+def route_url(base_url: str, path: str) -> str:
+    return base_url.rstrip("/") + path
+
+
+def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
+    return {"name": name, "ok": bool(ok), "detail": detail}
+
+
+def write_json(path: str | Path, payload: dict[str, object]) -> None:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def page_text(page: Page) -> str:
+    return page.locator("body").inner_text(timeout=5_000)
+
+
+def read_metrics(page: Page) -> dict[str, object]:
+    return page.evaluate(
+        """() => {
+            const doc = document.documentElement;
+            const body = document.body;
+            return {
+              viewportWidth: window.innerWidth,
+              viewportHeight: window.innerHeight,
+              scrollWidth: Math.max(doc.scrollWidth, body.scrollWidth),
+              clientWidth: doc.clientWidth,
+              scrollHeight: Math.max(doc.scrollHeight, body.scrollHeight),
+              bodyTextLength: (body.textContent || '').trim().length,
+              bodyTextSample: (body.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 1000),
+            };
+        }"""
+    )
+
+
+def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
+    allowed_width = max(int(metrics["clientWidth"]), int(metrics["viewportWidth"]))
+    return int(metrics["scrollWidth"]) <= allowed_width + 1
+
+
+def wait_for_public_verify(page: Page, timeout_ms: int) -> None:
+    page.wait_for_function(
+        """() => {
+            const text = document.body.textContent || '';
+            return text.includes('Public view') && !text.includes('Verifying QR');
+        }""",
+        timeout=timeout_ms,
+    )
+
+
+def capture(page: Page, screenshot_dir: Path, name: str) -> str:
+    screenshot_dir.mkdir(parents=True, exist_ok=True)
+    path = screenshot_dir / f"{name}.png"
+    page.screenshot(path=str(path), full_page=False)
+    return str(path)
+
+
+def run_browser(args: argparse.Namespace) -> dict[str, object]:
+    checks: list[dict[str, object]] = []
+    observations: dict[str, object] = {}
+    console_messages: list[dict[str, str]] = []
+    request_failures: list[dict[str, str]] = []
+    page_errors: list[dict[str, str]] = []
+    screenshot_dir = Path(args.screenshot_dir)
+    viewport = parse_viewport(args.viewport)
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport=viewport, is_mobile=True, has_touch=True)
+        page.on(
+            "console",
+            lambda message: console_messages.append({"type": message.type, "text": message.text})
+            if message.type in {"error", "warning"}
+            else None,
+        )
+        page.on(
+            "requestfailed",
+            lambda request: request_failures.append(
+                {"url": request.url, "failure": (request.failure or "unknown")},
+            ),
+        )
+        page.on(
+            "pageerror",
+            lambda error: page_errors.append(
+                {
+                    "message": str(error),
+                    "stack": getattr(error, "stack", None) or "",
+                },
+            ),
+        )
+
+        page.goto(route_url(args.base_url, "/scan"), wait_until="domcontentloaded", timeout=args.timeout_ms)
+        manual_input = page.get_by_label("Manual verification code")
+        manual_input.wait_for(timeout=args.timeout_ms)
+        verify_button = page.get_by_role("button", name="Verify code")
+        initial_text = page_text(page)
+        initial_metrics = read_metrics(page)
+        observations["scan"] = {
+            "url": page.url,
+            "manualInputVisible": manual_input.is_visible(),
+            "verifyButtonInitiallyDisabled": verify_button.is_disabled(),
+            "showsCameraFallbackCopy": "No camera?" in initial_text,
+            "showsScannerGuidance": "Scan Product QR" in initial_text,
+            "metrics": initial_metrics,
+            "screenshot": capture(page, screenshot_dir, "scan"),
+        }
+        checks.append(check("scan_manual_input_visible", bool(observations["scan"]["manualInputVisible"])))
+        checks.append(check("scan_verify_button_disabled_until_input", bool(observations["scan"]["verifyButtonInitiallyDisabled"])))
+        checks.append(check("scan_camera_fallback_copy_visible", bool(observations["scan"]["showsCameraFallbackCopy"])))
+        checks.append(check("scan_no_horizontal_overflow", has_no_horizontal_overflow(initial_metrics), str(initial_metrics)))
+
+        manual_input.fill(args.manual_token)
+        verify_button.click(timeout=args.timeout_ms)
+        page.wait_for_url(f"**/verify/{args.manual_token}**", timeout=args.timeout_ms)
+        wait_for_public_verify(page, args.timeout_ms)
+        valid_text = page_text(page)
+        valid_metrics = read_metrics(page)
+        observations["manualVerify"] = {
+            "url": page.url,
+            "publicViewVisible": "Public view" in valid_text,
+            "trustCopyVisible": any(value in valid_text for value in ["Safe", "Warning", "Unknown"]),
+            "batchEvidenceVisible": "Batch and origin" in valid_text,
+            "notUnavailable": "Verification unavailable" not in valid_text,
+            "metrics": valid_metrics,
+            "screenshot": capture(page, screenshot_dir, "manual-verify"),
+        }
+        checks.append(check("manual_verify_url_opened", f"/verify/{args.manual_token}" in page.url, page.url))
+        checks.append(check("manual_verify_public_view_visible", bool(observations["manualVerify"]["publicViewVisible"])))
+        checks.append(check("manual_verify_trust_copy_visible", bool(observations["manualVerify"]["trustCopyVisible"])))
+        checks.append(check("manual_verify_batch_evidence_visible", bool(observations["manualVerify"]["batchEvidenceVisible"])))
+        checks.append(check("manual_verify_not_unavailable", bool(observations["manualVerify"]["notUnavailable"])))
+        checks.append(check("manual_verify_no_horizontal_overflow", has_no_horizontal_overflow(valid_metrics), str(valid_metrics)))
+
+        page.goto(route_url(args.base_url, f"/verify/{args.invalid_token}"), wait_until="domcontentloaded", timeout=args.timeout_ms)
+        wait_for_public_verify(page, args.timeout_ms)
+        invalid_text = page_text(page)
+        invalid_metrics = read_metrics(page)
+        observations["invalidVerify"] = {
+            "url": page.url,
+            "publicViewVisible": "Public view" in invalid_text,
+            "invalidCopyVisible": any(value in invalid_text for value in ["Unverified AgriGuard QR", "QR not verified"]),
+            "notUnavailable": "Verification unavailable" not in invalid_text,
+            "metrics": invalid_metrics,
+            "screenshot": capture(page, screenshot_dir, "invalid-verify"),
+        }
+        checks.append(check("invalid_verify_public_view_visible", bool(observations["invalidVerify"]["publicViewVisible"])))
+        checks.append(check("invalid_verify_blocks_trust", bool(observations["invalidVerify"]["invalidCopyVisible"])))
+        checks.append(check("invalid_verify_not_unavailable", bool(observations["invalidVerify"]["notUnavailable"])))
+        checks.append(check("invalid_verify_no_horizontal_overflow", has_no_horizontal_overflow(invalid_metrics), str(invalid_metrics)))
+
+        browser.close()
+
+    actionable_request_failures = [
+        failure for failure in request_failures if "ERR_ABORTED" not in failure.get("failure", "")
+    ]
+    checks.append(check("no_console_warnings_or_errors", len(console_messages) == 0, str(len(console_messages))))
+    checks.append(
+        check(
+            "no_actionable_request_failures",
+            len(actionable_request_failures) == 0,
+            f"{len(actionable_request_failures)} actionable / {len(request_failures)} total",
+        )
+    )
+    checks.append(check("no_page_errors", len(page_errors) == 0, str(len(page_errors))))
+
+    passed = sum(1 for item in checks if item["ok"])
+    return {
+        "schema_version": 1,
+        "baseUrl": args.base_url,
+        "viewport": viewport,
+        "manualToken": args.manual_token,
+        "invalidToken": args.invalid_token,
+        "passed": passed,
+        "total": len(checks),
+        "ok": passed == len(checks),
+        "checks": checks,
+        "observations": observations,
+        "consoleMessages": console_messages,
+        "requestFailures": request_failures,
+        "actionableRequestFailures": actionable_request_failures,
+        "pageErrors": page_errors,
+        "screenshotDir": str(screenshot_dir),
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    report = run_browser(args)
+    write_json(args.json_out, report)
+    print(f"agriguard qr path browser smoke: {report['passed']}/{report['total']} PASS")
+    print(f"json written: {args.json_out}")
+    return 0 if report["ok"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

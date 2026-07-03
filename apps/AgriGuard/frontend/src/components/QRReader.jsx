@@ -2,9 +2,10 @@
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, AlertCircle, ScanLine, CheckCircle, RefreshCcw } from 'lucide-react';
+import { Camera, AlertCircle, ScanLine, CheckCircle, RefreshCcw, Keyboard } from 'lucide-react';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 import { useToast } from '../contexts/ToastContext';
 import {
   createQrSessionId,
@@ -15,12 +16,89 @@ import {
 
 const SCAN_SOURCE = 'qr_reader';
 
+function extractTokenFromUrl(url) {
+  if (url.protocol === 'agri:' && url.hostname === 'verify') {
+    return url.pathname.replace(/^\/+/, '');
+  }
+
+  const pathSegments = url.pathname.split('/').filter(Boolean);
+  for (const marker of ['verify', 'product']) {
+    const markerIndex = pathSegments.indexOf(marker);
+    if (markerIndex !== -1 && pathSegments.length > markerIndex + 1) {
+      return pathSegments[markerIndex + 1];
+    }
+  }
+
+  return '';
+}
+
+function extractVerificationToken(rawValue, { allowBareToken = false } = {}) {
+  const code = rawValue?.trim();
+  if (!code) {
+    return '';
+  }
+
+  try {
+    return extractTokenFromUrl(new URL(code));
+  } catch {
+    if (!allowBareToken) {
+      return '';
+    }
+  }
+
+  if (code.startsWith('/')) {
+    try {
+      return extractTokenFromUrl(new URL(code, 'https://agriguard.local'));
+    } catch {
+      return '';
+    }
+  }
+
+  if (/^[A-Za-z0-9][A-Za-z0-9._:-]{3,159}$/.test(code)) {
+    return code;
+  }
+
+  return '';
+}
+
+function createVerificationPath(qrToken, sessionId) {
+  return `/verify/${encodeURIComponent(qrToken)}?scan_source=${SCAN_SOURCE}&scan_session=${sessionId}&scan_variant=${QR_EXPERIMENT_VARIANT}`;
+}
+
+function clearNavigationTimer(timerRef) {
+  if (timerRef.current) {
+    window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+}
+
+const MANUAL_INPUT_ID = 'manual-qr-value';
+const MANUAL_HELP_ID = 'manual-qr-help';
+const NAVIGATION_DELAY_MS = 1200;
+
+function normalizeManualValue(value) {
+  return value.trim();
+}
+
+function hasManualValue(value) {
+  return normalizeManualValue(value).length > 0;
+}
+
+function getManualFailureMessage(value) {
+  if (!hasManualValue(value)) {
+    return 'Enter a verification link or token before continuing.';
+  }
+
+  return 'Enter a valid AgriGuard verification link or token.';
+}
+
 export default function QRReader() {
   const [error, setError] = useState('');
   const [isScanning, setIsScanning] = useState(true);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [attempt, setAttempt] = useState(1);
   const [lastQrValue, setLastQrValue] = useState('');
+  const [manualQrValue, setManualQrValue] = useState('');
   const [sessionId] = useState(() => createQrSessionId());
   const failureSignatureRef = useRef('');
   const navigationTimerRef = useRef(null);
@@ -30,10 +108,7 @@ export default function QRReader() {
   const { showToast } = useToast();
 
   useEffect(() => () => {
-    if (navigationTimerRef.current) {
-      window.clearTimeout(navigationTimerRef.current);
-      navigationTimerRef.current = null;
-    }
+    clearNavigationTimer(navigationTimerRef);
   }, []);
 
   useEffect(() => {
@@ -76,10 +151,7 @@ export default function QRReader() {
   };
 
   const handleRetry = async () => {
-    if (navigationTimerRef.current) {
-      window.clearTimeout(navigationTimerRef.current);
-      navigationTimerRef.current = null;
-    }
+    clearNavigationTimer(navigationTimerRef);
 
     await trackQrEvent({
       session_id: sessionId,
@@ -115,22 +187,17 @@ export default function QRReader() {
     setIsScanning(false);
 
     try {
-      const url = new URL(code);
-      const pathSegments = url.pathname.split('/');
-      const productIndex = pathSegments.indexOf('product');
-      if (productIndex === -1 || pathSegments.length <= productIndex + 1) {
+      const qrToken = extractVerificationToken(code);
+      if (!qrToken) {
         throw new Error('This QR code does not contain a valid AgriGuard product route.');
       }
 
-      const productId = pathSegments[productIndex + 1];
       setScanSuccess(true);
       showToast('Verification in progress', 'success');
       navigationTimerRef.current = window.setTimeout(() => {
-        navigate(
-          `/product/${productId}?scan_source=${SCAN_SOURCE}&scan_session=${sessionId}&scan_variant=${QR_EXPERIMENT_VARIANT}`,
-        );
+        navigate(createVerificationPath(qrToken, sessionId));
         navigationTimerRef.current = null;
-      }, 1200);
+      }, NAVIGATION_DELAY_MS);
     } catch {
       void handleFailure({
         message: 'This QR code is not a valid AgriGuard product link.',
@@ -139,6 +206,44 @@ export default function QRReader() {
       });
       showToast('Invalid AgriGuard QR code', 'error');
     }
+  };
+
+  const handleManualSubmit = async (event) => {
+    event.preventDefault();
+
+    const normalizedManualValue = normalizeManualValue(manualQrValue);
+    const qrToken = extractVerificationToken(normalizedManualValue, { allowBareToken: true });
+    if (!qrToken) {
+      await handleFailure({
+        message: getManualFailureMessage(normalizedManualValue),
+        errorCode: 'manual_qr_format',
+        qrValue: normalizedManualValue,
+      });
+      showToast('Invalid AgriGuard code', 'error');
+      return;
+    }
+
+    clearNavigationTimer(navigationTimerRef);
+    failureSignatureRef.current = '';
+    scanHandledRef.current = true;
+    setLastQrValue(normalizedManualValue);
+    setError('');
+    setIsScanning(false);
+    setScanSuccess(true);
+
+    void trackQrEvent({
+      session_id: sessionId,
+      event_type: 'scan_recovery',
+      recovery_method: 'manual_entry',
+      qr_value: normalizedManualValue,
+      event_payload: {
+        previous_attempt: attempt,
+        next_attempt: attempt,
+      },
+    });
+
+    showToast('Verification in progress', 'success');
+    navigate(createVerificationPath(qrToken, sessionId));
   };
 
   return (
@@ -199,7 +304,7 @@ export default function QRReader() {
               <div className="text-center text-muted-foreground px-6">
                 <Camera className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm font-medium">Scanner paused</p>
-                <p className="text-xs mt-2">Use retry to recover from camera or QR recognition issues.</p>
+                <p className="text-xs mt-2">Use retry or enter the verification token manually.</p>
               </div>
             )}
           </div>
@@ -230,6 +335,41 @@ export default function QRReader() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          <form onSubmit={handleManualSubmit}>
+            <div className="mt-5 rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Keyboard className="w-4 h-4 text-primary" />
+                <span>No camera?</span>
+              </div>
+              <label className="mt-4 block text-sm font-medium text-foreground" htmlFor={MANUAL_INPUT_ID}>
+                Manual verification code
+              </label>
+              <Input
+                id={MANUAL_INPUT_ID}
+                aria-describedby={MANUAL_HELP_ID}
+                autoCapitalize="none"
+                autoComplete="off"
+                className="mt-2 min-h-11 bg-background text-base sm:text-sm"
+                enterKeyHint="go"
+                inputMode="text"
+                placeholder="Paste /verify link or token"
+                spellCheck={false}
+                value={manualQrValue}
+                onChange={(event) => setManualQrValue(event.target.value)}
+              />
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground" id={MANUAL_HELP_ID}>
+                Use this when the camera is unavailable or the QR surface is damaged.
+              </p>
+              <Button
+                className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700"
+                disabled={!hasManualValue(manualQrValue)}
+                type="submit"
+              >
+                Verify code
+              </Button>
+            </div>
+          </form>
 
           <div className="mt-6 text-center pb-2">
             <p className="text-xs text-muted-foreground">
