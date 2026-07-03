@@ -15,6 +15,28 @@ class _FakeRequest:
         return {"password": self._password}
 
 
+class _FakeFirebaseAuth:
+    class ExpiredIdTokenError(Exception):
+        pass
+
+    class RevokedIdTokenError(Exception):
+        pass
+
+    class InvalidIdTokenError(Exception):
+        pass
+
+    @staticmethod
+    def verify_id_token(token: str) -> dict:
+        assert token == "firebase-token"
+        return {
+            "uid": "operator-user",
+            "email": "operator@example.com",
+            "name": "Operator User",
+            "role": "operator",
+            "roles": ["quality_manager"],
+        }
+
+
 def test_firebase_missing_rejects_without_explicit_dev_fallback(monkeypatch):
     monkeypatch.setattr(auth, "FIREBASE_AVAILABLE", False)
     monkeypatch.setattr(auth, "_firebase_initialized", False)
@@ -33,6 +55,32 @@ def test_test_bypass_still_requires_explicit_flag(monkeypatch):
     user = auth.verify_firebase_token("test-token")
 
     assert user["uid"] == "test-user-id"
+
+
+def test_dev_auth_fallback_role_is_explicit(monkeypatch):
+    monkeypatch.setattr(auth, "FIREBASE_AVAILABLE", False)
+    monkeypatch.setattr(auth, "_firebase_initialized", False)
+    monkeypatch.setenv("ALLOW_DEV_AUTH_FALLBACK", "true")
+    monkeypatch.delenv("DEV_AUTH_FALLBACK_ROLE", raising=False)
+
+    user_without_role = auth.verify_firebase_token("dev-token")
+    assert "role" not in user_without_role
+
+    monkeypatch.setenv("DEV_AUTH_FALLBACK_ROLE", "operator")
+    user_with_role = auth.verify_firebase_token("dev-token")
+    assert user_with_role["role"] == "operator"
+
+
+def test_firebase_token_preserves_operator_claims(monkeypatch):
+    monkeypatch.setattr(auth, "FIREBASE_AVAILABLE", True)
+    monkeypatch.setattr(auth, "_firebase_initialized", True)
+    monkeypatch.setattr(auth, "auth", _FakeFirebaseAuth)
+
+    user = auth.verify_firebase_token("firebase-token")
+
+    assert user["uid"] == "operator-user"
+    assert user["role"] == "operator"
+    assert user["roles"] == ["quality_manager"]
 
 
 @pytest.mark.asyncio

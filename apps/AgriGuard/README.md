@@ -90,6 +90,23 @@ npm run test
 python -m compileall -q apps/AgriGuard/backend
 ```
 
+Browser smoke for the supply-chain operator flow:
+
+```bash
+python apps/AgriGuard/scripts/supply_chain_browser_smoke.py --json-out var/agriguard-supply-chain-browser-smoke.json --screenshot var/agriguard-supply-chain-browser-smoke.png
+```
+
+For local-only browser smoke without Firebase Admin, start the backend with
+`ALLOW_DEV_AUTH_FALLBACK=true` and `DEV_AUTH_FALLBACK_ROLE=operator`, then start
+the frontend with `VITE_AGRIGUARD_OPERATOR_TOKEN` set to any non-empty smoke
+token. Do not use the dev fallback in production.
+
+Optional MQTT broker ACL smoke, requires a working Docker daemon:
+
+```bash
+python apps/AgriGuard/scripts/smoke_mqtt_broker_acl.py
+```
+
 ## Related Docs
 
 - [`frontend/README.md`](./frontend/README.md)

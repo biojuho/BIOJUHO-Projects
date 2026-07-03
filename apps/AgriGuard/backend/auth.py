@@ -58,11 +58,15 @@ def verify_firebase_token(token: str) -> dict:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Firebase authentication is not configured.",
             )
-        return {
+        fallback_user = {
             "uid": "dev-user-id",
             "email": "dev@example.com",
             "name": "Development User",
         }
+        fallback_role = os.getenv("DEV_AUTH_FALLBACK_ROLE", "").strip()
+        if fallback_role:
+            fallback_user["role"] = fallback_role
+        return fallback_user
 
     try:
         decoded_token = auth.verify_id_token(token)
@@ -70,6 +74,8 @@ def verify_firebase_token(token: str) -> dict:
             "uid": decoded_token.get("uid"),
             "email": decoded_token.get("email"),
             "name": decoded_token.get("name", decoded_token.get("email", "Unknown")),
+            "role": decoded_token.get("role"),
+            "roles": decoded_token.get("roles", []),
         }
     except auth.ExpiredIdTokenError:
         raise HTTPException(

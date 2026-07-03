@@ -16,6 +16,7 @@ export default defineConfig({
           },
         },
         codeSplitting: {
+          includeDependenciesRecursively: false,
           minSize: 20000,
           maxSize: 190000,
           groups: [
