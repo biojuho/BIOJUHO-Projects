@@ -1,9 +1,9 @@
 {
   "schemaVersion": "joopark-verify-workspace/v1",
-  "status": "blocked",
-  "generatedAt": "2026-07-03T10:05:33.199Z",
-  "startedAt": "2026-07-03T10:03:25.844Z",
-  "durationMs": 127355,
+  "status": "pass",
+  "generatedAt": "2026-07-03T10:10:03.362Z",
+  "startedAt": "2026-07-03T10:07:57.827Z",
+  "durationMs": 125535,
   "command": "npm run verify:full",
   "runner": "scripts/verify-workspace.mjs",
   "syncArtifacts": true,
@@ -14,13 +14,13 @@
     {
       "id": "release_readiness_gates",
       "command": "node scripts/audit-release-readiness.mjs --run-gates --format=summary",
-      "status": "blocked",
-      "code": 1,
+      "status": "pass",
+      "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-07-03T10:03:25.845Z",
-      "finishedAt": "2026-07-03T10:05:27.585Z",
-      "durationMs": 121740,
+      "startedAt": "2026-07-03T10:07:57.829Z",
+      "finishedAt": "2026-07-03T10:09:57.696Z",
+      "durationMs": 119866,
       "timeoutMs": 720000
     },
     {
@@ -30,9 +30,9 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-07-03T10:05:27.585Z",
-      "finishedAt": "2026-07-03T10:05:33.113Z",
-      "durationMs": 5528,
+      "startedAt": "2026-07-03T10:09:57.696Z",
+      "finishedAt": "2026-07-03T10:10:03.277Z",
+      "durationMs": 5581,
       "timeoutMs": 180000
     },
     {
@@ -42,8 +42,8 @@
       "code": 0,
       "signal": "",
       "error": "",
-      "startedAt": "2026-07-03T10:05:33.113Z",
-      "finishedAt": "2026-07-03T10:05:33.195Z",
+      "startedAt": "2026-07-03T10:10:03.277Z",
+      "finishedAt": "2026-07-03T10:10:03.359Z",
       "durationMs": 82,
       "timeoutMs": 60000
     }
@@ -67,22 +67,22 @@
   "artifacts": {
     "releaseReadiness": {
       "path": "autoresearch-results/release-readiness-summary.json",
-      "status": "blocked",
-      "generatedAt": "2026-07-03T10:05:27.574Z",
-      "summary": "284 pass, 0 fail, 0 not_run, 1 blocked",
+      "status": "pass",
+      "generatedAt": "2026-07-03T10:09:57.683Z",
+      "summary": "285 pass, 0 fail, 0 not_run, 0 blocked",
       "checks": {
-        "pass": 284,
+        "pass": 285,
         "fail": 0,
         "notRun": 0,
-        "blocked": 1,
+        "blocked": 0,
         "total": 285
       }
     },
     "launchReadiness": {
       "path": "data/launch-readiness-refresh.json",
       "status": "pass",
-      "generatedAt": "2026-07-03T10:05:33.108Z",
-      "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
+      "generatedAt": "2026-07-03T10:10:03.272Z",
+      "latestGateSummary": "285 pass, 0 fail, 0 not_run, 0 blocked",
       "safeToDispatch": true,
       "readyForExternalClaim": true,
       "workflowScopeInstallBlocked": false,
@@ -93,17 +93,17 @@
     "outputQuality": {
       "path": "data/output-quality-audit.json",
       "status": "pass",
-      "generatedAt": "2026-07-03T10:05:33.079Z",
+      "generatedAt": "2026-07-03T10:10:03.243Z",
       "releaseQualityReady": true,
       "publicLaunchProofReady": true,
       "readyForExternalClaim": true,
-      "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked"
+      "latestGateSummary": "285 pass, 0 fail, 0 not_run, 0 blocked"
     },
     "productLoop": {
       "path": "autoresearch-results/joopark-product-loop.json",
       "status": "ready-for-external-claim",
-      "generatedAt": "2026-07-03T10:05:33.184Z",
-      "latestGateSummary": "284 pass, 0 fail, 0 not_run, 0 blocked",
+      "generatedAt": "2026-07-03T10:10:03.349Z",
+      "latestGateSummary": "285 pass, 0 fail, 0 not_run, 0 blocked",
       "latestExperiment": "loop-211-correctness-now-fast-forwards-the-first-step-to-the-queried-rang",
       "latestDirectionLoop": "loop-211",
       "latestDirectionLoopNumber": 211,
@@ -130,8 +130,8 @@
       "latestDiscoveryExperimentReady": true,
       "latestDirectionLoopNumber": 211,
       "productLoopLatestDirectionLoopNumber": 211,
-      "outputQualityGeneratedAt": "2026-07-03T10:05:33.079Z",
-      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-07-03T10:05:33.079Z",
+      "outputQualityGeneratedAt": "2026-07-03T10:10:03.243Z",
+      "productLoopSummarySyncOutputQualityGeneratedAt": "2026-07-03T10:10:03.243Z",
       "source": "scripts/sync-product-loop-summary.mjs",
       "directionLogPath": "docs/product-direction.md",
       "fullVerifyCommand": "npm run verify:full"

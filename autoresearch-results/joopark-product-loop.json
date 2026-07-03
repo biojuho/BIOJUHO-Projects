@@ -1,21 +1,21 @@
 {
-  "generatedAt": "2026-07-03T10:05:33.184Z",
+  "generatedAt": "2026-07-03T10:10:03.349Z",
   "project": "JooPark Workspace",
   "status": "ready-for-external-claim",
   "latestGate": {
     "command": "npm run verify",
     "status": "pass",
     "checks": {
-      "pass": 284,
+      "pass": 285,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 284
+      "total": 285
     },
     "evidenceDowngradeGuard": {
       "source": "previous_output_quality_audit",
       "applied": false,
-      "previousGeneratedAt": "2026-07-03T10:05:32.826Z",
+      "previousGeneratedAt": "2026-07-03T10:10:02.987Z",
       "previousAgeHours": 0,
       "reason": "previous_output_quality_browser_evidence_ready",
       "candidateComplete": true,
@@ -26,7 +26,7 @@
       "mobileRoutes": 17,
       "interactionSteps": 68,
       "releaseFiles": 94,
-      "releaseBytes": 3424391,
+      "releaseBytes": 3424114,
       "deploySupportFiles": 4,
       "releaseSourceParity": true,
       "releaseSourceParityFiles": 66,
@@ -3642,13 +3642,13 @@
     {
       "id": "product-loop-summary-gate-parity",
       "primaryMetric": "productLoopSummaryParityCoverage",
-      "baseline": 0,
+      "baseline": 1,
       "candidate": 2,
       "decision": "keep",
-      "generatedAt": "2026-07-03T10:05:33.184Z",
+      "generatedAt": "2026-07-03T10:10:03.349Z",
       "hypothesis": "The AutoResearch product-loop summary should carry the same latest gate and launch publish blockers as the final output-quality audit so operators do not see stale pass counts or stale external-claim state.",
       "evidence": [
-        "Baseline product-loop latestGate reported 284 pass/284 total while data/output-quality-audit.json reported 284 pass/284 total.",
+        "Baseline product-loop latestGate reported 284 pass/284 total while data/output-quality-audit.json reported 285 pass/285 total.",
         "scripts/sync-product-loop-summary.mjs now updates autoresearch-results/joopark-product-loop.json from data/output-quality-audit.json and records gateParityReady=true plus publishParityReady=true.",
         "Tracked publish blockers are synchronized: remoteWorkflowFilesReady=true, remoteWorkflowVisibilityReady=true, workflowScopeInstallBlocked=false, postPublishEvidenceReady=true, readyForExternalClaim=true.",
         "Next candidates are synchronized to proof-ready state: nextCandidateCount=5, readyForExternalClaim=true."
@@ -6056,14 +6056,14 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep",
-      "generatedAt": "2026-07-03T10:05:33.079Z",
+      "generatedAt": "2026-07-03T10:10:03.243Z",
       "hypothesis": "The product-loop headline experiment should point to the latest adopted direction loop so operators can trace current release evidence back to the concrete A/B improvement that just landed.",
       "evidence": [
         "Latest direction loop is loop-211 from docs/product-direction.md.",
         "Reference quality: 0 source references, 0 operational repair URLs excluded, 0 leaked.",
         "Direction summary: Correctness: `expandOccurrences` now fast-forwards the first step to the queried range so daily/weekly/monthly series older than 750 steps still render in calendar, home, and reminders (regression-tested against the real function via vm extraction, not a stub); `toggleTodo` clears `completedAt` on uncheck and stats...",
         "Verification summary: not available",
-        "Output-quality audit generatedAt=2026-07-03T10:05:33.079Z; readyForExternalClaim=true."
+        "Output-quality audit generatedAt=2026-07-03T10:10:03.243Z; readyForExternalClaim=true."
       ],
       "externalComparison": {
         "label": "Operator-facing release summaries should keep the newest adopted improvement close to the evidence receipt, while manual dispatch and public release claims remain separately guarded.",
@@ -6098,7 +6098,7 @@
     "Continue extracting low-state navigation/runtime helpers only after proof-ready launch receipts remain green."
   ],
   "summarySync": {
-    "generatedAt": "2026-07-03T10:05:33.184Z",
+    "generatedAt": "2026-07-03T10:10:03.349Z",
     "source": "scripts/sync-product-loop-summary.mjs",
     "productLoopPath": "autoresearch-results/joopark-product-loop.json",
     "outputQualityPath": "data/output-quality-audit.json",
@@ -6108,7 +6108,7 @@
     "githubDiscoveryExperimentReady": true,
     "latestDiscoveryExperimentReady": true,
     "latestDiscoveryExperimentId": "github-project-discovery-artifact",
-    "outputQualityGeneratedAt": "2026-07-03T10:05:33.079Z",
+    "outputQualityGeneratedAt": "2026-07-03T10:10:03.243Z",
     "gateParityReady": true,
     "publishParityReady": true,
     "directionLoopReady": true,
@@ -6121,13 +6121,9 @@
     "directionExperimentChanged": true,
     "discoveryExperimentMetadataMissing": false,
     "discoveryExperimentChanged": false,
-    "nextCandidatesChanged": true,
-    "changedPublishKeys": [
-      "allDispatchReady",
-      "remoteWorkflowFilesReady",
-      "readyForExternalClaim"
-    ],
-    "baselineParityCoverage": 0,
+    "nextCandidatesChanged": false,
+    "changedPublishKeys": [],
+    "baselineParityCoverage": 1,
     "candidateParityCoverage": 2,
     "syncExperimentUpdated": true,
     "nextCandidatesReady": true,
@@ -6141,15 +6137,15 @@
     "baseline": 0,
     "candidate": 1,
     "decision": "keep",
-    "generatedAt": "2026-07-03T10:05:33.079Z"
+    "generatedAt": "2026-07-03T10:10:03.243Z"
   },
   "latestSyncExperiment": {
     "id": "product-loop-summary-gate-parity",
     "primaryMetric": "productLoopSummaryParityCoverage",
-    "baseline": 0,
+    "baseline": 1,
     "candidate": 2,
     "decision": "keep",
-    "generatedAt": "2026-07-03T10:05:33.184Z"
+    "generatedAt": "2026-07-03T10:10:03.349Z"
   },
   "latestDirectionLoop": {
     "id": "loop-211",
