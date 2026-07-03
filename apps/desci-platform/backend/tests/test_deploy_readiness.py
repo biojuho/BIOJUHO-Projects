@@ -31,6 +31,9 @@ def _ready_env() -> dict[str, str]:
         "DESCI_FRONTEND_URL": "https://app.dsci-prod.io",
         "REDIS_URL": "rediss://redis:6379/0",
         "RABBITMQ_URL": "amqps://rabbitmq:5671/desci",
+        "PINATA_JWT": "pinata-jwt-configured",
+        "GROBID_ENABLED": "true",
+        "GROBID_URL": "https://grobid.dsci-prod.io/api",
         "STRIPE_SECRET_KEY": "stripe-secret-configured",
         "STRIPE_WEBHOOK_SECRET": "stripe-webhook-configured",
         "STRIPE_PRICE_PRO_MONTHLY": "price_live_pro_monthly_real",
@@ -107,6 +110,24 @@ def test_railway_requires_public_frontend_return_origin_for_stripe_redirects() -
 
     return_url_check = next(check for check in checks if check.id == "railway_frontend_return_url")
     assert return_url_check.status == "fail"
+
+
+def test_railway_warns_for_optional_asset_and_pdf_integrations() -> None:
+    env = _ready_env()
+    env.pop("PINATA_JWT")
+    env.pop("GROBID_URL")
+    env["GROBID_ENABLED"] = "false"
+
+    checks = deploy_readiness.run_checks(env, targets=("railway",))
+
+    ipfs_check = next(check for check in checks if check.id == "railway_ipfs")
+    grobid_check = next(check for check in checks if check.id == "railway_grobid")
+    assert ipfs_check.status == "warn"
+    assert ipfs_check.required is False
+    assert ipfs_check.keys == ("PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET")
+    assert grobid_check.status == "warn"
+    assert grobid_check.required is False
+    assert grobid_check.keys == ("GROBID_ENABLED", "GROBID_URL")
 
 
 def test_reserved_example_domains_fail_required_checks() -> None:
@@ -451,15 +472,53 @@ def test_release_handoff_maps_product_actions_to_deploy_surfaces() -> None:
     assert payload["coverage"]["missing_required_coverage"] == []
 
 
-def test_release_handoff_keeps_product_only_optional_actions_visible() -> None:
+def test_release_handoff_maps_optional_storage_and_parser_actions_to_deploy_surfaces() -> None:
     product_payload = _product_smoke_handoff_payload(
         [
+            {
+                "id": "ipfs",
+                "required": False,
+                "status": "warn",
+                "remediation": "Set Pinata credentials.",
+                "required_env": ["PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET"],
+            },
             {
                 "id": "grobid",
                 "required": False,
                 "status": "warn",
                 "remediation": "Set GROBID_ENABLED=true and GROBID_URL.",
                 "required_env": ["GROBID_ENABLED", "GROBID_URL"],
+            }
+        ],
+        ok=True,
+    )
+    env = _ready_env()
+    env.pop("PINATA_JWT")
+    env.pop("GROBID_URL")
+    env["GROBID_ENABLED"] = "false"
+    checks = deploy_readiness.run_checks(env, targets=("railway",))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway",))
+
+    payload = release_handoff.build_handoff(product_payload, deploy_payload)
+    checklist = {item["id"]: item for item in payload["operator_checklist"]}
+
+    assert checklist["ipfs"]["coverage"] == "covered"
+    assert {surface["id"] for surface in checklist["ipfs"]["deploy_surfaces"]} == {"railway_ipfs"}
+    assert checklist["grobid"]["coverage"] == "covered"
+    assert {surface["id"] for surface in checklist["grobid"]["deploy_surfaces"]} == {"railway_grobid"}
+    assert payload["coverage"]["product_only_actions"] == []
+    assert payload["coverage"]["missing_required_coverage"] == []
+
+
+def test_release_handoff_keeps_unmapped_optional_actions_visible() -> None:
+    product_payload = _product_smoke_handoff_payload(
+        [
+            {
+                "id": "notebooklm",
+                "required": False,
+                "status": "warn",
+                "remediation": "Set NotebookLM source export before analyst review.",
+                "required_env": ["NOTEBOOKLM_SOURCE_EXPORT"],
             }
         ],
         ok=True,
@@ -472,8 +531,7 @@ def test_release_handoff_keeps_product_only_optional_actions_visible() -> None:
 
     assert item["coverage"] == "product_only"
     assert item["deploy_surfaces"][0]["owner"] == "Product runtime"
-    assert payload["coverage"]["product_only_actions"] == ["grobid"]
-    assert payload["coverage"]["missing_required_coverage"] == []
+    assert payload["coverage"]["product_only_actions"] == ["notebooklm"]
 
 
 def test_release_handoff_lists_failed_deploy_checks_not_owned_by_product_actions() -> None:

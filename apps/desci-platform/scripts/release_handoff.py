@@ -26,6 +26,8 @@ SURFACE_BY_CHECK_ID = {
     "railway_auth": ("Firebase", "Backend authentication"),
     "railway_cors": ("Railway + Vercel", "CORS allowlist"),
     "railway_frontend_return_url": ("Stripe + Railway", "Checkout return URLs"),
+    "railway_grobid": ("GROBID", "PDF parsing"),
+    "railway_ipfs": ("Pinata/IPFS", "Public asset minting"),
     "railway_stripe": ("Stripe", "Paid checkout"),
     "vercel_firebase": ("Firebase + Vercel", "Frontend authentication"),
     "github_gitleaks_license": ("GitHub repository", "Secret scanning"),
@@ -36,6 +38,8 @@ PRODUCT_ACTION_TO_DEPLOY_CHECKS = {
     "cors": ("railway_cors",),
     "rabbitmq": ("railway_queue",),
     "database": ("railway_database",),
+    "grobid": ("railway_grobid",),
+    "ipfs": ("railway_ipfs",),
     "llm": ("railway_llm",),
     "web3": ("vercel_wallet_contracts", "amoy_rpc", "amoy_private_key", "amoy_explorer"),
 }

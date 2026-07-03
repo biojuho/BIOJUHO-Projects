@@ -75,6 +75,8 @@ STRIPE_LAUNCH_KEYS = (
     "STRIPE_PRICE_PRO_MONTHLY",
     "STRIPE_PRICE_PRO_YEARLY",
 )
+PINATA_KEYS = ("PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET")
+GROBID_KEYS = ("GROBID_ENABLED", "GROBID_URL")
 FORBIDDEN_PRODUCTION_FLAGS = ("ALLOW_TEST_BYPASS", "ALLOW_DEV_AUTH_FALLBACK", "MOCK_MODE")
 FRONTEND_RETURN_URL_KEY = "DESCI_FRONTEND_URL"
 POLYGON_AMOY_CHAIN_IDS = {"80002", "0x13882"}
@@ -89,6 +91,8 @@ SURFACE_BY_CHECK_ID = {
     "railway_auth": ("Firebase", "Backend authentication"),
     "railway_cors": ("Railway + Vercel", "CORS allowlist"),
     "railway_frontend_return_url": ("Stripe + Railway", "Checkout return URLs"),
+    "railway_grobid": ("GROBID", "PDF parsing"),
+    "railway_ipfs": ("Pinata/IPFS", "Public asset minting"),
     "railway_stripe": ("Stripe", "Paid checkout"),
     "vercel_firebase": ("Firebase + Vercel", "Frontend authentication"),
     "github_gitleaks_license": ("GitHub repository", "Secret scanning"),
@@ -208,6 +212,16 @@ def cors_has_frontend_origin(env: dict[str, str]) -> bool:
 
 def configured_keys(env: dict[str, str], keys: Iterable[str]) -> tuple[str, ...]:
     return tuple(key for key in keys if is_configured(env, key))
+
+
+def has_pinata_credentials(env: dict[str, str]) -> bool:
+    return is_configured(env, "PINATA_JWT") or (
+        is_configured(env, "PINATA_API_KEY") and is_configured(env, "PINATA_API_SECRET")
+    )
+
+
+def has_grobid_config(env: dict[str, str]) -> bool:
+    return is_truthy(env.get("GROBID_ENABLED")) and is_configured(env, "GROBID_URL")
 
 
 def is_evm_address(value: str | None) -> bool:
@@ -395,6 +409,26 @@ def railway_checks(env: dict[str, str], *, check_cli: bool) -> list[ReadinessChe
             keys=("REDIS_URL", "RABBITMQ_URL"),
             message="Redis and RabbitMQ URLs are configured.",
             remediation="Set REDIS_URL and RABBITMQ_URL for cache/job dispatch.",
+        ),
+        check(
+            "railway_ipfs",
+            "railway",
+            "Pinata/IPFS asset storage",
+            required=False,
+            ok=has_pinata_credentials(env),
+            keys=PINATA_KEYS,
+            message="Pinata credentials are configured for public asset minting.",
+            remediation="Set PINATA_JWT, or PINATA_API_KEY plus PINATA_API_SECRET, before public asset minting.",
+        ),
+        check(
+            "railway_grobid",
+            "railway",
+            "GROBID PDF parsing",
+            required=False,
+            ok=has_grobid_config(env),
+            keys=GROBID_KEYS,
+            message="GROBID parsing is enabled and points at a configured service URL.",
+            remediation="Set GROBID_ENABLED=true and GROBID_URL to a reachable GROBID service.",
         ),
         check(
             "railway_stripe",
