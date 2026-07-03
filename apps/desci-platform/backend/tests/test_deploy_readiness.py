@@ -9,6 +9,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import deploy_readiness  # noqa: E402
+import release_handoff  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SERVICE_ACCOUNT_JSON = json.dumps(
@@ -383,3 +384,149 @@ def test_deploy_readiness_source_report_records_env_inputs(tmp_path: Path) -> No
     assert report["env_files"][0]["resolved_path"] == str(env_file.resolve())
     assert report["env_files"][0]["exists"] is True
     assert report["env_files"][1]["exists"] is False
+
+
+def _product_smoke_handoff_payload(actions: list[dict[str, object]], *, ok: bool = False) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "ok": ok,
+        "launch_handoff": {
+            "release_decision": "no-go" if not ok else "go",
+            "operator_phase": "blocked" if not ok else "launch-ready",
+            "readiness_status": "blocked" if not ok else "ready",
+            "summary": {"blocker_count": sum(1 for action in actions if action.get("required") is True)},
+            "score": {"overall_percent": 57, "required_percent": 50},
+            "launch_blockers": [str(action["id"]) for action in actions if action.get("required") is True],
+            "next_actions": actions,
+        },
+        "failures": ["launch: release decision is no-go"] if not ok else [],
+    }
+
+
+def test_release_handoff_maps_product_actions_to_deploy_surfaces() -> None:
+    product_payload = _product_smoke_handoff_payload(
+        [
+            {
+                "id": "auth",
+                "required": True,
+                "status": "fail",
+                "remediation": "Set Firebase backend credentials.",
+                "required_env": ["GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_SERVICE_ACCOUNT_JSON"],
+            },
+            {
+                "id": "stripe",
+                "required": True,
+                "status": "fail",
+                "remediation": "Set Stripe checkout keys.",
+                "required_env": [
+                    "STRIPE_SECRET_KEY",
+                    "STRIPE_WEBHOOK_SECRET",
+                    "STRIPE_PRICE_PRO_MONTHLY",
+                    "STRIPE_PRICE_PRO_YEARLY",
+                ],
+            },
+        ]
+    )
+    env = _ready_env()
+    env.pop("FIREBASE_SERVICE_ACCOUNT_JSON")
+    env.pop("STRIPE_SECRET_KEY")
+    env.pop("STRIPE_WEBHOOK_SECRET")
+    env.pop("STRIPE_PRICE_PRO_MONTHLY")
+    env.pop("STRIPE_PRICE_PRO_YEARLY")
+    checks = deploy_readiness.run_checks(env, targets=("railway", "vercel"))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway", "vercel"))
+
+    payload = release_handoff.build_handoff(product_payload, deploy_payload)
+    checklist = {item["id"]: item for item in payload["operator_checklist"]}
+
+    assert payload["ok"] is False
+    assert payload["release_decision"] == "no-go"
+    assert checklist["auth"]["coverage"] == "covered"
+    assert {surface["id"] for surface in checklist["auth"]["deploy_surfaces"]} == {"railway_auth", "vercel_firebase"}
+    assert checklist["stripe"]["coverage"] == "covered"
+    assert {surface["id"] for surface in checklist["stripe"]["deploy_surfaces"]} == {
+        "railway_frontend_return_url",
+        "railway_stripe",
+    }
+    assert payload["coverage"]["missing_required_coverage"] == []
+
+
+def test_release_handoff_keeps_product_only_optional_actions_visible() -> None:
+    product_payload = _product_smoke_handoff_payload(
+        [
+            {
+                "id": "grobid",
+                "required": False,
+                "status": "warn",
+                "remediation": "Set GROBID_ENABLED=true and GROBID_URL.",
+                "required_env": ["GROBID_ENABLED", "GROBID_URL"],
+            }
+        ],
+        ok=True,
+    )
+    checks = deploy_readiness.run_checks(_ready_env(), targets=("railway", "vercel"))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway", "vercel"))
+
+    payload = release_handoff.build_handoff(product_payload, deploy_payload)
+    item = payload["operator_checklist"][0]
+
+    assert item["coverage"] == "product_only"
+    assert item["deploy_surfaces"][0]["owner"] == "Product runtime"
+    assert payload["coverage"]["product_only_actions"] == ["grobid"]
+    assert payload["coverage"]["missing_required_coverage"] == []
+
+
+def test_release_handoff_lists_failed_deploy_checks_not_owned_by_product_actions() -> None:
+    product_payload = _product_smoke_handoff_payload([], ok=True)
+    env = _ready_env()
+    env["DATABASE_URL"] = "postgresql://example.com/desci"
+    checks = deploy_readiness.run_checks(env, targets=("railway",))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway",))
+
+    payload = release_handoff.build_handoff(product_payload, deploy_payload)
+
+    assert "railway_database" in {action["id"] for action in payload["deploy_only_actions"]}
+    assert payload["deploy_readiness_ok"] is False
+    assert payload["ok"] is False
+
+
+def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
+    product_payload = _product_smoke_handoff_payload(
+        [
+            {
+                "id": "auth",
+                "required": True,
+                "status": "fail",
+                "remediation": "Set Firebase credentials.",
+                "required_env": ["FIREBASE_SERVICE_ACCOUNT_JSON"],
+            }
+        ]
+    )
+    env = _ready_env()
+    env.pop("FIREBASE_SERVICE_ACCOUNT_JSON")
+    checks = deploy_readiness.run_checks(env, targets=("railway",))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway",))
+    product_path = tmp_path / "product.json"
+    deploy_path = tmp_path / "deploy.json"
+    output_path = tmp_path / "handoff.json"
+    product_path.write_text(json.dumps(product_payload), encoding="utf-8")
+    deploy_path.write_text(json.dumps(deploy_payload), encoding="utf-8")
+
+    code = release_handoff.main(
+        [
+            "--product-smoke-json",
+            str(product_path),
+            "--deploy-readiness-json",
+            str(deploy_path),
+            "--json-out",
+            str(output_path),
+        ]
+    )
+
+    output = capsys.readouterr().out
+    written = json.loads(output_path.read_text(encoding="utf-8"))
+    assert code == 1
+    assert "[release-handoff] PRODUCT ACTION CHECKLIST" in output
+    assert written["schema_version"] == 1
+    assert written["sources"]["product_smoke_json"] == str(product_path)
+    assert not (output_path.parent / "handoff.json.tmp").exists()
