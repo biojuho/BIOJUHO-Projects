@@ -145,6 +145,14 @@ def test_agriguard_backend_healthcheck_uses_api_root_not_docs_ui() -> None:
     assert "http://localhost:8002/docs" not in compose
 
 
+def test_agriguard_backend_local_env_file_is_optional_for_clean_checkout() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "path: ./backend/.env" in compose
+    assert "required: false" in compose
+    assert "- ./backend/.env" not in compose
+
+
 def test_agriguard_compose_waits_for_frontend_health_before_nginx() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
