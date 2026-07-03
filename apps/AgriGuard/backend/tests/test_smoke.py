@@ -234,6 +234,7 @@ def test_qr_ab_script_handles_missing_variant_data():
 def _load_script_module(script_path: Path, module_name: str):
     sync_api = types.ModuleType("playwright.sync_api")
     sync_api.Page = object
+    sync_api.Response = object
     sync_api.sync_playwright = lambda: None
     playwright = types.ModuleType("playwright")
     previous_playwright = sys.modules.get("playwright")
@@ -280,3 +281,14 @@ def test_qr_path_browser_smoke_keeps_invalid_manual_probe_distinct(monkeypatch):
     assert args.invalid_manual_value == script.DEFAULT_INVALID_MANUAL_VALUE
     assert args.invalid_manual_value != args.manual_token
     assert args.invalid_manual_value != args.invalid_token
+
+
+def test_supply_chain_browser_smoke_uses_phone_viewport_for_mobile_default():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "supply_chain_browser_smoke.py",
+        "supply_chain_browser_smoke_under_test",
+    )
+
+    assert script.resolve_viewport(mobile=False, viewport=None) == {"width": 1440, "height": 960}
+    assert script.resolve_viewport(mobile=True, viewport=None) == {"width": 390, "height": 844}
+    assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}

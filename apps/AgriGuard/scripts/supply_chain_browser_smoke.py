@@ -12,6 +12,8 @@ from playwright.sync_api import Page, Response, sync_playwright
 
 
 DEFAULT_URL = "http://127.0.0.1:5174/supply-chain"
+DEFAULT_DESKTOP_VIEWPORT = "1440x960"
+DEFAULT_MOBILE_VIEWPORT = "390x844"
 RANGE_RE = re.compile(r"Showing\s+(\d+)-(\d+)\s+of\s+(\d+)\s+products")
 
 
@@ -21,6 +23,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-out", default="var/agriguard-supply-chain-browser-smoke.json")
     parser.add_argument("--screenshot", default="var/agriguard-supply-chain-browser-smoke.png")
     parser.add_argument("--timeout-ms", type=int, default=20_000)
+    parser.add_argument(
+        "--viewport",
+        default=None,
+        help=(
+            "Viewport size as WIDTHxHEIGHT. Defaults to "
+            f"{DEFAULT_DESKTOP_VIEWPORT}, or {DEFAULT_MOBILE_VIEWPORT} with --mobile."
+        ),
+    )
+    parser.add_argument("--mobile", action="store_true", help="Use mobile browser emulation with touch enabled.")
     parser.add_argument(
         "--operator-token",
         default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", ""),
@@ -32,6 +43,24 @@ def parse_args() -> argparse.Namespace:
         help="Allow legacy GET /products fallback when /products/page is unavailable.",
     )
     return parser.parse_args()
+
+
+def parse_viewport(value: str) -> dict[str, int]:
+    try:
+        width_text, height_text = value.lower().split("x", 1)
+        width = int(width_text)
+        height = int(height_text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("Viewport must use WIDTHxHEIGHT, for example 390x844.") from exc
+    if width <= 0 or height <= 0:
+        raise argparse.ArgumentTypeError("Viewport width and height must be positive integers.")
+    return {"width": width, "height": height}
+
+
+def resolve_viewport(*, mobile: bool, viewport: str | None) -> dict[str, int]:
+    if viewport:
+        return parse_viewport(viewport)
+    return parse_viewport(DEFAULT_MOBILE_VIEWPORT if mobile else DEFAULT_DESKTOP_VIEWPORT)
 
 
 def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
@@ -130,7 +159,8 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": 1440, "height": 960})
+        viewport = resolve_viewport(mobile=args.mobile, viewport=args.viewport)
+        page = browser.new_page(viewport=viewport, is_mobile=args.mobile, has_touch=args.mobile)
         if args.operator_token:
             page.add_init_script(
                 "window.localStorage.setItem('agriguard-operator-token', "
@@ -364,6 +394,8 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     return {
         "schema_version": 1,
         "url": args.url,
+        "viewport": resolve_viewport(mobile=args.mobile, viewport=args.viewport),
+        "mobile": bool(args.mobile),
         "passed": passed,
         "total": len(checks),
         "ok": passed == len(checks),
