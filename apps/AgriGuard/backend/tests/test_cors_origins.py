@@ -257,6 +257,13 @@ def test_nginx_configs_disable_server_version_tokens() -> None:
     assert "server_tokens off;" in edge
 
 
+def test_edge_nginx_gzip_sets_vary_header_for_cache_safety() -> None:
+    edge = (WORKSPACE_ROOT / "apps/AgriGuard/nginx/nginx.conf").read_text(encoding="utf-8")
+
+    assert "gzip on;" in edge
+    assert "gzip_vary on;" in edge
+
+
 def test_frontend_nginx_does_not_cache_spa_shell() -> None:
     frontend = (WORKSPACE_ROOT / "apps/AgriGuard/frontend/nginx.conf").read_text(encoding="utf-8")
     block = _nginx_location_block(frontend, "/")
