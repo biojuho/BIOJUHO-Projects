@@ -138,6 +138,13 @@ def test_agriguard_compose_binds_mqtt_to_loopback_only() -> None:
     assert '"1883:1883"' not in compose
 
 
+def test_agriguard_compose_persists_mosquitto_data_volume() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "- mosquitto-data:/mosquitto/data" in compose
+    assert "\n  mosquitto-data:" in compose
+
+
 def test_agriguard_backend_healthcheck_uses_api_root_not_docs_ui() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
