@@ -58,6 +58,48 @@ PROVIDER_LABELS = {
     "amoy": "Polygon Amoy",
     "product": "Product runtime",
 }
+PROVIDER_APPLY_GUIDANCE = {
+    "railway": {
+        "docs_url": "https://docs.railway.com/variables",
+        "preflight_commands": ["railway whoami", "railway status", "railway variable --help"],
+        "apply_steps": [
+            "Open the Railway backend service Variables tab.",
+            "Paste unresolved keys from railway.env with real values in the RAW Editor.",
+            "Review staged variable changes and deploy or redeploy the backend service.",
+        ],
+    },
+    "vercel": {
+        "docs_url": "https://vercel.com/docs/cli/env",
+        "preflight_commands": ["vercel whoami", "vercel link", "vercel env ls production"],
+        "apply_steps": [
+            "Run vercel env add <KEY> production for each key, or provide values via stdin/file for secret values.",
+            "Redeploy the production frontend after variables are added because existing deployments do not receive changed env values.",
+        ],
+    },
+    "github": {
+        "docs_url": "https://cli.github.com/manual/gh_secret_set",
+        "preflight_commands": ["gh auth status", "gh secret list"],
+        "apply_steps": [
+            "Run gh secret set <KEY> for each repository secret or gh secret set -f github.env after filling values in a private local copy.",
+            "Re-run the release readiness checks after repository secrets are available to CI.",
+        ],
+    },
+    "amoy": {
+        "docs_url": "https://docs.polygon.technology/",
+        "preflight_commands": [],
+        "apply_steps": [
+            "Configure Amoy RPC, explorer API, and wallet deployment inputs in the relevant provider secret stores.",
+            "Deploy contracts and copy verified addresses into the frontend provider variables.",
+        ],
+    },
+    "product": {
+        "docs_url": "",
+        "preflight_commands": [],
+        "apply_steps": [
+            "Resolve product-only manual actions, then regenerate the release handoff.",
+        ],
+    },
+}
 
 
 def load_json(path: str | Path) -> dict[str, Any]:
@@ -354,7 +396,20 @@ def provider_summary(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "keys": _string_list(action.get("keys")),
             }
         )
-    return [grouped[provider] for provider in sorted(grouped)]
+    summaries = [grouped[provider] for provider in sorted(grouped)]
+    for group in summaries:
+        group["apply_guidance"] = provider_apply_guidance(str(group["provider"]))
+    return summaries
+
+
+def provider_apply_guidance(provider: str) -> dict[str, Any]:
+    provider_key = provider.strip().lower()
+    guidance = PROVIDER_APPLY_GUIDANCE.get(provider_key, PROVIDER_APPLY_GUIDANCE["product"])
+    return {
+        "docs_url": guidance["docs_url"],
+        "preflight_commands": list(guidance["preflight_commands"]),
+        "apply_steps": list(guidance["apply_steps"]),
+    }
 
 
 def provider_actions(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
@@ -442,6 +497,24 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
             f"`{_markdown_scalar(group.get('warning_count', 0))}` warning(s), "
             f"env={_markdown_values(group.get('required_env'))}"
         )
+
+    lines.extend(["", "## Provider Apply Guidance"])
+    if not provider_groups:
+        lines.append("- None.")
+    for group in provider_groups:
+        guidance = _as_dict(group.get("apply_guidance"))
+        preflight = _string_list(guidance.get("preflight_commands"))
+        apply_steps = _string_list(guidance.get("apply_steps"))
+        docs_url = guidance.get("docs_url") if isinstance(guidance.get("docs_url"), str) else ""
+        lines.append(f"### {group.get('label')}")
+        lines.append(f"- Template: `{_markdown_scalar(group.get('template_filename'))}`")
+        if docs_url:
+            lines.append(f"- Docs: {docs_url}")
+        lines.append(f"- Preflight commands: {_markdown_values(preflight)}")
+        if apply_steps:
+            lines.append("- Apply steps:")
+            for step in apply_steps:
+                lines.append(f"  - {step}")
 
     lines.extend(
         [

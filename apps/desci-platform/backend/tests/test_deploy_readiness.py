@@ -663,7 +663,10 @@ def test_release_handoff_markdown_report_summarizes_operator_packet(tmp_path: Pa
     assert "Overall ok: `false`" in text
     assert "## Product Action Checklist" in text
     assert "## Provider Summary" in text
+    assert "## Provider Apply Guidance" in text
     assert "Railway (`railway.env`)" in text
+    assert "https://docs.railway.com/variables" in text
+    assert "`railway variable --help`" in text
     assert "### auth" in text
     assert "Required: `true`" in text
     assert "`railway_auth` `fail`" in text
@@ -757,8 +760,14 @@ def test_release_handoff_provider_templates_split_unresolved_keys_by_target(tmp_
     assert "GROBID_URL" in summary["railway"]["required_env"]
     assert "ALLOWED_ORIGINS" in summary["railway"]["required_env"]
     assert "VITE_API_BASE_URL" not in summary["railway"]["required_env"]
+    assert summary["railway"]["apply_guidance"]["docs_url"] == "https://docs.railway.com/variables"
+    assert "railway variable --help" in summary["railway"]["apply_guidance"]["preflight_commands"]
     assert summary["vercel"]["required_env"] == ["VITE_API_BASE_URL"]
+    assert summary["vercel"]["apply_guidance"]["docs_url"] == "https://vercel.com/docs/cli/env"
+    assert "vercel env ls production" in summary["vercel"]["apply_guidance"]["preflight_commands"]
     assert summary["github"]["required_env"] == ["GITLEAKS_LICENSE"]
+    assert summary["github"]["apply_guidance"]["docs_url"] == "https://cli.github.com/manual/gh_secret_set"
+    assert "gh secret list" in summary["github"]["apply_guidance"]["preflight_commands"]
     assert set(paths) == {"github", "railway", "vercel"}
     railway = (output_dir / "railway.env").read_text(encoding="utf-8")
     vercel = (output_dir / "vercel.env").read_text(encoding="utf-8")
