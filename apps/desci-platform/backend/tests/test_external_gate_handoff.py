@@ -1113,6 +1113,43 @@ def test_external_gate_handoff_provider_apply_workflow_github_annotations_escape
     ]
 
 
+def test_external_gate_handoff_provider_apply_workflow_github_outputs(tmp_path: Path) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+
+    outputs = external_gate_handoff.provider_apply_workflow_github_outputs(verification)
+
+    assert outputs["provider_apply_workflow_ok"] == "true"
+    assert outputs["provider_apply_workflow_phase"] == "provider_apply_workflow_ready"
+    assert outputs["provider_apply_workflow_ready_to_apply"] == "true"
+    assert outputs["provider_apply_workflow_all_commands_succeeded"] == "true"
+    assert outputs["provider_apply_workflow_promotion_receipt_ok"] == "true"
+    assert outputs["provider_apply_workflow_failure_count"] == "0"
+    assert outputs["provider_apply_workflow_results_command_failure_count"] == "0"
+    assert outputs["provider_apply_workflow_plan_json"] == str(plan_path)
+    assert outputs["provider_apply_workflow_results_json"] == str(results_path)
+    assert outputs["provider_apply_workflow_promotion_receipt_json"] == str(receipt_path)
+
+
+def test_external_gate_handoff_appends_multiline_github_output(tmp_path: Path) -> None:
+    output_path = tmp_path / "github-output.txt"
+
+    written = external_gate_handoff.append_github_output(output_path, {"sample": "line 1\nline 2"})
+
+    text = written.read_text(encoding="utf-8")
+    assert text.startswith("sample<<desci_")
+    assert "\nline 1\nline 2\n" in text
+
+
 def test_external_gate_handoff_provider_apply_workflow_blocks_no_go_receipt(
     tmp_path: Path,
 ) -> None:
@@ -1255,6 +1292,41 @@ def test_external_gate_handoff_cli_prints_workflow_github_annotations(
     assert "::error title=DeSci provider apply workflow::provider apply results are not successful" in captured.out
 
 
+def test_external_gate_handoff_cli_writes_workflow_github_outputs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-plan-results.json"
+    workflow_path = tmp_path / "workflow.json"
+    output_path = tmp_path / "github-output.txt"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    write_provider_apply_workflow_receipt(tmp_path, ok=True)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+
+    rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-workflow",
+            str(plan_path),
+            "--require-promotion-go",
+            "--json-out",
+            str(workflow_path),
+            "--github-output",
+        ]
+    )
+
+    payload = json.loads(workflow_path.read_text(encoding="utf-8"))
+    output_text = output_path.read_text(encoding="utf-8")
+    assert rc == 0
+    assert payload["ok"] is True
+    assert "provider_apply_workflow_ok=true" in output_text
+    assert "provider_apply_workflow_phase=provider_apply_workflow_ready" in output_text
+    assert "provider_apply_workflow_failure_count=0" in output_text
+    assert f"provider_apply_workflow_plan_json={plan_path}" in output_text
+    assert f"provider_apply_workflow_results_json={results_path}" in output_text
+
+
 def test_external_gate_handoff_cli_rejects_step_summary_without_env(capsys, monkeypatch) -> None:
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
 
@@ -1269,6 +1341,30 @@ def test_external_gate_handoff_cli_rejects_step_summary_without_env(capsys, monk
 
     assert rc == 2
     assert "requires GITHUB_STEP_SUMMARY to be set" in captured.err
+
+
+def test_external_gate_handoff_cli_rejects_github_output_without_env(capsys, monkeypatch) -> None:
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+    rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-workflow",
+            "plan.json",
+            "--github-output",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires GITHUB_OUTPUT to be set" in captured.err
+
+
+def test_external_gate_handoff_cli_rejects_github_output_without_workflow(capsys) -> None:
+    rc = external_gate_handoff.main(["--github-output"])
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "--github-output requires --verify-provider-apply-workflow" in captured.err
 
 
 def test_external_gate_handoff_cli_rejects_annotations_without_workflow(capsys) -> None:

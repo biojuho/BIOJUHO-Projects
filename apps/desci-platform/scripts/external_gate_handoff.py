@@ -363,6 +363,26 @@ def append_text_report(path: str | Path, body: str) -> Path:
     return output_path
 
 
+def _github_output_entry(name: str, value: Any) -> str:
+    text = str(value)
+    if "\n" not in text and "\r" not in text:
+        return f"{name}={text}"
+    delimiter = f"desci_{hashlib.sha256(f'{name}:{text}'.encode('utf-8')).hexdigest()[:16]}"
+    while delimiter in text:
+        delimiter = f"{delimiter}_x"
+    return f"{name}<<{delimiter}\n{text}\n{delimiter}"
+
+
+def append_github_output(path: str | Path, outputs: dict[str, str]) -> Path:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("a", encoding="utf-8") as handle:
+        for name, value in outputs.items():
+            handle.write(_github_output_entry(name, value))
+            handle.write("\n")
+    return output_path
+
+
 def write_provider_templates(
     directory: str | Path,
     payload: dict[str, Any],
@@ -1774,6 +1794,28 @@ def provider_apply_workflow_github_annotations(payload: dict[str, Any]) -> list[
     return annotations
 
 
+def provider_apply_workflow_github_outputs(payload: dict[str, Any]) -> dict[str, str]:
+    summary = _as_dict(payload.get("summary"))
+    return {
+        "provider_apply_workflow_ok": str(payload.get("ok") is True).lower(),
+        "provider_apply_workflow_phase": str(payload.get("operator_phase") or ""),
+        "provider_apply_workflow_ready_to_apply": str(payload.get("ready_to_apply") is True).lower(),
+        "provider_apply_workflow_all_commands_succeeded": str(
+            payload.get("all_commands_succeeded") is True
+        ).lower(),
+        "provider_apply_workflow_promotion_receipt_ok": str(
+            payload.get("promotion_receipt_ok") is True
+        ).lower(),
+        "provider_apply_workflow_failure_count": str(int(summary.get("failure_count") or 0)),
+        "provider_apply_workflow_results_command_failure_count": str(
+            int(summary.get("results_command_failure_count") or 0)
+        ),
+        "provider_apply_workflow_plan_json": str(payload.get("provider_apply_plan_json") or ""),
+        "provider_apply_workflow_results_json": str(payload.get("provider_apply_results_json") or ""),
+        "provider_apply_workflow_promotion_receipt_json": str(payload.get("promotion_receipt_json") or ""),
+    }
+
+
 def print_provider_apply_workflow_github_annotations(payload: dict[str, Any]) -> None:
     for annotation in provider_apply_workflow_github_annotations(payload):
         print(annotation)
@@ -1930,6 +1972,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="With --verify-provider-apply-workflow, print GitHub Actions notice/error annotations.",
     )
+    parser.add_argument(
+        "--github-output",
+        action="store_true",
+        help="With --verify-provider-apply-workflow, append CI output parameters to GITHUB_OUTPUT.",
+    )
     parser.add_argument("--provider-template-dir", help="Write no-secret env templates split by provider target.")
     parser.add_argument("--preserve-provider-templates", action="store_true", help="Do not overwrite existing provider templates.")
     parser.add_argument("--provider-template-index-out", help="Write an audit index for generated provider templates.")
@@ -1985,9 +2032,21 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    if args.github_output and not args.verify_provider_apply_workflow:
+        print(
+            "[external-gate-handoff] --github-output requires --verify-provider-apply-workflow",
+            file=sys.stderr,
+        )
+        return 2
     if args.github_step_summary and not os.environ.get("GITHUB_STEP_SUMMARY"):
         print(
             "[external-gate-handoff] --github-step-summary requires GITHUB_STEP_SUMMARY to be set",
+            file=sys.stderr,
+        )
+        return 2
+    if args.github_output and not os.environ.get("GITHUB_OUTPUT"):
+        print(
+            "[external-gate-handoff] --github-output requires GITHUB_OUTPUT to be set",
             file=sys.stderr,
         )
         return 2
@@ -2173,6 +2232,15 @@ def main(argv: list[str] | None = None) -> int:
                 )
         if args.github_annotations:
             print_provider_apply_workflow_github_annotations(verification)
+        if args.github_output:
+            outputs_path = append_github_output(
+                os.environ["GITHUB_OUTPUT"],
+                provider_apply_workflow_github_outputs(verification),
+            )
+            print(
+                "[external-gate-handoff] "
+                f"provider apply workflow GitHub outputs appended: {outputs_path}"
+            )
         return 0 if verification["ok"] else 1
 
     if args.verify_provider_apply_results:
