@@ -1082,6 +1082,24 @@ def test_external_gate_handoff_provider_apply_workflow_blocks_missing_results(
     assert "provider apply results must have all_commands_succeeded=true" in verification["failures"]
 
 
+def test_external_gate_handoff_provider_apply_workflow_markdown_reports_resolution(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        require_promotion_go=True,
+    )
+
+    markdown = external_gate_handoff.render_provider_apply_workflow_verification_markdown(verification)
+
+    assert "# DeSci Provider Apply Workflow Verification" in markdown
+    assert "| Provider apply results |" in markdown
+    assert "`plan_metadata`" in markdown
+    assert "provider apply results are not successful" in markdown
+    assert "Keep the release blocked" in markdown
+
+
 def test_external_gate_handoff_provider_apply_workflow_blocks_no_go_receipt(
     tmp_path: Path,
 ) -> None:
@@ -1161,6 +1179,59 @@ def test_external_gate_handoff_cli_verifies_provider_apply_workflow_with_plan_de
         "provider_apply_results_json": "plan_metadata",
         "promotion_receipt_json": "plan_metadata",
     }
+
+
+def test_external_gate_handoff_cli_writes_workflow_markdown_and_step_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-plan-results.json"
+    workflow_path = tmp_path / "workflow.json"
+    markdown_path = tmp_path / "workflow.md"
+    step_summary_path = tmp_path / "step-summary.md"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    write_provider_apply_workflow_receipt(tmp_path, ok=True)
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(step_summary_path))
+
+    rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-workflow",
+            str(plan_path),
+            "--require-promotion-go",
+            "--json-out",
+            str(workflow_path),
+            "--markdown-out",
+            str(markdown_path),
+            "--github-step-summary",
+        ]
+    )
+
+    markdown = markdown_path.read_text(encoding="utf-8")
+    summary = step_summary_path.read_text(encoding="utf-8")
+    payload = json.loads(workflow_path.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert payload["ok"] is True
+    assert "# DeSci Provider Apply Workflow Verification" in markdown
+    assert markdown == summary
+    assert "Proceed with the release promotion handoff." in summary
+
+
+def test_external_gate_handoff_cli_rejects_step_summary_without_env(capsys, monkeypatch) -> None:
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+    rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-workflow",
+            "plan.json",
+            "--github-step-summary",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires GITHUB_STEP_SUMMARY to be set" in captured.err
 
 
 def test_external_gate_handoff_cli_rejects_workflow_artifacts_without_workflow(capsys) -> None:

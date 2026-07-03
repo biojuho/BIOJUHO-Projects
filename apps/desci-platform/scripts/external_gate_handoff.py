@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -332,6 +333,16 @@ def write_text_report(path: str | Path, body: str) -> Path:
     temp_path = output_path.with_name(f"{output_path.name}.tmp")
     temp_path.write_text(body, encoding="utf-8")
     temp_path.replace(output_path)
+    return output_path
+
+
+def append_text_report(path: str | Path, body: str) -> Path:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    prefix = "\n" if output_path.exists() and output_path.stat().st_size > 0 else ""
+    with output_path.open("a", encoding="utf-8") as handle:
+        handle.write(prefix)
+        handle.write(body)
     return output_path
 
 
@@ -1654,6 +1665,74 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]) -> str:
+    summary = _as_dict(payload.get("summary"))
+    artifact_resolution = _as_dict(payload.get("artifact_resolution"))
+    failures = _string_list(payload.get("failures"))
+    result = "pass" if payload.get("ok") is True else "fail"
+    plan_path = _markdown_scalar(payload.get("provider_apply_plan_json"))
+    results_path = _markdown_scalar(payload.get("provider_apply_results_json"))
+    receipt_path = _markdown_scalar(payload.get("promotion_receipt_json"))
+    lines = [
+        "# DeSci Provider Apply Workflow Verification",
+        "",
+        f"- Result: `{result}`",
+        f"- Operator phase: `{_markdown_scalar(payload.get('operator_phase'))}`",
+        f"- Require promotion go: `{_markdown_scalar(payload.get('require_promotion_go'))}`",
+        f"- Success condition: `{_markdown_scalar(payload.get('success_condition'))}`",
+        "",
+        "## Status",
+        "",
+        "| Check | Value |",
+        "| --- | --- |",
+        f"| Plan ready to apply | `{_markdown_scalar(payload.get('ready_to_apply'))}` |",
+        f"| Provider commands succeeded | `{_markdown_scalar(payload.get('all_commands_succeeded'))}` |",
+        f"| Promotion receipt go | `{_markdown_scalar(payload.get('promotion_receipt_ok'))}` |",
+        f"| Failure count | `{_markdown_scalar(summary.get('failure_count'))}` |",
+        "",
+        "## Artifacts",
+        "",
+        "| Artifact | Path | Source |",
+        "| --- | --- | --- |",
+        f"| Provider apply plan | `{plan_path}` | `argument` |",
+        f"| Provider apply results | `{results_path}` | "
+        f"`{_markdown_scalar(artifact_resolution.get('provider_apply_results_json'))}` |",
+        f"| Promotion receipt | `{receipt_path}` | "
+        f"`{_markdown_scalar(artifact_resolution.get('promotion_receipt_json'))}` |",
+        "",
+        "## Gate Summary",
+        "",
+        "| Gate | OK | Failure count |",
+        "| --- | --- | --- |",
+        f"| Provider apply plan | `{_markdown_scalar(summary.get('plan_ok'))}` | "
+        f"`{_markdown_scalar(summary.get('plan_failure_count'))}` |",
+        f"| Provider apply results | `{_markdown_scalar(summary.get('results_ok'))}` | "
+        f"`{_markdown_scalar(summary.get('results_failure_count'))}` |",
+        f"| Provider command results | `{_markdown_scalar(payload.get('all_commands_succeeded'))}` | "
+        f"`{_markdown_scalar(summary.get('results_command_failure_count'))}` |",
+        f"| Promotion receipt verification | `{_markdown_scalar(summary.get('promotion_verification_ok'))}` | "
+        f"`{_markdown_scalar(summary.get('promotion_failure_count'))}` |",
+        "",
+        "## Failures",
+    ]
+    if failures:
+        lines.extend(f"- {failure}" for failure in failures)
+    else:
+        lines.append("- None.")
+    lines.extend(
+        [
+            "",
+            "## Next Action",
+            (
+                "- Proceed with the release promotion handoff."
+                if payload.get("ok") is True
+                else "- Keep the release blocked until the failed workflow checks above are resolved."
+            ),
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def write_markdown_report(path: str | Path, payload: dict[str, Any]) -> Path:
     return write_text_report(path, render_markdown_report(payload))
 
@@ -1795,6 +1874,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json", action="store_true", help="Print the handoff as JSON.")
     parser.add_argument("--json-out", help="Write handoff JSON evidence.")
     parser.add_argument("--markdown-out", help="Write a human-readable handoff packet.")
+    parser.add_argument(
+        "--github-step-summary",
+        action="store_true",
+        help="With --verify-provider-apply-workflow, append Markdown evidence to GITHUB_STEP_SUMMARY.",
+    )
     parser.add_argument("--provider-template-dir", help="Write no-secret env templates split by provider target.")
     parser.add_argument("--preserve-provider-templates", action="store_true", help="Do not overwrite existing provider templates.")
     parser.add_argument("--provider-template-index-out", help="Write an audit index for generated provider templates.")
@@ -1835,6 +1919,18 @@ def main(argv: list[str] | None = None) -> int:
     ):
         print(
             "[external-gate-handoff] workflow artifact flags require --verify-provider-apply-workflow",
+            file=sys.stderr,
+        )
+        return 2
+    if args.github_step_summary and not args.verify_provider_apply_workflow:
+        print(
+            "[external-gate-handoff] --github-step-summary requires --verify-provider-apply-workflow",
+            file=sys.stderr,
+        )
+        return 2
+    if args.github_step_summary and not os.environ.get("GITHUB_STEP_SUMMARY"):
+        print(
+            "[external-gate-handoff] --github-step-summary requires GITHUB_STEP_SUMMARY to be set",
             file=sys.stderr,
         )
         return 2
@@ -2004,6 +2100,20 @@ def main(argv: list[str] | None = None) -> int:
         if args.json_out:
             output_path = write_json_report(args.json_out, verification)
             print(f"[external-gate-handoff] provider apply workflow verification written: {output_path}")
+        if args.markdown_out or args.github_step_summary:
+            markdown = render_provider_apply_workflow_verification_markdown(verification)
+            if args.markdown_out:
+                markdown_path = write_text_report(args.markdown_out, markdown)
+                print(
+                    "[external-gate-handoff] "
+                    f"provider apply workflow Markdown written: {markdown_path}"
+                )
+            if args.github_step_summary:
+                summary_path = append_text_report(os.environ["GITHUB_STEP_SUMMARY"], markdown)
+                print(
+                    "[external-gate-handoff] "
+                    f"provider apply workflow GitHub step summary appended: {summary_path}"
+                )
         return 0 if verification["ok"] else 1
 
     if args.verify_provider_apply_results:
