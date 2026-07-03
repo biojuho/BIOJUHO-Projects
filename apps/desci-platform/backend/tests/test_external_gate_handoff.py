@@ -276,7 +276,12 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
         == "python scripts/post_apply_evidence_gate.py "
         "--external-gate-json var/external-release-gate-post-apply-all.json "
         "--json-out var/post-apply-evidence-gate.json "
-        "--manifest-out var/post-apply-evidence-manifest.json"
+        "--manifest-out var/post-apply-evidence-manifest.json "
+        "--verify-manifest-out var/post-apply-evidence-manifest-verify.json"
+    )
+    assert (
+        plan["post_apply_completion_evidence"]["promotion_single_command"]
+        == plan["post_apply_completion_evidence"]["promotion_gate_command"]
     )
     assert (
         plan["post_apply_completion_evidence"]["promotion_manifest_verify_command"]
@@ -311,6 +316,7 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "post-apply-evidence-gate.json" in markdown
     assert "post-apply-evidence-manifest.json" in markdown
     assert "post-apply-evidence-manifest-verify.json" in markdown
+    assert "--verify-manifest-out var/post-apply-evidence-manifest-verify.json" in markdown
     assert "--verify-manifest var/post-apply-evidence-manifest.json" in markdown
     assert "PowerShell: `Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>'" in markdown
     assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown

@@ -367,6 +367,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json", action="store_true", help="Print machine-readable validation JSON.")
     parser.add_argument("--json-out", help="Write machine-readable validation JSON.")
     parser.add_argument("--manifest-out", help="Write a hash manifest for the post-apply evidence artifacts.")
+    parser.add_argument("--verify-manifest-out", help="Write verification JSON for the generated evidence manifest.")
     return parser.parse_args(argv)
 
 
@@ -406,6 +407,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if verification["ok"] else 1
 
     evidence_path = Path(args.external_gate_json)
+    if args.verify_manifest_out and not args.manifest_out:
+        print(
+            "[post-apply-evidence-gate] --verify-manifest-out requires --manifest-out",
+            file=sys.stderr,
+        )
+        return 2
     try:
         payload = validate_post_apply_payload(load_external_gate_payload(evidence_path), evidence_path=evidence_path)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
@@ -443,7 +450,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         write_json_report(args.manifest_out, manifest)
         print(f"[post-apply-evidence-gate] manifest written: {args.manifest_out}")
-    return 0 if payload["ok"] and (manifest is None or manifest["ok"]) else 1
+    verification: dict[str, Any] | None = None
+    if args.verify_manifest_out and args.manifest_out:
+        verification = verify_evidence_manifest(args.manifest_out, artifact_root=args.artifact_root)
+        write_json_report(args.verify_manifest_out, verification)
+        print(f"[post-apply-evidence-manifest] json written: {args.verify_manifest_out}")
+    return (
+        0
+        if payload["ok"]
+        and (manifest is None or manifest["ok"])
+        and (verification is None or verification["ok"])
+        else 1
+    )
 
 
 if __name__ == "__main__":

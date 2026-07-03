@@ -160,6 +160,58 @@ def test_post_apply_evidence_gate_cli_writes_report_and_manifest(tmp_path: Path)
     assert roles == {"external_gate_json", "post_apply_evidence_gate_json"}
 
 
+def test_post_apply_evidence_gate_cli_writes_manifest_verification_in_one_promotion_command(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    verify_path = tmp_path / "post-apply-manifest-verify.json"
+    external_path.write_text(json.dumps(external_gate_payload()), encoding="utf-8")
+
+    rc = post_apply_evidence_gate.main(
+        [
+            "--external-gate-json",
+            str(external_path),
+            "--json-out",
+            str(report_path),
+            "--manifest-out",
+            str(manifest_path),
+            "--verify-manifest-out",
+            str(verify_path),
+        ]
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    verification = json.loads(verify_path.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert report["ok"] is True
+    assert manifest["ok"] is True
+    assert verification["ok"] is True
+    assert verification["manifest_json"] == str(manifest_path)
+    assert verification["summary"]["digest_mismatch_count"] == 0
+
+
+def test_post_apply_evidence_gate_cli_requires_manifest_for_inline_verification(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    external_path = tmp_path / "external-gate.json"
+    external_path.write_text(json.dumps(external_gate_payload()), encoding="utf-8")
+
+    rc = post_apply_evidence_gate.main(
+        [
+            "--external-gate-json",
+            str(external_path),
+            "--verify-manifest-out",
+            str(tmp_path / "post-apply-manifest-verify.json"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires --manifest-out" in captured.err
+
+
 def test_post_apply_evidence_manifest_verifier_accepts_intact_artifacts(tmp_path: Path) -> None:
     external_path = tmp_path / "external-gate.json"
     report_path = tmp_path / "post-apply-gate.json"

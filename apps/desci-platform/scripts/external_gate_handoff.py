@@ -502,7 +502,8 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
         "python scripts/post_apply_evidence_gate.py "
         f"--external-gate-json {aggregate_json_out} "
         f"--json-out {promotion_gate_json_out} "
-        f"--manifest-out {promotion_manifest_json_out}"
+        f"--manifest-out {promotion_manifest_json_out} "
+        f"--verify-manifest-out {promotion_manifest_verify_json_out}"
     )
     promotion_manifest_verify_command = (
         "python scripts/post_apply_evidence_gate.py "
@@ -518,6 +519,7 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
         "promotion_manifest_json_out": promotion_manifest_json_out if template_dir else "",
         "promotion_manifest_verify_json_out": promotion_manifest_verify_json_out if template_dir else "",
         "promotion_gate_command": promotion_gate_command if template_dir else "",
+        "promotion_single_command": promotion_gate_command if template_dir else "",
         "promotion_manifest_verify_command": promotion_manifest_verify_command if template_dir else "",
         "provider_json_outputs": {
             provider: f"var/external-release-gate-post-apply-{provider}.json" for provider in provider_keys
@@ -629,6 +631,7 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Promotion manifest JSON: "
                 f"`{_markdown_scalar(completion_evidence.get('promotion_manifest_json_out'))}`",
                 f"- Promotion gate command: `{_markdown_scalar(completion_evidence.get('promotion_gate_command'))}`",
+                f"- Promotion single command: `{_markdown_scalar(completion_evidence.get('promotion_single_command'))}`",
                 f"- Promotion manifest verify JSON: "
                 f"`{_markdown_scalar(completion_evidence.get('promotion_manifest_verify_json_out'))}`",
                 f"- Promotion manifest verify command: "
