@@ -166,6 +166,8 @@ def provider_rollup(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "provider": provider,
                 "label": _provider_label(provider),
+                "template_filename": release_handoff.PROVIDER_TEMPLATE_FILENAMES.get(provider, f"{provider}.env"),
+                "has_env_template": False,
                 "failed": 0,
                 "warnings": 0,
                 "required_env": [],
@@ -181,6 +183,7 @@ def provider_rollup(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for key in _string_list(action.get("required_env")):
             if key not in group["required_env"]:
                 group["required_env"].append(key)
+                group["has_env_template"] = True
         for reason in _string_list(action.get("failure_reasons")):
             if reason not in group["failure_reasons"]:
                 group["failure_reasons"].append(reason)

@@ -107,8 +107,12 @@ def test_external_gate_handoff_fails_closed_with_provider_rollup() -> None:
     assert payload["summary"]["next_action_count"] == 3
     assert railway["failed"] == 1
     assert railway["warnings"] == 1
+    assert railway["template_filename"] == "railway.env"
+    assert railway["has_env_template"] is True
     assert railway["required_env"] == ["FIREBASE_SERVICE_ACCOUNT_JSON", "PINATA_JWT"]
     assert vercel["failed"] == 2
+    assert vercel["template_filename"] == "vercel.env"
+    assert vercel["has_env_template"] is False
     assert vercel["failure_reasons"] == ["auth_context_missing"]
     assert vercel["commands"] == ["vercel whoami", "vercel env ls production"]
 

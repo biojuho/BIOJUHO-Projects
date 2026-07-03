@@ -28,11 +28,14 @@ Continue the DeSci launch loop after adding the external gate handoff. The next 
   - `render_provider_env_template`
   - `write_provider_templates`
   - `--provider-template-dir`
+  - `provider_rollup[].template_filename`
+  - `provider_rollup[].has_env_template`
 - Extended `apps/desci-platform/backend/tests/test_external_gate_handoff.py` to verify:
   - provider templates are written atomically,
   - duplicated keys are emitted once,
   - provider-preflight-only failures do not create value templates,
   - secret-like values are not emitted.
+  - provider rollups distinguish env-template providers from CLI/auth-only provider blockers.
 
 ## Verification
 
@@ -43,6 +46,7 @@ python -m py_compile scripts/external_gate_handoff.py
 python -m pytest backend/tests/test_external_gate_handoff.py backend/tests/test_external_release_gate.py -q
 python scripts/external_gate_handoff.py --external-gate-json var/external-release-gate-provider-2026-07-04.json --json-out var/external-gate-handoff-templates-2026-07-04.json --markdown-out var/external-gate-handoff-templates-2026-07-04.md --provider-template-dir var/external-gate-provider-templates-2026-07-04
 $matches = Get-ChildItem -Path 'var/external-gate-provider-templates-2026-07-04' -Filter '*.env' | Select-String -Pattern '^[A-Z0-9_]+=.+'
+python scripts/external_gate_handoff.py --external-gate-json var/external-release-gate-provider-2026-07-04.json --json-out var/external-gate-handoff-template-metadata-2026-07-04.json --provider-template-dir var/external-gate-provider-template-metadata-2026-07-04
 python -m pytest backend/tests/test_external_gate_handoff.py backend/tests/test_external_release_gate.py backend/tests/test_provider_preflight.py backend/tests/test_deploy_readiness.py backend/tests/test_product_smoke.py -q
 ```
 
@@ -62,6 +66,7 @@ Observed results:
   - `railway.env`
   - `vercel.env`
 - Non-comment `KEY=` value check: `provider_templates_have_no_values`.
+- Provider rollup metadata now records `template_filename` and `has_env_template` for Amoy, GitHub, Railway, and Vercel.
 - Broader release pytest: `74 passed`.
 - DeSci workspace smoke: `8/8` passed.
 
