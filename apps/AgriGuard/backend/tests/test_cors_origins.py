@@ -179,3 +179,18 @@ def test_nginx_api_websocket_proxy_strips_api_prefix_with_upgrade_headers() -> N
         assert 'proxy_set_header Connection "upgrade";' in block
         assert "proxy_read_timeout 3600s;" in block
         assert "proxy_send_timeout 3600s;" in block
+
+
+def test_nginx_configs_set_baseline_security_headers() -> None:
+    headers = [
+        'add_header X-Content-Type-Options "nosniff" always;',
+        'add_header X-Frame-Options "DENY" always;',
+        'add_header Referrer-Policy "strict-origin-when-cross-origin" always;',
+    ]
+
+    frontend = (WORKSPACE_ROOT / "apps/AgriGuard/frontend/nginx.conf").read_text(encoding="utf-8")
+    edge = (WORKSPACE_ROOT / "apps/AgriGuard/nginx/nginx.conf").read_text(encoding="utf-8")
+
+    for header in headers:
+        assert frontend.count(header) >= 2
+        assert header in edge
