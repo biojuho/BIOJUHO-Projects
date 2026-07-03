@@ -1,0 +1,7 @@
+# Production ACL example for Mosquitto.
+# Assumption: each sensor connects with MQTT username equal to its AgriGuard sensor_id.
+# Keep this as an example; use GET /sensor-devices/mqtt-broker-provisioning
+# to generate the real ACL/password-file/dynamic-security runbook from sensor_devices.
+
+pattern write agriguard/sensors/%u
+topic read agriguard/alerts
