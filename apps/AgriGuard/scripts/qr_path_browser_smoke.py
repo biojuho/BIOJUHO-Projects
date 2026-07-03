@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -13,7 +14,7 @@ from playwright.sync_api import Page, sync_playwright
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = ""
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
-DEFAULT_MANUAL_TOKEN = "mock-0"
+LEGACY_FIXTURE_MANUAL_TOKEN = "mock-0"
 DEFAULT_INVALID_MANUAL_VALUE = "not a valid AgriGuard QR"
 DEFAULT_INVALID_TOKEN = "not-a-real-token"
 
@@ -24,7 +25,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--api-url",
         default=DEFAULT_API_URL,
-        help="Optional backend API URL used to seed a valid manual token when --manual-token is omitted.",
+        help=(
+            "Optional backend API URL used to seed a valid manual token when --manual-token is omitted. "
+            "Defaults to AGRIGUARD_BROWSER_API_URL or BASE_URL/api."
+        ),
     )
     parser.add_argument("--operator-token", default=DEFAULT_OPERATOR_TOKEN)
     parser.add_argument("--manual-token", default=None)
@@ -51,6 +55,16 @@ def parse_viewport(value: str) -> dict[str, int]:
 
 def route_url(base_url: str, path: str) -> str:
     return base_url.rstrip("/") + path
+
+
+def resolve_seed_api_url(*, base_url: str, api_url: str) -> str:
+    explicit_api_url = api_url.strip()
+    if explicit_api_url:
+        return explicit_api_url.rstrip("/")
+    env_api_url = os.getenv("AGRIGUARD_BROWSER_API_URL", "").strip()
+    if env_api_url:
+        return env_api_url.rstrip("/")
+    return route_url(base_url, "/api")
 
 
 def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
@@ -183,10 +197,11 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     page_errors: list[dict[str, str]] = []
     screenshot_dir = Path(args.screenshot_dir)
     viewport = parse_viewport(args.viewport)
-    manual_token = args.manual_token or DEFAULT_MANUAL_TOKEN
+    manual_token = args.manual_token.strip() if args.manual_token else None
+    seed_api_url = resolve_seed_api_url(base_url=args.base_url, api_url=args.api_url)
 
-    if args.api_url and args.manual_token is None:
-        seeded = seed_manual_verify_token(args.api_url, args.operator_token)
+    if manual_token is None:
+        seeded = seed_manual_verify_token(seed_api_url, args.operator_token)
         manual_token = str(seeded["token"])
         observations["seededManualToken"] = seeded
         checks.append(check("seed_manual_verify_token", bool(manual_token), str(seeded.get("product_id") or "")))
@@ -312,6 +327,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     return {
         "schema_version": 1,
         "baseUrl": args.base_url,
+        "apiUrl": seed_api_url,
         "viewport": viewport,
         "manualToken": manual_token,
         "invalidToken": args.invalid_token,
@@ -330,7 +346,27 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
 
 def main() -> int:
     args = parse_args()
-    report = run_browser(args)
+    try:
+        report = run_browser(args)
+    except Exception as exc:  # noqa: BLE001 - browser smoke evidence should capture unexpected API/UI failures.
+        report = {
+            "schema_version": 1,
+            "baseUrl": args.base_url,
+            "apiUrl": resolve_seed_api_url(base_url=args.base_url, api_url=args.api_url),
+            "viewport": parse_viewport(args.viewport),
+            "manualToken": args.manual_token,
+            "invalidToken": args.invalid_token,
+            "passed": 0,
+            "total": 1,
+            "ok": False,
+            "checks": [check("unhandled_exception", False, str(exc))],
+            "observations": {},
+            "consoleMessages": [],
+            "requestFailures": [],
+            "actionableRequestFailures": [],
+            "pageErrors": [],
+            "screenshotDir": args.screenshot_dir,
+        }
     write_json(args.json_out, report)
     print(f"agriguard qr path browser smoke: {report['passed']}/{report['total']} PASS")
     print(f"json written: {args.json_out}")

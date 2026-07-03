@@ -269,6 +269,19 @@ def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
 
 
+def test_nav_browser_smoke_defaults_operator_token_for_local_dev(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
+        "nav_browser_smoke_operator_token_under_test",
+    )
+
+    monkeypatch.delenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", raising=False)
+    monkeypatch.setattr(sys, "argv", ["nav_browser_smoke.py"])
+    args = script.parse_args()
+
+    assert args.operator_token == script.DEFAULT_OPERATOR_TOKEN
+
+
 def test_qr_path_browser_smoke_keeps_invalid_manual_probe_distinct(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
@@ -282,7 +295,25 @@ def test_qr_path_browser_smoke_keeps_invalid_manual_probe_distinct(monkeypatch):
     assert args.manual_token is None
     assert args.invalid_manual_value != args.manual_token
     assert args.invalid_manual_value != args.invalid_token
-    assert args.invalid_manual_value != script.DEFAULT_MANUAL_TOKEN
+    assert args.invalid_manual_value != script.LEGACY_FIXTURE_MANUAL_TOKEN
+
+
+def test_qr_path_browser_smoke_resolves_seed_api_url_from_base_proxy(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_api_url_under_test",
+    )
+
+    monkeypatch.delenv("AGRIGUARD_BROWSER_API_URL", raising=False)
+
+    assert (
+        script.resolve_seed_api_url(base_url="http://127.0.0.1:5199", api_url="")
+        == "http://127.0.0.1:5199/api"
+    )
+    assert script.resolve_seed_api_url(
+        base_url="http://127.0.0.1:5199",
+        api_url="http://127.0.0.1:8002/",
+    ) == "http://127.0.0.1:8002"
 
 
 def test_qr_path_browser_smoke_extracts_public_verify_tokens():

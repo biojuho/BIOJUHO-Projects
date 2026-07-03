@@ -12,6 +12,7 @@ from playwright.sync_api import Page, sync_playwright
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_DESKTOP_VIEWPORT = "1440x960"
 DEFAULT_MOBILE_VIEWPORT = "390x844"
+DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 DEFAULT_ROUTES = [
     {"name": "dashboard", "label": "Dashboard", "path": "/", "expected": ["Consumer QR KPIs"]},
     {"name": "registry", "label": "Registry", "path": "/registry", "expected": ["Crop Registry"]},
@@ -45,8 +46,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--operator-token",
-        default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN", ""),
-        help="Optional operator token to store in localStorage before opening the app.",
+        default=os.getenv("AGRIGUARD_BROWSER_OPERATOR_TOKEN") or DEFAULT_OPERATOR_TOKEN,
+        help=(
+            "Operator token to store in localStorage before opening the app. Defaults to "
+            "AGRIGUARD_BROWSER_OPERATOR_TOKEN or the local dev-fallback smoke token."
+        ),
     )
     return parser.parse_args()
 
