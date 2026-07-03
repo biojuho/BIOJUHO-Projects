@@ -170,6 +170,57 @@ def test_external_gate_handoff_writes_no_secret_provider_templates(tmp_path: Pat
     assert not (paths["railway"].parent / "railway.env.tmp").exists()
 
 
+def test_external_gate_handoff_writes_provider_template_index(tmp_path: Path) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    index_path = tmp_path / "provider-index.json"
+
+    external_gate_handoff.write_provider_template_index(index_path, payload, paths)
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    provider = index["providers"][0]
+
+    assert index["ok"] is True
+    assert index["safe_to_commit"] is True
+    assert index["populated_key_count"] == 0
+    assert provider["provider"] == "railway"
+    assert provider["template_filename"] == "railway.env"
+    assert provider["has_env_template"] is True
+    assert provider["env_keys"] == ["FIREBASE_SERVICE_ACCOUNT_JSON", "PINATA_JWT"]
+    assert provider["env_key_count"] == 2
+    assert provider["populated_key_count"] == 0
+    assert len(provider["sha256"]) == 64
+
+
+def test_external_gate_handoff_template_index_flags_populated_values_without_leaking_them(tmp_path: Path) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=\n", encoding="utf-8")
+
+    index = external_gate_handoff.provider_template_index_payload(payload, paths)
+    serialized = json.dumps(index)
+
+    assert index["ok"] is False
+    assert index["safe_to_commit"] is False
+    assert index["populated_key_count"] == 1
+    assert index["providers"][0]["populated_keys"] == ["FIREBASE_SERVICE_ACCOUNT_JSON"]
+    assert "super-secret" not in serialized
+
+
+def test_external_gate_handoff_cli_requires_template_dir_for_index(capsys) -> None:
+    rc = external_gate_handoff.main(
+        [
+            "--external-gate-json",
+            "missing.json",
+            "--provider-template-index-out",
+            "index.json",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "requires --provider-template-dir" in captured.err
+
+
 def test_external_gate_handoff_load_rejects_non_gate_payload(tmp_path: Path) -> None:
     path = tmp_path / "bad.json"
     path.write_text(json.dumps({"schema_version": 1, "ok": True}), encoding="utf-8")

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import UTC, datetime
@@ -314,6 +315,76 @@ def write_provider_templates(directory: str | Path, payload: dict[str, Any]) -> 
     return written
 
 
+def _env_template_audit(path: Path) -> dict[str, Any]:
+    body = path.read_text(encoding="utf-8")
+    keys: list[str] = []
+    populated_keys: list[str] = []
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        if key not in keys:
+            keys.append(key)
+        if value.strip() and key not in populated_keys:
+            populated_keys.append(key)
+    return {
+        "path": str(path),
+        "bytes": len(body.encode("utf-8")),
+        "sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        "env_keys": keys,
+        "env_key_count": len(keys),
+        "populated_key_count": len(populated_keys),
+        "populated_keys": populated_keys,
+    }
+
+
+def provider_template_index_payload(payload: dict[str, Any], provider_paths: dict[str, Path]) -> dict[str, Any]:
+    providers: list[dict[str, Any]] = []
+    rollup_by_provider = {
+        str(item.get("provider") or ""): item
+        for item in _as_list(payload.get("provider_rollup"))
+        if isinstance(item, dict)
+    }
+    for provider in sorted(provider_paths):
+        path = provider_paths[provider]
+        audit = _env_template_audit(path)
+        rollup = _as_dict(rollup_by_provider.get(provider))
+        providers.append(
+            {
+                "provider": provider,
+                "label": _provider_label(provider),
+                "template_filename": rollup.get("template_filename")
+                or release_handoff.PROVIDER_TEMPLATE_FILENAMES.get(provider, f"{provider}.env"),
+                "has_env_template": rollup.get("has_env_template") is True,
+                **audit,
+            }
+        )
+    populated_total = sum(int(item.get("populated_key_count") or 0) for item in providers)
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "ok": populated_total == 0,
+        "safe_to_commit": populated_total == 0,
+        "release_decision": payload.get("release_decision"),
+        "external_gate_json": payload.get("external_gate_json"),
+        "provider_template_count": len(providers),
+        "populated_key_count": populated_total,
+        "providers": providers,
+    }
+
+
+def write_provider_template_index(
+    path: str | Path,
+    payload: dict[str, Any],
+    provider_paths: dict[str, Path],
+) -> Path:
+    return write_json_report(path, provider_template_index_payload(payload, provider_paths))
+
+
 def render_markdown_report(payload: dict[str, Any]) -> str:
     summary = _as_dict(payload.get("summary"))
     lines = [
@@ -410,11 +481,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json-out", help="Write handoff JSON evidence.")
     parser.add_argument("--markdown-out", help="Write a human-readable handoff packet.")
     parser.add_argument("--provider-template-dir", help="Write no-secret env templates split by provider target.")
+    parser.add_argument("--provider-template-index-out", help="Write an audit index for generated provider templates.")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.provider_template_index_out and not args.provider_template_dir:
+        print(
+            "[external-gate-handoff] --provider-template-index-out requires --provider-template-dir",
+            file=sys.stderr,
+        )
+        return 2
     gate_path = Path(args.external_gate_json)
     payload = build_handoff_payload(load_external_gate_payload(gate_path), evidence_path=gate_path)
     if args.json:
@@ -427,10 +505,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.markdown_out:
         markdown_path = write_markdown_report(args.markdown_out, payload)
         print(f"[external-gate-handoff] markdown written: {markdown_path}")
+    provider_paths: dict[str, Path] = {}
     if args.provider_template_dir:
         provider_paths = write_provider_templates(args.provider_template_dir, payload)
         for provider, path in provider_paths.items():
             print(f"[external-gate-handoff] provider template written: {provider}={path}")
+    if args.provider_template_index_out:
+        index_path = write_provider_template_index(args.provider_template_index_out, payload, provider_paths)
+        print(f"[external-gate-handoff] provider template index written: {index_path}")
     return 0 if payload["ok"] else 1
 
 

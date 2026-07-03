@@ -30,12 +30,14 @@ Continue the DeSci launch loop after adding the external gate handoff. The next 
   - `--provider-template-dir`
   - `provider_rollup[].template_filename`
   - `provider_rollup[].has_env_template`
+  - `--provider-template-index-out`
 - Extended `apps/desci-platform/backend/tests/test_external_gate_handoff.py` to verify:
   - provider templates are written atomically,
   - duplicated keys are emitted once,
   - provider-preflight-only failures do not create value templates,
   - secret-like values are not emitted.
   - provider rollups distinguish env-template providers from CLI/auth-only provider blockers.
+  - provider template indexes record file hashes, key counts, and populated-key counts without leaking values.
 
 ## Verification
 
@@ -47,19 +49,22 @@ python -m pytest backend/tests/test_external_gate_handoff.py backend/tests/test_
 python scripts/external_gate_handoff.py --external-gate-json var/external-release-gate-provider-2026-07-04.json --json-out var/external-gate-handoff-templates-2026-07-04.json --markdown-out var/external-gate-handoff-templates-2026-07-04.md --provider-template-dir var/external-gate-provider-templates-2026-07-04
 $matches = Get-ChildItem -Path 'var/external-gate-provider-templates-2026-07-04' -Filter '*.env' | Select-String -Pattern '^[A-Z0-9_]+=.+'
 python scripts/external_gate_handoff.py --external-gate-json var/external-release-gate-provider-2026-07-04.json --json-out var/external-gate-handoff-template-metadata-2026-07-04.json --provider-template-dir var/external-gate-provider-template-metadata-2026-07-04
+python scripts/external_gate_handoff.py --external-gate-json var/external-release-gate-provider-2026-07-04.json --json-out var/external-gate-handoff-indexed-2026-07-04.json --markdown-out var/external-gate-handoff-indexed-2026-07-04.md --provider-template-dir var/external-gate-provider-templates-indexed-2026-07-04 --provider-template-index-out var/external-gate-provider-templates-indexed-2026-07-04.json
 python -m pytest backend/tests/test_external_gate_handoff.py backend/tests/test_external_release_gate.py backend/tests/test_provider_preflight.py backend/tests/test_deploy_readiness.py backend/tests/test_product_smoke.py -q
+python scripts/browser_smoke.py --frontend http://127.0.0.1:5173 --expect-dev-auth --launch-click-suite --timeout 45 --json-out var/desci-browser-smoke-template-index-2026-07-04.json --trace-on-failure-dir var/traces/template-index-2026-07-04
 ```
 
 Command run from workspace root:
 
 ```powershell
 python ops/scripts/run_workspace_smoke.py --scope desci --json-out var/workspace-smoke-desci-external-gate-templates-2026-07-04.json
+python ops/scripts/run_workspace_smoke.py --scope desci --json-out var/workspace-smoke-desci-template-index-2026-07-04.json
 ```
 
 Observed results:
 
 - `py_compile`: pass.
-- Focused pytest: `12 passed`.
+- Focused pytest after index work: `15 passed`.
 - Provider templates generated:
   - `amoy.env`
   - `github.env`
@@ -67,8 +72,10 @@ Observed results:
   - `vercel.env`
 - Non-comment `KEY=` value check: `provider_templates_have_no_values`.
 - Provider rollup metadata now records `template_filename` and `has_env_template` for Amoy, GitHub, Railway, and Vercel.
-- Broader release pytest: `74 passed`.
-- DeSci workspace smoke: `8/8` passed.
+- Provider template index generated with `safe_to_commit=true`, `provider_template_count=4`, and `populated_key_count=0`.
+- Broader release pytest after index work: `77 passed`.
+- Browser launch-click suite after index work: `9/9` passed.
+- DeSci workspace smoke after index work: `8/8` passed.
 
 ## Current Launch State
 
