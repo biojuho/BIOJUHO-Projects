@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    chunkSizeWarningLimit: 200,
+    chunkSizeWarningLimit: 500,
     rolldownOptions: {
       output: {
         minify: {
@@ -29,16 +29,6 @@ export default defineConfig({
               name: 'vendor-react-core',
               test: /[\\/]node_modules[\\/](react|react-router|react-router-dom)[\\/]/,
               priority: 35,
-            },
-            {
-              name: 'vendor-recharts',
-              test: /[\\/]node_modules[\\/]recharts[\\/]/,
-              priority: 30,
-            },
-            {
-              name: 'vendor-chart-utils',
-              test: /[\\/]node_modules[\\/](d3-[^\\/]+|victory-vendor|react-smooth|decimal.js-light)[\\/]/,
-              priority: 25,
             },
             {
               name: 'vendor-motion',
