@@ -1,0 +1,142 @@
+name: DeSci Provider Apply Workflow Handoff
+
+run-name: DeSci provider apply workflow handoff by @${{ github.actor }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  provider-apply-workflow-handoff:
+    name: Provider Apply Workflow Handoff
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.13"
+
+      - name: Install Python dependencies
+        run: uv sync --all-packages
+
+      - name: Generate provider apply workflow handoff
+        id: provider-apply-workflow
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        shell: pwsh
+        run: |
+          uv run python apps/desci-platform/scripts/external_release_gate.py `
+            --json-out var/external-release-gate-provider-workflow-machine.json
+          $externalExitCode = $LASTEXITCODE
+          "external_exit_code=$externalExitCode" >> $env:GITHUB_OUTPUT
+          if ($externalExitCode -ne 0) {
+            Write-Warning "External release gate exited with $externalExitCode. The handoff bundle will still be generated."
+          }
+
+          uv run python apps/desci-platform/scripts/external_gate_handoff.py `
+            --external-gate-json var/external-release-gate-provider-workflow-machine.json `
+            --json-out var/external-gate-handoff-provider-workflow-machine.json `
+            --markdown-out var/external-gate-handoff-provider-workflow-machine.md `
+            --provider-template-dir var/external-gate-provider-workflow-machine `
+            --provider-template-index-out var/external-gate-provider-workflow-index-machine.json `
+            --provider-apply-plan-out var/external-gate-provider-workflow-machine.json `
+            --provider-apply-plan-markdown-out var/external-gate-provider-workflow-machine.md
+          $handoffExitCode = $LASTEXITCODE
+          "handoff_exit_code=$handoffExitCode" >> $env:GITHUB_OUTPUT
+          if ($handoffExitCode -ne 0) {
+            Write-Warning "Provider handoff generation exited with $handoffExitCode. Artifacts will still be uploaded before the job fails."
+          }
+
+          uv run python apps/desci-platform/scripts/external_gate_handoff.py `
+            --record-provider-apply-results-from-plan var/external-gate-provider-workflow-machine.json `
+            --json-out var/external-gate-provider-workflow-machine-results.json
+          $resultsExitCode = $LASTEXITCODE
+          "results_exit_code=$resultsExitCode" >> $env:GITHUB_OUTPUT
+          if ($resultsExitCode -ne 0) {
+            Write-Warning "Provider apply results recorder exited with $resultsExitCode. This is expected while provider values remain unapplied."
+          }
+
+          uv run python apps/desci-platform/scripts/external_gate_handoff.py `
+            --verify-provider-apply-workflow var/external-gate-provider-workflow-machine.json `
+            --require-promotion-go `
+            --json-out var/external-gate-provider-workflow-machine-verify.json `
+            --markdown-out var/external-gate-provider-workflow-machine-verify.md `
+            --github-step-summary `
+            --github-annotations `
+            --github-output
+          $verifyExitCode = $LASTEXITCODE
+          "verify_exit_code=$verifyExitCode" >> $env:GITHUB_OUTPUT
+          if ($verifyExitCode -ne 0) {
+            Write-Warning "Provider apply workflow verifier exited with $verifyExitCode. Artifacts will still be uploaded before the job fails."
+          }
+
+          exit 0
+
+      - name: Upload provider apply workflow artifacts
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: provider-apply-workflow-handoff-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            var/external-release-gate-provider-workflow-machine.json
+            var/external-gate-handoff-provider-workflow-machine.json
+            var/external-gate-handoff-provider-workflow-machine.md
+            var/external-gate-provider-workflow-index-machine.json
+            var/external-gate-provider-workflow-machine.json
+            var/external-gate-provider-workflow-machine.md
+            var/external-gate-provider-workflow-machine-results.json
+            var/external-gate-provider-workflow-machine-verify.json
+            var/external-gate-provider-workflow-machine-verify.md
+            var/external-gate-provider-workflow-machine/**
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Fail closed on provider apply workflow blockers
+        if: always()
+        shell: pwsh
+        run: |
+          $externalExitCode = "${{ steps.provider-apply-workflow.outputs.external_exit_code }}"
+          $handoffExitCode = "${{ steps.provider-apply-workflow.outputs.handoff_exit_code }}"
+          $resultsExitCode = "${{ steps.provider-apply-workflow.outputs.results_exit_code }}"
+          $verifyExitCode = "${{ steps.provider-apply-workflow.outputs.verify_exit_code }}"
+          $workflowOk = "${{ steps.provider-apply-workflow.outputs.provider_apply_workflow_ok }}"
+          $failed = $false
+
+          foreach ($entry in @(
+            @{ Name = "external release gate"; Code = $externalExitCode },
+            @{ Name = "provider handoff"; Code = $handoffExitCode },
+            @{ Name = "provider apply results"; Code = $resultsExitCode },
+            @{ Name = "provider apply workflow verifier"; Code = $verifyExitCode }
+          )) {
+            if ([string]::IsNullOrWhiteSpace($entry.Code)) {
+              Write-Error "$($entry.Name) did not report an exit code."
+              $failed = $true
+            } elseif ([int]$entry.Code -ne 0) {
+              Write-Error "$($entry.Name) failed with exit code $($entry.Code)."
+              $failed = $true
+            }
+          }
+
+          if ($workflowOk -ne "true") {
+            Write-Error "Provider apply workflow is not verified as go. Inspect var/external-gate-provider-workflow-machine-verify.json."
+            $failed = $true
+          }
+
+          if ($failed) {
+            exit 1
+          }
