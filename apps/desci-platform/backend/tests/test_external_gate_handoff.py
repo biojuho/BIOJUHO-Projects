@@ -150,6 +150,22 @@ def test_external_gate_handoff_writes_json_and_markdown(tmp_path: Path) -> None:
     assert not (tmp_path / "handoff.md.tmp").exists()
 
 
+def test_external_gate_handoff_writes_no_secret_provider_templates(tmp_path: Path) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    railway_text = paths["railway"].read_text(encoding="utf-8")
+
+    assert set(paths) == {"railway"}
+    assert paths["railway"].name == "railway.env"
+    assert railway_text.count("FIREBASE_SERVICE_ACCOUNT_JSON=") == 1
+    assert railway_text.count("PINATA_JWT=") == 1
+    assert "Set Firebase service account JSON in Railway." in railway_text
+    assert "vercel whoami" not in railway_text
+    assert "sk_live_" not in railway_text
+    assert not (paths["railway"].parent / "railway.env.tmp").exists()
+
+
 def test_external_gate_handoff_load_rejects_non_gate_payload(tmp_path: Path) -> None:
     path = tmp_path / "bad.json"
     path.write_text(json.dumps({"schema_version": 1, "ok": True}), encoding="utf-8")
