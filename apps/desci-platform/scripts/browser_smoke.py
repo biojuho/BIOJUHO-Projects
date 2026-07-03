@@ -530,24 +530,33 @@ def _dashboard_readiness_payload() -> dict[str, Any]:
     return {
         "status": "blocked",
         "summary": {
-            "ready_count": 2,
-            "total": 7,
-            "required_ready_count": 1,
-            "required_total": 4,
+            "ready_count": 7,
+            "total": 13,
+            "required_ready_count": 4,
+            "required_total": 7,
         },
         "checks": [
             {"id": "api", "status": "pass", "required": True},
             {
                 "id": "auth",
-                "status": "warn",
+                "status": "fail",
                 "required": True,
-                "remediation": "Configure production Firebase credentials.",
+                "remediation": (
+                    "Set GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON. "
+                    "Use ALLOW_TEST_BYPASS only for local smoke."
+                ),
+                "required_env": ["GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_SERVICE_ACCOUNT_JSON"],
             },
+            {"id": "vector_store", "status": "pass", "required": True, "metric": 7},
+            {"id": "llm", "status": "pass", "required": True},
             {
                 "id": "stripe",
                 "status": "fail",
                 "required": True,
-                "remediation": "Configure Stripe secret, webhook secret, and Pro Price IDs.",
+                "remediation": (
+                    "Set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO_MONTHLY, "
+                    "and STRIPE_PRICE_PRO_YEARLY before enabling paid checkout."
+                ),
                 "required_env": [
                     "STRIPE_SECRET_KEY",
                     "STRIPE_WEBHOOK_SECRET",
@@ -557,128 +566,120 @@ def _dashboard_readiness_payload() -> dict[str, Any]:
             },
             {
                 "id": "stripe_return_url",
+                "status": "pass",
+                "required": True,
+            },
+            {"id": "stripe_portal", "status": "pass", "required": False},
+            {
+                "id": "cors",
                 "status": "fail",
                 "required": True,
-                "remediation": "Set DESCI_FRONTEND_URL to the deployed frontend HTTPS origin.",
-                "required_env": ["DESCI_FRONTEND_URL"],
+                "remediation": (
+                    "Set ALLOWED_ORIGINS to the deployed frontend origin list; do not use wildcard or localhost origins."
+                ),
+                "required_env": ["ALLOWED_ORIGINS"],
             },
+            {"id": "redis", "status": "pass", "required": False},
             {
-                "id": "stripe_portal",
+                "id": "rabbitmq",
                 "status": "warn",
                 "required": False,
-                "remediation": "Set STRIPE_PORTAL_CONFIGURATION_ID or confirm the default Stripe portal configuration.",
-                "required_env": ["STRIPE_PORTAL_CONFIGURATION_ID"],
+                "remediation": "Set RABBITMQ_URL and confirm RabbitMQ is reachable from the worker runtime.",
+                "required_env": ["RABBITMQ_URL"],
             },
-            {"id": "vector_store", "status": "pass", "required": False, "metric": 7},
+            {
+                "id": "ipfs",
+                "status": "warn",
+                "required": False,
+                "remediation": "Set PINATA_JWT, or PINATA_API_KEY plus PINATA_API_SECRET, before public asset minting.",
+                "required_env": ["PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET"],
+            },
             {
                 "id": "web3",
-                "status": "warn",
+                "status": "pass",
                 "required": False,
                 "configured": True,
-                "available": False,
+                "available": True,
                 "remediation": (
-                    "Disable MOCK_MODE before production handoff. Replace WEB3_RPC_URL with a public HTTPS "
-                    "Polygon Amoy RPC endpoint. Set valid non-zero EVM addresses for NFT_CONTRACT_ADDRESS, "
-                    "DESCI_DAO_CONTRACT_ADDRESS."
+                    "Use MOCK_MODE=true only for local demos. For production, configure WEB3_RPC_URL as a public "
+                    "HTTPS Polygon Amoy RPC endpoint plus deployed DSCI/NFT/DAO contract addresses."
                 ),
                 "required_env": [
                     "MOCK_MODE",
                     "WEB3_RPC_URL",
+                    "DSCI_CONTRACT_ADDRESS",
                     "NFT_CONTRACT_ADDRESS",
                     "DESCI_DAO_CONTRACT_ADDRESS",
                 ],
                 "details": {
                     "rpc_configured": True,
                     "rpc_public_https": False,
-                    "contract_count": 1,
+                    "contract_count": 2,
                     "contracts": {
                         "DSCI_CONTRACT_ADDRESS": True,
-                        "NFT_CONTRACT_ADDRESS": False,
+                        "NFT_CONTRACT_ADDRESS": True,
                         "DESCI_DAO_CONTRACT_ADDRESS": False,
                     },
                     "mock_mode_enabled": True,
-                    "mock_mode_allowed": False,
+                    "mock_mode_allowed": True,
                     "rpc_url": "https://secret-rpc.example",
                     "contract_address": "0x1111111111111111111111111111111111111111",
                 },
             },
+            {
+                "id": "grobid",
+                "status": "warn",
+                "required": False,
+                "remediation": "Set GROBID_ENABLED=true and GROBID_URL to a reachable GROBID service.",
+                "required_env": ["GROBID_ENABLED", "GROBID_URL"],
+            },
         ],
-        "checked_at": "2026-06-06T00:00:00Z",
-        "launch_blockers": ["stripe", "stripe_return_url"],
+        "checked_at": "2026-07-03T00:00:00Z",
+        "launch_blockers": ["auth", "stripe", "cors"],
+    }
+
+
+def _dashboard_percent(ready_count: int, total: int) -> int:
+    return round((ready_count / total) * 100) if total else 0
+
+
+def _dashboard_launch_action_from_check(check: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": check.get("id"),
+        "required": bool(check.get("required")),
+        "status": check.get("status"),
+        "remediation": check.get("remediation", ""),
+        "required_env": check.get("required_env") if isinstance(check.get("required_env"), list) else [],
     }
 
 
 def _dashboard_launch_payload() -> dict[str, Any]:
+    readiness_payload = _dashboard_readiness_payload()
+    summary = readiness_payload["summary"]
+    checks = [check for check in readiness_payload["checks"] if isinstance(check, dict)]
+    blockers = [check for check in checks if check.get("required") and check.get("status") == "fail"]
+    warnings = [check for check in checks if check.get("status") == "warn"]
+
     return {
         "product": "DSCI-DecentBio",
         "release_decision": "no-go",
         "operator_phase": "blocked",
-        "readiness_status": "blocked",
-        "checked_at": "2026-06-06T00:00:00Z",
+        "readiness_status": readiness_payload["status"],
+        "checked_at": readiness_payload["checked_at"],
         "score": {
-            "overall_percent": 29,
-            "required_percent": 25,
+            "overall_percent": _dashboard_percent(summary["ready_count"], summary["total"]),
+            "required_percent": _dashboard_percent(summary["required_ready_count"], summary["required_total"]),
         },
         "summary": {
-            "ready_count": 2,
-            "total": 7,
-            "required_ready_count": 1,
-            "required_total": 4,
-            "blocker_count": 2,
-            "warning_count": 3,
+            "ready_count": summary["ready_count"],
+            "total": summary["total"],
+            "required_ready_count": summary["required_ready_count"],
+            "required_total": summary["required_total"],
+            "blocker_count": len(blockers),
+            "warning_count": len(warnings),
         },
-        "launch_blockers": ["stripe", "stripe_return_url"],
-        "next_actions": [
-            {
-                "id": "stripe",
-                "required": True,
-                "status": "fail",
-                "remediation": "Configure Stripe secret, webhook secret, and Pro Price IDs.",
-                "required_env": [
-                    "STRIPE_SECRET_KEY",
-                    "STRIPE_WEBHOOK_SECRET",
-                    "STRIPE_PRICE_PRO_MONTHLY",
-                    "STRIPE_PRICE_PRO_YEARLY",
-                ],
-            },
-            {
-                "id": "stripe_return_url",
-                "required": True,
-                "status": "fail",
-                "remediation": "Set DESCI_FRONTEND_URL to the deployed frontend HTTPS origin.",
-                "required_env": ["DESCI_FRONTEND_URL"],
-            },
-            {
-                "id": "auth",
-                "required": True,
-                "status": "warn",
-                "remediation": "Configure production Firebase credentials.",
-                "required_env": [],
-            },
-            {
-                "id": "stripe_portal",
-                "required": False,
-                "status": "warn",
-                "remediation": "Set STRIPE_PORTAL_CONFIGURATION_ID or confirm the default Stripe portal configuration.",
-                "required_env": ["STRIPE_PORTAL_CONFIGURATION_ID"],
-            },
-            {
-                "id": "web3",
-                "required": False,
-                "status": "warn",
-                "remediation": (
-                    "Disable MOCK_MODE before production handoff. Replace WEB3_RPC_URL with a public HTTPS "
-                    "Polygon Amoy RPC endpoint. Set valid non-zero EVM addresses for NFT_CONTRACT_ADDRESS, "
-                    "DESCI_DAO_CONTRACT_ADDRESS."
-                ),
-                "required_env": [
-                    "MOCK_MODE",
-                    "WEB3_RPC_URL",
-                    "NFT_CONTRACT_ADDRESS",
-                    "DESCI_DAO_CONTRACT_ADDRESS",
-                ],
-            },
-        ],
+        "launch_blockers": [check.get("id") for check in blockers],
+        "next_actions": [_dashboard_launch_action_from_check(check) for check in [*blockers, *warnings]],
     }
 
 
@@ -808,22 +809,22 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
               const progress = document.querySelector('[data-testid="product-readiness-progress"]')?.textContent || '';
               const ready = document.querySelector('[data-testid="product-readiness-ready-summary"]')?.textContent || '';
               const required = document.querySelector('[data-testid="product-readiness-required-summary"]')?.textContent || '';
-              return progress.includes('29%') && ready.includes('2') && ready.includes('7')
-                && required.includes('1') && required.includes('4');
+              return progress.includes('54%') && ready.includes('7') && ready.includes('13')
+                && required.includes('4') && required.includes('7');
             }
             """,
             timeout=timeout_ms,
         )
         progress_text = page.get_by_test_id("product-readiness-progress").inner_text(timeout=timeout_ms)
-        if "29%" not in progress_text:
-            failures.append(f"{route_name}: expected 29% progress, got {progress_text!r}")
+        if "54%" not in progress_text:
+            failures.append(f"{route_name}: expected 54% progress, got {progress_text!r}")
 
         launch_control = page.get_by_test_id("product-readiness-launch-control")
         if launch_control.count() != 1:
             failures.append(f"{route_name}: missing launch control panel")
         else:
             launch_text = launch_control.inner_text(timeout=timeout_ms)
-            expected_fragments = ("25%", "29%")
+            expected_fragments = ("57%", "54%")
             missing_fragments = [fragment for fragment in expected_fragments if fragment not in launch_text]
             if missing_fragments:
                 failures.append(f"{route_name}: launch control score missing {missing_fragments}: {launch_text!r}")
@@ -842,12 +843,26 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
 
         ready_summary = page.get_by_test_id("product-readiness-ready-summary").inner_text(timeout=timeout_ms)
         required_summary = page.get_by_test_id("product-readiness-required-summary").inner_text(timeout=timeout_ms)
-        if "2" not in ready_summary or "7" not in ready_summary:
-            failures.append(f"{route_name}: ready summary missing 2/7 evidence: {ready_summary!r}")
-        if "1" not in required_summary or "4" not in required_summary:
-            failures.append(f"{route_name}: required summary missing 1/4 evidence: {required_summary!r}")
+        if "7" not in ready_summary or "13" not in ready_summary:
+            failures.append(f"{route_name}: ready summary missing 7/13 evidence: {ready_summary!r}")
+        if "4" not in required_summary or "7" not in required_summary:
+            failures.append(f"{route_name}: required summary missing 4/7 evidence: {required_summary!r}")
 
-        for check_id in ("api", "auth", "stripe", "stripe_return_url", "stripe_portal", "vector_store", "web3"):
+        for check_id in (
+            "api",
+            "auth",
+            "vector_store",
+            "llm",
+            "stripe",
+            "stripe_return_url",
+            "stripe_portal",
+            "cors",
+            "redis",
+            "rabbitmq",
+            "ipfs",
+            "web3",
+            "grobid",
+        ):
             if page.get_by_test_id(f"product-readiness-check-{check_id}").count() != 1:
                 failures.append(f"{route_name}: missing readiness check row {check_id}")
 
@@ -857,10 +872,11 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
             web3_text = page.get_by_test_id("product-readiness-web3-triage").inner_text(timeout=timeout_ms)
             expected_fragments = (
                 "RPC configured, not public HTTPS",
-                "1 valid contract env value",
+                "2 valid contract env values",
                 "DSCI_CONTRACT_ADDRESS: valid",
-                "NFT_CONTRACT_ADDRESS: missing",
-                "MOCK_MODE enabled in production path",
+                "NFT_CONTRACT_ADDRESS: valid",
+                "DESCI_DAO_CONTRACT_ADDRESS: missing",
+                "MOCK_MODE allowed for local runtime",
             )
             missing_fragments = [fragment for fragment in expected_fragments if fragment not in web3_text]
             if missing_fragments:
@@ -874,11 +890,13 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
             failures.append(f"{route_name}: missing launch action queue")
         else:
             accessible_buttons = (
-                "Copy all 5 launch actions",
+                "Copy all 6 launch actions",
+                "Copy Authentication launch action",
                 "Copy Stripe billing launch action",
-                "Copy Stripe return URL launch action",
-                "Copy Stripe portal configuration launch action",
-                "Copy Web3 launch action",
+                "Copy CORS origins launch action",
+                "Copy RabbitMQ launch action",
+                "Copy IPFS launch action",
+                "Copy GROBID launch action",
             )
             for button_name in accessible_buttons:
                 try:
@@ -886,12 +904,20 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                 except PlaywrightTimeoutError:
                     failures.append(f"{route_name}: missing accessible button name {button_name!r}")
 
+            auth_action = page.get_by_test_id("product-readiness-next-action-auth")
+            if auth_action.count() != 1:
+                failures.append(f"{route_name}: missing Authentication launch action")
+            else:
+                action_text = auth_action.inner_text(timeout=timeout_ms)
+                if "FIREBASE_SERVICE_ACCOUNT_JSON" not in action_text or "local smoke" not in action_text:
+                    failures.append(f"{route_name}: Authentication launch action lacks env/remediation: {action_text!r}")
+
             stripe_action = page.get_by_test_id("product-readiness-next-action-stripe")
             if stripe_action.count() != 1:
                 failures.append(f"{route_name}: missing Stripe launch action")
             else:
                 action_text = stripe_action.inner_text(timeout=timeout_ms)
-                if "STRIPE_WEBHOOK_SECRET" not in action_text or "Pro Price IDs" not in action_text:
+                if "STRIPE_WEBHOOK_SECRET" not in action_text or "paid checkout" not in action_text:
                     failures.append(f"{route_name}: Stripe launch action lacks env/remediation: {action_text!r}")
                 copy_button = page.get_by_test_id("product-readiness-next-action-copy-stripe")
                 if copy_button.count() != 1:
@@ -907,7 +933,7 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                         expected_fragments = (
                             "Launch action: Stripe billing",
                             "Priority: required",
-                            "Configure Stripe secret, webhook secret, and Pro Price IDs.",
+                            "Set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO_MONTHLY",
                             "Required env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET",
                         )
                         missing_fragments = [fragment for fragment in expected_fragments if fragment not in clipboard_payload]
@@ -924,20 +950,13 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                     else:
                         if "Copied " not in feedback_text or "Stripe" not in feedback_text or "launch action." not in feedback_text:
                             failures.append(f"{route_name}: Stripe copy feedback mismatch: {feedback_text!r}")
-            return_url_action = page.get_by_test_id("product-readiness-next-action-stripe_return_url")
-            if return_url_action.count() != 1:
-                failures.append(f"{route_name}: missing Stripe return URL launch action")
+            cors_action = page.get_by_test_id("product-readiness-next-action-cors")
+            if cors_action.count() != 1:
+                failures.append(f"{route_name}: missing CORS launch action")
             else:
-                action_text = return_url_action.inner_text(timeout=timeout_ms)
-                if "DESCI_FRONTEND_URL" not in action_text or "deployed frontend HTTPS origin" not in action_text:
-                    failures.append(f"{route_name}: Stripe return URL action lacks env/remediation: {action_text!r}")
-            portal_action = page.get_by_test_id("product-readiness-next-action-stripe_portal")
-            if portal_action.count() != 1:
-                failures.append(f"{route_name}: missing Stripe portal configuration action")
-            else:
-                action_text = portal_action.inner_text(timeout=timeout_ms)
-                if "STRIPE_PORTAL_CONFIGURATION_ID" not in action_text or "default Stripe portal configuration" not in action_text:
-                    failures.append(f"{route_name}: Stripe portal action lacks env/remediation: {action_text!r}")
+                action_text = cors_action.inner_text(timeout=timeout_ms)
+                if "ALLOWED_ORIGINS" not in action_text or "deployed frontend origin list" not in action_text:
+                    failures.append(f"{route_name}: CORS launch action lacks env/remediation: {action_text!r}")
             copy_all_button = page.get_by_test_id("product-readiness-next-actions-copy-all")
             if copy_all_button.count() != 1:
                 failures.append(f"{route_name}: missing launch action copy-all button")
@@ -950,15 +969,17 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                     failures.append(f"{route_name}: could not read launch action copy-all clipboard ({exc})")
                 else:
                     expected_fragments = (
+                        "Launch action: Authentication",
                         "Launch action: Stripe billing",
-                        "Launch action: Stripe return URL",
-                        "Launch action: Stripe portal configuration",
-                        "Launch action: Web3",
-                        "Required env: DESCI_FRONTEND_URL",
-                        "Required env: STRIPE_PORTAL_CONFIGURATION_ID",
-                        "Required env: MOCK_MODE, WEB3_RPC_URL, NFT_CONTRACT_ADDRESS, DESCI_DAO_CONTRACT_ADDRESS",
-                        "Disable MOCK_MODE before production handoff.",
-                        "Replace WEB3_RPC_URL with a public HTTPS Polygon Amoy RPC endpoint.",
+                        "Launch action: CORS origins",
+                        "Launch action: RabbitMQ",
+                        "Launch action: IPFS",
+                        "Launch action: GROBID",
+                        "Required env: GOOGLE_APPLICATION_CREDENTIALS, FIREBASE_SERVICE_ACCOUNT_JSON",
+                        "Required env: ALLOWED_ORIGINS",
+                        "Required env: RABBITMQ_URL",
+                        "Required env: PINATA_JWT, PINATA_API_KEY, PINATA_API_SECRET",
+                        "Set GROBID_ENABLED=true and GROBID_URL",
                     )
                     missing_fragments = [fragment for fragment in expected_fragments if fragment not in clipboard_payload]
                     if missing_fragments:
@@ -972,7 +993,7 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                 except PlaywrightError as exc:
                     failures.append(f"{route_name}: missing copy-all feedback ({exc})")
                 else:
-                    if "Copied 5 launch actions." not in feedback_text:
+                    if "Copied 6 launch actions." not in feedback_text:
                         failures.append(f"{route_name}: copy-all feedback mismatch: {feedback_text!r}")
 
         request_count_before_refresh = len(ready_requests)

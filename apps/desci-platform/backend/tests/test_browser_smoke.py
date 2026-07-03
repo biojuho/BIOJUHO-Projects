@@ -334,18 +334,21 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
     reports = [
         browser_smoke.BrowserCheckReport(name="dashboard-readiness-refresh", path="/dashboard", ok=True, failures=[]),
     ]
-    expected_action_ids = ["stripe", "stripe_return_url", "auth", "stripe_portal", "web3"]
+    expected_action_ids = ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"]
     expected_required_env = [
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "FIREBASE_SERVICE_ACCOUNT_JSON",
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
         "STRIPE_PRICE_PRO_MONTHLY",
         "STRIPE_PRICE_PRO_YEARLY",
-        "DESCI_FRONTEND_URL",
-        "STRIPE_PORTAL_CONFIGURATION_ID",
-        "MOCK_MODE",
-        "WEB3_RPC_URL",
-        "NFT_CONTRACT_ADDRESS",
-        "DESCI_DAO_CONTRACT_ADDRESS",
+        "ALLOWED_ORIGINS",
+        "RABBITMQ_URL",
+        "PINATA_JWT",
+        "PINATA_API_KEY",
+        "PINATA_API_SECRET",
+        "GROBID_ENABLED",
+        "GROBID_URL",
     ]
 
     browser_smoke.write_json_report(
@@ -371,16 +374,16 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
         "operator_phase": "blocked",
         "readiness_status": "blocked",
         "summary": {
-            "ready_count": 2,
-            "total": 7,
-            "required_ready_count": 1,
-            "required_total": 4,
-            "blocker_count": 2,
+            "ready_count": 7,
+            "total": 13,
+            "required_ready_count": 4,
+            "required_total": 7,
+            "blocker_count": 3,
             "warning_count": 3,
         },
-        "score": {"overall_percent": 29, "required_percent": 25},
-        "launch_blockers": ["stripe", "stripe_return_url"],
-        "next_action_count": 5,
+        "score": {"overall_percent": 54, "required_percent": 57},
+        "launch_blockers": ["auth", "stripe", "cors"],
+        "next_action_count": 6,
         "next_action_ids": expected_action_ids,
         "next_action_required_env": expected_required_env,
         "failures": [],
@@ -556,19 +559,22 @@ def test_dashboard_smoke_fixtures_keep_ready_and_launch_consistent() -> None:
     assert ready["status"] == launch["readiness_status"] == "blocked"
     for field in ("ready_count", "total", "required_ready_count", "required_total"):
         assert ready["summary"][field] == launch["summary"][field]
-    assert ready["launch_blockers"] == launch["launch_blockers"] == ["stripe", "stripe_return_url"]
+    assert ready["launch_blockers"] == launch["launch_blockers"] == ["auth", "stripe", "cors"]
     assert launch["release_decision"] == "no-go"
     assert launch["operator_phase"] == "blocked"
-    assert launch["score"] == {"overall_percent": 29, "required_percent": 25}
-    assert launch["summary"]["blocker_count"] == 2
+    assert launch["score"] == {"overall_percent": 54, "required_percent": 57}
+    assert launch["summary"]["blocker_count"] == 3
     assert launch["summary"]["warning_count"] == 3
     assert [action["id"] for action in launch["next_actions"]] == [
-        "stripe",
-        "stripe_return_url",
         "auth",
-        "stripe_portal",
-        "web3",
+        "stripe",
+        "cors",
+        "rabbitmq",
+        "ipfs",
+        "grobid",
     ]
+    assert "stripe_return_url" not in ready["launch_blockers"]
+    assert inspect.getsource(browser_smoke._dashboard_launch_payload).count("_dashboard_readiness_payload()") == 1
 
 
 def test_dashboard_shell_route_handlers_accept_route_only() -> None:
