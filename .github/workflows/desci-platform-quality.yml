@@ -15,10 +15,17 @@ on:
       - "apps/dashboard/**"
       - "automation/DailyNews/**"
       - "automation/getdaytrends/**"
+      - "automation/content-intelligence/**"
       - "mcp/notebooklm-mcp/**"
       - "mcp/github-mcp/**"
+      - "mcp/canva-mcp/**"
+      - "mcp/desci-research-mcp/**"
+      - "mcp/telegram-mcp/**"
       - "packages/shared/**"
       - "tests/**"
+      - "ops/scripts/release_approval_check.py"
+      - "ops/scripts/run_release_approval_gate_machine.ps1"
+      - "ops/scripts/write_release_approval_handoff_artifact_index.py"
       - "ops/scripts/run_workspace_smoke.py"
       - "ops/scripts/workspace_paths.py"
       - "workspace-map.json"
@@ -33,10 +40,17 @@ on:
       - "apps/dashboard/**"
       - "automation/DailyNews/**"
       - "automation/getdaytrends/**"
+      - "automation/content-intelligence/**"
       - "mcp/notebooklm-mcp/**"
       - "mcp/github-mcp/**"
+      - "mcp/canva-mcp/**"
+      - "mcp/desci-research-mcp/**"
+      - "mcp/telegram-mcp/**"
       - "packages/shared/**"
       - "tests/**"
+      - "ops/scripts/release_approval_check.py"
+      - "ops/scripts/run_release_approval_gate_machine.ps1"
+      - "ops/scripts/write_release_approval_handoff_artifact_index.py"
       - "ops/scripts/run_workspace_smoke.py"
       - "ops/scripts/workspace_paths.py"
       - "workspace-map.json"
@@ -44,6 +58,12 @@ on:
       - "docs/QUALITY_GATE.md"
       - ".github/workflows/desci-platform-quality.yml"
   workflow_dispatch:
+    inputs:
+      release_approval_handoff:
+        description: "Run the release approval machine wrapper and append the Markdown handoff to the job summary"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   workspace-quality:
@@ -52,7 +72,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scope: [workspace, desci, agriguard, mcp, getdaytrends]
+        scope: [workspace, desci, agriguard, mcp, getdaytrends, cie]
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -67,14 +87,17 @@ jobs:
           python-version: '3.13'
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        if: matrix.scope == 'workspace' || matrix.scope == 'desci' || matrix.scope == 'agriguard'
+        if: matrix.scope == 'workspace' || matrix.scope == 'desci' || matrix.scope == 'agriguard' || matrix.scope == 'mcp'
         with:
           node-version: "24.15.0"
           cache: npm
           cache-dependency-path: |
             apps/desci-platform/frontend/package-lock.json
+            apps/desci-platform/contracts/package-lock.json
             apps/AgriGuard/frontend/package-lock.json
+            apps/AgriGuard/contracts/package-lock.json
             apps/dashboard/package-lock.json
+            mcp/canva-mcp/package-lock.json
 
       - name: Install Python dependencies
         run: uv sync --all-packages
@@ -88,7 +111,9 @@ jobs:
 
       - name: Install dependencies (desci npm)
         if: matrix.scope == 'desci'
-        run: npm ci --prefix apps/desci-platform/frontend
+        run: |
+          npm ci --prefix apps/desci-platform/frontend
+          npm ci --prefix apps/desci-platform/contracts
 
       - name: Build frontend (desci)
         if: matrix.scope == 'desci'
@@ -96,7 +121,13 @@ jobs:
 
       - name: Install dependencies (agriguard npm)
         if: matrix.scope == 'agriguard'
-        run: npm ci --prefix apps/AgriGuard/frontend
+        run: |
+          npm ci --prefix apps/AgriGuard/frontend
+          npm ci --prefix apps/AgriGuard/contracts
+
+      - name: Install dependencies (mcp npm)
+        if: matrix.scope == 'mcp'
+        run: npm ci --prefix mcp/canva-mcp
 
       - name: Run workspace smoke
         env:
@@ -141,3 +172,133 @@ jobs:
           name: workspace-smoke-${{ matrix.scope }}
           path: smoke-${{ matrix.scope }}.json
           if-no-files-found: warn
+
+  release-approval-handoff:
+    name: Release Approval Handoff
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_approval_handoff }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.13'
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.15.0"
+          cache: npm
+          cache-dependency-path: |
+            apps/desci-platform/frontend/package-lock.json
+            apps/AgriGuard/frontend/package-lock.json
+            apps/dashboard/package-lock.json
+
+      - name: Install Python dependencies
+        run: uv sync --all-packages
+
+      - name: Install Node dependencies
+        run: |
+          npm ci --prefix apps/desci-platform/frontend
+          npm ci --prefix apps/AgriGuard/frontend
+          npm ci --prefix apps/dashboard
+
+      - name: Run release approval handoff
+        id: release-approval-wrapper
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        shell: pwsh
+        run: |
+          & pwsh -NoProfile -File ./ops/scripts/run_release_approval_gate_machine.ps1 `
+            -PythonCommand "uv run python" `
+            -SmokeJsonOut "var/workspace-smoke-workspace-release-approval-machine.json" `
+            -ApprovalJsonOut "var/release-approval-check-machine.json" `
+            -ApprovalMarkdownOut "docs/reports/2026-06/RELEASE_APPROVAL_OPERATOR_HANDOFF_MACHINE.md" `
+            -SessionBootstrapJsonOut "var/session-bootstrap-release-approval-machine.json"
+          $wrapperExitCode = $LASTEXITCODE
+          "exit_code=$wrapperExitCode" >> $env:GITHUB_OUTPUT
+          if ($wrapperExitCode -ne 0) {
+            Write-Warning "Release approval wrapper exited with $wrapperExitCode. Artifacts will still be uploaded before the job fails."
+          }
+          exit 0
+
+      - name: Validate handoff through DeSci release gate
+        id: desci-release-gate-handoff
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        shell: pwsh
+        run: |
+          uv run python apps/desci-platform/scripts/release_gate.py `
+            --dry-run `
+            --skip-env `
+            --skip-compose `
+            --skip-backend `
+            --skip-frontend `
+            --skip-contracts `
+            --release-approval-handoff ../../docs/reports/2026-06/RELEASE_APPROVAL_OPERATOR_HANDOFF_MACHINE.md `
+            --json-out var/desci-release-gate-release-approval-handoff-machine.json
+          $gateExitCode = $LASTEXITCODE
+          "exit_code=$gateExitCode" >> $env:GITHUB_OUTPUT
+          if ($gateExitCode -ne 0) {
+            Write-Warning "DeSci release gate handoff validation exited with $gateExitCode. Artifacts will still be uploaded before the job fails."
+          }
+          exit 0
+
+      - name: Write release approval handoff artifact index
+        if: always()
+        env:
+          WRAPPER_EXIT_CODE: ${{ steps.release-approval-wrapper.outputs.exit_code }}
+          RELEASE_GATE_HANDOFF_EXIT_CODE: ${{ steps.desci-release-gate-handoff.outputs.exit_code }}
+        run: uv run python ops/scripts/write_release_approval_handoff_artifact_index.py --json-out var/release-approval-handoff-artifact-index-machine.json --markdown-summary-out var/release-approval-handoff-artifact-index-summary.md --append-github-step-summary
+
+      - name: Upload release approval handoff artifacts
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: release-approval-handoff-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            var/release-approval-handoff-artifact-index-machine.json
+            var/release-approval-handoff-artifact-index-summary.md
+            var/workspace-smoke-workspace-release-approval-machine.json
+            var/release-approval-check-machine.json
+            var/desci-release-gate-release-approval-handoff-machine.json
+            var/session-bootstrap-release-approval-machine.json
+            docs/reports/2026-06/RELEASE_APPROVAL_OPERATOR_HANDOFF_MACHINE.md
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Fail closed on release approval handoff errors
+        if: always()
+        shell: pwsh
+        run: |
+          $wrapperExitCode = "${{ steps.release-approval-wrapper.outputs.exit_code }}"
+          $gateExitCode = "${{ steps.desci-release-gate-handoff.outputs.exit_code }}"
+          $failed = $false
+
+          if ([string]::IsNullOrWhiteSpace($wrapperExitCode)) {
+            Write-Error "Release approval wrapper did not report an exit code."
+            $failed = $true
+          } elseif ([int]$wrapperExitCode -ne 0) {
+            Write-Error "Release approval wrapper failed with exit code $wrapperExitCode."
+            $failed = $true
+          }
+
+          if ([string]::IsNullOrWhiteSpace($gateExitCode)) {
+            Write-Error "DeSci release gate handoff validation did not report an exit code."
+            $failed = $true
+          } elseif ([int]$gateExitCode -ne 0) {
+            Write-Error "DeSci release gate handoff validation failed with exit code $gateExitCode."
+            $failed = $true
+          }
+
+          if ($failed) {
+            exit 1
+          }
