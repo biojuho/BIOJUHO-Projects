@@ -5,10 +5,12 @@ from datetime import UTC, datetime
 
 import models
 import schemas
-from auth import get_current_user
+from auth import can_access_owner, get_current_user, is_operator_user, user_owner_keys
 from dependencies import get_db
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from services.chain_simulator import get_chain
+from services.qr_tokens import build_public_qr_code, issue_qr_token
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -23,19 +25,39 @@ def _log_chain_event_after_commit(product_id: str, event_payload: dict) -> None:
         logger.warning("Chain log failed after DB commit for product %s", product_id, exc_info=exc)
 
 
+def _scoped_products_query(db: Session, current_user: dict):
+    query = db.query(models.Product)
+    if is_operator_user(current_user):
+        return query
+    owner_keys = user_owner_keys(current_user)
+    if not owner_keys:
+        return query.filter(models.Product.owner_id == "__no_access__")
+    return query.filter(models.Product.owner_id.in_(owner_keys))
+
+
+def _get_visible_product(db: Session, product_id: str, current_user: dict) -> models.Product:
+    product = _scoped_products_query(db, current_user).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
 @router.post("/products/", response_model=schemas.Product)
 def create_product(
     product: schemas.ProductCreate,
     owner_id: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
-):
+) -> models.Product:
+    if not can_access_owner(current_user, owner_id):
+        raise HTTPException(status_code=403, detail="Cannot create a product for another owner.")
+
     product_id = str(uuid.uuid4())
 
     db_product = models.Product(
         id=product_id,
         owner_id=owner_id,
-        qr_code=f"agri://verify/{product_id}",
+        qr_code="",
         name=product.name,
         description=product.description,
         category=product.category,
@@ -45,6 +67,8 @@ def create_product(
     )
     try:
         db.add(db_product)
+        raw_qr_token, _qr_token = issue_qr_token(db, product_id=product_id)
+        db_product.qr_code = build_public_qr_code(raw_qr_token)
         db.commit()
         db.refresh(db_product)
     except Exception as e:
@@ -56,23 +80,63 @@ def create_product(
 
 
 @router.get("/products/", response_model=list[schemas.Product])
-def list_products(db: Session = Depends(get_db)):
-    return db.query(models.Product).all()
+def list_products(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> list[models.Product]:
+    return _scoped_products_query(db, current_user).all()
+
+
+@router.get("/products/page", response_model=schemas.ProductPage)
+def list_products_page(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, max_length=120),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> schemas.ProductPage:
+    query = _scoped_products_query(db, current_user)
+    normalized_search = (search or "").strip().lower()
+    if normalized_search:
+        pattern = f"%{normalized_search}%"
+        query = query.filter(
+            or_(
+                func.lower(models.Product.id).like(pattern),
+                func.lower(models.Product.name).like(pattern),
+                func.lower(models.Product.origin).like(pattern),
+            )
+        )
+
+    total = query.count()
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    current_page = min(page, total_pages)
+    offset = (current_page - 1) * page_size
+    items = query.order_by(models.Product.id.asc()).offset(offset).limit(page_size).all()
+    return schemas.ProductPage(
+        items=items,
+        total=total,
+        page=current_page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 @router.get("/products/{product_id}", response_model=schemas.Product)
-def get_product(product_id: str, db: Session = Depends(get_db)):
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
+def get_product(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> models.Product:
+    return _get_visible_product(db, product_id, current_user)
 
 
 @router.get("/products/{product_id}/history")
-def get_product_history(product_id: str, db: Session = Depends(get_db)):
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+def get_product_history(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    _get_visible_product(db, product_id, current_user)
 
     history = get_chain().get_product_history(product_id)
     return {"product_id": product_id, "history": history}
@@ -85,10 +149,8 @@ def add_certification(
     issued_by: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
-):
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+) -> models.Product:
+    product = _get_visible_product(db, product_id, current_user)
 
     try:
         cert_id = f"CERT-{uuid.uuid4().hex[:8].upper()}"
@@ -126,10 +188,8 @@ def add_tracking_event(
     handler_id: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
-):
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+) -> dict:
+    _get_visible_product(db, product_id, current_user)
 
     try:
         event_timestamp = datetime.now(UTC)

@@ -5,7 +5,7 @@ import { productApi } from '../services/api';
 
 vi.mock('../services/api', () => ({
   productApi: {
-    getAll: vi.fn(),
+    getPage: vi.fn(),
   },
 }));
 
@@ -22,7 +22,29 @@ const makeProducts = (count) =>
 
 describe('SupplyChain', () => {
   beforeEach(() => {
-    productApi.getAll.mockResolvedValue({ data: makeProducts(25) });
+    const products = makeProducts(25);
+    productApi.getPage.mockImplementation(({ page, pageSize, search = '' }) => {
+      const normalizedSearch = search.toLowerCase();
+      const filteredProducts = normalizedSearch
+        ? products.filter(
+            (product) =>
+              product.id.toLowerCase().includes(normalizedSearch) ||
+              product.name.toLowerCase().includes(normalizedSearch) ||
+              product.origin.toLowerCase().includes(normalizedSearch)
+          )
+        : products;
+      const start = (page - 1) * pageSize;
+      const items = filteredProducts.slice(start, start + pageSize);
+      return Promise.resolve({
+        data: {
+          items,
+          total: filteredProducts.length,
+          page,
+          page_size: pageSize,
+          total_pages: Math.max(1, Math.ceil(filteredProducts.length / pageSize)),
+        },
+      });
+    });
   });
 
   afterEach(() => {
@@ -44,27 +66,62 @@ describe('SupplyChain', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
-    expect(screen.getByText('Showing 21-25 of 25 products')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Showing 21-25 of 25 products')).toBeInTheDocument();
+    });
+
     expect(screen.queryByText('Product 20')).not.toBeInTheDocument();
     expect(screen.getByText('Product 21')).toBeInTheDocument();
     expect(screen.getByText('Product 25')).toBeInTheDocument();
     expect(screen.getByText('Page 2 / 2')).toBeInTheDocument();
   });
 
+  it('resets to the first server page when search changes', async () => {
+    render(<SupplyChain />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Showing 1-20 of 25 products')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Showing 21-25 of 25 products')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Search products or locations...'), {
+      target: { value: 'product-01' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Showing 1-1 of 1 products')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Product 1')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 / 1')).toBeInTheDocument();
+    expect(productApi.getPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, search: 'product-01' });
+  });
+
   it('normalizes backend tracking labels before rendering current status', async () => {
-    productApi.getAll.mockResolvedValueOnce({
-      data: [
-        {
-          id: 'batch-verified',
-          name: 'Verified Batch',
-          origin: 'Seoul Farm',
-          tracking_history: [
-            { status: 'Delivered to Warehouse', timestamp: '2026-07-02T10:00:00Z' },
-            { status: 'Quality Check Passed', timestamp: '2026-07-03T10:00:00Z' },
-            { status: 'In Transit', timestamp: '2026-07-01T10:00:00Z' },
-          ],
-        },
-      ],
+    productApi.getPage.mockResolvedValueOnce({
+      data: {
+        items: [
+          {
+            id: 'batch-verified',
+            name: 'Verified Batch',
+            origin: 'Seoul Farm',
+            tracking_history: [
+              { status: 'Delivered to Warehouse', timestamp: '2026-07-02T10:00:00Z' },
+              { status: 'Quality Check Passed', timestamp: '2026-07-03T10:00:00Z' },
+              { status: 'In Transit', timestamp: '2026-07-01T10:00:00Z' },
+            ],
+          },
+        ],
+        total: 1,
+        page: 1,
+        page_size: 20,
+        total_pages: 1,
+      },
     });
 
     render(<SupplyChain />);

@@ -46,6 +46,13 @@ class Product(ProductBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ProductPage(BaseModel):
+    items: list[Product]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
 class UserBase(BaseModel):
     role: str  # Farmer, Distributor, Retailer, Consumer
     name: str

@@ -51,6 +51,32 @@ function withOperatorAuth(config = {}) {
   };
 }
 
+function toProductPageResponse(response, { page, pageSize, search }) {
+  const normalizedSearch = search.trim().toLowerCase();
+  const allProducts = Array.isArray(response.data) ? response.data : [];
+  const filteredProducts = normalizedSearch
+    ? allProducts.filter(
+        (product) =>
+          product.id.toLowerCase().includes(normalizedSearch) ||
+          product.name.toLowerCase().includes(normalizedSearch) ||
+          (product.origin || '').toLowerCase().includes(normalizedSearch)
+      )
+    : allProducts;
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * pageSize;
+  return {
+    ...response,
+    data: {
+      items: filteredProducts.slice(start, start + pageSize),
+      total: filteredProducts.length,
+      page: currentPage,
+      page_size: pageSize,
+      total_pages: totalPages,
+    },
+  };
+}
+
 // 429 Rate Limit 재시도 (1회)
 api.interceptors.response.use(
   (response) => response,
@@ -68,12 +94,29 @@ api.interceptors.response.use(
 export const productApi = {
   // Product Operations
   create: ({ owner_id, ...body }) => api.post('/products/', body, withOperatorAuth({ params: { owner_id } })),
-  getAll: () => api.get('/products/'),
-  getById: (id) => api.get(`/products/${id}`),
+  getAll: () => api.get('/products/', withOperatorAuth()),
+  getPage: async ({ page = 1, pageSize = 20, search = '' } = {}) => {
+    try {
+      return await api.get('/products/page', withOperatorAuth({
+        params: {
+          page,
+          page_size: pageSize,
+          search: search.trim() || undefined,
+        },
+      }));
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        throw error;
+      }
+      const response = await api.get('/products/', withOperatorAuth());
+      return toProductPageResponse(response, { page, pageSize, search });
+    }
+  },
+  getById: (id) => api.get(`/products/${id}`, withOperatorAuth()),
 
   // Tracking & Blockchain (backend expects query params)
   addTracking: (id, data) => api.post(`/products/${id}/track`, null, withOperatorAuth({ params: data })),
-  getHistory: (id) => api.get(`/products/${id}/history`),
+  getHistory: (id) => api.get(`/products/${id}/history`, withOperatorAuth()),
 
   // Certifications (backend expects query params)
   addCertification: (id, data) => api.post(`/products/${id}/certifications`, null, withOperatorAuth({ params: data })),

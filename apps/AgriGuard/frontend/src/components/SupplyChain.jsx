@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Package, Truck, CheckCircle, Factory, ShieldCheck, MapPin, Search } from 'lucide-react';
 import { productApi } from '../services/api';
 import { cn } from '../lib/utils';
@@ -8,6 +8,56 @@ import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 
 const PAGE_SIZE = 20;
+const COMPLETE_STATUSES = ['DELIVERED', 'VERIFIED'];
+const SUPPLY_CHAIN_STEPS = [
+  {
+    status: 'REGISTERED',
+    label: 'Farm',
+    activeStatuses: ['REGISTERED', 'IN_TRANSIT', ...COMPLETE_STATUSES],
+    activeClassName: 'border-primary bg-primary/20',
+  },
+  {
+    status: 'IN_TRANSIT',
+    label: 'Transit',
+    activeStatuses: ['IN_TRANSIT', ...COMPLETE_STATUSES],
+    activeClassName: 'border-orange-500 bg-orange-500/20',
+  },
+  {
+    status: 'DELIVERED',
+    label: 'Delivered',
+    activeStatuses: COMPLETE_STATUSES,
+    activeClassName: 'border-blue-500 bg-blue-500/20',
+  },
+];
+
+const getStatusIcon = (status) => {
+  switch (status) {
+    case 'REGISTERED':
+      return <Factory className="w-5 h-5 text-blue-400" />;
+    case 'IN_TRANSIT':
+      return <Truck className="w-5 h-5 text-orange-400" />;
+    case 'DELIVERED':
+    case 'VERIFIED':
+      return <CheckCircle className="w-5 h-5 text-primary" />;
+    default:
+      return <Package className="w-5 h-5 text-muted-foreground" />;
+  }
+};
+
+const getStatusText = (status) => {
+  switch (status) {
+    case 'REGISTERED':
+      return 'At Farm / Processing';
+    case 'IN_TRANSIT':
+      return 'In Transit to Distributor';
+    case 'DELIVERED':
+    case 'VERIFIED':
+      return 'Delivered & Available';
+    default:
+      return 'Unknown Status';
+  }
+};
+
 const STATUS_ALIASES = new Map([
   ['REGISTERED', 'REGISTERED'],
   ['PLANTED', 'REGISTERED'],
@@ -38,26 +88,63 @@ const getLatestTrackingEvent = (history) =>
       return latest;
     }, null)?.event;
 
+function StatusFlow({ status }) {
+  return (
+    <div className="flex-1 lg:max-w-md bg-background/50 rounded-lg p-4 flex items-center justify-between">
+      {SUPPLY_CHAIN_STEPS.map((step, index) => {
+        const isActive = step.activeStatuses.includes(status);
+        const nextStep = SUPPLY_CHAIN_STEPS[index + 1];
+        const isConnectorActive = nextStep?.activeStatuses.includes(status);
+
+        return (
+          <div key={step.status} className="contents">
+            <div className="flex flex-col items-center">
+              <div
+                className={cn(
+                  'w-12 h-12 rounded-full flex items-center justify-center border-2',
+                  isActive ? step.activeClassName : 'border-border bg-muted'
+                )}
+              >
+                {getStatusIcon(step.status)}
+              </div>
+              <span className="text-xs mt-2 text-muted-foreground">{step.label}</span>
+            </div>
+
+            {nextStep && <div className={cn('flex-1 h-1 mx-2', isConnectorActive ? 'bg-primary' : 'bg-border')} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function SupplyChain() {
   const [products, setProducts] = useState([]);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await productApi.getAll();
-      setProducts(res.data);
+      const res = await productApi.getPage({ page, pageSize: PAGE_SIZE, search: searchTerm });
+      setProducts(res.data.items);
+      setTotalProducts(res.data.total);
+      setTotalPages(Math.max(1, res.data.total_pages));
     } catch (err) {
       console.error('Failed to load supply chain data', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm]);
+
+  useEffect(() => {
+    // Mount-time API load for this route; state updates happen after the async request settles.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchProducts();
+  }, [fetchProducts]);
 
   const getProductStatus = (product) => {
     const history = product.tracking_history || [];
@@ -65,47 +152,11 @@ export default function SupplyChain() {
     return normalizeSupplyChainStatus(getLatestTrackingEvent(history)?.status);
   };
 
-  const filteredProducts = products.filter(
-    (p) =>
-      p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.origin || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const pageEnd = pageStart + PAGE_SIZE;
-  const visibleProducts = filteredProducts.slice(pageStart, pageEnd);
-  const firstVisible = filteredProducts.length === 0 ? 0 : pageStart + 1;
-  const lastVisible = Math.min(pageEnd, filteredProducts.length);
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'REGISTERED':
-        return <Factory className="w-5 h-5 text-blue-400" />;
-      case 'IN_TRANSIT':
-        return <Truck className="w-5 h-5 text-orange-400" />;
-      case 'DELIVERED':
-      case 'VERIFIED':
-        return <CheckCircle className="w-5 h-5 text-primary" />;
-      default:
-        return <Package className="w-5 h-5 text-muted-foreground" />;
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'REGISTERED':
-        return 'At Farm / Processing';
-      case 'IN_TRANSIT':
-        return 'In Transit to Distributor';
-      case 'DELIVERED':
-      case 'VERIFIED':
-        return 'Delivered & Available';
-      default:
-        return 'Unknown Status';
-    }
-  };
+  const visibleProducts = products;
+  const firstVisible = totalProducts === 0 ? 0 : pageStart + 1;
+  const lastVisible = Math.min(pageStart + visibleProducts.length, totalProducts);
 
   if (loading) {
     return (
@@ -142,7 +193,7 @@ export default function SupplyChain() {
 
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-muted-foreground">
         <span aria-live="polite">
-          Showing {firstVisible}-{lastVisible} of {filteredProducts.length} products
+          Showing {firstVisible}-{lastVisible} of {totalProducts} products
         </span>
         <div className="flex items-center gap-2">
           <Button
@@ -170,114 +221,56 @@ export default function SupplyChain() {
       </div>
 
       <div className="grid gap-6">
-        {visibleProducts.map((product) => (
-          <Card key={product.id} className="hover:bg-white/10 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex flex-col lg:flex-row justify-between gap-6">
-                {/* Product Info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="p-2 bg-primary/20 rounded-lg">
-                      <Package className="w-6 h-6 text-primary" />
-                    </span>
-                    <div>
-                      <h3 className="text-xl font-bold">{product.name}</h3>
-                      <p className="text-sm font-mono text-muted-foreground">ID: {product.id}</p>
+        {visibleProducts.map((product) => {
+          const status = getProductStatus(product);
+
+          return (
+            <Card key={product.id} className="hover:bg-white/10 transition-colors">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row justify-between gap-6">
+                  {/* Product Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="p-2 bg-primary/20 rounded-lg">
+                        <Package className="w-6 h-6 text-primary" />
+                      </span>
+                      <div>
+                        <h3 className="text-xl font-bold">{product.name}</h3>
+                        <p className="text-sm font-mono text-muted-foreground">ID: {product.id}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="w-4 h-4" />
+                        <span className="text-sm">{product.origin}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <ShieldCheck className="w-4 h-4 text-primary" />
+                        <span className="text-sm">Verified Farm</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="w-4 h-4" />
-                      <span className="text-sm">{product.origin}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <ShieldCheck className="w-4 h-4 text-primary" />
-                      <span className="text-sm">Verified Farm</span>
-                    </div>
-                  </div>
+                  {/* Status Flow */}
+                  <StatusFlow status={status} />
                 </div>
 
-                {/* Status Flow */}
-                {(() => { const status = getProductStatus(product); return (
-                <div className="flex-1 lg:max-w-md bg-background/50 rounded-lg p-4 flex items-center justify-between">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center border-2',
-                        status === 'REGISTERED' || status === 'IN_TRANSIT' || status === 'DELIVERED' || status === 'VERIFIED'
-                          ? 'border-primary bg-primary/20'
-                          : 'border-border bg-muted'
-                      )}
-                    >
-                      {getStatusIcon('REGISTERED')}
-                    </div>
-                    <span className="text-xs mt-2 text-muted-foreground">Farm</span>
-                  </div>
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    Current Status: <Badge variant="outline" className="ml-2">{getStatusText(status)}</Badge>
+                  </span>
 
-                  <div
-                    className={cn(
-                      'flex-1 h-1 mx-2',
-                      status === 'IN_TRANSIT' || status === 'DELIVERED' || status === 'VERIFIED'
-                        ? 'bg-primary'
-                        : 'bg-border'
-                    )}
-                  />
-
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center border-2',
-                        status === 'IN_TRANSIT' || status === 'DELIVERED' || status === 'VERIFIED'
-                          ? 'border-orange-500 bg-orange-500/20'
-                          : 'border-border bg-muted'
-                      )}
-                    >
-                      {getStatusIcon('IN_TRANSIT')}
-                    </div>
-                    <span className="text-xs mt-2 text-muted-foreground">Transit</span>
-                  </div>
-
-                  <div
-                    className={cn(
-                      'flex-1 h-1 mx-2',
-                      status === 'DELIVERED' || status === 'VERIFIED'
-                        ? 'bg-primary'
-                        : 'bg-border'
-                    )}
-                  />
-
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center border-2',
-                        status === 'DELIVERED' || status === 'VERIFIED'
-                          ? 'border-blue-500 bg-blue-500/20'
-                          : 'border-border bg-muted'
-                      )}
-                    >
-                      {getStatusIcon('DELIVERED')}
-                    </div>
-                    <span className="text-xs mt-2 text-muted-foreground">Delivered</span>
-                  </div>
+                  <Button variant="link" asChild className="text-primary hover:text-primary/80">
+                    <a href={`/product/${product.id}`}>View Details →</a>
+                  </Button>
                 </div>
-                ); })()}
-              </div>
+              </CardContent>
+            </Card>
+          );
+        })}
 
-              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                <span className="text-sm font-semibold text-muted-foreground">
-                  Current Status: <Badge variant="outline" className="ml-2">{getStatusText(getProductStatus(product))}</Badge>
-                </span>
-
-                <Button variant="link" asChild className="text-primary hover:text-primary/80">
-                  <a href={`/product/${product.id}`}>View Details →</a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {filteredProducts.length === 0 && (
+        {totalProducts === 0 && (
           <Card className="text-center">
             <CardContent className="p-12">
               <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
