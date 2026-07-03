@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import main
@@ -62,3 +63,27 @@ def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
 
 def test_workspace_root_resolution_supports_container_copy_layout() -> None:
     assert main._resolve_workspace_root(Path("/app/main.py")) == Path("/app").resolve()
+
+
+def _nginx_location_block(text: str, location: str) -> str:
+    match = re.search(rf"location {re.escape(location)} \{{(?P<body>.*?)\n\s*\}}", text, re.DOTALL)
+    assert match is not None
+    return match.group("body")
+
+
+def test_nginx_api_websocket_proxy_strips_api_prefix_with_upgrade_headers() -> None:
+    configs = {
+        "apps/AgriGuard/frontend/nginx.conf": "http://backend:8002/ws/",
+        "apps/AgriGuard/nginx/nginx.conf": "http://backend/ws/",
+    }
+
+    for relative_path, expected_proxy_pass in configs.items():
+        text = (WORKSPACE_ROOT / relative_path).read_text(encoding="utf-8")
+        block = _nginx_location_block(text, "/api/ws/")
+
+        assert f"proxy_pass {expected_proxy_pass};" in block
+        assert "proxy_http_version 1.1;" in block
+        assert "proxy_set_header Upgrade $http_upgrade;" in block
+        assert 'proxy_set_header Connection "upgrade";' in block
+        assert "proxy_read_timeout 3600s;" in block
+        assert "proxy_send_timeout 3600s;" in block
