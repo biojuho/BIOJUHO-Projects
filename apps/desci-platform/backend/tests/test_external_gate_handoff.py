@@ -251,7 +251,23 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert provider["provider"] == "railway"
     assert provider["ready_to_apply"] is False
     assert provider["blank_key_count"] == 2
+    assert plan["post_apply_completion_evidence"]["required"] is True
+    assert plan["post_apply_completion_evidence"]["success_condition"] == "external_release_gate.ok=true"
+    assert (
+        plan["post_apply_completion_evidence"]["aggregate_command"]
+        == "python scripts/external_release_gate.py "
+        f"--provider-template-dir {tmp_path / 'providers'} --target all "
+        "--json-out var/external-release-gate-post-apply-all.json"
+    )
+    assert plan["post_apply_completion_evidence"]["provider_json_outputs"] == {
+        "railway": "var/external-release-gate-post-apply-railway.json"
+    }
     assert provider["commands"][0]["command"] == "railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin"
+    assert provider["post_apply_verify_commands"] == [
+        "python scripts/external_release_gate.py "
+        f"--provider-template-dir {tmp_path / 'providers'} --target railway "
+        "--json-out var/external-release-gate-post-apply-railway.json"
+    ]
     assert (
         provider["commands"][0]["powershell_command"]
         == "Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>' | railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin"
@@ -263,6 +279,9 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "super-secret" not in json.dumps(plan)
     assert "Stage: `fill_provider_templates`" in markdown
     assert "Completion marker: `external_release_gate.ok=true`" in markdown
+    assert "Post-Apply Evidence" in markdown
+    assert "external-release-gate-post-apply-all.json" in markdown
+    assert "external-release-gate-post-apply-railway.json" in markdown
     assert "PowerShell: `Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>'" in markdown
     assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
 
@@ -286,6 +305,7 @@ def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaki
     assert plan["operator_status"]["private_template_values_present"] is True
     assert plan["operator_status"]["completion_marker"] == "external_release_gate.ok=true"
     assert "external_release_gate.py" in plan["operator_status"]["next_required_action"]
+    assert plan["post_apply_completion_evidence"]["aggregate_json_out"] == "var/external-release-gate-post-apply-all.json"
     assert plan["providers"][0]["ready_to_apply"] is True
     assert plan["providers"][0]["blank_key_count"] == 0
     assert "super-secret" not in serialized

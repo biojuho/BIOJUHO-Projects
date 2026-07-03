@@ -476,6 +476,36 @@ def _provider_apply_operator_status(index: dict[str, Any], providers: list[dict[
     }
 
 
+def _post_apply_verify_command(template_dir: str, provider: str) -> str:
+    json_out = f"var/external-release-gate-post-apply-{provider}.json"
+    return (
+        "python scripts/external_release_gate.py "
+        f"--provider-template-dir {template_dir} --target {provider} --json-out {json_out}"
+    )
+
+
+def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str, Any]]) -> dict[str, Any]:
+    provider_keys = [
+        str(provider.get("provider") or "")
+        for provider in providers
+        if str(provider.get("provider") or "") in {"amoy", "github", "railway", "vercel"}
+    ]
+    aggregate_json_out = "var/external-release-gate-post-apply-all.json"
+    aggregate_command = (
+        "python scripts/external_release_gate.py "
+        f"--provider-template-dir {template_dir} --target all --json-out {aggregate_json_out}"
+    )
+    return {
+        "required": bool(template_dir and provider_keys),
+        "success_condition": "external_release_gate.ok=true",
+        "aggregate_json_out": aggregate_json_out if template_dir else "",
+        "aggregate_command": aggregate_command if template_dir else "",
+        "provider_json_outputs": {
+            provider: f"var/external-release-gate-post-apply-{provider}.json" for provider in provider_keys
+        },
+    }
+
+
 def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[str, Path]) -> dict[str, Any]:
     index = provider_template_index_payload(payload, provider_paths)
     template_dirs = sorted({str(Path(provider["path"]).parent) for provider in _as_list(index.get("providers"))})
@@ -505,7 +535,7 @@ def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[st
                 "blocked_reason": "" if ready_to_apply else "template has blank values",
                 "commands": _provider_apply_commands(provider_key, str(provider.get("path") or ""), keys),
                 "post_apply_verify_commands": [
-                    f"python scripts/external_release_gate.py --provider-template-dir {template_dir} --target {provider_key}"
+                    _post_apply_verify_command(template_dir, provider_key)
                 ]
                 if template_dir and provider_key in {"amoy", "github", "railway", "vercel"}
                 else [],
@@ -524,6 +554,7 @@ def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[st
             "populated_key_count": index.get("populated_key_count"),
         },
         "operator_status": operator_status,
+        "post_apply_completion_evidence": _post_apply_completion_evidence(template_dir, providers),
         "ready_provider_count": operator_status["ready_provider_count"],
         "provider_count": len(providers),
         "providers": providers,
@@ -567,6 +598,24 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
         )
     else:
         lines.extend(["- Unknown.", ""])
+    completion_evidence = _as_dict(payload.get("post_apply_completion_evidence"))
+    lines.append("## Post-Apply Evidence")
+    if completion_evidence and completion_evidence.get("required") is True:
+        lines.extend(
+            [
+                f"- Success condition: `{_markdown_scalar(completion_evidence.get('success_condition'))}`",
+                f"- Aggregate JSON: `{_markdown_scalar(completion_evidence.get('aggregate_json_out'))}`",
+                f"- Aggregate command: `{_markdown_scalar(completion_evidence.get('aggregate_command'))}`",
+            ]
+        )
+        provider_outputs = _as_dict(completion_evidence.get("provider_json_outputs"))
+        if provider_outputs:
+            lines.append("- Provider JSON outputs:")
+            for provider in sorted(provider_outputs):
+                lines.append(f"  - {provider}: `{provider_outputs[provider]}`")
+        lines.append("")
+    else:
+        lines.extend(["- Not required because no provider templates were generated.", ""])
     lines.append("## Providers")
     providers = [provider for provider in _as_list(payload.get("providers")) if isinstance(provider, dict)]
     if not providers:
