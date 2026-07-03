@@ -22,19 +22,20 @@ Added `scripts/consumer_verify_unavailable_browser_smoke.py`:
 - Asserts product evidence sections such as `Batch and origin` and `Evidence hash` are not rendered.
 - Clicks Retry and confirms another verification attempt occurs while the unavailable state remains usable.
 - Records expected API request failures separately from page errors.
+- Classifies expected proxy `5xx` resource errors separately and fails on unexpected console warnings/errors.
 
 ## Evidence
 
 - Confirmed no backend listener on `127.0.0.1:8002`.
 - `python -m py_compile scripts/consumer_verify_unavailable_browser_smoke.py backend/tests/test_smoke.py`
   - Status: pass
-- `python -m pytest backend/tests/test_smoke.py -q --basetemp "..\var\tmp\pytest-agriguard-consumer-unavailable"`
-  - Result: `19 passed`
+- `python -m pytest backend/tests/test_smoke.py -q --basetemp "..\var\tmp\pytest-agriguard-consumer-unavailable-console"`
+  - Result: `20 passed`
 - Browser smoke:
-  - Command: `python scripts/consumer_verify_unavailable_browser_smoke.py --base-url http://127.0.0.1:5174 --json-out ..\var\agriguard-consumer-verify-unavailable.json --screenshot ..\var\agriguard-consumer-verify-unavailable.png --timeout-ms 30000`
-  - Result: `13/13 PASS`
+  - Command: `python scripts/consumer_verify_unavailable_browser_smoke.py --base-url http://127.0.0.1:5174 --json-out ..\var\agriguard-consumer-verify-unavailable-console.json --screenshot ..\var\agriguard-consumer-verify-unavailable-console.png --timeout-ms 30000`
+  - Result: `14/14 PASS`
 - Full AgriGuard smoke:
-  - Command: `python ..\ops\scripts\run_workspace_smoke.py --scope agriguard --json-out ..\var\workspace-smoke-agriguard-consumer-unavailable.json`
+  - Command: `python ..\ops\scripts\run_workspace_smoke.py --scope agriguard --json-out ..\var\workspace-smoke-agriguard-consumer-unavailable-console.json`
   - Result: `passed=5, failed=0, total=5`
 
 ## Decision

@@ -86,6 +86,22 @@ def api_attempt_count(api_responses: list[dict[str, object]], api_request_failur
     return len(api_responses) + len(api_request_failures)
 
 
+def is_expected_unavailable_console(message: dict[str, str]) -> bool:
+    text = message.get("text", "")
+    return message.get("type") == "error" and "Failed to load resource" in text and any(
+        value in text for value in ["500", "502", "503", "504"]
+    )
+
+
+def has_unavailable_api_failure(
+    api_responses: list[dict[str, object]],
+    api_request_failures: list[dict[str, str]],
+) -> bool:
+    if api_request_failures:
+        return True
+    return any(int(response.get("status", 0)) >= 500 for response in api_responses)
+
+
 def run_browser(args: argparse.Namespace) -> dict[str, object]:
     checks: list[dict[str, object]] = []
     console_messages: list[dict[str, str]] = []
@@ -156,7 +172,17 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("screenshot_written", screenshot.exists(), str(screenshot)))
         browser.close()
 
-    checks.append(check("expected_api_failure_observed", api_attempt_count(api_responses, api_request_failures) > 0))
+    unexpected_console_messages = [
+        message for message in console_messages if not is_expected_unavailable_console(message)
+    ]
+    checks.append(check("expected_api_failure_observed", has_unavailable_api_failure(api_responses, api_request_failures)))
+    checks.append(
+        check(
+            "no_unexpected_console_warnings_or_errors",
+            len(unexpected_console_messages) == 0,
+            str(unexpected_console_messages[:3]),
+        )
+    )
     checks.append(check("no_page_errors", len(page_errors) == 0, str(page_errors[:3])))
 
     passed = sum(1 for item in checks if item["ok"])
@@ -170,6 +196,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "ok": passed == len(checks),
         "checks": checks,
         "consoleMessages": console_messages,
+        "unexpectedConsoleMessages": unexpected_console_messages,
         "requestFailures": request_failures,
         "apiRequestFailures": api_request_failures,
         "apiResponses": api_responses,

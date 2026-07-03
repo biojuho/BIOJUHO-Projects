@@ -422,3 +422,18 @@ def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
     assert script.route_url("http://127.0.0.1:5174/", "offline-token").startswith(
         "http://127.0.0.1:5174/verify/offline-token?scan_source=unavailable_smoke"
     )
+
+
+def test_consumer_verify_unavailable_browser_smoke_classifies_expected_api_failures():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "consumer_verify_unavailable_browser_smoke.py",
+        "consumer_verify_unavailable_browser_smoke_failure_classification_under_test",
+    )
+
+    assert script.is_expected_unavailable_console(
+        {"type": "error", "text": "Failed to load resource: the server responded with a status of 502 (Bad Gateway)"}
+    )
+    assert not script.is_expected_unavailable_console({"type": "error", "text": "Uncaught TypeError"})
+    assert script.has_unavailable_api_failure([{"url": "/api/api/qr/token/verify", "status": 502}], [])
+    assert script.has_unavailable_api_failure([], [{"url": "/api/api/qr/token/verify", "failure": "net::ERR_FAILED"}])
+    assert not script.has_unavailable_api_failure([{"url": "/api/api/qr/token/verify", "status": 200}], [])
