@@ -160,6 +160,145 @@ def test_post_apply_evidence_gate_cli_writes_report_and_manifest(tmp_path: Path)
     assert roles == {"external_gate_json", "post_apply_evidence_gate_json"}
 
 
+def test_post_apply_evidence_manifest_verifier_accepts_intact_artifacts(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    source = external_gate_payload()
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+
+    assert verification["ok"] is True
+    assert verification["manifest_ok"] is True
+    assert verification["promotion_gate_ok"] is True
+    assert verification["summary"]["checked_artifact_count"] == 2
+    assert verification["summary"]["artifact_failure_count"] == 0
+    assert verification["summary"]["digest_mismatch_count"] == 0
+    assert verification["summary"]["secret_marker_count"] == 0
+
+
+def test_post_apply_evidence_manifest_verifier_fails_for_tampered_artifact(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    source = external_gate_payload()
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+    external_path.write_text(json.dumps({**source, "debug": "tampered"}), encoding="utf-8")
+
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+    external_artifact = next(item for item in verification["artifacts"] if item["role"] == "external_gate_json")
+
+    assert verification["ok"] is False
+    assert verification["summary"]["artifact_failure_count"] == 1
+    assert verification["summary"]["digest_mismatch_count"] == 1
+    assert "artifact sha256 mismatch" in external_artifact["failures"]
+
+
+def test_post_apply_evidence_manifest_verifier_fails_for_malformed_artifact_path(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    post_apply_evidence_gate.write_json_report(
+        manifest_path,
+        {
+            "schema_version": 1,
+            "ok": True,
+            "promotion_gate": {"ok": True},
+            "artifact_count": 1,
+            "artifacts": [
+                {
+                    "role": "external_gate_json",
+                    "path": "",
+                    "required": True,
+                    "exists": True,
+                    "bytes": 1,
+                    "sha256": "0" * 64,
+                    "secret_marker_count": 0,
+                    "ok": True,
+                }
+            ],
+        },
+    )
+
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+    artifact = verification["artifacts"][0]
+
+    assert verification["ok"] is False
+    assert artifact["ok"] is False
+    assert "artifact path is required" in artifact["failures"]
+    assert "required artifact is missing" in artifact["failures"]
+
+
+def test_post_apply_evidence_manifest_verifier_keeps_no_go_manifest_blocked(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    source = external_gate_payload(ok=False)
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+
+    verification = post_apply_evidence_gate.verify_evidence_manifest(manifest_path)
+
+    assert manifest["ok"] is False
+    assert verification["ok"] is False
+    assert verification["summary"]["artifact_failure_count"] == 0
+    assert "evidence manifest ok must be true" in verification["failures"]
+    assert "promotion gate ok must be true" in verification["failures"]
+
+
+def test_post_apply_evidence_gate_cli_verifies_manifest(tmp_path: Path) -> None:
+    external_path = tmp_path / "external-gate.json"
+    report_path = tmp_path / "post-apply-gate.json"
+    manifest_path = tmp_path / "post-apply-manifest.json"
+    verify_path = tmp_path / "post-apply-manifest-verify.json"
+    source = external_gate_payload()
+    external_path.write_text(json.dumps(source), encoding="utf-8")
+    payload = post_apply_evidence_gate.validate_post_apply_payload(source, evidence_path=external_path)
+    post_apply_evidence_gate.write_json_report(report_path, payload)
+    manifest = post_apply_evidence_gate.build_evidence_manifest(
+        external_gate_path=external_path,
+        gate_payload=payload,
+        gate_report_path=report_path,
+    )
+    post_apply_evidence_gate.write_json_report(manifest_path, manifest)
+
+    rc = post_apply_evidence_gate.main(
+        [
+            "--verify-manifest",
+            str(manifest_path),
+            "--json-out",
+            str(verify_path),
+        ]
+    )
+
+    written = json.loads(verify_path.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert written["ok"] is True
+    assert written["summary"]["digest_mismatch_count"] == 0
+
+
 def test_post_apply_evidence_gate_cli_reports_missing_json(tmp_path: Path) -> None:
     output = tmp_path / "gate.json"
     missing = tmp_path / "missing.json"

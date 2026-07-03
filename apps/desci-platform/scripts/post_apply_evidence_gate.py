@@ -108,6 +108,10 @@ def write_json_report(path: str | Path, payload: dict[str, Any]) -> Path:
     return write_json_atomic(path, payload, trailing_newline=True)
 
 
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
 def _file_sha256(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
@@ -123,13 +127,18 @@ def evidence_artifact_entry(path: str | Path, *, role: str, required: bool = Tru
         "sha256": "",
         "secret_marker_names": [],
         "secret_marker_count": 0,
+        "read_error": "",
         "ok": False,
     }
     if not entry["exists"]:
         entry["ok"] = not required
         return entry
 
-    raw = artifact_path.read_bytes()
+    try:
+        raw = artifact_path.read_bytes()
+    except OSError as exc:
+        entry["read_error"] = str(exc)
+        return entry
     markers = secret_marker_names_in_text(raw.decode("utf-8", errors="ignore"))
     entry.update(
         {
@@ -193,6 +202,127 @@ def build_evidence_manifest(
     }
 
 
+def load_evidence_manifest(path: str | Path) -> dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
+def _resolve_manifest_artifact_path(path: str, artifact_root: str | Path) -> Path:
+    artifact_path = Path(path)
+    if artifact_path.is_absolute():
+        return artifact_path
+    return Path(artifact_root) / artifact_path
+
+
+def _verify_manifest_artifact(artifact: dict[str, Any], *, artifact_root: str | Path) -> dict[str, Any]:
+    role = str(artifact.get("role") or "")
+    expected_path = str(artifact.get("path") or "")
+    required = artifact.get("required") is not False
+    resolved_path = _resolve_manifest_artifact_path(expected_path, artifact_root)
+    current = (
+        evidence_artifact_entry(resolved_path, role=role, required=required)
+        if expected_path
+        else evidence_artifact_entry("__missing_manifest_artifact_path__", role=role, required=required)
+    )
+    failures: list[str] = []
+
+    expected_exists = artifact.get("exists") is True
+    if not expected_path:
+        failures.append("artifact path is required")
+    if not role:
+        failures.append("artifact role is required")
+    if artifact.get("ok") is not True:
+        failures.append("manifest artifact ok must be true")
+    if artifact.get("secret_marker_count") not in {0, None}:
+        failures.append("manifest artifact secret_marker_count must be 0")
+    if expected_exists != current["exists"]:
+        failures.append("artifact exists state changed")
+    if required and current["exists"] is not True:
+        failures.append("required artifact is missing")
+    if current.get("read_error"):
+        failures.append("artifact could not be read")
+    if expected_exists and current["exists"]:
+        if int(artifact.get("bytes") or 0) != int(current.get("bytes") or 0):
+            failures.append("artifact byte size mismatch")
+        if str(artifact.get("sha256") or "") != str(current.get("sha256") or ""):
+            failures.append("artifact sha256 mismatch")
+    if int(current.get("secret_marker_count") or 0) != 0:
+        failures.append("artifact contains secret-shaped markers")
+
+    return {
+        "role": role,
+        "path": expected_path,
+        "resolved_path": str(resolved_path),
+        "required": required,
+        "ok": not failures,
+        "expected_exists": expected_exists,
+        "current_exists": current["exists"],
+        "expected_bytes": int(artifact.get("bytes") or 0),
+        "current_bytes": int(current.get("bytes") or 0),
+        "expected_sha256": str(artifact.get("sha256") or ""),
+        "current_sha256": str(current.get("sha256") or ""),
+        "secret_marker_names": current.get("secret_marker_names") or [],
+        "secret_marker_count": int(current.get("secret_marker_count") or 0),
+        "failures": failures,
+    }
+
+
+def verify_evidence_manifest(
+    manifest_path: str | Path,
+    *,
+    artifact_root: str | Path = ".",
+) -> dict[str, Any]:
+    manifest = load_evidence_manifest(manifest_path)
+    artifacts = [item for item in _as_list(manifest.get("artifacts")) if isinstance(item, dict)]
+    promotion_gate = _as_dict(manifest.get("promotion_gate"))
+    checked_artifacts = [
+        _verify_manifest_artifact(artifact, artifact_root=artifact_root)
+        for artifact in artifacts
+    ]
+    failures: list[str] = []
+
+    if manifest.get("schema_version") != 1:
+        failures.append("evidence manifest must be schema_version=1")
+    if manifest.get("ok") is not True:
+        failures.append("evidence manifest ok must be true")
+    if promotion_gate.get("ok") is not True:
+        failures.append("promotion gate ok must be true")
+    if int(manifest.get("artifact_count") or 0) != len(artifacts):
+        failures.append("manifest artifact_count must match artifacts length")
+
+    artifact_failure_count = sum(1 for item in checked_artifacts if item.get("ok") is not True)
+    missing_required_count = sum(
+        1 for item in checked_artifacts if item.get("required") is True and item.get("current_exists") is not True
+    )
+    digest_mismatch_count = sum(
+        1 for item in checked_artifacts if "artifact sha256 mismatch" in _as_list(item.get("failures"))
+    )
+    secret_marker_count = sum(int(item.get("secret_marker_count") or 0) for item in checked_artifacts)
+
+    return {
+        "schema_version": 1,
+        "generated_at": _utc_now(),
+        "ok": not failures and artifact_failure_count == 0,
+        "manifest_json": str(manifest_path),
+        "artifact_root": str(artifact_root),
+        "manifest_ok": manifest.get("ok") is True,
+        "promotion_gate_ok": promotion_gate.get("ok") is True,
+        "summary": {
+            "failure_count": len(failures),
+            "artifact_count": len(artifacts),
+            "checked_artifact_count": len(checked_artifacts),
+            "artifact_failure_count": artifact_failure_count,
+            "missing_required_count": missing_required_count,
+            "digest_mismatch_count": digest_mismatch_count,
+            "secret_marker_count": secret_marker_count,
+        },
+        "failures": failures,
+        "artifacts": checked_artifacts,
+    }
+
+
 def print_report(payload: dict[str, Any]) -> None:
     summary = _as_dict(payload.get("summary"))
     print(f"[post-apply-evidence-gate] ok={payload.get('ok')}")
@@ -207,9 +337,33 @@ def print_report(payload: dict[str, Any]) -> None:
         print(f"  - {failure}")
 
 
+def print_manifest_verification_report(payload: dict[str, Any]) -> None:
+    summary = _as_dict(payload.get("summary"))
+    print(f"[post-apply-evidence-manifest] ok={payload.get('ok')}")
+    print(
+        "[post-apply-evidence-manifest] "
+        f"manifest_ok={payload.get('manifest_ok')} "
+        f"promotion_gate_ok={payload.get('promotion_gate_ok')} "
+        f"artifact_failures={summary.get('artifact_failure_count')} "
+        f"digest_mismatches={summary.get('digest_mismatch_count')} "
+        f"missing_required={summary.get('missing_required_count')} "
+        f"secret_markers={summary.get('secret_marker_count')}"
+    )
+    for failure in _as_list(payload.get("failures")):
+        print(f"  - {failure}")
+    for artifact in _as_list(payload.get("artifacts")):
+        if isinstance(artifact, dict) and artifact.get("ok") is not True:
+            role = artifact.get("role") or "artifact"
+            for failure in _as_list(artifact.get("failures")):
+                print(f"  - {role}: {failure}")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate DeSci post-apply external gate JSON evidence.")
-    parser.add_argument("--external-gate-json", required=True, help="Path to external_release_gate.py JSON evidence.")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--external-gate-json", help="Path to external_release_gate.py JSON evidence.")
+    source.add_argument("--verify-manifest", help="Path to a post-apply evidence manifest to verify.")
+    parser.add_argument("--artifact-root", default=".", help="Root used to resolve relative artifact paths in verify mode.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable validation JSON.")
     parser.add_argument("--json-out", help="Write machine-readable validation JSON.")
     parser.add_argument("--manifest-out", help="Write a hash manifest for the post-apply evidence artifacts.")
@@ -218,6 +372,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.verify_manifest:
+        try:
+            verification = verify_evidence_manifest(args.verify_manifest, artifact_root=args.artifact_root)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            verification = {
+                "schema_version": 1,
+                "generated_at": _utc_now(),
+                "ok": False,
+                "manifest_json": str(args.verify_manifest),
+                "artifact_root": str(args.artifact_root),
+                "manifest_ok": False,
+                "promotion_gate_ok": False,
+                "summary": {
+                    "failure_count": 1,
+                    "artifact_count": 0,
+                    "checked_artifact_count": 0,
+                    "artifact_failure_count": 0,
+                    "missing_required_count": 0,
+                    "digest_mismatch_count": 0,
+                    "secret_marker_count": 0,
+                },
+                "failures": [str(exc)],
+                "artifacts": [],
+            }
+        if args.json:
+            print(json.dumps(verification, indent=2))
+        else:
+            print_manifest_verification_report(verification)
+        if args.json_out:
+            write_json_report(args.json_out, verification)
+            print(f"[post-apply-evidence-manifest] json written: {args.json_out}")
+        return 0 if verification["ok"] else 1
+
     evidence_path = Path(args.external_gate_json)
     try:
         payload = validate_post_apply_payload(load_external_gate_payload(evidence_path), evidence_path=evidence_path)
