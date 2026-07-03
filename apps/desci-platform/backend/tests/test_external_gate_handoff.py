@@ -170,6 +170,19 @@ def test_external_gate_handoff_writes_no_secret_provider_templates(tmp_path: Pat
     assert not (paths["railway"].parent / "railway.env.tmp").exists()
 
 
+def test_external_gate_handoff_can_preserve_existing_provider_templates(tmp_path: Path) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    template_dir = tmp_path / "providers"
+    template_dir.mkdir()
+    railway_env = template_dir / "railway.env"
+    railway_env.write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+
+    paths = external_gate_handoff.write_provider_templates(template_dir, payload, overwrite=False)
+
+    assert paths["railway"] == railway_env
+    assert "super-secret" in railway_env.read_text(encoding="utf-8")
+
+
 def test_external_gate_handoff_writes_provider_template_index(tmp_path: Path) -> None:
     payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
     paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
@@ -206,6 +219,46 @@ def test_external_gate_handoff_template_index_flags_populated_values_without_lea
     assert "super-secret" not in serialized
 
 
+def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Path) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    plan_path = tmp_path / "apply-plan.json"
+    markdown_path = tmp_path / "apply-plan.md"
+
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    external_gate_handoff.write_provider_apply_plan_markdown(markdown_path, plan)
+    markdown = markdown_path.read_text(encoding="utf-8")
+
+    assert plan["ok"] is True
+    assert plan["ready_provider_count"] == 0
+    assert plan["provider_count"] == 1
+    provider = plan["providers"][0]
+    assert provider["provider"] == "railway"
+    assert provider["ready_to_apply"] is False
+    assert provider["blank_key_count"] == 2
+    assert provider["commands"][0]["command"] == "railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin"
+    assert "super-secret" not in json.dumps(plan)
+    assert "railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
+
+
+def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaking_values(tmp_path: Path) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    paths["railway"].write_text("FIREBASE_SERVICE_ACCOUNT_JSON=super-secret\nPINATA_JWT=jwt-secret\n", encoding="utf-8")
+
+    plan = external_gate_handoff.provider_apply_plan_payload(payload, paths)
+    serialized = json.dumps(plan)
+
+    assert plan["ready_provider_count"] == 1
+    assert plan["provider_template_index"]["safe_to_commit"] is False
+    assert plan["provider_template_index"]["populated_key_count"] == 2
+    assert plan["providers"][0]["ready_to_apply"] is True
+    assert plan["providers"][0]["blank_key_count"] == 0
+    assert "super-secret" not in serialized
+    assert "jwt-secret" not in serialized
+
+
 def test_external_gate_handoff_cli_requires_template_dir_for_index(capsys) -> None:
     rc = external_gate_handoff.main(
         [
@@ -218,7 +271,7 @@ def test_external_gate_handoff_cli_requires_template_dir_for_index(capsys) -> No
     captured = capsys.readouterr()
 
     assert rc == 2
-    assert "requires --provider-template-dir" in captured.err
+    assert "require --provider-template-dir" in captured.err
 
 
 def test_external_gate_handoff_load_rejects_non_gate_payload(tmp_path: Path) -> None:

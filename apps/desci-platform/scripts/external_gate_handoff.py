@@ -305,13 +305,21 @@ def write_text_report(path: str | Path, body: str) -> Path:
     return output_path
 
 
-def write_provider_templates(directory: str | Path, payload: dict[str, Any]) -> dict[str, Path]:
+def write_provider_templates(
+    directory: str | Path,
+    payload: dict[str, Any],
+    *,
+    overwrite: bool = True,
+) -> dict[str, Path]:
     output_dir = Path(directory)
     output_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
     for provider in _provider_template_names(payload):
         filename = release_handoff.PROVIDER_TEMPLATE_FILENAMES.get(provider, f"{provider}.env")
-        written[provider] = write_text_report(output_dir / filename, render_provider_env_template(payload, provider))
+        path = output_dir / filename
+        if overwrite or not path.exists():
+            write_text_report(path, render_provider_env_template(payload, provider))
+        written[provider] = path
     return written
 
 
@@ -383,6 +391,140 @@ def write_provider_template_index(
     provider_paths: dict[str, Path],
 ) -> Path:
     return write_json_report(path, provider_template_index_payload(payload, provider_paths))
+
+
+def _provider_apply_commands(provider: str, template_path: str, keys: list[str]) -> list[dict[str, Any]]:
+    if provider == "github":
+        return [
+            {
+                "id": "github_secret_env_file",
+                "command": f"gh secret set --env-file {template_path}",
+                "stdin_required": False,
+                "value_placeholder": "",
+            }
+        ]
+    if provider == "railway":
+        return [
+            {
+                "id": f"railway_variable_set_{key.lower()}",
+                "command": f"railway variable set {key} --stdin",
+                "stdin_required": True,
+                "value_placeholder": "<private-value-on-stdin>",
+            }
+            for key in keys
+        ]
+    if provider == "vercel":
+        return [
+            {
+                "id": f"vercel_env_add_{key.lower()}",
+                "command": f"vercel env add {key} production < <private-value-file>",
+                "stdin_required": True,
+                "value_placeholder": "<private-value-file>",
+            }
+            for key in keys
+        ]
+    return []
+
+
+def provider_apply_plan_payload(payload: dict[str, Any], provider_paths: dict[str, Path]) -> dict[str, Any]:
+    index = provider_template_index_payload(payload, provider_paths)
+    template_dirs = sorted({str(Path(provider["path"]).parent) for provider in _as_list(index.get("providers"))})
+    template_dir = template_dirs[0] if len(template_dirs) == 1 else ""
+    providers: list[dict[str, Any]] = []
+    for provider in _as_list(index.get("providers")):
+        if not isinstance(provider, dict):
+            continue
+        provider_key = str(provider.get("provider") or "")
+        keys = _string_list(provider.get("env_keys"))
+        env_key_count = int(provider.get("env_key_count") or 0)
+        populated_key_count = int(provider.get("populated_key_count") or 0)
+        ready_to_apply = env_key_count > 0 and populated_key_count == env_key_count
+        guidance = _provider_guidance(provider_key)
+        providers.append(
+            {
+                "provider": provider_key,
+                "label": provider.get("label") or _provider_label(provider_key),
+                "template_path": provider.get("path"),
+                "template_filename": provider.get("template_filename"),
+                "docs_url": guidance.get("docs_url") if isinstance(guidance.get("docs_url"), str) else "",
+                "preflight_commands": _string_list(guidance.get("preflight_commands")),
+                "env_key_count": env_key_count,
+                "populated_key_count": populated_key_count,
+                "blank_key_count": max(env_key_count - populated_key_count, 0),
+                "ready_to_apply": ready_to_apply,
+                "blocked_reason": "" if ready_to_apply else "template has blank values",
+                "commands": _provider_apply_commands(provider_key, str(provider.get("path") or ""), keys),
+                "post_apply_verify_commands": [
+                    f"python scripts/external_release_gate.py --provider-template-dir {template_dir} --target {provider_key}"
+                ]
+                if template_dir and provider_key in {"amoy", "github", "railway", "vercel"}
+                else [],
+            }
+        )
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "ok": True,
+        "release_decision": payload.get("release_decision"),
+        "external_gate_json": payload.get("external_gate_json"),
+        "provider_template_index": {
+            "safe_to_commit": index.get("safe_to_commit") is True,
+            "provider_template_count": index.get("provider_template_count"),
+            "populated_key_count": index.get("populated_key_count"),
+        },
+        "ready_provider_count": sum(1 for provider in providers if provider["ready_to_apply"]),
+        "provider_count": len(providers),
+        "providers": providers,
+    }
+
+
+def write_provider_apply_plan(
+    path: str | Path,
+    payload: dict[str, Any],
+    provider_paths: dict[str, Path],
+) -> Path:
+    return write_json_report(path, provider_apply_plan_payload(payload, provider_paths))
+
+
+def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# DeSci Provider Apply Plan",
+        "",
+        "## Summary",
+        f"- Release decision: `{_markdown_scalar(payload.get('release_decision'))}`",
+        f"- Providers ready to apply: `{_markdown_scalar(payload.get('ready_provider_count', 0))}`/"
+        f"`{_markdown_scalar(payload.get('provider_count', 0))}`",
+        "",
+        "## Providers",
+    ]
+    providers = [provider for provider in _as_list(payload.get("providers")) if isinstance(provider, dict)]
+    if not providers:
+        lines.append("- None.")
+    for provider in providers:
+        commands = [item for item in _as_list(provider.get("commands")) if isinstance(item, dict)]
+        lines.append(f"### {provider.get('label')}")
+        lines.append(f"- Template: `{_markdown_scalar(provider.get('template_path'))}`")
+        lines.append(f"- Ready to apply: `{_markdown_scalar(provider.get('ready_to_apply'))}`")
+        if provider.get("blocked_reason"):
+            lines.append(f"- Blocked reason: `{provider.get('blocked_reason')}`")
+        docs_url = provider.get("docs_url") if isinstance(provider.get("docs_url"), str) else ""
+        if docs_url:
+            lines.append(f"- Docs: {docs_url}")
+        lines.append(f"- Preflight commands: {_markdown_values(provider.get('preflight_commands'))}")
+        if commands:
+            lines.append("- Apply command templates:")
+            for command in commands:
+                lines.append(f"  - `{command.get('command')}`")
+        verify_commands = _string_list(provider.get("post_apply_verify_commands"))
+        if verify_commands:
+            lines.append("- Verify after apply:")
+            for command in verify_commands:
+                lines.append(f"  - `{command}`")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_provider_apply_plan_markdown(path: str | Path, payload: dict[str, Any]) -> Path:
+    return write_text_report(path, render_provider_apply_plan_markdown(payload))
 
 
 def render_markdown_report(payload: dict[str, Any]) -> str:
@@ -481,15 +623,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json-out", help="Write handoff JSON evidence.")
     parser.add_argument("--markdown-out", help="Write a human-readable handoff packet.")
     parser.add_argument("--provider-template-dir", help="Write no-secret env templates split by provider target.")
+    parser.add_argument("--preserve-provider-templates", action="store_true", help="Do not overwrite existing provider templates.")
     parser.add_argument("--provider-template-index-out", help="Write an audit index for generated provider templates.")
+    parser.add_argument("--provider-apply-plan-out", help="Write a redacted provider apply plan JSON.")
+    parser.add_argument("--provider-apply-plan-markdown-out", help="Write a redacted provider apply plan Markdown file.")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    if args.provider_template_index_out and not args.provider_template_dir:
+    needs_provider_templates = any(
+        (
+            args.provider_template_index_out,
+            args.provider_apply_plan_out,
+            args.provider_apply_plan_markdown_out,
+        )
+    )
+    if needs_provider_templates and not args.provider_template_dir:
         print(
-            "[external-gate-handoff] --provider-template-index-out requires --provider-template-dir",
+            "[external-gate-handoff] provider template outputs require --provider-template-dir",
             file=sys.stderr,
         )
         return 2
@@ -507,12 +659,26 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[external-gate-handoff] markdown written: {markdown_path}")
     provider_paths: dict[str, Path] = {}
     if args.provider_template_dir:
-        provider_paths = write_provider_templates(args.provider_template_dir, payload)
+        provider_paths = write_provider_templates(
+            args.provider_template_dir,
+            payload,
+            overwrite=not args.preserve_provider_templates,
+        )
         for provider, path in provider_paths.items():
             print(f"[external-gate-handoff] provider template written: {provider}={path}")
     if args.provider_template_index_out:
         index_path = write_provider_template_index(args.provider_template_index_out, payload, provider_paths)
         print(f"[external-gate-handoff] provider template index written: {index_path}")
+    apply_plan_payload: dict[str, Any] | None = None
+    if args.provider_apply_plan_out:
+        apply_plan_payload = provider_apply_plan_payload(payload, provider_paths)
+        output_path = write_json_report(args.provider_apply_plan_out, apply_plan_payload)
+        print(f"[external-gate-handoff] provider apply plan written: {output_path}")
+    if args.provider_apply_plan_markdown_out:
+        if apply_plan_payload is None:
+            apply_plan_payload = provider_apply_plan_payload(payload, provider_paths)
+        markdown_path = write_provider_apply_plan_markdown(args.provider_apply_plan_markdown_out, apply_plan_payload)
+        print(f"[external-gate-handoff] provider apply plan markdown written: {markdown_path}")
     return 0 if payload["ok"] else 1
 
 
