@@ -662,6 +662,8 @@ def test_release_handoff_markdown_report_summarizes_operator_packet(tmp_path: Pa
     assert "Release decision: `no-go`" in text
     assert "Overall ok: `false`" in text
     assert "## Product Action Checklist" in text
+    assert "## Provider Summary" in text
+    assert "Railway (`railway.env`)" in text
     assert "### auth" in text
     assert "Required: `true`" in text
     assert "`railway_auth` `fail`" in text
@@ -745,6 +747,18 @@ def test_release_handoff_provider_templates_split_unresolved_keys_by_target(tmp_
 
     paths = release_handoff.write_provider_templates(output_dir, payload)
 
+    summary = {group["provider"]: group for group in payload["provider_summary"]}
+    assert set(summary) == {"github", "railway", "vercel"}
+    assert summary["railway"]["template_filename"] == "railway.env"
+    assert summary["railway"]["failed_count"] == 2
+    assert summary["railway"]["warning_count"] == 1
+    assert summary["railway"]["action_count"] == 3
+    assert "STRIPE_SECRET_KEY" in summary["railway"]["required_env"]
+    assert "GROBID_URL" in summary["railway"]["required_env"]
+    assert "ALLOWED_ORIGINS" in summary["railway"]["required_env"]
+    assert "VITE_API_BASE_URL" not in summary["railway"]["required_env"]
+    assert summary["vercel"]["required_env"] == ["VITE_API_BASE_URL"]
+    assert summary["github"]["required_env"] == ["GITLEAKS_LICENSE"]
     assert set(paths) == {"github", "railway", "vercel"}
     railway = (output_dir / "railway.env").read_text(encoding="utf-8")
     vercel = (output_dir / "vercel.env").read_text(encoding="utf-8")

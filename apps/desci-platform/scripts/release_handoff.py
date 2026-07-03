@@ -198,7 +198,7 @@ def build_handoff(
     if not ok:
         release_decision = "no-go"
 
-    return {
+    payload = {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
         "ok": ok,
@@ -227,6 +227,8 @@ def build_handoff(
         "deploy_failed_checks": _string_list(_as_dict(deploy_payload.get("summary")).get("failed_checks")),
         "sources": sources or {},
     }
+    payload["provider_summary"] = provider_summary(payload)
+    return payload
 
 
 def write_json_report(path: str | Path, payload: dict[str, Any]) -> Path:
@@ -316,6 +318,45 @@ def provider_for_action(action: dict[str, Any]) -> str:
     return target if target in PROVIDER_TEMPLATE_FILENAMES else "product"
 
 
+def provider_summary(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for action in unresolved_surface_actions(payload):
+        provider = provider_for_action(action)
+        group = grouped.setdefault(
+            provider,
+            {
+                "provider": provider,
+                "label": PROVIDER_LABELS.get(provider, provider),
+                "template_filename": PROVIDER_TEMPLATE_FILENAMES.get(provider, f"{provider}.env"),
+                "action_count": 0,
+                "failed_count": 0,
+                "warning_count": 0,
+                "required_env": [],
+                "actions": [],
+            },
+        )
+        status = str(action.get("status") or "")
+        group["action_count"] += 1
+        if status == "fail":
+            group["failed_count"] += 1
+        if status == "warn":
+            group["warning_count"] += 1
+        for key in _string_list(action.get("keys")):
+            if key not in group["required_env"]:
+                group["required_env"].append(key)
+        group["actions"].append(
+            {
+                "id": action.get("id"),
+                "target": action.get("target"),
+                "owner": action.get("owner"),
+                "surface": action.get("surface"),
+                "status": action.get("status"),
+                "keys": _string_list(action.get("keys")),
+            }
+        )
+    return [grouped[provider] for provider in sorted(grouped)]
+
+
 def provider_actions(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for action in unresolved_surface_actions(payload):
@@ -387,8 +428,27 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
         f"- Missing required coverage: {_markdown_values(coverage.get('missing_required_coverage'))}",
         f"- Deploy-only action count: `{_markdown_scalar(coverage.get('deploy_only_action_count', 0))}`",
         "",
-        "## Product Action Checklist",
+        "## Provider Summary",
     ]
+
+    provider_groups = [group for group in payload.get("provider_summary") or [] if isinstance(group, dict)]
+    if not provider_groups:
+        lines.append("- None.")
+    for group in provider_groups:
+        lines.append(
+            f"- {group.get('label')} (`{_markdown_scalar(group.get('template_filename'))}`): "
+            f"`{_markdown_scalar(group.get('action_count', 0))}` action(s), "
+            f"`{_markdown_scalar(group.get('failed_count', 0))}` failed, "
+            f"`{_markdown_scalar(group.get('warning_count', 0))}` warning(s), "
+            f"env={_markdown_values(group.get('required_env'))}"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Product Action Checklist",
+        ]
+    )
 
     checklist = [item for item in payload.get("operator_checklist") or [] if isinstance(item, dict)]
     if not checklist:
