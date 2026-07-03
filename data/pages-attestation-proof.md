@@ -31,7 +31,7 @@ Workflow: joopark-pages.yml
 Proof complete: false
 Signed proof ready: false
 Completed fields: 0/6
-False positive guard: false
+False positive guard: true
 
 Parser-ready proof block:
 pages_workflow_run:

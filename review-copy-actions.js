@@ -26,18 +26,36 @@
       return panel ? panel.querySelector(selector) : null;
     }
 
+    function copyFeedback(copied, messages) {
+      return {
+        state: copied ? "true" : "false",
+        statusText: copied ? messages.successStatus : messages.failureStatus,
+        toastText: copied ? messages.successToast : messages.failureToast,
+        toastTone: copied ? "info" : "error",
+      };
+    }
+
+    function configuredCopyFeedback(copied, config) {
+      return copyFeedback(copied, config);
+    }
+
     function copyReviewPackagePasteBody(target) {
       const item = closestPanel(target, "[data-review-package-paste-preview-item]");
       const panel = closestPanel(target, "[data-review-package-paste-preview]");
       const text = panelText(item, "[data-review-package-paste-preview-body]");
       const status = panelStatus(item, "[data-review-package-paste-preview-copy-status]");
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, "reviewPackagePastePreviewCopied", state);
-        setDataset(item, "reviewPackagePastePreviewCopied", state);
-        setDataset(panel, "reviewPackagePastePreviewCopied", state);
-        if (status) status.textContent = copied ? "본문 복사됨" : "본문 복사 실패";
-        showToast(copied ? "paste body를 복사했습니다" : "paste body 복사 실패", copied ? "info" : "error");
+        const feedback = copyFeedback(copied, {
+          successStatus: "본문 복사됨",
+          failureStatus: "본문 복사 실패",
+          successToast: "paste body를 복사했습니다",
+          failureToast: "paste body 복사 실패",
+        });
+        setDataset(target, "reviewPackagePastePreviewCopied", feedback.state);
+        setDataset(item, "reviewPackagePastePreviewCopied", feedback.state);
+        setDataset(panel, "reviewPackagePastePreviewCopied", feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 
@@ -47,11 +65,11 @@
       const text = panelText(panel, config.textSelector || "");
       const status = panelStatus(panel, config.statusSelector || "");
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, config.targetDatasetKey, state);
-        setDataset(panel, config.panelDatasetKey, state);
-        if (status) status.textContent = copied ? config.successStatus : config.failureStatus;
-        showToast(copied ? config.successToast : config.failureToast, copied ? "info" : "error");
+        const feedback = configuredCopyFeedback(copied, config);
+        setDataset(target, config.targetDatasetKey, feedback.state);
+        setDataset(panel, config.panelDatasetKey, feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 
@@ -60,11 +78,16 @@
       const text = panelText(panel, "[data-review-artifact-receipt-text]");
       const status = panelStatus(panel, "[data-review-artifact-receipt-copy-status]");
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, "reviewArtifactReceiptCopied", state);
-        setDataset(panel, "reviewArtifactReceiptCopied", state);
-        if (status) status.textContent = copied ? "receipt 복사됨" : "receipt 복사 실패";
-        showToast(copied ? "artifact receipt를 복사했습니다" : "receipt 복사 실패", copied ? "info" : "error");
+        const feedback = copyFeedback(copied, {
+          successStatus: "receipt 복사됨",
+          failureStatus: "receipt 복사 실패",
+          successToast: "artifact receipt를 복사했습니다",
+          failureToast: "receipt 복사 실패",
+        });
+        setDataset(target, "reviewArtifactReceiptCopied", feedback.state);
+        setDataset(panel, "reviewArtifactReceiptCopied", feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 
@@ -75,14 +98,17 @@
       const text = panelText(panel, selector);
       const status = panelStatus(panel, "[data-review-artifact-repair-copy-status]");
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
+        const feedback = copyFeedback(copied, {
+          successStatus: isBody ? "archived body 복사됨" : "fresh receipt 복사됨",
+          failureStatus: "repair 복사 실패",
+          successToast: "repair payload를 복사했습니다",
+          failureToast: "repair 복사 실패",
+        });
         const key = isBody ? "reviewArtifactRepairBodyCopied" : "reviewArtifactRepairReceiptCopied";
-        setDataset(target, key, state);
-        setDataset(panel, key, state);
-        if (status) status.textContent = copied
-          ? (isBody ? "archived body 복사됨" : "fresh receipt 복사됨")
-          : "repair 복사 실패";
-        showToast(copied ? "repair payload를 복사했습니다" : "repair 복사 실패", copied ? "info" : "error");
+        setDataset(target, key, feedback.state);
+        setDataset(panel, key, feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 
@@ -91,11 +117,16 @@
       const text = panelText(panel, "[data-issue-fresh-receipt-text]");
       const status = panelStatus(panel, "[data-issue-fresh-receipt-copy-status]");
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, "issueFreshReceiptCopied", state);
-        setDataset(panel, "issueFreshReceiptCopied", state);
-        if (status) status.textContent = copied ? "fresh receipt 복사됨" : "fresh receipt 복사 실패";
-        showToast(copied ? "fresh receipt를 복사했습니다" : "fresh receipt 복사 실패", copied ? "info" : "error");
+        const feedback = copyFeedback(copied, {
+          successStatus: "fresh receipt 복사됨",
+          failureStatus: "fresh receipt 복사 실패",
+          successToast: "fresh receipt를 복사했습니다",
+          failureToast: "fresh receipt 복사 실패",
+        });
+        setDataset(target, "issueFreshReceiptCopied", feedback.state);
+        setDataset(panel, "issueFreshReceiptCopied", feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 
@@ -112,11 +143,16 @@
         return;
       }
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, "reviewArtifactPostApplyReceiptCopied", state);
-        setDataset(panel, "reviewArtifactPostApplyReceiptCopied", state);
-        if (status) status.textContent = copied ? "post-apply fresh receipt 복사됨" : "fresh receipt 복사 실패";
-        showToast(copied ? "post-apply fresh receipt를 복사했습니다" : "fresh receipt 복사 실패", copied ? "info" : "error");
+        const feedback = copyFeedback(copied, {
+          successStatus: "post-apply fresh receipt 복사됨",
+          failureStatus: "fresh receipt 복사 실패",
+          successToast: "post-apply fresh receipt를 복사했습니다",
+          failureToast: "fresh receipt 복사 실패",
+        });
+        setDataset(target, "reviewArtifactPostApplyReceiptCopied", feedback.state);
+        setDataset(panel, "reviewArtifactPostApplyReceiptCopied", feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 
@@ -133,11 +169,16 @@
         return;
       }
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, "reviewPostRepairArtifactLinkCopied", state);
-        setDataset(panel, "reviewPostRepairArtifactLinkCopied", state);
-        if (status) status.textContent = copied ? "link receipt 복사됨" : "link receipt 복사 실패";
-        showToast(copied ? "post-repair artifact link를 복사했습니다" : "link receipt 복사 실패", copied ? "info" : "error");
+        const feedback = copyFeedback(copied, {
+          successStatus: "link receipt 복사됨",
+          failureStatus: "link receipt 복사 실패",
+          successToast: "post-repair artifact link를 복사했습니다",
+          failureToast: "link receipt 복사 실패",
+        });
+        setDataset(target, "reviewPostRepairArtifactLinkCopied", feedback.state);
+        setDataset(panel, "reviewPostRepairArtifactLinkCopied", feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 

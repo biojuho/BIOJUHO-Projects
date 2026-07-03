@@ -2,6 +2,13 @@
   "use strict";
 
   const VERSION = "joopark-todo-view/v1";
+  const DEFAULT_TODO_RENDER_LIMIT = 160;
+  const DEFAULT_TODO_BUCKET_RENDER_LIMIT = 80;
+
+  function renderLimitOption(value, fallback, minimum) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(minimum, Math.trunc(parsed)) : fallback;
+  }
 
   function createTodoView(deps) {
     const options = deps || {};
@@ -13,10 +20,13 @@
     const todoSourceFilters = Array.isArray(options.todoSourceFilters) ? options.todoSourceFilters : [];
     const dueLabel = typeof options.dueLabel === "function" ? options.dueLabel : function () { return { cls: "", text: "마감 없음" }; };
     const todayISO = typeof options.todayISO === "function" ? options.todayISO : function () { return ""; };
+    const addDaysISO = typeof options.addDaysISO === "function" ? options.addDaysISO : function (value) { return value; };
     const matches = typeof options.matches === "function" ? options.matches : function () { return true; };
     const formatKoreanShort = typeof options.formatKoreanShort === "function" ? options.formatKoreanShort : function (value) { return value || ""; };
     const kpiCard = typeof options.kpiCard === "function" ? options.kpiCard : function () { return ""; };
     const searchEmptyState = typeof options.searchEmptyState === "function" ? options.searchEmptyState : function () { return ""; };
+    const todoRenderLimit = renderLimitOption(options.todoRenderLimit, DEFAULT_TODO_RENDER_LIMIT, 40);
+    const todoBucketRenderLimit = renderLimitOption(options.todoBucketRenderLimit, DEFAULT_TODO_BUCKET_RENDER_LIMIT, 20);
 
     if (typeof html !== "function" || typeof raw !== "function") {
       throw new Error("todo view requires html and raw helpers");
@@ -51,6 +61,23 @@
       `;
     }
 
+    function rescheduleDue(due, mode, today) {
+      if (mode === "plus1") {
+        const base = due && due > today ? due : today;
+        return addDaysISO(base, 1);
+      }
+      return today;
+    }
+
+    function todoRescheduleButtons(todo) {
+      const isOverdue = !todo.done && todo.due && todo.due < todayISO();
+      if (!isOverdue) return "";
+      return html`
+        <button type="button" class="todo-reschedule" data-action="todo-reschedule" data-todo-id="${todo.id}" data-due-mode="today" title="마감일을 오늘로 변경" aria-label="${todo.title} 마감일을 오늘로 변경">오늘로</button>
+        <button type="button" class="todo-reschedule" data-action="todo-reschedule" data-todo-id="${todo.id}" data-due-mode="plus1" title="마감일을 내일로 미루기" aria-label="${todo.title} 마감일 하루 미루기">+1일</button>
+      `;
+    }
+
     function todoRow(todo) {
       const dl = dueLabel(todo.due);
       const prio = todoPriority[todo.priority] || todoPriority.med || { label: "보통", color: "var(--cyan)" };
@@ -66,6 +93,7 @@
             </span>
           </button>
           <span class="todo-row-actions">
+            ${raw(todoRescheduleButtons(todo))}
             ${raw(todoSourceReturnButton(todo))}
             <button type="button" class="todo-del" data-action="todo-delete" data-todo-id="${todo.id}" aria-label="${todo.title} 삭제">✕</button>
           </span>
@@ -92,10 +120,10 @@
       const total = sourceBase.length;
       const rate = total ? Math.round((doneCount / total) * 100) : 0;
       const kpis = [
-        { title: "미완료", value: String(open.length), unit: "건", color: "#22d3ee", badge: "☑", delta: total ? `전체 ${total}건` : "" },
-        { title: "오늘 마감", value: String(dueToday.length), unit: "건", color: "#2387ff", badge: "◷", delta: formatKoreanShort(today) },
-        { title: "기한 지남", value: String(overdue.length), unit: "건", color: overdue.length ? "#ff4d5e" : "#17d983", badge: "⚑", delta: overdue.length ? "지금 처리" : "없음", trendDown: overdue.length > 0 },
-        { title: "완료율", value: String(rate), unit: "%", color: "#17d983", badge: "✓", delta: `완료 ${doneCount}건` },
+        { title: "미완료", value: String(open.length), unit: "건", color: "var(--cyan)", badge: "☑", delta: total ? `전체 ${total}건` : "" },
+        { title: "오늘 마감", value: String(dueToday.length), unit: "건", color: "var(--blue)", badge: "◷", delta: formatKoreanShort(today) },
+        { title: "기한 지남", value: String(overdue.length), unit: "건", color: overdue.length ? "var(--red)" : "var(--green)", badge: "⚑", delta: overdue.length ? "지금 처리" : "없음", trendDown: overdue.length > 0 },
+        { title: "완료율", value: String(rate), unit: "%", color: "var(--green)", badge: "✓", delta: `완료 ${doneCount}건` },
       ];
 
       const filtered = sourceBase.filter((todo) => todoMatchesFilter(todo, filter));
@@ -141,23 +169,43 @@
           `;
       }
 
+      function todoVirtualNote(total, rendered, scope) {
+        const hidden = total - rendered;
+        if (hidden <= 0) return "";
+        return html`
+          <div class="virtual-list-note todo-virtual-note" role="status" data-todo-virtualized="true" data-todo-virtual-scope="${scope}" data-todo-virtual-rendered="${rendered}" data-todo-virtual-total="${total}">
+            <strong>${hidden}개 더 있음</strong>
+            <span>검색어·상태·출처 필터를 좁히면 숨겨진 할 일을 바로 찾을 수 있습니다.</span>
+          </div>
+        `;
+      }
+
       if (model.filter === "active") {
         const today = model.today;
         const buckets = [
-          { label: "기한 지남", items: filtered.filter((todo) => todo.due && todo.due < today) },
-          { label: "오늘", items: filtered.filter((todo) => todo.due === today) },
-          { label: "예정", items: filtered.filter((todo) => todo.due && todo.due > today) },
-          { label: "기한 없음", items: filtered.filter((todo) => !todo.due) },
+          { key: "overdue", label: "기한 지남", items: filtered.filter((todo) => todo.due && todo.due < today) },
+          { key: "today", label: "오늘", items: filtered.filter((todo) => todo.due === today) },
+          { key: "upcoming", label: "예정", items: filtered.filter((todo) => todo.due && todo.due > today) },
+          { key: "none", label: "기한 없음", items: filtered.filter((todo) => !todo.due) },
         ].filter((bucket) => bucket.items.length);
         return buckets.map((bucket) => html`
           <div class="todo-group">
-            <p class="todo-group-head">${bucket.label} <span>${bucket.items.length}</span></p>
-            ${raw(bucket.items.map((todo) => todoRow(todo)).join(""))}
+            <p class="todo-group-head">${bucket.label} <span>${bucket.items.length}</span>
+              ${bucket.key === "overdue" ? raw(html`<button type="button" class="todo-reschedule todo-reschedule-all" data-action="todo-reschedule-overdue" title="기한 지난 할 일을 모두 오늘로 옮기기">모두 오늘로</button>`) : ""}
+            </p>
+            ${raw(bucket.items.slice(0, todoBucketRenderLimit).map((todo) => todoRow(todo)).join(""))}
+            ${raw(todoVirtualNote(bucket.items.length, Math.min(bucket.items.length, todoBucketRenderLimit), bucket.label))}
           </div>
         `).join("");
       }
 
-      return html`<div class="todo-group">${raw(filtered.map((todo) => todoRow(todo)).join(""))}</div>`;
+      const visible = filtered.length > todoRenderLimit ? filtered.slice(0, todoRenderLimit) : filtered;
+      return html`
+        <div class="todo-group">
+          ${raw(visible.map((todo) => todoRow(todo)).join(""))}
+          ${raw(todoVirtualNote(filtered.length, visible.length, "all"))}
+        </div>
+      `;
     }
 
     function todoFilterChipsHTML(activeFilter) {
@@ -180,6 +228,19 @@
       `;
     }
 
+    function todoSourceSummaryHTML(model) {
+      if (!model || model.sourceFilter === "all") return "";
+      const count = Array.isArray(model.filtered) ? model.filtered.length : 0;
+      return html`
+        <div class="local-source-summary" role="status" data-todo-source-summary data-todo-source-summary-filter="${model.sourceFilter}" data-todo-source-summary-label="${model.activeSourceLabel}" data-todo-source-summary-count="${count}">
+          <strong>${model.activeSourceLabel}</strong>
+          <span>출처 범위</span>
+          <b>${count}건</b>
+          <button type="button" class="local-source-summary-clear" data-action="todo-source-filter" data-todo-source-filter="all">전체 출처 보기</button>
+        </div>
+      `;
+    }
+
     function renderTodosHTML(input) {
       const model = todoViewModel(input && input.todos, input && input.query, input && input.filter, input && input.sourceFilter);
       return html`
@@ -197,6 +258,7 @@
           </form>
           <div class="seg-control">${raw(todoFilterChipsHTML(input && input.filter))}</div>
           ${raw(todoSourceFilterChipsHTML(model))}
+          ${raw(todoSourceSummaryHTML(model))}
           <div class="todo-list">${raw(todoListHTML(model))}</div>
         </section>
       `;
@@ -207,11 +269,15 @@
       todoMatchesFilter,
       todoMatchesSourceFilter,
       todoSourceReturnButton,
+      renderLimitOption,
+      rescheduleDue,
+      todoRescheduleButtons,
       todoRow,
       todoViewModel,
       todoListHTML,
       todoFilterChipsHTML,
       todoSourceFilterChipsHTML,
+      todoSourceSummaryHTML,
       renderTodosHTML,
     };
   }

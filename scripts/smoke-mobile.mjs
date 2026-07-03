@@ -7,13 +7,25 @@ import { join } from "node:path";
 
 const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
-const viewportWidth = Number(process.env.MOBILE_SMOKE_WIDTH || 500);
-const viewportHeight = Number(process.env.MOBILE_SMOKE_HEIGHT || 757);
+const viewportWidth = positiveIntegerOption(process.env.MOBILE_SMOKE_WIDTH, 500);
+const viewportHeight = positiveIntegerOption(process.env.MOBILE_SMOKE_HEIGHT, 757);
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-mobile-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
-const defaultEvaluateTimeoutMs = Number(process.env.SMOKE_RUNTIME_TIMEOUT_MS || 60000);
-const routeReadyTimeoutMs = Number(process.env.MOBILE_SMOKE_ROUTE_READY_TIMEOUT_MS || process.env.SMOKE_ROUTE_READY_TIMEOUT_MS || 9000);
+const defaultEvaluateTimeoutMs = positiveMsOption(process.env.SMOKE_RUNTIME_TIMEOUT_MS, 60000);
+const routeReadyTimeoutMs = positiveMsOption(process.env.MOBILE_SMOKE_ROUTE_READY_TIMEOUT_MS || process.env.SMOKE_ROUTE_READY_TIMEOUT_MS, 9000);
+
+function positiveIntegerOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+function positiveMsOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
 
 const routes = [
   ["home", ["오늘 일정", "팀 · 시스템 관리"]],
@@ -68,6 +80,10 @@ class CdpClient {
     const callbacks = this.listeners.get(method) || [];
     callbacks.push(callback);
     this.listeners.set(method, callbacks);
+    return () => {
+      const current = this.listeners.get(method) || [];
+      this.listeners.set(method, current.filter((item) => item !== callback));
+    };
   }
 
   handleMessage(data) {
@@ -118,6 +134,14 @@ function delay(ms) {
 function progress(event, extra = {}) {
   if (!progressEnabled) return;
   console.error(JSON.stringify({ event, ...extra }));
+}
+
+function cleanupTmpProfile() {
+  try {
+    rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch (error) {
+    progress("cleanup-profile-warning", { message: error.message });
+  }
 }
 
 function waitForProcessExit(child, timeoutMs) {
@@ -189,20 +213,45 @@ async function evaluate(client, expression, timeoutMs = defaultEvaluateTimeoutMs
   return result.result ? result.result.value : undefined;
 }
 
+async function waitForDocumentComplete(client, url, timeoutMs = 30000) {
+  const started = Date.now();
+  let lastState = null;
+  while (Date.now() - started <= timeoutMs) {
+    try {
+      lastState = await evaluate(client, `(() => ({
+        href: location.href,
+        readyState: document.readyState
+      }))()`, 3000);
+      if (lastState?.href === url && lastState.readyState !== "loading") return lastState;
+    } catch (error) {
+      lastState = { error: error.message };
+    }
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for document complete after navigating to ${url}: ${JSON.stringify(lastState)}`);
+}
+
+async function navigateAndWaitForLoad(client, url) {
+  const result = await client.send("Page.navigate", { url });
+  if (result.errorText) throw new Error(`Navigation failed for ${url}: ${result.errorText}`);
+  await waitForDocumentComplete(client, url);
+  progress("mobile-page-loaded", { url });
+}
+
 function routeReadyTimeoutFor(route) {
   if (route === "system") return Math.max(routeReadyTimeoutMs, 20000);
   if (route === "settings") return Math.max(routeReadyTimeoutMs, 16000);
   return routeReadyTimeoutMs;
 }
 
-async function waitForAppRoute(client, route) {
-  const timeoutMs = routeReadyTimeoutFor(route);
-  const routeState = await evaluate(client, `
+function routeReadyExpression(route, timeoutMs) {
+  return `
     new Promise((resolve, reject) => {
       const route = ${JSON.stringify(route)};
       const started = Date.now();
       const routeReadyDiagnostics = () => {
         const view = document.getElementById("view-" + route);
+        const runtimeLoading = Boolean(view?.querySelector("[data-ops-runtime-loading]"));
         return {
           route,
           readyState: document.readyState,
@@ -210,6 +259,7 @@ async function waitForAppRoute(client, route) {
           bodyView: document.body?.dataset?.view || "",
           viewExists: Boolean(view),
           viewHidden: view ? view.hidden : null,
+          runtimeLoading,
           viewTextLength: view ? view.innerText.trim().length : 0,
           visibleViews: Array.from(document.querySelectorAll(".view"))
             .filter((node) => node.hidden === false)
@@ -219,10 +269,11 @@ async function waitForAppRoute(client, route) {
       };
       const check = () => {
         const state = routeReadyDiagnostics();
-        const ready = document.readyState === "complete" &&
+        const ready = document.readyState !== "loading" &&
           document.body?.dataset.view === route &&
           state.viewExists &&
           state.viewHidden === false &&
+          !state.runtimeLoading &&
           state.viewTextLength > 0;
         if (ready) resolve(state);
         else if (Date.now() - started > ${timeoutMs}) reject(new Error("route not ready: " + JSON.stringify(state)));
@@ -230,7 +281,12 @@ async function waitForAppRoute(client, route) {
       };
       check();
     })
-  `);
+  `;
+}
+
+async function waitForAppRoute(client, route) {
+  const timeoutMs = routeReadyTimeoutFor(route);
+  const routeState = await evaluate(client, routeReadyExpression(route, timeoutMs));
   progress("mobile-route-ready", {
     route,
     elapsedMs: routeState?.elapsedMs,
@@ -338,7 +394,7 @@ async function main() {
       currentRoute = route;
       const url = `${baseUrl}/index.html?smoke-route=${routeIndex}#${route}`;
       progress("mobile-route-start", { route, url });
-      await pageClient.send("Page.navigate", { url });
+      await navigateAndWaitForLoad(pageClient, url);
       await waitForAppRoute(pageClient, route);
       if (route === "habits") {
         await evaluate(pageClient, `
@@ -632,7 +688,7 @@ async function main() {
     const searchEmptyReports = [];
     for (const route of searchEmptyRoutes) {
       const url = `${baseUrl}/index.html?smoke-search-empty-mobile=${encodeURIComponent(route)}#${route}`;
-      await pageClient.send("Page.navigate", { url });
+      await navigateAndWaitForLoad(pageClient, url);
       await waitForAppRoute(pageClient, route);
       const report = await evaluate(pageClient, `(() => {
         const waitFor = (predicate, message, timeout = 5000) => new Promise((resolve, reject) => {
@@ -753,7 +809,7 @@ async function main() {
     });
 
     currentRoute = "palette-mobile";
-    await pageClient.send("Page.navigate", { url: `${baseUrl}/index.html?smoke-palette-mobile#home` });
+    await navigateAndWaitForLoad(pageClient, `${baseUrl}/index.html?smoke-palette-mobile#home`);
     await waitForAppRoute(pageClient, "home");
     paletteMobileReport = await evaluate(pageClient, `(() => {
       const waitFor = (predicate, message, timeout = 5000) => new Promise((resolve, reject) => {
@@ -839,19 +895,24 @@ async function main() {
         if (minItemHeight && minItemHeight < 40) issues.push("palette_item_touch_target_too_short " + minItemHeight);
         if (hintRect.width < 120 || !withinViewport(hintRect)) issues.push("palette_hint_outside_viewport");
 
+        // No-match queries now render the 바로 만들기 quick-capture fallback
+        // (2 items) instead of a dead-end empty status.
         input.value = "zzzz-no-match-mobile";
         input.dispatchEvent(new Event("input", { bubbles: true }));
-        await waitFor(() => status.classList.contains("is-visible") && /검색 결과가 없습니다/.test(status.textContent), "palette mobile no-results status did not appear");
+        await waitFor(() => /바로 만들기/.test(results.textContent), "palette mobile quick-capture fallback did not appear");
         await nextFrame();
         const statusRect = rect(status);
         const emptyResultsRect = rect(results);
         const emptyHintRect = rect(hint);
-        if (!withinViewport(statusRect)) issues.push("palette_no_results_status_outside_viewport");
-        if (status.scrollWidth > status.clientWidth + 1) issues.push("palette_no_results_status_text_overflow");
-        if (overlaps(statusRect, emptyHintRect)) issues.push("palette_no_results_status_hint_overlap");
+        const fallbackItems = Array.from(results.querySelectorAll(".pal-item"));
+        if (fallbackItems.length !== 2) issues.push("palette_quick_capture_item_count " + fallbackItems.length);
+        const fallbackRects = fallbackItems.map(rect);
+        const fallbackMinHeight = fallbackRects.length ? Math.min(...fallbackRects.map((r) => r.height)) : 0;
+        if (fallbackMinHeight && fallbackMinHeight < 40) issues.push("palette_quick_capture_touch_target_too_short " + fallbackMinHeight);
+        if (fallbackRects.some((r) => !withinViewport(r))) issues.push("palette_quick_capture_outside_viewport");
         if (!withinViewport(emptyHintRect)) issues.push("palette_no_results_hint_outside_viewport");
         if (emptyResultsRect && emptyResultsRect.bottom > innerHeight + 1) issues.push("palette_empty_results_outside_viewport");
-        const noResultsText = (status.textContent || "").replace(/\\s+/g, " ").trim();
+        const noResultsText = (results.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 160);
 
         input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
         await waitFor(() => !palette.classList.contains("open"), "palette did not close on mobile");
@@ -885,7 +946,7 @@ async function main() {
     });
 
     currentRoute = "project-picker-mobile";
-    await pageClient.send("Page.navigate", { url: `${baseUrl}/index.html?smoke-project-picker-mobile#pm-portfolio` });
+    await navigateAndWaitForLoad(pageClient, `${baseUrl}/index.html?smoke-project-picker-mobile#pm-portfolio`);
     await waitForAppRoute(pageClient, "pm-portfolio");
     projectPickerMobileReport = await evaluate(pageClient, `(() => {
       const waitFor = (predicate, message, timeout = 5000) => new Promise((resolve, reject) => {
@@ -993,7 +1054,7 @@ async function main() {
     });
 
     currentRoute = "notification-sheet-mobile";
-    await pageClient.send("Page.navigate", { url: `${baseUrl}/index.html?smoke-notification-sheet-mobile#home` });
+    await navigateAndWaitForLoad(pageClient, `${baseUrl}/index.html?smoke-notification-sheet-mobile#home`);
     await waitForAppRoute(pageClient, "home");
     notificationSheetMobileReport = await evaluate(pageClient, `(() => {
       const waitFor = (predicate, message, timeout = 5000) => new Promise((resolve, reject) => {
@@ -1120,7 +1181,7 @@ async function main() {
     });
 
     currentRoute = "sheet-actions";
-    await pageClient.send("Page.navigate", { url: `${baseUrl}/index.html?smoke-sheet-actions#pm-portfolio` });
+    await navigateAndWaitForLoad(pageClient, `${baseUrl}/index.html?smoke-sheet-actions#pm-portfolio`);
     await waitForAppRoute(pageClient, "pm-portfolio");
     sheetActionReport = await evaluate(pageClient, `(() => {
       const waitFor = (predicate, message, timeout = 5000) => new Promise((resolve, reject) => {
@@ -1267,7 +1328,7 @@ async function main() {
     }
 
     currentRoute = "modal-touch";
-    await pageClient.send("Page.navigate", { url: `${baseUrl}/index.html?smoke-modal-touch#notes` });
+    await navigateAndWaitForLoad(pageClient, `${baseUrl}/index.html?smoke-modal-touch#notes`);
     await waitForAppRoute(pageClient, "notes");
     modalTouchReport = await evaluate(pageClient, `(() => {
       const waitFor = (predicate, message, timeout = 5000) => new Promise((resolve, reject) => {
@@ -1388,7 +1449,7 @@ async function main() {
   } finally {
     if (pageClient) pageClient.close();
     await terminateProcess(chrome);
-    rmSync(tmpProfile, { recursive: true, force: true });
+    cleanupTmpProfile();
   }
 
   const appConsoleIssues = consoleIssues.filter((issue) => issue.text && !issue.text.includes("Autofill.enable"));
@@ -1452,7 +1513,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  rmSync(tmpProfile, { recursive: true, force: true });
+  cleanupTmpProfile();
   console.error(error.stack || error.message);
   process.exit(1);
 });

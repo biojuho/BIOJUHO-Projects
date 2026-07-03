@@ -36,6 +36,16 @@
       return `${member.name || ""} ${member.role || ""} ${projects}`;
     }
 
+    function teamLoadSummary(team) {
+      const activeMembers = team.filter((member) => !member.onLeave);
+      return {
+        total: team.length,
+        avgLoad: Math.round(activeMembers.reduce((sum, member) => sum + safeLoad(member), 0) / Math.max(1, activeMembers.length)),
+        over: activeMembers.filter((member) => safeLoad(member) > 85).length,
+        leave: team.filter((member) => member.onLeave).length,
+      };
+    }
+
     function teamViewModel(input) {
       const data = input || {};
       const team = Array.isArray(data.team) ? data.team : [];
@@ -43,16 +53,12 @@
       const issues = Array.isArray(data.issues) ? data.issues : [];
       const query = (data.query || "").trim();
       const list = team.filter((member) => matches(memberSearchText(member), query));
-      const activeMembers = team.filter((member) => !member.onLeave);
-      const total = team.length;
-      const avgLoad = Math.round(activeMembers.reduce((sum, member) => sum + safeLoad(member), 0) / Math.max(1, activeMembers.length));
-      const over = team.filter((member) => safeLoad(member) > 85).length;
-      const leave = team.filter((member) => member.onLeave).length;
+      const summary = teamLoadSummary(team);
       const kpis = [
-        { title: "팀원", value: String(total), unit: "명", color: "#2387ff", badge: "◈", delta: "" },
-        { title: "평균 부하", value: String(avgLoad), unit: "%", color: "#22d3ee", badge: "✺", delta: "" },
-        { title: "오버할당", value: String(over), unit: "명", color: "#ff4d5e", badge: "△", delta: over ? "조치 필요" : "없음", trendDown: over > 0 },
-        { title: "휴가 중", value: String(leave), unit: "명", color: "#a970ff", badge: "◎", delta: "" },
+        { title: "팀원", value: String(summary.total), unit: "명", color: "var(--blue)", badge: "◈", delta: "" },
+        { title: "평균 부하", value: String(summary.avgLoad), unit: "%", color: "var(--cyan)", badge: "✺", delta: "" },
+        { title: "오버할당", value: String(summary.over), unit: "명", color: "var(--red)", badge: "△", delta: summary.over ? "조치 필요" : "없음", trendDown: summary.over > 0 },
+        { title: "휴가 중", value: String(summary.leave), unit: "명", color: "var(--violet)", badge: "◎", delta: "" },
       ];
 
       return {
@@ -61,10 +67,10 @@
         issues,
         query,
         list,
-        total,
-        avgLoad,
-        over,
-        leave,
+        total: summary.total,
+        avgLoad: summary.avgLoad,
+        over: summary.over,
+        leave: summary.leave,
         kpis,
         teamSearchEmpty: !!query && list.length === 0,
       };
@@ -132,7 +138,7 @@
             const issueCount = assignmentIssueCount(member, project, model.issues);
             const label = `${member.name}, ${project.name}, ${assigned ? `배정됨, 열린 이슈 ${issueCount}건` : "배정 없음"}`;
             return html`
-              <div class="team-matrix-cell ${raw(assigned ? "is-assigned" : "")}" role="cell" aria-label="${label}">
+              <div class="team-matrix-cell ${raw(assigned ? "is-assigned" : "")}" role="cell" aria-label="${label}" title="${label}">
                 ${assigned ? raw(html`<b>${issueCount}</b><small>이슈</small>`) : raw(html`<span class="team-matrix-dash">·</span>`)}
               </div>
             `;
@@ -187,6 +193,7 @@
     return {
       version: VERSION,
       loadColor,
+      teamLoadSummary,
       teamViewModel,
       memberRow,
       matrixHeadHTML,

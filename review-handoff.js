@@ -210,10 +210,21 @@
     }
 
     function reviewPackagePayloadSummary(value, missingText) {
-      const text = String(value || "").trim();
+      const text = reviewPackageText(value);
       if (!text) return missingText || "Missing payload";
       const firstLine = text.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "payload ready";
       return `${reviewPackagePayloadLength(text)} bytes · ${reviewPackagePayloadChecksum(text)} · ${firstLine.slice(0, 90)}`;
+    }
+
+    function reviewPackageText(value) {
+      return String(value || "").trim();
+    }
+
+    function reviewPackageReadyValue(value, { blockActionPlaceholders = false } = {}) {
+      const text = reviewPackageText(value);
+      if (!text || text.toLowerCase().startsWith("missing")) return false;
+      if (blockActionPlaceholders && (text.startsWith("Confirm ") || text.startsWith("Set after"))) return false;
+      return true;
     }
 
     function reviewPackageExternalTrackerPayloads({ issueDraft, body, ownerValue, labels }) {
@@ -235,9 +246,9 @@
         ["receipt", "Post-submit receipt", "after_submit", "Fill External issue URL, External issue ID, and Submitted at after creation.", "Required after submit"],
       ];
       return payloads.map(([id, label, fieldType, value, requirement]) => {
-        const text = String(value || "").trim();
+        const text = reviewPackageText(value);
         const ready = requirement === "Required after submit"
-          || (text.length > 0 && !text.toLowerCase().startsWith("missing") && !text.startsWith("Confirm ") && !text.startsWith("Set after"));
+          || reviewPackageReadyValue(text, { blockActionPlaceholders: true });
         return {
           id,
           label,
@@ -268,7 +279,7 @@
         id,
         label,
         value,
-        ready: String(value || "").trim().length > 0 && !String(value || "").toLowerCase().startsWith("missing"),
+        ready: reviewPackageReadyValue(value),
       }));
       const ready = rows.filter((row) => row.ready).length;
       const copyText = [
@@ -316,10 +327,7 @@
         label,
         value,
         requirement,
-        ready: String(value || "").trim().length > 0 &&
-          !String(value || "").toLowerCase().startsWith("missing") &&
-          !String(value || "").startsWith("Confirm ") &&
-          !String(value || "").startsWith("Set after"),
+        ready: reviewPackageReadyValue(value, { blockActionPlaceholders: true }),
       }));
       const requiredRows = rows.filter((row) => row.requirement.toLowerCase().includes("required"));
       const requiredReady = requiredRows.filter((row) => row.ready || row.requirement === "Required after submit").length;
@@ -487,7 +495,7 @@
         label,
         value,
         mode,
-        ready: mode === "fill_after_submit" || (String(value || "").trim().length > 0 && !String(value || "").toLowerCase().startsWith("missing")),
+        ready: mode === "fill_after_submit" || reviewPackageReadyValue(value),
       }));
       const ready = rows.filter((row) => row.ready).length;
       const copyText = [
@@ -527,7 +535,7 @@
         label,
         value,
         mode,
-        ready: mode === "fill_after_submit" || (String(value || "").trim().length > 0 && !String(value || "").toLowerCase().startsWith("missing")),
+        ready: mode === "fill_after_submit" || reviewPackageReadyValue(value),
       }));
       const ready = rows.filter((row) => row.ready).length;
       const copyText = [
@@ -716,7 +724,7 @@
         label,
         value,
         mode,
-        ready: mode === "fill_after_submit" || (String(value || "").trim().length > 0 && !String(value || "").toLowerCase().startsWith("missing")),
+        ready: mode === "fill_after_submit" || reviewPackageReadyValue(value),
       }));
       const ready = rows.filter((row) => row.ready).length;
       const copyText = [

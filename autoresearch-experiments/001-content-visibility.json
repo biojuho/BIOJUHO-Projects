@@ -1,0 +1,22 @@
+{
+  "experiment": "css-content-visibility-rendering",
+  "metric": {
+    "name": "kanbanRenderMs",
+    "direction": "minimize",
+    "min_delta": 0.0,
+    "json_path": "measurements.kanbanRenderMs"
+  },
+  "baseline": {
+    "cmd": "node scripts/measure-large-data-performance.mjs",
+    "cwd": "."
+  },
+  "candidate": {
+    "cmd": "node scripts/measure-large-data-performance.mjs",
+    "cwd": "."
+  },
+  "hard_gates": [
+    {"name": "tests", "cmd": "npm test", "cwd": "."},
+    {"name": "lint", "cmd": "npm run lint", "cwd": "."}
+  ],
+  "log_path": "autoresearch-results/experiments.jsonl"
+}

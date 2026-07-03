@@ -64,7 +64,7 @@ JSON 파일 내보내기가 기본이다. [showSaveFilePicker](https://developer
 - [Persistent storage — web.dev](https://web.dev/articles/persistent-storage)
 - [Window.localStorage — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage)
 - [Storage for the web — web.dev](https://web.dev/articles/storage-for-the-web)
-- [localStorage in JavaScript: limitations and alternatives — RxDB](https://rxdb.info/articles/localstorage.html)
+- [localStorage in JavaScript limitations and alternatives — RxDB](https://rxdb.info/articles/localstorage.html)
 - [Window.showSaveFilePicker() — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window/showSaveFilePicker)
 - [Migrating existing DB to Dexie — Dexie.js Docs](https://dexie.org/docs/Tutorial/Migrating-existing-DB-to-Dexie) (검색 결과 참고, 본문 직접 확인은 미수행 — 버전 사슬 패턴은 확인 필요)
 - [IndexedDB: Migrations — The Valley of Code](https://thevalleyofcode.com/lesson/indexeddb/migrations/) (검색 결과 참고)

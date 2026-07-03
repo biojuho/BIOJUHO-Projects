@@ -53,16 +53,32 @@
       });
     }
 
+    function hasOwn(object, key) {
+      return Object.prototype.hasOwnProperty.call(object, key);
+    }
+
+    function listOf(value) {
+      return Array.isArray(value) ? value : [];
+    }
+
+    function sheetActionButtonHTML(entry, includeContextIds = false) {
+      const target = entry.target || "";
+      const extraClass = includeContextIds && entry.action === "show-project-prompt-handoff"
+        ? " sheet-action-prompt"
+        : "";
+      if (!includeContextIds) {
+        return raw(html`<button type="button" class="sheet-action" data-action="${entry.action}" data-target="${target}">${entry.label}</button>`);
+      }
+      return raw(html`<button type="button" class="sheet-action${extraClass}" data-action="${entry.action}" data-project-id="${target}" data-issue-id="${target}" data-task-id="${target}" data-member-id="${target}" data-query-id="${target}" data-mig-id="${target}" data-target="${target}">${entry.label}</button>`);
+    }
+
     function renderSheetMeta(meta) {
       if (!meta) return "";
-      const items = Array.isArray(meta.items) ? meta.items : [];
+      const items = listOf(meta.items);
       function actionsHTML(actions) {
-        const actionItems = Array.isArray(actions) ? actions : [];
+        const actionItems = listOf(actions);
         if (!actionItems.length) return "";
-        return html`<div class="sheet-actions">${actionItems.map((entry) => {
-          const extraClass = entry.action === "show-project-prompt-handoff" ? " sheet-action-prompt" : "";
-          return raw(html`<button type="button" class="sheet-action${extraClass}" data-action="${entry.action}" data-project-id="${entry.target || ""}" data-issue-id="${entry.target || ""}" data-task-id="${entry.target || ""}" data-member-id="${entry.target || ""}" data-query-id="${entry.target || ""}" data-mig-id="${entry.target || ""}" data-target="${entry.target || ""}">${entry.label}</button>`);
-        })}</div>`;
+        return html`<div class="sheet-actions">${actionItems.map((entry) => sheetActionButtonHTML(entry, true))}</div>`;
       }
       if (meta.type === "list") {
         const listHTML = html`<ul>${items.map((entry) => {
@@ -77,20 +93,23 @@
         return parasHTML + actionsHTML(meta.actions);
       }
       if (meta.type === "actions") {
-        return html`<div class="sheet-actions">${items.map((entry) => raw(html`<button type="button" class="sheet-action" data-action="${entry.action}" data-target="${entry.target || ""}">${entry.label}</button>`))}</div>`;
+        return html`<div class="sheet-actions">${items.map((entry) => sheetActionButtonHTML(entry))}</div>`;
       }
       return "";
     }
 
+    function focusNode(target) {
+      if (target && typeof target.focus === "function") target.focus();
+    }
+
     function restoreFocusAfterClose(target, isClosed) {
       if (!target || typeof target.focus !== "function") return;
-      target.focus();
-      root.setTimeout(() => {
-        if (isClosed()) target.focus();
-      }, 0);
-      root.setTimeout(() => {
-        if (isClosed()) target.focus();
-      }, 80);
+      focusNode(target);
+      [0, 80].forEach((delay) => {
+        root.setTimeout(() => {
+          if (isClosed()) focusNode(target);
+        }, delay);
+      });
     }
 
     function dialogNode(rootNode, selector) {
@@ -113,6 +132,13 @@
       return dialogNode(rootNode, selector) || rootNode;
     }
 
+    function setDialogOpenState(rootNode, bodyClass, open) {
+      if (!rootNode) return;
+      rootNode.classList.toggle("open", open);
+      rootNode.setAttribute("aria-hidden", open ? "false" : "true");
+      if (body) body.classList.toggle(bodyClass, open);
+    }
+
     function openSheet(title, bodyText, meta, config) {
       const sheetRefs = refs.sheets || {};
       if (!sheetRefs.root) return false;
@@ -121,7 +147,7 @@
       setNotificationTriggerExpanded(openOptions.notificationExpanded === true);
       if (sheetRefs.title) sheetRefs.title.textContent = title;
       if (sheetRefs.body) {
-        if (Object.prototype.hasOwnProperty.call(openOptions, "bodyHTML")) {
+        if (hasOwn(openOptions, "bodyHTML")) {
           sheetRefs.body.textContent = "";
           setHTML(sheetRefs.body, openOptions.bodyHTML || "");
         } else {
@@ -129,33 +155,34 @@
         }
       }
       if (sheetRefs.meta) {
-        if (Object.prototype.hasOwnProperty.call(openOptions, "metaHTML")) {
+        if (hasOwn(openOptions, "metaHTML")) {
           setHTML(sheetRefs.meta, openOptions.metaHTML || "");
         } else {
           setHTML(sheetRefs.meta, renderSheetMeta(meta));
         }
       }
-      sheetRefs.root.classList.add("open");
-      sheetRefs.root.setAttribute("aria-hidden", "false");
-      if (body) body.classList.add("sheet-open");
+      setDialogOpenState(sheetRefs.root, "sheet-open", true);
       const closeBtn = sheetCloseButton(sheetRefs);
-      if (closeBtn) closeBtn.focus();
+      focusNode(closeBtn);
       return true;
     }
 
     function closeSheet(config) {
       const sheetRefs = refs.sheets || {};
-      if (!sheetRefs.root || !sheetRefs.root.classList.contains("open")) return false;
+      if (!isSheetOpen()) return false;
       const closeOptions = config || {};
       const restoreFocus = closeOptions.restoreFocus !== false;
       const previousFocus = state.previousFocus;
-      sheetRefs.root.classList.remove("open");
-      sheetRefs.root.setAttribute("aria-hidden", "true");
-      if (body) body.classList.remove("sheet-open");
+      setDialogOpenState(sheetRefs.root, "sheet-open", false);
       setNotificationTriggerExpanded(false);
-      if (restoreFocus) restoreFocusAfterClose(previousFocus, () => !sheetRefs.root.classList.contains("open"));
+      if (restoreFocus) restoreFocusAfterClose(previousFocus, () => !isSheetOpen());
       state.previousFocus = null;
       return true;
+    }
+
+    function isSheetOpen() {
+      const sheetRefs = refs.sheets || {};
+      return Boolean(sheetRefs.root && sheetRefs.root.classList.contains("open"));
     }
 
     function openModal(title, bodyHTML, onConfirm) {
@@ -165,38 +192,39 @@
       if (modalRefs.title) modalRefs.title.textContent = title;
       setHTML(modalRefs.body, bodyHTML);
       state.modalOnConfirm = onConfirm || null;
-      modalRefs.root.classList.add("open");
-      modalRefs.root.setAttribute("aria-hidden", "false");
-      if (body) body.classList.add("modal-open");
+      setDialogOpenState(modalRefs.root, "modal-open", true);
       const firstInput = modalFirstInput(modalRefs);
-      if (firstInput) firstInput.focus();
+      if (firstInput) focusNode(firstInput);
       else {
         const closeBtn = modalCloseButton(modalRefs);
-        if (closeBtn) closeBtn.focus();
+        focusNode(closeBtn);
       }
       return true;
     }
 
     function closeModal() {
       const modalRefs = refs.modal || {};
-      if (!modalRefs.root || !modalRefs.root.classList.contains("open")) return false;
+      if (!isModalOpen()) return false;
       const previousFocus = state.previousFocus;
-      modalRefs.root.classList.remove("open");
-      modalRefs.root.setAttribute("aria-hidden", "true");
-      if (body) body.classList.remove("modal-open");
+      setDialogOpenState(modalRefs.root, "modal-open", false);
       state.modalOnConfirm = null;
-      restoreFocusAfterClose(previousFocus, () => !modalRefs.root.classList.contains("open"));
+      restoreFocusAfterClose(previousFocus, () => !isModalOpen());
       state.previousFocus = null;
       return true;
+    }
+
+    function isModalOpen() {
+      const modalRefs = refs.modal || {};
+      return Boolean(modalRefs.root && modalRefs.root.classList.contains("open"));
     }
 
     function getOpenDialogRoot() {
       const modalRefs = refs.modal || {};
       const sheetRefs = refs.sheets || {};
-      if (modalRefs.root && modalRefs.root.classList.contains("open")) {
+      if (isModalOpen()) {
         return dialogPanel(modalRefs.root, ".modal-panel");
       }
-      if (sheetRefs.root && sheetRefs.root.classList.contains("open")) {
+      if (isSheetOpen()) {
         return dialogPanel(sheetRefs.root, ".sheet-panel");
       }
       return null;
@@ -224,11 +252,11 @@
       if (event.shiftKey) {
         if (active === first || !rootNode.contains(active)) {
           event.preventDefault();
-          last.focus();
+          focusNode(last);
         }
       } else if (active === last || !rootNode.contains(active)) {
         event.preventDefault();
-        first.focus();
+        focusNode(first);
       }
     }
 
@@ -239,8 +267,10 @@
       restoreFocusAfterClose,
       openSheet,
       closeSheet,
+      isSheetOpen,
       openModal,
       closeModal,
+      isModalOpen,
       getOpenDialogRoot,
       getFocusable,
       trapTab,

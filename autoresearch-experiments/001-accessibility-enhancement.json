@@ -1,0 +1,22 @@
+{
+  "experiment": "accessibility-aria-liveregions-reduced-motion",
+  "metric": {
+    "name": "accessibility_score",
+    "direction": "maximize",
+    "min_delta": 1.0,
+    "regex": "accessibility_score=([0-9.]+)"
+  },
+  "baseline": {
+    "cmd": "node scripts/measure-accessibility-score.mjs",
+    "cwd": "."
+  },
+  "candidate": {
+    "cmd": "node scripts/measure-accessibility-score.mjs",
+    "cwd": "."
+  },
+  "hard_gates": [
+    {"name": "tests", "cmd": "npm test", "cwd": "."},
+    {"name": "lint", "cmd": "npm run lint", "cwd": "."}
+  ],
+  "log_path": "autoresearch-results/experiments.jsonl"
+}

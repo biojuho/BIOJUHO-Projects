@@ -14,6 +14,8 @@ const markdown = args.has("--markdown");
 const outputRelativePath = "data/remote-workflow-file-check.json";
 const outputPath = join(root, outputRelativePath);
 const manualDispatchDocsUrl = "https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow?tool=webui";
+const editFileDocsUrl = "https://docs.github.com/en/repositories/working-with-files/managing-files/editing-files";
+const updateFileContentsDocsUrl = "https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents";
 const suggestedRepo = suggestedRepoFromRemote();
 const repo = argValue("--repo") || suggestedRepo || "OWNER/REPO";
 const defaultBranch = argValue("--branch") || defaultBranchCandidate().branch;
@@ -38,10 +40,16 @@ const workflows = [
 ];
 
 function argValue(name) {
-  const inline = rawArgs.find((arg) => arg.startsWith(`${name}=`));
+  return optionValue(rawArgs, name);
+}
+
+function optionValue(argsList, name) {
+  const inline = argsList.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
-  const index = rawArgs.indexOf(name);
-  return index >= 0 ? rawArgs[index + 1] || "" : "";
+  const index = argsList.indexOf(name);
+  if (index < 0) return "";
+  const value = argsList[index + 1] || "";
+  return value.startsWith("--") ? "" : value;
 }
 
 function gitText(argsList) {
@@ -131,6 +139,12 @@ function githubNewFileUrl(targetRepo, branch, path) {
     : "";
 }
 
+function githubEditFileUrl(targetRepo, branch, path) {
+  return targetRepo && targetRepo !== "OWNER/REPO"
+    ? `https://github.com/${targetRepo}/edit/${encodeURIComponent(branch)}/${path}`
+    : "";
+}
+
 function githubBlobUrl(targetRepo, branch, path) {
   return targetRepo && targetRepo !== "OWNER/REPO"
     ? `https://github.com/${targetRepo}/blob/${encodeURIComponent(branch)}/${path}`
@@ -199,6 +213,42 @@ function workflowCheck(entry) {
   const remote = fetchRemoteFile(repo, entry.path, defaultBranch);
   const remoteSha256 = remote.exists ? sha256(remote.text) : null;
   const remoteMatchesTemplate = !!(templateSha256 && remoteSha256 && templateSha256 === remoteSha256);
+  const editUrl = githubEditFileUrl(repo, defaultBranch, entry.path);
+  const newFileUrl = githubNewFileUrl(repo, defaultBranch, entry.path);
+  const installAction = !remote.checked
+    ? "replace_repo_placeholder"
+    : !remote.exists
+      ? "create_missing_remote_file"
+      : remoteMatchesTemplate
+        ? "verified_remote_matches_template"
+        : "replace_existing_remote_file";
+  const remediation = {
+    status: remoteMatchesTemplate ? "pass" : "action_required",
+    installAction,
+    targetPath: entry.path,
+    defaultBranch,
+    templatePath: entry.template,
+    templateSha256,
+    remoteSha256,
+    remoteBlobSha: remote.githubBlobSha || "",
+    githubNewFileUrl: newFileUrl,
+    githubEditFileUrl: editUrl,
+    templateCopyCommand: `pbcopy < ${shellQuote(entry.template)}`,
+    githubEditFileOpenCommand: editUrl ? `open ${shellQuote(editUrl)}` : "",
+    githubNewFileOpenCommand: newFileUrl ? `open ${shellQuote(newFileUrl)}` : "",
+    docs: {
+      editFile: editFileDocsUrl,
+      updateFileContents: updateFileContentsDocsUrl,
+      manualDispatch: manualDispatchDocsUrl,
+    },
+    nextStep: installAction === "replace_existing_remote_file"
+      ? "Open the existing workflow file editor, replace the entire file with the local template contents, commit to the default branch, then rerun the remote workflow file check."
+      : installAction === "create_missing_remote_file"
+        ? "Open the GitHub new-file page, paste the local template contents, commit to the default branch, then rerun the remote workflow file check."
+        : installAction === "replace_repo_placeholder"
+          ? "Replace OWNER/REPO with the real repository before checking or editing the remote workflow file."
+          : "No edit required; remote workflow file already matches the local template.",
+  };
   return {
     key: entry.key,
     name: entry.name,
@@ -213,14 +263,17 @@ function workflowCheck(entry) {
     remoteSha256,
     remoteMatchesTemplate,
     githubBlobSha: remote.githubBlobSha,
+    remoteBlobSha: remote.githubBlobSha,
     size: remote.size,
     htmlUrl: remote.htmlUrl,
     workflowUrl: githubWorkflowUrl(repo, entry.path),
-    githubNewFileUrl: githubNewFileUrl(repo, defaultBranch, entry.path),
+    githubNewFileUrl: newFileUrl,
+    githubEditFileUrl: editUrl,
+    installAction,
+    remediation,
     templateCopyCommand: `pbcopy < ${shellQuote(entry.template)}`,
-    githubNewFileOpenCommand: githubNewFileUrl(repo, defaultBranch, entry.path)
-      ? `open ${shellQuote(githubNewFileUrl(repo, defaultBranch, entry.path))}`
-      : "",
+    githubNewFileOpenCommand: remediation.githubNewFileOpenCommand,
+    githubEditFileOpenCommand: remediation.githubEditFileOpenCommand,
     command: remote.command,
     error: remote.error,
     blockers: [
@@ -231,7 +284,27 @@ function workflowCheck(entry) {
   };
 }
 
-function workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, dispatchPlanCommand }) {
+function workflowUiFallbackText(checks) {
+  const list = Array.isArray(checks) ? checks : [];
+  const editCount = list.filter((check) => check.installAction === "replace_existing_remote_file").length;
+  const createCount = list.filter((check) => check.installAction === "create_missing_remote_file").length;
+  const readyCount = list.filter((check) => check.installAction === "verified_remote_matches_template").length;
+  if (editCount > 0 && createCount > 0) {
+    return "If browser approval cannot be completed, use each workflow row's installAction: open GitHub edit-file pages for existing mismatched files and new-file pages only for missing files.";
+  }
+  if (editCount > 0) {
+    return "If browser approval cannot be completed, use each workflow row's installAction: open GitHub edit-file pages for existing mismatched files; do not use new-file links for replace_existing_remote_file rows.";
+  }
+  if (createCount > 0) {
+    return "If browser approval cannot be completed, use the GitHub new-file links only for workflow files that are missing on the default branch.";
+  }
+  if (readyCount > 0) {
+    return "No GitHub UI file change is required for workflow files that already match the local templates.";
+  }
+  return "If browser approval cannot be completed, use each workflow row's installAction to choose the GitHub create or edit page before rerunning verification.";
+}
+
+function workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, dispatchPlanCommand, checks }) {
   return {
     requiredWhenInstallBlocked: workflowScopeInstallBlocked,
     status: workflowScopeInstallBlocked ? "approval_required" : "not_required",
@@ -248,7 +321,7 @@ function workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, dispatchPla
     authStatusCommand: "gh auth status -h github.com",
     postApprovalAuthStatusCommand: "gh auth status -h github.com",
     incompleteApprovalSignal: "Token scopes still omit workflow after the refresh attempt, or the gh auth refresh session was cancelled or timed out.",
-    fallback: "If browser approval cannot be completed, use the GitHub UI new-file links to create both workflow files on the default branch.",
+    fallback: workflowUiFallbackText(checks),
     successSignals: [
       "Token scopes include workflow",
       "workflowScopeAvailable=true",
@@ -272,6 +345,8 @@ function workflowInstallPacket({ generatedAt, checks, blockers, remoteWorkflowFi
     "",
     "Why this is required:",
     `- GitHub repository contents API check source: ${payloadSourceUrl}`,
+    `- Existing workflow file edits use GitHub's file editor: ${editFileDocsUrl}`,
+    `- API replacement of an existing workflow file requires the current blob SHA: ${updateFileContentsDocsUrl}`,
     `- Manual workflow dispatch requires workflow_dispatch and the workflow file on the default branch: ${manualDispatchDocsUrl}`,
     "",
     "Workflow scope preflight:",
@@ -289,16 +364,20 @@ function workflowInstallPacket({ generatedAt, checks, blockers, remoteWorkflowFi
     `- one-time device code policy: ${approvalHandoff.sensitiveValuePolicy}`,
     `- GitHub UI fallback: ${approvalHandoff.fallback}`,
     "",
-    "Install steps:",
+    "Install or repair steps:",
   ];
   checks.forEach((check, index) => {
     lines.push(`${index + 1}. ${check.name}`);
     lines.push(`   Target: ${check.path}`);
+    lines.push(`   Action: ${check.installAction}`);
     lines.push(`   Template: ${check.template}`);
     lines.push(`   Template SHA-256: ${check.templateSha256 || "missing"}`);
+    lines.push(`   Remote SHA-256: ${check.remoteSha256 || "missing"}`);
+    lines.push(`   Remote blob SHA: ${check.remoteBlobSha || "missing"}`);
     lines.push(`   Copy template: ${check.templateCopyCommand}`);
     lines.push(`   Open GitHub new-file page: ${check.githubNewFileOpenCommand || "replace OWNER/REPO first"}`);
-    lines.push("   Paste the template exactly, commit it to the default branch, then rerun verification.");
+    lines.push(`   Open GitHub edit page: ${check.githubEditFileOpenCommand || "replace OWNER/REPO first"}`);
+    lines.push(`   Next: ${check.remediation?.nextStep || "Paste the template exactly, commit it to the default branch, then rerun verification."}`);
   });
   lines.push("");
   lines.push("Verification:");
@@ -335,7 +414,7 @@ const dispatchPlanCommand = `node scripts/plan-publish-dispatch.mjs --live --rep
 const generatedAt = new Date().toISOString();
 const payloadSourceUrl = "https://docs.github.com/en/rest/repos/contents#get-repository-content";
 const workflowScopeInstallBlocked = !remoteWorkflowFilesReady && workflowScope.available !== true;
-const approvalHandoff = workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, dispatchPlanCommand });
+const approvalHandoff = workflowScopeApprovalHandoff({ workflowScopeInstallBlocked, dispatchPlanCommand, checks });
 const payload = {
   status: "pass",
   mode: repoEvidenceReady ? "live" : "dry-run",
@@ -347,6 +426,8 @@ const payload = {
   source: "GitHub REST repository contents API",
   sourceUrl: payloadSourceUrl,
   manualDispatchDocsUrl,
+  editFileDocsUrl,
+  updateFileContentsDocsUrl,
   workflowScopeChecked: workflowScope.checked,
   workflowScopeAvailable: workflowScope.available,
   workflowScopeInstallBlocked,
@@ -358,6 +439,20 @@ const payload = {
   remoteWorkflowFilesReady,
   checks,
   blockers,
+  remediationSummary: {
+    status: remoteWorkflowFilesReady ? "pass" : "action_required",
+    createCount: checks.filter((check) => check.installAction === "create_missing_remote_file").length,
+    editCount: checks.filter((check) => check.installAction === "replace_existing_remote_file").length,
+    readyCount: checks.filter((check) => check.installAction === "verified_remote_matches_template").length,
+    placeholderCount: checks.filter((check) => check.installAction === "replace_repo_placeholder").length,
+    currentAction: checks.some((check) => check.installAction === "replace_existing_remote_file")
+      ? "replace_existing_remote_file"
+      : checks.some((check) => check.installAction === "create_missing_remote_file")
+        ? "create_missing_remote_file"
+        : remoteWorkflowFilesReady
+          ? "verified_remote_matches_template"
+          : "replace_repo_placeholder",
+  },
   remoteInstallerCommand,
   nextVerificationCommand,
   dispatchPlanCommand,
@@ -392,6 +487,9 @@ if (markdown) {
     `- defaultBranch: ${payload.defaultBranch}`,
     `- remoteWorkflowFilesReady: ${payload.remoteWorkflowFilesReady}`,
     `- source: ${payload.sourceUrl}`,
+    `- editFileDocs: ${payload.editFileDocsUrl}`,
+    `- remediationStatus: ${payload.remediationSummary.status}`,
+    `- remediationAction: ${payload.remediationSummary.currentAction}`,
     "",
   ];
   for (const check of checks) {
@@ -399,8 +497,12 @@ if (markdown) {
     lines.push(`- path: \`${check.path}\``);
     lines.push(`- templateSha256: \`${check.templateSha256 || "missing"}\``);
     lines.push(`- remoteSha256: \`${check.remoteSha256 || "missing"}\``);
+    lines.push(`- remoteBlobSha: \`${check.remoteBlobSha || "missing"}\``);
     lines.push(`- remoteExists: ${check.remoteExists}`);
     lines.push(`- remoteMatchesTemplate: ${check.remoteMatchesTemplate}`);
+    lines.push(`- installAction: ${check.installAction}`);
+    lines.push(`- githubEditFileUrl: ${check.githubEditFileUrl || "replace OWNER/REPO first"}`);
+    lines.push(`- githubEditFileOpenCommand: \`${check.githubEditFileOpenCommand || "replace OWNER/REPO first"}\``);
     lines.push(`- command: \`${check.command}\``);
     if (check.error) lines.push(`- error: ${check.error}`);
     lines.push("");

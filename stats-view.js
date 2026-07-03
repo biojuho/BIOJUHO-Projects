@@ -10,6 +10,7 @@
     const todayISO = typeof options.todayISO === "function" ? options.todayISO : function () { return ""; };
     const localYmd = typeof options.localYmd === "function" ? options.localYmd : function (value) { return value || ""; };
     const addDaysISO = typeof options.addDaysISO === "function" ? options.addDaysISO : function (value) { return value; };
+    const expandOccurrences = typeof options.expandOccurrences === "function" ? options.expandOccurrences : null;
     const dateFromISO = typeof options.dateFromISO === "function" ? options.dateFromISO : function (value) { return new Date(value); };
     const weekDatesFor = typeof options.weekDatesFor === "function" ? options.weekDatesFor : function () { return []; };
     const habitStreak = typeof options.habitStreak === "function" ? options.habitStreak : function () { return { current: 0, longest: 0 }; };
@@ -83,29 +84,47 @@
       const habits = Array.isArray(data.habits) ? data.habits : [];
       const events = Array.isArray(data.events) ? data.events : [];
       const weekStart = weekDatesFor(today)[0] || today;
-      const weekTodoDone = todos.filter((todo) => todo.done && todo.completedAt && localYmd(todo.completedAt) >= weekStart && localYmd(todo.completedAt) <= today).length;
-      const totalDone = todos.filter((todo) => todo.done).length;
-      const totalRate = todos.length ? Math.round((totalDone / todos.length) * 100) : 0;
+      const completion = todoCompletionStats(todos, weekStart, today);
       const activeHabits = habits.filter((habit) => !habit.archived);
+      // Occurrence-based when the runtime injects expandOccurrences so recurring
+      // deadlines and skipped exceptions count correctly; master-date fallback
+      // keeps standalone view-model tests independent of the runtime expander.
+      const deadlineEvents7 = expandOccurrences
+        ? expandOccurrences(today, addDaysISO(today, 7)).filter((event) => event.category === "deadline").length
+        : events.filter((event) => event.category === "deadline" && event.date >= today && event.date <= addDaysISO(today, 7)).length;
       const upcomingDeadline7 = todos.filter((todo) => !todo.done && todo.due && todo.due >= today && todo.due <= addDaysISO(today, 7)).length
-        + events.filter((event) => event.category === "deadline" && event.date >= today && event.date <= addDaysISO(today, 7)).length;
+        + deadlineEvents7;
       const kpis = [
-        { title: "이번 주 완료", value: String(weekTodoDone), unit: "건", color: "var(--green)", badge: "✓", delta: "할 일" },
-        { title: "전체 완료율", value: String(totalRate), unit: "%", color: "var(--blue)", badge: "▦", delta: `${totalDone}/${todos.length}건` },
+        { title: "이번 주 완료", value: String(completion.weekTodoDone), unit: "건", color: "var(--green)", badge: "✓", delta: "할 일" },
+        { title: "전체 완료율", value: String(completion.totalRate), unit: "%", color: "var(--blue)", badge: "▦", delta: `${completion.totalDone}/${todos.length}건` },
         { title: "활성 습관", value: String(activeHabits.length), unit: "개", color: "var(--violet)", badge: "◉", delta: "습관 트래커" },
         { title: "다가오는 마감", value: String(upcomingDeadline7), unit: "건", color: upcomingDeadline7 ? "var(--red)" : "var(--green)", badge: "⚑", delta: "7일 이내", trendDown: upcomingDeadline7 > 0 },
       ];
 
       const last14 = [];
       for (let index = 13; index >= 0; index -= 1) last14.push(addDaysISO(today, -index));
-      const createdByDay = last14.map((date) => todos.filter((todo) => todo.createdAt && localYmd(todo.createdAt) === date).length);
-      const completedByDay = last14.map((date) => todos.filter((todo) => todo.completedAt && localYmd(todo.completedAt) === date).length);
-
+      const createdByDay = new Array(14).fill(0);
+      const completedByDay = new Array(14).fill(0);
+      const last14Set = new Set(last14);
+      const dateToIndex = {};
+      last14.forEach((date, i) => { dateToIndex[date] = i; });
       const doneByWeekday = [0, 0, 0, 0, 0, 0, 0];
+      let weekTodoDone = 0;
+      let totalDone = 0;
       todos.forEach((todo) => {
-        if (todo.done && todo.completedAt) {
-          const date = dateFromISO(localYmd(todo.completedAt));
-          doneByWeekday[date.getDay()] += 1;
+        if (todo.createdAt) {
+          const createdDate = localYmd(todo.createdAt);
+          if (dateToIndex[createdDate] !== undefined) createdByDay[dateToIndex[createdDate]] += 1;
+        }
+        if (todo.done) {
+          totalDone += 1;
+          if (todo.completedAt) {
+            const completedDate = localYmd(todo.completedAt);
+            if (dateToIndex[completedDate] !== undefined) completedByDay[dateToIndex[completedDate]] += 1;
+            const date = dateFromISO(completedDate);
+            doneByWeekday[date.getDay()] += 1;
+            if (completedDate >= weekStart && completedDate <= today) weekTodoDone += 1;
+          }
         }
       });
       const weekdayItems = weekdaysKo.map((weekday, index) => ({
@@ -142,6 +161,22 @@
       };
     }
 
+    function todoCompletionStats(todos, weekStart, today) {
+      let weekTodoDone = 0;
+      let totalDone = 0;
+      todos.forEach((todo) => {
+        if (todo.done) {
+          totalDone += 1;
+          if (todo.completedAt) {
+            const completedDate = localYmd(todo.completedAt);
+            if (completedDate >= weekStart && completedDate <= today) weekTodoDone += 1;
+          }
+        }
+      });
+      const totalRate = todos.length ? Math.round((totalDone / todos.length) * 100) : 0;
+      return { weekTodoDone, totalDone, totalRate };
+    }
+
     function trendSection(model) {
       const hasTrend = model.createdByDay.some((value) => value > 0) || model.completedByDay.some((value) => value > 0);
       if (!hasTrend) return html`<p class="muted-note">아직 할 일 기록이 없습니다.</p>`;
@@ -162,7 +197,7 @@
     function weekdaySection(model) {
       return model.doneByWeekday.some((value) => value > 0)
         ? html`<div class="bar-chart" data-stats-chart="weekday-completion">${raw(barChart(model.weekdayItems, { maxWidth: 200, height: 14 }))}</div>`
-        : html`<p class="muted-note">완료된 할 일 없음 (completedAt 필요)</p>`;
+        : html`<p class="muted-note">아직 완료한 할 일이 없습니다. 할 일을 완료하면 요일별 분포가 채워집니다.</p>`;
     }
 
     function categorySection(model) {
@@ -171,12 +206,17 @@
         : html`<p class="muted-note">일정이 없습니다.</p>`;
     }
 
-    function habitSummaryRow(habit, today) {
+    function statsHabitProgress(habit, today) {
       const weekDates = weekDatesFor(today);
       const log = habit.log || {};
       const weekDone = weekDates.filter((date) => log[date]).length;
       const target = habit.target || 7;
       const pct = Math.min(100, Math.round((weekDone / target) * 100));
+      return { weekDone, target, pct };
+    }
+
+    function habitSummaryRow(habit, today) {
+      const progress = statsHabitProgress(habit, today);
       const streak = habitStreak(habit);
       return html`
         <div class="habit-summary-row">
@@ -184,11 +224,11 @@
           <div class="habit-summary-info">
             <strong>${habit.name}</strong>
             <div class="habit-summary-bar-wrap" aria-hidden="true">
-              <div class="habit-summary-bar" style="width:${pct}%;background:${raw(habit.color || "var(--cyan)")}"></div>
+              <div class="habit-summary-bar" style="width:${progress.pct}%;background:${raw(habit.color || "var(--cyan)")}"></div>
             </div>
-            <small>${weekDone}/${target}일 · 🔥 ${streak.current}일 연속</small>
+            <small>${progress.weekDone}/${progress.target}일 · 🔥 ${streak.current}일 연속</small>
           </div>
-          <span class="habit-summary-pct" aria-label="${habit.name} 이번 주 달성률 ${pct}%">${pct}%</span>
+          <span class="habit-summary-pct" aria-label="${habit.name} 이번 주 달성률 ${progress.pct}%">${progress.pct}%</span>
         </div>
       `;
     }
@@ -228,11 +268,13 @@
     return {
       version: VERSION,
       statsViewModel,
+      todoCompletionStats,
       accessibleSpark,
       barChart,
       trendSection,
       weekdaySection,
       categorySection,
+      statsHabitProgress,
       habitSummarySection,
       renderStatsHTML,
     };

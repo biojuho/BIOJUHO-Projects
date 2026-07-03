@@ -37,6 +37,8 @@ tags:
 - [[cost-observability]] - token, cache, retry, batch, fallback, latency, success metric을 cost per success로 관측.
 - [[model-landscape]] - provider/model registry를 official source, modality, context, tool support, lifecycle, route fit으로 갱신.
 - [[source-governance]] - source hierarchy, freshness SLA, provenance, stale-claim workflow, `#검증필요` 운영 규칙을 관리.
+- [[sample-formulation-plan]] - PX301 샘플 제제 개발 계획, QTPP, CQA, CMA, CPP 템플릿.
+- [[sample-efficacy-study]] - PX301 샘플 효능평가 운영 요약과 후속 증거 템플릿.
 
 ## Queue
 

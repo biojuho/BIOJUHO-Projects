@@ -9,6 +9,8 @@
   const SAMPLE_AS_OF = "2026-05-29";
   const SOURCE_LABELS = { sample: "sample", manual: "manual", imported: "imported" };
   const STALE_REVIEW_SOURCE_KEY = "db-catalog:stale-sample-review";
+  const DEFAULT_CATALOG_CARD_RENDER_LIMIT = 80;
+  const DEFAULT_CATALOG_ROW_RENDER_LIMIT = 160;
   const DB_CATALOG_FILTERS = [
     { key: "all", label: "all", empty: "카탈로그 기록" },
     { key: "stale-sample", label: "stale sample", empty: "stale sample 기록" },
@@ -27,6 +29,20 @@
     const setHTML = deps.setHTML || (() => {});
     const matches = deps.matches || (() => false);
     const escapeHtml = deps.escapeHtml || ((value) => String(value || ""));
+    const clampInteger = typeof deps.clampInteger === "function"
+      ? deps.clampInteger
+      : function (value, min, max = Number.POSITIVE_INFINITY, fallback = 0) {
+        const parsed = Number(value);
+        const safeParsed = Number.isFinite(parsed) ? parsed : fallback;
+        return Math.min(max, Math.max(min, Math.trunc(safeParsed)));
+      };
+    const clampNumber = typeof deps.clampNumber === "function"
+      ? deps.clampNumber
+      : function (value, min, max = Number.POSITIVE_INFINITY, fallback = 0) {
+        const parsed = Number(value);
+        const safeParsed = Number.isFinite(parsed) ? parsed : fallback;
+        return Math.min(max, Math.max(min, safeParsed));
+      };
     const HEALTH_COLOR = deps.HEALTH_COLOR || {};
     const panelHead = deps.panelHead || (() => "");
     const kpiCard = deps.kpiCard || (() => "");
@@ -56,6 +72,19 @@
     const closeModal = deps.closeModal || (() => {});
     const closeSheet = deps.closeSheet || (() => {});
     const openTableSheet = deps.openTableSheet || (() => {});
+    const catalogCardRenderLimit = clampInteger(deps.catalogCardRenderLimit, 20, Number.POSITIVE_INFINITY, DEFAULT_CATALOG_CARD_RENDER_LIMIT);
+    const catalogRowRenderLimit = clampInteger(deps.catalogRowRenderLimit, 40, Number.POSITIVE_INFINITY, DEFAULT_CATALOG_ROW_RENDER_LIMIT);
+
+    function virtualListNote(kind, total, rendered) {
+      const hidden = total - rendered;
+      if (hidden <= 0) return "";
+      return html`
+        <div class="virtual-list-note db-virtual-note" role="status" data-db-virtualized="true" data-db-virtual-kind="${kind}" data-db-virtual-rendered="${rendered}" data-db-virtual-total="${total}">
+          <strong>${hidden}개 더 있음</strong>
+          <span>검색어나 카탈로그 필터를 좁히면 숨겨진 기록을 바로 찾을 수 있습니다.</span>
+        </div>
+      `;
+    }
 
     function catalogForm(selector) {
       return document ? document.querySelector(selector) : null;
@@ -274,18 +303,18 @@
       const unhealthy = dashboard.dbInstances.filter((d) => d.health !== "green").length;
 
       const kpis = [
-        { title: "인스턴스", value: String(dashboard.dbInstances.length), unit: "대", color: "#2387ff", badge: "✺", delta: "" },
-        { title: "평균 CPU", value: String(avgCpu), unit: "%", color: "#22d3ee", badge: "▣", delta: "" },
-        { title: "연결 합계", value: String(totalConn), unit: "건", color: "#a970ff", badge: "◉", delta: "" },
-        { title: "비정상", value: String(unhealthy), unit: "건", color: unhealthy ? "#ff4d5e" : "#17d983", badge: "△", delta: unhealthy ? "주의" : "정상", trendDown: unhealthy > 0 },
+        { title: "인스턴스", value: String(dashboard.dbInstances.length), unit: "대", color: "var(--blue)", badge: "✺", delta: "" },
+        { title: "평균 CPU", value: String(avgCpu), unit: "%", color: "var(--cyan)", badge: "▣", delta: "" },
+        { title: "연결 합계", value: String(totalConn), unit: "건", color: "var(--violet)", badge: "◉", delta: "" },
+        { title: "비정상", value: String(unhealthy), unit: "건", color: unhealthy ? "var(--red)" : "var(--green)", badge: "△", delta: unhealthy ? "주의" : "정상", trendDown: unhealthy > 0 },
       ];
 
       const card = (d) => html`
         <div class="db-card-wrap" data-search-result="dbm-instances">
-          <button type="button" class="db-card ${raw(cur && d.id === cur.id ? "is-current" : "")}" data-action="pick-instance" data-instance-id="${d.id}">
+          <button type="button" class="db-card ${raw(cur && d.id === cur.id ? "is-current" : "")}" data-action="pick-instance" data-instance-id="${d.id}" title="${d.name} (${d.engine}) - CPU: ${d.cpu}%, 연결: ${d.conn}, 지연: ${d.latencyMs}ms">
             <div class="db-card-head">
               <strong>${d.name}</strong>
-              <span class="db-health" style="background:${raw(HEALTH_COLOR[d.health])}"></span>
+              <span class="db-health" style="background:${raw(HEALTH_COLOR[d.health])}" aria-label="상태: ${d.health}"></span>
             </div>
             <small>${d.engine}</small>
             ${raw(catalogBadgeHTML(d))}
@@ -304,6 +333,7 @@
 
       const dbInstanceSearchEmpty = q && searchedList.length === 0;
       const dbInstanceFilterEmpty = hasFilter && !dbInstanceSearchEmpty && list.length === 0;
+      const visibleInstances = list.length > catalogCardRenderLimit ? list.slice(0, catalogCardRenderLimit) : list;
 
       const detail = cur ? html`
         ${raw(panelHead(cur.name, null, html`<small>${cur.engine} · ${cur.region}</small>`))}
@@ -311,12 +341,12 @@
           <div class="db-gauges">
             <div class="gauge db-gauge" style="--g:${raw(cur.cpu)}"><span>CPU</span><b>${cur.cpu}%</b></div>
             <div class="gauge db-gauge" style="--g:${raw(cur.mem)}"><span>메모리</span><b>${cur.mem}%</b></div>
-            <div class="gauge db-gauge" style="--g:${raw(Math.round((cur.conn / cur.connMax) * 100))}"><span>연결</span><b>${cur.conn}/${cur.connMax}</b></div>
+            <div class="gauge db-gauge" style="--g:${raw(cur.connMax > 0 ? Math.round((cur.conn / cur.connMax) * 100) : 0)}"><span>연결</span><b>${cur.conn}/${cur.connMax}</b></div>
           </div>
           <div class="db-spark-row">
             <div class="db-spark">
               <strong>연결 추이 (24h)</strong>
-              ${raw(spark(cur.series, "#22d3ee"))}
+              ${raw(spark(cur.series, "var(--cyan)"))}
             </div>
             <div class="db-meta">
               <span><b>지연</b> ${cur.latencyMs}ms</span>
@@ -337,14 +367,14 @@
         <section class="db-layout">
           <article class="panel db-list-panel">
             ${raw(panelHead("인스턴스", null, html`<button type="button" class="primary-btn" data-action="instance-add">+ 인스턴스 추가</button>`))}
-	            <div class="db-list">
+	            <div class="db-list" data-db-virtual-list="instances" data-db-rendered-count="${visibleInstances.length}" data-db-total-count="${list.length}">
 	              ${list.length === 0
 	                ? raw(dbInstanceSearchEmpty
 	                  ? searchEmptyState("dbm-instances", "검색 결과가 없습니다", "인스턴스 이름, 엔진, 리전과 일치하는 DB 인스턴스가 없습니다.")
 	                  : dbInstanceFilterEmpty
 	                    ? catalogFilterEmptyHTML("인스턴스")
 	                    : html`<article class="empty">일치하는 인스턴스가 없습니다.</article>`)
-	                : raw(list.map(card).join(""))}
+	                : raw(html`${raw(visibleInstances.map(card).join(""))}${raw(virtualListNote("instances", list.length, visibleInstances.length))}`)}
 	            </div>
           </article>
           <article class="panel db-detail-panel">
@@ -385,10 +415,10 @@
       const totalFk = allTables.reduce((a, t) => a + (t.fks ? t.fks.length : 0), 0);
 
       const kpis = [
-        { title: "DB", value: String(totalDbs), unit: "개", color: "#2387ff", badge: "◎", delta: "" },
-        { title: "테이블", value: String(totalTables), unit: "개", color: "#22d3ee", badge: "▦", delta: "" },
-        { title: "인덱스", value: String(totalIdx), unit: "개", color: "#a970ff", badge: "▣", delta: "" },
-        { title: "FK 관계", value: String(totalFk), unit: "개", color: "#17d983", badge: "↔", delta: "" },
+        { title: "DB", value: String(totalDbs), unit: "개", color: "var(--blue)", badge: "◎", delta: "" },
+        { title: "테이블", value: String(totalTables), unit: "개", color: "var(--cyan)", badge: "▦", delta: "" },
+        { title: "인덱스", value: String(totalIdx), unit: "개", color: "var(--violet)", badge: "▣", delta: "" },
+        { title: "FK 관계", value: String(totalFk), unit: "개", color: "var(--green)", badge: "↔", delta: "" },
       ];
 
       const tree = dashboard.schemas.length === 0
@@ -403,12 +433,13 @@
               const dbs = (s.databases || []).map((db) => {
                 const matchingTables = (db.tables || []).filter(tableMatches);
                 if (matchingTables.length === 0) return "";
+                const visibleTables = matchingTables.length > catalogRowRenderLimit ? matchingTables.slice(0, catalogRowRenderLimit) : matchingTables;
                 return html`
                 <details class="schema-db" open>
                   <summary>${db.name}</summary>
-                  <ul>${matchingTables.map((t) => raw(html`
+                  <ul data-db-virtual-list="schema-tables" data-db-rendered-count="${visibleTables.length}" data-db-total-count="${matchingTables.length}">${visibleTables.map((t) => raw(html`
                     <li class="schema-table-li" data-search-result="dbm-schema">
-                      <button type="button" class="schema-table-btn ${raw(selectedTable && t.id === selectedTable.id ? "is-current" : "")}" data-action="open-table" data-table-id="${t.id}">
+                      <button type="button" class="schema-table-btn ${raw(selectedTable && t.id === selectedTable.id ? "is-current" : "")}" data-action="open-table" data-table-id="${t.id}" title="${t.name}: ${(t.rows || 0).toLocaleString()}행">
                         <span>${t.name}</span>
                         <em>${(t.rows || 0).toLocaleString()}</em>
                         ${raw(catalogBadgeHTML(t))}
@@ -418,7 +449,7 @@
                         <button type="button" class="pm-icon-btn pm-icon-btn-del" data-action="table-delete" data-table-id="${t.id}" title="${t.name} 테이블 삭제" aria-label="${t.name} 테이블 삭제">✕</button>
                       </div>
                     </li>
-                  `))}</ul>
+                  `))}${raw(virtualListNote("schema-tables", matchingTables.length, visibleTables.length))}</ul>
                 </details>
               `;
               }).join("");
@@ -516,10 +547,10 @@
       const tps = total ? Math.round(dashboard.queries.reduce((a, x) => a + x.count, 0) / 24) : 0;
 
       const kpis = [
-        { title: "slow query", value: String(total), unit: "건", color: "#ff4d5e", badge: "◉", delta: "" },
-        { title: "평균 ms", value: String(avg), unit: "ms", color: "#22d3ee", badge: "▣", delta: "" },
-        { title: "평균 p95", value: String(p95), unit: "ms", color: "#a970ff", badge: "✺", delta: "" },
-        { title: "시간당 처리", value: String(tps), unit: "건/h", color: "#17d983", badge: "✓", delta: "" },
+        { title: "느린 쿼리", value: String(total), unit: "건", color: "var(--red)", badge: "◉", delta: "" },
+        { title: "평균 ms", value: String(avg), unit: "ms", color: "var(--cyan)", badge: "▣", delta: "" },
+        { title: "평균 p95", value: String(p95), unit: "ms", color: "var(--violet)", badge: "✺", delta: "" },
+        { title: "시간당 처리", value: String(tps), unit: "건/h", color: "var(--green)", badge: "✓", delta: "" },
       ];
 
       const buckets = dashboard.queryHistogram;
@@ -544,9 +575,10 @@
 
       const trendPoints = [12, 18, 22, 24, 28, 34, 30, 36, 42, 38, 32, 28, 26];
 
-      const rows = list.map((qi) => html`
+      const visibleQueries = list.length > catalogRowRenderLimit ? list.slice(0, catalogRowRenderLimit) : list;
+      const rows = visibleQueries.map((qi) => html`
         <tr data-search-result="dbm-queries">
-          <td><button type="button" class="query-id-btn" data-action="open-query" data-query-id="${qi.id}">${qi.id}</button></td>
+          <td><button type="button" class="query-id-btn" data-action="open-query" data-query-id="${qi.id}" title="${qi.id}: ${qi.text} (평균: ${qi.avgMs}ms, P95: ${qi.p95Ms}ms)">${qi.id}</button></td>
           <td><code class="query-text">${qi.text}</code></td>
           <td>${qi.instance}/${qi.db}</td>
           <td class="query-num">${qi.avgMs}</td>
@@ -559,6 +591,7 @@
           </td>
         </tr>
       `).join("");
+      const queryVirtualRow = virtualListNote("queries", list.length, visibleQueries.length);
       const querySearchEmpty = q && searchedList.length === 0;
       const queryFilterEmpty = hasFilter && !querySearchEmpty && list.length === 0;
 
@@ -568,7 +601,7 @@
         <section class="queries-row">
           <article class="panel queries-trend-panel">
             ${raw(panelHead("실행 시간 추세 (24h)", null, html`<small>p95 평균 ${p95}ms</small>`))}
-            <div class="queries-trend">${raw(spark(trendPoints, "#22d3ee"))}</div>
+            <div class="queries-trend">${raw(spark(trendPoints, "var(--cyan)"))}</div>
           </article>
           <article class="panel queries-hist-panel">
             ${raw(panelHead("실행 시간 분포 (ms)", null, ""))}
@@ -580,11 +613,13 @@
           <div class="query-table-wrap">
             <table class="query-table">
               <thead><tr><th>ID</th><th>SQL</th><th>인스턴스/DB</th><th>평균(ms)</th><th>p95(ms)</th><th>호출</th><th>최근 실행</th><th>관리</th></tr></thead>
-	              <tbody>${raw(querySearchEmpty
+	              <tbody data-db-virtual-list="queries" data-db-rendered-count="${visibleQueries.length}" data-db-total-count="${list.length}">${raw(querySearchEmpty
 	                ? html`<tr><td colspan="8">${raw(searchEmptyState("dbm-queries", "검색 결과가 없습니다", "쿼리 ID, SQL, 인스턴스, 데이터베이스와 일치하는 저장 쿼리가 없습니다."))}</td></tr>`
 	                : queryFilterEmpty
 	                  ? html`<tr><td colspan="8">${raw(catalogFilterEmptyHTML("저장 쿼리"))}</td></tr>`
-	                : rows || html`<tr><td colspan="8"><div class="empty">저장된 쿼리가 없습니다.</div></td></tr>`)}</tbody>
+	                : rows
+                    ? html`${raw(rows)}${raw(queryVirtualRow ? html`<tr><td colspan="8">${raw(queryVirtualRow)}</td></tr>` : "")}`
+                    : html`<tr><td colspan="8"><div class="empty">저장된 쿼리가 없습니다.</div></td></tr>`)}</tbody>
             </table>
           </div>
         </section>
@@ -623,10 +658,10 @@
       const allSearchEmpty = hasSearch && backupSearchEmpty && migrationSearchEmpty;
 
       const kpis = [
-        { title: "다음 백업", value: nextScheduled ? nextScheduled.scheduledAt.slice(5, 10) : "오늘", unit: "", color: "#2387ff", badge: "⏱", delta: nextScheduled ? `${nextScheduled.scheduledAt.slice(11)}` : "예정" },
-        { title: "성공률", value: String(successRate), unit: "%", color: "#17d983", badge: "✓", delta: "" },
-        { title: "평균 소요", value: String(avgSec), unit: "초", color: "#22d3ee", badge: "✺", delta: "" },
-        { title: "대기 마이그", value: String(pendingMig), unit: "건", color: "#a970ff", badge: "↻", delta: "예정 작업" },
+        { title: "다음 백업", value: nextScheduled ? nextScheduled.scheduledAt.slice(5, 10) : "오늘", unit: "", color: "var(--blue)", badge: "⏱", delta: nextScheduled ? `${nextScheduled.scheduledAt.slice(11)}` : "예정" },
+        { title: "성공률", value: String(successRate), unit: "%", color: "var(--green)", badge: "✓", delta: "" },
+        { title: "평균 소요", value: String(avgSec), unit: "초", color: "var(--cyan)", badge: "✺", delta: "" },
+        { title: "대기 마이그", value: String(pendingMig), unit: "건", color: "var(--violet)", badge: "↻", delta: "예정 작업" },
       ];
 
       const rangeStart = total ? backups[0].date : today;
@@ -645,8 +680,9 @@
         const inRange = total ? iso >= rangeStart && iso <= rangeEnd : iso === today;
         const isToday = iso === today;
         const cls = ["cal-cell", inRange ? "" : "is-out", isToday ? "is-today" : "", hasFail ? "has-fail" : (hasWarn ? "has-warn" : (dayBackups.length ? "has-ok" : ""))].join(" ");
+        const backupLabel = dayBackups.length ? `${iso} 백업 ${dayBackups.length}개` : `${iso} 백업 없음`;
         calCells.push(html`
-          <button type="button" class="${raw(cls)}" data-action="open-backup" data-date="${iso}" ${raw(dayBackups.length ? 'data-search-result="dbm-backup"' : "")} ${dayBackups.length === 0 ? raw("disabled") : ""}>
+          <button type="button" class="${raw(cls)}" data-action="open-backup" data-date="${iso}" aria-label="${backupLabel}" ${raw(dayBackups.length ? 'data-search-result="dbm-backup"' : "")} ${dayBackups.length === 0 ? raw("disabled") : ""}>
             <small class="cal-date">${d.getUTCDate()}</small>
             <div class="cal-dots">
               ${dayBackups.map((b) => raw(html`<span class="cal-dot cal-dot-${b.status}" title="${b.instance} (${b.status})"></span>`))}
@@ -668,9 +704,11 @@
           ? catalogFilterEmptyHTML("백업")
         : "";
 
-      const migRows = [...filteredMigrations].reverse().map((m) => html`
+      const migrationList = [...filteredMigrations].reverse();
+      const visibleMigrations = migrationList.length > catalogRowRenderLimit ? migrationList.slice(0, catalogRowRenderLimit) : migrationList;
+      const migRows = visibleMigrations.map((m) => html`
         <div class="mig-row-wrap">
-          <button type="button" class="mig-row mig-${raw(m.status)}" data-action="open-migration" data-mig-id="${m.id}" data-search-result="migration">
+          <button type="button" class="mig-row mig-${raw(m.status)}" data-action="open-migration" data-mig-id="${m.id}" data-search-result="migration" title="${m.title} (${m.id}): ${m.status}${m.rolledBack ? ' · 롤백' : ''} - ${m.instance}">
             <span class="mig-dot"></span>
             <div class="mig-body">
               <strong>${m.title}</strong>
@@ -686,6 +724,7 @@
           </div>
         </div>
       `).join("");
+      const migVirtualNote = virtualListNote("migrations", migrationList.length, visibleMigrations.length);
       const migEmptyHTML = !migRows
         ? html`
           ${raw(migrationFilterEmpty
@@ -713,14 +752,14 @@
             </div>
             ${raw(backupEmptyHTML)}
             <div class="bkup-legend">
-              <span><i class="cal-dot cal-dot-ok"></i>성공</span>
-              <span><i class="cal-dot cal-dot-warn"></i>경고</span>
-              <span><i class="cal-dot cal-dot-fail"></i>실패</span>
+              <span title="백업이 성공적으로 완료됨"><i class="cal-dot cal-dot-ok"></i>성공</span>
+              <span title="백업은 완료되었으나 경고가 발생함"><i class="cal-dot cal-dot-warn"></i>경고</span>
+              <span title="백업이 실패함"><i class="cal-dot cal-dot-fail"></i>실패</span>
             </div>
           </article>
           <article class="panel mig-panel">
             ${raw(panelHead("마이그레이션 이력", null, html`<button type="button" class="primary-btn" data-action="migration-add">+ 마이그레이션 추가</button>`))}
-            <div class="mig-list">${raw(migRows || migEmptyHTML)}</div>
+            <div class="mig-list" data-db-virtual-list="migrations" data-db-rendered-count="${visibleMigrations.length}" data-db-total-count="${migrationList.length}">${raw(migRows || migEmptyHTML)}${raw(migRows ? migVirtualNote : "")}</div>
           </article>
         </section>
       `);
@@ -793,11 +832,11 @@
       if (!name) { showToast("이름을 입력하세요", "warn"); return false; }
       const engine = (data.get("engine") || "").toString().trim();
       const region = (data.get("region") || "").toString().trim();
-      const cpu = Math.min(100, Math.max(0, parseInt(data.get("cpu") || "0", 10) || 0));
-      const mem = Math.min(100, Math.max(0, parseInt(data.get("mem") || "0", 10) || 0));
-      const conn = Math.max(0, parseInt(data.get("conn") || "0", 10) || 0);
-      const connMax = Math.max(1, parseInt(data.get("connMax") || "100", 10) || 1);
-      const latencyMs = Math.max(0, parseInt(data.get("latencyMs") || "0", 10) || 0);
+      const cpu = clampInteger(data.get("cpu"), 0, 100);
+      const mem = clampInteger(data.get("mem"), 0, 100);
+      const conn = clampInteger(data.get("conn"), 0);
+      const connMax = clampInteger(data.get("connMax"), 1, Number.POSITIVE_INFINITY, 100);
+      const latencyMs = clampInteger(data.get("latencyMs"), 0);
       const health = (data.get("health") || "green").toString();
       const catalogUpdatedAt = nowISO();
       if (id) {
@@ -889,8 +928,8 @@
       if (!dbName) { showToast("데이터베이스명을 입력하세요", "warn"); return false; }
       const tableName = (data.get("tableName") || "").toString().trim();
       if (!tableName) { showToast("테이블명을 입력하세요", "warn"); return false; }
-      const rows = Math.max(0, parseInt(data.get("rows") || "0", 10) || 0);
-      const sizeMb = Math.max(0, parseFloat(data.get("sizeMb") || "0") || 0);
+      const rows = clampInteger(data.get("rows"), 0);
+      const sizeMb = clampNumber(data.get("sizeMb"), 0);
       const catalogUpdatedAt = nowISO();
 
       if (id) {
@@ -1068,9 +1107,9 @@
       const db = (data.get("db") || "").toString().trim();
       const text = (data.get("text") || "").toString().trim();
       if (!text) { showToast("쿼리문을 입력하세요", "warn"); return false; }
-      const avgMs = Math.max(0, parseInt(data.get("avgMs") || "0", 10) || 0);
-      const p95Ms = Math.max(0, parseInt(data.get("p95Ms") || "0", 10) || 0);
-      const count = Math.max(0, parseInt(data.get("count") || "0", 10) || 0);
+      const avgMs = clampInteger(data.get("avgMs"), 0);
+      const p95Ms = clampInteger(data.get("p95Ms"), 0);
+      const count = clampInteger(data.get("count"), 0);
       const planHint = (data.get("planHint") || "").toString().trim();
       const catalogUpdatedAt = nowISO();
       if (id) {

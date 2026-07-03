@@ -26,6 +26,7 @@ on:
       - "kanban-view.js"
       - "gantt-view.js"
       - "team-view.js"
+      - "pipeline-view.js"
       - "workspace-storage.js"
       - "dashboard-storage.js"
       - "dashboard-prioritization.js"

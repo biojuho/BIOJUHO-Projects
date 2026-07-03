@@ -70,7 +70,7 @@
         : "";
       return html`
         <div class="agenda-item-wrap">
-          <button type="button" class="agenda-item" data-action="open-event" data-event-id="${openId}" ${raw(searchResult ? `data-search-result="${searchResult}"` : "")}>
+          <button type="button" class="agenda-item" data-action="open-event" data-event-id="${openId}" ${raw(searchResult ? `data-search-result="${searchResult}"` : "")} title="${event.title}: ${eventTimeLabel(event)} (${category.label})${event.location ? ` - ${event.location}` : ''}${event.memo ? ` - ${event.memo}` : ''}">
             <span class="agenda-bar" style="background:${raw(category.color)}"></span>
             <span class="agenda-time">${eventTimeLabel(event)}</span>
             <span class="agenda-body">
@@ -130,10 +130,10 @@
       const upcomingDeadlines = expandOccurrences(today, addDaysISO(today, 365))
         .filter((event) => event.category === "deadline").length;
       const kpis = [
-        { title: "이번 달 일정", value: String(monthOccurrences.length), unit: "건", color: "#2387ff", badge: "▦", delta: `${weekdaysKo[new Date().getDay()] || ""}요일` },
-        { title: "오늘 일정", value: String(todayCount), unit: "건", color: "#17d983", badge: "◷", delta: formatKoreanShort(today) },
-        { title: "다가오는 마감", value: String(upcomingDeadlines), unit: "건", color: upcomingDeadlines ? "#ff4d5e" : "#17d983", badge: "⚑", delta: upcomingDeadlines ? "확인 필요" : "여유", trendDown: upcomingDeadlines > 0 },
-        { title: "전체 일정", value: String(events.length), unit: "건", color: "#a970ff", badge: "◈", delta: "자동 저장됨" },
+        { title: "이번 달 일정", value: String(monthOccurrences.length), unit: "건", color: "var(--blue)", badge: "▦", delta: `${weekdaysKo[new Date().getDay()] || ""}요일` },
+        { title: "오늘 일정", value: String(todayCount), unit: "건", color: "var(--green)", badge: "◷", delta: formatKoreanShort(today) },
+        { title: "다가오는 마감", value: String(upcomingDeadlines), unit: "건", color: upcomingDeadlines ? "var(--red)" : "var(--green)", badge: "⚑", delta: upcomingDeadlines ? "확인 필요" : "여유", trendDown: upcomingDeadlines > 0 },
+        { title: "전체 일정", value: String(events.length), unit: "건", color: "var(--violet)", badge: "◈", delta: "자동 저장됨" },
       ];
       return {
         events,
@@ -158,6 +158,13 @@
         calendarSearchEmpty: !!q && visibleRangeOccurrences.length === 0,
         kpis,
       };
+    }
+
+    function calendarEventsForDate(model, iso) {
+      const dayEvents = eventsOn(iso);
+      return model.q
+        ? dayEvents.filter((event) => model.matchedIds.has(event._masterId || event.id))
+        : dayEvents;
     }
 
     function modeSwitchHTML(model) {
@@ -187,8 +194,7 @@
         const iso = ymd(date);
         const out = date.getMonth() !== model.month;
         const dow = date.getDay();
-        let dayEvents = eventsOn(iso);
-        if (model.q) dayEvents = dayEvents.filter((event) => model.matchedIds.has(event._masterId || event.id));
+        const dayEvents = calendarEventsForDate(model, iso);
         const shown = dayEvents.slice(0, 3);
         const selected = model.selectedDate === iso;
         const todayCell = isTodayISO(iso);
@@ -225,8 +231,7 @@
       const days = [];
       for (let index = 0; index < 7; index += 1) {
         const iso = addDaysISO(model.weekStart, index);
-        let dayEvents = eventsOn(iso);
-        if (model.q) dayEvents = dayEvents.filter((event) => model.matchedIds.has(event._masterId || event.id));
+        const dayEvents = calendarEventsForDate(model, iso);
         const selectedTodos = model.q ? [] : model.todos.filter((todo) => todo.due === iso);
         const selected = model.selectedDate === iso;
         const todayCell = isTodayISO(iso);
@@ -262,8 +267,7 @@
     }
 
     function calendarDayHTML(model) {
-      let dayEvents = eventsOn(model.selectedDate);
-      if (model.q) dayEvents = dayEvents.filter((event) => model.matchedIds.has(event._masterId || event.id));
+      const dayEvents = calendarEventsForDate(model, model.selectedDate);
       const dayTodos = model.q ? [] : model.todos.filter((todo) => todo.due === model.selectedDate);
       const allDayEvents = dayEvents.filter((event) => event.allDay);
       const timedEvents = dayEvents.filter((event) => !event.allDay);
@@ -315,12 +319,11 @@
 
     function calendarAgendaHTML(model) {
       const selectedDate = model.selectedDate;
-      let selectedEvents = eventsOn(selectedDate);
-      if (model.q) selectedEvents = selectedEvents.filter((event) => model.matchedIds.has(event._masterId || event.id));
+      const selectedEvents = calendarEventsForDate(model, selectedDate);
       const selectedTodos = model.q ? [] : model.todos.filter((todo) => todo.due === selectedDate);
       const agendaEvents = selectedEvents.length
         ? selectedEvents.map((event) => eventRow(event, { showSkip: true })).join("")
-        : html`<p class="sched-agenda-empty">${model.q ? "선택한 날짜에 검색 결과가 없습니다." : "일정이 없습니다."}</p>`;
+        : html`<p class="sched-agenda-empty">${model.q ? "선택한 날짜에 검색 결과가 없습니다." : "이 날짜에 일정이 없습니다."}</p>`;
       const agendaTodos = selectedTodos.length
         ? html`<div class="sched-agenda-todos">${selectedTodos.map((todo) => raw(html`
             <button type="button" class="agenda-todo ${raw(todo.done ? "is-done" : "")}" data-action="open-todo" data-todo-id="${todo.id}">
@@ -378,6 +381,7 @@
       calLegend,
       eventRow,
       calendarViewModel,
+      calendarEventsForDate,
       modeSwitchHTML,
       weekdayHeaderHTML,
       calendarGridHTML,

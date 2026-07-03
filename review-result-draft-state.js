@@ -14,6 +14,7 @@
   const ASSIGNEE_COPY_SELECTOR = "[data-issue-draft-assignee-review-copy]";
   const DRAFT_HEAD_SELECTOR = ".portfolio-issue-draft-head";
   const DRAFT_CREATE_SELECTOR = "[data-review-issue-create]";
+  const ASSIGNEE_STATUS_LABELS = new Set(["assignee-review", "assignee-confirmed", "owner-followup"]);
 
   function createReviewResultDraftState(deps) {
     const options = deps || {};
@@ -75,6 +76,15 @@
       return nodeQuery(head, DRAFT_CREATE_SELECTOR);
     }
 
+    function issueDraftAssigneeLabels(rawLabels, assignee) {
+      const labels = String(rawLabels || "")
+        .split(",")
+        .map((label) => label.trim())
+        .filter((label) => label && !ASSIGNEE_STATUS_LABELS.has(label));
+      labels.push(assignee ? "assignee-confirmed" : "assignee-review");
+      return labels;
+    }
+
     function copyGithubComment(target) {
       const comment = target.closest(COMMENT_SELECTOR);
       const text = nodeText(comment, COMMENT_TEXT_SELECTOR);
@@ -105,12 +115,7 @@
       draftNode.dataset.issueDraftAssigneeRequiredFollowUpCount = assignee ? "0" : draftNode.dataset.issueDraftAssigneeRequiredFollowUpCount || "0";
       draftNode.dataset.issueDraftAssigneePromptExampleCount = assignee ? "0" : draftNode.dataset.issueDraftAssigneePromptExampleCount || "0";
       draftNode.dataset.issueDraftOwnerFollowUpReady = assignee ? "false" : draftNode.dataset.issueDraftOwnerFollowUpReady || "false";
-      const labels = (draftNode.dataset.issueDraftLabels || "")
-        .split(",")
-        .map((label) => label.trim())
-        .filter((label) => label && label !== "assignee-review" && label !== "assignee-confirmed" && label !== "owner-followup");
-      labels.push(assignee ? "assignee-confirmed" : "assignee-review");
-      draftNode.dataset.issueDraftLabels = uniqueTextItems(labels).join(",");
+      draftNode.dataset.issueDraftLabels = uniqueTextItems(issueDraftAssigneeLabels(draftNode.dataset.issueDraftLabels, assignee)).join(",");
       const cells = issueDraftCells(draftNode);
       if (cells[3]) cells[3].textContent = assignee ? memberName(assignee) : "미지정";
       const panel = issueDraftAssigneePanel(draftNode);

@@ -31,18 +31,29 @@
       if (typeof fn !== "function") throw new Error(`review issue payload helper requires ${name}`);
     });
 
+    function nonEmptyListOrDefault(items, fallback) {
+      return Array.isArray(items) && items.length > 0 ? items : fallback;
+    }
+
+    function positiveFiniteNumberOrDefault(value, fallback) {
+      const number = Number(value);
+      return Number.isFinite(number) && number > 0 ? number : fallback;
+    }
+
     function reviewOperationalReadinessLines({ owner, firstAction, timeboxHours, decisionGate, fallbackIfBlocked }) {
+      const safeTimeboxHours = positiveFiniteNumberOrDefault(timeboxHours, 4);
       return [
         "## Operational Readiness",
         `- Owner: ${owner || "PM reviewer"}`,
         `- First action: ${firstAction || "Verify source metadata and comparison evidence before changing tracker status."}`,
-        `- Timebox hours: ${Number(timeboxHours) > 0 ? Number(timeboxHours) : 4}`,
+        `- Timebox hours: ${safeTimeboxHours}`,
         `- Decision gate: ${decisionGate || "Proceed only when acceptance criteria and validation checks are satisfied or missingEvidence is listed."}`,
         `- Fallback if blocked: ${fallbackIfBlocked || "Keep the item in review/compare, record requiredFollowUp, and do not claim external completion."}`,
       ];
     }
 
     function reviewIssueDecisionSummaryLines({ project, decision, secondary, scope, timeboxHours, firstAction, fallbackIfBlocked }) {
+      const safeTimeboxHours = positiveFiniteNumberOrDefault(timeboxHours, 4);
       const comparison = secondary
         ? `${secondary.project.name} ${secondary.decision.status} (${secondary.decision.label} ${secondary.decision.score})`
         : "No comparison candidate recorded.";
@@ -59,17 +70,18 @@
         `- Comparison context: ${comparison}`,
         `- Evidence anchor: ${evidenceAnchor}`,
         `- First action: ${firstAction || `Verify ${project.name} source metadata and comparison candidate before changing tracker status.`}`,
-        `- Stop condition: ${fallbackIfBlocked || `Keep the item in review/compare if acceptance criteria, validation checks, or missingEvidence are not explicit within ${timeboxHours || 4} hours.`}`,
+        `- Stop condition: ${fallbackIfBlocked || `Keep the item in review/compare if acceptance criteria, validation checks, or missingEvidence are not explicit within ${safeTimeboxHours} hours.`}`,
       ];
     }
 
     function reviewIssueBodyLines({ project, decision, secondary, scope, timeboxHours, acceptanceCriteria, validationPlan }) {
-      const criteria = Array.isArray(acceptanceCriteria) && acceptanceCriteria.length > 0
-        ? acceptanceCriteria
-        : ["Decision, source metadata, comparison, and next action are explicit enough to execute without rewriting."];
-      const validation = Array.isArray(validationPlan) && validationPlan.length > 0
-        ? validationPlan
-        : ["Reopen the portfolio handoff and confirm the same persist key, score, labels, and comparison candidate are visible."];
+      const safeTimeboxHours = positiveFiniteNumberOrDefault(timeboxHours, 4);
+      const criteria = nonEmptyListOrDefault(acceptanceCriteria, [
+        "Decision, source metadata, comparison, and next action are explicit enough to execute without rewriting.",
+      ]);
+      const validation = nonEmptyListOrDefault(validationPlan, [
+        "Reopen the portfolio handoff and confirm the same persist key, score, labels, and comparison candidate are visible.",
+      ]);
       const firstAction = `Verify ${project.name} source metadata and comparison candidate before changing tracker status.`;
       const fallbackIfBlocked = "Keep the item in review/compare, add requiredFollowUp, and do not claim install, publish, purchase, credential, or upload completion.";
       return [
@@ -78,7 +90,7 @@
           decision,
           secondary,
           scope,
-          timeboxHours,
+          timeboxHours: safeTimeboxHours,
           firstAction,
           fallbackIfBlocked,
         }),
@@ -101,7 +113,7 @@
         ...reviewOperationalReadinessLines({
           owner: "PM reviewer",
           firstAction,
-          timeboxHours: timeboxHours || 4,
+          timeboxHours: safeTimeboxHours,
           decisionGate: "Move forward only when every acceptance criterion and validation check is satisfied or missingEvidence is explicit.",
           fallbackIfBlocked,
         }),
@@ -115,7 +127,7 @@
         "## Missing Evidence To Close",
         "- Record any stale source metadata, ambiguous score tie, unsafe external action, or missing user evidence before moving out of review.",
         "",
-        `## Timebox: ${timeboxHours || 4} hours`,
+        `## Timebox: ${safeTimeboxHours} hours`,
       ].filter((line) => line !== "").join("\n");
     }
 
@@ -199,7 +211,7 @@
         executionFallbackIfBlocked: plan.fallbackIfBlocked || "",
         executionChecklist,
         executionChecklistReady: executionChecklist.length > 0,
-        trackerReady: !!(owner && timeboxHours > 0),
+        trackerReady: !!(owner && Number.isFinite(timeboxHours) && timeboxHours > 0),
       };
     }
 

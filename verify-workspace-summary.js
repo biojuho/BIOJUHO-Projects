@@ -34,8 +34,10 @@
   function validateSummary(summary) {
     const artifacts = summary?.artifacts || {};
     const evidenceSync = artifacts.evidenceSync || {};
+    const productLoop = artifacts.productLoop || {};
     const stepResults = Array.isArray(summary?.stepResults) ? summary.stepResults : [];
     const stepIds = new Set(stepResults.map((step) => step.id));
+    const nextCandidates = Array.isArray(productLoop.nextCandidates) ? productLoop.nextCandidates : [];
     return summary &&
       summary.schemaVersion === SUMMARY_SCHEMA_VERSION &&
       summary.status === "pass" &&
@@ -47,10 +49,27 @@
       artifacts.releaseReadiness?.status === "pass" &&
       artifacts.launchReadiness?.status === "pass" &&
       artifacts.outputQuality?.status === "pass" &&
+      typeof productLoop.latestExperiment === "string" &&
+      productLoop.latestExperiment.length > 0 &&
+      typeof productLoop.latestDirectionLoop === "string" &&
+      productLoop.latestDirectionLoop.length > 0 &&
+      typeof productLoop.latestDirectionExperiment === "string" &&
+      productLoop.latestDirectionExperiment.length > 0 &&
+      productLoop.latestExperiment === productLoop.latestDirectionExperiment &&
+      typeof productLoop.latestDiscoveryExperiment === "string" &&
+      productLoop.latestDiscoveryExperiment === "github-project-discovery-artifact" &&
+      Number(productLoop.nextCandidateCount || 0) > 0 &&
+      nextCandidates.length === Number(productLoop.nextCandidateCount || 0) &&
+      nextCandidates.every((item) => typeof item === "string" && item.trim().length > 0) &&
       evidenceSync.status === "pass" &&
       evidenceSync.productLoopGateParityReady === true &&
       evidenceSync.productLoopPublishParityReady === true &&
-      evidenceSync.summarySyncReady === true;
+      evidenceSync.summarySyncReady === true &&
+      evidenceSync.nextCandidatesReady === true &&
+      evidenceSync.nextCandidateListReady === true &&
+      evidenceSync.directionLoopSyncReady === true &&
+      evidenceSync.latestDirectionExperimentReady === true &&
+      evidenceSync.latestDiscoveryExperimentReady === true;
   }
 
   function createVerifyWorkspaceSummary(deps) {

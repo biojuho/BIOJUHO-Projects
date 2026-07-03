@@ -58,10 +58,10 @@
       })).length;
 
       const kpis = [
-        { title: "마일스톤", value: String(milestones), unit: "개", color: "#a970ff", badge: "◆", delta: "" },
-        { title: "임박 데드라인", value: String(dueSoon), unit: "건", color: "#f7a928", badge: "△", delta: "7일 이내" },
-        { title: "지연", value: String(overdue), unit: "건", color: "#ff4d5e", badge: "✕", delta: overdue ? "조치 필요" : "없음", trendDown: overdue > 0 },
-        { title: "의존 충돌", value: String(depViolations), unit: "건", color: "#f7a928", badge: "↔", delta: depViolations ? "주의" : "정상" },
+        { title: "마일스톤", value: String(milestones), unit: "개", color: "var(--violet)", badge: "◆", delta: "" },
+        { title: "임박 데드라인", value: String(dueSoon), unit: "건", color: "var(--amber)", badge: "△", delta: "7일 이내" },
+        { title: "지연", value: String(overdue), unit: "건", color: "var(--red)", badge: "✕", delta: overdue ? "조치 필요" : "없음", trendDown: overdue > 0 },
+        { title: "의존 충돌", value: String(depViolations), unit: "건", color: "var(--amber)", badge: "↔", delta: depViolations ? "주의" : "정상" },
       ];
 
       return {
@@ -190,15 +190,24 @@
     function renderGanttHTML(input) {
       const model = ganttViewModel(input);
       const isSearchEmpty = model.query && model.tasks.length === 0;
+      const isFirstEmpty = !model.query && model.tasks.length === 0;
       const ganttContent = isSearchEmpty
         ? searchEmptyState("pm-gantt", "검색 결과가 없습니다", "작업명, 담당자, 프로젝트와 일치하는 간트 작업이 없습니다.")
-        : ganttChartHTML(model);
+        : isFirstEmpty
+          ? html`
+            <article class="empty empty-action" data-gantt-first-empty>
+              <strong>아직 간트 작업이 없습니다</strong>
+              <span>작업을 추가하면 기간 막대, 마일스톤, 의존 관계가 자동으로 그려집니다.</span>
+              <button type="button" class="secondary-btn" data-action="task-add">+ 작업 추가</button>
+            </article>
+          `
+          : ganttChartHTML(model);
 
       return html`
         <section class="kpis kpis-4">${raw(model.kpis.map((kpi) => kpiCard(kpi)).join(""))}</section>
         <section class="panel gantt-panel">
           ${raw(panelHead("간트 차트", null, html`<button type="button" class="primary-btn" data-action="task-add">+ 작업 추가</button>`))}
-          <div class="gantt ${raw(isSearchEmpty ? "gantt-search-empty" : "")}">
+          <div class="gantt ${raw(isSearchEmpty || isFirstEmpty ? "gantt-search-empty" : "")}">
             ${raw(ganttContent)}
           </div>
         </section>

@@ -1,0 +1,35 @@
+{
+  "auditedAt": "2026-07-02",
+  "method": "npm registry version check plus vendored file/package/README parity; SRI integrity already enforced by scripts/check-vendor-honesty.mjs.",
+  "summary": "Vendored marked and DOMPurify match the latest npm registry versions; Fuse.js remains pinned to the last UMD-compatible 6.x line.",
+  "dependencies": [
+    {
+      "name": "dompurify",
+      "vendored": "3.4.11",
+      "latest": "3.4.11",
+      "status": "latest",
+      "knownCvesAffectingVendored": [],
+      "notes": "3.4.11 is the latest npm registry version as of the 2026-07-02 check and post-dates fixes for CVE-2026-0540 (fixed 3.3.2), CVE-2025-15599 (fixed 3.2.7), CVE-2026-41238 and CVE-2026-41239 (fixed 3.4.0).",
+      "decision": "keep"
+    },
+    {
+      "name": "marked",
+      "vendored": "18.0.5",
+      "latest": "18.0.5",
+      "status": "latest",
+      "knownCvesAffectingVendored": [],
+      "notes": "Already the latest published version.",
+      "decision": "keep"
+    },
+    {
+      "name": "fuse.js",
+      "vendored": "6.6.2",
+      "latest": "7.4.2",
+      "status": "secure-major-behind",
+      "knownCvesAffectingVendored": [],
+      "notes": "No known direct CVEs for 6.6.2 (Snyk). 7.x is a breaking major (API changes) and would require re-validating the command-palette/global-search Fuse integration; deferred to a dedicated A/B since there is no security driver.",
+      "decision": "defer-major-upgrade"
+    }
+  ],
+  "guard": "Vendored files are integrity-pinned (SRI) and verified by check:vendor. Do not swap a vendored library without recomputing its SRI hash in package.json + index.html and re-running the full gate."
+}

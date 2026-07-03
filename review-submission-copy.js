@@ -26,6 +26,15 @@
       return panelQuery(panel, selector)?.textContent || "";
     }
 
+    function copyFeedback(copied, data) {
+      return {
+        state: copied ? "true" : "false",
+        statusText: copied ? data.successStatus : data.failureStatus,
+        toastText: copied ? data.successToast : data.failureToast,
+        toastTone: copied ? "info" : "error",
+      };
+    }
+
     function externalReceiptInputValue(panel, selector) {
       const input = panelQuery(panel, selector);
       return input ? String(input.value || "").trim() : "";
@@ -79,11 +88,11 @@
       }
       const text = fillExternalIssueText(template, values);
       writeClipboardText(text).then((copied) => {
-        const state = copied ? "true" : "false";
-        setDataset(target, data.targetDatasetKey, state);
-        setDataset(stateHost, data.stateDatasetKey, state);
-        if (status) status.textContent = copied ? data.successStatus : data.failureStatus;
-        showToast(copied ? data.successToast : data.failureToast, copied ? "info" : "error");
+        const feedback = copyFeedback(copied, data);
+        setDataset(target, data.targetDatasetKey, feedback.state);
+        setDataset(stateHost, data.stateDatasetKey, feedback.state);
+        if (status) status.textContent = feedback.statusText;
+        showToast(feedback.toastText, feedback.toastTone);
       });
     }
 

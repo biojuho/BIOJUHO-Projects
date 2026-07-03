@@ -10,7 +10,14 @@ const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-a11y-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 const defaultCdpTimeoutMs = 10000;
-const defaultEvaluateTimeoutMs = Number(process.env.SMOKE_RUNTIME_TIMEOUT_MS || 60000);
+const defaultEvaluateTimeoutMs = positiveMsOption(process.env.SMOKE_RUNTIME_TIMEOUT_MS, 60000);
+const routeReadyTimeoutMs = positiveMsOption(process.env.SMOKE_ROUTE_READY_TIMEOUT_MS, 12000);
+
+function positiveMsOption(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
 
 class CdpClient {
   constructor(wsUrl) {
@@ -174,7 +181,7 @@ async function waitForHome(client) {
           view.hidden === false &&
           view.innerText.trim().length > 0;
         if (ready) resolve(true);
-        else if (Date.now() - started > 6000) reject(new Error("home route not ready"));
+        else if (Date.now() - started > ${routeReadyTimeoutMs}) reject(new Error("home route not ready"));
         else setTimeout(check, 100);
       };
       check();
@@ -297,7 +304,14 @@ async function main() {
       const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(true)));
       const navTo = async (view) => {
         location.hash = view;
-        await waitFor(() => document.body.dataset.view === view, view + " route did not open");
+        await waitFor(() => {
+          const viewEl = document.getElementById("view-" + view);
+          return document.body.dataset.view === view &&
+            viewEl &&
+            viewEl.hidden === false &&
+            !viewEl.querySelector("[data-ops-runtime-loading]") &&
+            viewEl.innerText.trim().length > 0;
+        }, view + " route did not open");
         await nextFrame();
       };
       const hasActionLabel = (selector, term) => {
@@ -349,11 +363,16 @@ async function main() {
         selected = paletteResults.querySelector('[role="option"][aria-selected="true"]');
         check("palette_arrow_updates_active_descendant", selected && paletteInput.getAttribute("aria-activedescendant") === selected.id, "palette arrow navigation did not update active descendant");
 
+        // No-match queries fall back to 바로 만들기 quick-capture options, so the
+        // combobox stays populated and announced instead of going empty.
         paletteInput.value = "zzzz-no-match";
         paletteInput.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "z" }));
-        await waitFor(() => paletteResults.querySelectorAll('[role="option"]').length === 0, "palette no-results state did not render");
-        check("palette_no_results_clears_active_descendant", !paletteInput.hasAttribute("aria-activedescendant"), "palette no-results state should clear active descendant");
-        check("palette_no_results_status_visible", paletteStatus && paletteStatus.classList.contains("is-visible") && /검색 결과가 없습니다/.test(paletteStatus.textContent), "palette no-results status should be visible and announced");
+        await waitFor(() => Array.from(paletteResults.querySelectorAll('[role="option"]')).some((option) => option.textContent.includes("새 할 일로 추가")), "palette quick-capture fallback did not render");
+        const fallbackOptions = paletteResults.querySelectorAll('[role="option"]');
+        check("palette_quick_capture_option_count", fallbackOptions.length === 2, "palette quick-capture fallback should render todo and note options");
+        selected = paletteResults.querySelector('[role="option"][aria-selected="true"]');
+        check("palette_quick_capture_active_descendant", Boolean(selected) && paletteInput.getAttribute("aria-activedescendant") === selected.id, "palette quick-capture fallback should keep an active descendant");
+        check("palette_quick_capture_status_announces", /개 결과/.test((paletteStatus && paletteStatus.textContent) || ""), "palette status should announce the quick-capture result count");
 
         sendKey(paletteInput, "Escape");
         await waitFor(() => !palette.classList.contains("open"), "palette did not close");
@@ -506,6 +525,26 @@ async function main() {
           "team resource matrix should expose table, row, header, and labelled assignment cell semantics");
         check("pm_member_icon_labels", hasActionLabel('[data-action="member-edit"]', "멤버 편집") && hasActionLabel('[data-action="member-delete"]', "멤버 삭제"), "member icon buttons should expose descriptive labels");
         check("pm_member_icon_titles", hasActionTitle('[data-action="member-edit"]', "멤버 편집") && hasActionTitle('[data-action="member-delete"]', "멤버 삭제"), "member icon tooltips should expose descriptive titles");
+        await navTo("pm-pipeline");
+        check("pipeline_view_module_loaded", window.JooParkPipelineView && window.JooParkPipelineView.version === "joopark-pipeline-view/v1" && typeof window.JooParkPipelineView.create === "function", "pipeline view runtime module should be loaded");
+        const pipeMatrix = document.querySelector('#view-pm-pipeline .pipe-matrix[role="table"]');
+        const pipeRows = Array.from(document.querySelectorAll('#view-pm-pipeline .pipe-matrix [role="row"]'));
+        const pipeColumnHeaders = Array.from(document.querySelectorAll('#view-pm-pipeline .pipe-matrix [role="columnheader"]'));
+        const pipeRowHeaders = Array.from(document.querySelectorAll('#view-pm-pipeline .pipe-matrix [role="rowheader"]'));
+        const pipeCellButtons = Array.from(document.querySelectorAll('#view-pm-pipeline .pipe-matrix .pipe-cell-btn'));
+        const pipeEmptyButtons = pipeCellButtons.filter((btn) => btn.classList.contains("is-empty"));
+        check("pipeline_matrix_table_semantics",
+          !!pipeMatrix &&
+            Number(pipeMatrix.getAttribute("aria-rowcount")) >= 2 &&
+            Number(pipeMatrix.getAttribute("aria-colcount")) >= 2 &&
+            pipeRows.length >= 2 &&
+            pipeColumnHeaders.length > 1 &&
+            pipeRowHeaders.length > 0 &&
+            pipeCellButtons.length > 0 &&
+            pipeEmptyButtons.length > 0 &&
+            pipeCellButtons.every((btn) => (btn.getAttribute("aria-label") || "").length > 0) &&
+            pipeEmptyButtons.every((btn) => (btn.getAttribute("aria-label") || "").includes("데이터 없음")),
+          "pipeline matrix should expose table, header, and labelled cell button semantics");
         check("db_catalog_module_loaded", window.JooParkDbCatalog && window.JooParkDbCatalog.version === "joopark-db-catalog/v1" && typeof window.JooParkDbCatalog.create === "function", "db catalog runtime module should be loaded");
         await navTo("dbm-instances");
         check("db_instance_icon_labels", hasActionLabel('[data-action="instance-edit"]', "인스턴스 편집") && hasActionLabel('[data-action="instance-delete"]', "인스턴스 삭제"), "instance icon buttons should expose descriptive labels");
@@ -635,8 +674,23 @@ async function main() {
             systemSourceSnapshot.querySelectorAll("[data-source-snapshot-row]").length >= 2,
           "system status should expose the source snapshot health region and rows");
         await navTo("pm-portfolio");
+        const referenceToggle = document.querySelector('#view-pm-portfolio [data-action="toggle-reference-projects"]');
+        if (referenceToggle && referenceToggle.dataset.referenceProjectsVisible !== "true") {
+          referenceToggle.click();
+          await waitFor(() => document.querySelector('#view-pm-portfolio [data-action="toggle-reference-projects"]')?.dataset.referenceProjectsVisible === "true", "reference project toggle did not enable candidates before prompt handoff check");
+        }
+        document.querySelector('#view-pm-portfolio [data-action="portfolio-filter"][data-filter="candidates"]')?.click();
+        await waitFor(
+          () => document.querySelector('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]'),
+          "portfolio candidates did not render before prompt handoff check");
+        await waitFor(
+          () => document.querySelector('#view-pm-portfolio [data-action="show-project-prompt-handoff"]'),
+          "portfolio prompt handoff CTA did not render after candidates became visible");
         const promptHandoffCta = document.querySelector('#view-pm-portfolio [data-action="show-project-prompt-handoff"]');
-        if (promptHandoffCta) promptHandoffCta.click();
+        check("portfolio_prompt_handoff_cta_available",
+          !!promptHandoffCta,
+          "portfolio prompt handoff CTA should be available after reference projects are visible");
+        promptHandoffCta.click();
         await waitFor(
           () => document.querySelector('#view-pm-portfolio [data-review-result-status]'),
           "review result validator status did not render after prompt handoff CTA");

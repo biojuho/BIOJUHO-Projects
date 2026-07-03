@@ -26,6 +26,14 @@
       return habit.color || noteColors[0] || "var(--cyan)";
     }
 
+    function habitWeekProgress(habit, weekDates) {
+      const log = habit.log || {};
+      const target = habit.target || 7;
+      const weekDone = weekDates.filter((date) => log[date]).length;
+      const rate = Math.min(100, Math.round((weekDone / target) * 100));
+      return { weekDone, target, rate };
+    }
+
     function habitsViewModel(input) {
       const data = input || {};
       const habits = Array.isArray(data.habits) ? data.habits : [];
@@ -35,12 +43,7 @@
       const active = habits.filter((habit) => !habit.archived);
       const list = active.filter((habit) => matches(`${habit.name} ${habit.emoji || ""}`, q));
       const todayDone = active.filter((habit) => (habit.log || {})[today]).length;
-      const weekRates = active.map((habit) => {
-        const log = habit.log || {};
-        const target = habit.target || 7;
-        const doneDays = weekDates.filter((date) => log[date]).length;
-        return Math.min(100, Math.round((doneDays / target) * 100));
-      });
+      const weekRates = active.map((habit) => habitWeekProgress(habit, weekDates).rate);
       const avgRate = weekRates.length ? Math.round(weekRates.reduce((sum, rate) => sum + rate, 0) / weekRates.length) : 0;
       const bestStreak = active.reduce((best, habit) => {
         const streak = habitStreak(habit);
@@ -84,11 +87,8 @@
     }
 
     function habitCard(habit, model) {
-      const log = habit.log || {};
       const streak = habitStreak(habit);
-      const target = habit.target || 7;
-      const weekDone = model.weekDates.filter((date) => log[date]).length;
-      const rate = Math.min(100, Math.round((weekDone / target) * 100));
+      const progress = habitWeekProgress(habit, model.weekDates);
       const color = habitColor(habit);
       const dayButtons = model.weekDates.map((date, index) => habitDayButton(habit, date, index, model)).join("");
       return html`
@@ -105,10 +105,10 @@
           <div class="habit-stats-row">
             <span class="streak-badge">🔥 ${streak.current}일 연속</span>
             <span class="streak-best">최장 ${streak.longest}일</span>
-            <span class="habit-week-prog">${weekDone}/${target} <small>(${rate}%)</small></span>
+            <span class="habit-week-prog">${progress.weekDone}/${progress.target} <small>(${progress.rate}%)</small></span>
           </div>
           <div class="habit-bar-wrap">
-            <div class="habit-bar" style="width:${rate}%;background:${raw(color)}"></div>
+            <div class="habit-bar" style="width:${progress.rate}%;background:${raw(color)}"></div>
           </div>
         </article>
       `;
@@ -136,6 +136,7 @@
 
     return {
       version: VERSION,
+      habitWeekProgress,
       habitsViewModel,
       habitDayButton,
       habitCard,

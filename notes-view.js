@@ -55,7 +55,10 @@
         .filter((note) => noteMatchesSourceFilter(note, sourceFilter))
         .sort((a, b) => {
           if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-          return (b.updatedAt || "") < (a.updatedAt || "") ? -1 : 1;
+          const au = a.updatedAt || "";
+          const bu = b.updatedAt || "";
+          if (au === bu) return 0;
+          return au > bu ? -1 : 1;
         });
       return {
         notes,
@@ -76,6 +79,25 @@
         ? (isMarkdown ? raw(rendered) : (body.length > 220 ? body.slice(0, 220) + "…" : body))
         : "내용 없음";
       return { bodyContent, isMarkdown };
+    }
+
+    function noteModalModeToggleHTML() {
+      return html`
+        <div class="seg-control note-modal-mode" data-note-modal-mode-bar role="group" aria-label="메모 본문 보기 방식">
+          <button type="button" class="seg-chip is-active" data-note-modal-mode="edit" aria-pressed="true">편집</button>
+          <button type="button" class="seg-chip" data-note-modal-mode="preview" aria-pressed="false">미리보기</button>
+        </div>
+      `;
+    }
+
+    function noteModalPreviewHTML(body) {
+      const text = (body || "").trim();
+      if (!text) return html`<p class="muted-note">아직 내용이 없습니다. 편집 탭에서 메모를 입력하면 여기에서 렌더 결과를 확인할 수 있습니다.</p>`;
+      const rendered = renderMarkdown(text);
+      // renderMarkdown returns null when the vendored renderer is unavailable —
+      // fall back to escaped plain text so the preview never goes blank.
+      if (rendered == null || rendered === "") return html`<p class="note-modal-plain">${text}</p>`;
+      return rendered;
     }
 
     function reviewNoteSourceMeta(note) {
@@ -154,6 +176,19 @@
       `;
     }
 
+    function notesSourceSummaryHTML(model) {
+      if (!model || model.sourceFilter === "all") return "";
+      const count = Array.isArray(model.list) ? model.list.length : 0;
+      return html`
+        <div class="local-source-summary" role="status" data-note-source-summary data-note-source-summary-filter="${model.sourceFilter}" data-note-source-summary-label="${model.activeSourceLabel}" data-note-source-summary-count="${count}">
+          <strong>${model.activeSourceLabel}</strong>
+          <span>출처 범위</span>
+          <b>${count}건</b>
+          <button type="button" class="local-source-summary-clear" data-action="note-source-filter" data-note-source-filter="all">전체 출처 보기</button>
+        </div>
+      `;
+    }
+
     function notesGridHTML(model) {
       const cards = model.list.length === 0
         ? (model.q
@@ -176,6 +211,7 @@
       return html`
         ${raw(notesToolbarHTML(model))}
         ${raw(notesSourceFilterHTML(model))}
+        ${raw(notesSourceSummaryHTML(model))}
         ${raw(notesGridHTML(model))}
       `;
     }
@@ -186,12 +222,15 @@
       noteMatchesSourceFilter,
       notesViewModel,
       noteBodyPreview,
+      noteModalModeToggleHTML,
+      noteModalPreviewHTML,
       reviewNoteSourceMeta,
       noteSourceReturnButton,
       noteReviewSourceReturnButton,
       noteCard,
       notesToolbarHTML,
       notesSourceFilterHTML,
+      notesSourceSummaryHTML,
       notesGridHTML,
       renderNotesHTML,
     };

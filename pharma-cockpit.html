@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>샘플 프로그램 규제 콕핏</title>
+<!--
+  Pillar A — 파마 R&D / 규제 프로그램 콕핏 (데모/웨지 표면)
+  JooPark Workspace의 PM 콕핏 미감을 파마 규제 프로그램용으로 재구성한 self-contained 데모.
+  데이터: RX201 샘플 DP/CMC gate-evidence·open items, PX301 샘플 효능·제제,
+          RX601 샘플 과제 — Sample Ops 샘플 데이터의 운영 패턴만 사용.
+  경계: 로컬 데모. capacity 지표는 데모 추정(증강/회수)이며 FTE 대체 주장이 아니다.
+-->
+<style>
+  :root{
+    --bg:#050b14; --panel:#0b1626; --panel-2:#0e1c30; --line:rgba(120,160,220,.16);
+    --line-soft:rgba(120,160,220,.10); --text:#dceaff; --muted:#8aa0bf; --subtle:#b8c5d9;
+    --blue:#2387ff; --cyan:#22d3ee; --green:#17d983; --amber:#f7a928; --red:#ff4d5e; --violet:#a970ff;
+    --shadow:0 18px 60px rgba(0,0,0,.42); --radius:14px;
+  }
+  body.light{
+    --bg:#eef2f8; --panel:#ffffff; --panel-2:#f5f8fc; --line:rgba(35,70,130,.16);
+    --line-soft:rgba(35,70,130,.10); --text:#102036; --muted:#5a6b85; --subtle:#34465f;
+    --blue:#1e6bd7; --cyan:#0b798f; --green:#0c7e4f; --amber:#986308; --red:#cc3443; --violet:#7b46d6;
+    --shadow:0 12px 34px rgba(35,70,130,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,rgba(34,211,238,.07),transparent),var(--bg);
+    color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",Segoe UI,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:22px clamp(16px,4vw,40px) 48px;}
+  a{color:var(--cyan);text-decoration:none}
+  .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .brand{display:flex;flex-direction:column;gap:2px}
+  .brand h1{margin:0;font-size:19px;letter-spacing:-.2px}
+  .brand .sub{color:var(--muted);font-size:12.5px}
+  .spacer{flex:1}
+  .pill{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;color:var(--subtle);font-size:12px}
+  .pill b{color:var(--text)}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--subtle);border-radius:10px;padding:7px 12px;cursor:pointer;font-size:12.5px}
+  .btn:hover{border-color:var(--cyan);color:var(--text)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
+  .kpi{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+  .kpi .label{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.6px}
+  .kpi .val{font-size:26px;font-weight:680;margin-top:6px;letter-spacing:-.5px;display:flex;align-items:baseline;gap:8px}
+  .kpi .val small{font-size:13px;font-weight:500;color:var(--subtle)}
+  .kpi .note{color:var(--muted);font-size:11.5px;margin-top:5px}
+  .kpi.alert .val{color:var(--red)}
+  .kpi.warn .val{color:var(--amber)}
+  .kpi.good .val{color:var(--green)}
+  .grid{display:grid;gap:16px}
+  @media(min-width:1080px){.grid.two{grid-template-columns:1.15fr .85fr}}
+  section.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 18px;box-shadow:var(--shadow);margin-bottom:16px}
+  section.card>h2{margin:0 0 2px;font-size:14.5px;letter-spacing:-.1px;display:flex;align-items:center;gap:9px}
+  section.card>.hint{color:var(--muted);font-size:12px;margin:0 0 14px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+  .dot.green{background:var(--green)} .dot.amber{background:var(--amber)} .dot.red{background:var(--red)} .dot.cyan{background:var(--cyan)} .dot.violet{background:var(--violet)} .dot.blue{background:var(--blue)}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:11px;border:1px solid var(--line);color:var(--subtle);white-space:nowrap}
+  .chip.crit{color:var(--red);border-color:rgba(255,77,94,.4);background:rgba(255,77,94,.08)}
+  .chip.high{color:var(--amber);border-color:rgba(247,169,40,.4);background:rgba(247,169,40,.08)}
+  .chip.med{color:var(--cyan);border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.07)}
+  .chip.low{color:var(--muted)}
+  .chip.over{color:var(--red);border-color:rgba(255,77,94,.4);background:rgba(255,77,94,.08)}
+  /* program cards */
+  .prog{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:11px;background:var(--panel-2)}
+  .prog .row1{display:flex;align-items:center;gap:9px;margin-bottom:3px}
+  .prog .name{font-weight:640;font-size:14px}
+  .prog .modality{color:var(--muted);font-size:11.5px}
+  .prog .status{color:var(--subtle);font-size:12px;margin:4px 0 9px}
+  .bar{height:7px;border-radius:6px;background:rgba(120,160,220,.14);overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:6px}
+  .prog .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;color:var(--muted);font-size:11.5px}
+  .prog .meta b{color:var(--subtle)}
+  /* gate board */
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+  @media(max-width:720px){.board{grid-template-columns:1fr}}
+  .lane{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:11px;padding:10px}
+  .lane h3{margin:0 0 9px;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between}
+  .lane h3 .n{color:var(--subtle)}
+  .gate{background:var(--panel);border:1px solid var(--line);border-left-width:3px;border-radius:9px;padding:9px 10px;margin-bottom:8px}
+  .gate .t{font-weight:560;font-size:12.5px;margin-bottom:5px}
+  .gate .m{color:var(--muted);font-size:11px;line-height:1.45}
+  .gate.crit{border-left-color:var(--red)} .gate.high{border-left-color:var(--amber)} .gate.low{border-left-color:var(--muted)}
+  /* open items */
+  table.oi{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.oi th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:0 8px 8px;border-bottom:1px solid var(--line)}
+  table.oi td{padding:9px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  table.oi tr:last-child td{border-bottom:none}
+  table.oi .id{font-weight:600;white-space:nowrap}
+  table.oi .imp{color:var(--muted);font-size:11.5px}
+  .st{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-size:11.5px}
+  .st.red{color:var(--red)} .st.amber{color:var(--amber)} .st.muted{color:var(--muted)} .st.green{color:var(--green)}
+  /* timeline */
+  .tl{position:relative;margin-top:6px}
+  .tl .axis{display:flex;justify-content:space-between;color:var(--muted);font-size:10.5px;border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:9px}
+  .tlrow{display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:center;margin-bottom:7px}
+  @media(max-width:720px){.tlrow{grid-template-columns:130px 1fr}}
+  .tlrow .lbl{color:var(--subtle);font-size:11.5px;display:flex;align-items:center;gap:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .track{position:relative;height:16px;background:rgba(120,160,220,.07);border-radius:5px}
+  .track>.barseg{position:absolute;top:3px;height:10px;border-radius:5px;opacity:.92}
+  .track>.ms{position:absolute;top:1px;width:12px;height:12px;transform:translateX(-50%) rotate(45deg);border-radius:2px}
+  .nowline{position:absolute;top:-22px;bottom:0;width:2px;background:linear-gradient(var(--cyan),transparent);z-index:2}
+  .nowtag{position:absolute;top:-26px;transform:translateX(-50%);font-size:9.5px;color:var(--cyan);white-space:nowrap}
+  /* workstreams */
+  .ws{display:grid;gap:9px}
+  .wsrow{display:grid;grid-template-columns:140px 1fr 64px;gap:10px;align-items:center}
+  @media(max-width:720px){.wsrow{grid-template-columns:108px 1fr 58px}}
+  .wsrow .nm{font-size:12.5px;color:var(--subtle)}
+  .wsrow .nm small{color:var(--muted);font-size:10.5px;display:block}
+  .wsrow .pct{text-align:right;font-size:12px;color:var(--subtle)}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:11.5px;margin-top:12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  footer{margin-top:22px;color:var(--muted);font-size:11.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:14px}
+  footer b{color:var(--subtle)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <h1>샘플 프로그램 규제 콕핏</h1>
+      <span class="sub">공개 데모 · CMC / 비임상 / 인허가 운영 보드</span>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="asof">기준일 <b>—</b></span>
+    <button class="btn" id="themeBtn">라이트 모드</button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid two">
+    <div>
+      <section class="card">
+        <h2>활성 프로그램</h2>
+        <p class="hint">진행률 = 계약·게이트 산출물 기준 / 건강도 = 일정·리스크 종합</p>
+        <div id="programs"></div>
+      </section>
+      <section class="card">
+        <h2>RX201 Evidence Gate 보드 <span class="chip" id="gatechip"></span></h2>
+        <p class="hint">샘플 제출 패키지 후속 — 게이트는 회신·승인·증거가 검증·적용돼야 닫힘</p>
+        <div class="board" id="board"></div>
+      </section>
+    </div>
+    <div>
+      <section class="card">
+        <h2>워크스트림 부하</h2>
+        <p class="hint">기능별 가동률 · 85% 초과는 병목으로 표시</p>
+        <div class="ws" id="ws"></div>
+        <div class="legend">
+          <span><i class="dot green"></i> ~70% 여유</span>
+          <span><i class="dot amber"></i> 70–85%</span>
+          <span><i class="dot red"></i> 85%+ 병목</span>
+        </div>
+      </section>
+      <section class="card">
+        <h2>파트너 Open Items <span class="chip" id="oichip"></span></h2>
+        <p class="hint">회신 대기 항목 · 🔴 연체 / 🟡 대기 / ❓ 확인필요</p>
+        <table class="oi"><thead><tr><th>ID</th><th>항목</th><th>상태 · 기한</th></tr></thead>
+        <tbody id="oi"></tbody></table>
+      </section>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>프로그램 타임라인</h2>
+    <p class="hint">효능시험 · 제제개발 · 제출/게이트 일정 (월 단위)</p>
+    <div class="tl" id="tl"></div>
+  </section>
+
+  <footer id="foot"></footer>
+
+<script>
+(function(){
+  "use strict";
+  // ===== 기준일 (앵커) =====
+  const TODAY = new Date(2026,5,18); // 2026-06-18
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const parse = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+  const daysBetween = (a,b)=>Math.round((b-a)/86400000);
+  document.getElementById("asof").innerHTML = "기준일 <b>"+fmt(TODAY)+"</b>";
+
+  const HEALTH = {green:"순항",amber:"주의",red:"지연"};
+
+  // ===== 프로그램 (샘플 데이터 기반 운영 상태) =====
+  const programs = [
+    { id:"rx201", name:"RX201 · 샘플 DP/CMC", modality:"비식별 바이오 의약품",
+      progress:82, health:"amber", color:"amber",
+      status:"제출 패키지 준비완료 — 승인·파트너 회신 게이트 대기",
+      owner:"제제·CMC / RA", openItems:11, gates:"0/6 닫힘", risk:"게이트 6 blocked · OI 2 연체", deadline:"2026-06-30" },
+    { id:"px301", name:"PX301 · 샘플 효능/제제", modality:"비식별 바이오 의약품 · 샘플 농도",
+      progress:70, health:"green", color:"cyan",
+      status:"샘플 효능 리뷰 완료 · 후속 리포트 검토 · Buffer Screen 진행",
+      owner:"비임상 · 제제", openItems:4, gates:"효능 데이터 lock 임박", risk:"효능 신호와 한계 정성 리뷰", deadline:"2026-06-30" },
+    { id:"rx601", name:"RX601 · 샘플 지원과제", modality:"과제 심사 대응 샘플",
+      progress:88, health:"green", color:"violet",
+      status:"예상질문 답변집 v2 완료 · 발표/IR 자료 준비",
+      owner:"BD · RA", openItems:2, gates:"심사 대응 준비", risk:"보완질의 대응 여지", deadline:"2026-07-10" },
+  ];
+
+  // ===== RX201 Evidence Gate 보드 (closure cockpit stage 매핑) =====
+  const lanes = [
+    { title:"즉시 발송 (send-now)", gates:[
+      { t:"승인 서명", pr:"crit", m:"missing 4 — 승인자/역할/결정/일자 · approval packet ready" },
+      { t:"외부 랩 증거", pr:"high", m:"missing 6 — vendor/PO/method/value/sign-off · lab packet ready" },
+    ]},
+    { title:"수신자 확인 후 발송", gates:[
+      { t:"OI-01 비임상 scope 회신", pr:"crit", m:"missing 4 — 설계/수량/범위 · 기한 경과" },
+      { t:"OI-05 자료 회신", pr:"crit", m:"missing 6 — 수령/공유·제한 목록 · 기한 경과" },
+    ]},
+    { title:"선행조건 대기 (blocked)", gates:[
+      { t:"파트너 송부 기록", pr:"high", m:"승인 증거 확보 후 진행 (blocked_until_approval)" },
+      { t:"Git remote·push 증거", pr:"low", m:"remote 결정 대기 — 저장소/접근 승인 후 수집" },
+    ]},
+  ];
+
+  // ===== 파트너 Open Items =====
+  const ST = { red:["red","🔴 대기(지연)"], amber:["amber","🟡 대기"], q:["muted","❓ 확인필요"], talk:["amber","🟡 협의"] };
+  const oitems = [
+    ["OI-01","비임상 시험 종류·규모","red","기한 경과"],
+    ["OI-05","자료 제공 완료 확인","q","기한 경과"],
+    ["OI-02","공급 전략 동의","amber","월말"],
+    ["OI-03","사용기간·in-use 안정성","amber","월말"],
+    ["OI-04","비교동등성 Bridge","amber","월말"],
+    ["OI-06","검토 일정·보완의견","amber","월말"],
+    ["OI-07","제품분류(의약품/IND 경로) 합의","talk","미정"],
+    ["OI-08","파트너 표준 계획서 템플릿·필수항목","amber","월초"],
+    ["OI-09","IND 규제경로·식약처 사전상담 의견","amber","협의"],
+    ["OI-10","비임상 CRO·시험물질 CDMO 후보","amber","협의"],
+    ["OI-11","출하시험 적합판정 주체·CoA 절차","amber","협의"],
+  ];
+
+  // ===== 워크스트림 부하 =====
+  const ws = [
+    ["제제·CMC","RX201 제출 + PX301 제제",92],
+    ["규제·RA","RX201/RX601/PX301",88],
+    ["프로그램 PM","3개 프로그램 조율",76],
+    ["품질·QA","CoA·QMS·검수",70],
+    ["비임상","PX301 효능·RX201 scope",64],
+    ["사업개발·IR","RX601 과제·파트너십",55],
+    ["AutoResearch 엔진","CTD·게이트 자동초안",40],
+  ];
+
+  // ===== 타임라인 =====
+  const AX_START = new Date(2025,9,1), AX_END = new Date(2026,7,31); // 2025-10 ~ 2026-08
+  const span = AX_END - AX_START;
+  const frac = d => Math.max(0,Math.min(1,(parse_or(d)-AX_START)/span));
+  function parse_or(d){ return d instanceof Date ? d : parse(d); }
+  const tlrows = [
+    { lbl:"PX301 샘플 효능 리뷰", color:"cyan", bar:["2025-10-14","2026-06-30"] },
+    { lbl:"PX301 후속 리포트 샘플", color:"cyan", bar:["2026-05-20","2026-06-24"] },
+    { lbl:"PX301 스크리닝 샘플", color:"cyan", bar:["2026-06-04","2026-06-30"] },
+    { lbl:"PX301 안정화 샘플", color:"blue", bar:["2026-06-30","2026-07-30"] },
+    { lbl:"RX201 제출 패키지", color:"amber", ms:"2026-05-28" },
+    { lbl:"RX201 내부승인", color:"amber", bar:["2026-05-28","2026-06-25"] },
+    { lbl:"RX201 파트너 송부", color:"amber", ms:"2026-06-26" },
+    { lbl:"RX201 30/60/90 gate", color:"amber", bar:["2026-06-26","2026-08-15"] },
+    { lbl:"RX601 과제 답변집 v2", color:"violet", bar:["2026-05-15","2026-06-12"] },
+    { lbl:"RX601 심사 대응", color:"violet", ms:"2026-07-10" },
+  ];
+
+  // ===== KPIs =====
+  const overdueOI = oitems.filter(o=>String(o[3]).includes("경과")).length + 0; // OI-01, OI-05
+  const overdue = 2;
+  const kpis = [
+    { label:"활성 프로그램", val:"3", note:"RX201 · PX301 · RX601", cls:"" },
+    { label:"Evidence Gate", val:"0<small>/6 닫힘</small>", note:"제출 패키지 후 외부 증거 대기", cls:"warn" },
+    { label:"연체 Open Item", val:String(overdue), note:"OI-01 · OI-05 기한 경과", cls:"alert" },
+    { label:"회수 작업량 (엔진)", val:"≈18<small>인일 · 추정</small>", note:"CTD/게이트 자동초안 14건 재배치 · FTE 대체 아님", cls:"good" },
+  ];
+
+  // ===== render =====
+  const el = (h)=>{const t=document.createElement("template");t.innerHTML=h.trim();return t.content.firstChild;};
+  const barColor = c => `var(--${c})`;
+
+  // kpis
+  document.getElementById("kpis").append(...kpis.map(k=>el(
+    `<div class="kpi ${k.cls}"><div class="label">${k.label}</div><div class="val">${k.val}</div><div class="note">${k.note}</div></div>`)));
+
+  // programs
+  document.getElementById("programs").append(...programs.map(p=>el(
+    `<div class="prog">
+       <div class="row1"><span class="dot ${p.health}"></span><span class="name">${p.name}</span></div>
+       <div class="modality">${p.modality}</div>
+       <div class="status">${p.status}</div>
+       <div class="bar"><i style="width:${p.progress}%;background:${barColor(p.color)}"></i></div>
+       <div class="meta"><span>진행 <b>${p.progress}%</b></span><span>건강도 <b>${HEALTH[p.health]}</b></span>
+         <span>담당 <b>${p.owner}</b></span><span>Open <b>${p.openItems}</b></span><span>게이트 <b>${p.gates}</b></span>
+         <span>마감 <b>${p.deadline}</b></span></div>
+       <div class="meta"><span>⚠ ${p.risk}</span></div>
+     </div>`)));
+
+  // gate board
+  document.getElementById("gatechip").textContent = "0/6 닫힘 · release not ready";
+  document.getElementById("board").append(...lanes.map(l=>el(
+    `<div class="lane"><h3>${l.title}<span class="n">${l.gates.length}</span></h3>
+       ${l.gates.map(g=>`<div class="gate ${g.pr}"><div class="t">${g.t} <span class="chip ${g.pr}">${g.pr.toUpperCase()}</span></div><div class="m">${g.m}</div></div>`).join("")}
+     </div>`)));
+
+  // workstreams
+  document.getElementById("ws").append(...ws.map(([nm,sub,load])=>{
+    const tone = load>85?"red":load>70?"amber":"green";
+    return el(`<div class="wsrow">
+      <div class="nm">${nm}<small>${sub}</small></div>
+      <div class="bar"><i style="width:${load}%;background:var(--${tone})"></i></div>
+      <div class="pct">${load}%${load>85?' <span class="chip over">병목</span>':""}</div>
+    </div>`);
+  }));
+
+  // open items
+  document.getElementById("oichip").textContent = "11건 · 2 연체";
+  document.getElementById("oi").append(...oitems.map(([id,item,stk,due])=>{
+    const [cls,label]=ST[stk];
+    return el(`<tr><td class="id">${id}</td><td>${item}</td>
+      <td><span class="st ${cls}">${label}</span><div class="imp">기한 ${due}</div></td></tr>`);
+  }));
+
+  // timeline
+  const tl = document.getElementById("tl");
+  const months=[];
+  for(let y=2025,m=9;;){ months.push(new Date(y,m,1)); if(y===2026&&m===7)break; m++; if(m>11){m=0;y++;} }
+  tl.append(el(`<div class="axis">${months.map(d=>`<span>${d.getMonth()+1}월</span>`).join("")}</div>`));
+  const nowL = (frac(TODAY)*100).toFixed(1);
+  tlrows.forEach(r=>{
+    let inner="";
+    if(r.bar){ const l=frac(r.bar[0])*100, w=(frac(r.bar[1])-frac(r.bar[0]))*100;
+      inner=`<span class="barseg" style="left:${l}%;width:${w}%;background:var(--${r.color})"></span>`; }
+    if(r.ms){ const l=frac(r.ms)*100; inner+=`<span class="ms" style="left:${l}%;background:var(--${r.color})"></span>`; }
+    tl.append(el(`<div class="tlrow"><div class="lbl"><span class="dot ${r.color}"></span>${r.lbl}</div>
+      <div class="track">${inner}</div></div>`));
+  });
+  // now line overlay on the last track area
+  const tracks=tl.querySelectorAll(".track");
+  if(tracks.length){
+    tracks.forEach((t,i)=>{ const n=el(`<span class="nowline" style="left:${nowL}%"></span>`); if(i===0){const tag=el(`<span class="nowtag" style="left:${nowL}%">오늘 ${fmt(TODAY)}</span>`);n.appendChild(tag);} t.appendChild(n); });
+  }
+
+  // footer
+  document.getElementById("foot").innerHTML =
+    `<b>데이터 출처</b> · Sample Ops (RX201 Gate Evidence Register · 파트너 Open Items Tracker · Completion Gate Status) · wiki/sample-* · RX601 샘플 과제 — 운영 패턴만 사용.<br>`+
+    `<b>경계</b> · 로컬 데모(실서버 아님). 실제 시험 수치와 원문 문서는 미포함. "회수 작업량"은 엔진 자동초안 기반 데모 추정이며 인력 대체(FTE replaced) 주장이 아니라 capacity 재배치 지표다. 모든 규제 산출물은 자격 있는 RA/QA 검토·서명을 전제로 한다.`;
+
+  // theme toggle
+  const tb=document.getElementById("themeBtn");
+  tb.addEventListener("click",()=>{ document.body.classList.toggle("light");
+    tb.textContent = document.body.classList.contains("light")?"다크 모드":"라이트 모드"; });
+})();
+</script>
+</body>
+</html>

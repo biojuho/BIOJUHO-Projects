@@ -508,6 +508,7 @@
           query: deletedRecoveryQuery,
           kind: deletedRecoveryKind,
         },
+        showReferenceProjects: settings.showReferenceProjects === true,
         deletedKinds,
         counts: {
           events: countOf(dashboard.events),
@@ -526,7 +527,7 @@
 
     function storageKpi(model) {
       const tone = model.storageView.tone;
-      const color = tone === "error" ? "#ff4d5e" : tone === "warn" ? "#f7a928" : "#17d983";
+      const color = tone === "error" ? "var(--red)" : tone === "warn" ? "var(--amber)" : "var(--green)";
       const badge = tone === "error" || tone === "warn" ? "!" : "✓";
       return {
         title: "저장 상태",
@@ -540,9 +541,9 @@
 
     function settingsKpisHTML(model) {
       const kpis = [
-        { title: "저장된 일정", value: String(model.counts.events), unit: "건", color: "#2387ff", badge: "◷", delta: "" },
-        { title: "저장된 할 일", value: String(model.counts.todos), unit: "건", color: "#22d3ee", badge: "☑", delta: "" },
-        { title: "저장된 메모", value: String(model.counts.notes), unit: "개", color: "#a970ff", badge: "✎", delta: "" },
+        { title: "저장된 일정", value: String(model.counts.events), unit: "건", color: "var(--blue)", badge: "◷", delta: "" },
+        { title: "저장된 할 일", value: String(model.counts.todos), unit: "건", color: "var(--cyan)", badge: "☑", delta: "" },
+        { title: "저장된 메모", value: String(model.counts.notes), unit: "개", color: "var(--violet)", badge: "✎", delta: "" },
         storageKpi(model),
       ];
       return html`<section class="kpis kpis-4" data-settings-view-module="${VERSION}">${raw(kpis.map((item) => kpiCard(item)).join(""))}</section>`;
@@ -554,9 +555,9 @@
           <div class="panel-head"><div><h2>프로필</h2></div></div>
           <form class="settings-form" data-action="save-settings">
             <label>표시 이름
-              <input type="text" name="displayName" maxlength="40" value="${model.name}" placeholder="이름" />
+              <input type="text" name="displayName" maxlength="40" value="${model.name}" placeholder="이름" title="앱에서 표시되는 이름을 설정합니다" />
             </label>
-            <button type="submit" class="primary-btn">저장</button>
+            <button type="submit" class="primary-btn" title="설정을 저장합니다">저장</button>
           </form>
         </section>
       `;
@@ -568,24 +569,34 @@
           <div class="panel-head"><div><h2>화면 테마</h2></div></div>
           <p class="settings-note">밝은 환경에서는 라이트, 어두운 환경에서는 다크 테마를 선택하세요. 설정은 이 브라우저에 저장됩니다.</p>
           <div class="theme-toggle" role="group" aria-label="테마 선택">
-            <button type="button" class="theme-opt ${raw(model.theme === "dark" ? "is-active" : "")}" data-action="set-theme" data-theme="dark" aria-pressed="${model.theme === "dark" ? "true" : "false"}">🌙 다크</button>
-            <button type="button" class="theme-opt ${raw(model.theme === "light" ? "is-active" : "")}" data-action="set-theme" data-theme="light" aria-pressed="${model.theme === "light" ? "true" : "false"}">☀️ 라이트</button>
+            <button type="button" class="theme-opt ${raw(model.theme === "dark" ? "is-active" : "")}" data-action="set-theme" data-theme="dark" aria-pressed="${model.theme === "dark" ? "true" : "false"}" title="다크 테마 적용">🌙 다크</button>
+            <button type="button" class="theme-opt ${raw(model.theme === "light" ? "is-active" : "")}" data-action="set-theme" data-theme="light" aria-pressed="${model.theme === "light" ? "true" : "false"}" title="라이트 테마 적용">☀️ 라이트</button>
           </div>
+        </section>
+      `;
+    }
+
+    function referenceProjectsPanelHTML(model) {
+      return html`
+        <section class="panel settings-reference-projects" data-settings-reference-projects data-reference-projects-visible="${model.showReferenceProjects ? "true" : "false"}">
+          <div class="panel-head"><div><h2>참고 자료</h2></div></div>
+          <p class="settings-note" title="벤치마크 및 비교 대상 프로젝트 목록을 표시합니다">벤치마크 및 비교 대상 프로젝트 목록</p>
+          <button type="button" class="primary-btn" data-action="toggle-reference-projects" aria-pressed="${model.showReferenceProjects ? "true" : "false"}" title="${model.showReferenceProjects ? "레퍼런스 프로젝트를 숨깁니다" : "레퍼런스 프로젝트를 표시합니다"}">${model.showReferenceProjects ? "숨기기" : "보기"}</button>
         </section>
       `;
     }
 
     function backupPanelHTML() {
       return html`
-        <section class="panel">
+        <section class="panel" data-settings-backup>
           <div class="panel-head"><div><h2>데이터 백업</h2></div></div>
           <p class="settings-note">모든 일정 · 할 일 · 메모는 이 브라우저(localStorage)에 자동 저장됩니다. 기기를 옮기거나 백업하려면 JSON으로 내보내고, 다른 기기에서 가져오세요. 가져오기 파일은 ${formatBytes(maxImportBytes)} 이하만 처리하며, 컬렉션별 항목 수 상한을 넘으면 가져오지 않습니다.</p>
           <div class="settings-actions">
-            <button type="button" class="primary-btn" data-action="export-data">⬇ 데이터 내보내기 (JSON)</button>
-            <label class="file-btn">⬆ 가져오기
+            <button type="button" class="primary-btn" data-action="export-data" title="모든 데이터를 JSON 파일로 내보냅니다">⬇ 데이터 내보내기 (JSON)</button>
+            <label class="file-btn" title="JSON 파일에서 데이터를 가져옵니다 (기존 데이터를 대체)">⬆ 가져오기
               <input id="importFile" type="file" accept="application/json,.json" />
             </label>
-            <button type="button" class="danger-btn" data-action="reset-data">전체 초기화</button>
+            <button type="button" class="danger-btn" data-action="reset-data" title="모든 데이터를 초기화합니다 (되돌릴 수 없음)">전체 초기화</button>
           </div>
         </section>
       `;
@@ -613,8 +624,8 @@
             </small>
           </div>
           <div class="deleted-recovery-actions">
-            <button type="button" class="deleted-recovery-restore" data-action="restore-deleted-item" data-deleted-id="${item.id}" aria-label="${item.label || deletedItemKindLabel(item.kind)} 복구">↩ 복구</button>
-            <button type="button" class="deleted-recovery-discard" data-action="discard-deleted-item" data-deleted-id="${item.id}" aria-label="${item.label || deletedItemKindLabel(item.kind)} 폐기">✕ 폐기</button>
+            <button type="button" class="deleted-recovery-restore" data-action="restore-deleted-item" data-deleted-id="${item.id}" aria-label="${item.label || deletedItemKindLabel(item.kind)} 복구" title="이 항목을 복구합니다">↩ 복구</button>
+            <button type="button" class="deleted-recovery-discard" data-action="discard-deleted-item" data-deleted-id="${item.id}" aria-label="${item.label || deletedItemKindLabel(item.kind)} 폐기" title="이 항목을 영구적으로 삭제합니다">✕ 폐기</button>
           </div>
         </article>
       `).join("");
@@ -627,8 +638,8 @@
             </div>
             ${allItems.length ? raw(html`
               <div class="deleted-recovery-head-actions">
-                <button type="button" class="deleted-recovery-restore-all" data-action="restore-all-deleted-items">모두 복구</button>
-                <button type="button" class="deleted-recovery-clear" data-action="clear-deleted-items">비우기</button>
+                <button type="button" class="deleted-recovery-restore-all" data-action="restore-all-deleted-items" title="모든 삭제된 항목을 복구합니다">모두 복구</button>
+                <button type="button" class="deleted-recovery-clear" data-action="clear-deleted-items" title="모든 삭제된 항목을 영구적으로 삭제합니다">비우기</button>
               </div>
             `) : ""}
           </div>
@@ -868,7 +879,7 @@
               ${raw(runbook.postInstallEvidenceIntakeSignals.map((signal) => html`<span data-post-install-evidence-intake-signal>${signal}</span>`).join(""))}
             </div>
             <pre data-post-install-evidence-intake-text>${runbook.postInstallEvidenceIntakeText}</pre>
-            <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-post-install-evidence-intake" data-post-install-evidence-intake-copy>intake template 복사</button>
+            <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-post-install-evidence-intake" data-post-install-evidence-intake-copy title="설치 후 증거 수집 템플릿을 클립보드에 복사합니다">intake template 복사</button>
             <small class="portfolio-export-status" data-post-install-evidence-intake-copy-status aria-live="polite"></small>
           </div>
         </section>
@@ -880,9 +891,9 @@
         <section class="panel">
           <div class="panel-head"><div><h2>정보</h2></div></div>
           <ul class="settings-info">
-            <li><strong>JooPark Workspace</strong> · v3.0 — 개인 관리(일정/할 일/메모/습관/통계) + 프로젝트 · DB 카탈로그</li>
-            <li>단축키: <b>⌘K</b> 명령 팔레트 · <b>/</b> 검색 · <b>n</b> 새 항목 · <b>?</b> 도움말 · <b>g+키</b> 화면 이동 · <b>Esc</b> 닫기</li>
-            <li>저장 위치: 브라우저 localStorage · 빌드 정적(외부 의존성 없음)</li>
+            <li title="JooPark Workspace v3.0 - 개인 관리 및 프로젝트 관리 앱"><strong>JooPark Workspace</strong> · v3.0 — 개인 관리(일정/할 일/메모/습관/통계) + 프로젝트 · DB 카탈로그</li>
+            <li title="자주 사용하는 키보드 단축키 목록">단축키: <b>⌘K</b> 명령 팔레트 · <b>/</b> 검색 · <b>n</b> 새 항목 · <b>?</b> 도움말 · <b>g+키</b> 화면 이동 · <b>Esc</b> 닫기</li>
+            <li title="데이터는 브라우저 로컬에 저장되며 외부 의존성이 없습니다">저장 위치: 브라우저 localStorage · 빌드 정적(외부 의존성 없음)</li>
           </ul>
         </section>
       `;
@@ -894,6 +905,7 @@
         ${raw(settingsKpisHTML(model))}
         ${raw(profilePanelHTML(model))}
         ${raw(themePanelHTML(model))}
+        ${raw(referenceProjectsPanelHTML(model))}
         ${raw(backupPanelHTML(model))}
         ${raw(recentlyDeletedPanelHTML(model))}
         ${raw(handoffPanelHTML(model))}
