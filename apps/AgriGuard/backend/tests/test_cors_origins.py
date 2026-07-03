@@ -124,6 +124,13 @@ def test_agriguard_compose_binds_postgres_to_loopback_only() -> None:
     assert '"5432:5432"' not in compose
 
 
+def test_agriguard_compose_binds_backend_api_to_loopback_only() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert '"127.0.0.1:8002:8002"' in compose
+    assert '"8002:8002"' not in compose
+
+
 def test_agriguard_backend_healthcheck_uses_api_root_not_docs_ui() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 

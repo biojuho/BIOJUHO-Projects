@@ -58,7 +58,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8002:8002"
+      - "127.0.0.1:8002:8002"
     environment:
       - ENV=${ENV:-production}
       - DATABASE_URL=${AGRIGUARD_DATABASE_URL:-postgresql://${AGRIGUARD_DB_USER:-agriguard}:${AGRIGUARD_DB_PASSWORD:-agriguard_secret}@postgres:5432/${AGRIGUARD_DB_NAME:-agriguard}}
