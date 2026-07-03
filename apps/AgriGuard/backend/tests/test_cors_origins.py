@@ -79,6 +79,24 @@ def test_frontend_dockerignore_excludes_local_build_and_test_artifacts() -> None
         assert pattern in dockerignore
 
 
+def test_backend_dockerignore_excludes_local_runtime_and_test_artifacts() -> None:
+    dockerignore = (WORKSPACE_ROOT / "apps/AgriGuard/backend/.dockerignore").read_text(encoding="utf-8")
+
+    for pattern in [
+        "__pycache__/",
+        ".venv/",
+        "*.egg-info/",
+        ".deepeval/",
+        ".pytest_cache/",
+        ".coverage",
+        "var/",
+        "tests/",
+        "test_*.py",
+        ".env.*",
+    ]:
+        assert pattern in dockerignore
+
+
 def test_agriguard_compose_database_url_ignores_host_sqlite_default() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 

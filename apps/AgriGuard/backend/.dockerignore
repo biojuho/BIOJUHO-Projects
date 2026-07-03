@@ -1,10 +1,17 @@
 __pycache__/
 *.pyc
 *.pyo
+.venv/
+venv/
+*.egg-info/
+.deepeval/
 .pytest-tmp/
 .pytest_cache/
 .coverage
 htmlcov/
+var/
+tests/
+test_*.py
 .env
 .env.*
 *.db
