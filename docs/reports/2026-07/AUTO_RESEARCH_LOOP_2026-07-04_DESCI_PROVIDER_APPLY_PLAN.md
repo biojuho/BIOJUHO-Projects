@@ -29,6 +29,7 @@ Continue the DeSci launch hardening loop by turning provider templates into a re
   - `--provider-apply-plan-out`
   - `--provider-apply-plan-markdown-out`
   - redacted apply command templates for GitHub, Railway, and Vercel
+  - shell-specific `powershell_command` and `posix_command` apply templates
   - `ready_to_apply` / `blank_key_count` provider status
   - post-apply `external_release_gate.py --provider-template-dir ... --target ...` verify commands
 - Extended `apps/desci-platform/backend/tests/test_external_gate_handoff.py` to verify:
@@ -36,6 +37,7 @@ Continue the DeSci launch hardening loop by turning provider templates into a re
   - apply plans do not leak populated values,
   - blank templates are not marked ready,
   - fully populated templates are marked ready without exposing values.
+  - PowerShell-safe command templates are emitted for stdin/file-based provider writes.
 
 ## Verification
 
@@ -45,23 +47,25 @@ Commands run from `apps/desci-platform`:
 python -m py_compile scripts/external_gate_handoff.py
 python -m pytest backend/tests/test_external_gate_handoff.py backend/tests/test_external_release_gate.py -q
 python scripts/external_gate_handoff.py --external-gate-json var/external-release-gate-provider-2026-07-04.json --json-out var/external-gate-handoff-apply-plan-2026-07-04.json --markdown-out var/external-gate-handoff-apply-plan-2026-07-04.md --provider-template-dir var/external-gate-provider-apply-plan-2026-07-04 --provider-template-index-out var/external-gate-provider-apply-plan-index-2026-07-04.json --provider-apply-plan-out var/external-gate-provider-apply-plan-2026-07-04.json --provider-apply-plan-markdown-out var/external-gate-provider-apply-plan-2026-07-04.md
+python scripts/external_gate_handoff.py --external-gate-json var/external-release-gate-provider-2026-07-04.json --json-out var/external-gate-handoff-apply-plan-pwsh-2026-07-04.json --markdown-out var/external-gate-handoff-apply-plan-pwsh-2026-07-04.md --provider-template-dir var/external-gate-provider-apply-plan-pwsh-2026-07-04 --provider-template-index-out var/external-gate-provider-apply-plan-pwsh-index-2026-07-04.json --provider-apply-plan-out var/external-gate-provider-apply-plan-pwsh-2026-07-04.json --provider-apply-plan-markdown-out var/external-gate-provider-apply-plan-pwsh-2026-07-04.md
 python -m pytest backend/tests/test_external_gate_handoff.py backend/tests/test_external_release_gate.py backend/tests/test_provider_preflight.py backend/tests/test_deploy_readiness.py backend/tests/test_product_smoke.py -q
-python scripts/browser_smoke.py --frontend http://127.0.0.1:5173 --expect-dev-auth --launch-click-suite --timeout 45 --json-out var/desci-browser-smoke-provider-apply-plan-2026-07-04.json --trace-on-failure-dir var/traces/provider-apply-plan-2026-07-04
+python scripts/browser_smoke.py --frontend http://127.0.0.1:5173 --expect-dev-auth --launch-click-suite --timeout 45 --json-out var/desci-browser-smoke-provider-apply-plan-pwsh-2026-07-04.json --trace-on-failure-dir var/traces/provider-apply-plan-pwsh-2026-07-04
 ```
 
 Command run from workspace root:
 
 ```powershell
-python ops/scripts/run_workspace_smoke.py --scope desci --json-out var/workspace-smoke-desci-provider-apply-plan-2026-07-04.json
+python ops/scripts/run_workspace_smoke.py --scope desci --json-out var/workspace-smoke-desci-provider-apply-plan-pwsh-2026-07-04.json
 ```
 
 Observed results:
 
 - `py_compile`: pass.
-- Focused pytest: `20 passed`.
+- Focused pytest after PowerShell command work: `21 passed`.
 - Apply plan generation: `ready_provider_count=0`, `provider_count=4`, expected because generated templates are still blank.
+- Apply plan Markdown now separates PowerShell and POSIX command templates. PowerShell templates use `Get-Content -Raw '<private-values/KEY.txt>' | ...` for stdin/file-based provider writes.
 - Secret-pattern scan of apply plan/index outputs: no matches.
-- Broader release pytest: `82 passed`.
+- Broader release pytest after PowerShell command work: `83 passed`.
 - Browser launch-click suite: `9/9` passed.
 - DeSci workspace smoke: `8/8` passed.
 

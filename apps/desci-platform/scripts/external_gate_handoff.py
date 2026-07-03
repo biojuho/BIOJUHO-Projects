@@ -393,12 +393,18 @@ def write_provider_template_index(
     return write_json_report(path, provider_template_index_payload(payload, provider_paths))
 
 
+def _powershell_single_quoted(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
 def _provider_apply_commands(provider: str, template_path: str, keys: list[str]) -> list[dict[str, Any]]:
     if provider == "github":
         return [
             {
                 "id": "github_secret_env_file",
                 "command": f"gh secret set --env-file {template_path}",
+                "powershell_command": f"gh secret set --env-file {_powershell_single_quoted(template_path)}",
+                "posix_command": f"gh secret set --env-file {template_path}",
                 "stdin_required": False,
                 "value_placeholder": "",
             }
@@ -408,6 +414,11 @@ def _provider_apply_commands(provider: str, template_path: str, keys: list[str])
             {
                 "id": f"railway_variable_set_{key.lower()}",
                 "command": f"railway variable set {key} --stdin",
+                "powershell_command": (
+                    f"Get-Content -Raw {_powershell_single_quoted(f'<private-values/{key}.txt>')} "
+                    f"| railway variable set {key} --stdin"
+                ),
+                "posix_command": f"railway variable set {key} --stdin < <private-values/{key}.txt>",
                 "stdin_required": True,
                 "value_placeholder": "<private-value-on-stdin>",
             }
@@ -418,6 +429,11 @@ def _provider_apply_commands(provider: str, template_path: str, keys: list[str])
             {
                 "id": f"vercel_env_add_{key.lower()}",
                 "command": f"vercel env add {key} production < <private-value-file>",
+                "powershell_command": (
+                    f"Get-Content -Raw {_powershell_single_quoted(f'<private-values/{key}.txt>')} "
+                    f"| vercel env add {key} production"
+                ),
+                "posix_command": f"vercel env add {key} production < <private-values/{key}.txt>",
                 "stdin_required": True,
                 "value_placeholder": "<private-value-file>",
             }
@@ -514,7 +530,10 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
         if commands:
             lines.append("- Apply command templates:")
             for command in commands:
-                lines.append(f"  - `{command.get('command')}`")
+                powershell_command = command.get("powershell_command") or command.get("command")
+                posix_command = command.get("posix_command") or command.get("command")
+                lines.append(f"  - PowerShell: `{powershell_command}`")
+                lines.append(f"  - POSIX: `{posix_command}`")
         verify_commands = _string_list(provider.get("post_apply_verify_commands"))
         if verify_commands:
             lines.append("- Verify after apply:")

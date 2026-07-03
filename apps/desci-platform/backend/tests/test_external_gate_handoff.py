@@ -238,8 +238,17 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert provider["ready_to_apply"] is False
     assert provider["blank_key_count"] == 2
     assert provider["commands"][0]["command"] == "railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin"
+    assert (
+        provider["commands"][0]["powershell_command"]
+        == "Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>' | railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin"
+    )
+    assert (
+        provider["commands"][0]["posix_command"]
+        == "railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin < <private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>"
+    )
     assert "super-secret" not in json.dumps(plan)
-    assert "railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
+    assert "PowerShell: `Get-Content -Raw '<private-values/FIREBASE_SERVICE_ACCOUNT_JSON.txt>'" in markdown
+    assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
 
 
 def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaking_values(tmp_path: Path) -> None:
@@ -257,6 +266,20 @@ def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaki
     assert plan["providers"][0]["blank_key_count"] == 0
     assert "super-secret" not in serialized
     assert "jwt-secret" not in serialized
+
+
+def test_external_gate_handoff_provider_apply_commands_are_shell_specific() -> None:
+    github = external_gate_handoff._provider_apply_commands("github", "var/providers/github.env", ["GITLEAKS_LICENSE"])
+    vercel = external_gate_handoff._provider_apply_commands("vercel", "var/providers/vercel.env", ["VITE_API_BASE_URL"])
+
+    assert github[0]["powershell_command"] == "gh secret set --env-file 'var/providers/github.env'"
+    assert github[0]["posix_command"] == "gh secret set --env-file var/providers/github.env"
+    assert (
+        vercel[0]["powershell_command"]
+        == "Get-Content -Raw '<private-values/VITE_API_BASE_URL.txt>' | vercel env add VITE_API_BASE_URL production"
+    )
+    assert vercel[0]["posix_command"] == "vercel env add VITE_API_BASE_URL production < <private-values/VITE_API_BASE_URL.txt>"
+    assert "VITE_API_BASE_URL=" not in json.dumps(vercel)
 
 
 def test_external_gate_handoff_cli_requires_template_dir_for_index(capsys) -> None:
