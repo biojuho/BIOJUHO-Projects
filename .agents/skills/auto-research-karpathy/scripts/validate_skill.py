@@ -11,6 +11,7 @@ SKILL_PATH = SKILL_DIR / "SKILL.md"
 REQUIRED_FILES = [
     "SKILL.md",
     "references/source-backed-patterns.md",
+    "references/research-basis.md",
     "references/workspace-loop.md",
     "examples/self-improvement-cycle.yaml",
 ]
@@ -27,6 +28,10 @@ REQUIRED_TERMS = [
     "github_modernization_radar.py",
     "run_workspace_smoke.py",
     "browser_smoke.py",
+    "Veritas-7/autoresearch-skill-system",
+    "stop-file/watchdog controls",
+    "research basis",
+    "source-bound hypotheses",
     "A/B",
     "commit",
     "push",
@@ -90,12 +95,27 @@ def validate(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
         "https://github.com/PrefectHQ/fastmcp",
         "https://github.com/lastmile-ai/mcp-eval",
         "https://github.com/evalstate/fast-agent",
+        "https://github.com/Veritas-7/autoresearch-skill-system",
         "https://github.com/Uninen/devserver-mcp",
     ]:
         ok = url in source_text
         checks.append({"name": f"source:{url}", "ok": ok})
         if not ok:
             errors.append(f"missing source URL: {url}")
+
+    research_basis = skill_dir / "references" / "research-basis.md"
+    research_text = research_basis.read_text(encoding="utf-8") if research_basis.exists() else ""
+    for term in [
+        "source-bound hypotheses",
+        "Adoption Boundary",
+        "latest observed source commit",
+        "same-sample baseline and candidate result",
+        "isolated sandbox adapter",
+    ]:
+        ok = term in research_text
+        checks.append({"name": f"research_basis:{term}", "ok": ok})
+        if not ok:
+            errors.append(f"research basis is missing term: {term}")
 
     example = skill_dir / "examples" / "self-improvement-cycle.yaml"
     example_text = example.read_text(encoding="utf-8") if example.exists() else ""

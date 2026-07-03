@@ -36,6 +36,10 @@ def test_auto_research_skill_has_launch_loop_contract() -> None:
     assert "Stage, commit, or push only files owned by" in skill
     assert "Playwright, browser smoke scripts, or" in skill
     assert "github_modernization_radar.py" in skill
+    assert "Veritas-7/autoresearch-skill-system" in skill
+    assert "stop-file/watchdog controls" in skill
+    assert "research basis" in skill
+    assert "source-bound hypotheses" in skill
 
 
 def test_auto_research_references_map_sources_to_local_evidence() -> None:
@@ -45,6 +49,7 @@ def test_auto_research_references_map_sources_to_local_evidence() -> None:
         "PrefectHQ/fastmcp",
         "lastmile-ai/mcp-eval",
         "evalstate/fast-agent",
+        "Veritas-7/autoresearch-skill-system",
         "Uninen/devserver-mcp",
     ]:
         assert repo in reference
@@ -54,8 +59,31 @@ def test_auto_research_references_map_sources_to_local_evidence() -> None:
         "apps/desci-platform/scripts/browser_smoke.py",
         "mcp/canva-mcp/src/server/stdio.ts",
         "packages/shared/harness/core.py",
+        ".agents/skills/auto-research-karpathy/scripts/validate_skill.py",
     ]:
         assert local_path in reference
+
+
+def test_auto_research_research_basis_documents_adoption_boundary() -> None:
+    basis = (SKILL_DIR / "references" / "research-basis.md").read_text(encoding="utf-8")
+
+    for source in [
+        "PrefectHQ/fastmcp",
+        "lastmile-ai/mcp-eval",
+        "evalstate/fast-agent",
+        "Veritas-7/autoresearch-skill-system",
+        "dsifry/metaswarm",
+    ]:
+        assert source in basis
+
+    for term in [
+        "source-bound hypotheses",
+        "Adoption Boundary",
+        "latest observed source commit",
+        "same-sample baseline and candidate result",
+        "isolated sandbox adapter",
+    ]:
+        assert term in basis
 
 
 def test_auto_research_workspace_loop_documents_safe_git_flow() -> None:
@@ -65,3 +93,5 @@ def test_auto_research_workspace_loop_documents_safe_git_flow() -> None:
     assert "git diff --cached --check" in reference
     assert "Do not stage broad globs" in reference
     assert "run_workspace_smoke.py --scope getdaytrends" in reference
+    assert "git ls-remote https://github.com/Veritas-7/autoresearch-skill-system.git" in reference
+    assert "var/external/" in reference

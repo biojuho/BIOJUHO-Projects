@@ -83,6 +83,35 @@ Local mapping:
 - `packages/shared/harness/token_tracker.py`
 - `packages/shared/tests/test_workflow_trace.py`
 
+## Codex AutoResearch Skill System
+
+Primary source:
+
+- Veritas-7/autoresearch-skill-system:
+  <https://github.com/Veritas-7/autoresearch-skill-system>
+
+Useful pattern:
+
+- Treat a named AutoResearch source repository as a first-class modernization
+  source with an observed commit, not only as inspiration.
+- Continuous improvement must remain bounded by same-sample A/B checks,
+  durable archives, single-writer ownership, machine-readable status,
+  stop-file/watchdog controls, and fail-closed completion audits.
+- Quality audits should ignore in-progress evidence until the completion marker
+  exists, and self-stabilization should keep iterating only while actionable
+  gaps remain.
+
+Local mapping:
+
+- `.agents/skills/auto-research-karpathy/SKILL.md`
+- `.agents/skills/auto-research-karpathy/references/workspace-loop.md`
+- `.agents/skills/auto-research-karpathy/examples/self-improvement-cycle.yaml`
+- `.agents/skills/auto-research-karpathy/scripts/validate_skill.py`
+- `tests/test_auto_research_karpathy_skill.py`
+- `ops/references/github_modernization_sources.json`
+- `ops/scripts/github_modernization_radar.py`
+- `tests/test_github_modernization_radar.py`
+
 ## Dev Server and Browser Automation
 
 Primary source:

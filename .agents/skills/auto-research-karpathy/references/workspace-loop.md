@@ -15,6 +15,17 @@ python ops/scripts/github_modernization_radar.py --json-out var/github-moderniza
 If the worktree is dirty, identify owned paths for the current cycle and avoid
 staging unrelated files.
 
+When a user names `Veritas-7/autoresearch-skill-system`, also verify the current
+source commit before choosing the experiment:
+
+```powershell
+git ls-remote https://github.com/Veritas-7/autoresearch-skill-system.git HEAD refs/heads/main
+```
+
+Use a shallow clone under `var/external/` only for static inspection. Do not
+install, import, or execute source-repo code in this workspace unless the cycle
+has a disposable sandbox, an A/B metric, and explicit adoption guardrails.
+
 ## Project Surfaces
 
 Use these scopes when choosing app-by-app validation:

@@ -37,6 +37,15 @@ system, but keep deterministic checks, human-readable evidence, and explicit
 adoption rules in the loop. Use agents, tools, browser automation, and GitHub
 research as accelerators, not replacements for verification.
 
+For source-backed AutoResearch skill or harness work, use
+`Veritas-7/autoresearch-skill-system` as the first comparable source. Its useful
+transfer pattern is not "run forever blindly"; it is bounded continuous mode with
+same-sample A/B adoption, durable archives, single-writer locks, machine-readable
+status, stop-file/watchdog controls, and fail-closed completion audits.
+Keep a local research basis for external systems: treat upstream patterns as
+source-bound hypotheses until local evidence, validator results, and a recorded
+adoption boundary justify the change.
+
 ## Workflow
 
 ### 1. Build the Objective Contract
@@ -69,6 +78,12 @@ python ops/scripts/github_modernization_radar.py --json-out var/github-moderniza
 If the manifest is stale or the product scope changes, update the manifest only
 after verifying each source is a GitHub HTTPS URL and each local evidence path
 exists.
+
+When the user names the Veritas AutoResearch source repository, also record the
+latest observed `main` commit with `git ls-remote` or a shallow clone, then map
+only the locally adopted patterns into the radar. Keep untrusted source
+execution out of the workspace unless it has a disposable sandbox and an
+explicit A/B decision rule.
 
 ### 3. Choose the Next High-Value Experiment
 
@@ -127,6 +142,7 @@ Write cycle evidence to `docs/reports/<year-month>/` or the project's own
 
 - objective and scope
 - external sources checked
+- latest observed source commit when a specific GitHub source was named
 - A/B hypothesis and decision rule
 - changed paths
 - verification commands and results
