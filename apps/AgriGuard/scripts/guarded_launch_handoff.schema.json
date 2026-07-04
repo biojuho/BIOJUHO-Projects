@@ -85,6 +85,12 @@
             "null"
           ]
         },
+        "artifact_index_recovery_command_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "evidence_outputs_status": {
           "type": [
             "string",
@@ -148,7 +154,8 @@
         "missing_markdown_rows",
         "extra_markdown_rows",
         "path_mismatch_count",
-        "artifact_index_recovery_command_status"
+        "artifact_index_recovery_command_status",
+        "artifact_index_recovery_command_note"
       ],
       "type": "object"
     },

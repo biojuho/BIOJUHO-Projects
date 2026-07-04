@@ -83,6 +83,11 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
     evidence_status = evidence_validation.get("status")
     markdown_status = markdown_validation.get("status")
     recovery_command_status = artifact_index_summary.get("recovery_command_status")
+    recovery_command_note = (
+        None
+        if isinstance(recovery_command_status, str)
+        else "Artifact index recovery status is resolved after the wrapper emits the artifact index."
+    )
     expected_output_keys = _string_list(markdown_validation.get("expected_output_keys"))
     status = "pass" if packet is not None and evidence_status == "pass" and markdown_status == "pass" else "fail"
     return {
@@ -102,6 +107,7 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
         "artifact_index_recovery_command_status": recovery_command_status
         if isinstance(recovery_command_status, str)
         else None,
+        "artifact_index_recovery_command_note": recovery_command_note,
     }
 
 
@@ -257,6 +263,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Extra Markdown rows: `{', '.join(packet_validation.get('extra_markdown_rows', [])) or '-'}`",
         f"- Path mismatch count: `{packet_validation.get('path_mismatch_count')}`",
         f"- Artifact index recovery command status: `{packet_validation.get('artifact_index_recovery_command_status')}`",
+        f"- Artifact index recovery command note: `{packet_validation.get('artifact_index_recovery_command_note') or '-'}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
         f"- Env validation ready for preflight: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
         f"- Env validation placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",

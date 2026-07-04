@@ -49,8 +49,14 @@ def _write_operator_packet(
     *,
     evidence_status: str = "pass",
     markdown_status: str = "pass",
+    recovery_command_status: str | None = "not_required",
 ) -> None:
     artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), prefix)
+    artifact_summary = (
+        {"recovery_command_status": recovery_command_status}
+        if recovery_command_status is not None
+        else {}
+    )
     artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
     artifacts["operator_packet_json"].write_text(
         json.dumps(
@@ -59,9 +65,7 @@ def _write_operator_packet(
                 "secrets_redacted": True,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
                 "guarded_launch_evidence": {
-                    "artifact_index_readiness_summary": {
-                        "recovery_command_status": "not_required",
-                    },
+                    "artifact_index_readiness_summary": artifact_summary,
                     "validation": {
                         "status": evidence_status,
                         "missing_output_keys": [] if evidence_status == "pass" else ["handoff_json"],
@@ -125,6 +129,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["packet_evidence_outputs_status"] == "pass"
     assert view["packet_markdown_table_status"] == "pass"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
+    assert view["packet_artifact_index_recovery_command_note"] is None
     assert view["validation_matches_handoff"] is True
     assert view["errors"] == []
 
@@ -164,11 +169,38 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["packet_validation_status"] == "pass"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
+    assert view["packet_artifact_index_recovery_command_note"] is None
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["readiness_env_validation_ready_for_preflight"] is False
     assert view["readiness_env_validation_placeholder_count"] == 6
     assert view["readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert view["validation_matches_handoff"] is True
+
+
+def test_consume_guarded_launch_handoff_exposes_deferred_recovery_status_note(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_readiness_summary(
+        output_dir,
+        "blocked",
+        {
+            "status": "blocked",
+            "blocker_class": "env_shape_blocked",
+            "secrets_redacted": True,
+            "reports": {},
+        },
+    )
+    _write_operator_packet(output_dir, "blocked", recovery_command_status=None)
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
+
+    view = consume_guarded_launch_handoff.build_consumer_view(
+        handoff_json=handoff_json,
+        validation_json=validation_json,
+    )
+
+    assert view["packet_artifact_index_recovery_command_status"] is None
+    assert view["packet_artifact_index_recovery_command_note"] == (
+        "Artifact index recovery status is resolved after the wrapper emits the artifact index."
+    )
 
 
 def test_consume_guarded_launch_handoff_fails_packet_validation_drift(tmp_path: Path) -> None:

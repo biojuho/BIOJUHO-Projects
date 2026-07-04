@@ -139,6 +139,7 @@ def build_consumer_view(
         "packet_artifact_index_recovery_command_status": packet_validation.get(
             "artifact_index_recovery_command_status"
         ),
+        "packet_artifact_index_recovery_command_note": packet_validation.get("artifact_index_recovery_command_note"),
         "readiness_operator_action_ids": readiness_action_ids,
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),

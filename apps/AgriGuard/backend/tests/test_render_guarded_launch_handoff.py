@@ -16,7 +16,12 @@ SPEC.loader.exec_module(render_guarded_launch_handoff)
 RUN_WRAPPER = render_guarded_launch_handoff.run_guarded_launch
 
 
-def _write_operator_packet(path: Path) -> None:
+def _write_operator_packet(path: Path, *, recovery_command_status: str | None = "not_required") -> None:
+    artifact_summary = (
+        {"recovery_command_status": recovery_command_status}
+        if recovery_command_status is not None
+        else {}
+    )
     path.write_text(
         json.dumps(
             {
@@ -24,9 +29,7 @@ def _write_operator_packet(path: Path) -> None:
                 "secrets_redacted": True,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
                 "guarded_launch_evidence": {
-                    "artifact_index_readiness_summary": {
-                        "recovery_command_status": "not_required",
-                    },
+                    "artifact_index_readiness_summary": artifact_summary,
                     "validation": {
                         "status": "pass",
                         "missing_output_keys": [],
@@ -95,8 +98,34 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["markdown_table_status"] == "pass"
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
     assert handoff["packet_validation"]["artifact_index_recovery_command_status"] == "not_required"
+    assert handoff["packet_validation"]["artifact_index_recovery_command_note"] is None
     assert "--require-ready" in handoff["ready_gate"]["command"]
     assert handoff["secrets_redacted"] is True
+
+
+def test_guarded_launch_handoff_notes_deferred_artifact_index_recovery_status(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), "blocked")
+    artifacts["readiness_summary_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["readiness_summary_json"].write_text(
+        json.dumps({"status": "blocked", "blocker_class": "env_shape_blocked", "secrets_redacted": True}),
+        encoding="utf-8",
+    )
+    _write_operator_packet(artifacts["operator_packet_json"], recovery_command_status=None)
+
+    handoff = render_guarded_launch_handoff.build_handoff(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+        ready_gate_json=output_dir / "blocked-ready-gate.json",
+    )
+    markdown = render_guarded_launch_handoff.render_markdown(handoff)
+
+    assert handoff["packet_validation"]["artifact_index_recovery_command_status"] is None
+    assert handoff["packet_validation"]["artifact_index_recovery_command_note"] == (
+        "Artifact index recovery status is resolved after the wrapper emits the artifact index."
+    )
+    assert "Artifact index recovery command note: `Artifact index recovery status is resolved" in markdown
 
 
 def test_guarded_launch_handoff_accepts_ready_prefix(tmp_path: Path) -> None:
