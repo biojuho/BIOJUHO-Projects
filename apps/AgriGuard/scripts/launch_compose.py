@@ -674,6 +674,19 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     if args.validate_env_file_shape:
         child_reports["env_validation"] = {"found": False, "path": str(env_validation_json_out)}
         if env_validation_command is None:
+            operator_packet_result = command_runner(operator_packet_command, cwd=app_root, text=True)
+            results.append(
+                _command_result(
+                    name="operator_packet",
+                    command=operator_packet_command,
+                    completed=operator_packet_result,
+                )
+            )
+            child_reports["operator_packet"] = _summarize_operator_packet_json(
+                operator_packet_json,
+                operator_packet_markdown,
+                operator_env_template,
+            )
             launch_report["status"] = "fail"
             launch_report["stage"] = "env_shape_validation"
             launch_report["stop_reason"] = "env_shape_validation_requires_single_env_file"
@@ -706,6 +719,19 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         )
         child_reports["env_validation"] = _summarize_env_validation_json(env_validation_json_out)
         if env_validation_result.returncode != 0:
+            operator_packet_result = command_runner(operator_packet_command, cwd=app_root, text=True)
+            results.append(
+                _command_result(
+                    name="operator_packet",
+                    command=operator_packet_command,
+                    completed=operator_packet_result,
+                )
+            )
+            child_reports["operator_packet"] = _summarize_operator_packet_json(
+                operator_packet_json,
+                operator_packet_markdown,
+                operator_env_template,
+            )
             launch_report["status"] = "fail"
             launch_report["stage"] = "env_shape_validation"
             launch_report["stop_reason"] = "env_shape_validation_failed"

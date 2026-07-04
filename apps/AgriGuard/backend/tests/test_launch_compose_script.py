@@ -15,6 +15,30 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(launch_compose)
 
 
+def _write_operator_packet_outputs(command: list[str]) -> None:
+    json_out = Path(command[command.index("--json-out") + 1])
+    markdown_out = Path(command[command.index("--markdown-out") + 1])
+    env_template_out = Path(command[command.index("--env-template-out") + 1])
+    json_out.parent.mkdir(parents=True, exist_ok=True)
+    json_out.write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "preflight_status": "missing_preflight",
+                "blocking_action_count": 1,
+                "operator_actions": [{"id": "run_launch_preflight"}],
+                "operator_env_template": {
+                    "variables": ["AGRIGUARD_SECRET_KEY"],
+                },
+                "secrets_redacted": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    markdown_out.write_text("# Operator packet\n", encoding="utf-8")
+    env_template_out.write_text("AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>\n", encoding="utf-8")
+
+
 def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     json_out = tmp_path / "preflight.json"
@@ -165,19 +189,22 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
 
     def runner(command, **kwargs):
         calls.append(command)
-        validation_json.write_text(
-            json.dumps(
-                {
-                    "status": "fail",
-                    "ready_for_preflight": False,
-                    "placeholder_count": 6,
-                    "missing_required_keys": [],
-                    "forbidden_flags_enabled": [],
-                }
-            ),
-            encoding="utf-8",
-        )
-        return subprocess.CompletedProcess(args=command, returncode=1, stdout="validation failed", stderr="")
+        if command[1].endswith("validate_launch_env_template.py"):
+            validation_json.write_text(
+                json.dumps(
+                    {
+                        "status": "fail",
+                        "ready_for_preflight": False,
+                        "placeholder_count": 6,
+                        "missing_required_keys": [],
+                        "forbidden_flags_enabled": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(args=command, returncode=1, stdout="validation failed", stderr="")
+        _write_operator_packet_outputs(command)
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="packet written", stderr="")
 
     result = launch_compose.main(
         [
@@ -197,14 +224,15 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     )
 
     assert result == 1
-    assert len(calls) == 1
+    assert len(calls) == 2
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "validate_launch_env_template.py")
+    assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py")
     assert "strict preflight was not run" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
     assert report["stage"] == "env_shape_validation"
     assert report["stop_reason"] == "env_shape_validation_failed"
-    assert [item["name"] for item in report["results"]] == ["env_validation"]
+    assert [item["name"] for item in report["results"]] == ["env_validation", "operator_packet"]
     assert report["child_reports"]["env_validation"] == {
         "found": True,
         "path": str(validation_json.resolve()),
@@ -215,6 +243,9 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
         "forbidden_flags_enabled": [],
     }
     assert report["child_reports"]["preflight"] == {"found": False, "path": str(launch_compose._default_json_out(app_root.resolve()))}
+    assert report["child_reports"]["operator_packet"]["found"] is True
+    assert report["child_reports"]["operator_packet"]["preflight_status"] == "missing_preflight"
+    assert report["child_reports"]["operator_packet"]["operator_action_ids"] == ["run_launch_preflight"]
 
 
 def test_launch_compose_runs_preflight_after_env_shape_validation_passes(tmp_path: Path) -> None:
@@ -287,6 +318,7 @@ def test_launch_compose_env_shape_validation_requires_single_env_file(tmp_path: 
 
     def runner(command, **kwargs):
         calls.append(command)
+        _write_operator_packet_outputs(command)
         return subprocess.CompletedProcess(args=command, returncode=0)
 
     result = launch_compose.main(
@@ -305,12 +337,15 @@ def test_launch_compose_env_shape_validation_requires_single_env_file(tmp_path: 
     )
 
     assert result == 2
-    assert calls == []
+    assert len(calls) == 1
+    assert calls[0][1] == str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py")
     assert "requires exactly one --env-file" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
     assert report["stage"] == "env_shape_validation"
     assert report["stop_reason"] == "env_shape_validation_requires_single_env_file"
+    assert [item["name"] for item in report["results"]] == ["operator_packet"]
+    assert report["child_reports"]["operator_packet"]["found"] is True
 
 
 def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> None:
