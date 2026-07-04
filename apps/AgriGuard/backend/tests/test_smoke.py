@@ -326,7 +326,7 @@ def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
     )
     report_path = tmp_path / "child.json"
     report_path.write_text(
-        json.dumps({"checks": [{"ok": True}, {"ok": False}, {"ok": True}]}),
+        json.dumps({"checks": [{"name": "nav_loaded", "ok": True}, {"name": "qr_failed", "ok": False}, {"ok": True}]}),
         encoding="utf-8",
     )
 
@@ -337,7 +337,21 @@ def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
         "checks_total": 3,
         "checks_passed": 2,
         "checks_failed": 1,
+        "failed_check_names": ["qr_failed"],
     }
+
+
+def test_browser_smoke_suite_summarizes_unnamed_failed_child_check(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_unnamed_summary_under_test",
+    )
+    report_path = tmp_path / "child.json"
+    report_path.write_text(json.dumps({"checks": [{"ok": False}]}), encoding="utf-8")
+
+    summary = script.summarize_child_report(report_path)
+
+    assert summary["failed_check_names"] == ["check_1"]
 
 
 def test_browser_smoke_suite_backend_contract_accepts_required_paths():

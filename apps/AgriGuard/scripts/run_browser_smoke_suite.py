@@ -308,18 +308,36 @@ def check_backend_contract(api_url: str, *, timeout_ms: int) -> dict[str, object
 
 def summarize_child_report(path: Path) -> dict[str, object]:
     if not path.exists():
-        return {"report_found": False, "checks_total": 0, "checks_passed": 0, "checks_failed": 0}
+        return {
+            "report_found": False,
+            "checks_total": 0,
+            "checks_passed": 0,
+            "checks_failed": 0,
+            "failed_check_names": [],
+        }
     payload = json.loads(path.read_text(encoding="utf-8"))
     checks = payload.get("checks")
     if not isinstance(checks, list):
-        return {"report_found": True, "checks_total": 0, "checks_passed": 0, "checks_failed": 0}
+        return {
+            "report_found": True,
+            "checks_total": 0,
+            "checks_passed": 0,
+            "checks_failed": 0,
+            "failed_check_names": [],
+        }
     checks_passed = sum(1 for check in checks if isinstance(check, dict) and check.get("ok") is True)
     checks_total = len(checks)
+    failed_check_names = [
+        str(check.get("name") or f"check_{index}")
+        for index, check in enumerate(checks, start=1)
+        if isinstance(check, dict) and check.get("ok") is not True
+    ]
     return {
         "report_found": True,
         "checks_total": checks_total,
         "checks_passed": checks_passed,
         "checks_failed": checks_total - checks_passed,
+        "failed_check_names": failed_check_names,
     }
 
 
@@ -380,12 +398,19 @@ def main() -> int:
                     "total": 0,
                     "passed": 0,
                     "failed": 0,
+                    "failed_step_names": [],
                     "checks_total": 0,
                     "checks_passed": 0,
                     "checks_failed": 0,
+                    "failed_check_names": [],
                     "prechecks_total": len(prechecks),
                     "prechecks_passed": 0,
                     "prechecks_failed": 1,
+                    "failed_precheck_names": [
+                        str(precheck.get("name") or f"precheck_{index}")
+                        for index, precheck in enumerate(prechecks, start=1)
+                        if precheck.get("ok") is not True
+                    ],
                 },
                 "prechecks": prechecks,
                 "results": [],
@@ -402,6 +427,18 @@ def main() -> int:
     failed = len(results) - passed
     prechecks_passed = sum(1 for precheck in prechecks if precheck.get("ok") is True)
     prechecks_failed = len(prechecks) - prechecks_passed
+    failed_step_names = [str(result.get("name")) for result in results if result.get("ok") is not True]
+    failed_check_names = [
+        f"{result.get('name')}:{check_name}"
+        for result in results
+        for check_name in result.get("failed_check_names", [])
+        if isinstance(check_name, str)
+    ]
+    failed_precheck_names = [
+        str(precheck.get("name") or f"precheck_{index}")
+        for index, precheck in enumerate(prechecks, start=1)
+        if precheck.get("ok") is not True
+    ]
     report = {
         "status": "pass" if failed == 0 and prechecks_failed == 0 else "fail",
         "base_url": args.base_url,
@@ -414,12 +451,15 @@ def main() -> int:
             "total": len(results),
             "passed": passed,
             "failed": failed,
+            "failed_step_names": failed_step_names,
             "checks_total": sum(int(result.get("checks_total", 0)) for result in results),
             "checks_passed": sum(int(result.get("checks_passed", 0)) for result in results),
             "checks_failed": sum(int(result.get("checks_failed", 0)) for result in results),
+            "failed_check_names": failed_check_names,
             "prechecks_total": len(prechecks),
             "prechecks_passed": prechecks_passed,
             "prechecks_failed": prechecks_failed,
+            "failed_precheck_names": failed_precheck_names,
         },
         "prechecks": prechecks,
         "results": results,
