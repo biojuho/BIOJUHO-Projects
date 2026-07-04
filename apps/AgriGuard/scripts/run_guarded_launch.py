@@ -229,6 +229,10 @@ def _default_artifact_index_json(output_dir: Path, output_prefix: str) -> Path:
     return output_dir / f"{output_prefix}-artifact-index.json"
 
 
+def _default_artifact_index_markdown(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-artifact-index.md"
+
+
 def _build_handoff_command(
     *,
     app_root: Path,
@@ -283,6 +287,7 @@ def _build_artifact_index_command(
     output_dir: Path,
     output_prefix: str,
     json_out: Path,
+    markdown_out: Path,
     status_json: Path | None,
 ) -> list[str]:
     command = [
@@ -294,6 +299,8 @@ def _build_artifact_index_command(
         output_prefix,
         "--json-out",
         str(json_out),
+        "--markdown-out",
+        str(markdown_out),
     ]
     if status_json is not None:
         command.extend(["--status-json", str(status_json)])
@@ -366,6 +373,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--handoff-validation-json-out", type=Path, default=None)
     parser.add_argument("--handoff-consumer-json-out", type=Path, default=None)
     parser.add_argument("--artifact-index-json-out", type=Path, default=None)
+    parser.add_argument("--artifact-index-markdown-out", type=Path, default=None)
     parser.add_argument("--handoff-ready-gate-json-out", type=Path, default=None)
     parser.add_argument("--dry-run", action="store_true", help="Print the delegated launch_compose.py command plan.")
     return parser.parse_args(argv)
@@ -393,6 +401,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         or args.handoff_validation_json_out
         or args.handoff_consumer_json_out
         or args.artifact_index_json_out
+        or args.artifact_index_markdown_out
         or args.handoff_ready_gate_json_out
     )
     handoff_json = args.handoff_json_out.resolve() if args.handoff_json_out else _default_handoff_json(output_dir, args.output_prefix)
@@ -421,6 +430,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.artifact_index_json_out
         else _default_artifact_index_json(output_dir, args.output_prefix)
     )
+    artifact_index_markdown = (
+        args.artifact_index_markdown_out.resolve()
+        if args.artifact_index_markdown_out
+        else _default_artifact_index_markdown(output_dir, args.output_prefix)
+    )
     handoff_command = (
         _build_handoff_command(
             app_root=app_root,
@@ -440,6 +454,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             json_out=artifact_index_json,
+            markdown_out=artifact_index_markdown,
             status_json=args.status_json_out.resolve() if args.status_json_out else None,
         )
         if handoff_requested
@@ -487,6 +502,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     "handoff_ready_gate_json": str(handoff_ready_gate_json) if handoff_requested else None,
                     "artifact_index_command": artifact_index_command,
                     "artifact_index_json": str(artifact_index_json) if handoff_requested else None,
+                    "artifact_index_markdown": str(artifact_index_markdown) if handoff_requested else None,
                 },
                 indent=2,
                 sort_keys=True,
@@ -504,18 +520,21 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         )
     if args.status_json_out and status_view is not None:
         write_json(args.status_json_out.resolve(), status_view)
+    post_launch_returncode = 0
     if handoff_command is not None:
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
-        if handoff_result.returncode != 0:
-            return handoff_result.returncode
+        if handoff_result.returncode != 0 and post_launch_returncode == 0:
+            post_launch_returncode = handoff_result.returncode
     if handoff_consumer_command is not None:
         consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
-        if consumer_result.returncode != 0:
-            return consumer_result.returncode
+        if consumer_result.returncode != 0 and post_launch_returncode == 0:
+            post_launch_returncode = consumer_result.returncode
     if artifact_index_command is not None:
         artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
-        if artifact_index_result.returncode != 0:
-            return artifact_index_result.returncode
+        if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
+            post_launch_returncode = artifact_index_result.returncode
+    if post_launch_returncode != 0:
+        return post_launch_returncode
     if args.require_ready and status_view is not None and not _status_view_ready(status_view):
         return completed.returncode or 1
     return completed.returncode

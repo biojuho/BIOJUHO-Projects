@@ -84,6 +84,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert payload["handoff_consumer_json"] == str(output_dir.resolve() / "release-check-handoff.consumer.json")
     assert payload["handoff_ready_gate_json"] == str(output_dir.resolve() / "release-check-ready-gate.json")
     assert payload["artifact_index_json"] == str(output_dir.resolve() / "release-check-artifact-index.json")
+    assert payload["artifact_index_markdown"] == str(output_dir.resolve() / "release-check-artifact-index.md")
     assert payload["handoff_command"][:2] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py"),
@@ -100,6 +101,9 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert "--exit-zero-on-blocked" in payload["handoff_consumer_command"]
     assert _arg_after(payload["artifact_index_command"], "--json-out") == str(
         output_dir.resolve() / "release-check-artifact-index.json"
+    )
+    assert _arg_after(payload["artifact_index_command"], "--markdown-out") == str(
+        output_dir.resolve() / "release-check-artifact-index.md"
     )
 
 
@@ -158,6 +162,7 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     assert calls[3][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
     assert "--exit-zero-on-blocked" in calls[1]
     assert "--exit-zero-on-blocked" in calls[2]
+    assert _arg_after(calls[3], "--markdown-out").endswith("-artifact-index.md")
 
 
 def test_guarded_launch_returns_handoff_validation_failure(tmp_path: Path) -> None:
@@ -181,7 +186,8 @@ def test_guarded_launch_returns_handoff_validation_failure(tmp_path: Path) -> No
     )
 
     assert result == 2
-    assert len(calls) == 2
+    assert len(calls) == 4
+    assert calls[3][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
 
 
 def test_guarded_launch_returns_handoff_consumer_failure(tmp_path: Path) -> None:
@@ -205,7 +211,8 @@ def test_guarded_launch_returns_handoff_consumer_failure(tmp_path: Path) -> None
     )
 
     assert result == 1
-    assert len(calls) == 3
+    assert len(calls) == 4
+    assert calls[3][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
 
 
 def test_guarded_launch_returns_artifact_index_failure(tmp_path: Path) -> None:
