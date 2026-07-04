@@ -2446,6 +2446,22 @@ def print_provider_apply_workflow_verification_report(payload: dict[str, Any]) -
         print(f"  - promotion_blocking_reason: {reason}")
 
 
+def print_provider_apply_workflow_github_output_verification_report(payload: dict[str, Any]) -> None:
+    summary = _as_dict(payload.get("summary"))
+    print(f"[external-gate-handoff] provider_apply_workflow_github_output_ok={payload.get('ok')}")
+    print(
+        "[external-gate-handoff] "
+        f"expected={summary.get('expected_output_count')} "
+        f"parsed={summary.get('parsed_output_count')} "
+        f"checked={summary.get('checked_output_count')} "
+        f"mismatched={summary.get('mismatched_output_count')} "
+        f"failures={summary.get('failure_count')} "
+        f"secret_markers={summary.get('secret_marker_count')}"
+    )
+    for failure in _string_list(payload.get("failures")):
+        print(f"  - {failure}")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a DeSci external gate operator handoff.")
     parser.add_argument(
@@ -2475,6 +2491,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--verify-provider-apply-results", help="Path to redacted provider apply results to verify.")
     parser.add_argument("--verify-provider-apply-workflow", help="Path to a provider apply plan to verify end-to-end.")
+    parser.add_argument(
+        "--verify-provider-apply-workflow-github-output",
+        help="Path to a GitHub-output file produced by --verify-provider-apply-workflow --github-output.",
+    )
+    parser.add_argument(
+        "--provider-apply-workflow-json",
+        help="Provider apply workflow JSON used with --verify-provider-apply-workflow-github-output.",
+    )
     parser.add_argument("--provider-apply-results", help="Provider apply results path used with workflow verification.")
     parser.add_argument("--promotion-receipt", help="Post-apply promotion receipt path used with workflow verification.")
     parser.add_argument(
@@ -2525,6 +2549,7 @@ def main(argv: list[str] | None = None) -> int:
         bool(args.record_provider_apply_results_from_plan),
         bool(args.verify_provider_apply_results),
         bool(args.verify_provider_apply_workflow),
+        bool(args.verify_provider_apply_workflow_github_output),
     ]
     if sum(1 for item in source_modes if item) > 1:
         print(
@@ -2541,6 +2566,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.provider_apply_plan and not args.verify_provider_apply_results:
         print(
             "[external-gate-handoff] --provider-apply-plan requires --verify-provider-apply-results",
+            file=sys.stderr,
+        )
+        return 2
+    if args.provider_apply_workflow_json and not args.verify_provider_apply_workflow_github_output:
+        print(
+            "[external-gate-handoff] "
+            "--provider-apply-workflow-json requires --verify-provider-apply-workflow-github-output",
+            file=sys.stderr,
+        )
+        return 2
+    if args.verify_provider_apply_workflow_github_output and not args.provider_apply_workflow_json:
+        print(
+            "[external-gate-handoff] "
+            "--verify-provider-apply-workflow-github-output requires --provider-apply-workflow-json",
             file=sys.stderr,
         )
         return 2
@@ -2699,6 +2738,46 @@ def main(argv: list[str] | None = None) -> int:
         output_path = write_json_report(args.json_out, payload)
         print(f"[external-gate-handoff] provider apply results receipt written: {output_path}")
         return 0 if payload["ok"] else 1
+
+    if args.verify_provider_apply_workflow_github_output:
+        try:
+            workflow_payload = json.loads(Path(args.provider_apply_workflow_json).read_text(encoding="utf-8"))
+            if not isinstance(workflow_payload, dict):
+                raise ValueError(f"{args.provider_apply_workflow_json} must contain a JSON object")
+            verification = verify_provider_apply_workflow_github_output(
+                args.verify_provider_apply_workflow_github_output,
+                workflow_payload,
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            verification = {
+                "schema_version": 1,
+                "generated_at": datetime.now(UTC).isoformat(),
+                "ok": False,
+                "github_output_path": str(args.verify_provider_apply_workflow_github_output),
+                "provider_apply_workflow_json": str(args.provider_apply_workflow_json),
+                "summary": {
+                    "failure_count": 1,
+                    "expected_output_count": 0,
+                    "parsed_output_count": 0,
+                    "checked_output_count": 0,
+                    "mismatched_output_count": 0,
+                    "secret_marker_count": 0,
+                },
+                "secret_marker_names": [],
+                "failures": [str(exc)],
+                "outputs": [],
+            }
+        if args.json:
+            print(json.dumps(verification, indent=2))
+        else:
+            print_provider_apply_workflow_github_output_verification_report(verification)
+        if args.json_out:
+            output_path = write_json_report(args.json_out, verification)
+            print(
+                "[external-gate-handoff] "
+                f"provider apply workflow GitHub output verification written: {output_path}"
+            )
+        return 0 if verification["ok"] else 1
 
     if args.verify_provider_apply_workflow:
         try:

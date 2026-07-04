@@ -1698,6 +1698,47 @@ def test_external_gate_handoff_cli_writes_workflow_github_outputs(
     assert f"provider_apply_workflow_results_json={results_path}" in output_text
 
 
+def test_external_gate_handoff_cli_verifies_workflow_github_output(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-plan-results.json"
+    workflow_path = tmp_path / "workflow.json"
+    output_path = tmp_path / "github-output.txt"
+    verify_path = tmp_path / "github-output-verify.json"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+    workflow = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+    external_gate_handoff.write_json_report(workflow_path, workflow)
+    external_gate_handoff.append_github_output(
+        output_path,
+        external_gate_handoff.provider_apply_workflow_github_outputs(workflow),
+    )
+
+    rc = external_gate_handoff.main(
+        [
+            "--verify-provider-apply-workflow-github-output",
+            str(output_path),
+            "--provider-apply-workflow-json",
+            str(workflow_path),
+            "--json-out",
+            str(verify_path),
+        ]
+    )
+
+    payload = json.loads(verify_path.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert payload["ok"] is True
+    assert payload["summary"]["expected_output_count"] > 0
+    assert payload["summary"]["mismatched_output_count"] == 0
+
+
 def test_external_gate_handoff_cli_rejects_step_summary_without_env(capsys, monkeypatch) -> None:
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
 
@@ -1736,6 +1777,17 @@ def test_external_gate_handoff_cli_rejects_github_output_without_workflow(capsys
 
     assert rc == 2
     assert "--github-output requires --verify-provider-apply-workflow" in captured.err
+
+
+def test_external_gate_handoff_cli_rejects_github_output_verify_without_workflow_json(capsys) -> None:
+    rc = external_gate_handoff.main(["--verify-provider-apply-workflow-github-output", "github-output.txt"])
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert (
+        "--verify-provider-apply-workflow-github-output requires --provider-apply-workflow-json"
+        in captured.err
+    )
 
 
 def test_external_gate_handoff_cli_rejects_annotations_without_workflow(capsys) -> None:
