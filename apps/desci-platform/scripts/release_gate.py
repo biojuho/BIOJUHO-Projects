@@ -1139,6 +1139,11 @@ def _browser_smoke_launch_control_failures(raw_path: str, payload: dict[str, Any
 def _browser_launch_control_layout_failures(raw_path: str, launch_control: dict[str, Any]) -> list[str]:
     dashboard_layout = launch_control.get("dashboard_layout")
     if dashboard_layout is None:
+        if launch_control.get("check_name") == "dashboard-readiness-refresh":
+            return [
+                "JSON evidence artifact launch_control.dashboard_layout is required "
+                f"for dashboard-readiness-refresh: {raw_path}"
+            ]
         return []
     if not isinstance(dashboard_layout, dict):
         return [f"JSON evidence artifact launch_control.dashboard_layout must be an object: {raw_path}"]
