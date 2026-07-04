@@ -551,17 +551,14 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
 def test_browser_smoke_json_evidence_exposes_launch_click_suite(tmp_path) -> None:
     output = tmp_path / "browser-smoke-launch-click-suite.json"
     reports = [
-        browser_smoke.BrowserCheckReport(name=name, path=f"/{name}", ok=True, failures=[])
-        for name in browser_smoke.LAUNCH_CLICK_SUITE_CHECKS[:-1]
-    ]
-    reports.append(
         browser_smoke.BrowserCheckReport(
-            name=browser_smoke.LAUNCH_CLICK_SUITE_CHECKS[-1],
-            path="/assets",
-            ok=False,
-            failures=["asset-upload-readiness: missing uploader"],
+            name=name,
+            path=f"/{name}",
+            ok=name != "asset-upload-readiness",
+            failures=["asset-upload-readiness: missing uploader"] if name == "asset-upload-readiness" else [],
         )
-    )
+        for name in browser_smoke.LAUNCH_CLICK_SUITE_CHECKS
+    ]
 
     browser_smoke.write_json_report(
         output,
@@ -719,6 +716,23 @@ def test_browser_smoke_launch_click_suite_includes_pricing_resilience_paths() ->
         "pricing-checkout-error-visible",
         "pricing-billing-portal",
         "pricing-billing-portal-error-visible",
+    ]:
+        assert name in names
+
+
+def test_browser_smoke_launch_click_suite_includes_research_conversion_paths() -> None:
+    names = list(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS)
+
+    for name in [
+        "biolinker-rfp-readiness",
+        "biolinker-paper-context-handoff",
+        "biolinker-proposal-clipboard-failure",
+        "biolinker-proposal-export-popup-blocked",
+        "biolinker-empty-match-next-actions",
+        "notices-discovery-readiness",
+        "notices-discovery-biolinker-handoff",
+        "notices-source-link-fallback",
+        "notices-biolinker-bridge",
     ]:
         assert name in names
 

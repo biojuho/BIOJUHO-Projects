@@ -7111,6 +7111,15 @@ LAUNCH_CLICK_SUITE_CHECKS = (
     "upload-form-readiness",
     "upload-submit-receipt",
     "asset-upload-readiness",
+    "biolinker-rfp-readiness",
+    "biolinker-paper-context-handoff",
+    "biolinker-proposal-clipboard-failure",
+    "biolinker-proposal-export-popup-blocked",
+    "biolinker-empty-match-next-actions",
+    "notices-discovery-readiness",
+    "notices-discovery-biolinker-handoff",
+    "notices-source-link-fallback",
+    "notices-biolinker-bridge",
 )
 
 
