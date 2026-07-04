@@ -56,6 +56,39 @@ def test_guarded_launch_dry_run_prints_canonical_command(tmp_path: Path, capsys)
     assert payload["run_browser_smoke"] is True
 
 
+def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--emit-handoff",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["handoff_json"] == str(output_dir.resolve() / "release-check-handoff.json")
+    assert payload["handoff_markdown"] == str(output_dir.resolve() / "release-check-handoff.md")
+    assert payload["handoff_validation_json"] == str(output_dir.resolve() / "release-check-handoff.validation.json")
+    assert payload["handoff_ready_gate_json"] == str(output_dir.resolve() / "release-check-ready-gate.json")
+    assert payload["handoff_command"][:2] == [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py"),
+    ]
+    assert "--exit-zero-on-blocked" in payload["handoff_command"]
+
+
 def test_guarded_launch_delegates_and_returns_exit_code(tmp_path: Path) -> None:
     app_root = tmp_path / "AgriGuard"
     env_file = tmp_path / "operator.env"
@@ -81,6 +114,57 @@ def test_guarded_launch_delegates_and_returns_exit_code(tmp_path: Path) -> None:
     assert command[1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
     assert _arg_after(command, "--env-file") == str(env_file.resolve())
     assert kwargs == {"cwd": app_root.resolve(), "text": True}
+
+
+def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(args=command, returncode=1 if len(calls) == 1 else 0, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--emit-handoff",
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 1
+    assert len(calls) == 2
+    assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
+    assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
+    assert "--exit-zero-on-blocked" in calls[1]
+
+
+def test_guarded_launch_returns_handoff_validation_failure(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(args=command, returncode=0 if len(calls) == 1 else 2, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--emit-handoff",
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 2
+    assert len(calls) == 2
 
 
 def test_guarded_launch_can_skip_browser_smoke_and_pass_compose_options(tmp_path: Path) -> None:

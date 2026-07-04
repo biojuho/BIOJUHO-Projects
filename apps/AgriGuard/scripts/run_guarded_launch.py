@@ -205,6 +205,51 @@ def _build_launch_command(
     return command
 
 
+def _default_handoff_json(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-handoff.json"
+
+
+def _default_handoff_markdown(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-handoff.md"
+
+
+def _default_handoff_validation_json(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-handoff.validation.json"
+
+
+def _default_ready_gate_json(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-ready-gate.json"
+
+
+def _build_handoff_command(
+    *,
+    app_root: Path,
+    output_dir: Path,
+    output_prefix: str,
+    ready_gate_json: Path,
+    handoff_json: Path,
+    handoff_markdown: Path,
+    validation_json: Path,
+) -> list[str]:
+    return [
+        sys.executable,
+        str(app_root / "scripts" / "render_guarded_launch_handoff.py"),
+        "--output-dir",
+        str(output_dir),
+        "--output-prefix",
+        output_prefix,
+        "--ready-gate-json",
+        str(ready_gate_json),
+        "--json-out",
+        str(handoff_json),
+        "--markdown-out",
+        str(handoff_markdown),
+        "--validation-json-out",
+        str(validation_json),
+        "--exit-zero-on-blocked",
+    ]
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the canonical AgriGuard guarded compose launch with env-shape validation and readiness artifacts."
@@ -261,6 +306,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Exit nonzero unless the selected guarded-launch prefix is ready.",
     )
+    parser.add_argument(
+        "--emit-handoff",
+        action="store_true",
+        help="After launch, render the guarded-launch handoff and validation artifacts for the selected prefix.",
+    )
+    parser.add_argument("--handoff-json-out", type=Path, default=None)
+    parser.add_argument("--handoff-markdown-out", type=Path, default=None)
+    parser.add_argument("--handoff-validation-json-out", type=Path, default=None)
+    parser.add_argument("--handoff-ready-gate-json-out", type=Path, default=None)
     parser.add_argument("--dry-run", action="store_true", help="Print the delegated launch_compose.py command plan.")
     return parser.parse_args(argv)
 
@@ -279,6 +333,42 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         compose_files=compose_files,
         services=args.service,
         run_browser_smoke=not args.no_browser_smoke,
+    )
+    handoff_requested = bool(
+        args.emit_handoff
+        or args.handoff_json_out
+        or args.handoff_markdown_out
+        or args.handoff_validation_json_out
+        or args.handoff_ready_gate_json_out
+    )
+    handoff_json = args.handoff_json_out.resolve() if args.handoff_json_out else _default_handoff_json(output_dir, args.output_prefix)
+    handoff_markdown = (
+        args.handoff_markdown_out.resolve()
+        if args.handoff_markdown_out
+        else _default_handoff_markdown(output_dir, args.output_prefix)
+    )
+    handoff_validation_json = (
+        args.handoff_validation_json_out.resolve()
+        if args.handoff_validation_json_out
+        else _default_handoff_validation_json(output_dir, args.output_prefix)
+    )
+    handoff_ready_gate_json = (
+        args.handoff_ready_gate_json_out.resolve()
+        if args.handoff_ready_gate_json_out
+        else _default_ready_gate_json(output_dir, args.output_prefix)
+    )
+    handoff_command = (
+        _build_handoff_command(
+            app_root=app_root,
+            output_dir=output_dir,
+            output_prefix=args.output_prefix,
+            ready_gate_json=handoff_ready_gate_json,
+            handoff_json=handoff_json,
+            handoff_markdown=handoff_markdown,
+            validation_json=handoff_validation_json,
+        )
+        if handoff_requested
+        else None
     )
 
     if args.status_only:
@@ -303,6 +393,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     "output_prefix": args.output_prefix,
                     "run_browser_smoke": not args.no_browser_smoke,
                     "artifacts": {key: str(value) for key, value in artifact_paths.items()},
+                    "handoff_command": handoff_command,
+                    "handoff_json": str(handoff_json) if handoff_requested else None,
+                    "handoff_markdown": str(handoff_markdown) if handoff_requested else None,
+                    "handoff_validation_json": str(handoff_validation_json) if handoff_requested else None,
+                    "handoff_ready_gate_json": str(handoff_ready_gate_json) if handoff_requested else None,
                 },
                 indent=2,
                 sort_keys=True,
@@ -320,6 +415,10 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         )
     if args.status_json_out and status_view is not None:
         write_json(args.status_json_out.resolve(), status_view)
+    if handoff_command is not None:
+        handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
+        if handoff_result.returncode != 0:
+            return handoff_result.returncode
     if args.require_ready and status_view is not None and not _status_view_ready(status_view):
         return completed.returncode or 1
     return completed.returncode
