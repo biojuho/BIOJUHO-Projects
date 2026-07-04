@@ -75,6 +75,12 @@ missing auth context in the provider workflow packet.
     Railway unauthorized stderr.
 - `python ops\scripts\run_workspace_smoke.py --scope desci --json-out apps\desci-platform\var\workspace-smoke-desci-post-apply-preflight-counts-2026-07-04.json`
   - `8 passed`, `0 failed`.
+- `python scripts\browser_smoke.py --frontend http://127.0.0.1:5173 --expect-dev-auth --launch-click-suite --timeout 30 --json-out var\browser-smoke-launch-click-provider-preflight-counts-2026-07-04.json --screenshot-dir var\browser-smoke-launch-click-provider-preflight-counts-2026-07-04-screens --trace-on-failure-dir var\browser-smoke-launch-click-provider-preflight-counts-2026-07-04-traces`
+  - `9 passed`, `0 failed`.
+  - Covered landing CTA, explore analyze intent, pricing enterprise contact,
+    dashboard quick upload, dashboard readiness refresh, mocked checkout,
+    upload form readiness, upload submit receipt, and asset upload readiness.
+  - Screenshots were written for all 9 checks.
 
 ## Artifacts
 
@@ -82,6 +88,8 @@ missing auth context in the provider workflow packet.
 - `var\external-gate-handoff-provider-counts-2026-07-04.json`
 - `var\external-gate-handoff-provider-counts-2026-07-04.md`
 - `var\post-apply-evidence-gate-provider-counts-2026-07-04.json`
+- `var\browser-smoke-launch-click-provider-preflight-counts-2026-07-04.json`
+- `var\browser-smoke-launch-click-provider-preflight-counts-2026-07-04-screens\*.png`
 - `var\external-gate-provider-counts-index-2026-07-04.json`
 - `var\external-gate-provider-counts-2026-07-04\amoy.env`
 - `var\external-gate-provider-counts-2026-07-04\github.env`
