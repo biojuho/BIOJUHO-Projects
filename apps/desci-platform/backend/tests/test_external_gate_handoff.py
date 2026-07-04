@@ -1339,6 +1339,10 @@ def test_external_gate_handoff_provider_apply_workflow_accepts_complete_go(
     assert verification["ready_to_apply"] is True
     assert verification["all_commands_succeeded"] is True
     assert verification["promotion_receipt_ok"] is True
+    assert verification["operator_command_count"] == 0
+    assert verification["operator_command_failure_count"] == 0
+    assert verification["summary"]["operator_command_count"] == 0
+    assert verification["summary"]["operator_command_failure_count"] == 0
     assert verification["summary"]["next_required_action_count"] == 0
     assert verification["next_required_actions"] == []
     assert verification["primary_blocker"] == {}
@@ -1402,6 +1406,8 @@ def test_external_gate_handoff_provider_apply_workflow_markdown_reports_resoluti
 
     assert "# DeSci Provider Apply Workflow Verification" in markdown
     assert "| Provider apply results |" in markdown
+    assert "| Operator commands | `0` |" in markdown
+    assert "| Operator command failures | `0` |" in markdown
     assert "`plan_metadata`" in markdown
     assert "provider apply results are not successful" in markdown
     assert "Keep the release blocked" in markdown
@@ -1438,10 +1444,16 @@ def test_external_gate_handoff_provider_apply_workflow_surfaces_context_blockers
     assert verification["provider_project_context_missing_count"] == 1
     assert verification["summary"]["provider_preflight_blocker_count"] == 2
     assert verification["summary"]["provider_project_context_missing_count"] == 1
+    assert verification["operator_command_count"] == 0
+    assert verification["operator_command_failure_count"] == 0
+    assert verification["summary"]["operator_command_count"] == 0
+    assert verification["summary"]["operator_command_failure_count"] == 0
     assert "provider preflight blockers remain: 2" in verification["failures"]
     assert "provider project context missing: 1" in verification["failures"]
     assert "| Provider preflight blockers | `2` |" in markdown
     assert "| Provider project context missing | `1` |" in markdown
+    assert "| Operator commands | `0` |" in markdown
+    assert "| Operator command failures | `0` |" in markdown
     assert "## Plan Blocking Reasons" in markdown
     assert "- provider preflight blockers remain: 2" in markdown
     assert "## Primary Blocker" in markdown
@@ -1461,6 +1473,8 @@ def test_external_gate_handoff_provider_apply_workflow_surfaces_context_blockers
     ]
     assert outputs["provider_apply_workflow_provider_preflight_blocker_count"] == "2"
     assert outputs["provider_apply_workflow_provider_project_context_missing_count"] == "1"
+    assert outputs["provider_apply_workflow_operator_command_count"] == "0"
+    assert outputs["provider_apply_workflow_operator_command_failure_count"] == "0"
     assert "provider project context missing: 1" in outputs["provider_apply_workflow_plan_blocked_reasons"]
     assert outputs["provider_apply_workflow_next_required_action_count"] == "3"
     assert "provider_preflight:provider_context_blocked" in outputs["provider_apply_workflow_next_required_actions"]
@@ -1505,6 +1519,8 @@ def test_external_gate_handoff_provider_apply_workflow_github_outputs(tmp_path: 
     assert outputs["provider_apply_workflow_all_commands_succeeded"] == "true"
     assert outputs["provider_apply_workflow_promotion_receipt_ok"] == "true"
     assert outputs["provider_apply_workflow_failure_count"] == "0"
+    assert outputs["provider_apply_workflow_operator_command_count"] == "0"
+    assert outputs["provider_apply_workflow_operator_command_failure_count"] == "0"
     assert outputs["provider_apply_workflow_next_required_action_count"] == "0"
     assert outputs["provider_apply_workflow_next_required_actions"] == ""
     assert outputs["provider_apply_workflow_next_required_actions_json"] == "[]"
@@ -1518,6 +1534,29 @@ def test_external_gate_handoff_provider_apply_workflow_github_outputs(tmp_path: 
     assert outputs["provider_apply_workflow_plan_json"] == str(plan_path)
     assert outputs["provider_apply_workflow_results_json"] == str(results_path)
     assert outputs["provider_apply_workflow_promotion_receipt_json"] == str(receipt_path)
+
+
+def test_external_gate_handoff_prints_provider_apply_workflow_operator_command_counts(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+
+    external_gate_handoff.print_provider_apply_workflow_verification_report(verification)
+    captured = capsys.readouterr()
+
+    assert "operator_commands=0" in captured.out
+    assert "operator_command_failures=0" in captured.out
 
 
 def test_external_gate_handoff_appends_multiline_github_output(tmp_path: Path) -> None:
@@ -1780,6 +1819,8 @@ def test_external_gate_handoff_cli_writes_workflow_github_outputs(
     assert "provider_apply_workflow_ok=true" in output_text
     assert "provider_apply_workflow_phase=provider_apply_workflow_ready" in output_text
     assert "provider_apply_workflow_failure_count=0" in output_text
+    assert "provider_apply_workflow_operator_command_count=0" in output_text
+    assert "provider_apply_workflow_operator_command_failure_count=0" in output_text
     assert f"provider_apply_workflow_plan_json={plan_path}" in output_text
     assert f"provider_apply_workflow_results_json={results_path}" in output_text
 

@@ -1967,6 +1967,9 @@ def verify_provider_apply_workflow(
     all_commands_succeeded = results_verification.get("all_commands_succeeded") is True
     promotion_receipt_ok = promotion_verification.get("promotion_receipt_ok") is True
     promotion_blocking_reasons = _string_list(promotion_verification.get("blocking_reasons"))
+    plan_summary = _as_dict(plan_verification.get("summary"))
+    operator_command_count = int(plan_summary.get("operator_command_count") or 0)
+    operator_command_failure_count = int(plan_summary.get("operator_command_failure_count") or 0)
     next_required_actions = _provider_apply_workflow_next_required_actions(
         plan,
         plan_context,
@@ -1994,6 +1997,8 @@ def verify_provider_apply_workflow(
         "promotion_receipt_ok": promotion_receipt_ok,
         "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
         "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
+        "operator_command_count": operator_command_count,
+        "operator_command_failure_count": operator_command_failure_count,
         "plan_blocked_reasons": plan_context["blocked_reasons"],
         "provider_blockers": plan_context["provider_blockers"],
         "next_required_actions": next_required_actions,
@@ -2017,6 +2022,8 @@ def verify_provider_apply_workflow(
             "promotion_blocking_reason_count": len(promotion_blocking_reasons),
             "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
             "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
+            "operator_command_count": operator_command_count,
+            "operator_command_failure_count": operator_command_failure_count,
             "next_required_action_count": len(next_required_actions),
         },
         "failures": failures,
@@ -2317,6 +2324,9 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
         f"| Provider preflight blockers | `{_markdown_scalar(payload.get('provider_preflight_blocker_count', 0))}` |",
         f"| Provider project context missing | "
         f"`{_markdown_scalar(payload.get('provider_project_context_missing_count', 0))}` |",
+        f"| Operator commands | `{_markdown_scalar(payload.get('operator_command_count', 0))}` |",
+        f"| Operator command failures | "
+        f"`{_markdown_scalar(payload.get('operator_command_failure_count', 0))}` |",
         f"| Provider commands succeeded | `{_markdown_scalar(payload.get('all_commands_succeeded'))}` |",
         f"| Promotion receipt go | `{_markdown_scalar(payload.get('promotion_receipt_ok'))}` |",
         f"| Primary blocker scope | `{_markdown_scalar(payload.get('primary_blocker_scope'))}` |",
@@ -2471,6 +2481,12 @@ def provider_apply_workflow_github_outputs(payload: dict[str, Any]) -> dict[str,
         "provider_apply_workflow_provider_project_context_missing_count": str(
             int(summary.get("provider_project_context_missing_count") or 0)
         ),
+        "provider_apply_workflow_operator_command_count": str(
+            int(summary.get("operator_command_count") or 0)
+        ),
+        "provider_apply_workflow_operator_command_failure_count": str(
+            int(summary.get("operator_command_failure_count") or 0)
+        ),
         "provider_apply_workflow_plan_blocked_reasons": "\n".join(
             _string_list(payload.get("plan_blocked_reasons"))
         ),
@@ -2617,6 +2633,8 @@ def print_provider_apply_workflow_verification_report(payload: dict[str, Any]) -
         f"promotion_receipt_ok={payload.get('promotion_receipt_ok')} "
         f"provider_preflight_blockers={summary.get('provider_preflight_blocker_count')} "
         f"project_context_missing={summary.get('provider_project_context_missing_count')} "
+        f"operator_commands={summary.get('operator_command_count')} "
+        f"operator_command_failures={summary.get('operator_command_failure_count')} "
         f"failures={summary.get('failure_count')} "
         f"next_required_actions={summary.get('next_required_action_count')} "
         f"primary_blocker={payload.get('primary_blocker_scope')}/{payload.get('primary_blocker_reason')} "
