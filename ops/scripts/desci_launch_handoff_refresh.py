@@ -348,6 +348,7 @@ def _status_handoff_refresh_from_bundle(
             release_handoff.get("auth_context_missing_count")
         ),
         "release_handoff_provider_preflight_source": release_handoff.get("source_artifact"),
+        "release_handoff_provider_blockers": _list_of_dicts(release_handoff.get("provider_blockers")),
     }
     result.update(_status_handoff_source_fields_from_bundle(bundle, workspace_root=workspace_root))
     return result
@@ -738,6 +739,7 @@ def _release_handoff_summary(path: Path | None, workspace_root: Path) -> dict[st
         "missing_cli_count": _optional_nonnegative_int(provider_preflight.get("missing_cli_count")),
         "auth_context_missing_count": _optional_nonnegative_int(provider_preflight.get("auth_context_missing_count")),
         "source_artifact": str(provider_preflight.get("source_artifact") or ""),
+        "provider_blockers": _provider_preflight_blockers(provider_preflight),
     }
 
 
@@ -757,7 +759,28 @@ def _empty_release_handoff_summary(status: str, path: str, *, required: bool) ->
         "missing_cli_count": None,
         "auth_context_missing_count": None,
         "source_artifact": "",
+        "provider_blockers": [],
     }
+
+
+def _provider_preflight_blockers(provider_preflight: dict[str, Any]) -> list[dict[str, str]]:
+    blockers: list[dict[str, str]] = []
+    for check in _list_of_dicts(provider_preflight.get("failed_checks")):
+        blockers.append(
+            {
+                "provider": _safe_summary_text(check.get("provider")),
+                "id": _safe_summary_text(check.get("id")),
+                "command": _safe_summary_text(check.get("command")),
+                "failure_reason": _safe_summary_text(check.get("failure_reason")),
+                "remediation": _safe_summary_text(check.get("remediation")),
+                "docs_url": _safe_summary_text(check.get("docs_url")),
+            }
+        )
+    return blockers
+
+
+def _safe_summary_text(value: Any) -> str:
+    return value if isinstance(value, str) else ""
 
 
 def _optional_bool(value: Any) -> bool | None:

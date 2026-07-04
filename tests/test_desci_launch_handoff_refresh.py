@@ -195,7 +195,18 @@ def test_desci_launch_handoff_refresh_summarizes_release_handoff_provider_prefli
     assert bundle["release_handoff"]["provider_preflight_ok"] is False
     assert bundle["release_handoff"]["failed_check_count"] == 4
     assert bundle["release_handoff"]["auth_context_missing_count"] == 2
+    assert bundle["release_handoff"]["provider_blockers"] == [
+        {
+            "provider": "railway",
+            "id": "",
+            "command": "railway whoami",
+            "failure_reason": "nonzero_exit",
+            "remediation": "",
+            "docs_url": "",
+        }
+    ]
     assert "Unauthorized" not in raw_bundle
+    assert "stderr_preview" not in raw_bundle
 
 
 def test_desci_launch_handoff_refresh_auto_discovers_latest_release_handoff(
