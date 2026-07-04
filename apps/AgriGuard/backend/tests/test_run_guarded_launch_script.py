@@ -83,6 +83,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert payload["handoff_validation_json"] == str(output_dir.resolve() / "release-check-handoff.validation.json")
     assert payload["handoff_consumer_json"] == str(output_dir.resolve() / "release-check-handoff.consumer.json")
     assert payload["handoff_ready_gate_json"] == str(output_dir.resolve() / "release-check-ready-gate.json")
+    assert payload["artifact_index_json"] == str(output_dir.resolve() / "release-check-artifact-index.json")
     assert payload["handoff_command"][:2] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py"),
@@ -91,8 +92,15 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         sys.executable,
         str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py"),
     ]
+    assert payload["artifact_index_command"][:2] == [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py"),
+    ]
     assert "--exit-zero-on-blocked" in payload["handoff_command"]
     assert "--exit-zero-on-blocked" in payload["handoff_consumer_command"]
+    assert _arg_after(payload["artifact_index_command"], "--json-out") == str(
+        output_dir.resolve() / "release-check-artifact-index.json"
+    )
 
 
 def test_guarded_launch_delegates_and_returns_exit_code(tmp_path: Path) -> None:
@@ -143,10 +151,11 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     )
 
     assert result == 1
-    assert len(calls) == 3
+    assert len(calls) == 4
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
     assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
     assert calls[2][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
+    assert calls[3][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
     assert "--exit-zero-on-blocked" in calls[1]
     assert "--exit-zero-on-blocked" in calls[2]
 
@@ -197,6 +206,30 @@ def test_guarded_launch_returns_handoff_consumer_failure(tmp_path: Path) -> None
 
     assert result == 1
     assert len(calls) == 3
+
+
+def test_guarded_launch_returns_artifact_index_failure(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(args=command, returncode=0 if len(calls) < 4 else 1, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--emit-handoff",
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 1
+    assert len(calls) == 4
 
 
 def test_guarded_launch_can_skip_browser_smoke_and_pass_compose_options(tmp_path: Path) -> None:

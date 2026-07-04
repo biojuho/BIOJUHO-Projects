@@ -225,6 +225,10 @@ def _default_ready_gate_json(output_dir: Path, output_prefix: str) -> Path:
     return output_dir / f"{output_prefix}-ready-gate.json"
 
 
+def _default_artifact_index_json(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-artifact-index.json"
+
+
 def _build_handoff_command(
     *,
     app_root: Path,
@@ -271,6 +275,29 @@ def _build_handoff_consumer_command(
         str(consumer_json),
         "--exit-zero-on-blocked",
     ]
+
+
+def _build_artifact_index_command(
+    *,
+    app_root: Path,
+    output_dir: Path,
+    output_prefix: str,
+    json_out: Path,
+    status_json: Path | None,
+) -> list[str]:
+    command = [
+        sys.executable,
+        str(app_root / "scripts" / "index_guarded_launch_artifacts.py"),
+        "--output-dir",
+        str(output_dir),
+        "--output-prefix",
+        output_prefix,
+        "--json-out",
+        str(json_out),
+    ]
+    if status_json is not None:
+        command.extend(["--status-json", str(status_json)])
+    return command
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -338,6 +365,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--handoff-markdown-out", type=Path, default=None)
     parser.add_argument("--handoff-validation-json-out", type=Path, default=None)
     parser.add_argument("--handoff-consumer-json-out", type=Path, default=None)
+    parser.add_argument("--artifact-index-json-out", type=Path, default=None)
     parser.add_argument("--handoff-ready-gate-json-out", type=Path, default=None)
     parser.add_argument("--dry-run", action="store_true", help="Print the delegated launch_compose.py command plan.")
     return parser.parse_args(argv)
@@ -364,6 +392,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         or args.handoff_markdown_out
         or args.handoff_validation_json_out
         or args.handoff_consumer_json_out
+        or args.artifact_index_json_out
         or args.handoff_ready_gate_json_out
     )
     handoff_json = args.handoff_json_out.resolve() if args.handoff_json_out else _default_handoff_json(output_dir, args.output_prefix)
@@ -387,6 +416,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.handoff_ready_gate_json_out
         else _default_ready_gate_json(output_dir, args.output_prefix)
     )
+    artifact_index_json = (
+        args.artifact_index_json_out.resolve()
+        if args.artifact_index_json_out
+        else _default_artifact_index_json(output_dir, args.output_prefix)
+    )
     handoff_command = (
         _build_handoff_command(
             app_root=app_root,
@@ -396,6 +430,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             handoff_json=handoff_json,
             handoff_markdown=handoff_markdown,
             validation_json=handoff_validation_json,
+        )
+        if handoff_requested
+        else None
+    )
+    artifact_index_command = (
+        _build_artifact_index_command(
+            app_root=app_root,
+            output_dir=output_dir,
+            output_prefix=args.output_prefix,
+            json_out=artifact_index_json,
+            status_json=args.status_json_out.resolve() if args.status_json_out else None,
         )
         if handoff_requested
         else None
@@ -440,6 +485,8 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     "handoff_consumer_command": handoff_consumer_command,
                     "handoff_consumer_json": str(handoff_consumer_json) if handoff_requested else None,
                     "handoff_ready_gate_json": str(handoff_ready_gate_json) if handoff_requested else None,
+                    "artifact_index_command": artifact_index_command,
+                    "artifact_index_json": str(artifact_index_json) if handoff_requested else None,
                 },
                 indent=2,
                 sort_keys=True,
@@ -465,6 +512,10 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
         if consumer_result.returncode != 0:
             return consumer_result.returncode
+    if artifact_index_command is not None:
+        artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+        if artifact_index_result.returncode != 0:
+            return artifact_index_result.returncode
     if args.require_ready and status_view is not None and not _status_view_ready(status_view):
         return completed.returncode or 1
     return completed.returncode
