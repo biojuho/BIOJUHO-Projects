@@ -43,6 +43,41 @@ def _write_readiness_summary(output_dir: Path, prefix: str, payload: dict[str, o
     artifacts["readiness_summary_json"].write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _write_operator_packet(
+    output_dir: Path,
+    prefix: str,
+    *,
+    evidence_status: str = "pass",
+    markdown_status: str = "pass",
+) -> None:
+    artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), prefix)
+    artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["operator_packet_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "secrets_redacted": True,
+                "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                "guarded_launch_evidence": {
+                    "validation": {
+                        "status": evidence_status,
+                        "missing_output_keys": [] if evidence_status == "pass" else ["handoff_json"],
+                        "empty_output_keys": [],
+                    },
+                    "markdown_table_validation": {
+                        "status": markdown_status,
+                        "expected_output_keys": ["status_json", "launch_report_json"],
+                        "missing_rows": [] if markdown_status == "pass" else ["handoff_json"],
+                        "extra_rows": [],
+                        "path_mismatches": [],
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_handoff_and_validation(tmp_path: Path, prefix: str) -> tuple[Path, Path]:
     output_dir = tmp_path / "launch-artifacts"
     handoff_json = tmp_path / f"{prefix}-handoff.json"
@@ -72,6 +107,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
             "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
         },
     )
+    _write_operator_packet(output_dir, "ready")
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "ready")
 
     view = consume_guarded_launch_handoff.build_consumer_view(
@@ -82,6 +118,9 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["status"] == "pass"
     assert view["handoff_status"] == "ready"
     assert view["ready_gate_status"] == "pass"
+    assert view["packet_validation_status"] == "pass"
+    assert view["packet_evidence_outputs_status"] == "pass"
+    assert view["packet_markdown_table_status"] == "pass"
     assert view["validation_matches_handoff"] is True
     assert view["errors"] == []
 
@@ -102,6 +141,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
             },
         },
     )
+    _write_operator_packet(output_dir, "blocked")
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
 
     view = consume_guarded_launch_handoff.build_consumer_view(
@@ -113,7 +153,34 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["handoff_status"] == "blocked"
     assert view["blocker_class"] == "preflight_blocked"
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert view["packet_validation_status"] == "pass"
     assert view["validation_matches_handoff"] is True
+
+
+def test_consume_guarded_launch_handoff_fails_packet_validation_drift(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_readiness_summary(
+        output_dir,
+        "blocked",
+        {
+            "status": "blocked",
+            "blocker_class": "preflight_blocked",
+            "secrets_redacted": True,
+            "reports": {},
+        },
+    )
+    _write_operator_packet(output_dir, "blocked", markdown_status="fail")
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
+
+    view = consume_guarded_launch_handoff.build_consumer_view(
+        handoff_json=handoff_json,
+        validation_json=validation_json,
+    )
+
+    assert view["status"] == "fail"
+    assert view["packet_validation_status"] == "fail"
+    assert view["packet_markdown_table_status"] == "fail"
+    assert "packet_validation status is not pass" in view["errors"]
 
 
 def test_consume_guarded_launch_handoff_fails_stale_validation_report(tmp_path: Path) -> None:
@@ -128,6 +195,7 @@ def test_consume_guarded_launch_handoff_fails_stale_validation_report(tmp_path: 
             "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
         },
     )
+    _write_operator_packet(output_dir, "ready")
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "ready")
     payload = json.loads(handoff_json.read_text(encoding="utf-8"))
     payload["output_prefix"] = "tampered"
@@ -156,6 +224,7 @@ def test_consume_guarded_launch_handoff_main_writes_output_and_exits_nonzero_for
             "reports": {},
         },
     )
+    _write_operator_packet(output_dir, "blocked")
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
 
     result = consume_guarded_launch_handoff.main(
@@ -186,6 +255,7 @@ def test_consume_guarded_launch_handoff_exit_zero_on_clean_blocked_only(tmp_path
             "reports": {},
         },
     )
+    _write_operator_packet(output_dir, "blocked")
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
 
     blocked_result = consume_guarded_launch_handoff.main(

@@ -63,6 +63,11 @@ def _operator_action_ids(handoff: dict[str, Any]) -> list[str]:
     return [str(action_id) for action_id in action_ids if isinstance(action_id, str)]
 
 
+def _packet_validation(handoff: dict[str, Any] | None) -> dict[str, Any]:
+    packet_validation = handoff.get("packet_validation") if handoff is not None else None
+    return packet_validation if isinstance(packet_validation, dict) else {}
+
+
 def build_consumer_view(
     *,
     handoff_json: Path,
@@ -99,6 +104,10 @@ def build_consumer_view(
         if handoff is not None and isinstance(handoff.get("external_blocker"), dict)
         else {}
     )
+    packet_validation = _packet_validation(handoff)
+    packet_validation_status = packet_validation.get("status")
+    if handoff is not None and packet_validation_status != "pass":
+        errors.append("packet_validation status is not pass")
     ready_gate_status = ready_gate.get("status")
     pass_ready = handoff_status == "ready" and ready_gate_status == "pass"
     status = "pass" if pass_ready and not errors else "fail"
@@ -113,6 +122,10 @@ def build_consumer_view(
         "validation_matches_handoff": validation_matches_handoff,
         "handoff_status": handoff_status,
         "ready_gate_status": ready_gate_status,
+        "packet_validation_status": packet_validation_status,
+        "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),
+        "packet_markdown_table_status": packet_validation.get("markdown_table_status"),
+        "packet_path_mismatch_count": packet_validation.get("path_mismatch_count"),
         "blocker_class": status_view.get("blocker_class"),
         "operator_action_ids": _operator_action_ids(handoff or {}),
         "external_blocker_status": external_blocker.get("status"),
