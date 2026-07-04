@@ -714,13 +714,15 @@ def test_release_handoff_includes_provider_preflight_in_packet(tmp_path: Path) -
             "id": "railway_preflight_1",
             "command": "railway whoami",
             "failure_reason": "nonzero_exit",
+            "docs_url": "https://docs.railway.com/variables",
         }
     ]
+    assert payload["provider_preflight"]["failed_checks"][0]["docs_url"] == "https://docs.railway.com/variables"
     text = output_path.read_text(encoding="utf-8")
     assert "## Provider CLI Preflight" in text
     assert "Overall preflight ok: `false`" in text
-    assert "`railway whoami`: `nonzero_exit`" in text
-    assert "`vercel whoami`: `auth_context_missing`" in text
+    assert "`railway whoami`: `nonzero_exit`, docs=https://docs.railway.com/variables" in text
+    assert "`vercel whoami`: `auth_context_missing`, docs=https://vercel.com/docs/cli/env" in text
     assert "Unauthorized" not in text
 
 

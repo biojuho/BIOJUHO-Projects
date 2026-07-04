@@ -255,15 +255,21 @@ def provider_preflight_report(provider_preflight_payload: dict[str, Any] | None)
 
     summary = _as_dict(provider_preflight_payload.get("summary"))
     providers = []
+    docs_by_provider: dict[str, str] = {}
     for provider in _as_list(provider_preflight_payload.get("providers")):
         if not isinstance(provider, dict):
             continue
+        provider_key = str(provider.get("provider") or "").strip().lower()
+        provider_docs_url = provider.get("docs_url") if isinstance(provider.get("docs_url"), str) else ""
+        if provider_key and provider_docs_url:
+            docs_by_provider[provider_key] = provider_docs_url
         checks = [check for check in _as_list(provider.get("checks")) if isinstance(check, dict)]
         failed_checks = [
             {
                 "id": check.get("id"),
                 "command": check.get("command"),
                 "failure_reason": check.get("failure_reason"),
+                "docs_url": check.get("docs_url") if isinstance(check.get("docs_url"), str) else provider_docs_url,
             }
             for check in checks
             if check.get("ok") is not True
@@ -286,6 +292,9 @@ def provider_preflight_report(provider_preflight_payload: dict[str, Any] | None)
             "id": check.get("id"),
             "command": check.get("command"),
             "failure_reason": check.get("failure_reason"),
+            "docs_url": check.get("docs_url")
+            if isinstance(check.get("docs_url"), str)
+            else docs_by_provider.get(str(check.get("provider") or "").strip().lower(), ""),
         }
         for check in _as_list(provider_preflight_payload.get("failed_checks"))
         if isinstance(check, dict)
@@ -654,10 +663,14 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
             )
             failed_checks = [check for check in provider.get("failed_checks") or [] if isinstance(check, dict)]
             for check in failed_checks:
-                lines.append(
+                line = (
                     f"  - `{_markdown_scalar(check.get('command'))}`: "
                     f"`{_markdown_scalar(check.get('failure_reason'))}`"
                 )
+                docs_url = check.get("docs_url") if isinstance(check.get("docs_url"), str) else ""
+                if docs_url:
+                    line = f"{line}, docs={docs_url}"
+                lines.append(line)
 
     lines.extend(["", "## Provider Apply Guidance"])
     if not provider_groups:
