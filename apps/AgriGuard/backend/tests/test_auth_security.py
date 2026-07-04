@@ -42,6 +42,23 @@ class _FakeFirebaseAuth:
         }
 
 
+def _run_auth_subprocess(tmp_path: Path, credentials_path: Path, code: str) -> subprocess.CompletedProcess[str]:
+    backend_dir = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env["GOOGLE_APPLICATION_CREDENTIALS"] = str(credentials_path)
+    env["AGRIGUARD_ENV_FILE"] = str(tmp_path / "missing.env")
+    env.pop("ALLOW_DEV_AUTH_FALLBACK", None)
+    env.pop("ALLOW_TEST_BYPASS", None)
+
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=backend_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_firebase_missing_rejects_without_explicit_dev_fallback(monkeypatch):
     monkeypatch.setattr(auth, "FIREBASE_AVAILABLE", False)
     monkeypatch.setattr(auth, "_firebase_initialized", False)
@@ -57,22 +74,52 @@ def test_firebase_missing_rejects_without_explicit_dev_fallback(monkeypatch):
 def test_firebase_credentials_directory_does_not_crash_import(tmp_path):
     credentials_dir = tmp_path / "firebase-service-account.json"
     credentials_dir.mkdir()
-    backend_dir = Path(__file__).resolve().parents[1]
-    env = os.environ.copy()
-    env["GOOGLE_APPLICATION_CREDENTIALS"] = str(credentials_dir)
-    env["AGRIGUARD_ENV_FILE"] = str(tmp_path / "missing.env")
-    env.pop("ALLOW_DEV_AUTH_FALLBACK", None)
-
-    result = subprocess.run(
-        [sys.executable, "-c", "import auth; assert auth._firebase_initialized is False"],
-        cwd=backend_dir,
-        env=env,
-        capture_output=True,
-        text=True,
+    result = _run_auth_subprocess(
+        tmp_path,
+        credentials_dir,
+        "import auth; assert auth._firebase_initialized is False",
     )
 
     assert result.returncode == 0, result.stderr
     assert "path is not a file" in result.stderr
+
+
+def test_malformed_firebase_credentials_does_not_crash_import(tmp_path):
+    credentials_file = tmp_path / "firebase-service-account.json"
+    credentials_file.write_text("\ufeff{not json", encoding="utf-8")
+
+    result = _run_auth_subprocess(
+        tmp_path,
+        credentials_file,
+        "import auth; print(auth._firebase_initialized)",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "False"
+    assert "Firebase service account key could not initialize" in result.stderr
+    assert "Token verification disabled" in result.stderr
+
+
+def test_invalid_firebase_credentials_fail_closed_after_import(tmp_path):
+    credentials_file = tmp_path / "firebase-service-account.json"
+    credentials_file.write_text('{"type": "service_account"}', encoding="utf-8")
+    code = """
+import auth
+from fastapi import HTTPException
+
+try:
+    auth.verify_firebase_token("firebase-token")
+except HTTPException as exc:
+    assert exc.status_code == 503
+else:
+    raise AssertionError("expected Firebase token verification to fail closed")
+assert auth._firebase_initialized is False
+"""
+
+    result = _run_auth_subprocess(tmp_path, credentials_file, code)
+
+    assert result.returncode == 0, result.stderr
+    assert "Firebase service account key could not initialize" in result.stderr
 
 
 def test_test_bypass_still_requires_explicit_flag(monkeypatch):
