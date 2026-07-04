@@ -709,6 +709,20 @@ def test_browser_smoke_launch_click_suite_selects_release_click_paths() -> None:
     assert browser_smoke._should_run_login_validation(args) is False  # pylint: disable=protected-access
 
 
+def test_browser_smoke_launch_click_suite_includes_pricing_resilience_paths() -> None:
+    names = list(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS)
+
+    for name in [
+        "pricing-checkout-mocked",
+        "pricing-checkout-yearly",
+        "pricing-checkout-cancelled",
+        "pricing-checkout-error-visible",
+        "pricing-billing-portal",
+        "pricing-billing-portal-error-visible",
+    ]:
+        assert name in names
+
+
 def test_browser_smoke_launch_click_suite_requires_dev_auth() -> None:
     args = browser_smoke.parse_args([
         "--frontend",
