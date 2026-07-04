@@ -198,6 +198,70 @@ def test_desci_launch_handoff_refresh_summarizes_release_handoff_provider_prefli
     assert "Unauthorized" not in raw_bundle
 
 
+def test_desci_launch_handoff_refresh_auto_discovers_latest_release_handoff(
+    monkeypatch,
+    tmp_path,
+):
+    refresh = load_refresh_module()
+    radar = tmp_path / "var" / "radar.json"
+    status_json = tmp_path / "var" / "status.json"
+    status_md = tmp_path / "docs" / "reports" / "2026-07" / "AUTO_RESEARCH_OPERATOR_STATUS_DESCI.md"
+    scan_json = tmp_path / "var" / "desci-launch-secret-scan-handoff-refresh.json"
+    bundle_json = tmp_path / "var" / "bundle.json"
+    release_handoff_dir = tmp_path / "apps" / "desci-platform" / "var"
+    older = release_handoff_dir / "release-handoff-a.json"
+    latest = release_handoff_dir / "release-handoff-z.json"
+    live_commit = "f" * 40
+    release_handoff_dir.mkdir(parents=True, exist_ok=True)
+    for path in (older, latest):
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "ok": False,
+                    "release_decision": "no-go",
+                    "provider_preflight_ok": False,
+                    "provider_preflight": {
+                        "ok": False,
+                        "provider_count": 3,
+                        "ready_provider_count": 1,
+                        "check_count": 7,
+                        "failed_check_count": 4,
+                        "missing_cli_count": 0,
+                        "auth_context_missing_count": 2,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+    scan_calls: list[list[Path]] = []
+
+    def fake_scan(*, workspace_root, extra_paths=None):
+        scan_calls.append([Path(path) for path in extra_paths or []])
+        return clean_scan(scanned=15)
+
+    monkeypatch.setattr(refresh.desci_launch_secret_scan, "build_desci_launch_secret_scan", fake_scan)
+    monkeypatch.setattr(refresh.auto_research_status, "build_status", lambda **kwargs: desci_status(live_commit))
+    monkeypatch.setattr(refresh.auto_research_status, "format_markdown", lambda report: "operator markdown")
+
+    bundle = refresh.refresh_desci_launch_handoff(
+        workspace_root=tmp_path,
+        radar_json=radar,
+        status_json_out=status_json,
+        status_markdown_out=status_md,
+        secret_scan_json_out=scan_json,
+        bundle_json_out=bundle_json,
+        live_source_commit=live_commit,
+        auto_refresh_radar=False,
+    )
+
+    assert bundle["ok"] is True
+    assert bundle["release_handoff"]["status"] == "valid"
+    assert bundle["release_handoff"]["path"] == "apps/desci-platform/var/release-handoff-z.json"
+    assert all(latest in call for call in scan_calls)
+    assert all(older not in call for call in scan_calls)
+
+
 def test_desci_launch_handoff_refresh_auto_refreshes_missing_radar_before_status(
     monkeypatch,
     tmp_path,

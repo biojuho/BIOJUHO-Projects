@@ -68,6 +68,7 @@ def refresh_desci_launch_handoff(
     live_source_commit = _resolved_live_source_commit(
         workspace_root, live_source_commit, check_live_source, require_live_source
     )
+    release_handoff_json = _resolve_release_handoff_json(workspace_root, release_handoff_json)
 
     radar_refresh = _refresh_radar_if_needed(
         radar_json=radar_json,
@@ -717,6 +718,30 @@ def _extra_scan_paths(
     return paths
 
 
+def _resolve_release_handoff_json(workspace_root: Path, release_handoff_json: Path | None) -> Path | None:
+    if release_handoff_json is not None:
+        return release_handoff_json
+    return _latest_release_handoff_json(workspace_root)
+
+
+def _latest_release_handoff_json(workspace_root: Path) -> Path | None:
+    var_dir = workspace_root / "apps" / "desci-platform" / "var"
+    try:
+        candidates = [path for path in var_dir.glob("release-handoff*.json") if path.is_file()]
+    except OSError:
+        return None
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: (_mtime_ns(path), path.name))
+
+
+def _mtime_ns(path: Path) -> int:
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return 0
+
+
 def _display_path(path: Path, workspace_root: Path) -> str:
     try:
         return path.resolve().relative_to(workspace_root.resolve()).as_posix()
@@ -752,7 +777,10 @@ def main(argv: list[str] | None = None, *, workspace_root: Path = WORKSPACE_ROOT
     parser.add_argument(
         "--release-handoff-json",
         type=Path,
-        help="Optional scripts/release_handoff.py JSON packet to summarize and scan.",
+        help=(
+            "Optional scripts/release_handoff.py JSON packet to summarize and scan. "
+            "When omitted, the latest apps/desci-platform/var/release-handoff*.json is used if present."
+        ),
     )
     parser.add_argument("--live-source-commit")
     parser.add_argument("--check-live-source", action="store_true")
