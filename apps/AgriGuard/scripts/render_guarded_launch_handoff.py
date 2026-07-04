@@ -272,6 +272,9 @@ def render_markdown(handoff: dict[str, object]) -> str:
     readiness_summary = (
         status_view.get("readiness_summary") if isinstance(status_view.get("readiness_summary"), dict) else {}
     )
+    readiness_commands = (
+        readiness_summary.get("next_commands") if isinstance(readiness_summary.get("next_commands"), list) else []
+    )
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
     packet_validation = handoff.get("packet_validation") if isinstance(handoff.get("packet_validation"), dict) else {}
     external_blocker = handoff.get("external_blocker") if isinstance(handoff.get("external_blocker"), dict) else {}
@@ -306,10 +309,27 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Artifact index recovery command: `{packet_validation.get('artifact_index_recovery_command_text') or '-'}`",
         f"- Artifact index recovery required: `{str((packet_validation.get('artifact_index_recovery_summary') or {}).get('required')).lower()}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
+        f"- Readiness next command count: `{len(readiness_commands)}`",
         f"- Env validation ready for preflight: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
         f"- Env validation placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
         f"- Operator packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
         "",
+    ]
+    if readiness_commands:
+        lines.extend(["## Readiness Next Commands", ""])
+        for item in readiness_commands:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            command = item.get("command")
+            if not isinstance(name, str) or not isinstance(command, str):
+                continue
+            shell = item.get("shell")
+            shell_text = f" ({shell})" if isinstance(shell, str) and shell else ""
+            lines.append(f"- `{name}`{shell_text}: `{command}`")
+        lines.append("")
+    lines.extend(
+        [
         "## External Blocker",
         "",
         f"- Status: `{external_blocker.get('status')}`",
@@ -318,7 +338,8 @@ def render_markdown(handoff: dict[str, object]) -> str:
         "",
         "## Operator Commands",
         "",
-    ]
+        ]
+    )
     for command in commands:
         if not isinstance(command, dict):
             continue

@@ -103,6 +103,31 @@ def _operator_action_ids_from_summary(payload: dict[str, Any] | None) -> list[st
     return [str(action_id) for action_id in action_ids if isinstance(action_id, str)]
 
 
+def _next_commands_from_summary(payload: dict[str, Any] | None) -> list[dict[str, str]]:
+    if payload is None:
+        return []
+    raw_commands = payload.get("next_commands")
+    if not isinstance(raw_commands, list):
+        return []
+
+    commands: list[dict[str, str]] = []
+    for item in raw_commands:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        command = item.get("command")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if not isinstance(command, str) or not command.strip():
+            continue
+        summary = {"name": name, "command": command}
+        shell = item.get("shell")
+        if isinstance(shell, str) and shell.strip():
+            summary["shell"] = shell
+        commands.append(summary)
+    return commands
+
+
 def _summary_report(payload: dict[str, Any] | None, report_name: str) -> dict[str, Any]:
     if payload is None:
         return {}
@@ -245,6 +270,7 @@ def _build_status_view(
             "status": summary.get("status") if summary is not None else None,
             "blocker_class": summary.get("blocker_class") if summary is not None else None,
             "next_actions": summary.get("next_actions") if summary is not None and isinstance(summary.get("next_actions"), list) else [],
+            "next_commands": _next_commands_from_summary(summary),
             "operator_action_ids": action_ids,
             "env_validation_ready_for_preflight": summary_env_validation.get("ready_for_preflight"),
             "env_validation_placeholder_count": summary_env_validation.get("placeholder_count"),

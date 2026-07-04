@@ -81,6 +81,27 @@ def _string_list(value: object) -> list[str]:
     return [str(item) for item in value if isinstance(item, str)]
 
 
+def _next_commands(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    commands: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        command = item.get("command")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if not isinstance(command, str) or not command.strip():
+            continue
+        summary = {"name": name, "command": command}
+        shell = item.get("shell")
+        if isinstance(shell, str) and shell.strip():
+            summary["shell"] = shell
+        commands.append(summary)
+    return commands
+
+
 def _packet_validation(handoff: dict[str, Any] | None) -> dict[str, Any]:
     packet_validation = handoff.get("packet_validation") if handoff is not None else None
     return packet_validation if isinstance(packet_validation, dict) else {}
@@ -198,6 +219,7 @@ def build_consumer_view(
         errors.append("packet_validation status is not pass")
     pass_ready = handoff_status == "ready" and ready_gate_status == "pass"
     status = "pass" if pass_ready and not errors else "fail"
+    readiness_next_commands = _next_commands(readiness_summary.get("next_commands"))
 
     return {
         "schema_version": 1,
@@ -224,6 +246,7 @@ def build_consumer_view(
         "packet_artifact_index_recovery_command_text": packet_validation.get("artifact_index_recovery_command_text"),
         "packet_artifact_index_recovery_summary": packet_recovery_summary,
         "readiness_operator_action_ids": readiness_action_ids,
+        "readiness_next_commands": readiness_next_commands,
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),
         "readiness_operator_packet_preflight_status": readiness_summary.get("operator_packet_preflight_status"),

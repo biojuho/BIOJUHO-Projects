@@ -765,6 +765,18 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                 "blocker_class": "preflight_blocked",
                 "secrets_redacted": True,
                 "next_actions": ["Open the operator packet."],
+                "next_commands": [
+                    {
+                        "name": "validate_env_template",
+                        "command": "& python validate_launch_env_template.py",
+                        "shell": "powershell",
+                    },
+                    {
+                        "name": "strict_preflight",
+                        "command": "& python launch_env_preflight.py",
+                        "shell": "powershell",
+                    },
+                ],
                 "reports": {
                     "env_validation": {
                         "ready_for_preflight": False,
@@ -827,6 +839,18 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["readiness_summary"]["env_validation_ready_for_preflight"] is False
     assert payload["readiness_summary"]["env_validation_placeholder_count"] == 6
     assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
+    assert payload["readiness_summary"]["next_commands"] == [
+        {
+            "name": "validate_env_template",
+            "command": "& python validate_launch_env_template.py",
+            "shell": "powershell",
+        },
+        {
+            "name": "strict_preflight",
+            "command": "& python launch_env_preflight.py",
+            "shell": "powershell",
+        },
+    ]
     assert payload["operator_packet"]["operator_action_ids"] == ["fallback_action"]
     assert payload["operator_packet"]["blocking_action_count"] == 1
     assert payload["operator_packet"]["preflight_status"] == "fail"

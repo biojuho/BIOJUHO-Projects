@@ -86,6 +86,13 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
                 "status": "blocked",
                 "blocker_class": "preflight_blocked",
                 "secrets_redacted": True,
+                "next_commands": [
+                    {
+                        "name": "validate_env_template",
+                        "command": "& python validate_launch_env_template.py",
+                        "shell": "powershell",
+                    }
+                ],
                 "reports": {
                     "operator_packet": {
                         "operator_action_ids": ["set_firebase_service_account_file"],
@@ -103,12 +110,20 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         output_prefix="blocked",
         ready_gate_json=output_dir / "blocked-ready-gate.json",
     )
+    markdown = render_guarded_launch_handoff.render_markdown(handoff)
 
     assert handoff["status"] == "blocked"
     assert handoff["ready_gate"]["status"] == "fail"
     assert handoff["ready_gate"]["exit_code"] == 1
     assert handoff["external_blocker"]["blocker_class"] == "preflight_blocked"
     assert handoff["external_blocker"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert handoff["status_view"]["readiness_summary"]["next_commands"] == [
+        {
+            "name": "validate_env_template",
+            "command": "& python validate_launch_env_template.py",
+            "shell": "powershell",
+        }
+    ]
     assert handoff["packet_validation"]["status"] == "pass"
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
     assert handoff["packet_validation"]["markdown_table_status"] == "pass"
@@ -139,6 +154,8 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert inspect_command[inspect_command.index("--output-dir") + 1] == str(output_dir.resolve())
     assert "--require-ready" not in inspect_command
     assert handoff["secrets_redacted"] is True
+    assert "Readiness next command count: `1`" in markdown
+    assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 
 
 def test_guarded_launch_handoff_notes_deferred_artifact_index_recovery_status(tmp_path: Path) -> None:

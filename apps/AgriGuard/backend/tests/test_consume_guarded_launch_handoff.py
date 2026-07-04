@@ -170,6 +170,13 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
             "status": "blocked",
             "blocker_class": "preflight_blocked",
             "secrets_redacted": True,
+            "next_commands": [
+                {
+                    "name": "validate_env_template",
+                    "command": "& python validate_launch_env_template.py",
+                    "shell": "powershell",
+                }
+            ],
             "reports": {
                 "env_validation": {
                     "ready_for_preflight": False,
@@ -201,6 +208,13 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["packet_artifact_index_recovery_command_text"] is None
     assert view["packet_artifact_index_recovery_summary"]["required"] is False
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert view["readiness_next_commands"] == [
+        {
+            "name": "validate_env_template",
+            "command": "& python validate_launch_env_template.py",
+            "shell": "powershell",
+        }
+    ]
     assert view["readiness_env_validation_ready_for_preflight"] is False
     assert view["readiness_env_validation_placeholder_count"] == 6
     assert view["readiness_operator_packet_preflight_status"] == "env_shape_blocked"

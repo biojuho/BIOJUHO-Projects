@@ -610,6 +610,31 @@
               },
               "type": "array"
             },
+            "next_commands": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "shell": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "command"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
             "operator_action_ids": {
               "items": {
                 "type": "string"
