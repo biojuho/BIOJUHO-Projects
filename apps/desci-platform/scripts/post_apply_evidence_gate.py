@@ -71,8 +71,8 @@ def secret_marker_names(payload: dict[str, Any]) -> list[str]:
     return secret_marker_names_in_text(serialized)
 
 
-def _provider_blockers(provider_payload: dict[str, Any]) -> list[dict[str, str]]:
-    blockers: list[dict[str, str]] = []
+def _provider_blockers(provider_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
     for check in _as_list(provider_payload.get("failed_checks")):
         if not isinstance(check, dict):
             continue
@@ -84,6 +84,7 @@ def _provider_blockers(provider_payload: dict[str, Any]) -> list[dict[str, str]]
                 "failure_reason": str(check.get("failure_reason") or "unknown"),
                 "docs_url": str(check.get("docs_url") or "").strip(),
                 "remediation": str(check.get("remediation") or "").strip(),
+                "project_context_missing": check.get("project_context_missing") is True,
             }
         )
     return blockers
@@ -109,10 +110,13 @@ def validate_post_apply_payload(payload: dict[str, Any], *, evidence_path: str |
         failures.append("summary.provider_failed_checks must be 0")
     provider_missing_cli_count = int(summary.get("provider_missing_cli_count") or 0)
     provider_auth_context_missing_count = int(summary.get("provider_auth_context_missing_count") or 0)
+    provider_project_context_missing_count = int(summary.get("provider_project_context_missing_count") or 0)
     if provider_missing_cli_count != 0:
         failures.append("summary.provider_missing_cli_count must be 0")
     if provider_auth_context_missing_count != 0:
         failures.append("summary.provider_auth_context_missing_count must be 0")
+    if provider_project_context_missing_count != 0:
+        failures.append("summary.provider_project_context_missing_count must be 0")
     if int(summary.get("failed_surface_count") or 0) != 0:
         failures.append("summary.failed_surface_count must be 0")
     provider_count = int(summary.get("provider_count") or 0)
@@ -141,6 +145,7 @@ def validate_post_apply_payload(payload: dict[str, Any], *, evidence_path: str |
             "provider_check_count": int(summary.get("provider_check_count") or 0),
             "provider_missing_cli_count": provider_missing_cli_count,
             "provider_auth_context_missing_count": provider_auth_context_missing_count,
+            "provider_project_context_missing_count": provider_project_context_missing_count,
             "provider_blocker_count": len(provider_blockers),
             "failed_surface_count": int(summary.get("failed_surface_count") or 0),
             "provider_ready": provider_ready,
@@ -573,6 +578,8 @@ def _promotion_blocking_reasons(
             docs_url = str(blocker.get("docs_url") or "").strip()
             command_label = f" {command}" if command else ""
             reason = f"provider_preflight {provider}{command_label}: {failure_reason}"
+            if blocker.get("project_context_missing") is True:
+                reason = f"{reason}; project_context=missing"
             if remediation:
                 reason = f"{reason}; next={remediation}"
             elif docs_url:
@@ -670,6 +677,7 @@ def print_report(payload: dict[str, Any]) -> None:
         f"provider_checks={summary.get('provider_check_count')} "
         f"missing_cli={summary.get('provider_missing_cli_count')} "
         f"auth_context_missing={summary.get('provider_auth_context_missing_count')} "
+        f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"provider_blockers={summary.get('provider_blocker_count')}"
     )
     for failure in _as_list(payload.get("failures")):
@@ -683,6 +691,8 @@ def print_report(payload: dict[str, Any]) -> None:
         docs_url = blocker.get("docs_url")
         remediation = blocker.get("remediation")
         details = f"  - provider_blocker {provider} {command}: {reason}"
+        if blocker.get("project_context_missing") is True:
+            details = f"{details} project_context=missing"
         if docs_url:
             details = f"{details} docs={docs_url}"
         if remediation:

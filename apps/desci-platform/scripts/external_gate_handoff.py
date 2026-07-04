@@ -171,6 +171,7 @@ def provider_preflight_actions(provider_payload: dict[str, Any]) -> list[dict[st
                 "commands": [],
                 "docs_urls": [],
                 "remediations": [],
+                "project_context_missing_count": 0,
                 "actions": [],
             },
         )
@@ -178,6 +179,9 @@ def provider_preflight_actions(provider_payload: dict[str, Any]) -> list[dict[st
         failure_reason = str(check.get("failure_reason") or "unknown")
         command = str(check.get("command") or "").strip()
         remediation = str(check.get("remediation") or "").strip()
+        project_context_missing = check.get("project_context_missing") is True
+        if project_context_missing:
+            group["project_context_missing_count"] += 1
         if failure_reason not in group["failure_reasons"]:
             group["failure_reasons"].append(failure_reason)
         if command and command not in group["commands"]:
@@ -194,6 +198,7 @@ def provider_preflight_actions(provider_payload: dict[str, Any]) -> list[dict[st
                 "failure_reason": failure_reason,
                 "docs_url": docs_url,
                 "remediation": remediation,
+                "project_context_missing": project_context_missing,
             }
         )
     return [grouped[provider] for provider in sorted(grouped)]
@@ -217,12 +222,14 @@ def provider_rollup(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "commands": [],
                 "docs_urls": [],
                 "remediations": [],
+                "project_context_missing_count": 0,
                 "action_count": 0,
                 "apply_guidance": _provider_guidance(provider),
             },
         )
         group["failed"] += int(action.get("failed") or 0)
         group["warnings"] += int(action.get("warnings") or 0)
+        group["project_context_missing_count"] += int(action.get("project_context_missing_count") or 0)
         group["action_count"] += 1
         for key in _string_list(action.get("required_env")):
             if key not in group["required_env"]:
@@ -269,6 +276,7 @@ def build_handoff_payload(gate_payload: dict[str, Any], *, evidence_path: str | 
             "provider_check_count": int(provider_summary.get("check_count") or 0),
             "provider_missing_cli_count": int(provider_summary.get("missing_cli_count") or 0),
             "provider_auth_context_missing_count": int(provider_summary.get("auth_context_missing_count") or 0),
+            "provider_project_context_missing_count": int(provider_summary.get("project_context_missing_count") or 0),
             "failed_surface_count": int(gate_summary.get("failed_surface_count") or 0),
             "next_action_count": len(actions),
         },
@@ -1688,6 +1696,8 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
         f"- Provider missing CLI checks: `{_markdown_scalar(summary.get('provider_missing_cli_count', 0))}`",
         f"- Provider auth context missing checks: "
         f"`{_markdown_scalar(summary.get('provider_auth_context_missing_count', 0))}`",
+        f"- Provider project context missing checks: "
+        f"`{_markdown_scalar(summary.get('provider_project_context_missing_count', 0))}`",
         f"- Next actions: `{_markdown_scalar(summary.get('next_action_count', 0))}`",
         "",
         "## Provider Rollup",
@@ -1698,12 +1708,14 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
     for item in rollups:
         remediation_text = _markdown_text_values(item.get("remediations"))
         remediation_suffix = f", next={remediation_text}" if remediation_text != "none" else ""
+        project_context = int(item.get("project_context_missing_count") or 0)
+        context_suffix = f", project_context_missing=`{project_context}`" if project_context else ""
         lines.append(
             f"- {item.get('label')}: failed=`{_markdown_scalar(item.get('failed', 0))}`, "
             f"warnings=`{_markdown_scalar(item.get('warnings', 0))}`, "
             f"env={_markdown_values(item.get('required_env'))}, "
             f"reasons={_markdown_values(item.get('failure_reasons'))}"
-            f"{remediation_suffix}"
+            f"{context_suffix}{remediation_suffix}"
         )
     lines.extend(["", "## Provider Apply Guidance"])
     if not rollups:
@@ -1732,13 +1744,15 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
         docs_urls = _markdown_values(item.get("docs_urls"))
         remediation_text = _markdown_text_values(item.get("remediations"))
         remediation_suffix = f", next={remediation_text}" if remediation_text != "none" else ""
+        project_context = int(item.get("project_context_missing_count") or 0)
+        context_suffix = f", project_context_missing=`{project_context}`" if project_context else ""
         lines.append(
             f"- {item.get('label')} / {item.get('surface')}: "
             f"source=`{item.get('source')}`, failed=`{_markdown_scalar(item.get('failed', 0))}`, "
             f"warnings=`{_markdown_scalar(item.get('warnings', 0))}`, "
             f"checks={failed_checks}, warnings={warning_checks}, reasons={reasons}, commands={commands}, "
             f"docs={docs_urls}, env={_markdown_values(item.get('required_env'))}"
-            f"{remediation_suffix}"
+            f"{context_suffix}{remediation_suffix}"
         )
     return "\n".join(lines).rstrip() + "\n"
 
@@ -1899,6 +1913,7 @@ def print_report(payload: dict[str, Any]) -> None:
         f"provider_checks={summary.get('provider_check_count')} "
         f"missing_cli={summary.get('provider_missing_cli_count')} "
         f"auth_context_missing={summary.get('provider_auth_context_missing_count')} "
+        f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"next_actions={summary.get('next_action_count')}"
     )
     if payload.get("failed_surfaces"):

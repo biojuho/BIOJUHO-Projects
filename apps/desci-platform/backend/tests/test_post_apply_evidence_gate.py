@@ -27,6 +27,7 @@ def external_gate_payload(*, ok: bool = True) -> dict[str, object]:
             "provider_check_count": 7,
             "provider_missing_cli_count": 0,
             "provider_auth_context_missing_count": 0 if ok else 1,
+            "provider_project_context_missing_count": 0 if ok else 1,
             "failed_surface_count": 0 if ok else 1,
         },
         "deploy_readiness": {"ok": True},
@@ -42,6 +43,7 @@ def external_gate_payload(*, ok: bool = True) -> dict[str, object]:
                     "failure_reason": "auth_context_missing",
                     "docs_url": "https://vercel.com/docs/cli/env",
                     "remediation": "Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight.",
+                    "project_context_missing": True,
                 }
             ],
         },
@@ -98,6 +100,7 @@ def test_post_apply_evidence_gate_accepts_ready_external_gate() -> None:
     assert payload["summary"]["provider_check_count"] == 7
     assert payload["summary"]["provider_missing_cli_count"] == 0
     assert payload["summary"]["provider_auth_context_missing_count"] == 0
+    assert payload["summary"]["provider_project_context_missing_count"] == 0
     assert payload["summary"]["provider_blocker_count"] == 0
     assert payload["provider_blockers"] == []
     assert payload["failures"] == []
@@ -112,12 +115,15 @@ def test_post_apply_evidence_gate_fails_closed_for_incomplete_provider_evidence(
     assert payload["ok"] is False
     assert payload["summary"]["provider_failed_checks"] == 1
     assert payload["summary"]["provider_auth_context_missing_count"] == 1
+    assert payload["summary"]["provider_project_context_missing_count"] == 1
     assert payload["summary"]["provider_blocker_count"] == 1
     assert payload["provider_blockers"][0]["command"] == "vercel whoami"
+    assert payload["provider_blockers"][0]["project_context_missing"] is True
     assert "VERCEL_TOKEN" in payload["provider_blockers"][0]["remediation"]
     assert "external gate ok must be true" in payload["failures"]
     assert "provider_preflight.ok must be true" in payload["failures"]
     assert "summary.provider_auth_context_missing_count must be 0" in payload["failures"]
+    assert "summary.provider_project_context_missing_count must be 0" in payload["failures"]
     assert "summary.provider_ready must equal summary.provider_count" in payload["failures"]
 
 
@@ -133,7 +139,9 @@ def test_post_apply_evidence_gate_text_report_includes_provider_preflight_counts
     assert "provider_checks=7" in output
     assert "missing_cli=0" in output
     assert "auth_context_missing=1" in output
+    assert "project_context_missing=1" in output
     assert "provider_blockers=1" in output
+    assert "project_context=missing" in output
     assert "next=Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight." in output
 
 
@@ -368,6 +376,7 @@ def test_post_apply_promotion_receipt_blocks_no_go_without_artifact_failures(tmp
     assert "external gate ok must be true" in receipt["blocking_reasons"]
     assert "evidence_manifest.ok must be true" in receipt["blocking_reasons"]
     assert any("VERCEL_TOKEN" in reason for reason in receipt["blocking_reasons"])
+    assert any("project_context=missing" in reason for reason in receipt["blocking_reasons"])
 
 
 def test_post_apply_evidence_gate_cli_writes_complete_promotion_receipt(tmp_path: Path) -> None:
@@ -438,6 +447,7 @@ def test_post_apply_promotion_receipt_verifier_accepts_valid_no_go_receipt(tmp_p
     assert verification["summary"]["artifact_secret_marker_count"] == 0
     assert verification["summary"]["blocking_reason_count"] > 0
     assert any("VERCEL_TOKEN" in reason for reason in verification["blocking_reasons"])
+    assert any("project_context=missing" in reason for reason in verification["blocking_reasons"])
 
 
 def test_post_apply_promotion_receipt_verifier_require_go_blocks_valid_no_go_receipt(tmp_path: Path) -> None:

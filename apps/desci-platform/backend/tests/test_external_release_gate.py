@@ -32,6 +32,19 @@ def _provider_runner_missing_auth(
     )
 
 
+def _provider_runner_missing_auth_and_project(
+    spec: provider_preflight.CommandSpec,
+    timeout_seconds: int,
+) -> provider_preflight.CommandExecution:
+    return provider_preflight.CommandExecution(
+        exit_code=None,
+        duration_ms=0,
+        auth_context_missing=True,
+        project_context_missing=True,
+        error=f"{spec.provider} auth and project context missing",
+    )
+
+
 def test_external_release_gate_normalizes_all_targets() -> None:
     assert external_release_gate.normalize_targets(["all"]) == ["railway", "vercel", "amoy", "github"]
     assert external_release_gate.provider_targets_for(["railway", "amoy", "github"]) == ["railway", "github"]
@@ -56,6 +69,7 @@ def test_external_release_gate_passes_when_env_and_provider_checks_are_ready(tmp
     assert payload["summary"]["provider_check_count"] == 2
     assert payload["summary"]["provider_missing_cli_count"] == 0
     assert payload["summary"]["provider_auth_context_missing_count"] == 0
+    assert payload["summary"]["provider_project_context_missing_count"] == 0
     assert payload["provider_preflight"]["summary"]["passed_check_count"] == 2
 
 
@@ -77,8 +91,28 @@ def test_external_release_gate_fails_closed_for_deploy_and_provider_blockers(tmp
     assert payload["summary"]["provider_check_count"] == 2
     assert payload["summary"]["provider_missing_cli_count"] == 0
     assert payload["summary"]["provider_auth_context_missing_count"] == 2
+    assert payload["summary"]["provider_project_context_missing_count"] == 0
     assert payload["provider_preflight"]["summary"]["auth_context_missing_count"] == 2
     assert payload["provider_preflight"]["failed_checks"][0]["failure_reason"] == "auth_context_missing"
+
+
+def test_external_release_gate_propagates_provider_project_context_count(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+
+    payload = external_release_gate.run_external_gate(
+        targets=("vercel",),
+        env_files=[env_file],
+        include_process_env=False,
+        provider_timeout_seconds=5,
+        provider_runner=_provider_runner_missing_auth_and_project,
+    )
+
+    assert payload["ok"] is False
+    assert payload["summary"]["provider_auth_context_missing_count"] == 2
+    assert payload["summary"]["provider_project_context_missing_count"] == 2
+    assert payload["provider_preflight"]["summary"]["project_context_missing_count"] == 2
+    assert all(check["project_context_missing"] is True for check in payload["provider_preflight"]["failed_checks"])
 
 
 def test_external_release_gate_text_report_includes_provider_preflight_counts(
@@ -101,6 +135,7 @@ def test_external_release_gate_text_report_includes_provider_preflight_counts(
     assert "provider_checks=2" in output
     assert "missing_cli=0" in output
     assert "auth_context_missing=2" in output
+    assert "project_context_missing=0" in output
 
 
 def test_external_release_gate_skips_provider_preflight_for_amoy_only(tmp_path: Path) -> None:

@@ -85,6 +85,7 @@ def gate_payload(*, ok: bool = False) -> dict[str, object]:
                 "failed_check_count": 0 if ok else 2,
                 "missing_cli_count": 0,
                 "auth_context_missing_count": 0 if ok else 2,
+                "project_context_missing_count": 0 if ok else 2,
             },
             "failed_checks": []
             if ok
@@ -96,6 +97,7 @@ def gate_payload(*, ok: bool = False) -> dict[str, object]:
                     "failure_reason": "auth_context_missing",
                     "docs_url": "https://vercel.com/docs/cli/env",
                     "remediation": "Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight.",
+                    "project_context_missing": True,
                 },
                 {
                     "provider": "vercel",
@@ -104,6 +106,7 @@ def gate_payload(*, ok: bool = False) -> dict[str, object]:
                     "failure_reason": "auth_context_missing",
                     "docs_url": "https://vercel.com/docs/cli/env",
                     "remediation": "Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight.",
+                    "project_context_missing": True,
                 },
             ],
         },
@@ -122,12 +125,14 @@ def test_external_gate_handoff_fails_closed_with_provider_rollup() -> None:
     assert payload["summary"]["provider_check_count"] == 7
     assert payload["summary"]["provider_missing_cli_count"] == 0
     assert payload["summary"]["provider_auth_context_missing_count"] == 2
+    assert payload["summary"]["provider_project_context_missing_count"] == 2
     assert railway["failed"] == 1
     assert railway["warnings"] == 1
     assert railway["template_filename"] == "railway.env"
     assert railway["has_env_template"] is True
     assert railway["required_env"] == ["FIREBASE_SERVICE_ACCOUNT_JSON", "PINATA_JWT"]
     assert vercel["failed"] == 2
+    assert vercel["project_context_missing_count"] == 2
     assert vercel["template_filename"] == "vercel.env"
     assert vercel["has_env_template"] is False
     assert vercel["failure_reasons"] == ["auth_context_missing"]
@@ -135,6 +140,7 @@ def test_external_gate_handoff_fails_closed_with_provider_rollup() -> None:
     assert vercel["docs_urls"] == ["https://vercel.com/docs/cli/env"]
     assert vercel["remediations"] == ["Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight."]
     assert payload["next_actions"][-1]["docs_urls"] == ["https://vercel.com/docs/cli/env"]
+    assert payload["next_actions"][-1]["project_context_missing_count"] == 2
     assert payload["next_actions"][-1]["remediations"] == [
         "Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight."
     ]
@@ -164,6 +170,8 @@ def test_external_gate_handoff_markdown_uses_no_secret_values() -> None:
     assert "vercel whoami" in markdown
     assert "Provider total checks: `7`" in markdown
     assert "Provider auth context missing checks: `2`" in markdown
+    assert "Provider project context missing checks: `2`" in markdown
+    assert "project_context_missing=`2`" in markdown
     assert "docs=`https://vercel.com/docs/cli/env`" in markdown
     assert "next=Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight." in markdown
     assert "private_key" not in markdown
@@ -179,6 +187,7 @@ def test_external_gate_handoff_text_report_includes_provider_preflight_counts(ca
     assert "provider_checks=7" in output
     assert "missing_cli=0" in output
     assert "auth_context_missing=2" in output
+    assert "project_context_missing=2" in output
 
 
 def test_external_gate_handoff_writes_json_and_markdown(tmp_path: Path) -> None:
