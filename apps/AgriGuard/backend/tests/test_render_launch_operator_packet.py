@@ -147,6 +147,12 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
     output_dir = tmp_path / "launch-artifacts"
     status_json = tmp_path / "custom-status" / "guarded-status.json"
     artifact_index = output_dir / "custom-prefix-artifact-index.json"
+    custom_handoff_dir = tmp_path / "custom-handoff"
+    handoff_json = custom_handoff_dir / "current.handoff.json"
+    handoff_markdown = custom_handoff_dir / "current.handoff.md"
+    handoff_validation_json = custom_handoff_dir / "current.handoff.validation.json"
+    handoff_consumer_json = custom_handoff_dir / "current.handoff.consumer.json"
+    ready_gate_json = custom_handoff_dir / "current.ready-gate.json"
     preflight.parent.mkdir(parents=True)
     output_dir.mkdir(parents=True)
     preflight.write_text(
@@ -189,6 +195,11 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
         guarded_output_dir=output_dir,
         guarded_output_prefix="custom-prefix",
         guarded_status_json=status_json,
+        guarded_handoff_json=handoff_json,
+        guarded_handoff_markdown=handoff_markdown,
+        guarded_handoff_validation_json=handoff_validation_json,
+        guarded_handoff_consumer_json=handoff_consumer_json,
+        guarded_ready_gate_json=ready_gate_json,
     )
     evidence = packet["guarded_launch_evidence"]
     summary = evidence["artifact_index_readiness_summary"]
@@ -199,10 +210,19 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
         "--output-dir launch-artifacts "
         "--output-prefix custom-prefix "
         "--emit-handoff "
-        "--status-json-out custom-status/guarded-status.json"
+        "--status-json-out custom-status/guarded-status.json "
+        "--handoff-json-out custom-handoff/current.handoff.json "
+        "--handoff-markdown-out custom-handoff/current.handoff.md "
+        "--handoff-validation-json-out custom-handoff/current.handoff.validation.json "
+        "--handoff-consumer-json-out custom-handoff/current.handoff.consumer.json "
+        "--handoff-ready-gate-json-out custom-handoff/current.ready-gate.json"
     )
     assert evidence["outputs"]["status_json"] == "custom-status/guarded-status.json"
     assert evidence["outputs"]["launch_report_json"] == "launch-artifacts/custom-prefix-launch-report.json"
+    assert evidence["outputs"]["handoff_json"] == "custom-handoff/current.handoff.json"
+    assert evidence["outputs"]["handoff_markdown"] == "custom-handoff/current.handoff.md"
+    assert evidence["outputs"]["handoff_validation_json"] == "custom-handoff/current.handoff.validation.json"
+    assert evidence["outputs"]["handoff_consumer_json"] == "custom-handoff/current.handoff.consumer.json"
     assert evidence["outputs"]["artifact_index_json"] == "launch-artifacts/custom-prefix-artifact-index.json"
     assert summary["path"] == "launch-artifacts/custom-prefix-artifact-index.json"
     assert summary["operator_action_ids"] == ["set_firebase_service_account_file"]

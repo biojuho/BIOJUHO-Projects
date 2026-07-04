@@ -178,6 +178,21 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-status-json") == str(
         output_dir.resolve() / "release-check-status.json"
     )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-handoff-json") == str(
+        output_dir.resolve() / "release-check-handoff.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-handoff-markdown") == str(
+        output_dir.resolve() / "release-check-handoff.md"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-handoff-validation-json") == str(
+        output_dir.resolve() / "release-check-handoff.validation.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-handoff-consumer-json") == str(
+        output_dir.resolve() / "release-check-handoff.consumer.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-ready-gate-json") == str(
+        output_dir.resolve() / "release-check-ready-gate.json"
+    )
 
 
 def test_guarded_launch_artifact_index_uses_custom_handoff_outputs(tmp_path: Path, capsys) -> None:
@@ -217,6 +232,7 @@ def test_guarded_launch_artifact_index_uses_custom_handoff_outputs(tmp_path: Pat
 
     payload = json.loads(capsys.readouterr().out)
     artifact_index_command = payload["artifact_index_command"]
+    refresh_command = payload["operator_packet_refresh_command"]
     assert result == 0
     assert _arg_after(artifact_index_command, "--handoff-json") == str(handoff_json.resolve())
     assert _arg_after(artifact_index_command, "--handoff-markdown") == str(handoff_markdown.resolve())
@@ -225,6 +241,13 @@ def test_guarded_launch_artifact_index_uses_custom_handoff_outputs(tmp_path: Pat
     )
     assert _arg_after(artifact_index_command, "--handoff-consumer-json") == str(handoff_consumer_json.resolve())
     assert _arg_after(artifact_index_command, "--ready-gate-json") == str(ready_gate_json.resolve())
+    assert _arg_after(refresh_command, "--guarded-handoff-json") == str(handoff_json.resolve())
+    assert _arg_after(refresh_command, "--guarded-handoff-markdown") == str(handoff_markdown.resolve())
+    assert _arg_after(refresh_command, "--guarded-handoff-validation-json") == str(
+        handoff_validation_json.resolve()
+    )
+    assert _arg_after(refresh_command, "--guarded-handoff-consumer-json") == str(handoff_consumer_json.resolve())
+    assert _arg_after(refresh_command, "--guarded-ready-gate-json") == str(ready_gate_json.resolve())
 
 
 def test_guarded_launch_packet_refresh_uses_custom_status_json(tmp_path: Path, capsys) -> None:

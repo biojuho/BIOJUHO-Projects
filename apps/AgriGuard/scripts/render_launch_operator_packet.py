@@ -212,6 +212,11 @@ def _guarded_launch_command(
     output_dir: Path | None = None,
     output_prefix: str = run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
     status_json: Path | None = None,
+    handoff_json: Path | None = None,
+    handoff_markdown: Path | None = None,
+    handoff_validation_json: Path | None = None,
+    handoff_consumer_json: Path | None = None,
+    ready_gate_json: Path | None = None,
 ) -> str:
     env_file = _env_file_refs(env_files, workspace_root)[0] if len(env_files) == 1 else "var/agriguard-launch-operator.env.template"
     output_dir = (output_dir or (workspace_root / "var")).resolve()
@@ -233,6 +238,16 @@ def _guarded_launch_command(
             _rel(status_json, workspace_root),
         ]
     )
+    if handoff_json is not None:
+        command.extend(["--handoff-json-out", _rel(handoff_json.resolve(), workspace_root)])
+    if handoff_markdown is not None:
+        command.extend(["--handoff-markdown-out", _rel(handoff_markdown.resolve(), workspace_root)])
+    if handoff_validation_json is not None:
+        command.extend(["--handoff-validation-json-out", _rel(handoff_validation_json.resolve(), workspace_root)])
+    if handoff_consumer_json is not None:
+        command.extend(["--handoff-consumer-json-out", _rel(handoff_consumer_json.resolve(), workspace_root)])
+    if ready_gate_json is not None:
+        command.extend(["--handoff-ready-gate-json-out", _rel(ready_gate_json.resolve(), workspace_root)])
     return _format_command(command)
 
 
@@ -246,11 +261,25 @@ def _guarded_launch_evidence_outputs(
     output_dir: Path | None = None,
     output_prefix: str = run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
     status_json: Path | None = None,
+    handoff_json: Path | None = None,
+    handoff_markdown: Path | None = None,
+    handoff_validation_json: Path | None = None,
+    handoff_consumer_json: Path | None = None,
+    ready_gate_json: Path | None = None,
 ) -> dict[str, str]:
     workspace_root = _workspace_root(app_root)
     output_dir = (output_dir or (workspace_root / "var")).resolve()
     status_json = (status_json or _default_status_json(output_dir, output_prefix)).resolve()
-    artifact_paths = index_guarded_launch_artifacts._artifact_paths(output_dir, output_prefix, status_json)
+    artifact_paths = index_guarded_launch_artifacts._artifact_paths(
+        output_dir,
+        output_prefix,
+        status_json,
+        handoff_json=handoff_json.resolve() if handoff_json else None,
+        handoff_markdown=handoff_markdown.resolve() if handoff_markdown else None,
+        handoff_validation_json=handoff_validation_json.resolve() if handoff_validation_json else None,
+        handoff_consumer_json=handoff_consumer_json.resolve() if handoff_consumer_json else None,
+        ready_gate_json=ready_gate_json.resolve() if ready_gate_json else None,
+    )
     paths = {
         key: artifact_paths[key]
         for key in REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS
@@ -503,6 +532,11 @@ def build_operator_packet(
     guarded_output_dir: Path | None = None,
     guarded_output_prefix: str | None = None,
     guarded_status_json: Path | None = None,
+    guarded_handoff_json: Path | None = None,
+    guarded_handoff_markdown: Path | None = None,
+    guarded_handoff_validation_json: Path | None = None,
+    guarded_handoff_consumer_json: Path | None = None,
+    guarded_ready_gate_json: Path | None = None,
 ) -> dict[str, object]:
     app_root = (app_root or _default_app_root()).resolve()
     workspace_root = _workspace_root(app_root)
@@ -573,12 +607,22 @@ def build_operator_packet(
         output_dir=guarded_output_dir,
         output_prefix=guarded_output_prefix,
         status_json=guarded_status_json,
+        handoff_json=guarded_handoff_json,
+        handoff_markdown=guarded_handoff_markdown,
+        handoff_validation_json=guarded_handoff_validation_json,
+        handoff_consumer_json=guarded_handoff_consumer_json,
+        ready_gate_json=guarded_ready_gate_json,
     )
     guarded_launch_outputs = _guarded_launch_evidence_outputs(
         app_root=app_root,
         output_dir=guarded_output_dir,
         output_prefix=guarded_output_prefix,
         status_json=guarded_status_json,
+        handoff_json=guarded_handoff_json,
+        handoff_markdown=guarded_handoff_markdown,
+        handoff_validation_json=guarded_handoff_validation_json,
+        handoff_consumer_json=guarded_handoff_consumer_json,
+        ready_gate_json=guarded_ready_gate_json,
     )
     artifact_index_json = run_guarded_launch._default_artifact_index_json(guarded_output_dir, guarded_output_prefix)
 
@@ -812,6 +856,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Guarded-launch compact status JSON path to embed in evidence outputs.",
     )
+    parser.add_argument("--guarded-handoff-json", type=Path, default=None)
+    parser.add_argument("--guarded-handoff-markdown", type=Path, default=None)
+    parser.add_argument("--guarded-handoff-validation-json", type=Path, default=None)
+    parser.add_argument("--guarded-handoff-consumer-json", type=Path, default=None)
+    parser.add_argument("--guarded-ready-gate-json", type=Path, default=None)
     parser.add_argument(
         "--exit-zero-on-blocked",
         action="store_true",
@@ -830,6 +879,17 @@ def main(argv: list[str] | None = None) -> int:
         guarded_output_dir=args.guarded_output_dir.resolve() if args.guarded_output_dir else None,
         guarded_output_prefix=args.guarded_output_prefix,
         guarded_status_json=args.guarded_status_json.resolve() if args.guarded_status_json else None,
+        guarded_handoff_json=args.guarded_handoff_json.resolve() if args.guarded_handoff_json else None,
+        guarded_handoff_markdown=args.guarded_handoff_markdown.resolve()
+        if args.guarded_handoff_markdown
+        else None,
+        guarded_handoff_validation_json=args.guarded_handoff_validation_json.resolve()
+        if args.guarded_handoff_validation_json
+        else None,
+        guarded_handoff_consumer_json=args.guarded_handoff_consumer_json.resolve()
+        if args.guarded_handoff_consumer_json
+        else None,
+        guarded_ready_gate_json=args.guarded_ready_gate_json.resolve() if args.guarded_ready_gate_json else None,
     )
     markdown = render_markdown(packet)
     evidence = packet.get("guarded_launch_evidence")

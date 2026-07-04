@@ -561,6 +561,11 @@ def _build_operator_packet_refresh_command(
     guarded_output_dir: Path,
     guarded_output_prefix: str,
     guarded_status_json: Path | None,
+    guarded_handoff_json: Path,
+    guarded_handoff_markdown: Path,
+    guarded_handoff_validation_json: Path,
+    guarded_handoff_consumer_json: Path,
+    guarded_ready_gate_json: Path,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -583,6 +588,16 @@ def _build_operator_packet_refresh_command(
         str(guarded_output_dir),
         "--guarded-output-prefix",
         guarded_output_prefix,
+        "--guarded-handoff-json",
+        str(guarded_handoff_json),
+        "--guarded-handoff-markdown",
+        str(guarded_handoff_markdown),
+        "--guarded-handoff-validation-json",
+        str(guarded_handoff_validation_json),
+        "--guarded-handoff-consumer-json",
+        str(guarded_handoff_consumer_json),
+        "--guarded-ready-gate-json",
+        str(guarded_ready_gate_json),
         "--exit-zero-on-blocked",
     ]
     if guarded_status_json is not None:
@@ -766,6 +781,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             guarded_output_dir=output_dir,
             guarded_output_prefix=args.output_prefix,
             guarded_status_json=effective_status_json_out,
+            guarded_handoff_json=handoff_json,
+            guarded_handoff_markdown=handoff_markdown,
+            guarded_handoff_validation_json=handoff_validation_json,
+            guarded_handoff_consumer_json=handoff_consumer_json,
+            guarded_ready_gate_json=handoff_ready_gate_json,
         )
         if handoff_requested
         else None
