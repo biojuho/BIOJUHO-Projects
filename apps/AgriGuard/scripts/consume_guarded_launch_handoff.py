@@ -99,6 +99,16 @@ def build_consumer_view(
     handoff_status = handoff.get("status") if handoff is not None else None
     ready_gate = handoff.get("ready_gate") if handoff is not None and isinstance(handoff.get("ready_gate"), dict) else {}
     status_view = handoff.get("status_view") if handoff is not None and isinstance(handoff.get("status_view"), dict) else {}
+    readiness_summary = (
+        status_view.get("readiness_summary")
+        if isinstance(status_view.get("readiness_summary"), dict)
+        else {}
+    )
+    readiness_action_ids = (
+        readiness_summary.get("operator_action_ids")
+        if isinstance(readiness_summary.get("operator_action_ids"), list)
+        else []
+    )
     external_blocker = (
         handoff.get("external_blocker")
         if handoff is not None and isinstance(handoff.get("external_blocker"), dict)
@@ -126,6 +136,10 @@ def build_consumer_view(
         "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),
         "packet_markdown_table_status": packet_validation.get("markdown_table_status"),
         "packet_path_mismatch_count": packet_validation.get("path_mismatch_count"),
+        "readiness_operator_action_ids": readiness_action_ids,
+        "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
+        "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),
+        "readiness_operator_packet_preflight_status": readiness_summary.get("operator_packet_preflight_status"),
         "blocker_class": status_view.get("blocker_class"),
         "operator_action_ids": _operator_action_ids(handoff or {}),
         "external_blocker_status": external_blocker.get("status"),

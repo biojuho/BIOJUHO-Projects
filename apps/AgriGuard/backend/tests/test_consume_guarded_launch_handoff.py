@@ -135,7 +135,12 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
             "blocker_class": "preflight_blocked",
             "secrets_redacted": True,
             "reports": {
+                "env_validation": {
+                    "ready_for_preflight": False,
+                    "placeholder_count": 6,
+                },
                 "operator_packet": {
+                    "preflight_status": "env_shape_blocked",
                     "operator_action_ids": ["set_firebase_service_account_file"],
                 },
             },
@@ -154,6 +159,10 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["blocker_class"] == "preflight_blocked"
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["packet_validation_status"] == "pass"
+    assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert view["readiness_env_validation_ready_for_preflight"] is False
+    assert view["readiness_env_validation_placeholder_count"] == 6
+    assert view["readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert view["validation_matches_handoff"] is True
 
 
