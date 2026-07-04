@@ -265,6 +265,9 @@ def _artifact_index_readiness_summary(
         "status": index.get("status") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
+        "recovery_command_note": None
+        if index is not None
+        else "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
         "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
         if index is not None

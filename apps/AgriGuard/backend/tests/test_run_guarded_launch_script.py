@@ -106,6 +106,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         "status": "pass",
         "consumer_packet_validation_status": "pass",
         "recovery_command_status": "not_required",
+        "recovery_command_note": None,
         "operator_action_ids": ["fix_env_shape_validation"],
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
@@ -161,6 +162,9 @@ def test_guarded_launch_dry_run_reports_missing_artifact_index_hint(tmp_path: Pa
     assert result == 0
     assert summary["found"] is False
     assert summary["recovery_command_status"] is None
+    assert summary["recovery_command_note"] == (
+        "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
+    )
     assert summary["missing_index_action"] == (
         "Run the guarded launch wrapper without --dry-run to generate the artifact index evidence."
     )
