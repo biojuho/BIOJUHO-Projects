@@ -1133,6 +1133,7 @@ def _browser_smoke_launch_control_failures(raw_path: str, payload: dict[str, Any
                 _launch_env_handoff_failures(raw_path, launch_env_handoff, "launch_control.launch_env_handoff")
             )
     failures.extend(_browser_launch_control_layout_failures(raw_path, launch_control))
+    failures.extend(_browser_launch_action_copy_coverage_failures(raw_path, launch_control))
     return failures
 
 
@@ -1184,6 +1185,74 @@ def _browser_launch_control_layout_failures(raw_path: str, launch_control: dict[
     elif clipped_targets:
         failures.append(
             "JSON evidence artifact launch_control.dashboard_layout.horizontallyClippedTargets "
+            f"must be empty: {raw_path}"
+        )
+    return failures
+
+
+def _browser_launch_action_copy_coverage_failures(raw_path: str, launch_control: dict[str, Any]) -> list[str]:
+    coverage = launch_control.get("launch_action_copy_coverage")
+    if coverage is None:
+        if launch_control.get("check_name") == "dashboard-readiness-refresh":
+            return [
+                "JSON evidence artifact launch_control.launch_action_copy_coverage is required "
+                f"for dashboard-readiness-refresh: {raw_path}"
+            ]
+        return []
+    if not isinstance(coverage, dict):
+        return [f"JSON evidence artifact launch_control.launch_action_copy_coverage must be an object: {raw_path}"]
+
+    failures: list[str] = []
+    list_fields = ("expected_action_ids", "validated_action_ids", "failed_action_ids")
+    lists: dict[str, list[str]] = {}
+    for field in list_fields:
+        values = coverage.get(field)
+        if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+            failures.append(
+                f"JSON evidence artifact launch_control.launch_action_copy_coverage.{field} must be a list of strings: {raw_path}"
+            )
+        else:
+            lists[field] = values
+
+    for field, list_field in (
+        ("expected_count", "expected_action_ids"),
+        ("validated_count", "validated_action_ids"),
+        ("failed_count", "failed_action_ids"),
+    ):
+        count = coverage.get(field)
+        if not _is_non_negative_int(count):
+            failures.append(
+                f"JSON evidence artifact launch_control.launch_action_copy_coverage.{field} "
+                f"must be a non-negative integer: {raw_path}"
+            )
+        elif list_field in lists and count != len(lists[list_field]):
+            failures.append(
+                f"JSON evidence artifact launch_control.launch_action_copy_coverage.{field} "
+                f"must match {list_field} length: {raw_path}"
+            )
+
+    next_action_ids = launch_control.get("next_action_ids")
+    expected_action_ids = lists.get("expected_action_ids")
+    validated_action_ids = lists.get("validated_action_ids")
+    failed_action_ids = lists.get("failed_action_ids")
+    if (
+        isinstance(next_action_ids, list)
+        and all(isinstance(action_id, str) and action_id for action_id in next_action_ids)
+        and expected_action_ids is not None
+        and expected_action_ids != next_action_ids
+    ):
+        failures.append(
+            "JSON evidence artifact launch_control.launch_action_copy_coverage.expected_action_ids "
+            f"must match launch_control.next_action_ids: {raw_path}"
+        )
+    if expected_action_ids is not None and validated_action_ids is not None and validated_action_ids != expected_action_ids:
+        failures.append(
+            "JSON evidence artifact launch_control.launch_action_copy_coverage.validated_action_ids "
+            f"must match expected_action_ids: {raw_path}"
+        )
+    if failed_action_ids:
+        failures.append(
+            "JSON evidence artifact launch_control.launch_action_copy_coverage.failed_action_ids "
             f"must be empty: {raw_path}"
         )
     return failures
@@ -1982,6 +2051,9 @@ def browser_launch_control_summary(reports: list[dict[str, Any]]) -> dict[str, A
     dashboard_layout = _browser_launch_control_layout(report)
     if dashboard_layout:
         summary["dashboard_layout"] = dashboard_layout
+    action_copy_coverage = _browser_launch_action_copy_coverage(report)
+    if action_copy_coverage:
+        summary["launch_action_copy_coverage"] = action_copy_coverage
     return summary
 
 
@@ -2035,6 +2107,28 @@ def _browser_launch_control_layout(report: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, bool):
             layout[target] = value
     return layout
+
+
+def _browser_launch_action_copy_coverage(report: dict[str, Any]) -> dict[str, Any]:
+    coverage: dict[str, Any] = {}
+    for target, source in (
+        ("expected_action_ids", "json_browser_launch_copy_expected_action_ids"),
+        ("validated_action_ids", "json_browser_launch_copy_validated_action_ids"),
+        ("failed_action_ids", "json_browser_launch_copy_failed_action_ids"),
+    ):
+        values = report.get(source)
+        if isinstance(values, list) and all(isinstance(value, str) for value in values):
+            coverage[target] = values
+
+    for target, source in (
+        ("expected_count", "json_browser_launch_copy_expected_count"),
+        ("validated_count", "json_browser_launch_copy_validated_count"),
+        ("failed_count", "json_browser_launch_copy_failed_count"),
+    ):
+        value = report.get(source)
+        if isinstance(value, int):
+            coverage[target] = value
+    return coverage
 
 
 def launch_action_coverage_comparison(
@@ -2688,6 +2782,25 @@ def _artifact_json_browser_launch_control_report(payload: dict[str, Any]) -> dic
                 missing_targets or zero_sized_targets or clipped_targets
             )
 
+    action_copy_coverage = launch_control.get("launch_action_copy_coverage")
+    if isinstance(action_copy_coverage, dict):
+        for source_key, report_key in (
+            ("expected_action_ids", "json_browser_launch_copy_expected_action_ids"),
+            ("validated_action_ids", "json_browser_launch_copy_validated_action_ids"),
+            ("failed_action_ids", "json_browser_launch_copy_failed_action_ids"),
+        ):
+            values = action_copy_coverage.get(source_key)
+            if isinstance(values, list) and all(isinstance(value, str) for value in values):
+                report[report_key] = values
+        for source_key, report_key in (
+            ("expected_count", "json_browser_launch_copy_expected_count"),
+            ("validated_count", "json_browser_launch_copy_validated_count"),
+            ("failed_count", "json_browser_launch_copy_failed_count"),
+        ):
+            value = action_copy_coverage.get(source_key)
+            if isinstance(value, int):
+                report[report_key] = value
+
     return report
 
 
@@ -2895,6 +3008,17 @@ def json_report_schema() -> dict[str, Any]:
                             "horizontallyClippedTargets": {"type": "array"},
                             "hasHorizontalOverflow": {"type": "boolean"},
                             "hasLayoutTargetFailures": {"type": "boolean"},
+                        },
+                    },
+                    "launch_action_copy_coverage": {
+                        "type": "object",
+                        "properties": {
+                            "expected_action_ids": _string_array_schema(),
+                            "validated_action_ids": _string_array_schema(),
+                            "failed_action_ids": _string_array_schema(),
+                            "expected_count": {"type": "integer"},
+                            "validated_count": {"type": "integer"},
+                            "failed_count": {"type": "integer"},
                         },
                     },
                 },

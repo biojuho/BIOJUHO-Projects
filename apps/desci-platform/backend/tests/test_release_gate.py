@@ -71,6 +71,19 @@ def _valid_browser_dashboard_layout() -> dict[str, object]:
     }
 
 
+def _valid_browser_launch_action_copy_coverage(action_ids: list[str] | None = None) -> dict[str, object]:
+    if action_ids is None:
+        action_ids = ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"]
+    return {
+        "expected_action_ids": action_ids,
+        "validated_action_ids": action_ids,
+        "failed_action_ids": [],
+        "expected_count": len(action_ids),
+        "validated_count": len(action_ids),
+        "failed_count": 0,
+    }
+
+
 def _valid_launch_handoff():
     return {
         "ok": True,
@@ -983,6 +996,7 @@ def test_release_gate_cli_strict_action_coverage_fails_on_drift(monkeypatch, tmp
                     "next_action_ids": ["stripe", "web3"],
                     "next_action_required_env": ["STRIPE_SECRET_KEY", "WEB3_RPC_URL"],
                     "dashboard_layout": _valid_browser_dashboard_layout(),
+                    "launch_action_copy_coverage": _valid_browser_launch_action_copy_coverage(["stripe", "web3"]),
                     "failures": [],
                 },
                 "failures": [],
@@ -2721,6 +2735,10 @@ def test_release_gate_report_schema_documents_parent_contract() -> None:
     assert browser_launch_schema["properties"]["dashboard_layout"]["properties"]["hasHorizontalOverflow"] == {
         "type": "boolean",
     }
+    assert browser_launch_schema["properties"]["launch_action_copy_coverage"]["properties"]["validated_action_ids"] == {
+        "type": "array",
+        "items": {"type": "string"},
+    }
     assert comparison_schema["properties"]["status"] == {"type": "string", "enum": ["match", "drift"]}
     assert comparison_schema["properties"]["live_only_action_ids"] == {"type": "array", "items": {"type": "string"}}
     assert comparison_schema["properties"]["browser_only_required_env"] == {
@@ -3144,6 +3162,7 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
         "hasHorizontalOverflow": False,
         "hasLayoutTargetFailures": False,
     }
+    expected_copy_coverage = _valid_browser_launch_action_copy_coverage(next_action_ids)
     browser_artifact.write_text(
         json.dumps(
             {
@@ -3180,6 +3199,7 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
                     "next_action_ids": next_action_ids,
                     "next_action_required_env": next_action_required_env,
                     "dashboard_layout": dashboard_layout,
+                    "launch_action_copy_coverage": _valid_browser_launch_action_copy_coverage(next_action_ids),
                     "failures": [],
                 },
                 "failures": [],
@@ -3226,6 +3246,7 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
         },
         "score": {"overall_percent": 29, "required_percent": 25},
         "dashboard_layout": expected_dashboard_layout,
+        "launch_action_copy_coverage": expected_copy_coverage,
     }
     artifact_report = payload["results"][0]["artifact_reports"][0]
     assert artifact_report["json_browser_launch_check_name"] == "dashboard-readiness-refresh"
@@ -3247,6 +3268,12 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
     assert artifact_report["json_browser_launch_layout_horizontally_clipped_targets"] == []
     assert artifact_report["json_browser_launch_layout_has_horizontal_overflow"] is False
     assert artifact_report["json_browser_launch_layout_has_target_failures"] is False
+    assert artifact_report["json_browser_launch_copy_expected_action_ids"] == next_action_ids
+    assert artifact_report["json_browser_launch_copy_validated_action_ids"] == next_action_ids
+    assert artifact_report["json_browser_launch_copy_failed_action_ids"] == []
+    assert artifact_report["json_browser_launch_copy_expected_count"] == len(next_action_ids)
+    assert artifact_report["json_browser_launch_copy_validated_count"] == len(next_action_ids)
+    assert artifact_report["json_browser_launch_copy_failed_count"] == 0
 
 
 def test_release_gate_reports_browser_launch_layout_overflow(tmp_path: Path) -> None:
@@ -3294,6 +3321,7 @@ def test_release_gate_reports_browser_launch_layout_overflow(tmp_path: Path) -> 
                         "zeroSizedTargets": [],
                         "horizontallyClippedTargets": [],
                     },
+                    "launch_action_copy_coverage": _valid_browser_launch_action_copy_coverage(["stripe", "cors"]),
                     "failures": [],
                 },
                 "failures": [],
@@ -3362,6 +3390,7 @@ def test_release_gate_requires_browser_launch_dashboard_layout(tmp_path: Path) -
                     "next_action_count": 2,
                     "next_action_ids": ["stripe", "cors"],
                     "next_action_required_env": ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS"],
+                    "launch_action_copy_coverage": _valid_browser_launch_action_copy_coverage(["stripe", "cors"]),
                     "failures": [],
                 },
                 "failures": [],
@@ -3377,6 +3406,63 @@ def test_release_gate_requires_browser_launch_dashboard_layout(tmp_path: Path) -
 
     assert failures == [
         "JSON evidence artifact launch_control.dashboard_layout is required "
+        f"for dashboard-readiness-refresh: {browser_artifact}"
+    ]
+
+
+def test_release_gate_requires_browser_launch_action_copy_coverage(tmp_path: Path) -> None:
+    browser_artifact = tmp_path / "desci-browser-smoke-release-gate.json"
+    browser_artifact.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "schema_version": 1,
+                "generated_at": "2026-05-27T00:00:00+00:00",
+                "frontend": "http://frontend",
+                "timeout_seconds": 20.0,
+                "skip_protected": False,
+                "skip_login_validation": True,
+                "expect_dev_auth": True,
+                "playwright_available": True,
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "launch_control": {
+                    "check_name": "dashboard-readiness-refresh",
+                    "ok": True,
+                    "evidence_source": "browser-smoke-dashboard-fixture",
+                    "api_mocked": True,
+                    "mocked_endpoints": ["/ready", "/launch"],
+                    "release_decision": "no-go",
+                    "operator_phase": "blocked",
+                    "readiness_status": "blocked",
+                    "summary": {
+                        "ready_count": 2,
+                        "total": 7,
+                        "required_ready_count": 1,
+                        "required_total": 4,
+                        "blocker_count": 1,
+                        "warning_count": 1,
+                    },
+                    "score": {"overall_percent": 29, "required_percent": 25},
+                    "launch_blockers": ["stripe"],
+                    "next_action_count": 2,
+                    "next_action_ids": ["stripe", "cors"],
+                    "next_action_required_env": ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS"],
+                    "dashboard_layout": _valid_browser_dashboard_layout(),
+                    "failures": [],
+                },
+                "failures": [],
+                "checks": [
+                    {"name": "dashboard-readiness-refresh", "path": "/dashboard", "ok": True, "failures": []},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    failures = release_gate.artifact_validation_failures([str(browser_artifact)], tmp_path, step_name="browser-smoke")
+
+    assert failures == [
+        "JSON evidence artifact launch_control.launch_action_copy_coverage is required "
         f"for dashboard-readiness-refresh: {browser_artifact}"
     ]
 
@@ -3471,6 +3557,7 @@ def test_release_gate_json_report_compares_live_and_browser_launch_action_covera
                     "next_action_ids": next_action_ids,
                     "next_action_required_env": next_action_required_env,
                     "dashboard_layout": _valid_browser_dashboard_layout(),
+                    "launch_action_copy_coverage": _valid_browser_launch_action_copy_coverage(next_action_ids),
                     "failures": [],
                 },
                 "failures": [],
@@ -4366,6 +4453,7 @@ def test_release_gate_summarizes_browser_smoke_nested_launch_env_handoff(tmp_pat
                     "next_action_ids": ["stripe", "cors"],
                     "next_action_required_env": ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS", "PINATA_JWT"],
                     "dashboard_layout": _valid_browser_dashboard_layout(),
+                    "launch_action_copy_coverage": _valid_browser_launch_action_copy_coverage(["stripe", "cors"]),
                     "launch_env_handoff": {
                         "schema_version": 1,
                         "status": "blocked",
