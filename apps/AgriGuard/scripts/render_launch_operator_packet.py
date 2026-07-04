@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 SENSITIVE_ASSIGNMENT_RE = re.compile(
     r"(?i)\b([A-Z0-9_]*(?:SECRET|PASSWORD|PEPPER|PRIVATE_KEY|TOKEN|CREDENTIAL|SERVICE_ACCOUNT)[A-Z0-9_]*)\s*([:=])\s*([^,\s]+)"
 )
@@ -169,22 +168,56 @@ def _rel(path: Path, root: Path) -> str:
         return str(path)
 
 
-def _operator_env_template_validation_command() -> str:
-    return (
-        "python apps/AgriGuard/scripts/validate_launch_env_template.py "
-        "--env-file var/agriguard-launch-operator.env.template "
-        "--json-out var/agriguard-launch-env-template-validation.json "
-        "--markdown-out var/agriguard-launch-env-template-validation.md"
+def _quote_cli_arg(value: str) -> str:
+    if value and not any(char.isspace() for char in value) and "'" not in value:
+        return value
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _format_command(parts: list[str]) -> str:
+    return " ".join(_quote_cli_arg(part) for part in parts)
+
+
+def _env_file_refs(env_files: list[Path], workspace_root: Path) -> list[str]:
+    return [_rel(env_file, workspace_root) for env_file in env_files]
+
+
+def _env_file_args(env_files: list[Path], workspace_root: Path) -> list[str]:
+    args: list[str] = []
+    for env_file in _env_file_refs(env_files, workspace_root):
+        args.extend(["--env-file", env_file])
+    return args
+
+
+def _operator_env_template_validation_command(env_files: list[Path], workspace_root: Path) -> str:
+    env_file = _env_file_refs(env_files, workspace_root)[0] if len(env_files) == 1 else "var/agriguard-launch-operator.env.template"
+    return _format_command(
+        [
+            "python",
+            "apps/AgriGuard/scripts/validate_launch_env_template.py",
+            "--env-file",
+            env_file,
+            "--json-out",
+            "var/agriguard-launch-env-template-validation.json",
+            "--markdown-out",
+            "var/agriguard-launch-env-template-validation.md",
+        ]
     )
 
 
-def _guarded_launch_command() -> str:
+def _guarded_launch_command(env_files: list[Path], workspace_root: Path) -> str:
+    env_file = _env_file_refs(env_files, workspace_root)[0] if len(env_files) == 1 else "var/agriguard-launch-operator.env.template"
     status_json = f"var/{run_guarded_launch.DEFAULT_OUTPUT_PREFIX}-status.json"
-    return (
-        "python apps/AgriGuard/scripts/run_guarded_launch.py "
-        "--env-file var/agriguard-launch-operator.env.template "
-        "--emit-handoff "
-        f"--status-json-out {status_json}"
+    return _format_command(
+        [
+            "python",
+            "apps/AgriGuard/scripts/run_guarded_launch.py",
+            "--env-file",
+            env_file,
+            "--emit-handoff",
+            "--status-json-out",
+            status_json,
+        ]
     )
 
 
@@ -445,10 +478,14 @@ def build_operator_packet(
     *,
     preflight_json: Path,
     env_validation_json: Path | None = None,
+    env_files: list[Path] | None = None,
     app_root: Path | None = None,
 ) -> dict[str, object]:
     app_root = (app_root or _default_app_root()).resolve()
     workspace_root = _workspace_root(app_root)
+    env_files = [env_file.resolve() for env_file in (env_files or [])]
+    env_file_refs = _env_file_refs(env_files, workspace_root)
+    env_file_args = _env_file_args(env_files, workspace_root)
     payload = _read_json(preflight_json)
     env_payload = _read_json(env_validation_json) if env_validation_json is not None else None
 
@@ -479,16 +516,28 @@ def build_operator_packet(
         actions = _build_actions(errors)
 
     blocked = status != "pass" or bool(actions)
-    validate_env_template = _operator_env_template_validation_command()
-    rerun_preflight = (
-        "python apps/AgriGuard/scripts/launch_env_preflight.py "
-        "--check-docker --json-out var/agriguard-launch-env-preflight-compose-launch.json"
+    validate_env_template = _operator_env_template_validation_command(env_files, workspace_root)
+    rerun_preflight = _format_command(
+        [
+            "python",
+            "apps/AgriGuard/scripts/launch_env_preflight.py",
+            "--check-docker",
+            "--json-out",
+            "var/agriguard-launch-env-preflight-compose-launch.json",
+            *env_file_args,
+        ]
     )
-    rerun_launch = (
-        "python apps/AgriGuard/scripts/launch_compose.py "
-        "--run-browser-smoke --launch-report-json var/agriguard-compose-launch-report.json"
+    rerun_launch = _format_command(
+        [
+            "python",
+            "apps/AgriGuard/scripts/launch_compose.py",
+            *env_file_args,
+            "--run-browser-smoke",
+            "--launch-report-json",
+            "var/agriguard-compose-launch-report.json",
+        ]
     )
-    guarded_launch = _guarded_launch_command()
+    guarded_launch = _guarded_launch_command(env_files, workspace_root)
     guarded_launch_outputs = _guarded_launch_evidence_outputs(app_root=app_root)
     artifact_index_json = run_guarded_launch._default_artifact_index_json(
         workspace_root / "var",
@@ -502,6 +551,7 @@ def build_operator_packet(
         "preflight_json": preflight_rel,
         "env_validation_json": env_validation_rel,
         "env_validation_status": env_payload.get("status") if isinstance(env_payload, dict) else None,
+        "operator_env_files": env_file_refs,
         "secrets_redacted": True,
         "blocking_action_count": len(actions),
         "operator_actions": actions,
@@ -685,6 +735,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional env-template validation JSON used when strict preflight did not run.",
     )
     parser.add_argument(
+        "--env-file",
+        action="append",
+        type=Path,
+        default=[],
+        help="Operator env file path to preserve in safe rerun commands. May be repeated.",
+    )
+    parser.add_argument(
         "--json-out",
         type=Path,
         default=workspace_root / "var" / "agriguard-launch-operator-packet.json",
@@ -713,6 +770,7 @@ def main(argv: list[str] | None = None) -> int:
     packet = build_operator_packet(
         preflight_json=args.preflight_json.resolve(),
         env_validation_json=args.env_validation_json.resolve() if args.env_validation_json else None,
+        env_files=[env_file.resolve() for env_file in args.env_file],
         app_root=args.app_root.resolve(),
     )
     markdown = render_markdown(packet)

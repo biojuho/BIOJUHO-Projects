@@ -4,7 +4,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "render_launch_operator_packet.py"
 SPEC = importlib.util.spec_from_file_location("render_launch_operator_packet", SCRIPT_PATH)
 assert SPEC is not None
@@ -86,6 +85,59 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
         "missing_output_keys": [],
         "empty_output_keys": [],
     }
+
+
+def test_operator_packet_preserves_env_file_in_safe_rerun_commands(tmp_path: Path) -> None:
+    app_root = tmp_path / "apps" / "AgriGuard"
+    env_file = tmp_path / "var" / "operator.env"
+    preflight = tmp_path / "var" / "preflight.json"
+    preflight.parent.mkdir(parents=True)
+    preflight.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "errors": [
+                    "Set AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE to a Firebase service account JSON before compose launch.",
+                ],
+                "warnings": [],
+                "checks": {"runtime": "compose", "docker_checked": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=preflight,
+        env_files=[env_file],
+        app_root=app_root,
+    )
+
+    assert packet["operator_env_files"] == ["var/operator.env"]
+    assert packet["safe_rerun_commands"][0] == (
+        "python apps/AgriGuard/scripts/validate_launch_env_template.py "
+        "--env-file var/operator.env "
+        "--json-out var/agriguard-launch-env-template-validation.json "
+        "--markdown-out var/agriguard-launch-env-template-validation.md"
+    )
+    assert packet["safe_rerun_commands"][1] == (
+        "python apps/AgriGuard/scripts/run_guarded_launch.py "
+        "--env-file var/operator.env "
+        "--emit-handoff "
+        "--status-json-out var/agriguard-guarded-launch-status.json"
+    )
+    assert packet["safe_rerun_commands"][2] == (
+        "python apps/AgriGuard/scripts/launch_env_preflight.py "
+        "--check-docker "
+        "--json-out var/agriguard-launch-env-preflight-compose-launch.json "
+        "--env-file var/operator.env"
+    )
+    assert packet["safe_rerun_commands"][3] == (
+        "python apps/AgriGuard/scripts/launch_compose.py "
+        "--env-file var/operator.env "
+        "--run-browser-smoke "
+        "--launch-report-json var/agriguard-compose-launch-report.json"
+    )
+    assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
 
 
 def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:

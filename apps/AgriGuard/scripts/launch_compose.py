@@ -327,6 +327,7 @@ def _build_operator_packet_command(
     *,
     preflight_json: Path,
     env_validation_json: Path | None,
+    env_files: list[Path],
     json_out: Path,
     markdown_out: Path,
     env_template_out: Path,
@@ -345,6 +346,8 @@ def _build_operator_packet_command(
     ]
     if env_validation_json is not None:
         command.extend(["--env-validation-json", str(env_validation_json)])
+    for env_file in env_files:
+        command.extend(["--env-file", str(env_file)])
     command.append("--exit-zero-on-blocked")
     return command
 
@@ -611,6 +614,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         app_root,
         preflight_json=json_out,
         env_validation_json=env_validation_json_out,
+        env_files=env_files,
         json_out=operator_packet_json,
         markdown_out=operator_packet_markdown,
         env_template_out=operator_env_template,

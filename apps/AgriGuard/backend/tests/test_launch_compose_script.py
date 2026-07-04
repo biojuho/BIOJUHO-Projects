@@ -137,6 +137,10 @@ def test_launch_compose_dry_run_env_shape_validation_plan(tmp_path: Path, capsys
         str(validation_markdown.resolve()),
     ]
     assert payload["preflight_command"][-2:] == ["--env-file", str(env_file.resolve())]
+    assert ["--env-file", str(env_file.resolve())] in [
+        payload["operator_packet_command"][index : index + 2]
+        for index in range(len(payload["operator_packet_command"]) - 1)
+    ]
 
 
 def test_launch_compose_dry_run_readiness_summary_plan(tmp_path: Path, capsys) -> None:
@@ -228,6 +232,10 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     assert len(calls) == 2
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "validate_launch_env_template.py")
     assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py")
+    assert ["--env-file", str(env_file.resolve())] in [
+        calls[1][index : index + 2]
+        for index in range(len(calls[1]) - 1)
+    ]
     assert "strict preflight was not run" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
