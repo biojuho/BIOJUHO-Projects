@@ -132,6 +132,39 @@ def test_provider_workflow_bundle_verifier_rejects_digest_mismatch(tmp_path) -> 
     assert "artifact sha256 mismatch" in matching[0]["failures"]
 
 
+def test_provider_workflow_bundle_verifier_allows_indexed_missing_required_artifacts(tmp_path) -> None:
+    index_module = load_module(
+        INDEX_SCRIPT_PATH,
+        "write_desci_provider_workflow_artifact_index_incomplete",
+    )
+    module = load_module(
+        VERIFY_SCRIPT_PATH,
+        "verify_desci_provider_workflow_artifact_bundle_incomplete",
+    )
+    _write_verify_json(tmp_path, index_module.DEFAULT_VERIFY_JSON, ok=False)
+    payload = index_module.build_payload(
+        root=tmp_path,
+        json_out=index_module.DEFAULT_INDEX_PATH,
+        external_exit_code="1",
+        handoff_exit_code="1",
+        results_exit_code="1",
+        verify_exit_code="1",
+    )
+    index_path = tmp_path / index_module.DEFAULT_INDEX_PATH
+    index_module.write_json_atomic(index_path, payload)
+
+    verification = module.verify_bundle(
+        index_path=index_path,
+        artifact_root=tmp_path,
+        require_complete_bundle=False,
+    )
+
+    assert verification["ok"] is True
+    assert verification["index_complete_bundle"] is False
+    assert verification["summary"]["missing_required_count"] == len(index_module.REVIEW_ORDER) - 1
+    assert verification["summary"]["artifact_failure_count"] == 0
+
+
 def test_provider_workflow_bundle_verifier_can_require_workflow_ok(tmp_path) -> None:
     module = load_module(VERIFY_SCRIPT_PATH, "verify_desci_provider_workflow_artifact_bundle_require_go")
     index_path = _write_index(tmp_path, workflow_ok=False)

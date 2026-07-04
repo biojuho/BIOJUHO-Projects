@@ -98,7 +98,12 @@ def _resolve_artifact_path(indexed_path: str, *, artifact_root: Path) -> tuple[s
     return candidates[0] if candidates else ("missing", artifact_root / indexed_path)
 
 
-def _verify_artifact_entry(item: dict[str, Any], *, artifact_root: Path) -> dict[str, Any]:
+def _verify_artifact_entry(
+    item: dict[str, Any],
+    *,
+    artifact_root: Path,
+    allow_indexed_missing_required: bool = False,
+) -> dict[str, Any]:
     indexed_path = str(item.get("path") or "")
     required = item.get("required_for_complete_bundle") is True
     expected_exists = item.get("exists") is True
@@ -115,11 +120,12 @@ def _verify_artifact_entry(item: dict[str, Any], *, artifact_root: Path) -> dict
         failures.append("artifact id is required")
     if not indexed_path:
         failures.append("artifact path is required")
-    if required and expected_exists is not True:
+    indexed_missing_required_allowed = allow_indexed_missing_required and required and expected_exists is not True
+    if required and expected_exists is not True and not indexed_missing_required_allowed:
         failures.append("required artifact index must report exists=true")
     if current_exists != expected_exists:
         failures.append("artifact exists state changed")
-    if required and not current_exists:
+    if required and not current_exists and not indexed_missing_required_allowed:
         failures.append("required artifact is missing")
     if current_exists:
         current_size = resolved_path.stat().st_size
@@ -165,7 +171,14 @@ def verify_bundle(
     index = load_index(index_path)
     root = Path(artifact_root)
     artifacts = [item for item in _as_list(index.get("artifacts")) if isinstance(item, dict)]
-    checked_artifacts = [_verify_artifact_entry(item, artifact_root=root) for item in artifacts]
+    checked_artifacts = [
+        _verify_artifact_entry(
+            item,
+            artifact_root=root,
+            allow_indexed_missing_required=not require_complete_bundle,
+        )
+        for item in artifacts
+    ]
     workflow = _as_dict(index.get("provider_apply_workflow"))
     failures: list[str] = []
 
