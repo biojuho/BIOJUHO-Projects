@@ -343,7 +343,9 @@ def main(argv: list[str] | None = None) -> int:
         for check in provider["checks"]:
             check_status = "OK" if check["ok"] else "FAIL"
             reason = f" {check.get('failure_reason')}" if not check["ok"] else ""
-            print(f"  - {check['command']}: {check_status}{reason}")
+            docs_url = check.get("docs_url") if isinstance(check.get("docs_url"), str) else ""
+            docs = f" docs={docs_url}" if not check["ok"] and docs_url else ""
+            print(f"  - {check['command']}: {check_status}{reason}{docs}")
     if args.json_out:
         write_json_report(args.json_out, payload)
         print(f"[provider-preflight] json written: {args.json_out}")

@@ -156,3 +156,32 @@ def test_provider_preflight_parse_args_defaults_to_all_providers() -> None:
     assert args.provider is None
     assert args.timeout == 15
     assert args.include_output_preview is False
+
+
+def test_provider_preflight_console_prints_failed_check_docs(monkeypatch, capsys) -> None:
+    def fake_run_preflight(*args: object, **kwargs: object) -> dict[str, object]:
+        return {
+            "ok": False,
+            "providers": [
+                {
+                    "provider": "vercel",
+                    "ok": False,
+                    "checks": [
+                        {
+                            "command": "vercel whoami",
+                            "ok": False,
+                            "failure_reason": "auth_context_missing",
+                            "docs_url": "https://vercel.com/docs/cli/env",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(provider_preflight, "run_preflight", fake_run_preflight)
+
+    code = provider_preflight.main(["--provider", "vercel"])
+
+    output = capsys.readouterr().out
+    assert code == 1
+    assert "vercel whoami: FAIL auth_context_missing docs=https://vercel.com/docs/cli/env" in output
