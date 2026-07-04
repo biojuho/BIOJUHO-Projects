@@ -71,6 +71,12 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     assert packet["guarded_launch_evidence"]["outputs"]["artifact_index_json"] == (
         "var/agriguard-guarded-launch-artifact-index.json"
     )
+    assert packet["guarded_launch_evidence"]["validation"] == {
+        "status": "pass",
+        "required_output_keys": list(render_launch_operator_packet.REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS),
+        "missing_output_keys": [],
+        "empty_output_keys": [],
+    }
 
 
 def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:

@@ -130,6 +130,15 @@ ENV_TEMPLATE_ENTRIES: tuple[dict[str, str], ...] = (
     },
 )
 
+REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS = (
+    "status_json",
+    "launch_report_json",
+    "handoff_json",
+    "handoff_validation_json",
+    "handoff_consumer_json",
+    "artifact_index_json",
+)
+
 
 def _default_app_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -174,6 +183,17 @@ def _guarded_launch_evidence_outputs() -> dict[str, str]:
         "handoff_validation_json": "var/agriguard-guarded-launch-handoff.validation.json",
         "handoff_consumer_json": "var/agriguard-guarded-launch-handoff.consumer.json",
         "artifact_index_json": "var/agriguard-guarded-launch-artifact-index.json",
+    }
+
+
+def _guarded_launch_evidence_validation(outputs: dict[str, str]) -> dict[str, object]:
+    missing = [key for key in REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS if key not in outputs]
+    empty = [key for key in REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS if not outputs.get(key)]
+    return {
+        "status": "pass" if not missing and not empty else "fail",
+        "required_output_keys": list(REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS),
+        "missing_output_keys": missing,
+        "empty_output_keys": empty,
     }
 
 
@@ -290,6 +310,7 @@ def build_operator_packet(
         "--run-browser-smoke --launch-report-json var/agriguard-compose-launch-report.json"
     )
     guarded_launch = _guarded_launch_command()
+    guarded_launch_outputs = _guarded_launch_evidence_outputs()
 
     return {
         "schema_version": 1,
@@ -319,7 +340,8 @@ def build_operator_packet(
         },
         "guarded_launch_evidence": {
             "wrapper_command": guarded_launch,
-            "outputs": _guarded_launch_evidence_outputs(),
+            "outputs": guarded_launch_outputs,
+            "validation": _guarded_launch_evidence_validation(guarded_launch_outputs),
         },
         "safe_rerun_commands": [validate_env_template, guarded_launch, rerun_preflight, rerun_launch],
     }
