@@ -407,6 +407,27 @@ def _artifact_index_recovery_summary(index: dict[str, Any] | None, missing_index
     }
 
 
+def _next_commands(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    commands: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        command = item.get("command")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if not isinstance(command, str) or not command.strip():
+            continue
+        summary = {"name": name, "command": command}
+        shell = item.get("shell")
+        if isinstance(shell, str) and shell.strip():
+            summary["shell"] = shell
+        commands.append(summary)
+    return commands
+
+
 def _artifact_index_readiness_summary(
     index_json: Path,
     workspace_root: Path,
@@ -418,6 +439,7 @@ def _artifact_index_readiness_summary(
         if isinstance(index, dict) and isinstance(index.get("consumer_readiness_operator_action_ids"), list)
         else []
     )
+    next_commands = _next_commands(index.get("consumer_readiness_next_commands")) if isinstance(index, dict) else []
     return {
         "found": index is not None,
         "path": _rel(index_json, workspace_root),
@@ -427,6 +449,7 @@ def _artifact_index_readiness_summary(
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
+        "next_commands": next_commands,
         "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
         if index is not None
         else None,
@@ -755,6 +778,9 @@ def render_markdown(packet: dict[str, object]) -> str:
         if isinstance(readiness_summary.get("operator_action_ids"), list)
         else []
     )
+    next_commands = (
+        readiness_summary.get("next_commands") if isinstance(readiness_summary.get("next_commands"), list) else []
+    )
     recovery_summary = (
         readiness_summary.get("recovery_summary")
         if isinstance(readiness_summary.get("recovery_summary"), dict)
@@ -773,6 +799,7 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Recovery command note: `{readiness_summary.get('recovery_command_note') or '-'}`",
             f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
             f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
+            f"- Next command count: `{len(next_commands)}`",
             f"- Env validation ready: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
             f"- Env placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
             f"- Packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
@@ -780,6 +807,18 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Missing index command: `{readiness_summary.get('missing_index_command')}`",
         ]
     )
+    if next_commands:
+        lines.extend(["", "## Guarded Launch Readiness Commands", ""])
+        for item in next_commands:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            command = item.get("command")
+            if not isinstance(name, str) or not isinstance(command, str):
+                continue
+            shell = item.get("shell")
+            shell_text = f" ({shell})" if isinstance(shell, str) and shell else ""
+            lines.append(f"- `{name}`{shell_text}: `{command}`")
     lines.append("")
     return "\n".join(lines)
 

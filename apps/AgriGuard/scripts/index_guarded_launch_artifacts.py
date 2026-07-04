@@ -84,6 +84,27 @@ def _format_powershell_command(command: list[str] | None) -> str | None:
     return "& " + " ".join(_quote_powershell_arg(str(part)) for part in command)
 
 
+def _next_commands(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    commands: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        command = item.get("command")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if not isinstance(command, str) or not command.strip():
+            continue
+        summary = {"name": name, "command": command}
+        shell = item.get("shell")
+        if isinstance(shell, str) and shell.strip():
+            summary["shell"] = shell
+        commands.append(summary)
+    return commands
+
+
 def _artifact_paths(
     output_dir: Path,
     output_prefix: str,
@@ -213,6 +234,9 @@ def build_index(
         if isinstance(consumer, dict) and isinstance(consumer.get("readiness_operator_action_ids"), list)
         else []
     )
+    consumer_readiness_next_commands = (
+        _next_commands(consumer.get("readiness_next_commands")) if isinstance(consumer, dict) else []
+    )
     validation_status = validation.get("status") if isinstance(validation, dict) else None
     index_status = (
         "pass"
@@ -281,6 +305,7 @@ def build_index(
         if isinstance(consumer, dict)
         else None,
         "consumer_readiness_operator_action_ids": consumer_readiness_action_ids,
+        "consumer_readiness_next_commands": consumer_readiness_next_commands,
         "consumer_readiness_env_validation_ready_for_preflight": consumer.get("readiness_env_validation_ready_for_preflight")
         if isinstance(consumer, dict)
         else None,
@@ -320,6 +345,11 @@ def render_markdown(index: dict[str, object]) -> str:
         if isinstance(index.get("consumer_readiness_operator_action_ids"), list)
         else []
     )
+    readiness_next_commands = (
+        index.get("consumer_readiness_next_commands")
+        if isinstance(index.get("consumer_readiness_next_commands"), list)
+        else []
+    )
     recovery_summary = index.get("recovery_summary") if isinstance(index.get("recovery_summary"), dict) else {}
     recovery_command_text = index.get("recovery_command_text")
     recovery_command_shell = index.get("recovery_command_shell")
@@ -335,6 +365,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer packet Markdown table: `{index.get('consumer_packet_markdown_table_status')}`",
         f"- Consumer packet path mismatch count: `{index.get('consumer_packet_path_mismatch_count')}`",
         f"- Consumer readiness action IDs: `{', '.join(str(action_id) for action_id in readiness_action_ids) if readiness_action_ids else '-'}`",
+        f"- Consumer readiness next command count: `{len(readiness_next_commands)}`",
         f"- Consumer readiness env validation ready: `{index.get('consumer_readiness_env_validation_ready_for_preflight')}`",
         f"- Consumer readiness placeholder count: `{index.get('consumer_readiness_env_validation_placeholder_count')}`",
         f"- Consumer readiness packet preflight status: `{index.get('consumer_readiness_operator_packet_preflight_status')}`",
@@ -347,11 +378,28 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Recovery command shell: `{recovery_command_shell if isinstance(recovery_command_shell, str) else '-'}`",
         f"- Recovery command: `{recovery_command_text if isinstance(recovery_command_text, str) else '-'}`",
         "",
+    ]
+    if readiness_next_commands:
+        lines.extend(["## Consumer Readiness Next Commands", ""])
+        for item in readiness_next_commands:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            command = item.get("command")
+            if not isinstance(name, str) or not isinstance(command, str):
+                continue
+            shell = item.get("shell")
+            shell_text = f" ({shell})" if isinstance(shell, str) and shell else ""
+            lines.append(f"- `{name}`{shell_text}: `{command}`")
+        lines.append("")
+    lines.extend(
+        [
         "## Artifacts",
         "",
         "| Role | Required | Exists | Size | SHA-256 | Path |",
         "| --- | --- | --- | --- | --- | --- |",
-    ]
+        ]
+    )
     for artifact in artifacts:
         if not isinstance(artifact, dict):
             continue

@@ -248,6 +248,13 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
                     "command": None,
                 },
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "consumer_readiness_next_commands": [
+                    {
+                        "name": "validate_env_template",
+                        "command": "& python validate_launch_env_template.py",
+                        "shell": "powershell",
+                    }
+                ],
                 "consumer_readiness_env_validation_ready_for_preflight": True,
                 "consumer_readiness_env_validation_placeholder_count": 0,
                 "consumer_readiness_operator_packet_preflight_status": "fail",
@@ -308,6 +315,13 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
     assert evidence["outputs"]["artifact_index_json"] == "launch-artifacts/custom-prefix-artifact-index.json"
     assert summary["path"] == "launch-artifacts/custom-prefix-artifact-index.json"
     assert summary["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert summary["next_commands"] == [
+        {
+            "name": "validate_env_template",
+            "command": "& python validate_launch_env_template.py",
+            "shell": "powershell",
+        }
+    ]
     assert summary["env_validation_ready_for_preflight"] is True
     assert summary["env_validation_placeholder_count"] == 0
 
@@ -472,6 +486,13 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
                     "command": None,
                 },
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
+                "consumer_readiness_next_commands": [
+                    {
+                        "name": "validate_env_template",
+                        "command": "& python validate_launch_env_template.py",
+                        "shell": "powershell",
+                    }
+                ],
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
@@ -502,6 +523,13 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
             "command": None,
         },
         "operator_action_ids": ["fix_env_shape_validation"],
+        "next_commands": [
+            {
+                "name": "validate_env_template",
+                "command": "& python validate_launch_env_template.py",
+                "shell": "powershell",
+            }
+        ],
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
         "operator_packet_preflight_status": "env_shape_blocked",
@@ -510,6 +538,8 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     }
     assert "## Guarded Launch Readiness Summary" in markdown
     assert "Action IDs: `fix_env_shape_validation`" in markdown
+    assert "Next command count: `1`" in markdown
+    assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery summary required: `false`" in markdown
     assert "Packet preflight status: `env_shape_blocked`" in markdown

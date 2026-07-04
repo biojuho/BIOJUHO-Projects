@@ -103,15 +103,12 @@ def _operator_action_ids_from_summary(payload: dict[str, Any] | None) -> list[st
     return [str(action_id) for action_id in action_ids if isinstance(action_id, str)]
 
 
-def _next_commands_from_summary(payload: dict[str, Any] | None) -> list[dict[str, str]]:
-    if payload is None:
-        return []
-    raw_commands = payload.get("next_commands")
-    if not isinstance(raw_commands, list):
+def _next_commands_from_value(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
         return []
 
     commands: list[dict[str, str]] = []
-    for item in raw_commands:
+    for item in value:
         if not isinstance(item, dict):
             continue
         name = item.get("name")
@@ -126,6 +123,12 @@ def _next_commands_from_summary(payload: dict[str, Any] | None) -> list[dict[str
             summary["shell"] = shell
         commands.append(summary)
     return commands
+
+
+def _next_commands_from_summary(payload: dict[str, Any] | None) -> list[dict[str, str]]:
+    if payload is None:
+        return []
+    return _next_commands_from_value(payload.get("next_commands"))
 
 
 def _summary_report(payload: dict[str, Any] | None, report_name: str) -> dict[str, Any]:
@@ -305,6 +308,9 @@ def _build_status_view(
             ]
             if artifact_index is not None
             else [],
+            "consumer_readiness_next_commands": _next_commands_from_value(
+                artifact_index.get("consumer_readiness_next_commands") if artifact_index is not None else None
+            ),
             "consumer_readiness_env_validation_ready_for_preflight": artifact_index.get(
                 "consumer_readiness_env_validation_ready_for_preflight"
             )
@@ -451,6 +457,11 @@ def _artifact_index_readiness_summary(
         if isinstance(index, dict) and isinstance(index.get("consumer_readiness_operator_action_ids"), list)
         else []
     )
+    next_commands = (
+        _next_commands_from_value(index.get("consumer_readiness_next_commands"))
+        if isinstance(index, dict)
+        else []
+    )
     return {
         "found": index is not None,
         "path": str(index_json),
@@ -460,6 +471,7 @@ def _artifact_index_readiness_summary(
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
+        "next_commands": next_commands,
         "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
         if index is not None
         else None,

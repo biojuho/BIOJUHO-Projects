@@ -68,6 +68,13 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
                 "consumer_packet_validation_status": "pass",
                 "recovery_command_status": "not_required",
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
+                "consumer_readiness_next_commands": [
+                    {
+                        "name": "validate_env_template",
+                        "command": "& python validate_launch_env_template.py",
+                        "shell": "powershell",
+                    }
+                ],
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
@@ -122,6 +129,13 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
             "command": None,
         },
         "operator_action_ids": ["fix_env_shape_validation"],
+        "next_commands": [
+            {
+                "name": "validate_env_template",
+                "command": "& python validate_launch_env_template.py",
+                "shell": "powershell",
+            }
+        ],
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
         "operator_packet_preflight_status": "env_shape_blocked",
@@ -463,6 +477,13 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
                         "command": None,
                     },
                     "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                    "consumer_readiness_next_commands": [
+                        {
+                            "name": "validate_env_template",
+                            "command": "& python validate_launch_env_template.py",
+                            "shell": "powershell",
+                        }
+                    ],
                     "consumer_readiness_env_validation_ready_for_preflight": True,
                     "consumer_readiness_env_validation_placeholder_count": 0,
                     "consumer_readiness_operator_packet_preflight_status": "fail",
@@ -901,6 +922,13 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "consumer_readiness_next_commands": [
+                    {
+                        "name": "validate_env_template",
+                        "command": "& python validate_launch_env_template.py",
+                        "shell": "powershell",
+                    }
+                ],
                 "consumer_readiness_env_validation_ready_for_preflight": True,
                 "consumer_readiness_env_validation_placeholder_count": 0,
                 "consumer_readiness_operator_packet_preflight_status": "fail",
@@ -949,6 +977,13 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "missing_required_roles": [],
         "consumer_packet_validation_status": "pass",
         "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+        "consumer_readiness_next_commands": [
+            {
+                "name": "validate_env_template",
+                "command": "& python validate_launch_env_template.py",
+                "shell": "powershell",
+            }
+        ],
         "consumer_readiness_env_validation_ready_for_preflight": True,
         "consumer_readiness_env_validation_placeholder_count": 0,
         "consumer_readiness_operator_packet_preflight_status": "fail",

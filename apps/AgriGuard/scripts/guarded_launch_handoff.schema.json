@@ -368,6 +368,31 @@
               },
               "type": "array"
             },
+            "consumer_readiness_next_commands": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "shell": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "command"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
             "consumer_readiness_operator_packet_preflight_status": {
               "type": [
                 "string",

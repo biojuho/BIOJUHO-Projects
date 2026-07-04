@@ -55,6 +55,13 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "packet_markdown_table_status": "pass",
             "packet_path_mismatch_count": 0,
             "readiness_operator_action_ids": ["fix_env_shape_validation"],
+            "readiness_next_commands": [
+                {
+                    "name": "validate_env_template",
+                    "command": "& python validate_launch_env_template.py",
+                    "shell": "powershell",
+                }
+            ],
             "readiness_env_validation_ready_for_preflight": False,
             "readiness_env_validation_placeholder_count": 6,
             "readiness_operator_packet_preflight_status": "env_shape_blocked",
@@ -73,6 +80,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         output_dir=output_dir,
         output_prefix="blocked",
     )
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
 
     assert index["status"] == "pass"
     assert index["consumer_status"] == "fail"
@@ -81,6 +89,13 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_packet_validation_status"] == "pass"
     assert index["consumer_packet_markdown_table_status"] == "pass"
     assert index["consumer_readiness_operator_action_ids"] == ["fix_env_shape_validation"]
+    assert index["consumer_readiness_next_commands"] == [
+        {
+            "name": "validate_env_template",
+            "command": "& python validate_launch_env_template.py",
+            "shell": "powershell",
+        }
+    ]
     assert index["consumer_readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert index["missing_required_roles"] == []
     assert index["recovery_action"] is None
@@ -96,6 +111,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         "note": None,
         "command": None,
     }
+    assert "Consumer readiness next command count: `1`" in markdown
+    assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 
 
 def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: Path) -> None:
