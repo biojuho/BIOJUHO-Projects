@@ -829,6 +829,25 @@ def test_launch_env_preflight_loads_env_file_and_environment_override(tmp_path: 
     assert report["status"] == "pass"
 
 
+def test_launch_env_preflight_loads_utf8_bom_env_file(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "AGRIGUARD_DB_USER=agriguard",
+                "AGRIGUARD_SECRET_KEY=" + ("s" * 32),
+            ]
+        ),
+        encoding="utf-8-sig",
+    )
+
+    env = launch_env_preflight.load_env_file(env_file)
+
+    assert "AGRIGUARD_DB_USER" in env
+    assert "\ufeffAGRIGUARD_DB_USER" not in env
+    assert env["AGRIGUARD_SECRET_KEY"] == "s" * 32
+
+
 def test_launch_report_skips_docker_checks_by_default(tmp_path: Path) -> None:
     _write_firebase_credentials_file(tmp_path)
     report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
