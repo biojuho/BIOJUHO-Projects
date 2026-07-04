@@ -94,12 +94,14 @@ def gate_payload(*, ok: bool = False) -> dict[str, object]:
                     "id": "vercel_preflight_1",
                     "command": "vercel whoami",
                     "failure_reason": "auth_context_missing",
+                    "docs_url": "https://vercel.com/docs/cli/env",
                 },
                 {
                     "provider": "vercel",
                     "id": "vercel_preflight_2",
                     "command": "vercel env ls production",
                     "failure_reason": "auth_context_missing",
+                    "docs_url": "https://vercel.com/docs/cli/env",
                 },
             ],
         },
@@ -128,6 +130,8 @@ def test_external_gate_handoff_fails_closed_with_provider_rollup() -> None:
     assert vercel["has_env_template"] is False
     assert vercel["failure_reasons"] == ["auth_context_missing"]
     assert vercel["commands"] == ["vercel whoami", "vercel env ls production"]
+    assert vercel["docs_urls"] == ["https://vercel.com/docs/cli/env"]
+    assert payload["next_actions"][-1]["docs_urls"] == ["https://vercel.com/docs/cli/env"]
 
 
 def test_external_gate_handoff_passes_when_gate_is_ready() -> None:
@@ -151,6 +155,7 @@ def test_external_gate_handoff_markdown_uses_no_secret_values() -> None:
     assert "vercel whoami" in markdown
     assert "Provider total checks: `7`" in markdown
     assert "Provider auth context missing checks: `2`" in markdown
+    assert "docs=`https://vercel.com/docs/cli/env`" in markdown
     assert "private_key" not in markdown
     assert "sk_live_" not in markdown
 

@@ -169,6 +169,7 @@ def provider_preflight_actions(provider_payload: dict[str, Any]) -> list[dict[st
                 "warnings": 0,
                 "failure_reasons": [],
                 "commands": [],
+                "docs_urls": [],
                 "actions": [],
             },
         )
@@ -179,11 +180,15 @@ def provider_preflight_actions(provider_payload: dict[str, Any]) -> list[dict[st
             group["failure_reasons"].append(failure_reason)
         if command and command not in group["commands"]:
             group["commands"].append(command)
+        docs_url = str(check.get("docs_url") or "").strip()
+        if docs_url and docs_url not in group["docs_urls"]:
+            group["docs_urls"].append(docs_url)
         group["actions"].append(
             {
                 "id": check.get("id"),
                 "command": command,
                 "failure_reason": failure_reason,
+                "docs_url": docs_url,
             }
         )
     return [grouped[provider] for provider in sorted(grouped)]
@@ -205,6 +210,7 @@ def provider_rollup(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "required_env": [],
                 "failure_reasons": [],
                 "commands": [],
+                "docs_urls": [],
                 "action_count": 0,
                 "apply_guidance": _provider_guidance(provider),
             },
@@ -222,6 +228,9 @@ def provider_rollup(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for command in _string_list(action.get("commands")):
             if command not in group["commands"]:
                 group["commands"].append(command)
+        for docs_url in _string_list(action.get("docs_urls")):
+            if docs_url not in group["docs_urls"]:
+                group["docs_urls"].append(docs_url)
     return [grouped[provider] for provider in sorted(grouped)]
 
 
@@ -1700,12 +1709,13 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
         warning_checks = _markdown_values(item.get("warning_checks"))
         reasons = _markdown_values(item.get("failure_reasons"))
         commands = _markdown_values(item.get("commands"))
+        docs_urls = _markdown_values(item.get("docs_urls"))
         lines.append(
             f"- {item.get('label')} / {item.get('surface')}: "
             f"source=`{item.get('source')}`, failed=`{_markdown_scalar(item.get('failed', 0))}`, "
             f"warnings=`{_markdown_scalar(item.get('warnings', 0))}`, "
             f"checks={failed_checks}, warnings={warning_checks}, reasons={reasons}, commands={commands}, "
-            f"env={_markdown_values(item.get('required_env'))}"
+            f"docs={docs_urls}, env={_markdown_values(item.get('required_env'))}"
         )
     return "\n".join(lines).rstrip() + "\n"
 

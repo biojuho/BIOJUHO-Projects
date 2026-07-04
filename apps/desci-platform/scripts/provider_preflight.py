@@ -300,6 +300,7 @@ def run_preflight(
                 "id": check["id"],
                 "command": check["command"],
                 "failure_reason": check.get("failure_reason", "unknown"),
+                "docs_url": check.get("docs_url", "") if isinstance(check.get("docs_url"), str) else "",
             }
             for check in failed_checks
         ],

@@ -128,6 +128,7 @@ def test_provider_preflight_classifies_unauthorized_output_as_missing_auth_conte
     assert payload["summary"]["auth_context_missing_count"] == payload["summary"]["failed_check_count"]
     assert payload["summary"]["missing_cli_count"] == 0
     assert payload["failed_checks"][0]["failure_reason"] == "auth_context_missing"
+    assert payload["failed_checks"][0]["docs_url"] == "https://docs.railway.com/variables"
     assert all(
         check["failure_reason"] == "auth_context_missing"
         for check in payload["providers"][0]["checks"]
