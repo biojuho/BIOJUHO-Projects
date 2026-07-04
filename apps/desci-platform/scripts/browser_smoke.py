@@ -7155,6 +7155,7 @@ def browser_launch_control_report(reports: list[BrowserCheckReport]) -> dict[str
     if not isinstance(next_actions, list):
         next_actions = []
     next_action_ids, next_action_required_env = _launch_action_coverage(next_actions)
+    launch_env_handoff = _launch_env_handoff_report(next_actions)
     report: dict[str, Any] = {
         "check_name": check_report.name,
         "ok": check_report.ok,
@@ -7176,6 +7177,8 @@ def browser_launch_control_report(reports: list[BrowserCheckReport]) -> dict[str
         report["next_action_ids"] = next_action_ids
     if next_action_required_env:
         report["next_action_required_env"] = next_action_required_env
+    if launch_env_handoff is not None:
+        report["launch_env_handoff"] = launch_env_handoff
     return report
 
 
@@ -7209,6 +7212,82 @@ def _launch_action_coverage(next_actions: list[Any]) -> tuple[list[str], list[st
         if isinstance(env_values, list):
             required_env.extend(item for item in env_values if isinstance(item, str) and item)
     return _unique_strings(action_ids), _unique_strings(required_env)
+
+
+def _launch_env_handoff_report(next_actions: list[Any]) -> dict[str, Any] | None:
+    if not next_actions:
+        return None
+
+    required_env: list[str] = []
+    optional_env: list[str] = []
+    action_ids: list[str] = []
+    for action in next_actions:
+        if not isinstance(action, dict):
+            continue
+        action_id = action.get("id")
+        if isinstance(action_id, str) and action_id:
+            action_ids.append(action_id)
+        env_values = action.get("required_env")
+        if not isinstance(env_values, list):
+            continue
+        if action.get("required") is True:
+            required_env.extend(item for item in env_values if isinstance(item, str) and item)
+        else:
+            optional_env.extend(item for item in env_values if isinstance(item, str) and item)
+
+    required_env = _unique_strings(required_env)
+    required_set = set(required_env)
+    optional_env = [env_key for env_key in _unique_strings(optional_env) if env_key not in required_set]
+    operator_copy_lines = _launch_env_operator_copy_lines(required_env, optional_env)
+
+    return {
+        "schema_version": 1,
+        "status": _launch_env_handoff_status(required_env, optional_env),
+        "secret_policy": "placeholder_only_no_secret_values",
+        "source": "dashboard-readiness-refresh-browser-click",
+        "action_ids": _unique_strings(action_ids),
+        "required_env": required_env,
+        "optional_env": optional_env,
+        "operator_copy_lines": operator_copy_lines,
+        "operator_copy_line_count": len(operator_copy_lines),
+        "bad_copy_lines": _launch_env_bad_copy_lines(operator_copy_lines),
+    }
+
+
+def _launch_env_handoff_status(required_env: list[str], optional_env: list[str]) -> str:
+    if required_env:
+        return "blocked"
+    if optional_env:
+        return "watch"
+    return "clear"
+
+
+def _launch_env_operator_copy_lines(required_env: list[str], optional_env: list[str]) -> list[str]:
+    lines = [
+        "# DSCI launch env handoff",
+        "# Replace placeholders in the target secret manager or runtime environment.",
+    ]
+    if required_env:
+        lines.extend(["", "# Required before release"])
+        lines.extend(f"{env_key}=<set-secure-value>" for env_key in required_env)
+    if optional_env:
+        lines.extend(["", "# Optional launch hardening"])
+        lines.extend(f"{env_key}=<set-secure-value>" for env_key in optional_env)
+    return lines
+
+
+def _launch_env_bad_copy_lines(lines: list[str]) -> list[str]:
+    bad_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "http://" in stripped or "https://" in stripped or "sk_" in stripped or "whsec_" in stripped or "0x" in stripped:
+            bad_lines.append(line)
+            continue
+        if not stripped.endswith("=<set-secure-value>"):
+            bad_lines.append(line)
+    return bad_lines
 
 
 def _unique_strings(values: list[str]) -> list[str]:

@@ -353,7 +353,7 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
         browser_smoke.BrowserCheckReport(name="dashboard-readiness-refresh", path="/dashboard", ok=True, failures=[]),
     ]
     expected_action_ids = ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"]
-    expected_required_env = [
+    expected_handoff_required_env = [
         "GOOGLE_APPLICATION_CREDENTIALS",
         "FIREBASE_SERVICE_ACCOUNT_JSON",
         "STRIPE_SECRET_KEY",
@@ -361,12 +361,36 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
         "STRIPE_PRICE_PRO_MONTHLY",
         "STRIPE_PRICE_PRO_YEARLY",
         "ALLOWED_ORIGINS",
+    ]
+    expected_handoff_optional_env = [
         "RABBITMQ_URL",
         "PINATA_JWT",
         "PINATA_API_KEY",
         "PINATA_API_SECRET",
         "GROBID_ENABLED",
         "GROBID_URL",
+    ]
+    expected_required_env = [*expected_handoff_required_env, *expected_handoff_optional_env]
+    expected_operator_copy_lines = [
+        "# DSCI launch env handoff",
+        "# Replace placeholders in the target secret manager or runtime environment.",
+        "",
+        "# Required before release",
+        "GOOGLE_APPLICATION_CREDENTIALS=<set-secure-value>",
+        "FIREBASE_SERVICE_ACCOUNT_JSON=<set-secure-value>",
+        "STRIPE_SECRET_KEY=<set-secure-value>",
+        "STRIPE_WEBHOOK_SECRET=<set-secure-value>",
+        "STRIPE_PRICE_PRO_MONTHLY=<set-secure-value>",
+        "STRIPE_PRICE_PRO_YEARLY=<set-secure-value>",
+        "ALLOWED_ORIGINS=<set-secure-value>",
+        "",
+        "# Optional launch hardening",
+        "RABBITMQ_URL=<set-secure-value>",
+        "PINATA_JWT=<set-secure-value>",
+        "PINATA_API_KEY=<set-secure-value>",
+        "PINATA_API_SECRET=<set-secure-value>",
+        "GROBID_ENABLED=<set-secure-value>",
+        "GROBID_URL=<set-secure-value>",
     ]
 
     browser_smoke.write_json_report(
@@ -404,6 +428,18 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
         "next_action_count": 6,
         "next_action_ids": expected_action_ids,
         "next_action_required_env": expected_required_env,
+        "launch_env_handoff": {
+            "schema_version": 1,
+            "status": "blocked",
+            "secret_policy": "placeholder_only_no_secret_values",
+            "source": "dashboard-readiness-refresh-browser-click",
+            "action_ids": expected_action_ids,
+            "required_env": expected_handoff_required_env,
+            "optional_env": expected_handoff_optional_env,
+            "operator_copy_lines": expected_operator_copy_lines,
+            "operator_copy_line_count": len(expected_operator_copy_lines),
+            "bad_copy_lines": [],
+        },
         "failures": [],
     }
 
