@@ -1096,6 +1096,72 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                     if "Copied 6 launch actions." not in feedback_text:
                         failures.append(f"{route_name}: copy-all feedback mismatch: {feedback_text!r}")
 
+        layout_metrics = page.evaluate(
+            """
+            () => {
+              const rectFor = (element) => {
+                const rect = element?.getBoundingClientRect();
+                if (!rect) {
+                  return null;
+                }
+                return {
+                  left: rect.left,
+                  right: rect.right,
+                  width: rect.width,
+                  height: rect.height,
+                  scrollWidth: element.scrollWidth,
+                  scrollHeight: element.scrollHeight,
+                  clientWidth: element.clientWidth,
+                  clientHeight: element.clientHeight,
+                };
+              };
+              const targetIds = [
+                'product-readiness-panel',
+                'product-readiness-launch-control',
+                'product-readiness-next-actions',
+                'product-readiness-env-handoff',
+                'product-readiness-next-action-auth',
+                'product-readiness-next-action-stripe',
+                'product-readiness-next-action-cors',
+                'product-readiness-next-action-rabbitmq',
+                'product-readiness-next-action-ipfs',
+                'product-readiness-next-action-grobid',
+              ];
+              const targets = targetIds.map((id) => {
+                const element = document.querySelector(`[data-testid="${id}"]`);
+                return { id, rect: rectFor(element) };
+              });
+              return {
+                viewportWidth: window.innerWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                missingTargets: targets.filter((target) => !target.rect).map((target) => target.id),
+                zeroSizedTargets: targets
+                  .filter((target) => target.rect && (target.rect.width < 24 || target.rect.height < 24))
+                  .map((target) => target.id),
+                horizontallyClippedTargets: targets
+                  .filter((target) => target.rect && target.rect.scrollWidth > Math.ceil(target.rect.clientWidth) + 2)
+                  .map((target) => ({
+                    id: target.id,
+                    width: target.rect.width,
+                    clientWidth: target.rect.clientWidth,
+                    scrollWidth: target.rect.scrollWidth,
+                  })),
+              };
+            }
+            """
+        )
+        if layout_metrics.get("scrollWidth", 0) > layout_metrics.get("viewportWidth", 1280) + 2:
+            failures.append(f"{route_name}: dashboard has horizontal document overflow ({layout_metrics!r})")
+        missing_targets = layout_metrics.get("missingTargets") or []
+        if missing_targets:
+            failures.append(f"{route_name}: dashboard layout probe missing targets {missing_targets}")
+        zero_sized_targets = layout_metrics.get("zeroSizedTargets") or []
+        if zero_sized_targets:
+            failures.append(f"{route_name}: dashboard layout probe found zero-sized targets {zero_sized_targets}")
+        clipped_targets = layout_metrics.get("horizontallyClippedTargets") or []
+        if clipped_targets:
+            failures.append(f"{route_name}: dashboard launch content clips horizontally ({clipped_targets[:5]!r})")
+
         request_count_before_refresh = len(ready_requests)
         launch_count_before_refresh = len(launch_requests)
         with page.expect_response(

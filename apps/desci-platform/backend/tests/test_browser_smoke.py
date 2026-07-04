@@ -926,6 +926,15 @@ def test_pricing_layout_smoke_checks_responsive_inset_and_touch_target() -> None
     assert "horizontal document overflow" in source
 
 
+def test_dashboard_readiness_smoke_checks_launch_layout_health() -> None:
+    source = inspect.getsource(browser_smoke._run_dashboard_readiness_refresh_check)  # pylint: disable=protected-access
+
+    assert "dashboard has horizontal document overflow" in source
+    assert "product-readiness-env-handoff" in source
+    assert "horizontallyClippedTargets" in source
+    assert "dashboard launch content clips horizontally" in source
+
+
 def test_public_touch_target_smoke_checks_public_mobile_controls() -> None:
     source = inspect.getsource(browser_smoke._run_public_touch_targets_check)  # pylint: disable=protected-access
 
