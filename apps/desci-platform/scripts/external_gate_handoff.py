@@ -1726,6 +1726,7 @@ def verify_provider_apply_workflow(
         results_verification,
         promotion_verification,
     )
+    primary_blocker = dict(next_required_actions[0]) if next_required_actions else {}
     workflow_ok = ready_to_apply and all_commands_succeeded and promotion_receipt_ok and not failures
     return {
         "schema_version": 1,
@@ -1749,6 +1750,10 @@ def verify_provider_apply_workflow(
         "plan_blocked_reasons": plan_context["blocked_reasons"],
         "provider_blockers": plan_context["provider_blockers"],
         "next_required_actions": next_required_actions,
+        "primary_blocker": primary_blocker,
+        "primary_blocker_scope": str(primary_blocker.get("scope") or ""),
+        "primary_blocker_reason": str(primary_blocker.get("reason") or ""),
+        "primary_blocker_action": str(primary_blocker.get("action") or ""),
         "summary": {
             "failure_count": len(failures),
             "plan_ok": plan_verification.get("ok") is True,
@@ -2052,6 +2057,8 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
         f"`{_markdown_scalar(payload.get('provider_project_context_missing_count', 0))}` |",
         f"| Provider commands succeeded | `{_markdown_scalar(payload.get('all_commands_succeeded'))}` |",
         f"| Promotion receipt go | `{_markdown_scalar(payload.get('promotion_receipt_ok'))}` |",
+        f"| Primary blocker scope | `{_markdown_scalar(payload.get('primary_blocker_scope'))}` |",
+        f"| Primary blocker reason | `{_markdown_scalar(payload.get('primary_blocker_reason'))}` |",
         f"| Failure count | `{_markdown_scalar(summary.get('failure_count'))}` |",
         f"| Next required actions | `{_markdown_scalar(summary.get('next_required_action_count', 0))}` |",
         "",
@@ -2087,6 +2094,17 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
     if provider_blockers:
         lines.extend(["", "## Provider Blockers"])
         lines.extend(f"- {reason}" for reason in provider_blockers)
+    lines.extend(["", "## Primary Blocker"])
+    if payload.get("primary_blocker_scope"):
+        lines.extend(
+            [
+                f"- Scope: `{_markdown_scalar(payload.get('primary_blocker_scope'))}`",
+                f"- Reason: `{_markdown_scalar(payload.get('primary_blocker_reason'))}`",
+                f"- Action: {payload.get('primary_blocker_action')}",
+            ]
+        )
+    else:
+        lines.append("- None.")
     lines.extend(["", "## Next Required Actions"])
     if next_required_actions:
         for item in next_required_actions:
@@ -2203,6 +2221,14 @@ def provider_apply_workflow_github_outputs(payload: dict[str, Any]) -> dict[str,
         ),
         "provider_apply_workflow_next_required_actions_json": json.dumps(
             next_required_actions,
+            ensure_ascii=False,
+            sort_keys=True,
+        ),
+        "provider_apply_workflow_primary_blocker_scope": str(payload.get("primary_blocker_scope") or ""),
+        "provider_apply_workflow_primary_blocker_reason": str(payload.get("primary_blocker_reason") or ""),
+        "provider_apply_workflow_primary_blocker_action": str(payload.get("primary_blocker_action") or ""),
+        "provider_apply_workflow_primary_blocker_json": json.dumps(
+            _as_dict(payload.get("primary_blocker")),
             ensure_ascii=False,
             sort_keys=True,
         ),
@@ -2329,6 +2355,7 @@ def print_provider_apply_workflow_verification_report(payload: dict[str, Any]) -
         f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"failures={summary.get('failure_count')} "
         f"next_required_actions={summary.get('next_required_action_count')} "
+        f"primary_blocker={payload.get('primary_blocker_scope')}/{payload.get('primary_blocker_reason')} "
         f"promotion_blocking_reasons={summary.get('promotion_blocking_reason_count')}"
     )
     for failure in _string_list(payload.get("failures")):

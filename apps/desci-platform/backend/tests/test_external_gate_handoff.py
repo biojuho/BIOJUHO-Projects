@@ -1255,6 +1255,9 @@ def test_external_gate_handoff_provider_apply_workflow_accepts_complete_go(
     assert verification["promotion_receipt_ok"] is True
     assert verification["summary"]["next_required_action_count"] == 0
     assert verification["next_required_actions"] == []
+    assert verification["primary_blocker"] == {}
+    assert verification["primary_blocker_scope"] == ""
+    assert verification["primary_blocker_reason"] == ""
     assert verification["failures"] == []
 
 
@@ -1355,10 +1358,16 @@ def test_external_gate_handoff_provider_apply_workflow_surfaces_context_blockers
     assert "| Provider project context missing | `1` |" in markdown
     assert "## Plan Blocking Reasons" in markdown
     assert "- provider preflight blockers remain: 2" in markdown
+    assert "## Primary Blocker" in markdown
+    assert "- Scope: `provider_apply_plan`" in markdown
+    assert "- Reason: `resolve_provider_preflight`" in markdown
     assert "## Next Required Actions" in markdown
     assert "`provider_preflight` / `provider_context_blocked`" in markdown
     assert any("provider preflight blockers remain: 2" in annotation for annotation in annotations)
     assert verification["summary"]["next_required_action_count"] == 3
+    assert verification["primary_blocker_scope"] == "provider_apply_plan"
+    assert verification["primary_blocker_reason"] == "resolve_provider_preflight"
+    assert "Resolve provider CLI" in verification["primary_blocker_action"]
     assert [item["scope"] for item in verification["next_required_actions"]] == [
         "provider_apply_plan",
         "provider_preflight",
@@ -1370,6 +1379,10 @@ def test_external_gate_handoff_provider_apply_workflow_surfaces_context_blockers
     assert outputs["provider_apply_workflow_next_required_action_count"] == "3"
     assert "provider_preflight:provider_context_blocked" in outputs["provider_apply_workflow_next_required_actions"]
     assert '"scope": "provider_preflight"' in outputs["provider_apply_workflow_next_required_actions_json"]
+    assert outputs["provider_apply_workflow_primary_blocker_scope"] == "provider_apply_plan"
+    assert outputs["provider_apply_workflow_primary_blocker_reason"] == "resolve_provider_preflight"
+    assert "Resolve provider CLI" in outputs["provider_apply_workflow_primary_blocker_action"]
+    assert '"scope": "provider_apply_plan"' in outputs["provider_apply_workflow_primary_blocker_json"]
 
 
 def test_external_gate_handoff_provider_apply_workflow_github_annotations_escape_values() -> None:
@@ -1409,6 +1422,10 @@ def test_external_gate_handoff_provider_apply_workflow_github_outputs(tmp_path: 
     assert outputs["provider_apply_workflow_next_required_action_count"] == "0"
     assert outputs["provider_apply_workflow_next_required_actions"] == ""
     assert outputs["provider_apply_workflow_next_required_actions_json"] == "[]"
+    assert outputs["provider_apply_workflow_primary_blocker_scope"] == ""
+    assert outputs["provider_apply_workflow_primary_blocker_reason"] == ""
+    assert outputs["provider_apply_workflow_primary_blocker_action"] == ""
+    assert outputs["provider_apply_workflow_primary_blocker_json"] == "{}"
     assert outputs["provider_apply_workflow_results_command_failure_count"] == "0"
     assert outputs["provider_apply_workflow_promotion_blocking_reason_count"] == "0"
     assert outputs["provider_apply_workflow_promotion_blocking_reasons"] == ""
