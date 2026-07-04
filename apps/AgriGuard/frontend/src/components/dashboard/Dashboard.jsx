@@ -9,6 +9,26 @@ import { Badge } from '../ui/Badge';
 const QR_KPI_TIMEZONE_STORAGE_KEY = 'agriguard.qrKpi.reportingTimezone';
 const DEFAULT_REPORTING_TIMEZONES = ['UTC', 'Asia/Seoul', 'America/Los_Angeles', 'Europe/Amsterdam'];
 
+function getDashboardLoadError(error) {
+  const detail = error?.message || 'Dashboard summary could not be loaded.';
+
+  if (error?.response?.status === 401) {
+    return {
+      title: 'Operator authentication required',
+      description: 'Save a Firebase/operator token in QR Tokens or Sensors, then reload the dashboard.',
+      toast: 'Operator authentication required for dashboard metrics.',
+      detail,
+    };
+  }
+
+  return {
+    title: '백엔드 연결 실패',
+    description: 'AgriGuard 백엔드(포트 8002)가 실행 중인지 확인하세요.',
+    toast: '백엔드 연결 실패: 포트 8002 서버를 확인해주세요.',
+    detail,
+  };
+}
+
 function getBrowserTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
@@ -42,9 +62,10 @@ export default function Dashboard() {
         setLoading(false);
       })
       .catch(err => {
-        setError(err.message);
+        const dashboardError = getDashboardLoadError(err);
+        setError(dashboardError);
         setLoading(false);
-        showToast('백엔드 연결 실패: 포트 8002 서버를 확인해주세요.', 'error');
+        showToast(dashboardError.toast, 'error');
       });
   }, [showToast]);
 
@@ -99,9 +120,9 @@ export default function Dashboard() {
       <Card className="m-8 border-destructive/30 bg-destructive/5">
         <CardContent className="p-8 text-center">
           <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h2 className="text-xl font-semibold text-destructive">백엔드 연결 실패</h2>
-          <p className="text-destructive/70 mt-2 text-sm">AgriGuard 백엔드(포트 8002)가 실행 중인지 확인하세요.</p>
-          <p className="text-muted-foreground mt-1 text-xs font-mono">{error}</p>
+          <h2 className="text-xl font-semibold text-destructive">{error.title}</h2>
+          <p className="text-destructive/70 mt-2 text-sm">{error.description}</p>
+          <p className="text-muted-foreground mt-1 text-xs font-mono">{error.detail}</p>
         </CardContent>
       </Card>
     );

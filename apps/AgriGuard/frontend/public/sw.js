@@ -1,7 +1,8 @@
-const CACHE_NAME = "agriguard-v3";
+const CACHE_NAME = "agriguard-v4";
+const APP_SHELL_PATHS = new Set(["/", "/index.html"]);
 const STATIC_ASSETS = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 const CACHEABLE_API_PATHS = new Set();
-const CACHEABLE_STATIC_PATHS = new Set(STATIC_ASSETS);
+const CACHEABLE_STATIC_PATHS = new Set(["/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"]);
 
 function isSameOrigin(url) {
   return url.origin === self.location.origin;
@@ -9,6 +10,10 @@ function isSameOrigin(url) {
 
 function isCacheableStaticResponse(response) {
   return response.ok;
+}
+
+function isAppShellRequest(url) {
+  return APP_SHELL_PATHS.has(url.pathname);
 }
 
 function isCacheableStaticRequest(url) {
@@ -66,6 +71,21 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
+    );
+    return;
+  }
+
+  if (isAppShellRequest(url)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (isCacheableStaticResponse(response)) {
+            const clone = response.clone();
+            void caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html")))
     );
     return;
   }

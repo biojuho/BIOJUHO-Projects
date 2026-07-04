@@ -103,6 +103,11 @@ describe('Dashboard', () => {
     render(<Dashboard />);
 
     expect(await screen.findByText('Consumer QR KPIs')).toBeInTheDocument();
+    expect(screen.getByText('AgriGuard 공급망 현황')).toBeInTheDocument();
+    expect(screen.getByText('전체 제품')).toBeInTheDocument();
+    expect(screen.getByText('인증 제품')).toBeInTheDocument();
+    expect(screen.getByText('콜드체인 제품')).toBeInTheDocument();
+    expect(screen.getByText('추적 이벤트')).toBeInTheDocument();
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith('/qr-events/kpis');
       expect(api.get).toHaveBeenCalledWith('/qr-events/kpis/trend', {
@@ -137,5 +142,35 @@ describe('Dashboard', () => {
     });
     expect(timezoneSelect).toHaveValue(targetTimezone);
     expect(window.localStorage.getItem('agriguard.qrKpi.reportingTimezone')).toBe(targetTimezone);
+  });
+
+  it('classifies a protected dashboard summary as an operator auth issue', async () => {
+    api.get.mockImplementation((url, config = {}) => {
+      if (url === '/dashboard/summary') {
+        return Promise.reject({
+          message: 'Request failed with status code 401',
+          response: { status: 401 },
+        });
+      }
+      if (url === '/qr-events/kpis') {
+        return Promise.resolve({ data: qrKpis });
+      }
+      if (url === '/qr-events/kpis/trend') {
+        return Promise.resolve({
+          data: {
+            ...qrTrend,
+            timezone: config.params?.timezone || qrTrend.timezone,
+          },
+        });
+      }
+      return Promise.reject(new Error(`unexpected URL ${url}`));
+    });
+
+    render(<Dashboard />);
+
+    expect(await screen.findByText('Operator authentication required')).toBeInTheDocument();
+    expect(screen.getByText('Save a Firebase/operator token in QR Tokens or Sensors, then reload the dashboard.')).toBeInTheDocument();
+    expect(screen.queryByText('백엔드 연결 실패')).not.toBeInTheDocument();
+    expect(screen.getByText('Request failed with status code 401')).toBeInTheDocument();
   });
 });
