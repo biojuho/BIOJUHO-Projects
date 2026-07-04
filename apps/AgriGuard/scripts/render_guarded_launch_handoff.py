@@ -216,6 +216,9 @@ def build_handoff(
 def render_markdown(handoff: dict[str, object]) -> str:
     status_view = handoff.get("status_view") if isinstance(handoff.get("status_view"), dict) else {}
     launch = status_view.get("launch") if isinstance(status_view.get("launch"), dict) else {}
+    readiness_summary = (
+        status_view.get("readiness_summary") if isinstance(status_view.get("readiness_summary"), dict) else {}
+    )
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
     packet_validation = handoff.get("packet_validation") if isinstance(handoff.get("packet_validation"), dict) else {}
     external_blocker = handoff.get("external_blocker") if isinstance(handoff.get("external_blocker"), dict) else {}
@@ -244,6 +247,10 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Missing Markdown rows: `{', '.join(packet_validation.get('missing_markdown_rows', [])) or '-'}`",
         f"- Extra Markdown rows: `{', '.join(packet_validation.get('extra_markdown_rows', [])) or '-'}`",
         f"- Path mismatch count: `{packet_validation.get('path_mismatch_count')}`",
+        f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
+        f"- Env validation ready for preflight: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
+        f"- Env validation placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
+        f"- Operator packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
         "",
         "## External Blocker",
         "",

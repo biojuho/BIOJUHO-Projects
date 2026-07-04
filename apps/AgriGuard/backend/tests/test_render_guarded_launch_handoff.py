@@ -142,7 +142,16 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
                 "status": "blocked",
                 "blocker_class": "env_shape_blocked",
                 "secrets_redacted": True,
-                "reports": {},
+                "reports": {
+                    "env_validation": {
+                        "ready_for_preflight": False,
+                        "placeholder_count": 6,
+                    },
+                    "operator_packet": {
+                        "preflight_status": "env_shape_blocked",
+                        "operator_action_ids": ["fix_env_shape_validation"],
+                    },
+                },
             }
         ),
         encoding="utf-8",
@@ -178,4 +187,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert "Ready gate: `fail`" in markdown
     assert "Packet validation: `pass`" in markdown
     assert "Markdown table: `pass`" in markdown
+    assert "Readiness action IDs: `fix_env_shape_validation`" in markdown
+    assert "Env validation ready for preflight: `False`" in markdown
+    assert "Operator packet preflight status: `env_shape_blocked`" in markdown
     assert "run_guarded_launch.py" in markdown
