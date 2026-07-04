@@ -291,11 +291,14 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     )
 
     assert result == 1
-    assert len(calls) == 4
+    assert len(calls) == 7
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
     assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
     assert calls[2][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
     assert calls[3][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
+    assert calls[4][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
+    assert calls[5][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
+    assert calls[6][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
     assert "--exit-zero-on-blocked" in calls[1]
     assert "--exit-zero-on-blocked" in calls[2]
     assert _arg_after(calls[3], "--markdown-out").endswith("-artifact-index.md")

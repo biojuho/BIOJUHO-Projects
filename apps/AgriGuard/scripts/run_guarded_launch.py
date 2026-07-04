@@ -762,6 +762,21 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
         if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = artifact_index_result.returncode
+    if (
+        handoff_command is not None
+        and handoff_consumer_command is not None
+        and artifact_index_command is not None
+        and post_launch_returncode == 0
+    ):
+        handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
+        if handoff_result.returncode != 0 and post_launch_returncode == 0:
+            post_launch_returncode = handoff_result.returncode
+        consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
+        if consumer_result.returncode != 0 and post_launch_returncode == 0:
+            post_launch_returncode = consumer_result.returncode
+        artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+        if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
+            post_launch_returncode = artifact_index_result.returncode
     if args.status_json_out or args.require_ready:
         status_view = _build_status_view(
             output_dir=output_dir,
