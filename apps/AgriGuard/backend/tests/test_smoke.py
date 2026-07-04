@@ -691,6 +691,73 @@ def test_qr_path_browser_smoke_extracts_public_verify_tokens():
     assert script.extract_verify_token("raw-token") == "raw-token"
 
 
+def test_qr_path_browser_smoke_matches_spa_verify_routes():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_route_match_under_test",
+    )
+
+    assert script.verify_route_matches(
+        "http://127.0.0.1:5174/verify/public-token-1?scan_source=qr_reader",
+        "public-token-1",
+    )
+    assert script.verify_route_matches(
+        "http://127.0.0.1:5174/verify/public%3Atoken?scan_source=qr_reader",
+        "public:token",
+    )
+    assert not script.verify_route_matches("http://127.0.0.1:5174/scan", "public-token-1")
+
+
+def test_qr_path_browser_smoke_waits_for_spa_route_state():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_route_wait_under_test",
+    )
+
+    waits = []
+
+    class FakePage:
+        url = "http://127.0.0.1:5174/scan"
+
+        def wait_for_timeout(self, timeout):
+            waits.append(timeout)
+            self.url = "http://127.0.0.1:5174/verify/public-token-1?scan_source=qr_reader"
+
+    script.wait_for_verify_route(FakePage(), "public-token-1", 1000)
+
+    assert waits == [250]
+
+
+def test_qr_path_browser_smoke_route_timeout_reports_current_url():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_route_timeout_under_test",
+    )
+
+    class BodyLocator:
+        def inner_text(self, timeout):
+            assert timeout == 5_000
+            return "Scanner paused\nManual verification code"
+
+    class FakePage:
+        url = "http://127.0.0.1:5174/scan"
+
+        def wait_for_timeout(self, timeout):
+            return None
+
+        def locator(self, selector):
+            assert selector == "body"
+            return BodyLocator()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        script.wait_for_verify_route(FakePage(), "public-token-1", 1)
+
+    message = str(exc_info.value)
+    assert "expected_path='/verify/public-token-1'" in message
+    assert "current_url='http://127.0.0.1:5174/scan'" in message
+    assert "Scanner paused Manual verification code" in message
+
+
 def test_supply_chain_browser_smoke_uses_phone_viewport_for_mobile_default():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "supply_chain_browser_smoke.py",

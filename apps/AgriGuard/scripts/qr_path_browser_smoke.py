@@ -4,12 +4,12 @@ import argparse
 import json
 import os
 import sys
+import time
 import uuid
 from pathlib import Path
 from urllib import error, parse, request
 
 from playwright.sync_api import Page, sync_playwright
-
 
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = ""
@@ -185,6 +185,30 @@ def wait_for_public_verify(page: Page, timeout_ms: int) -> None:
     )
 
 
+def verify_route_matches(url: str, token: str) -> bool:
+    expected_path = f"/verify/{token}"
+    current_path = parse.urlparse(url).path
+    return current_path == expected_path or parse.unquote(current_path) == expected_path
+
+
+def wait_for_verify_route(page: Page, token: str, timeout_ms: int) -> None:
+    expected_path = f"/verify/{token}"
+    deadline = time.monotonic() + max(timeout_ms, 1) / 1000
+    while time.monotonic() < deadline:
+        if verify_route_matches(page.url, token):
+            return
+        page.wait_for_timeout(min(250, max(1, int((deadline - time.monotonic()) * 1000))))
+
+    try:
+        body_sample = page_text(page).replace("\n", " ").strip()[:500]
+    except Exception:  # noqa: BLE001 - secondary diagnostics must not hide the route failure.
+        body_sample = "<unavailable>"
+    raise RuntimeError(
+        "Manual verification route did not open "
+        f"(expected_path={expected_path!r}, current_url={page.url!r}, body_sample={body_sample!r})."
+    )
+
+
 def capture(page: Page, screenshot_dir: Path, name: str) -> str:
     screenshot_dir.mkdir(parents=True, exist_ok=True)
     path = screenshot_dir / f"{name}.png"
@@ -274,7 +298,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
 
         manual_input.fill(manual_token)
         verify_button.click(timeout=args.timeout_ms)
-        page.wait_for_url(f"**/verify/{manual_token}**", timeout=args.timeout_ms)
+        wait_for_verify_route(page, manual_token, args.timeout_ms)
         wait_for_public_verify(page, args.timeout_ms)
         valid_text = page_text(page)
         valid_metrics = read_metrics(page)
