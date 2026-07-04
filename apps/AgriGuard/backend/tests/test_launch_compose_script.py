@@ -88,6 +88,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
     assert report["stop_reason"] == "preflight_failed"
     assert [item["name"] for item in report["results"]] == ["preflight"]
     assert report["results"][0]["stdout_tail"] == "preflight failed"
+    assert report["child_reports"]["preflight"] == {"found": False, "path": str(json_out.resolve())}
 
 
 def test_launch_compose_runs_compose_after_preflight_passes(tmp_path: Path) -> None:
@@ -328,3 +329,95 @@ def test_launch_compose_reports_browser_smoke_failure(tmp_path: Path) -> None:
     assert report["stage"] == "browser_smoke"
     assert report["stop_reason"] == "browser_smoke_failed"
     assert report["results"][-1]["stderr_tail"] == "browser failed"
+
+
+def test_launch_compose_embeds_preflight_child_report_summary(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    json_out = tmp_path / "preflight.json"
+    launch_report_json = tmp_path / "launch-report.json"
+
+    def runner(command, **kwargs):
+        json_out.write_text(
+            json.dumps(
+                {
+                    "status": "fail",
+                    "errors": ["missing AGRIGUARD_SECRET_KEY"],
+                    "warnings": ["diagnostic warning"],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=command, returncode=1)
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--json-out",
+            str(json_out),
+            "--launch-report-json",
+            str(launch_report_json),
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 1
+    report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["child_reports"]["preflight"] == {
+        "found": True,
+        "path": str(json_out.resolve()),
+        "status": "fail",
+        "errors": ["missing AGRIGUARD_SECRET_KEY"],
+        "warnings": ["diagnostic warning"],
+    }
+
+
+def test_launch_compose_embeds_browser_child_report_summary(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    json_out = tmp_path / "preflight.json"
+    browser_json = tmp_path / "browser.json"
+    launch_report_json = tmp_path / "launch-report.json"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            json_out.write_text(json.dumps({"status": "pass", "errors": [], "warnings": []}), encoding="utf-8")
+        if len(calls) == 3:
+            browser_json.write_text(
+                json.dumps(
+                    {
+                        "status": "fail",
+                        "summary": {"total": 0, "prechecks_failed": 1},
+                        "prechecks": [{"name": "backend_contract", "ok": False}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(args=command, returncode=1)
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--json-out",
+            str(json_out),
+            "--browser-smoke-json-out",
+            str(browser_json),
+            "--launch-report-json",
+            str(launch_report_json),
+            "--run-browser-smoke",
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 1
+    report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["child_reports"]["browser_smoke"] == {
+        "found": True,
+        "path": str(browser_json.resolve()),
+        "status": "fail",
+        "summary": {"total": 0, "prechecks_failed": 1},
+        "prechecks": [{"name": "backend_contract", "ok": False}],
+    }

@@ -51,6 +51,42 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _read_json_file(path: Path) -> dict[str, object] | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _summarize_preflight_json(path: Path) -> dict[str, object]:
+    payload = _read_json_file(path)
+    if payload is None:
+        return {"found": False, "path": str(path)}
+    return {
+        "found": True,
+        "path": str(path),
+        "status": payload.get("status"),
+        "errors": payload.get("errors") if isinstance(payload.get("errors"), list) else [],
+        "warnings": payload.get("warnings") if isinstance(payload.get("warnings"), list) else [],
+    }
+
+
+def _summarize_browser_smoke_json(path: Path) -> dict[str, object]:
+    payload = _read_json_file(path)
+    if payload is None:
+        return {"found": False, "path": str(path)}
+    return {
+        "found": True,
+        "path": str(path),
+        "status": payload.get("status"),
+        "summary": payload.get("summary") if isinstance(payload.get("summary"), dict) else {},
+        "prechecks": payload.get("prechecks") if isinstance(payload.get("prechecks"), list) else [],
+    }
+
+
 def _command_result(
     *,
     name: str,
@@ -262,6 +298,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "compose": compose_command,
             "browser_smoke": browser_smoke_command,
         },
+        "child_reports": {
+            "preflight": {"found": False, "path": str(json_out)},
+            "browser_smoke": (
+                {"found": False, "path": str(browser_smoke_json_out)}
+                if args.run_browser_smoke
+                else None
+            ),
+        },
         "results": [],
     }
 
@@ -269,6 +313,9 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     results = launch_report["results"]
     assert isinstance(results, list)
     results.append(_command_result(name="preflight", command=preflight_command, completed=preflight_result))
+    child_reports = launch_report["child_reports"]
+    assert isinstance(child_reports, dict)
+    child_reports["preflight"] = _summarize_preflight_json(json_out)
     if preflight_result.returncode != 0:
         launch_report["status"] = "fail"
         launch_report["stage"] = "preflight"
@@ -297,6 +344,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     results.append(
         _command_result(name="browser_smoke", command=browser_smoke_command, completed=browser_smoke_result)
     )
+    child_reports["browser_smoke"] = _summarize_browser_smoke_json(browser_smoke_json_out)
     launch_report["status"] = "pass" if browser_smoke_result.returncode == 0 else "fail"
     launch_report["stage"] = "browser_smoke"
     launch_report["stop_reason"] = None if browser_smoke_result.returncode == 0 else "browser_smoke_failed"
