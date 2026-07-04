@@ -20,6 +20,9 @@ missing auth context in the provider workflow packet.
 
 ## Changes
 
+- `scripts/external_release_gate.py`
+  - Adds provider preflight check, missing CLI, and auth-context-missing counts
+    to the upstream external gate summary and console output.
 - `scripts/external_gate_handoff.py`
   - Adds `provider_check_count`.
   - Adds `provider_missing_cli_count`.
@@ -28,13 +31,20 @@ missing auth context in the provider workflow packet.
 - `backend/tests/test_external_gate_handoff.py`
   - Covers JSON summary fields.
   - Covers Markdown and console count rendering.
+- `backend/tests/test_external_release_gate.py`
+  - Covers upstream JSON summary fields.
+  - Covers upstream console count rendering.
 
 ## Verification
 
-- `python -m py_compile scripts\external_gate_handoff.py`
+- `python -m py_compile scripts\external_release_gate.py scripts\external_gate_handoff.py`
   - Pass.
-- `python -m pytest backend\tests\test_external_gate_handoff.py -q`
-  - `51 passed`.
+- `python -m pytest backend\tests\test_external_release_gate.py backend\tests\test_external_gate_handoff.py -q`
+  - `60 passed`.
+- `python scripts\external_release_gate.py --json-out var\external-release-gate-provider-counts-2026-07-04.json`
+  - Expected exit code `1`: external gate remains no-go.
+  - Console output includes `provider_checks=7`, `missing_cli=0`, and
+    `auth_context_missing=2`.
 - `python scripts\external_gate_handoff.py --external-gate-json var\external-release-gate-provider-2026-07-04.json --json-out var\external-gate-handoff-provider-counts-2026-07-04.json --markdown-out var\external-gate-handoff-provider-counts-2026-07-04.md --provider-template-dir var\external-gate-provider-counts-2026-07-04 --provider-template-index-out var\external-gate-provider-counts-index-2026-07-04.json`
   - Expected exit code `1`: external gate remains no-go.
   - JSON summary includes `provider_check_count=7`,
@@ -48,11 +58,14 @@ missing auth context in the provider workflow packet.
   - No matches for live/test API keys, Stripe webhook markers, private-key
     headers, raw Postgres URLs, bearer tokens, Supabase secret markers, or raw
     Railway unauthorized stderr.
-- `python ops\scripts\run_workspace_smoke.py --scope desci --json-out apps\desci-platform\var\workspace-smoke-desci-external-gate-preflight-counts-cli-2026-07-04.json`
-  - `8 passed`, `0 failed`.
+- `python ops\scripts\run_workspace_smoke.py --scope desci --json-out apps\desci-platform\var\workspace-smoke-desci-external-release-gate-preflight-counts-2026-07-04.json`
+  - JSON evidence: `8 passed`, `0 failed`.
+  - The shell wrapper timed out just after JSON completion because the smoke
+    took `299894 ms`.
 
 ## Artifacts
 
+- `var\external-release-gate-provider-counts-2026-07-04.json`
 - `var\external-gate-handoff-provider-counts-2026-07-04.json`
 - `var\external-gate-handoff-provider-counts-2026-07-04.md`
 - `var\external-gate-provider-counts-index-2026-07-04.json`

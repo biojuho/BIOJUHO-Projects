@@ -53,6 +53,9 @@ def test_external_release_gate_passes_when_env_and_provider_checks_are_ready(tmp
     assert payload["failed_surfaces"] == []
     assert payload["summary"]["deploy_failed"] == 0
     assert payload["summary"]["provider_ready"] == 1
+    assert payload["summary"]["provider_check_count"] == 2
+    assert payload["summary"]["provider_missing_cli_count"] == 0
+    assert payload["summary"]["provider_auth_context_missing_count"] == 0
     assert payload["provider_preflight"]["summary"]["passed_check_count"] == 2
 
 
@@ -71,8 +74,33 @@ def test_external_release_gate_fails_closed_for_deploy_and_provider_blockers(tmp
     assert payload["ok"] is False
     assert payload["failed_surfaces"] == ["deploy_readiness", "provider_preflight"]
     assert payload["deploy_readiness"]["summary"]["failed_checks"] == ["github_gitleaks_license"]
+    assert payload["summary"]["provider_check_count"] == 2
+    assert payload["summary"]["provider_missing_cli_count"] == 0
+    assert payload["summary"]["provider_auth_context_missing_count"] == 2
     assert payload["provider_preflight"]["summary"]["auth_context_missing_count"] == 2
     assert payload["provider_preflight"]["failed_checks"][0]["failure_reason"] == "auth_context_missing"
+
+
+def test_external_release_gate_text_report_includes_provider_preflight_counts(
+    capsys,
+    tmp_path: Path,
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+    payload = external_release_gate.run_external_gate(
+        targets=("github",),
+        env_files=[env_file],
+        include_process_env=False,
+        provider_timeout_seconds=5,
+        provider_runner=_provider_runner_missing_auth,
+    )
+
+    external_release_gate.print_text_report(payload)
+
+    output = capsys.readouterr().out
+    assert "provider_checks=2" in output
+    assert "missing_cli=0" in output
+    assert "auth_context_missing=2" in output
 
 
 def test_external_release_gate_skips_provider_preflight_for_amoy_only(tmp_path: Path) -> None:

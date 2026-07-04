@@ -141,6 +141,9 @@ def run_external_gate(
             "provider_ready": provider_summary.get("ready_provider_count", 0),
             "provider_count": provider_summary.get("provider_count", 0),
             "provider_failed_checks": provider_summary.get("failed_check_count", 0),
+            "provider_check_count": provider_summary.get("check_count", 0),
+            "provider_missing_cli_count": provider_summary.get("missing_cli_count", 0),
+            "provider_auth_context_missing_count": provider_summary.get("auth_context_missing_count", 0),
             "failed_surface_count": len(failed_surfaces),
         },
         "failed_surfaces": failed_surfaces,
@@ -161,7 +164,10 @@ def print_text_report(payload: dict[str, Any]) -> None:
         f"deploy_failed={summary.get('deploy_failed')} "
         f"deploy_warnings={summary.get('deploy_warnings')} "
         f"provider_ready={summary.get('provider_ready')}/{summary.get('provider_count')} "
-        f"provider_failed_checks={summary.get('provider_failed_checks')}"
+        f"provider_failed_checks={summary.get('provider_failed_checks')} "
+        f"provider_checks={summary.get('provider_check_count')} "
+        f"missing_cli={summary.get('provider_missing_cli_count')} "
+        f"auth_context_missing={summary.get('provider_auth_context_missing_count')}"
     )
     failed_surfaces = payload.get("failed_surfaces")
     if isinstance(failed_surfaces, list) and failed_surfaces:
