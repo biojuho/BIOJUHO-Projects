@@ -155,6 +155,17 @@ def test_external_gate_handoff_markdown_uses_no_secret_values() -> None:
     assert "sk_live_" not in markdown
 
 
+def test_external_gate_handoff_text_report_includes_provider_preflight_counts(capsys) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+
+    external_gate_handoff.print_report(payload)
+
+    output = capsys.readouterr().out
+    assert "provider_checks=7" in output
+    assert "missing_cli=0" in output
+    assert "auth_context_missing=2" in output
+
+
 def test_external_gate_handoff_writes_json_and_markdown(tmp_path: Path) -> None:
     payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
     json_path = tmp_path / "handoff.json"

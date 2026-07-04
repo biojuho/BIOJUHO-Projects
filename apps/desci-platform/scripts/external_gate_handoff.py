@@ -1842,6 +1842,9 @@ def print_report(payload: dict[str, Any]) -> None:
         f"deploy_warnings={summary.get('deploy_warnings')} "
         f"provider_ready={summary.get('provider_ready')}/{summary.get('provider_count')} "
         f"provider_failed_checks={summary.get('provider_failed_checks')} "
+        f"provider_checks={summary.get('provider_check_count')} "
+        f"missing_cli={summary.get('provider_missing_cli_count')} "
+        f"auth_context_missing={summary.get('provider_auth_context_missing_count')} "
         f"next_actions={summary.get('next_action_count')}"
     )
     if payload.get("failed_surfaces"):
