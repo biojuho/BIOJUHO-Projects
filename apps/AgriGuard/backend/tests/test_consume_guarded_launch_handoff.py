@@ -203,6 +203,33 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["validation_matches_handoff"] is True
 
 
+def test_consume_guarded_launch_handoff_infers_workspace_relative_validation_path(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_readiness_summary(
+        output_dir,
+        "blocked",
+        {
+            "status": "blocked",
+            "blocker_class": "preflight_blocked",
+            "secrets_redacted": True,
+            "reports": {
+                "operator_packet": {
+                    "operator_action_ids": ["set_firebase_service_account_file"],
+                },
+            },
+        },
+    )
+    _write_operator_packet(output_dir, "blocked")
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
+
+    view = consume_guarded_launch_handoff.build_consumer_view(handoff_json=handoff_json)
+
+    assert Path(view["validation_json"]).resolve() == validation_json.resolve()
+    assert view["validation_matches_handoff"] is True
+    assert "validation JSON path missing" not in view["errors"]
+    assert view["errors"] == []
+
+
 def test_consume_guarded_launch_handoff_exposes_deferred_recovery_status_note(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     _write_readiness_summary(

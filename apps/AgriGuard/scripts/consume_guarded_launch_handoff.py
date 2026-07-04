@@ -49,7 +49,20 @@ def _validation_path_from_handoff(handoff: dict[str, Any], handoff_json: Path) -
     if not isinstance(validation, dict) or not isinstance(validation.get("validation_json"), str):
         return None
     path = Path(validation["validation_json"])
-    return path if path.is_absolute() else handoff_json.resolve().parents[0] / path
+    if path.is_absolute():
+        return path
+
+    candidates = [Path.cwd() / path, handoff_json.resolve().parent / path]
+    output_dir = handoff.get("output_dir")
+    if isinstance(output_dir, str):
+        output_path = Path(output_dir)
+        if output_path.is_absolute():
+            candidates.insert(0, output_path.parent / path)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def _operator_action_ids(handoff: dict[str, Any]) -> list[str]:
