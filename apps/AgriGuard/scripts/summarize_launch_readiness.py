@@ -111,6 +111,11 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
         "preflight_status": payload.get("preflight_status"),
         "blocking_action_count": payload.get("blocking_action_count"),
         "operator_action_ids": action_ids,
+        "safe_rerun_commands": [
+            str(command)
+            for command in _list(payload.get("safe_rerun_commands"))
+            if isinstance(command, str) and command.strip()
+        ],
         "secrets_redacted": payload.get("secrets_redacted"),
     }
 
@@ -165,6 +170,29 @@ def _next_actions(blocker_class: str) -> list[str]:
     return ["Run launch_compose.py or provide report paths to classify the current blocker."]
 
 
+def _next_commands(blocker_class: str, operator_packet: dict[str, object]) -> list[dict[str, str]]:
+    if blocker_class not in {"env_shape_blocked", "preflight_blocked", "operator_values_required"}:
+        return []
+
+    raw_commands = operator_packet.get("safe_rerun_commands")
+    if not isinstance(raw_commands, list):
+        return []
+
+    labels = (
+        "validate_env_template",
+        "guarded_launch",
+        "strict_preflight",
+        "compose_launch",
+    )
+    commands: list[dict[str, str]] = []
+    for index, command in enumerate(raw_commands):
+        if not isinstance(command, str) or not command.strip():
+            continue
+        name = labels[index] if index < len(labels) else f"safe_rerun_{index + 1}"
+        commands.append({"name": name, "command": command})
+    return commands
+
+
 def build_summary(
     *,
     launch_report_json: Path,
@@ -193,6 +221,7 @@ def build_summary(
             "operator_packet": operator_packet,
         },
         "next_actions": _next_actions(blocker_class),
+        "next_commands": _next_commands(blocker_class, operator_packet),
     }
 
 
@@ -226,6 +255,14 @@ def render_markdown(summary: dict[str, object]) -> str:
     lines.extend(["", "## Next Actions", ""])
     next_actions = summary.get("next_actions") if isinstance(summary.get("next_actions"), list) else []
     lines.extend(f"- {action}" for action in next_actions)
+    next_commands = summary.get("next_commands") if isinstance(summary.get("next_commands"), list) else []
+    lines.extend(["", "## Next Commands", ""])
+    if next_commands:
+        for item in next_commands:
+            if isinstance(item, dict):
+                lines.append(f"- `{item.get('name')}`: `{item.get('command')}`")
+    else:
+        lines.append("No copyable next commands are available for the current evidence set.")
     lines.append("")
     return "\n".join(lines)
 

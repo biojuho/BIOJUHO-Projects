@@ -4,7 +4,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 APP_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = APP_ROOT / "scripts" / "summarize_launch_readiness.py"
 SPEC = importlib.util.spec_from_file_location("summarize_launch_readiness", SCRIPT_PATH)
@@ -77,6 +76,10 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
                 "preflight_status": "env_shape_blocked",
                 "blocking_action_count": 1,
                 "operator_actions": [{"id": "fix_env_shape_validation"}],
+                "safe_rerun_commands": [
+                    "python validate_launch_env_template.py",
+                    "python run_guarded_launch.py",
+                ],
                 "secrets_redacted": True,
             }
         ),
@@ -95,6 +98,9 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
     assert "- Env validation placeholder count: `6`" in markdown
     assert "- Operator packet preflight status: `env_shape_blocked`" in markdown
     assert "- Operator action IDs: `fix_env_shape_validation`" in markdown
+    assert "## Next Commands" in markdown
+    assert "`validate_env_template`: `python validate_launch_env_template.py`" in markdown
+    assert "`guarded_launch`: `python run_guarded_launch.py`" in markdown
 
 
 def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -> None:
@@ -132,6 +138,12 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                 "preflight_status": "fail",
                 "blocking_action_count": 1,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                "safe_rerun_commands": [
+                    "python validate_launch_env_template.py",
+                    "python run_guarded_launch.py",
+                    "python launch_env_preflight.py",
+                    "python launch_compose.py",
+                ],
                 "secrets_redacted": True,
             }
         ),
@@ -149,6 +161,12 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["blocker_class"] == "preflight_blocked"
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert summary["next_commands"] == [
+        {"name": "validate_env_template", "command": "python validate_launch_env_template.py"},
+        {"name": "guarded_launch", "command": "python run_guarded_launch.py"},
+        {"name": "strict_preflight", "command": "python launch_env_preflight.py"},
+        {"name": "compose_launch", "command": "python launch_compose.py"},
+    ]
 
 
 def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> None:
