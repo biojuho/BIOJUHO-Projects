@@ -53,17 +53,46 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
         "backend",
     ]
     assert payload["browser_smoke_command"] is None
+    assert payload["operator_packet_command"] == [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py"),
+        "--preflight-json",
+        str(json_out.resolve()),
+        "--json-out",
+        str(launch_compose._default_operator_packet_json_out(app_root.resolve())),
+        "--markdown-out",
+        str(launch_compose._default_operator_packet_markdown_out(app_root.resolve())),
+        "--exit-zero-on-blocked",
+    ]
     assert payload["will_run_browser_smoke_after_compose"] is False
+    assert payload["will_write_operator_packet_on_preflight_failure"] is True
 
 
 def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     json_out = tmp_path / "preflight.json"
     launch_report_json = tmp_path / "launch-report.json"
+    operator_packet_json = tmp_path / "operator-packet.json"
+    operator_packet_markdown = tmp_path / "operator-packet.md"
     calls: list[list[str]] = []
 
     def runner(command, **kwargs):
         calls.append(command)
+        if len(calls) == 2:
+            operator_packet_json.write_text(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "preflight_status": "fail",
+                        "blocking_action_count": 1,
+                        "operator_actions": [{"id": "set_secret_key"}],
+                        "secrets_redacted": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            operator_packet_markdown.write_text("# Operator packet\n", encoding="utf-8")
+            return subprocess.CompletedProcess(args=command, returncode=0, stdout="packet written", stderr="")
         return subprocess.CompletedProcess(args=command, returncode=1, stdout="preflight failed", stderr="")
 
     result = launch_compose.main(
@@ -74,21 +103,37 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
             str(json_out),
             "--launch-report-json",
             str(launch_report_json),
+            "--operator-packet-json",
+            str(operator_packet_json),
+            "--operator-packet-markdown",
+            str(operator_packet_markdown),
         ],
         command_runner=runner,
     )
 
     assert result == 1
-    assert len(calls) == 1
+    assert len(calls) == 2
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_env_preflight.py")
+    assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py")
+    assert calls[1][-1] == "--exit-zero-on-blocked"
     assert "docker compose up was not run" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
     assert report["stage"] == "preflight"
     assert report["stop_reason"] == "preflight_failed"
-    assert [item["name"] for item in report["results"]] == ["preflight"]
+    assert [item["name"] for item in report["results"]] == ["preflight", "operator_packet"]
     assert report["results"][0]["stdout_tail"] == "preflight failed"
     assert report["child_reports"]["preflight"] == {"found": False, "path": str(json_out.resolve())}
+    assert report["child_reports"]["operator_packet"] == {
+        "found": True,
+        "path": str(operator_packet_json.resolve()),
+        "markdown_path": str(operator_packet_markdown.resolve()),
+        "status": "blocked",
+        "preflight_status": "fail",
+        "blocking_action_count": 1,
+        "operator_action_ids": ["set_secret_key"],
+        "secrets_redacted": True,
+    }
 
 
 def test_launch_compose_runs_compose_after_preflight_passes(tmp_path: Path) -> None:

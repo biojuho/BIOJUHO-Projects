@@ -39,6 +39,14 @@ def _default_launch_report_json_out(app_root: Path) -> Path:
     return _workspace_root(app_root) / "var" / "agriguard-compose-launch-report.json"
 
 
+def _default_operator_packet_json_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-launch-operator-packet.json"
+
+
+def _default_operator_packet_markdown_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-launch-operator-packet.md"
+
+
 def _tail(value: str | None, *, limit: int = 1200) -> str:
     if not value:
         return ""
@@ -84,6 +92,28 @@ def _summarize_browser_smoke_json(path: Path) -> dict[str, object]:
         "status": payload.get("status"),
         "summary": payload.get("summary") if isinstance(payload.get("summary"), dict) else {},
         "prechecks": payload.get("prechecks") if isinstance(payload.get("prechecks"), list) else [],
+    }
+
+
+def _summarize_operator_packet_json(path: Path, markdown_path: Path) -> dict[str, object]:
+    payload = _read_json_file(path)
+    if payload is None:
+        return {"found": False, "path": str(path), "markdown_path": str(markdown_path)}
+    actions = payload.get("operator_actions") if isinstance(payload.get("operator_actions"), list) else []
+    action_ids = [
+        action.get("id")
+        for action in actions
+        if isinstance(action, dict) and isinstance(action.get("id"), str)
+    ]
+    return {
+        "found": True,
+        "path": str(path),
+        "markdown_path": str(markdown_path),
+        "status": payload.get("status"),
+        "preflight_status": payload.get("preflight_status"),
+        "blocking_action_count": payload.get("blocking_action_count"),
+        "operator_action_ids": action_ids,
+        "secrets_redacted": payload.get("secrets_redacted"),
     }
 
 
@@ -162,6 +192,26 @@ def _build_browser_smoke_command(
     return command
 
 
+def _build_operator_packet_command(
+    app_root: Path,
+    *,
+    preflight_json: Path,
+    json_out: Path,
+    markdown_out: Path,
+) -> list[str]:
+    return [
+        sys.executable,
+        str(app_root / "scripts" / "render_launch_operator_packet.py"),
+        "--preflight-json",
+        str(preflight_json),
+        "--json-out",
+        str(json_out),
+        "--markdown-out",
+        str(markdown_out),
+        "--exit-zero-on-blocked",
+    ]
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run AgriGuard compose launch behind strict preflight.")
     parser.add_argument("--app-root", type=Path, default=_default_app_root(), help="AgriGuard app root.")
@@ -225,6 +275,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Aggregate launch report JSON path. Defaults to workspace var/agriguard-compose-launch-report.json.",
     )
+    parser.add_argument(
+        "--operator-packet-json",
+        type=Path,
+        default=None,
+        help="Operator packet JSON path written when launch preflight fails.",
+    )
+    parser.add_argument(
+        "--operator-packet-markdown",
+        type=Path,
+        default=None,
+        help="Operator packet Markdown path written when launch preflight fails.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the command plan without running preflight or compose.")
     return parser.parse_args(argv)
 
@@ -248,6 +310,16 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.launch_report_json
         else _default_launch_report_json_out(app_root)
     )
+    operator_packet_json = (
+        args.operator_packet_json.resolve()
+        if args.operator_packet_json
+        else _default_operator_packet_json_out(app_root)
+    )
+    operator_packet_markdown = (
+        args.operator_packet_markdown.resolve()
+        if args.operator_packet_markdown
+        else _default_operator_packet_markdown_out(app_root)
+    )
     preflight_command = _build_preflight_command(app_root, json_out, args.env_file)
     compose_command = _build_compose_command(
         app_root,
@@ -268,6 +340,12 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.run_browser_smoke
         else None
     )
+    operator_packet_command = _build_operator_packet_command(
+        app_root,
+        preflight_json=json_out,
+        json_out=operator_packet_json,
+        markdown_out=operator_packet_markdown,
+    )
 
     if args.dry_run:
         plan = {
@@ -275,9 +353,13 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "preflight_command": preflight_command,
             "compose_command": compose_command,
             "browser_smoke_command": browser_smoke_command,
+            "operator_packet_command": operator_packet_command,
             "launch_report_json": str(launch_report_json),
+            "operator_packet_json": str(operator_packet_json),
+            "operator_packet_markdown": str(operator_packet_markdown),
             "will_run_compose_after_preflight": True,
             "will_run_browser_smoke_after_compose": args.run_browser_smoke,
+            "will_write_operator_packet_on_preflight_failure": True,
         }
         print(json.dumps(plan, indent=2, sort_keys=True))
         return 0
@@ -288,6 +370,8 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "stage": "preflight",
         "app_root": str(app_root),
         "preflight_json": str(json_out),
+        "operator_packet_json": str(operator_packet_json),
+        "operator_packet_markdown": str(operator_packet_markdown),
         "browser_smoke_json": str(browser_smoke_json_out) if args.run_browser_smoke else None,
         "browser_smoke_output_dir": str(browser_smoke_output_dir) if args.run_browser_smoke else None,
         "run_browser_smoke": args.run_browser_smoke,
@@ -295,11 +379,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "services": args.service,
         "commands": {
             "preflight": preflight_command,
+            "operator_packet": operator_packet_command,
             "compose": compose_command,
             "browser_smoke": browser_smoke_command,
         },
         "child_reports": {
             "preflight": {"found": False, "path": str(json_out)},
+            "operator_packet": {
+                "found": False,
+                "path": str(operator_packet_json),
+                "markdown_path": str(operator_packet_markdown),
+            },
             "browser_smoke": (
                 {"found": False, "path": str(browser_smoke_json_out)}
                 if args.run_browser_smoke
@@ -317,6 +407,18 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     assert isinstance(child_reports, dict)
     child_reports["preflight"] = _summarize_preflight_json(json_out)
     if preflight_result.returncode != 0:
+        operator_packet_result = command_runner(operator_packet_command, cwd=app_root, text=True)
+        results.append(
+            _command_result(
+                name="operator_packet",
+                command=operator_packet_command,
+                completed=operator_packet_result,
+            )
+        )
+        child_reports["operator_packet"] = _summarize_operator_packet_json(
+            operator_packet_json,
+            operator_packet_markdown,
+        )
         launch_report["status"] = "fail"
         launch_report["stage"] = "preflight"
         launch_report["stop_reason"] = "preflight_failed"
