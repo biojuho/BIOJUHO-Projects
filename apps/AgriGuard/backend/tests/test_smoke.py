@@ -340,6 +340,43 @@ def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
     }
 
 
+def test_browser_smoke_suite_backend_contract_accepts_required_paths():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_contract_pass_under_test",
+    )
+
+    summary = script.summarize_backend_openapi_contract(
+        {"paths": {path: {} for path in script.REQUIRED_BACKEND_OPENAPI_PATHS}}
+    )
+
+    assert summary["ok"] is True
+    assert summary["missing_paths"] == []
+
+
+def test_browser_smoke_suite_backend_contract_flags_stale_backend():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_contract_fail_under_test",
+    )
+
+    summary = script.summarize_backend_openapi_contract(
+        {
+            "paths": {
+                "/products/": {},
+                "/products/page": {},
+                "/qr-events": {},
+                "/qr-events/summary": {},
+            }
+        }
+    )
+
+    assert summary["ok"] is False
+    assert "/qr-events/kpis" in summary["missing_paths"]
+    assert "/qr-tokens/products/{product_id}" in summary["missing_paths"]
+    assert "restart/rebuild the backend" in summary["detail"]
+
+
 def test_nav_browser_smoke_defaults_operator_token_for_local_dev(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",

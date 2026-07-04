@@ -6,11 +6,21 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib import error, request
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = "http://127.0.0.1:8002"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
+REQUIRED_BACKEND_OPENAPI_PATHS = (
+    "/products/",
+    "/products/page",
+    "/qr-events/kpis",
+    "/qr-events/kpis/trend",
+    "/qr-tokens/products/{product_id}",
+    "/sensor-devices",
+    "/sensor-devices/{sensor_id}",
+)
 
 
 class BrowserSmokeStep:
@@ -33,6 +43,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-out", default="var/agriguard-browser-smoke-suite.json")
     parser.add_argument("--timeout-ms", type=int, default=30_000)
     parser.add_argument("--mobile", action="store_true", help="Run mobile variants where the child smoke supports it.")
+    parser.add_argument(
+        "--skip-backend-contract-check",
+        action="store_true",
+        help="Skip the live backend OpenAPI freshness check before running browser steps.",
+    )
     parser.add_argument(
         "--include-unavailable-check",
         action="store_true",
@@ -218,6 +233,79 @@ def _tail(value: str, *, limit: int = 1200) -> str:
     return value[-limit:] if len(value) > limit else value
 
 
+def _openapi_url(api_url: str) -> str:
+    return api_url.rstrip("/") + "/openapi.json"
+
+
+def summarize_backend_openapi_contract(payload: dict[str, object]) -> dict[str, object]:
+    paths = payload.get("paths")
+    if not isinstance(paths, dict):
+        return {
+            "ok": False,
+            "required_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+            "available_paths": [],
+            "missing_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+            "detail": "openapi.json did not contain a paths object",
+        }
+
+    available_paths = sorted(str(path) for path in paths)
+    missing_paths = [path for path in REQUIRED_BACKEND_OPENAPI_PATHS if path not in paths]
+    return {
+        "ok": not missing_paths,
+        "required_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+        "available_paths": available_paths,
+        "missing_paths": missing_paths,
+        "detail": (
+            "backend OpenAPI contract contains browser-smoke routes"
+            if not missing_paths
+            else "backend OpenAPI contract is missing browser-smoke routes; restart/rebuild the backend"
+        ),
+    }
+
+
+def check_backend_contract(api_url: str, *, timeout_ms: int) -> dict[str, object]:
+    url = _openapi_url(api_url)
+    timeout_seconds = max(1, min(15, int(timeout_ms / 1000)))
+    try:
+        with request.urlopen(url, timeout=timeout_seconds) as response:
+            raw = response.read().decode("utf-8")
+    except error.HTTPError as exc:
+        return {
+            "name": "backend_contract",
+            "ok": False,
+            "url": url,
+            "detail": f"openapi.json request failed with HTTP {exc.code}",
+            "required_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+            "missing_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+        }
+    except (OSError, TimeoutError) as exc:
+        return {
+            "name": "backend_contract",
+            "ok": False,
+            "url": url,
+            "detail": f"openapi.json request failed: {exc}",
+            "required_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+            "missing_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+        }
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return {
+            "name": "backend_contract",
+            "ok": False,
+            "url": url,
+            "detail": f"openapi.json was not valid JSON: {exc}",
+            "required_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+            "missing_paths": list(REQUIRED_BACKEND_OPENAPI_PATHS),
+        }
+
+    summary = summarize_backend_openapi_contract(payload)
+    summary["name"] = "backend_contract"
+    summary["url"] = url
+    return summary
+
+
 def summarize_child_report(path: Path) -> dict[str, object]:
     if not path.exists():
         return {"report_found": False, "checks_total": 0, "checks_passed": 0, "checks_failed": 0}
@@ -274,19 +362,54 @@ def write_json(path: str | Path, payload: dict[str, object]) -> None:
 def main() -> int:
     args = parse_args()
     steps = build_steps(args)
+    prechecks: list[dict[str, object]] = []
+
+    if not args.dry_run and not args.skip_backend_contract_check:
+        backend_contract = check_backend_contract(args.api_url, timeout_ms=args.timeout_ms)
+        prechecks.append(backend_contract)
+        if backend_contract.get("ok") is not True:
+            report = {
+                "status": "fail",
+                "base_url": args.base_url,
+                "api_url": args.api_url,
+                "mobile": args.mobile,
+                "include_unavailable_check": args.include_unavailable_check,
+                "dry_run": args.dry_run,
+                "skip_backend_contract_check": args.skip_backend_contract_check,
+                "summary": {
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "checks_total": 0,
+                    "checks_passed": 0,
+                    "checks_failed": 0,
+                    "prechecks_total": len(prechecks),
+                    "prechecks_passed": 0,
+                    "prechecks_failed": 1,
+                },
+                "prechecks": prechecks,
+                "results": [],
+            }
+            write_json(args.json_out, report)
+            print(json.dumps(report["summary"], indent=2, sort_keys=True))
+            return 1
+
     results = [
         run_step(step, operator_token=args.operator_token, timeout_ms=args.timeout_ms, dry_run=args.dry_run)
         for step in steps
     ]
     passed = sum(1 for result in results if result.get("ok") is True)
     failed = len(results) - passed
+    prechecks_passed = sum(1 for precheck in prechecks if precheck.get("ok") is True)
+    prechecks_failed = len(prechecks) - prechecks_passed
     report = {
-        "status": "pass" if failed == 0 else "fail",
+        "status": "pass" if failed == 0 and prechecks_failed == 0 else "fail",
         "base_url": args.base_url,
         "api_url": args.api_url,
         "mobile": args.mobile,
         "include_unavailable_check": args.include_unavailable_check,
         "dry_run": args.dry_run,
+        "skip_backend_contract_check": args.skip_backend_contract_check,
         "summary": {
             "total": len(results),
             "passed": passed,
@@ -294,12 +417,16 @@ def main() -> int:
             "checks_total": sum(int(result.get("checks_total", 0)) for result in results),
             "checks_passed": sum(int(result.get("checks_passed", 0)) for result in results),
             "checks_failed": sum(int(result.get("checks_failed", 0)) for result in results),
+            "prechecks_total": len(prechecks),
+            "prechecks_passed": prechecks_passed,
+            "prechecks_failed": prechecks_failed,
         },
+        "prechecks": prechecks,
         "results": results,
     }
     write_json(args.json_out, report)
     print(json.dumps(report["summary"], indent=2, sort_keys=True))
-    return 0 if failed == 0 else 1
+    return 0 if report["status"] == "pass" else 1
 
 
 if __name__ == "__main__":
