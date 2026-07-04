@@ -53,6 +53,8 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
         "backend",
     ]
     assert payload["browser_smoke_command"] is None
+    assert payload["env_validation_command"] is None
+    assert payload["will_validate_env_file_shape_before_preflight"] is False
     assert payload["operator_packet_command"] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py"),
@@ -68,6 +70,205 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
     ]
     assert payload["will_run_browser_smoke_after_compose"] is False
     assert payload["will_write_operator_packet_on_preflight_failure"] is True
+
+
+def test_launch_compose_dry_run_env_shape_validation_plan(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "launch.env"
+    json_out = tmp_path / "preflight.json"
+    validation_json = tmp_path / "validation.json"
+    validation_markdown = tmp_path / "validation.md"
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--validate-env-file-shape",
+            "--env-validation-json-out",
+            str(validation_json),
+            "--env-validation-markdown-out",
+            str(validation_markdown),
+            "--json-out",
+            str(json_out),
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["will_validate_env_file_shape_before_preflight"] is True
+    assert payload["env_validation_requires_single_env_file"] is False
+    assert payload["env_validation_command"] == [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "validate_launch_env_template.py"),
+        "--env-file",
+        str(env_file.resolve()),
+        "--json-out",
+        str(validation_json.resolve()),
+        "--markdown-out",
+        str(validation_markdown.resolve()),
+    ]
+    assert payload["preflight_command"][-2:] == ["--env-file", str(env_file.resolve())]
+
+
+def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "launch.env"
+    launch_report_json = tmp_path / "launch-report.json"
+    validation_json = tmp_path / "validation.json"
+    validation_markdown = tmp_path / "validation.md"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        validation_json.write_text(
+            json.dumps(
+                {
+                    "status": "fail",
+                    "ready_for_preflight": False,
+                    "placeholder_count": 6,
+                    "missing_required_keys": [],
+                    "forbidden_flags_enabled": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=command, returncode=1, stdout="validation failed", stderr="")
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--validate-env-file-shape",
+            "--env-validation-json-out",
+            str(validation_json),
+            "--env-validation-markdown-out",
+            str(validation_markdown),
+            "--launch-report-json",
+            str(launch_report_json),
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 1
+    assert len(calls) == 1
+    assert calls[0][1] == str(app_root.resolve() / "scripts" / "validate_launch_env_template.py")
+    assert "strict preflight was not run" in capsys.readouterr().err
+    report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["status"] == "fail"
+    assert report["stage"] == "env_shape_validation"
+    assert report["stop_reason"] == "env_shape_validation_failed"
+    assert [item["name"] for item in report["results"]] == ["env_validation"]
+    assert report["child_reports"]["env_validation"] == {
+        "found": True,
+        "path": str(validation_json.resolve()),
+        "status": "fail",
+        "ready_for_preflight": False,
+        "placeholder_count": 6,
+        "missing_required_keys": [],
+        "forbidden_flags_enabled": [],
+    }
+    assert report["child_reports"]["preflight"] == {"found": False, "path": str(launch_compose._default_json_out(app_root.resolve()))}
+
+
+def test_launch_compose_runs_preflight_after_env_shape_validation_passes(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "launch.env"
+    json_out = tmp_path / "preflight.json"
+    launch_report_json = tmp_path / "launch-report.json"
+    validation_json = tmp_path / "validation.json"
+    validation_markdown = tmp_path / "validation.md"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            validation_json.write_text(
+                json.dumps(
+                    {
+                        "status": "pass",
+                        "ready_for_preflight": True,
+                        "placeholder_count": 0,
+                        "missing_required_keys": [],
+                        "forbidden_flags_enabled": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        if len(calls) == 2:
+            json_out.write_text(json.dumps({"status": "pass", "errors": [], "warnings": []}), encoding="utf-8")
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--validate-env-file-shape",
+            "--env-validation-json-out",
+            str(validation_json),
+            "--env-validation-markdown-out",
+            str(validation_markdown),
+            "--json-out",
+            str(json_out),
+            "--launch-report-json",
+            str(launch_report_json),
+            "--service",
+            "backend",
+            "--no-build",
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 0
+    assert [call[1] if len(call) > 1 else call[0] for call in calls] == [
+        str(app_root.resolve() / "scripts" / "validate_launch_env_template.py"),
+        str(app_root.resolve() / "scripts" / "launch_env_preflight.py"),
+        "compose",
+    ]
+    report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["status"] == "pass"
+    assert report["stage"] == "compose"
+    assert [item["name"] for item in report["results"]] == ["env_validation", "preflight", "compose"]
+    assert report["child_reports"]["env_validation"]["ready_for_preflight"] is True
+
+
+def test_launch_compose_env_shape_validation_requires_single_env_file(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    launch_report_json = tmp_path / "launch-report.json"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(tmp_path / "a.env"),
+            "--env-file",
+            str(tmp_path / "b.env"),
+            "--validate-env-file-shape",
+            "--launch-report-json",
+            str(launch_report_json),
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 2
+    assert calls == []
+    assert "requires exactly one --env-file" in capsys.readouterr().err
+    report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["status"] == "fail"
+    assert report["stage"] == "env_shape_validation"
+    assert report["stop_reason"] == "env_shape_validation_requires_single_env_file"
 
 
 def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> None:

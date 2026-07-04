@@ -51,6 +51,14 @@ def _default_operator_env_template_out(app_root: Path) -> Path:
     return _workspace_root(app_root) / "var" / "agriguard-launch-operator.env.template"
 
 
+def _default_env_validation_json_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-launch-env-template-validation.json"
+
+
+def _default_env_validation_markdown_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-launch-env-template-validation.md"
+
+
 def _tail(value: str | None, *, limit: int = 1200) -> str:
     if not value:
         return ""
@@ -96,6 +104,29 @@ def _summarize_browser_smoke_json(path: Path) -> dict[str, object]:
         "status": payload.get("status"),
         "summary": payload.get("summary") if isinstance(payload.get("summary"), dict) else {},
         "prechecks": payload.get("prechecks") if isinstance(payload.get("prechecks"), list) else [],
+    }
+
+
+def _summarize_env_validation_json(path: Path) -> dict[str, object]:
+    payload = _read_json_file(path)
+    if payload is None:
+        return {"found": False, "path": str(path)}
+    return {
+        "found": True,
+        "path": str(path),
+        "status": payload.get("status"),
+        "ready_for_preflight": payload.get("ready_for_preflight"),
+        "placeholder_count": payload.get("placeholder_count"),
+        "missing_required_keys": (
+            payload.get("missing_required_keys")
+            if isinstance(payload.get("missing_required_keys"), list)
+            else []
+        ),
+        "forbidden_flags_enabled": (
+            payload.get("forbidden_flags_enabled")
+            if isinstance(payload.get("forbidden_flags_enabled"), list)
+            else []
+        ),
     }
 
 
@@ -171,6 +202,25 @@ def _build_preflight_command(app_root: Path, json_out: Path, env_files: list[Pat
     for env_file in env_files:
         command.extend(["--env-file", str(env_file)])
     return command
+
+
+def _build_env_validation_command(
+    app_root: Path,
+    *,
+    env_file: Path,
+    json_out: Path,
+    markdown_out: Path,
+) -> list[str]:
+    return [
+        sys.executable,
+        str(app_root / "scripts" / "validate_launch_env_template.py"),
+        "--env-file",
+        str(env_file),
+        "--json-out",
+        str(json_out),
+        "--markdown-out",
+        str(markdown_out),
+    ]
 
 
 def _build_compose_command(app_root: Path, services: list[str], *, build: bool, wait: bool) -> list[str]:
@@ -323,6 +373,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Operator dotenv template path written when launch preflight fails.",
     )
+    parser.add_argument(
+        "--validate-env-file-shape",
+        action="store_true",
+        help="Validate exactly one supplied --env-file with validate_launch_env_template.py before strict preflight.",
+    )
+    parser.add_argument(
+        "--env-validation-json-out",
+        type=Path,
+        default=None,
+        help="Shape validation JSON output path when --validate-env-file-shape is enabled.",
+    )
+    parser.add_argument(
+        "--env-validation-markdown-out",
+        type=Path,
+        default=None,
+        help="Shape validation Markdown output path when --validate-env-file-shape is enabled.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the command plan without running preflight or compose.")
     return parser.parse_args(argv)
 
@@ -330,6 +397,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subprocess.run) -> int:
     args = parse_args(argv)
     app_root = args.app_root.resolve()
+    env_files = [env_file.resolve() for env_file in args.env_file]
     json_out = args.json_out.resolve() if args.json_out else _default_json_out(app_root)
     browser_smoke_json_out = (
         args.browser_smoke_json_out.resolve()
@@ -361,7 +429,27 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.operator_env_template
         else _default_operator_env_template_out(app_root)
     )
-    preflight_command = _build_preflight_command(app_root, json_out, args.env_file)
+    env_validation_json_out = (
+        args.env_validation_json_out.resolve()
+        if args.env_validation_json_out
+        else _default_env_validation_json_out(app_root)
+    )
+    env_validation_markdown_out = (
+        args.env_validation_markdown_out.resolve()
+        if args.env_validation_markdown_out
+        else _default_env_validation_markdown_out(app_root)
+    )
+    env_validation_command = (
+        _build_env_validation_command(
+            app_root,
+            env_file=env_files[0],
+            json_out=env_validation_json_out,
+            markdown_out=env_validation_markdown_out,
+        )
+        if args.validate_env_file_shape and len(env_files) == 1
+        else None
+    )
+    preflight_command = _build_preflight_command(app_root, json_out, env_files)
     compose_command = _build_compose_command(
         app_root,
         args.service,
@@ -395,11 +483,16 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "preflight_command": preflight_command,
             "compose_command": compose_command,
             "browser_smoke_command": browser_smoke_command,
+            "env_validation_command": env_validation_command,
             "operator_packet_command": operator_packet_command,
             "launch_report_json": str(launch_report_json),
+            "env_validation_json": str(env_validation_json_out) if args.validate_env_file_shape else None,
+            "env_validation_markdown": str(env_validation_markdown_out) if args.validate_env_file_shape else None,
             "operator_packet_json": str(operator_packet_json),
             "operator_packet_markdown": str(operator_packet_markdown),
             "operator_env_template": str(operator_env_template),
+            "will_validate_env_file_shape_before_preflight": args.validate_env_file_shape,
+            "env_validation_requires_single_env_file": args.validate_env_file_shape and len(env_files) != 1,
             "will_run_compose_after_preflight": True,
             "will_run_browser_smoke_after_compose": args.run_browser_smoke,
             "will_write_operator_packet_on_preflight_failure": True,
@@ -413,6 +506,8 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "stage": "preflight",
         "app_root": str(app_root),
         "preflight_json": str(json_out),
+        "env_validation_json": str(env_validation_json_out) if args.validate_env_file_shape else None,
+        "env_validation_markdown": str(env_validation_markdown_out) if args.validate_env_file_shape else None,
         "operator_packet_json": str(operator_packet_json),
         "operator_packet_markdown": str(operator_packet_markdown),
         "operator_env_template": str(operator_env_template),
@@ -422,6 +517,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "compose_wait": args.run_browser_smoke and not args.no_compose_wait,
         "services": args.service,
         "commands": {
+            "env_validation": env_validation_command,
             "preflight": preflight_command,
             "operator_packet": operator_packet_command,
             "compose": compose_command,
@@ -445,12 +541,50 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "results": [],
     }
 
-    preflight_result = command_runner(preflight_command, cwd=app_root, text=True)
     results = launch_report["results"]
     assert isinstance(results, list)
-    results.append(_command_result(name="preflight", command=preflight_command, completed=preflight_result))
     child_reports = launch_report["child_reports"]
     assert isinstance(child_reports, dict)
+    if args.validate_env_file_shape:
+        child_reports["env_validation"] = {"found": False, "path": str(env_validation_json_out)}
+        if env_validation_command is None:
+            launch_report["status"] = "fail"
+            launch_report["stage"] = "env_shape_validation"
+            launch_report["stop_reason"] = "env_shape_validation_requires_single_env_file"
+            child_reports["env_validation"] = {
+                "found": False,
+                "path": str(env_validation_json_out),
+                "error": "Provide exactly one --env-file with --validate-env-file-shape.",
+            }
+            write_json(launch_report_json, launch_report)
+            print(
+                "AgriGuard launch env shape validation requires exactly one --env-file.",
+                file=sys.stderr,
+            )
+            return 2
+
+        env_validation_result = command_runner(env_validation_command, cwd=app_root, text=True)
+        results.append(
+            _command_result(
+                name="env_validation",
+                command=env_validation_command,
+                completed=env_validation_result,
+            )
+        )
+        child_reports["env_validation"] = _summarize_env_validation_json(env_validation_json_out)
+        if env_validation_result.returncode != 0:
+            launch_report["status"] = "fail"
+            launch_report["stage"] = "env_shape_validation"
+            launch_report["stop_reason"] = "env_shape_validation_failed"
+            write_json(launch_report_json, launch_report)
+            print(
+                "AgriGuard launch env shape validation failed; strict preflight was not run.",
+                file=sys.stderr,
+            )
+            return env_validation_result.returncode
+
+    preflight_result = command_runner(preflight_command, cwd=app_root, text=True)
+    results.append(_command_result(name="preflight", command=preflight_command, completed=preflight_result))
     child_reports["preflight"] = _summarize_preflight_json(json_out)
     if preflight_result.returncode != 0:
         operator_packet_result = command_runner(operator_packet_command, cwd=app_root, text=True)
