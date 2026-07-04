@@ -43,6 +43,11 @@ summaries so it is not isolated inside a browser-smoke JSON artifact.
   - Required action IDs: `auth`, `stripe`, `cors`.
   - Optional action IDs: `rabbitmq`, `ipfs`, `grobid`.
   - `bad_copy_lines=[]`.
+- `python scripts/release_gate.py --skip-env --skip-compose --skip-backend --skip-frontend --skip-contracts --runtime-smoke --runtime-smoke-step browser --runtime-frontend http://127.0.0.1:5173 --runtime-browser-expect-dev-auth --runtime-browser-only-check dashboard-readiness-refresh --runtime-evidence-dir var --json-out var/release-gate-browser-env-handoff-summary-2026-07-04.json`
+  - Result: OK, one `browser-smoke` step passed.
+  - Parent summary source: `dashboard-readiness-refresh-browser-click`.
+  - Parent summary status: `blocked`.
+  - Parent summary line count: `19`.
 
 ## Decision
 
