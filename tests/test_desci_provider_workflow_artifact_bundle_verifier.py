@@ -41,6 +41,8 @@ def _write_verify_json(root: Path, path: str, *, ok: bool = False) -> None:
                 "summary": {
                     "failure_count": 0 if ok else 2,
                     "results_command_failure_count": 0 if ok else 1,
+                    "operator_command_count": 8,
+                    "operator_command_failure_count": 0,
                 },
                 "failures": [] if ok else ["provider apply plan is not ready"],
             },
@@ -79,6 +81,8 @@ def test_provider_workflow_bundle_verifier_accepts_complete_no_go_bundle(tmp_pat
     assert payload["ok"] is True
     assert payload["index_complete_bundle"] is True
     assert payload["provider_apply_workflow"]["ok"] is False
+    assert payload["provider_apply_workflow"]["operator_command_count"] == 8
+    assert payload["provider_apply_workflow"]["operator_command_failure_count"] == 0
     assert payload["summary"]["artifact_failure_count"] == 0
     assert payload["summary"]["missing_required_count"] == 0
     assert payload["summary"]["digest_mismatch_count"] == 0
@@ -119,7 +123,11 @@ def test_provider_workflow_bundle_verifier_rejects_digest_mismatch(tmp_path) -> 
     assert payload["ok"] is False
     assert payload["summary"]["artifact_failure_count"] == 1
     assert payload["summary"]["digest_mismatch_count"] == 1
-    matching = [item for item in payload["artifacts"] if item["path"] == "var/external-gate-provider-workflow-machine-results.json"]
+    matching = [
+        item
+        for item in payload["artifacts"]
+        if item["path"] == "var/external-gate-provider-workflow-machine-results.json"
+    ]
     assert matching
     assert "artifact sha256 mismatch" in matching[0]["failures"]
 
@@ -168,5 +176,7 @@ def test_provider_workflow_bundle_verifier_cli_writes_json_markdown_and_summary(
     assert exit_code == 0
     assert payload["ok"] is True
     assert payload["provider_apply_workflow"]["ok"] is True
+    assert payload["provider_apply_workflow"]["operator_command_count"] == 8
     assert "DeSci Provider Workflow Artifact Bundle Verification" in markdown.read_text(encoding="utf-8")
+    assert "- Operator command count: `8`" in markdown.read_text(encoding="utf-8")
     assert "DeSci Provider Workflow Artifact Bundle Verification" in summary.read_text(encoding="utf-8")

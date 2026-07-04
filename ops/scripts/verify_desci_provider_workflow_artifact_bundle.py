@@ -218,6 +218,8 @@ def verify_bundle(
             "promotion_receipt_ok": workflow.get("promotion_receipt_ok"),
             "failure_count": workflow.get("failure_count"),
             "results_command_failure_count": workflow.get("results_command_failure_count"),
+            "operator_command_count": workflow.get("operator_command_count"),
+            "operator_command_failure_count": workflow.get("operator_command_failure_count"),
         },
         "summary": {
             "failure_count": len(failures),
@@ -240,6 +242,10 @@ def _format_bool(value: Any) -> str:
     return "unknown" if value is None else str(value)
 
 
+def _format_optional(value: Any) -> str:
+    return "unknown" if value is None else str(value)
+
+
 def render_markdown_summary(payload: dict[str, Any]) -> str:
     summary = _as_dict(payload.get("summary"))
     workflow = _as_dict(payload.get("provider_apply_workflow"))
@@ -255,6 +261,8 @@ def render_markdown_summary(payload: dict[str, Any]) -> str:
         f"- First decision artifact: `{payload.get('first_decision_artifact') or 'missing'}`",
         f"- Provider workflow ok: `{_format_bool(workflow.get('ok'))}`",
         f"- Provider workflow phase: `{workflow.get('operator_phase') or 'unknown'}`",
+        f"- Operator command count: `{_format_optional(workflow.get('operator_command_count'))}`",
+        f"- Operator command failure count: `{_format_optional(workflow.get('operator_command_failure_count'))}`",
         f"- Artifact failures: `{summary.get('artifact_failure_count', 0)}`",
         f"- Missing required artifacts: `{summary.get('missing_required_count', 0)}`",
         f"- Digest mismatches: `{summary.get('digest_mismatch_count', 0)}`",

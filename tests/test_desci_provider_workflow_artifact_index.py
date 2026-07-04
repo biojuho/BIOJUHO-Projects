@@ -41,6 +41,8 @@ def _write_verify_json(root: Path, path: str, *, ok: bool = False) -> None:
                 "summary": {
                     "failure_count": 2,
                     "results_command_failure_count": 1,
+                    "operator_command_count": 8,
+                    "operator_command_failure_count": 0,
                 },
                 "failures": [
                     "provider apply results must have all_commands_succeeded=true",
@@ -88,6 +90,8 @@ def test_desci_provider_workflow_artifact_index_reports_complete_bundle(tmp_path
     assert payload["provider_apply_workflow"]["operator_phase"] == "provider_apply_workflow_blocked"
     assert payload["provider_apply_workflow"]["failure_count"] == 2
     assert payload["provider_apply_workflow"]["results_command_failure_count"] == 1
+    assert payload["provider_apply_workflow"]["operator_command_count"] == 8
+    assert payload["provider_apply_workflow"]["operator_command_failure_count"] == 0
     assert "post-apply promotion receipt must be go" in payload["provider_apply_workflow"]["failures"]
     assert payload["provider_templates"][0]["path"] == "var/external-gate-provider-workflow-machine/railway.env"
     assert payload["provider_templates"][0]["required_for_complete_bundle"] is False
@@ -115,6 +119,8 @@ def test_desci_provider_workflow_artifact_index_reports_missing_bundle_members(t
     assert first_artifact not in payload["missing_artifacts"]
     assert module.DEFAULT_VERIFY_JSON in payload["missing_artifacts"]
     assert payload["provider_apply_workflow"]["ok"] is None
+    assert payload["provider_apply_workflow"]["operator_command_count"] is None
+    assert payload["provider_apply_workflow"]["operator_command_failure_count"] is None
     assert payload["artifacts"][0]["exists"] is True
     assert payload["artifacts"][1]["exists"] is False
     assert payload["artifacts"][1]["size_bytes"] is None
@@ -143,6 +149,8 @@ def test_desci_provider_workflow_artifact_index_renders_markdown_summary(tmp_pat
     assert "- Complete bundle: `no`" in markdown
     assert "- Provider workflow ok: `no`" in markdown
     assert "- Provider workflow phase: `provider_apply_workflow_blocked`" in markdown
+    assert "- Operator command count: `8`" in markdown
+    assert "- Operator command failure count: `0`" in markdown
     assert "| Exit Code | Value |" in markdown
     assert "| `provider_handoff` | `0` |" in markdown
     assert "| Order | Artifact | Required | Exists | Size bytes | SHA-256 | Purpose |" in markdown

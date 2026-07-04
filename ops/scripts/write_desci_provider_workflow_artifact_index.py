@@ -149,6 +149,8 @@ def provider_apply_workflow_summary(*, root: Path, verify_json: str) -> dict[str
             "promotion_receipt_ok": None,
             "failure_count": None,
             "results_command_failure_count": None,
+            "operator_command_count": None,
+            "operator_command_failure_count": None,
             "failures": [],
             "parse_error": None,
         }
@@ -162,6 +164,8 @@ def provider_apply_workflow_summary(*, root: Path, verify_json: str) -> dict[str
             "promotion_receipt_ok": None,
             "failure_count": None,
             "results_command_failure_count": None,
+            "operator_command_count": None,
+            "operator_command_failure_count": None,
             "failures": [],
             "parse_error": parse_error,
         }
@@ -175,6 +179,8 @@ def provider_apply_workflow_summary(*, root: Path, verify_json: str) -> dict[str
         "promotion_receipt_ok": payload.get("promotion_receipt_ok"),
         "failure_count": summary.get("failure_count"),
         "results_command_failure_count": summary.get("results_command_failure_count"),
+        "operator_command_count": summary.get("operator_command_count"),
+        "operator_command_failure_count": summary.get("operator_command_failure_count"),
         "failures": [item for item in failures if isinstance(item, str)],
         "parse_error": None,
     }
@@ -248,6 +254,10 @@ def format_exit_code(value: str | None) -> str:
     return value if value not in {None, ""} else "missing"
 
 
+def format_optional(value: Any) -> str:
+    return "unknown" if value is None else str(value)
+
+
 def render_markdown_summary(payload: dict[str, Any]) -> str:
     workflow = payload["provider_apply_workflow"]
     lines = [
@@ -264,11 +274,10 @@ def render_markdown_summary(payload: dict[str, Any]) -> str:
         f"- Ready to apply: `{format_bool(workflow.get('ready_to_apply'))}`",
         f"- Provider commands succeeded: `{format_bool(workflow.get('all_commands_succeeded'))}`",
         f"- Promotion receipt go: `{format_bool(workflow.get('promotion_receipt_ok'))}`",
-        f"- Workflow failure count: `{workflow.get('failure_count') if workflow.get('failure_count') is not None else 'unknown'}`",
-        (
-            "- Results command failure count: "
-            f"`{workflow.get('results_command_failure_count') if workflow.get('results_command_failure_count') is not None else 'unknown'}`"
-        ),
+        f"- Workflow failure count: `{format_optional(workflow.get('failure_count'))}`",
+        f"- Results command failure count: `{format_optional(workflow.get('results_command_failure_count'))}`",
+        f"- Operator command count: `{format_optional(workflow.get('operator_command_count'))}`",
+        f"- Operator command failure count: `{format_optional(workflow.get('operator_command_failure_count'))}`",
         "",
         "| Exit Code | Value |",
         "|---|---:|",
