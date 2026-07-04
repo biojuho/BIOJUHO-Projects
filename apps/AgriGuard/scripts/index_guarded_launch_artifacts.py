@@ -72,6 +72,18 @@ def _artifact(role: str, path: Path, required: bool) -> dict[str, object]:
     }
 
 
+def _quote_powershell_arg(value: str) -> str:
+    if value and not any(char.isspace() for char in value) and "'" not in value:
+        return value
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _format_powershell_command(command: list[str] | None) -> str | None:
+    if not command:
+        return None
+    return "& " + " ".join(_quote_powershell_arg(str(part)) for part in command)
+
+
 def _artifact_paths(
     output_dir: Path,
     output_prefix: str,
@@ -228,6 +240,8 @@ def build_index(
             ready_gate_json=ready_gate_json.resolve() if ready_gate_json else None,
         )
     )
+    recovery_command_text = _format_powershell_command(recovery_command)
+    recovery_command_shell = "powershell" if recovery_command_text else None
     recovery_command_status = "not_required" if index_status == "pass" else "pass" if recovery_command else "fail"
     recovery_action = (
         None
@@ -282,6 +296,8 @@ def build_index(
         "launch_stage": launch.get("stage") if isinstance(launch, dict) else None,
         "recovery_action": recovery_action,
         "recovery_command": recovery_command,
+        "recovery_command_shell": recovery_command_shell,
+        "recovery_command_text": recovery_command_text,
         "recovery_command_status": recovery_command_status,
         "recovery_command_note": recovery_command_note,
         "recovery_summary": recovery_summary,
@@ -305,7 +321,8 @@ def render_markdown(index: dict[str, object]) -> str:
         else []
     )
     recovery_summary = index.get("recovery_summary") if isinstance(index.get("recovery_summary"), dict) else {}
-    recovery_command = index.get("recovery_command") if isinstance(index.get("recovery_command"), list) else []
+    recovery_command_text = index.get("recovery_command_text")
+    recovery_command_shell = index.get("recovery_command_shell")
     lines = [
         "# AgriGuard Guarded Launch Artifact Index",
         "",
@@ -327,7 +344,8 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Recovery action: `{index.get('recovery_action') or '-'}`",
         f"- Recovery command status: `{index.get('recovery_command_status')}`",
         f"- Recovery command note: `{index.get('recovery_command_note') or '-'}`",
-        f"- Recovery command: `{' '.join(str(part) for part in recovery_command) if recovery_command else '-'}`",
+        f"- Recovery command shell: `{recovery_command_shell if isinstance(recovery_command_shell, str) else '-'}`",
+        f"- Recovery command: `{recovery_command_text if isinstance(recovery_command_text, str) else '-'}`",
         "",
         "## Artifacts",
         "",

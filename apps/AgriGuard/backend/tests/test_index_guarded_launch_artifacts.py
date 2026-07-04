@@ -85,6 +85,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["missing_required_roles"] == []
     assert index["recovery_action"] is None
     assert index["recovery_command"] is None
+    assert index["recovery_command_shell"] is None
+    assert index["recovery_command_text"] is None
     assert index["recovery_command_status"] == "not_required"
     assert index["recovery_command_note"] is None
     assert index["recovery_summary"] == {
@@ -211,7 +213,7 @@ def test_index_guarded_launch_artifacts_markdown_exposes_consumer_errors(tmp_pat
 
 
 def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -> None:
-    output_dir = tmp_path / "launch-artifacts"
+    output_dir = tmp_path / "launch artifacts"
     paths = _write_core_artifacts(output_dir, "blocked")
     paths["handoff_consumer_json"].unlink()
 
@@ -237,7 +239,14 @@ def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -
     assert "--emit-handoff" in recovery_command
     assert recovery_command[recovery_command.index("--output-prefix") + 1] == "blocked"
     assert recovery_command[recovery_command.index("--output-dir") + 1] == str(output_dir.resolve())
-    assert "Recovery command:" in markdown
+    expected_recovery_command_text = index_guarded_launch_artifacts._format_powershell_command(recovery_command)
+    assert index["recovery_command_shell"] == "powershell"
+    assert index["recovery_command_text"] == expected_recovery_command_text
+    assert expected_recovery_command_text is not None
+    assert expected_recovery_command_text.startswith("& ")
+    assert f"'{output_dir.resolve()}'" in expected_recovery_command_text
+    assert f"Recovery command: `{expected_recovery_command_text}`" in markdown
+    assert "Recovery command shell: `powershell`" in markdown
     assert "Recovery command note: `Recovery command is present" in markdown
     assert "run_guarded_launch.py" in markdown
 
@@ -316,5 +325,6 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
     assert "Recovery summary required: `false`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery command note: `-`" in markdown
+    assert "Recovery command shell: `-`" in markdown
     assert "Recovery command: `-`" in markdown
     assert "`handoff_consumer_json`" in markdown
