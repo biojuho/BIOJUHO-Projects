@@ -1,0 +1,343 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "external_blocker": {
+      "additionalProperties": false,
+      "properties": {
+        "blocker_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operator_action_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "blocker_class",
+        "operator_action_ids",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "operator_commands": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "command"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "output_dir": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "output_prefix": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "ready_gate": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "exit_code": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "required_blocker_class": {
+          "type": "string"
+        },
+        "required_status": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "status_json_out": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "required_status",
+        "required_blocker_class",
+        "exit_code",
+        "status_json_out",
+        "command"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1,
+      "type": "integer"
+    },
+    "secrets_redacted": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string"
+    },
+    "status_view": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "additionalProperties": false,
+          "properties": {
+            "env_validation_json": {
+              "type": "string"
+            },
+            "env_validation_markdown": {
+              "type": "string"
+            },
+            "launch_report_json": {
+              "type": "string"
+            },
+            "operator_env_template": {
+              "type": "string"
+            },
+            "operator_packet_json": {
+              "type": "string"
+            },
+            "operator_packet_markdown": {
+              "type": "string"
+            },
+            "preflight_json": {
+              "type": "string"
+            },
+            "readiness_summary_json": {
+              "type": "string"
+            },
+            "readiness_summary_markdown": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "env_validation_json",
+            "env_validation_markdown",
+            "preflight_json",
+            "launch_report_json",
+            "operator_packet_json",
+            "operator_packet_markdown",
+            "operator_env_template",
+            "readiness_summary_json",
+            "readiness_summary_markdown"
+          ],
+          "type": "object"
+        },
+        "blocker_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "launch": {
+          "additionalProperties": false,
+          "properties": {
+            "found": {
+              "type": "boolean"
+            },
+            "path": {
+              "type": "string"
+            },
+            "result_names": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "stage": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "stop_reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "found",
+            "path",
+            "status",
+            "stage",
+            "stop_reason",
+            "result_names"
+          ],
+          "type": "object"
+        },
+        "operator_action_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "operator_packet": {
+          "additionalProperties": false,
+          "properties": {
+            "found": {
+              "type": "boolean"
+            },
+            "operator_action_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "path": {
+              "type": "string"
+            },
+            "secrets_redacted": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "found",
+            "path",
+            "status",
+            "operator_action_ids",
+            "secrets_redacted"
+          ],
+          "type": "object"
+        },
+        "output_dir": {
+          "type": "string"
+        },
+        "output_prefix": {
+          "type": "string"
+        },
+        "readiness_summary": {
+          "additionalProperties": false,
+          "properties": {
+            "blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "found": {
+              "type": "boolean"
+            },
+            "next_actions": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "path": {
+              "type": "string"
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "found",
+            "path",
+            "status",
+            "blocker_class",
+            "next_actions"
+          ],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "secrets_redacted": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "status",
+        "blocker_class",
+        "operator_action_ids",
+        "output_dir",
+        "output_prefix",
+        "secrets_redacted",
+        "artifacts",
+        "launch",
+        "readiness_summary",
+        "operator_packet"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "status",
+    "secrets_redacted",
+    "output_prefix",
+    "output_dir",
+    "status_view",
+    "ready_gate",
+    "external_blocker",
+    "operator_commands"
+  ],
+  "type": "object"
+}
