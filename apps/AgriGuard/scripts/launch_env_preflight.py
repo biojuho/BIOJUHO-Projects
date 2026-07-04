@@ -27,6 +27,13 @@ PLACEHOLDER_PREFIXES = ("change_me", "changeme", "your_", "insecure-dev")
 LOCAL_PUBLIC_VERIFY_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 FORBIDDEN_LAUNCH_TRUE_FLAGS = ("ALLOW_TEST_BYPASS", "ALLOW_DEV_AUTH_FALLBACK")
 COMPOSE_FIREBASE_CREDENTIALS_FILE = "/run/secrets/agriguard_firebase_service_account"
+FIREBASE_SERVICE_ACCOUNT_REQUIRED_FIELDS = (
+    "type",
+    "project_id",
+    "private_key",
+    "client_email",
+    "token_uri",
+)
 
 
 def _strip_optional_quotes(value: str) -> str:
@@ -282,14 +289,52 @@ def _resolve_app_relative_path(value: str, *, app_root: Path) -> Path:
     return (app_root / path).resolve()
 
 
-def _firebase_credentials_file_errors(value: str, *, source: str, app_root: Path) -> list[str]:
+def _firebase_credentials_file_check(value: str, *, source: str, app_root: Path) -> tuple[list[str], bool]:
     path = _resolve_app_relative_path(value, app_root=app_root)
     errors: list[str] = []
     if path.suffix.lower() != ".json":
         errors.append(f"{source} must point to a JSON Firebase service account file.")
     if not path.is_file():
         errors.append(f"{source} file does not exist.")
-    return errors
+        return errors, False
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError:
+        errors.append(f"{source} must contain valid JSON.")
+        return errors, True
+    except OSError as exc:
+        errors.append(f"{source} could not be read: {exc}.")
+        return errors, True
+
+    if not isinstance(payload, dict):
+        errors.append(f"{source} must contain a JSON object.")
+        return errors, True
+
+    missing_fields = [
+        field
+        for field in FIREBASE_SERVICE_ACCOUNT_REQUIRED_FIELDS
+        if not isinstance(payload.get(field), str) or not payload[field].strip()
+    ]
+    if missing_fields:
+        errors.append(f"{source} is missing required service account fields: {', '.join(missing_fields)}.")
+
+    if payload.get("type") != "service_account":
+        errors.append(f"{source} must be a Google service account JSON file with type=service_account.")
+
+    private_key = payload.get("private_key")
+    if isinstance(private_key, str) and "BEGIN PRIVATE KEY" not in private_key:
+        errors.append(f"{source} private_key must look like a PEM private key.")
+
+    client_email = payload.get("client_email")
+    if isinstance(client_email, str) and not client_email.endswith(".iam.gserviceaccount.com"):
+        errors.append(f"{source} client_email must be a service account email.")
+
+    token_uri = payload.get("token_uri")
+    if isinstance(token_uri, str) and not token_uri.startswith("https://"):
+        errors.append(f"{source} token_uri must use https://.")
+
+    return errors, True
 
 
 def _public_verify_base_url_errors(
@@ -618,18 +663,19 @@ def build_launch_report(
         firebase_credentials = (
             env.get(str(firebase_credentials_source)) or ""
         ).strip()
-        firebase_credential_errors = _firebase_credentials_file_errors(
+        firebase_credential_errors, firebase_credentials_file_exists = _firebase_credentials_file_check(
             firebase_credentials,
             source=str(firebase_credentials_source),
             app_root=app_root or Path(__file__).resolve().parents[1],
         )
-        if firebase_credential_errors and not allow_missing_firebase_credentials:
+        if firebase_credential_errors and not (allow_missing_firebase_credentials and not firebase_credentials_file_exists):
             errors = report["errors"]
             assert isinstance(errors, list)
             errors.extend(firebase_credential_errors)
             report["status"] = "fail"
         checks["firebase_credentials_file_checked"] = True
-        checks["firebase_credentials_file_exists"] = not firebase_credential_errors
+        checks["firebase_credentials_file_exists"] = firebase_credentials_file_exists
+        checks["firebase_credentials_file_valid"] = not firebase_credential_errors
     else:
         checks["firebase_credentials_file_checked"] = False
 

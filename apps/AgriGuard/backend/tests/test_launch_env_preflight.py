@@ -33,9 +33,24 @@ def _runner_from_results(
     return runner
 
 
-def _write_firebase_credentials_file(app_root: Path) -> Path:
+def _firebase_credentials_json() -> str:
+    return "\n".join(
+        [
+            "{",
+            '  "type": "service_account",',
+            '  "project_id": "agriguard-test",',
+            '  "private_key": "-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----\\n",',
+            '  "client_email": "firebase-adminsdk-test@agriguard-test.iam.gserviceaccount.com",',
+            '  "token_uri": "https://oauth2.googleapis.com/token"',
+            "}",
+            "",
+        ]
+    )
+
+
+def _write_firebase_credentials_file(app_root: Path, *, encoding: str = "utf-8") -> Path:
     credentials_path = app_root / "firebase-service-account.json"
-    credentials_path.write_text('{"type":"service_account"}\n', encoding="utf-8")
+    credentials_path.write_text(_firebase_credentials_json(), encoding=encoding)
     return credentials_path
 
 
@@ -823,6 +838,16 @@ def test_launch_report_skips_docker_checks_by_default(tmp_path: Path) -> None:
     assert "docker" not in report["checks"]
 
 
+def test_launch_report_accepts_utf8_bom_firebase_credentials_file(tmp_path: Path) -> None:
+    _write_firebase_credentials_file(tmp_path, encoding="utf-8-sig")
+
+    report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
+
+    assert report["status"] == "pass"
+    assert report["checks"]["firebase_credentials_file_exists"] is True
+    assert report["checks"]["firebase_credentials_file_valid"] is True
+
+
 def test_launch_report_rejects_missing_compose_firebase_credentials_file(tmp_path: Path) -> None:
     report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
 
@@ -830,6 +855,34 @@ def test_launch_report_rejects_missing_compose_firebase_credentials_file(tmp_pat
     assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist." in report["errors"]
     assert report["checks"]["firebase_credentials_file_checked"] is True
     assert report["checks"]["firebase_credentials_file_exists"] is False
+    assert report["checks"]["firebase_credentials_file_valid"] is False
+
+
+def test_launch_report_rejects_malformed_firebase_credentials_json(tmp_path: Path) -> None:
+    credentials_path = tmp_path / "firebase-service-account.json"
+    credentials_path.write_text("{not json", encoding="utf-8")
+
+    report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
+
+    assert report["status"] == "fail"
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must contain valid JSON." in report["errors"]
+    assert report["checks"]["firebase_credentials_file_exists"] is True
+    assert report["checks"]["firebase_credentials_file_valid"] is False
+
+
+def test_launch_report_rejects_placeholder_firebase_credentials_json(tmp_path: Path) -> None:
+    credentials_path = tmp_path / "firebase-service-account.json"
+    credentials_path.write_text('{"type":"service_account"}\n', encoding="utf-8")
+
+    report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
+
+    assert report["status"] == "fail"
+    assert (
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE is missing required service account fields: "
+        "project_id, private_key, client_email, token_uri."
+    ) in report["errors"]
+    assert report["checks"]["firebase_credentials_file_exists"] is True
+    assert report["checks"]["firebase_credentials_file_valid"] is False
 
 
 def test_launch_report_can_allow_runtime_default_origins_for_local_checks(tmp_path: Path) -> None:
