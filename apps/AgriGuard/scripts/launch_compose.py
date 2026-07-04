@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
-
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 DEFAULT_COMPOSE_BROWSER_BASE_URL = "http://127.0.0.1"
@@ -77,6 +77,37 @@ def _tail(value: str | None, *, limit: int = 1200) -> str:
 def write_json(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _strip_optional_quotes(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def _load_env_file(path: Path) -> dict[str, str]:
+    env: dict[str, str] = {}
+    if not path.exists():
+        return env
+
+    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if key:
+            env[key] = _strip_optional_quotes(value)
+    return env
+
+
+def _compose_subprocess_env(env_files: list[Path]) -> dict[str, str]:
+    env: dict[str, str] = {}
+    for env_file in env_files:
+        env.update(_load_env_file(env_file))
+    env.update(os.environ)
+    return env
 
 
 def _read_json_file(path: Path) -> dict[str, object] | None:
@@ -785,7 +816,12 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         print("AgriGuard launch preflight failed; docker compose up was not run.", file=sys.stderr)
         return preflight_result.returncode
 
-    compose_result = command_runner(compose_command, cwd=app_root, text=True)
+    compose_result = command_runner(
+        compose_command,
+        cwd=app_root,
+        text=True,
+        env=_compose_subprocess_env(env_files),
+    )
     results.append(_command_result(name="compose", command=compose_command, completed=compose_result))
     if compose_result.returncode != 0:
         launch_report["status"] = "fail"

@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "launch_compose.py"
 SPEC = importlib.util.spec_from_file_location("launch_compose", SCRIPT_PATH)
 assert SPEC is not None
@@ -649,6 +648,48 @@ def test_launch_compose_runs_compose_after_preflight_passes(tmp_path: Path) -> N
     assert report["stage"] == "compose"
     assert report["stop_reason"] is None
     assert [item["name"] for item in report["results"]] == ["preflight", "compose"]
+
+
+def test_launch_compose_passes_env_file_values_to_compose(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    json_out = tmp_path / "preflight.json"
+    launch_report_json = tmp_path / "launch-report.json"
+    env_file = tmp_path / "operator.env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=C:/secure/firebase-service-account.json",
+                "AGRIGUARD_TEST_COMPOSE_ENV_MARKER=from-env-file",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    calls: list[tuple[list[str], dict]] = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--json-out",
+            str(json_out),
+            "--no-build",
+            "--launch-report-json",
+            str(launch_report_json),
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 0
+    assert calls[0][0][-2:] == ["--env-file", str(env_file.resolve())]
+    compose_env = calls[1][1]["env"]
+    assert compose_env["AGRIGUARD_TEST_COMPOSE_ENV_MARKER"] == "from-env-file"
+    assert compose_env["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE"] == "C:/secure/firebase-service-account.json"
 
 
 def test_launch_compose_dry_run_browser_smoke_plan_waits_for_compose(tmp_path: Path, capsys) -> None:
