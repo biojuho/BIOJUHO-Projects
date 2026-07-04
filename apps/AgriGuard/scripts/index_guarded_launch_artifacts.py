@@ -127,12 +127,14 @@ def build_index(
     launch = _read_json(paths["launch_report_json"])
     consumer_errors = consumer.get("errors") if isinstance(consumer, dict) and isinstance(consumer.get("errors"), list) else []
     consumer_validation_matches = bool(consumer.get("validation_matches_handoff")) if isinstance(consumer, dict) else False
+    consumer_packet_validation_status = consumer.get("packet_validation_status") if isinstance(consumer, dict) else None
     validation_status = validation.get("status") if isinstance(validation, dict) else None
     index_status = (
         "pass"
         if not missing_required
         and isinstance(consumer, dict)
         and consumer_validation_matches
+        and consumer_packet_validation_status == "pass"
         and validation_status == "pass"
         and not consumer_errors
         else "fail"
@@ -147,6 +149,16 @@ def build_index(
         "consumer_status": consumer.get("status") if isinstance(consumer, dict) else None,
         "consumer_blocker_class": consumer.get("blocker_class") if isinstance(consumer, dict) else None,
         "consumer_validation_matches_handoff": consumer_validation_matches,
+        "consumer_packet_validation_status": consumer_packet_validation_status,
+        "consumer_packet_evidence_outputs_status": consumer.get("packet_evidence_outputs_status")
+        if isinstance(consumer, dict)
+        else None,
+        "consumer_packet_markdown_table_status": consumer.get("packet_markdown_table_status")
+        if isinstance(consumer, dict)
+        else None,
+        "consumer_packet_path_mismatch_count": consumer.get("packet_path_mismatch_count")
+        if isinstance(consumer, dict)
+        else None,
         "consumer_errors": consumer_errors,
         "validation_status": validation_status,
         "launch_status": launch.get("status") if isinstance(launch, dict) else None,

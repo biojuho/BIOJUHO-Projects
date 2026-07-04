@@ -50,6 +50,10 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "blocker_class": "preflight_blocked",
             "validation_matches_handoff": True,
             "validation_status": "pass",
+            "packet_validation_status": "pass",
+            "packet_evidence_outputs_status": "pass",
+            "packet_markdown_table_status": "pass",
+            "packet_path_mismatch_count": 0,
             "errors": [],
         },
     )
@@ -70,7 +74,28 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_status"] == "fail"
     assert index["consumer_blocker_class"] == "preflight_blocked"
     assert index["validation_status"] == "pass"
+    assert index["consumer_packet_validation_status"] == "pass"
+    assert index["consumer_packet_markdown_table_status"] == "pass"
     assert index["missing_required_roles"] == []
+
+
+def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    consumer = json.loads(paths["handoff_consumer_json"].read_text(encoding="utf-8"))
+    consumer["packet_validation_status"] = "fail"
+    consumer["packet_markdown_table_status"] = "fail"
+    paths["handoff_consumer_json"].write_text(json.dumps(consumer), encoding="utf-8")
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+
+    assert index["status"] == "fail"
+    assert index["consumer_packet_validation_status"] == "fail"
+    assert index["consumer_packet_markdown_table_status"] == "fail"
 
 
 def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -> None:
