@@ -6134,6 +6134,10 @@ def _run_governance_wallet_required_check(page, base_url: str, timeout_ms: int) 
         if status >= 400:
             failures.append(f"{route_name}: HTTP status {status}")
 
+        wallet_required = page.get_by_test_id("governance-wallet-required")
+        wallet_required.wait_for(state="visible", timeout=timeout_ms)
+        wallet_required_text = wallet_required.inner_text(timeout=timeout_ms)
+
         if not _any_text_visible(
             page,
             (
@@ -6144,9 +6148,6 @@ def _run_governance_wallet_required_check(page, base_url: str, timeout_ms: int) 
         ):
             failures.append(f"{route_name}: missing wallet-required governance guidance")
 
-        wallet_required = page.get_by_test_id("governance-wallet-required")
-        wallet_required.wait_for(state="visible", timeout=timeout_ms)
-        wallet_required_text = wallet_required.inner_text(timeout=timeout_ms)
         for expected in (
             "Wallet required",
             "Governance actions require a connected wallet before creating proposals or voting.",
