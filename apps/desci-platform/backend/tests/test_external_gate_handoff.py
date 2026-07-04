@@ -789,6 +789,23 @@ def test_external_gate_handoff_provider_apply_plan_verifier_detects_operator_com
     assert "command does not match" in verification["operator_command_summary_verification"]["commands"][0]["failures"]
 
 
+def test_external_gate_handoff_prints_provider_apply_plan_operator_command_counts(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    plan_path = tmp_path / "apply-plan.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    verification = external_gate_handoff.verify_provider_apply_plan(plan_path)
+
+    external_gate_handoff.print_provider_apply_plan_verification_report(verification)
+    captured = capsys.readouterr()
+
+    assert "operator_commands=8" in captured.out
+    assert "operator_command_failures=0" in captured.out
+
+
 def test_external_gate_handoff_provider_apply_results_template_is_redacted(tmp_path: Path) -> None:
     payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
     paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)

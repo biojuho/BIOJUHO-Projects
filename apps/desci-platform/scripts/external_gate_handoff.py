@@ -2548,6 +2548,8 @@ def print_provider_apply_plan_verification_report(payload: dict[str, Any]) -> No
         f"provider_preflight_blockers={summary.get('provider_preflight_blocker_count')} "
         f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"provider_failures={summary.get('provider_failure_count')} "
+        f"operator_commands={summary.get('operator_command_count')} "
+        f"operator_command_failures={summary.get('operator_command_failure_count')} "
         f"failures={summary.get('failure_count')} "
         f"secret_markers={summary.get('secret_marker_count')}"
     )
