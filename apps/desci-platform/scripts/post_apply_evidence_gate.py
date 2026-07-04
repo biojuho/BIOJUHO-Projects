@@ -88,6 +88,12 @@ def validate_post_apply_payload(payload: dict[str, Any], *, evidence_path: str |
         failures.append("summary.deploy_failed must be 0")
     if int(summary.get("provider_failed_checks") or 0) != 0:
         failures.append("summary.provider_failed_checks must be 0")
+    provider_missing_cli_count = int(summary.get("provider_missing_cli_count") or 0)
+    provider_auth_context_missing_count = int(summary.get("provider_auth_context_missing_count") or 0)
+    if provider_missing_cli_count != 0:
+        failures.append("summary.provider_missing_cli_count must be 0")
+    if provider_auth_context_missing_count != 0:
+        failures.append("summary.provider_auth_context_missing_count must be 0")
     if int(summary.get("failed_surface_count") or 0) != 0:
         failures.append("summary.failed_surface_count must be 0")
     provider_count = int(summary.get("provider_count") or 0)
@@ -113,6 +119,9 @@ def validate_post_apply_payload(payload: dict[str, Any], *, evidence_path: str |
             "failure_count": len(failures),
             "deploy_failed": int(summary.get("deploy_failed") or 0),
             "provider_failed_checks": int(summary.get("provider_failed_checks") or 0),
+            "provider_check_count": int(summary.get("provider_check_count") or 0),
+            "provider_missing_cli_count": provider_missing_cli_count,
+            "provider_auth_context_missing_count": provider_auth_context_missing_count,
             "failed_surface_count": int(summary.get("failed_surface_count") or 0),
             "provider_ready": provider_ready,
             "provider_count": provider_count,
@@ -620,7 +629,10 @@ def print_report(payload: dict[str, Any]) -> None:
         f"failures={summary.get('failure_count')} "
         f"provider_ready={summary.get('provider_ready')}/{summary.get('provider_count')} "
         f"deploy_failed={summary.get('deploy_failed')} "
-        f"provider_failed_checks={summary.get('provider_failed_checks')}"
+        f"provider_failed_checks={summary.get('provider_failed_checks')} "
+        f"provider_checks={summary.get('provider_check_count')} "
+        f"missing_cli={summary.get('provider_missing_cli_count')} "
+        f"auth_context_missing={summary.get('provider_auth_context_missing_count')}"
     )
     for failure in _as_list(payload.get("failures")):
         print(f"  - {failure}")

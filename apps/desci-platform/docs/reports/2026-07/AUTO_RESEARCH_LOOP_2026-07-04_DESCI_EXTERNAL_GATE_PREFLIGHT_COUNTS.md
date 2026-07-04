@@ -28,19 +28,26 @@ missing auth context in the provider workflow packet.
   - Adds `provider_missing_cli_count`.
   - Adds `provider_auth_context_missing_count`.
   - Renders those counts in Markdown and console output.
+- `scripts/post_apply_evidence_gate.py`
+  - Carries provider preflight counts into the post-apply promotion gate.
+  - Fails closed if missing CLI or auth-context-missing counts are nonzero.
+  - Renders those counts in console output.
 - `backend/tests/test_external_gate_handoff.py`
   - Covers JSON summary fields.
   - Covers Markdown and console count rendering.
 - `backend/tests/test_external_release_gate.py`
   - Covers upstream JSON summary fields.
   - Covers upstream console count rendering.
+- `backend/tests/test_post_apply_evidence_gate.py`
+  - Covers promotion-gate summaries, fail-closed provider auth counts, and
+    console count rendering.
 
 ## Verification
 
-- `python -m py_compile scripts\external_release_gate.py scripts\external_gate_handoff.py`
+- `python -m py_compile scripts\external_release_gate.py scripts\external_gate_handoff.py scripts\post_apply_evidence_gate.py`
   - Pass.
-- `python -m pytest backend\tests\test_external_release_gate.py backend\tests\test_external_gate_handoff.py -q`
-  - `60 passed`.
+- `python -m pytest backend\tests\test_external_release_gate.py backend\tests\test_external_gate_handoff.py backend\tests\test_post_apply_evidence_gate.py -q`
+  - `87 passed`.
 - `python scripts\external_release_gate.py --json-out var\external-release-gate-provider-counts-2026-07-04.json`
   - Expected exit code `1`: external gate remains no-go.
   - Console output includes `provider_checks=7`, `missing_cli=0`, and
@@ -54,20 +61,27 @@ missing auth context in the provider workflow packet.
     `auth_context_missing=2`.
   - Markdown includes provider total, missing CLI, and auth-context-missing
     check counts.
+- `python scripts\post_apply_evidence_gate.py --external-gate-json var\external-release-gate-provider-counts-2026-07-04.json --json-out var\post-apply-evidence-gate-provider-counts-2026-07-04.json`
+  - Expected exit code `1`: post-apply promotion remains blocked.
+  - JSON summary includes `provider_check_count=7`,
+    `provider_missing_cli_count=0`, and
+    `provider_auth_context_missing_count=2`.
+  - Console output includes `provider_checks=7`, `missing_cli=0`, and
+    `auth_context_missing=2`.
+  - Failure list includes `summary.provider_auth_context_missing_count must be 0`.
 - Secret-shaped scan over generated handoff JSON/Markdown/provider templates:
   - No matches for live/test API keys, Stripe webhook markers, private-key
     headers, raw Postgres URLs, bearer tokens, Supabase secret markers, or raw
     Railway unauthorized stderr.
-- `python ops\scripts\run_workspace_smoke.py --scope desci --json-out apps\desci-platform\var\workspace-smoke-desci-external-release-gate-preflight-counts-2026-07-04.json`
-  - JSON evidence: `8 passed`, `0 failed`.
-  - The shell wrapper timed out just after JSON completion because the smoke
-    took `299894 ms`.
+- `python ops\scripts\run_workspace_smoke.py --scope desci --json-out apps\desci-platform\var\workspace-smoke-desci-post-apply-preflight-counts-2026-07-04.json`
+  - `8 passed`, `0 failed`.
 
 ## Artifacts
 
 - `var\external-release-gate-provider-counts-2026-07-04.json`
 - `var\external-gate-handoff-provider-counts-2026-07-04.json`
 - `var\external-gate-handoff-provider-counts-2026-07-04.md`
+- `var\post-apply-evidence-gate-provider-counts-2026-07-04.json`
 - `var\external-gate-provider-counts-index-2026-07-04.json`
 - `var\external-gate-provider-counts-2026-07-04\amoy.env`
 - `var\external-gate-provider-counts-2026-07-04\github.env`

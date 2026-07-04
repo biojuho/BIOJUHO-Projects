@@ -24,6 +24,9 @@ def external_gate_payload(*, ok: bool = True) -> dict[str, object]:
             "provider_ready": 3 if ok else 2,
             "provider_count": 3,
             "provider_failed_checks": 0 if ok else 1,
+            "provider_check_count": 7,
+            "provider_missing_cli_count": 0,
+            "provider_auth_context_missing_count": 0 if ok else 1,
             "failed_surface_count": 0 if ok else 1,
         },
         "deploy_readiness": {"ok": True},
@@ -78,6 +81,9 @@ def test_post_apply_evidence_gate_accepts_ready_external_gate() -> None:
     assert payload["summary"]["failure_count"] == 0
     assert payload["summary"]["provider_ready"] == 3
     assert payload["summary"]["provider_count"] == 3
+    assert payload["summary"]["provider_check_count"] == 7
+    assert payload["summary"]["provider_missing_cli_count"] == 0
+    assert payload["summary"]["provider_auth_context_missing_count"] == 0
     assert payload["failures"] == []
 
 
@@ -89,9 +95,25 @@ def test_post_apply_evidence_gate_fails_closed_for_incomplete_provider_evidence(
 
     assert payload["ok"] is False
     assert payload["summary"]["provider_failed_checks"] == 1
+    assert payload["summary"]["provider_auth_context_missing_count"] == 1
     assert "external gate ok must be true" in payload["failures"]
     assert "provider_preflight.ok must be true" in payload["failures"]
+    assert "summary.provider_auth_context_missing_count must be 0" in payload["failures"]
     assert "summary.provider_ready must equal summary.provider_count" in payload["failures"]
+
+
+def test_post_apply_evidence_gate_text_report_includes_provider_preflight_counts(capsys) -> None:
+    payload = post_apply_evidence_gate.validate_post_apply_payload(
+        external_gate_payload(ok=False),
+        evidence_path="var/external-release-gate-post-apply-all.json",
+    )
+
+    post_apply_evidence_gate.print_report(payload)
+
+    output = capsys.readouterr().out
+    assert "provider_checks=7" in output
+    assert "missing_cli=0" in output
+    assert "auth_context_missing=1" in output
 
 
 def test_post_apply_evidence_gate_fails_closed_for_secret_shaped_evidence() -> None:
