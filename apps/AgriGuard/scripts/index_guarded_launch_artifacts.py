@@ -219,6 +219,9 @@ def build_index(
         else "Run the guarded launch wrapper command to regenerate required artifact-index evidence.",
         "recovery_command": recovery_command,
         "recovery_command_status": recovery_command_status,
+        "recovery_command_note": None
+        if recovery_command is None
+        else "Recovery command is present because this artifact index did not meet pass criteria.",
         "secrets_redacted": True,
     }
 
@@ -255,6 +258,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
         f"- Recovery action: `{index.get('recovery_action') or '-'}`",
         f"- Recovery command status: `{index.get('recovery_command_status')}`",
+        f"- Recovery command note: `{index.get('recovery_command_note') or '-'}`",
         f"- Recovery command: `{' '.join(str(part) for part in recovery_command) if recovery_command else '-'}`",
         "",
         "## Artifacts",
