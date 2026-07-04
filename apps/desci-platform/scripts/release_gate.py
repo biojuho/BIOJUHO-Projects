@@ -1134,6 +1134,7 @@ def _browser_smoke_launch_control_failures(raw_path: str, payload: dict[str, Any
             )
     failures.extend(_browser_launch_control_layout_failures(raw_path, launch_control))
     failures.extend(_browser_launch_action_copy_coverage_failures(raw_path, launch_control))
+    failures.extend(_browser_launch_action_copy_all_failures(raw_path, launch_control))
     return failures
 
 
@@ -1253,6 +1254,95 @@ def _browser_launch_action_copy_coverage_failures(raw_path: str, launch_control:
     if failed_action_ids:
         failures.append(
             "JSON evidence artifact launch_control.launch_action_copy_coverage.failed_action_ids "
+            f"must be empty: {raw_path}"
+        )
+    return failures
+
+
+def _browser_launch_action_copy_all_failures(raw_path: str, launch_control: dict[str, Any]) -> list[str]:
+    copy_all = launch_control.get("launch_action_copy_all")
+    if copy_all is None:
+        if launch_control.get("check_name") == "dashboard-readiness-refresh":
+            return [
+                "JSON evidence artifact launch_control.launch_action_copy_all is required "
+                f"for dashboard-readiness-refresh: {raw_path}"
+            ]
+        return []
+    if not isinstance(copy_all, dict):
+        return [f"JSON evidence artifact launch_control.launch_action_copy_all must be an object: {raw_path}"]
+
+    failures: list[str] = []
+    if copy_all.get("ok") is not True:
+        failures.append(f"JSON evidence artifact launch_control.launch_action_copy_all.ok must be true: {raw_path}")
+    source = copy_all.get("source")
+    if not isinstance(source, str) or not source:
+        failures.append(
+            f"JSON evidence artifact launch_control.launch_action_copy_all.source must be a non-empty string: {raw_path}"
+        )
+    if copy_all.get("secret_policy") != "placeholder_only_no_secret_values":
+        failures.append(
+            "JSON evidence artifact launch_control.launch_action_copy_all.secret_policy "
+            f"must be placeholder_only_no_secret_values: {raw_path}"
+        )
+    if copy_all.get("feedback_verified") is not True:
+        failures.append(
+            f"JSON evidence artifact launch_control.launch_action_copy_all.feedback_verified must be true: {raw_path}"
+        )
+    if copy_all.get("secret_leak_detected") is not False:
+        failures.append(
+            f"JSON evidence artifact launch_control.launch_action_copy_all.secret_leak_detected must be false: {raw_path}"
+        )
+
+    lists: dict[str, list[str]] = {}
+    for field in ("expected_action_ids", "validated_action_ids", "missing_action_ids"):
+        values = copy_all.get(field)
+        if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+            failures.append(
+                f"JSON evidence artifact launch_control.launch_action_copy_all.{field} "
+                f"must be a list of strings: {raw_path}"
+            )
+        else:
+            lists[field] = values
+
+    for field, list_field in (
+        ("expected_count", "expected_action_ids"),
+        ("validated_count", "validated_action_ids"),
+        ("missing_count", "missing_action_ids"),
+    ):
+        count = copy_all.get(field)
+        if not _is_non_negative_int(count):
+            failures.append(
+                f"JSON evidence artifact launch_control.launch_action_copy_all.{field} "
+                f"must be a non-negative integer: {raw_path}"
+            )
+        elif list_field in lists and count != len(lists[list_field]):
+            failures.append(
+                f"JSON evidence artifact launch_control.launch_action_copy_all.{field} "
+                f"must match {list_field} length: {raw_path}"
+            )
+
+    next_action_ids = launch_control.get("next_action_ids")
+    expected_action_ids = lists.get("expected_action_ids")
+    validated_action_ids = lists.get("validated_action_ids")
+    missing_action_ids = lists.get("missing_action_ids")
+    if (
+        isinstance(next_action_ids, list)
+        and all(isinstance(action_id, str) and action_id for action_id in next_action_ids)
+        and expected_action_ids is not None
+        and expected_action_ids != next_action_ids
+    ):
+        failures.append(
+            "JSON evidence artifact launch_control.launch_action_copy_all.expected_action_ids "
+            f"must match launch_control.next_action_ids: {raw_path}"
+        )
+    if expected_action_ids is not None and validated_action_ids is not None and validated_action_ids != expected_action_ids:
+        failures.append(
+            "JSON evidence artifact launch_control.launch_action_copy_all.validated_action_ids "
+            f"must match expected_action_ids: {raw_path}"
+        )
+    if missing_action_ids:
+        failures.append(
+            "JSON evidence artifact launch_control.launch_action_copy_all.missing_action_ids "
             f"must be empty: {raw_path}"
         )
     return failures
@@ -2054,6 +2144,9 @@ def browser_launch_control_summary(reports: list[dict[str, Any]]) -> dict[str, A
     action_copy_coverage = _browser_launch_action_copy_coverage(report)
     if action_copy_coverage:
         summary["launch_action_copy_coverage"] = action_copy_coverage
+    action_copy_all = _browser_launch_action_copy_all(report)
+    if action_copy_all:
+        summary["launch_action_copy_all"] = action_copy_all
     return summary
 
 
@@ -2129,6 +2222,45 @@ def _browser_launch_action_copy_coverage(report: dict[str, Any]) -> dict[str, An
         if isinstance(value, int):
             coverage[target] = value
     return coverage
+
+
+def _browser_launch_action_copy_all(report: dict[str, Any]) -> dict[str, Any]:
+    copy_all: dict[str, Any] = {}
+    for target, source in (
+        ("ok", "json_browser_launch_copy_all_ok"),
+        ("feedback_verified", "json_browser_launch_copy_all_feedback_verified"),
+        ("secret_leak_detected", "json_browser_launch_copy_all_secret_leak_detected"),
+    ):
+        value = report.get(source)
+        if isinstance(value, bool):
+            copy_all[target] = value
+
+    for target, source in (
+        ("source", "json_browser_launch_copy_all_source"),
+        ("secret_policy", "json_browser_launch_copy_all_secret_policy"),
+    ):
+        value = report.get(source)
+        if isinstance(value, str):
+            copy_all[target] = value
+
+    for target, source in (
+        ("expected_action_ids", "json_browser_launch_copy_all_expected_action_ids"),
+        ("validated_action_ids", "json_browser_launch_copy_all_validated_action_ids"),
+        ("missing_action_ids", "json_browser_launch_copy_all_missing_action_ids"),
+    ):
+        values = report.get(source)
+        if isinstance(values, list) and all(isinstance(value, str) for value in values):
+            copy_all[target] = values
+
+    for target, source in (
+        ("expected_count", "json_browser_launch_copy_all_expected_count"),
+        ("validated_count", "json_browser_launch_copy_all_validated_count"),
+        ("missing_count", "json_browser_launch_copy_all_missing_count"),
+    ):
+        value = report.get(source)
+        if isinstance(value, int):
+            copy_all[target] = value
+    return copy_all
 
 
 def launch_action_coverage_comparison(
@@ -2801,6 +2933,40 @@ def _artifact_json_browser_launch_control_report(payload: dict[str, Any]) -> dic
             if isinstance(value, int):
                 report[report_key] = value
 
+    action_copy_all = launch_control.get("launch_action_copy_all")
+    if isinstance(action_copy_all, dict):
+        for source_key, report_key in (
+            ("ok", "json_browser_launch_copy_all_ok"),
+            ("feedback_verified", "json_browser_launch_copy_all_feedback_verified"),
+            ("secret_leak_detected", "json_browser_launch_copy_all_secret_leak_detected"),
+        ):
+            value = action_copy_all.get(source_key)
+            if isinstance(value, bool):
+                report[report_key] = value
+        for source_key, report_key in (
+            ("source", "json_browser_launch_copy_all_source"),
+            ("secret_policy", "json_browser_launch_copy_all_secret_policy"),
+        ):
+            value = action_copy_all.get(source_key)
+            if isinstance(value, str):
+                report[report_key] = value
+        for source_key, report_key in (
+            ("expected_action_ids", "json_browser_launch_copy_all_expected_action_ids"),
+            ("validated_action_ids", "json_browser_launch_copy_all_validated_action_ids"),
+            ("missing_action_ids", "json_browser_launch_copy_all_missing_action_ids"),
+        ):
+            values = action_copy_all.get(source_key)
+            if isinstance(values, list) and all(isinstance(value, str) for value in values):
+                report[report_key] = values
+        for source_key, report_key in (
+            ("expected_count", "json_browser_launch_copy_all_expected_count"),
+            ("validated_count", "json_browser_launch_copy_all_validated_count"),
+            ("missing_count", "json_browser_launch_copy_all_missing_count"),
+        ):
+            value = action_copy_all.get(source_key)
+            if isinstance(value, int):
+                report[report_key] = value
+
     return report
 
 
@@ -3019,6 +3185,25 @@ def json_report_schema() -> dict[str, Any]:
                             "expected_count": {"type": "integer"},
                             "validated_count": {"type": "integer"},
                             "failed_count": {"type": "integer"},
+                        },
+                    },
+                    "launch_action_copy_all": {
+                        "type": "object",
+                        "properties": {
+                            "ok": {"type": "boolean"},
+                            "source": {"type": "string"},
+                            "secret_policy": {
+                                "type": "string",
+                                "enum": ["placeholder_only_no_secret_values"],
+                            },
+                            "feedback_verified": {"type": "boolean"},
+                            "secret_leak_detected": {"type": "boolean"},
+                            "expected_action_ids": _string_array_schema(),
+                            "validated_action_ids": _string_array_schema(),
+                            "missing_action_ids": _string_array_schema(),
+                            "expected_count": {"type": "integer"},
+                            "validated_count": {"type": "integer"},
+                            "missing_count": {"type": "integer"},
                         },
                     },
                 },

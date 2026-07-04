@@ -800,6 +800,7 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
     layout_metrics: dict[str, Any] | None = None
     launch_action_copy_expected_ids: list[str] = []
     launch_action_copy_reports: list[dict[str, Any]] = []
+    launch_action_copy_all_report: dict[str, Any] | None = None
     ready_route_pattern = "**/ready"
     launch_route_pattern = "**/launch"
     dashboard_shell_routes = _dashboard_shell_api_routes(dashboard_shell_requests)
@@ -1137,6 +1138,41 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                 launch_action_copy_reports.append(
                     {"action_id": action_id, "label": action_label, "ok": not action_copy_failures}
                 )
+            copy_all_expected_fragments_by_action = {
+                "auth": (
+                    "Launch action: Authentication",
+                    "Required env: GOOGLE_APPLICATION_CREDENTIALS, FIREBASE_SERVICE_ACCOUNT_JSON",
+                ),
+                "stripe": (
+                    "Launch action: Stripe billing",
+                    "Set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO_MONTHLY",
+                ),
+                "cors": (
+                    "Launch action: CORS origins",
+                    "Required env: ALLOWED_ORIGINS",
+                ),
+                "rabbitmq": (
+                    "Launch action: RabbitMQ",
+                    "Required env: RABBITMQ_URL",
+                ),
+                "ipfs": (
+                    "Launch action: IPFS",
+                    "Required env: PINATA_JWT, PINATA_API_KEY, PINATA_API_SECRET",
+                ),
+                "grobid": (
+                    "Launch action: GROBID",
+                    "Set GROBID_ENABLED=true and GROBID_URL",
+                ),
+            }
+            copy_all_expected_action_ids = list(copy_all_expected_fragments_by_action)
+            if copy_all_expected_action_ids != launch_action_copy_expected_ids:
+                failures.append(
+                    f"{route_name}: copy-all fragment map does not match launch action IDs "
+                    f"({copy_all_expected_action_ids!r} != {launch_action_copy_expected_ids!r})"
+                )
+            copy_all_missing_action_ids = list(launch_action_copy_expected_ids)
+            copy_all_feedback_verified = False
+            copy_all_secret_leak_detected = False
             copy_all_button = page.get_by_test_id("product-readiness-next-actions-copy-all")
             if copy_all_button.count() != 1:
                 failures.append(f"{route_name}: missing launch action copy-all button")
@@ -1148,25 +1184,35 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                 except PlaywrightError as exc:
                     failures.append(f"{route_name}: could not read launch action copy-all clipboard ({exc})")
                 else:
-                    expected_fragments = (
-                        "Launch action: Authentication",
-                        "Launch action: Stripe billing",
-                        "Launch action: CORS origins",
-                        "Launch action: RabbitMQ",
-                        "Launch action: IPFS",
-                        "Launch action: GROBID",
-                        "Required env: GOOGLE_APPLICATION_CREDENTIALS, FIREBASE_SERVICE_ACCOUNT_JSON",
-                        "Required env: ALLOWED_ORIGINS",
-                        "Required env: RABBITMQ_URL",
-                        "Required env: PINATA_JWT, PINATA_API_KEY, PINATA_API_SECRET",
-                        "Set GROBID_ENABLED=true and GROBID_URL",
-                    )
-                    missing_fragments = [fragment for fragment in expected_fragments if fragment not in clipboard_payload]
+                    missing_fragments = [
+                        fragment
+                        for fragments in copy_all_expected_fragments_by_action.values()
+                        for fragment in fragments
+                        if fragment not in clipboard_payload
+                    ]
+                    copy_all_missing_action_ids = [
+                        action_id
+                        for action_id in launch_action_copy_expected_ids
+                        if any(
+                            fragment not in clipboard_payload
+                            for fragment in copy_all_expected_fragments_by_action.get(action_id, ())
+                        )
+                        or action_id not in copy_all_expected_fragments_by_action
+                    ]
                     if missing_fragments:
                         failures.append(
                             f"{route_name}: launch action copy-all payload missing {missing_fragments}: {clipboard_payload!r}"
                         )
-                    if "sk_live_" in clipboard_payload:
+                    copy_all_secret_leak_detected = any(
+                        marker in clipboard_payload
+                        for marker in (
+                            "sk_live_",
+                            "whsec_",
+                            "https://secret-rpc.example",
+                            "0x1111111111111111111111111111111111111111",
+                        )
+                    )
+                    if copy_all_secret_leak_detected:
                         failures.append(f"{route_name}: launch action copy-all payload exposed a secret-shaped value")
                 try:
                     feedback_text = page.get_by_test_id("product-readiness-copy-feedback").inner_text(timeout=timeout_ms)
@@ -1175,6 +1221,30 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                 else:
                     if "Copied 6 launch actions." not in feedback_text:
                         failures.append(f"{route_name}: copy-all feedback mismatch: {feedback_text!r}")
+                    else:
+                        copy_all_feedback_verified = True
+            copy_all_validated_action_ids = [
+                action_id
+                for action_id in launch_action_copy_expected_ids
+                if action_id not in copy_all_missing_action_ids
+            ]
+            launch_action_copy_all_report = {
+                "ok": (
+                    not copy_all_missing_action_ids
+                    and copy_all_feedback_verified
+                    and not copy_all_secret_leak_detected
+                ),
+                "source": "dashboard-readiness-refresh-copy-all",
+                "secret_policy": "placeholder_only_no_secret_values",
+                "feedback_verified": copy_all_feedback_verified,
+                "secret_leak_detected": copy_all_secret_leak_detected,
+                "expected_action_ids": launch_action_copy_expected_ids,
+                "validated_action_ids": copy_all_validated_action_ids,
+                "missing_action_ids": copy_all_missing_action_ids,
+                "expected_count": len(launch_action_copy_expected_ids),
+                "validated_count": len(copy_all_validated_action_ids),
+                "missing_count": len(copy_all_missing_action_ids),
+            }
 
         layout_metrics = page.evaluate(
             """
@@ -1291,6 +1361,8 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
             "validated_count": len(validated_action_ids),
             "failed_count": len(failed_action_ids),
         }
+    if isinstance(launch_action_copy_all_report, dict):
+        metadata_payload["launch_action_copy_all"] = launch_action_copy_all_report
     metadata = metadata_payload or None
     return BrowserRunnerResult(failures=failures, metadata=metadata)
 
@@ -7399,6 +7471,9 @@ def browser_launch_control_report(reports: list[BrowserCheckReport]) -> dict[str
         launch_action_copy_coverage = check_report.metadata.get("launch_action_copy_coverage")
         if isinstance(launch_action_copy_coverage, dict):
             report["launch_action_copy_coverage"] = launch_action_copy_coverage
+        launch_action_copy_all = check_report.metadata.get("launch_action_copy_all")
+        if isinstance(launch_action_copy_all, dict):
+            report["launch_action_copy_all"] = launch_action_copy_all
     return report
 
 

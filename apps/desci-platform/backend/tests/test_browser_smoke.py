@@ -416,6 +416,19 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
                     "validated_count": 6,
                     "failed_count": 0,
                 },
+                "launch_action_copy_all": {
+                    "ok": True,
+                    "source": "dashboard-readiness-refresh-copy-all",
+                    "secret_policy": "placeholder_only_no_secret_values",
+                    "feedback_verified": True,
+                    "secret_leak_detected": False,
+                    "expected_action_ids": ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"],
+                    "validated_action_ids": ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"],
+                    "missing_action_ids": [],
+                    "expected_count": 6,
+                    "validated_count": 6,
+                    "missing_count": 0,
+                },
             },
         ),
     ]
@@ -517,6 +530,19 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
             "expected_count": 6,
             "validated_count": 6,
             "failed_count": 0,
+        },
+        "launch_action_copy_all": {
+            "ok": True,
+            "source": "dashboard-readiness-refresh-copy-all",
+            "secret_policy": "placeholder_only_no_secret_values",
+            "feedback_verified": True,
+            "secret_leak_detected": False,
+            "expected_action_ids": expected_action_ids,
+            "validated_action_ids": expected_action_ids,
+            "missing_action_ids": [],
+            "expected_count": 6,
+            "validated_count": 6,
+            "missing_count": 0,
         },
         "failures": [],
     }
@@ -978,6 +1004,9 @@ def test_dashboard_readiness_smoke_clicks_every_launch_action_copy_button() -> N
 
     assert "expected_action_copy_fragments" in source
     assert "launch_action_copy_coverage" in source
+    assert "launch_action_copy_all" in source
+    assert "copy_all_feedback_verified" in source
+    assert "copy_all_secret_leak_detected" in source
     for action_id in ("auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"):
         assert f'product-readiness-next-action-copy-{{action_id}}' in source
         assert f'"{action_id}": (' in source
