@@ -955,6 +955,16 @@ def test_dashboard_readiness_smoke_checks_launch_layout_health() -> None:
     assert "dashboard launch content clips horizontally" in source
 
 
+def test_dashboard_readiness_smoke_clicks_every_launch_action_copy_button() -> None:
+    source = inspect.getsource(browser_smoke._run_dashboard_readiness_refresh_check)  # pylint: disable=protected-access
+
+    assert "expected_action_copy_fragments" in source
+    for action_id in ("auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"):
+        assert f'product-readiness-next-action-copy-{{action_id}}' in source
+        assert f'"{action_id}": (' in source
+    assert "could not read {action_label} launch action clipboard" in source
+
+
 def test_public_touch_target_smoke_checks_public_mobile_controls() -> None:
     source = inspect.getsource(browser_smoke._run_public_touch_targets_check)  # pylint: disable=protected-access
 

@@ -1028,37 +1028,6 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                 action_text = stripe_action.inner_text(timeout=timeout_ms)
                 if "STRIPE_WEBHOOK_SECRET" not in action_text or "paid checkout" not in action_text:
                     failures.append(f"{route_name}: Stripe launch action lacks env/remediation: {action_text!r}")
-                copy_button = page.get_by_test_id("product-readiness-next-action-copy-stripe")
-                if copy_button.count() != 1:
-                    failures.append(f"{route_name}: missing Stripe launch action copy button")
-                else:
-                    copy_button.click(timeout=timeout_ms)
-                    try:
-                        page.wait_for_timeout(200)
-                        clipboard_payload = page.evaluate("() => navigator.clipboard.readText()")
-                    except PlaywrightError as exc:
-                        failures.append(f"{route_name}: could not read Stripe launch action clipboard ({exc})")
-                    else:
-                        expected_fragments = (
-                            "Launch action: Stripe billing",
-                            "Priority: required",
-                            "Set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO_MONTHLY",
-                            "Required env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET",
-                        )
-                        missing_fragments = [fragment for fragment in expected_fragments if fragment not in clipboard_payload]
-                        if missing_fragments:
-                            failures.append(
-                                f"{route_name}: Stripe clipboard payload missing {missing_fragments}: {clipboard_payload!r}"
-                            )
-                        if "sk_live_" in clipboard_payload:
-                            failures.append(f"{route_name}: Stripe clipboard payload exposed a secret-shaped value")
-                    try:
-                        feedback_text = page.get_by_test_id("product-readiness-copy-feedback").inner_text(timeout=timeout_ms)
-                    except PlaywrightError as exc:
-                        failures.append(f"{route_name}: missing Stripe copy feedback ({exc})")
-                    else:
-                        if "Copied " not in feedback_text or "Stripe" not in feedback_text or "launch action." not in feedback_text:
-                            failures.append(f"{route_name}: Stripe copy feedback mismatch: {feedback_text!r}")
             cors_action = page.get_by_test_id("product-readiness-next-action-cors")
             if cors_action.count() != 1:
                 failures.append(f"{route_name}: missing CORS launch action")
@@ -1066,6 +1035,85 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                 action_text = cors_action.inner_text(timeout=timeout_ms)
                 if "ALLOWED_ORIGINS" not in action_text or "deployed frontend origin list" not in action_text:
                     failures.append(f"{route_name}: CORS launch action lacks env/remediation: {action_text!r}")
+            expected_action_copy_fragments = {
+                "auth": (
+                    "Authentication",
+                    "Launch action: Authentication",
+                    "Priority: required",
+                    "GOOGLE_APPLICATION_CREDENTIALS",
+                    "FIREBASE_SERVICE_ACCOUNT_JSON",
+                    "Use ALLOW_TEST_BYPASS only for local smoke.",
+                ),
+                "stripe": (
+                    "Stripe",
+                    "Launch action: Stripe billing",
+                    "Priority: required",
+                    "Set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO_MONTHLY",
+                    "Required env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET",
+                ),
+                "cors": (
+                    "CORS",
+                    "Launch action: CORS origins",
+                    "Priority: required",
+                    "ALLOWED_ORIGINS",
+                    "deployed frontend origin list",
+                ),
+                "rabbitmq": (
+                    "RabbitMQ",
+                    "Launch action: RabbitMQ",
+                    "Priority: optional",
+                    "RABBITMQ_URL",
+                    "worker runtime",
+                ),
+                "ipfs": (
+                    "IPFS",
+                    "Launch action: IPFS",
+                    "Priority: optional",
+                    "PINATA_JWT",
+                    "PINATA_API_SECRET",
+                ),
+                "grobid": (
+                    "GROBID",
+                    "Launch action: GROBID",
+                    "Priority: optional",
+                    "GROBID_ENABLED=true",
+                    "GROBID_URL",
+                ),
+            }
+            for action_id, expected_fragments in expected_action_copy_fragments.items():
+                action_label = expected_fragments[0]
+                copy_button = page.get_by_test_id(f"product-readiness-next-action-copy-{action_id}")
+                if copy_button.count() != 1:
+                    failures.append(f"{route_name}: missing {action_label} launch action copy button")
+                    continue
+                copy_button.click(timeout=timeout_ms)
+                try:
+                    page.wait_for_timeout(200)
+                    clipboard_payload = page.evaluate("() => navigator.clipboard.readText()")
+                except PlaywrightError as exc:
+                    failures.append(f"{route_name}: could not read {action_label} launch action clipboard ({exc})")
+                    continue
+                missing_fragments = [
+                    fragment for fragment in expected_fragments[1:] if fragment not in clipboard_payload
+                ]
+                if missing_fragments:
+                    failures.append(
+                        f"{route_name}: {action_label} clipboard payload missing {missing_fragments}: {clipboard_payload!r}"
+                    )
+                leaked_fragments = [
+                    fragment for fragment in ("sk_live_", "whsec_", "https://secret-rpc.example") if fragment in clipboard_payload
+                ]
+                if leaked_fragments:
+                    failures.append(
+                        f"{route_name}: {action_label} clipboard payload exposed non-placeholder detail {leaked_fragments}"
+                    )
+                try:
+                    feedback_text = page.get_by_test_id("product-readiness-copy-feedback").inner_text(timeout=timeout_ms)
+                except PlaywrightError as exc:
+                    failures.append(f"{route_name}: missing {action_label} copy feedback ({exc})")
+                else:
+                    if "Copied " not in feedback_text or "launch action." not in feedback_text:
+                        failures.append(f"{route_name}: {action_label} copy feedback mismatch: {feedback_text!r}")
             copy_all_button = page.get_by_test_id("product-readiness-next-actions-copy-all")
             if copy_all_button.count() != 1:
                 failures.append(f"{route_name}: missing launch action copy-all button")
