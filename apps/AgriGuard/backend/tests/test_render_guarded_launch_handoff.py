@@ -101,6 +101,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     output_dir = tmp_path / "launch-artifacts"
     json_out = tmp_path / "handoff.json"
     markdown_out = tmp_path / "handoff.md"
+    validation_json = tmp_path / "handoff.validation.json"
     artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), "blocked")
     artifacts["readiness_summary_json"].parent.mkdir(parents=True, exist_ok=True)
     artifacts["readiness_summary_json"].write_text(
@@ -127,13 +128,19 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
             str(json_out),
             "--markdown-out",
             str(markdown_out),
+            "--validation-json-out",
+            str(validation_json),
         ]
     )
 
     payload = json.loads(json_out.read_text(encoding="utf-8"))
+    validation = json.loads(validation_json.read_text(encoding="utf-8"))
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 1
     assert payload["status"] == "blocked"
     assert payload["ready_gate"]["status"] == "fail"
+    assert payload["validation"]["validation_json"] == str(validation_json.resolve())
+    assert payload["validation"]["command"][-1].endswith("handoff.validation.json")
+    assert validation["status"] == "pass"
     assert "Ready gate: `fail`" in markdown
     assert "run_guarded_launch.py" in markdown

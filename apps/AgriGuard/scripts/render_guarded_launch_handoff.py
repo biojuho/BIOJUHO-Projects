@@ -18,6 +18,7 @@ def _load_peer_module(module_name: str) -> Any:
 
 
 run_guarded_launch = _load_peer_module("run_guarded_launch")
+validate_guarded_launch_handoff = _load_peer_module("validate_guarded_launch_handoff")
 
 
 EXTERNAL_BLOCKER_SUMMARY = (
@@ -96,6 +97,8 @@ def build_handoff(
     output_dir: Path,
     output_prefix: str,
     ready_gate_json: Path,
+    handoff_json: Path | None = None,
+    validation_json: Path | None = None,
 ) -> dict[str, object]:
     app_root = app_root.resolve()
     output_dir = output_dir.resolve()
@@ -120,7 +123,7 @@ def build_handoff(
             require_ready=True,
         ),
     }
-    return {
+    handoff: dict[str, object] = {
         "schema_version": 1,
         "status": "ready" if ready else "blocked",
         "secrets_redacted": True,
@@ -146,6 +149,20 @@ def build_handoff(
             },
         ],
     }
+    if handoff_json is not None and validation_json is not None:
+        workspace_root = _workspace_root(app_root)
+        handoff["validation"] = {
+            "schema_json": str(validate_guarded_launch_handoff.DEFAULT_SCHEMA_PATH),
+            "validation_json": str(validation_json),
+            "command": [
+                "python",
+                "apps/AgriGuard/scripts/validate_guarded_launch_handoff.py",
+                _rel(handoff_json, workspace_root),
+                "--json-out",
+                _rel(validation_json, workspace_root),
+            ],
+        }
+    return handoff
 
 
 def render_markdown(handoff: dict[str, object]) -> str:
@@ -194,6 +211,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ready-gate-json", type=Path, default=None)
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--markdown-out", type=Path, default=None)
+    parser.add_argument("--validation-json-out", type=Path, default=None)
+    parser.add_argument("--skip-validation", action="store_true")
     parser.add_argument("--exit-zero-on-blocked", action="store_true")
     return parser.parse_args(argv)
 
@@ -213,17 +232,37 @@ def main(argv: list[str] | None = None) -> int:
         if args.markdown_out
         else output_dir / f"{args.output_prefix}-handoff.md"
     )
+    validation_json = (
+        args.validation_json_out.resolve()
+        if args.validation_json_out
+        else output_dir / f"{args.output_prefix}-handoff.validation.json"
+    )
     handoff = build_handoff(
         app_root=app_root,
         output_dir=output_dir,
         output_prefix=args.output_prefix,
         ready_gate_json=ready_gate_json,
+        handoff_json=json_out,
+        validation_json=validation_json,
     )
     write_json(json_out, handoff)
     markdown_out.parent.mkdir(parents=True, exist_ok=True)
     markdown_out.write_text(render_markdown(handoff), encoding="utf-8")
+    validation_exit_code = 0
+    if not args.skip_validation:
+        validation_exit_code = validate_guarded_launch_handoff.main(
+            [
+                str(json_out),
+                "--json-out",
+                str(validation_json),
+            ]
+        )
     print(f"wrote guarded launch handoff markdown: {markdown_out}")
     print(f"wrote guarded launch handoff: {json_out}")
+    if not args.skip_validation:
+        print(f"wrote guarded launch handoff validation: {validation_json}")
+    if validation_exit_code != 0:
+        return validation_exit_code
     return 0 if args.exit_zero_on_blocked or handoff["status"] == "ready" else 1
 
 

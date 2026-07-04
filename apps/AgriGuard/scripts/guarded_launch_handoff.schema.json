@@ -118,6 +118,32 @@
     "status": {
       "type": "string"
     },
+    "validation": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "schema_json": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "validation_json": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_json",
+        "validation_json",
+        "command"
+      ],
+      "type": "object"
+    },
     "status_view": {
       "additionalProperties": false,
       "properties": {
