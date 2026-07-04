@@ -218,6 +218,10 @@ def build_consumer_view(
             "artifact_index_recovery_command_status"
         ),
         "packet_artifact_index_recovery_command_note": packet_validation.get("artifact_index_recovery_command_note"),
+        "packet_artifact_index_recovery_command_shell": packet_validation.get(
+            "artifact_index_recovery_command_shell"
+        ),
+        "packet_artifact_index_recovery_command_text": packet_validation.get("artifact_index_recovery_command_text"),
         "packet_artifact_index_recovery_summary": packet_recovery_summary,
         "readiness_operator_action_ids": readiness_action_ids,
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),

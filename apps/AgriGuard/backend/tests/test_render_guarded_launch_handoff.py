@@ -115,6 +115,8 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
     assert handoff["packet_validation"]["artifact_index_recovery_command_status"] == "not_required"
     assert handoff["packet_validation"]["artifact_index_recovery_command_note"] is None
+    assert handoff["packet_validation"]["artifact_index_recovery_command_shell"] is None
+    assert handoff["packet_validation"]["artifact_index_recovery_command_text"] is None
     assert handoff["packet_validation"]["artifact_index_recovery_summary"] == {
         "required": False,
         "action": None,
@@ -161,8 +163,14 @@ def test_guarded_launch_handoff_notes_deferred_artifact_index_recovery_status(tm
     assert handoff["packet_validation"]["artifact_index_recovery_command_note"] == (
         "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
     )
+    assert handoff["packet_validation"]["artifact_index_recovery_command_shell"] == "powershell"
+    assert handoff["packet_validation"]["artifact_index_recovery_command_text"] == (
+        "& python apps/AgriGuard/scripts/run_guarded_launch.py --emit-handoff"
+    )
     assert handoff["packet_validation"]["artifact_index_recovery_summary"]["required"] is True
     assert "Artifact index recovery command note: `Artifact index recovery status is resolved" in markdown
+    assert "Artifact index recovery command shell: `powershell`" in markdown
+    assert "Artifact index recovery command: `& python apps/AgriGuard/scripts/run_guarded_launch.py" in markdown
     assert "Artifact index recovery required: `true`" in markdown
 
 
@@ -265,6 +273,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert "Packet validation: `pass`" in markdown
     assert "Markdown table: `pass`" in markdown
     assert "Artifact index recovery command status: `not_required`" in markdown
+    assert "Artifact index recovery command shell: `-`" in markdown
     assert "Readiness action IDs: `fix_env_shape_validation`" in markdown
     assert "Env validation ready for preflight: `False`" in markdown
     assert "Operator packet preflight status: `env_shape_blocked`" in markdown

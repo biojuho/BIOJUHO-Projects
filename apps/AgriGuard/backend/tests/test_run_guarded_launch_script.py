@@ -737,6 +737,8 @@ def test_guarded_launch_status_only_reports_missing_artifacts(tmp_path: Path, ca
         "note": "Artifact index recovery status is unavailable because the operator packet is missing.",
         "command": None,
     }
+    assert payload["artifact_index_recovery_command_shell"] is None
+    assert payload["artifact_index_recovery_command_text"] is None
     assert payload["operator_action_ids"] == []
 
 
@@ -838,6 +840,8 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
         "note": None,
         "command": None,
     }
+    assert payload["artifact_index_recovery_command_shell"] is None
+    assert payload["artifact_index_recovery_command_text"] is None
 
 
 def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path, capsys) -> None:
@@ -912,6 +916,8 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "note": None,
         "command": None,
     }
+    assert payload["artifact_index_recovery_command_shell"] is None
+    assert payload["artifact_index_recovery_command_text"] is None
     assert payload["artifact_index"] == {
         "found": True,
         "path": str(custom_index.resolve()),
@@ -925,6 +931,63 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "recovery_command_status": "not_required",
     }
     assert payload["artifacts"]["artifact_index_json"] == str(custom_index.resolve())
+
+
+def test_guarded_launch_status_only_exposes_recovery_command_text(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch artifacts"
+    custom_index = tmp_path / "handoff" / "current.artifact-index.json"
+    recovery_command = [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "run_guarded_launch.py"),
+        "--app-root",
+        str(app_root.resolve()),
+        "--output-dir",
+        str(output_dir.resolve()),
+        "--output-prefix",
+        "blocked",
+        "--emit-handoff",
+    ]
+    custom_index.parent.mkdir(parents=True, exist_ok=True)
+    custom_index.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "missing_required_roles": ["handoff_consumer_json"],
+                "consumer_packet_validation_status": "fail",
+                "recovery_command_status": "pass",
+                "recovery_summary": {
+                    "required": True,
+                    "action": "Run the guarded launch wrapper command to regenerate evidence.",
+                    "status": "pass",
+                    "note": "Recovery command is present because this artifact index did not meet pass criteria.",
+                    "command": recovery_command,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json-out",
+            str(custom_index),
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["artifact_index_recovery_command_shell"] == "powershell"
+    assert payload["artifact_index_recovery_command_text"].startswith("& ")
+    assert f"'{output_dir.resolve()}'" in payload["artifact_index_recovery_command_text"]
+    assert payload["artifact_index_recovery_summary"]["command"] == recovery_command
 
 
 def test_guarded_launch_status_require_ready_fails_for_blocked_prefix(tmp_path: Path, capsys) -> None:

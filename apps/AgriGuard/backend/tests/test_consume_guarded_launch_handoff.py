@@ -148,6 +148,8 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["packet_markdown_table_status"] == "pass"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["packet_artifact_index_recovery_command_note"] is None
+    assert view["packet_artifact_index_recovery_command_shell"] is None
+    assert view["packet_artifact_index_recovery_command_text"] is None
     assert view["packet_artifact_index_recovery_summary"] == {
         "required": False,
         "action": None,
@@ -195,6 +197,8 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["packet_validation_status"] == "pass"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["packet_artifact_index_recovery_command_note"] is None
+    assert view["packet_artifact_index_recovery_command_shell"] is None
+    assert view["packet_artifact_index_recovery_command_text"] is None
     assert view["packet_artifact_index_recovery_summary"]["required"] is False
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["readiness_env_validation_ready_for_preflight"] is False
@@ -253,6 +257,10 @@ def test_consume_guarded_launch_handoff_exposes_deferred_recovery_status_note(tm
     assert view["packet_artifact_index_recovery_command_status"] is None
     assert view["packet_artifact_index_recovery_command_note"] == (
         "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
+    )
+    assert view["packet_artifact_index_recovery_command_shell"] == "powershell"
+    assert view["packet_artifact_index_recovery_command_text"] == (
+        "& python apps/AgriGuard/scripts/run_guarded_launch.py --emit-handoff"
     )
     assert view["packet_artifact_index_recovery_summary"]["required"] is True
 

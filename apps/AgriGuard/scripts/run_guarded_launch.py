@@ -119,6 +119,31 @@ MISSING_STATUS_RECOVERY_ACTION = (
 MISSING_STATUS_RECOVERY_NOTE = "Artifact index recovery status is unavailable because the operator packet is missing."
 
 
+def _quote_powershell_arg(value: str) -> str:
+    if value and not any(char.isspace() for char in value) and "'" not in value:
+        return value
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _format_powershell_command(command: list[str] | None) -> str | None:
+    if not command:
+        return None
+    return "& " + " ".join(_quote_powershell_arg(str(part)) for part in command)
+
+
+def _recovery_command_shell_text(recovery_summary: dict[str, object]) -> tuple[str | None, str | None]:
+    command = recovery_summary.get("command")
+    if isinstance(command, list):
+        command_text = _format_powershell_command([str(part) for part in command])
+        return ("powershell", command_text) if command_text else (None, None)
+    if isinstance(command, str) and command.strip():
+        command_text = command.strip()
+        if not command_text.lstrip().startswith("&"):
+            command_text = f"& {command_text}"
+        return "powershell", command_text
+    return None, None
+
+
 def _packet_artifact_index_recovery_summary(packet: dict[str, Any] | None) -> dict[str, object]:
     if packet is None:
         return {
@@ -178,6 +203,9 @@ def _build_status_view(
         if artifact_index is not None
         else _packet_artifact_index_recovery_summary(packet)
     )
+    artifact_index_recovery_command_shell, artifact_index_recovery_command_text = _recovery_command_shell_text(
+        artifact_index_recovery_summary
+    )
     status = "missing_artifacts"
     if summary is not None:
         status = str(summary.get("status") or "unknown")
@@ -200,6 +228,8 @@ def _build_status_view(
         "output_prefix": output_prefix,
         "secrets_redacted": True,
         "artifact_index_recovery_summary": artifact_index_recovery_summary,
+        "artifact_index_recovery_command_shell": artifact_index_recovery_command_shell,
+        "artifact_index_recovery_command_text": artifact_index_recovery_command_text,
         "artifacts": artifacts,
         "launch": {
             "found": launch is not None,

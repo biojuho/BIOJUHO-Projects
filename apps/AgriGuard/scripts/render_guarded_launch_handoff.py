@@ -110,6 +110,12 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
     )
     recovery_command_status = recovery_summary.get("status")
     recovery_command_note = recovery_summary.get("note")
+    recovery_command_shell = status_view.get("artifact_index_recovery_command_shell")
+    recovery_command_text = status_view.get("artifact_index_recovery_command_text")
+    if not isinstance(recovery_command_shell, str) or not isinstance(recovery_command_text, str):
+        recovery_command_shell, recovery_command_text = run_guarded_launch._recovery_command_shell_text(
+            recovery_summary
+        )
     expected_output_keys = _string_list(markdown_validation.get("expected_output_keys"))
     status = "pass" if packet is not None and evidence_status == "pass" and markdown_status == "pass" else "fail"
     return {
@@ -130,6 +136,8 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
         if isinstance(recovery_command_status, str)
         else None,
         "artifact_index_recovery_command_note": recovery_command_note,
+        "artifact_index_recovery_command_shell": recovery_command_shell,
+        "artifact_index_recovery_command_text": recovery_command_text,
         "artifact_index_recovery_summary": recovery_summary,
     }
 
@@ -290,6 +298,8 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Path mismatch count: `{packet_validation.get('path_mismatch_count')}`",
         f"- Artifact index recovery command status: `{packet_validation.get('artifact_index_recovery_command_status')}`",
         f"- Artifact index recovery command note: `{packet_validation.get('artifact_index_recovery_command_note') or '-'}`",
+        f"- Artifact index recovery command shell: `{packet_validation.get('artifact_index_recovery_command_shell') or '-'}`",
+        f"- Artifact index recovery command: `{packet_validation.get('artifact_index_recovery_command_text') or '-'}`",
         f"- Artifact index recovery required: `{str((packet_validation.get('artifact_index_recovery_summary') or {}).get('required')).lower()}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
         f"- Env validation ready for preflight: `{readiness_summary.get('env_validation_ready_for_preflight')}`",

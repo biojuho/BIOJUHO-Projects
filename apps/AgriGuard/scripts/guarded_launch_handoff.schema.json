@@ -91,6 +91,18 @@
             "null"
           ]
         },
+        "artifact_index_recovery_command_shell": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artifact_index_recovery_command_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "artifact_index_recovery_summary": {
           "additionalProperties": false,
           "properties": {
@@ -403,6 +415,18 @@
             "recovery_command_status"
           ],
           "type": "object"
+        },
+        "artifact_index_recovery_command_shell": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artifact_index_recovery_command_text": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "blocker_class": {
           "type": [
