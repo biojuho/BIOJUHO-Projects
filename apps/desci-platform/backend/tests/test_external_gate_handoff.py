@@ -711,6 +711,9 @@ def test_external_gate_handoff_provider_apply_plan_verifier_accepts_blank_templa
     assert verification["summary"]["ready_provider_count"] == 0
     assert verification["summary"]["blocked_provider_count"] == 1
     assert verification["summary"]["provider_failure_count"] == 0
+    assert verification["summary"]["operator_command_count"] == 8
+    assert verification["summary"]["operator_command_failure_count"] == 0
+    assert verification["operator_command_summary_verification"]["ok"] is True
     assert verification["summary"]["secret_marker_count"] == 0
 
 
@@ -764,6 +767,26 @@ def test_external_gate_handoff_provider_apply_plan_verifier_detects_template_dri
     assert verification["ok"] is False
     assert verification["summary"]["provider_failure_count"] == 1
     assert "provider template populated_key_count does not match apply plan" in verification["providers"][0]["failures"]
+
+
+def test_external_gate_handoff_provider_apply_plan_verifier_detects_operator_command_summary_drift(
+    tmp_path: Path,
+) -> None:
+    payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
+    paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
+    plan_path = tmp_path / "apply-plan.json"
+    external_gate_handoff.write_provider_apply_plan(plan_path, payload, paths)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan["operator_command_summary"][0]["command"] = "python scripts/external_gate_handoff.py --wrong"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    verification = external_gate_handoff.verify_provider_apply_plan(plan_path)
+
+    assert verification["ok"] is False
+    assert "operator_command_summary does not match detailed command metadata" in verification["failures"]
+    assert verification["summary"]["operator_command_failure_count"] == 1
+    assert verification["operator_command_summary_verification"]["commands"][0]["ok"] is False
+    assert "command does not match" in verification["operator_command_summary_verification"]["commands"][0]["failures"]
 
 
 def test_external_gate_handoff_provider_apply_results_template_is_redacted(tmp_path: Path) -> None:

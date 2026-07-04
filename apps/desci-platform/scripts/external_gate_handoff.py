@@ -1518,6 +1518,69 @@ def _provider_apply_plan_provider_verification(provider: dict[str, Any]) -> dict
     }
 
 
+def _operator_command_summary_verification(plan: dict[str, Any]) -> dict[str, Any]:
+    provided = [item for item in _as_list(plan.get("operator_command_summary")) if isinstance(item, dict)]
+    if not provided:
+        return {
+            "ok": True,
+            "expected_count": 0,
+            "reported_count": 0,
+            "checked_count": 0,
+            "failure_count": 0,
+            "command_failure_count": 0,
+            "failures": [],
+            "commands": [],
+        }
+    expected = _operator_command_summary(
+        _as_dict(plan.get("provider_apply_plan_verification")),
+        _as_dict(plan.get("provider_apply_results_verification")),
+        _as_dict(plan.get("provider_apply_workflow_verification")),
+        _as_dict(plan.get("post_apply_completion_evidence")),
+    )
+    failures: list[str] = []
+    command_checks: list[dict[str, Any]] = []
+    if len(provided) != len(expected):
+        failures.append("operator_command_summary length does not match detailed command metadata")
+    for index, expected_item in enumerate(expected):
+        actual = provided[index] if index < len(provided) else {}
+        item_failures: list[str] = []
+        for key in ("id", "label", "command", "json_out", "success_condition"):
+            if str(actual.get(key) or "") != str(expected_item.get(key) or ""):
+                item_failures.append(f"{key} does not match")
+        command_checks.append(
+            {
+                "index": index,
+                "id": str(actual.get("id") or expected_item.get("id") or ""),
+                "ok": not item_failures,
+                "failures": item_failures,
+            }
+        )
+    if len(provided) > len(expected):
+        for index in range(len(expected), len(provided)):
+            actual = provided[index]
+            command_checks.append(
+                {
+                    "index": index,
+                    "id": str(actual.get("id") or ""),
+                    "ok": False,
+                    "failures": ["unexpected command summary entry"],
+                }
+            )
+    command_failure_count = sum(1 for item in command_checks if item.get("ok") is not True)
+    if command_failure_count:
+        failures.append("operator_command_summary entries do not match detailed command metadata")
+    return {
+        "ok": not failures and command_failure_count == 0,
+        "expected_count": len(expected),
+        "reported_count": len(provided),
+        "checked_count": len(command_checks),
+        "failure_count": len(failures),
+        "command_failure_count": command_failure_count,
+        "failures": failures,
+        "commands": command_checks,
+    }
+
+
 def verify_provider_apply_plan(
     plan_path: str | Path,
     *,
@@ -1528,6 +1591,7 @@ def verify_provider_apply_plan(
     template_index = _as_dict(plan.get("provider_template_index"))
     providers = [item for item in _as_list(plan.get("providers")) if isinstance(item, dict)]
     provider_checks = [_provider_apply_plan_provider_verification(provider) for provider in providers]
+    command_summary_verification = _operator_command_summary_verification(plan)
     ready_provider_count = sum(1 for provider in providers if provider.get("ready_to_apply") is True)
     blocked_provider_count = max(len(providers) - ready_provider_count, 0)
     provider_preflight_blocker_count = sum(
@@ -1572,6 +1636,8 @@ def verify_provider_apply_plan(
         failures.append("operator_status.apply_plan_safe_to_commit must be true")
     if operator_status.get("completion_marker") != "external_release_gate.ok=true":
         failures.append("operator_status.completion_marker is not recognized")
+    if command_summary_verification.get("ok") is not True:
+        failures.append("operator_command_summary does not match detailed command metadata")
     if require_ready_to_apply and operator_status.get("ready_to_apply") is not True:
         failures.append("provider apply plan must be ready_to_apply")
     if require_ready_to_apply:
@@ -1605,10 +1671,15 @@ def verify_provider_apply_plan(
             "provider_preflight_blocker_count": provider_preflight_blocker_count,
             "provider_project_context_missing_count": project_context_missing_count,
             "provider_failure_count": provider_failure_count,
+            "operator_command_count": int(command_summary_verification.get("reported_count") or 0),
+            "operator_command_failure_count": int(
+                command_summary_verification.get("command_failure_count") or 0
+            ),
             "secret_marker_count": len(secret_markers),
         },
         "secret_marker_names": secret_markers,
         "failures": failures,
+        "operator_command_summary_verification": command_summary_verification,
         "providers": provider_checks,
     }
 
