@@ -644,7 +644,14 @@ def check_docker_readiness(
     if not docker_info["ok"]:
         errors.append("Docker daemon is not reachable for launch compose startup.")
     if not compose_config["ok"]:
-        errors.append("AgriGuard docker-compose.yml failed compose config validation.")
+        compose_stderr = str(compose_config.get("stderr_tail") or "")
+        if "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE" in compose_stderr and "missing a value" in compose_stderr:
+            errors.append(
+                "Set AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE before compose config validation; "
+                "docker-compose.yml requires the outside-repo Firebase service account path."
+            )
+        else:
+            errors.append("AgriGuard docker-compose.yml failed compose config validation.")
 
     return {
         "status": "fail" if errors else "pass",

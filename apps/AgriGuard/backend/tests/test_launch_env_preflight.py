@@ -1102,6 +1102,51 @@ def test_launch_report_docker_check_fails_when_daemon_unreachable(tmp_path: Path
     assert report["checks"]["docker"]["docker_info"]["stderr_tail"] == "failed to connect to the docker API"
 
 
+def test_launch_report_docker_check_classifies_missing_firebase_compose_interpolation(
+    tmp_path: Path,
+) -> None:
+    app_root = tmp_path
+    compose_path = str(app_root / "docker-compose.yml")
+    stderr = (
+        "error while interpolating secrets.agriguard_firebase_service_account.file: "
+        "required variable AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE is missing a value: "
+        "Set AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE to an outside-repo Firebase service account JSON"
+    )
+    runner = _runner_from_results(
+        {
+            ("docker", "info", "--format", "{{.ServerVersion}}"): subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="29.2.1\n",
+                stderr="",
+            ),
+            ("docker", "compose", "-f", compose_path, "config", "--quiet"): subprocess.CompletedProcess(
+                args=[],
+                returncode=1,
+                stdout="",
+                stderr=stderr,
+            ),
+        }
+    )
+    env = _healthy_env()
+    env.pop("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE")
+
+    report = launch_env_preflight.build_launch_report(
+        env,
+        check_docker=True,
+        app_root=app_root,
+        command_runner=runner,
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "Set AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE before compose config validation; "
+        "docker-compose.yml requires the outside-repo Firebase service account path."
+    ) in report["errors"]
+    assert "AgriGuard docker-compose.yml failed compose config validation." not in report["errors"]
+    assert report["checks"]["docker"]["compose_config"]["stderr_tail"] == stderr
+
+
 def test_launch_report_docker_check_fails_when_compose_config_is_invalid(tmp_path: Path) -> None:
     app_root = tmp_path
     _write_firebase_credentials_file(app_root)

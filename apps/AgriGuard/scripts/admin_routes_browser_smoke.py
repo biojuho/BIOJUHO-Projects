@@ -110,6 +110,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     }
 
     sensor_id = f"smoke-probe-{uuid.uuid4().hex[:8]}"
+    sensor_zone = f"Smoke Zone {uuid.uuid4().hex[:8]}"
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -187,11 +188,13 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         page.get_by_text("Sensor Device Registry").wait_for(timeout=args.timeout_ms)
         page.get_by_label("Sensor ID", exact=True).fill(sensor_id)
         page.get_by_label("Label").fill("Browser smoke probe")
-        page.get_by_label("Assigned zone").fill("Packhouse")
+        page.get_by_label("Assigned zone").fill(sensor_zone)
         page.get_by_label("Owner ID").fill("tenant-browser-smoke")
         page.get_by_label("Expected interval minutes").fill("5")
         page.get_by_role("button", name=re.compile("register sensor", re.I)).click(timeout=args.timeout_ms)
         page.get_by_text(f"Sensor {sensor_id} saved.").wait_for(timeout=args.timeout_ms)
+        page.get_by_label("Zone filter").fill(sensor_zone)
+        page.get_by_role("button", name=re.compile("apply filters", re.I)).click(timeout=args.timeout_ms)
         page.get_by_text(sensor_id, exact=True).wait_for(timeout=args.timeout_ms)
         checks.append(check("sensor_registered", True, sensor_id))
 
@@ -208,6 +211,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         browser.close()
 
     observations["sensor_id"] = sensor_id
+    observations["sensor_zone"] = sensor_zone
     observations["console_messages"] = console_messages
     observations["request_failures"] = request_failures
     observations["page_errors"] = page_errors
