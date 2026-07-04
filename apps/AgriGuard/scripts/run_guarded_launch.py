@@ -301,6 +301,9 @@ def _build_status_view(
             "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status")
             if artifact_index is not None
             else None,
+            "consumer_command_metadata_status": artifact_index.get("consumer_command_metadata_status")
+            if artifact_index is not None
+            else None,
             "consumer_readiness_operator_action_ids": [
                 str(action_id)
                 for action_id in artifact_index.get("consumer_readiness_operator_action_ids", [])
@@ -490,6 +493,7 @@ def _artifact_index_readiness_summary(
         "path": str(index_json),
         "status": index.get("status") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
+        "consumer_command_metadata_status": index.get("consumer_command_metadata_status") if index is not None else None,
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),

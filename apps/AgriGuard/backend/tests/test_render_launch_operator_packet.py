@@ -252,6 +252,7 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
             {
                 "status": "pass",
                 "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
                 "recovery_command_status": "not_required",
                 "recovery_summary": {
                     "required": False,
@@ -617,6 +618,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
             {
                 "status": "pass",
                 "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
                 "recovery_command_status": "not_required",
                 "recovery_summary": {
                     "required": False,
@@ -653,6 +655,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         "path": "var/agriguard-guarded-launch-artifact-index.json",
         "status": "pass",
         "consumer_packet_validation_status": "pass",
+        "consumer_command_metadata_status": "pass",
         "recovery_command_status": "not_required",
         "recovery_command_note": None,
         "recovery_summary": {
@@ -682,6 +685,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery summary required: `false`" in markdown
+    assert "Consumer command metadata: `pass`" in markdown
     assert "Packet preflight status: `env_shape_blocked`" in markdown
 
 

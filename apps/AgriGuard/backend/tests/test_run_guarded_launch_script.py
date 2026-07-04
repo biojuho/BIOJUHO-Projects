@@ -66,6 +66,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
             {
                 "status": "pass",
                 "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
                 "recovery_command_status": "not_required",
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
                 "consumer_readiness_next_commands": [
@@ -120,6 +121,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         "path": str(output_dir.resolve() / "release-check-artifact-index.json"),
         "status": "pass",
         "consumer_packet_validation_status": "pass",
+        "consumer_command_metadata_status": "pass",
         "recovery_command_status": "not_required",
         "recovery_command_note": None,
         "recovery_summary": {
@@ -513,6 +515,7 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
                     "status": "pass",
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
+                    "consumer_command_metadata_status": "pass",
                     "recovery_command_status": "not_required",
                     "recovery_summary": {
                         "required": False,
@@ -621,6 +624,7 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
                     "status": "pass",
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
+                    "consumer_command_metadata_status": "pass",
                     "recovery_command_status": "not_required",
                     "recovery_summary": {
                         "required": False,
@@ -966,6 +970,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                 "status": "pass",
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
                 "consumer_readiness_next_commands": [
                     {
@@ -1021,6 +1026,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "status": "pass",
         "missing_required_roles": [],
         "consumer_packet_validation_status": "pass",
+        "consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
         "consumer_readiness_next_commands": [
             {
@@ -1059,6 +1065,7 @@ def test_guarded_launch_status_only_exposes_recovery_command_text(tmp_path: Path
                 "status": "fail",
                 "missing_required_roles": ["handoff_consumer_json"],
                 "consumer_packet_validation_status": "fail",
+                "consumer_command_metadata_status": "fail",
                 "recovery_command_status": "pass",
                 "recovery_summary": {
                     "required": True,
