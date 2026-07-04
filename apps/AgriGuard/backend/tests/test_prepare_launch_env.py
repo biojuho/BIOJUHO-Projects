@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import tempfile
 from pathlib import Path
-
 
 APP_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = APP_ROOT / "scripts" / "prepare_launch_env.py"
@@ -33,7 +33,12 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     env_file = tmp_path / "operator.env"
     json_out = tmp_path / "prepared.json"
     markdown_out = tmp_path / "prepared.md"
-    firebase_file = tmp_path / "firebase-service-account.json"
+    firebase_root = Path(tempfile.gettempdir()) / "agriguard-pytest-secrets" / tmp_path.name
+    repo_root = prepare_launch_env.launch_env_preflight._find_repository_root(APP_ROOT)  # noqa: SLF001
+    if repo_root and prepare_launch_env.launch_env_preflight._is_relative_to(firebase_root, repo_root):  # noqa: SLF001
+        firebase_root = repo_root.parent / "agriguard-pytest-secrets" / tmp_path.name
+    firebase_file = firebase_root / "firebase-service-account.json"
+    firebase_file.parent.mkdir(parents=True, exist_ok=True)
     firebase_file.write_text(_firebase_credentials_json(), encoding="utf-8")
 
     result = prepare_launch_env.main(
@@ -59,7 +64,7 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     env = prepare_launch_env.launch_env_preflight.load_env_file(env_file)
     encoded_report = json.dumps(report)
     capsys.readouterr()
-    assert result == 0
+    assert result == 0, report
     assert report["status"] == "pass"
     assert report["ready_for_preflight"] is True
     assert report["secrets_redacted"] is True

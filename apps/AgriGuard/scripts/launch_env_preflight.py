@@ -5,8 +5,8 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Callable, Iterable
 from urllib.parse import urlparse
 
 MIN_SECRET_LENGTH = 32
@@ -285,13 +285,32 @@ def _firebase_credentials_for_runtime(env: dict[str, str], runtime: str) -> tupl
 def _resolve_app_relative_path(value: str, *, app_root: Path) -> Path:
     path = Path(value)
     if path.is_absolute():
-        return path
+        return path.resolve()
     return (app_root / path).resolve()
+
+
+def _find_repository_root(path: Path) -> Path | None:
+    resolved = path.resolve()
+    for candidate in (resolved, *resolved.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def _firebase_credentials_file_check(value: str, *, source: str, app_root: Path) -> tuple[list[str], bool]:
     path = _resolve_app_relative_path(value, app_root=app_root)
     errors: list[str] = []
+    repo_root = _find_repository_root(app_root)
+    if repo_root and _is_relative_to(path, repo_root):
+        errors.append(f"{source} must point to a Firebase service account file outside the repository.")
     if path.suffix.lower() != ".json":
         errors.append(f"{source} must point to a JSON Firebase service account file.")
     if not path.is_file():

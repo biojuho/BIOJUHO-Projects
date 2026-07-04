@@ -2,6 +2,7 @@
 
 import importlib.util
 import subprocess
+import tempfile
 from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "launch_env_preflight.py"
@@ -48,10 +49,30 @@ def _firebase_credentials_json() -> str:
     )
 
 
-def _write_firebase_credentials_file(app_root: Path, *, encoding: str = "utf-8") -> Path:
-    credentials_path = app_root / "firebase-service-account.json"
+def _write_firebase_credentials_path(credentials_path: Path, *, encoding: str = "utf-8") -> Path:
+    credentials_path.parent.mkdir(parents=True, exist_ok=True)
     credentials_path.write_text(_firebase_credentials_json(), encoding=encoding)
     return credentials_path
+
+
+def _write_firebase_credentials_file(app_root: Path, *, encoding: str = "utf-8") -> Path:
+    return _write_firebase_credentials_path(app_root / "firebase-service-account.json", encoding=encoding)
+
+
+def _write_external_firebase_credentials_file(tmp_path: Path, *, encoding: str = "utf-8") -> Path:
+    target_root = Path(tempfile.gettempdir()) / "agriguard-pytest-secrets" / tmp_path.name
+    repo_root = launch_env_preflight._find_repository_root(tmp_path)  # noqa: SLF001
+    if repo_root and launch_env_preflight._is_relative_to(target_root, repo_root):  # noqa: SLF001
+        target_root = repo_root.parent / "agriguard-pytest-secrets" / tmp_path.name
+    return _write_firebase_credentials_path(target_root / "firebase-service-account.json", encoding=encoding)
+
+
+def _fake_repo_app_root(tmp_path: Path) -> tuple[Path, Path]:
+    repo_root = tmp_path / "repo"
+    app_root = repo_root / "apps" / "AgriGuard"
+    app_root.mkdir(parents=True)
+    (repo_root / ".git").mkdir()
+    return repo_root, app_root
 
 
 def test_launch_env_preflight_default_env_files_include_backend_env_before_app_env() -> None:
@@ -849,8 +870,11 @@ def test_launch_env_preflight_loads_utf8_bom_env_file(tmp_path: Path) -> None:
 
 
 def test_launch_report_skips_docker_checks_by_default(tmp_path: Path) -> None:
-    _write_firebase_credentials_file(tmp_path)
-    report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
+    credentials_path = _write_external_firebase_credentials_file(tmp_path)
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env() | {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path)},
+        app_root=tmp_path,
+    )
 
     assert report["status"] == "pass"
     assert report["checks"]["docker_checked"] is False
@@ -858,9 +882,44 @@ def test_launch_report_skips_docker_checks_by_default(tmp_path: Path) -> None:
 
 
 def test_launch_report_accepts_utf8_bom_firebase_credentials_file(tmp_path: Path) -> None:
-    _write_firebase_credentials_file(tmp_path, encoding="utf-8-sig")
+    credentials_path = _write_external_firebase_credentials_file(tmp_path, encoding="utf-8-sig")
 
-    report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env() | {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path)},
+        app_root=tmp_path,
+    )
+
+    assert report["status"] == "pass"
+    assert report["checks"]["firebase_credentials_file_exists"] is True
+    assert report["checks"]["firebase_credentials_file_valid"] is True
+
+
+def test_launch_report_rejects_repo_local_firebase_credentials_file(tmp_path: Path) -> None:
+    repo_root, app_root = _fake_repo_app_root(tmp_path)
+    credentials_path = _write_firebase_credentials_path(repo_root / "firebase-service-account.json")
+
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env() | {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path)},
+        app_root=app_root,
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must point to a Firebase service account file outside the repository."
+        in report["errors"]
+    )
+    assert report["checks"]["firebase_credentials_file_exists"] is True
+    assert report["checks"]["firebase_credentials_file_valid"] is False
+
+
+def test_launch_report_accepts_firebase_credentials_file_outside_repository(tmp_path: Path) -> None:
+    _, app_root = _fake_repo_app_root(tmp_path)
+    credentials_path = _write_firebase_credentials_path(tmp_path / "secrets" / "firebase-service-account.json")
+
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env() | {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path)},
+        app_root=app_root,
+    )
 
     assert report["status"] == "pass"
     assert report["checks"]["firebase_credentials_file_exists"] is True
@@ -905,13 +964,13 @@ def test_launch_report_rejects_placeholder_firebase_credentials_json(tmp_path: P
 
 
 def test_launch_report_can_allow_runtime_default_origins_for_local_checks(tmp_path: Path) -> None:
-    _write_firebase_credentials_file(tmp_path)
+    credentials_path = _write_external_firebase_credentials_file(tmp_path)
     env = {
         "AGRIGUARD_SECRET_KEY": "s" * 32,
         "AGRIGUARD_QR_TOKEN_PEPPER": "p" * 32,
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
         "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
-        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": "firebase-service-account.json",
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path),
     }
 
     report = launch_env_preflight.build_launch_report(
@@ -925,14 +984,14 @@ def test_launch_report_can_allow_runtime_default_origins_for_local_checks(tmp_pa
 
 
 def test_launch_report_can_allow_generic_secret_for_local_compose_checks(tmp_path: Path) -> None:
-    _write_firebase_credentials_file(tmp_path)
+    credentials_path = _write_external_firebase_credentials_file(tmp_path)
     env = {
         "SECRET_KEY": "s" * 32,
         "QR_TOKEN_PEPPER": "p" * 32,
         "AGRIGUARD_ALLOWED_ORIGINS": "https://agriguard.example",
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL": "https://verify.agriguard.example",
         "AGRIGUARD_DB_PASSWORD": "dbpassword1234567890",
-        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": "firebase-service-account.json",
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path),
     }
 
     report = launch_env_preflight.build_launch_report(
@@ -948,7 +1007,7 @@ def test_launch_report_can_allow_generic_secret_for_local_compose_checks(tmp_pat
 
 def test_launch_report_docker_check_passes_when_daemon_and_compose_config_pass(tmp_path: Path) -> None:
     app_root = tmp_path
-    _write_firebase_credentials_file(app_root)
+    credentials_path = _write_external_firebase_credentials_file(tmp_path)
     compose_path = str(app_root / "docker-compose.yml")
     runner = _runner_from_results(
         {
@@ -968,7 +1027,7 @@ def test_launch_report_docker_check_passes_when_daemon_and_compose_config_pass(t
     )
 
     report = launch_env_preflight.build_launch_report(
-        _healthy_env(),
+        _healthy_env() | {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path)},
         check_docker=True,
         app_root=app_root,
         command_runner=runner,
