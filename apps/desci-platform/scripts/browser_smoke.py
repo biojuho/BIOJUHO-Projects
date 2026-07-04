@@ -798,6 +798,8 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
     launch_requests: list[str] = []
     dashboard_shell_requests: list[str] = []
     layout_metrics: dict[str, Any] | None = None
+    launch_action_copy_expected_ids: list[str] = []
+    launch_action_copy_reports: list[dict[str, Any]] = []
     ready_route_pattern = "**/ready"
     launch_route_pattern = "**/launch"
     dashboard_shell_routes = _dashboard_shell_api_routes(dashboard_shell_requests)
@@ -1080,40 +1082,61 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                     "GROBID_URL",
                 ),
             }
+            launch_action_copy_expected_ids = list(expected_action_copy_fragments.keys())
             for action_id, expected_fragments in expected_action_copy_fragments.items():
                 action_label = expected_fragments[0]
+                action_copy_failures: list[str] = []
                 copy_button = page.get_by_test_id(f"product-readiness-next-action-copy-{action_id}")
                 if copy_button.count() != 1:
-                    failures.append(f"{route_name}: missing {action_label} launch action copy button")
+                    failure = f"{route_name}: missing {action_label} launch action copy button"
+                    failures.append(failure)
+                    action_copy_failures.append(failure)
+                    launch_action_copy_reports.append({"action_id": action_id, "label": action_label, "ok": False})
                     continue
                 copy_button.click(timeout=timeout_ms)
                 try:
                     page.wait_for_timeout(200)
                     clipboard_payload = page.evaluate("() => navigator.clipboard.readText()")
                 except PlaywrightError as exc:
-                    failures.append(f"{route_name}: could not read {action_label} launch action clipboard ({exc})")
+                    failure = f"{route_name}: could not read {action_label} launch action clipboard ({exc})"
+                    failures.append(failure)
+                    action_copy_failures.append(failure)
+                    launch_action_copy_reports.append({"action_id": action_id, "label": action_label, "ok": False})
                     continue
                 missing_fragments = [
                     fragment for fragment in expected_fragments[1:] if fragment not in clipboard_payload
                 ]
                 if missing_fragments:
-                    failures.append(
-                        f"{route_name}: {action_label} clipboard payload missing {missing_fragments}: {clipboard_payload!r}"
+                    failure = (
+                        f"{route_name}: {action_label} clipboard payload missing "
+                        f"{missing_fragments}: {clipboard_payload!r}"
                     )
+                    failures.append(failure)
+                    action_copy_failures.append(failure)
                 leaked_fragments = [
                     fragment for fragment in ("sk_live_", "whsec_", "https://secret-rpc.example") if fragment in clipboard_payload
                 ]
                 if leaked_fragments:
-                    failures.append(
-                        f"{route_name}: {action_label} clipboard payload exposed non-placeholder detail {leaked_fragments}"
+                    failure = (
+                        f"{route_name}: {action_label} clipboard payload exposed "
+                        f"non-placeholder detail {leaked_fragments}"
                     )
+                    failures.append(failure)
+                    action_copy_failures.append(failure)
                 try:
                     feedback_text = page.get_by_test_id("product-readiness-copy-feedback").inner_text(timeout=timeout_ms)
                 except PlaywrightError as exc:
-                    failures.append(f"{route_name}: missing {action_label} copy feedback ({exc})")
+                    failure = f"{route_name}: missing {action_label} copy feedback ({exc})"
+                    failures.append(failure)
+                    action_copy_failures.append(failure)
                 else:
                     if "Copied " not in feedback_text or "launch action." not in feedback_text:
-                        failures.append(f"{route_name}: {action_label} copy feedback mismatch: {feedback_text!r}")
+                        failure = f"{route_name}: {action_label} copy feedback mismatch: {feedback_text!r}"
+                        failures.append(failure)
+                        action_copy_failures.append(failure)
+                launch_action_copy_reports.append(
+                    {"action_id": action_id, "label": action_label, "ok": not action_copy_failures}
+                )
             copy_all_button = page.get_by_test_id("product-readiness-next-actions-copy-all")
             if copy_all_button.count() != 1:
                 failures.append(f"{route_name}: missing launch action copy-all button")
@@ -1246,7 +1269,29 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
             page.unroute(pattern, handler)
 
     failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
-    metadata = {"dashboard_layout": layout_metrics} if isinstance(layout_metrics, dict) else None
+    metadata_payload: dict[str, Any] = {}
+    if isinstance(layout_metrics, dict):
+        metadata_payload["dashboard_layout"] = layout_metrics
+    if launch_action_copy_expected_ids:
+        validated_action_ids = [
+            report["action_id"]
+            for report in launch_action_copy_reports
+            if report.get("ok") is True and isinstance(report.get("action_id"), str)
+        ]
+        failed_action_ids = [
+            report["action_id"]
+            for report in launch_action_copy_reports
+            if report.get("ok") is False and isinstance(report.get("action_id"), str)
+        ]
+        metadata_payload["launch_action_copy_coverage"] = {
+            "expected_action_ids": launch_action_copy_expected_ids,
+            "validated_action_ids": validated_action_ids,
+            "failed_action_ids": failed_action_ids,
+            "expected_count": len(launch_action_copy_expected_ids),
+            "validated_count": len(validated_action_ids),
+            "failed_count": len(failed_action_ids),
+        }
+    metadata = metadata_payload or None
     return BrowserRunnerResult(failures=failures, metadata=metadata)
 
 
@@ -7351,6 +7396,9 @@ def browser_launch_control_report(reports: list[BrowserCheckReport]) -> dict[str
         dashboard_layout = check_report.metadata.get("dashboard_layout")
         if isinstance(dashboard_layout, dict):
             report["dashboard_layout"] = dashboard_layout
+        launch_action_copy_coverage = check_report.metadata.get("launch_action_copy_coverage")
+        if isinstance(launch_action_copy_coverage, dict):
+            report["launch_action_copy_coverage"] = launch_action_copy_coverage
     return report
 
 

@@ -406,7 +406,17 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
             path="/dashboard",
             ok=True,
             failures=[],
-            metadata={"dashboard_layout": dashboard_layout},
+            metadata={
+                "dashboard_layout": dashboard_layout,
+                "launch_action_copy_coverage": {
+                    "expected_action_ids": ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"],
+                    "validated_action_ids": ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"],
+                    "failed_action_ids": [],
+                    "expected_count": 6,
+                    "validated_count": 6,
+                    "failed_count": 0,
+                },
+            },
         ),
     ]
     expected_action_ids = ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"]
@@ -500,6 +510,14 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
             "bad_copy_lines": [],
         },
         "dashboard_layout": dashboard_layout,
+        "launch_action_copy_coverage": {
+            "expected_action_ids": expected_action_ids,
+            "validated_action_ids": expected_action_ids,
+            "failed_action_ids": [],
+            "expected_count": 6,
+            "validated_count": 6,
+            "failed_count": 0,
+        },
         "failures": [],
     }
 
@@ -959,6 +977,7 @@ def test_dashboard_readiness_smoke_clicks_every_launch_action_copy_button() -> N
     source = inspect.getsource(browser_smoke._run_dashboard_readiness_refresh_check)  # pylint: disable=protected-access
 
     assert "expected_action_copy_fragments" in source
+    assert "launch_action_copy_coverage" in source
     for action_id in ("auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"):
         assert f'product-readiness-next-action-copy-{{action_id}}' in source
         assert f'"{action_id}": (' in source
