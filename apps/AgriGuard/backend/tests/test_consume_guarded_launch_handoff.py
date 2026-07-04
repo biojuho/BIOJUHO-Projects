@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
+
+APP_ROOT = Path(__file__).resolve().parents[2]
+
+HANDOFF_PATH = APP_ROOT / "scripts" / "render_guarded_launch_handoff.py"
+HANDOFF_SPEC = importlib.util.spec_from_file_location("render_guarded_launch_handoff", HANDOFF_PATH)
+assert HANDOFF_SPEC is not None
+render_guarded_launch_handoff = importlib.util.module_from_spec(HANDOFF_SPEC)
+assert HANDOFF_SPEC.loader is not None
+HANDOFF_SPEC.loader.exec_module(render_guarded_launch_handoff)
+
+VALIDATOR_PATH = APP_ROOT / "scripts" / "validate_guarded_launch_handoff.py"
+VALIDATOR_SPEC = importlib.util.spec_from_file_location("validate_guarded_launch_handoff", VALIDATOR_PATH)
+assert VALIDATOR_SPEC is not None
+validate_guarded_launch_handoff = importlib.util.module_from_spec(VALIDATOR_SPEC)
+assert VALIDATOR_SPEC.loader is not None
+VALIDATOR_SPEC.loader.exec_module(validate_guarded_launch_handoff)
+
+CONSUMER_PATH = APP_ROOT / "scripts" / "consume_guarded_launch_handoff.py"
+CONSUMER_SPEC = importlib.util.spec_from_file_location("consume_guarded_launch_handoff", CONSUMER_PATH)
+assert CONSUMER_SPEC is not None
+consume_guarded_launch_handoff = importlib.util.module_from_spec(CONSUMER_SPEC)
+assert CONSUMER_SPEC.loader is not None
+CONSUMER_SPEC.loader.exec_module(consume_guarded_launch_handoff)
+
+RUN_WRAPPER = render_guarded_launch_handoff.run_guarded_launch
+
+
+def _write_launch_report(output_dir: Path, prefix: str, payload: dict[str, object]) -> None:
+    artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), prefix)
+    artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["launch_report_json"].write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write_readiness_summary(output_dir: Path, prefix: str, payload: dict[str, object]) -> None:
+    artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), prefix)
+    artifacts["readiness_summary_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["readiness_summary_json"].write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write_handoff_and_validation(tmp_path: Path, prefix: str) -> tuple[Path, Path]:
+    output_dir = tmp_path / "launch-artifacts"
+    handoff_json = tmp_path / f"{prefix}-handoff.json"
+    validation_json = tmp_path / f"{prefix}-handoff.validation.json"
+    handoff = render_guarded_launch_handoff.build_handoff(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix=prefix,
+        ready_gate_json=output_dir / f"{prefix}-ready-gate.json",
+        handoff_json=handoff_json,
+        validation_json=validation_json,
+    )
+    handoff_json.write_text(json.dumps(handoff), encoding="utf-8")
+    assert validate_guarded_launch_handoff.main([str(handoff_json), "--json-out", str(validation_json)]) == 0
+    return handoff_json, validation_json
+
+
+def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_launch_report(
+        output_dir,
+        "ready",
+        {
+            "status": "pass",
+            "stage": "browser_smoke",
+            "stop_reason": None,
+            "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
+        },
+    )
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "ready")
+
+    view = consume_guarded_launch_handoff.build_consumer_view(
+        handoff_json=handoff_json,
+        validation_json=validation_json,
+    )
+
+    assert view["status"] == "pass"
+    assert view["handoff_status"] == "ready"
+    assert view["ready_gate_status"] == "pass"
+    assert view["validation_matches_handoff"] is True
+    assert view["errors"] == []
+
+
+def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_readiness_summary(
+        output_dir,
+        "blocked",
+        {
+            "status": "blocked",
+            "blocker_class": "preflight_blocked",
+            "secrets_redacted": True,
+            "reports": {
+                "operator_packet": {
+                    "operator_action_ids": ["set_firebase_service_account_file"],
+                },
+            },
+        },
+    )
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
+
+    view = consume_guarded_launch_handoff.build_consumer_view(
+        handoff_json=handoff_json,
+        validation_json=validation_json,
+    )
+
+    assert view["status"] == "fail"
+    assert view["handoff_status"] == "blocked"
+    assert view["blocker_class"] == "preflight_blocked"
+    assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert view["validation_matches_handoff"] is True
+
+
+def test_consume_guarded_launch_handoff_fails_stale_validation_report(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_launch_report(
+        output_dir,
+        "ready",
+        {
+            "status": "pass",
+            "stage": "browser_smoke",
+            "stop_reason": None,
+            "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
+        },
+    )
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "ready")
+    payload = json.loads(handoff_json.read_text(encoding="utf-8"))
+    payload["output_prefix"] = "tampered"
+    handoff_json.write_text(json.dumps(payload), encoding="utf-8")
+
+    view = consume_guarded_launch_handoff.build_consumer_view(
+        handoff_json=handoff_json,
+        validation_json=validation_json,
+    )
+
+    assert view["status"] == "fail"
+    assert view["validation_matches_handoff"] is False
+    assert "validation report handoff_sha256 does not match current handoff" in view["errors"]
+
+
+def test_consume_guarded_launch_handoff_main_writes_output_and_exits_nonzero_for_blocked(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    output_json = tmp_path / "consumer.json"
+    _write_readiness_summary(
+        output_dir,
+        "blocked",
+        {
+            "status": "blocked",
+            "blocker_class": "env_shape_blocked",
+            "secrets_redacted": True,
+            "reports": {},
+        },
+    )
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
+
+    result = consume_guarded_launch_handoff.main(
+        [
+            str(handoff_json),
+            "--validation-json",
+            str(validation_json),
+            "--json-out",
+            str(output_json),
+        ]
+    )
+
+    view = json.loads(output_json.read_text(encoding="utf-8"))
+    assert result == 1
+    assert view["status"] == "fail"
+    assert view["blocker_class"] == "env_shape_blocked"
