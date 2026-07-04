@@ -383,6 +383,30 @@
               },
               "type": "array"
             },
+            "operator_action_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "env_validation_ready_for_preflight": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "env_validation_placeholder_count": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "operator_packet_preflight_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "path": {
               "type": "string"
             },
@@ -398,7 +422,11 @@
             "path",
             "status",
             "blocker_class",
-            "next_actions"
+            "next_actions",
+            "operator_action_ids",
+            "env_validation_ready_for_preflight",
+            "env_validation_placeholder_count",
+            "operator_packet_preflight_status"
           ],
           "type": "object"
         },

@@ -97,6 +97,16 @@ def _operator_action_ids_from_summary(payload: dict[str, Any] | None) -> list[st
     return [str(action_id) for action_id in action_ids if isinstance(action_id, str)]
 
 
+def _summary_report(payload: dict[str, Any] | None, report_name: str) -> dict[str, Any]:
+    if payload is None:
+        return {}
+    reports = payload.get("reports")
+    if not isinstance(reports, dict):
+        return {}
+    report = reports.get(report_name)
+    return report if isinstance(report, dict) else {}
+
+
 def _build_status_view(
     *,
     output_dir: Path,
@@ -107,6 +117,8 @@ def _build_status_view(
     summary = _read_json(artifact_paths["readiness_summary_json"])
     packet = _read_json(artifact_paths["operator_packet_json"])
     action_ids = _operator_action_ids_from_summary(summary) or _operator_action_ids_from_packet(packet)
+    summary_env_validation = _summary_report(summary, "env_validation")
+    summary_operator_packet = _summary_report(summary, "operator_packet")
     status = "missing_artifacts"
     if summary is not None:
         status = str(summary.get("status") or "unknown")
@@ -143,6 +155,10 @@ def _build_status_view(
             "status": summary.get("status") if summary is not None else None,
             "blocker_class": summary.get("blocker_class") if summary is not None else None,
             "next_actions": summary.get("next_actions") if summary is not None and isinstance(summary.get("next_actions"), list) else [],
+            "operator_action_ids": action_ids,
+            "env_validation_ready_for_preflight": summary_env_validation.get("ready_for_preflight"),
+            "env_validation_placeholder_count": summary_env_validation.get("placeholder_count"),
+            "operator_packet_preflight_status": summary_operator_packet.get("preflight_status"),
         },
         "operator_packet": {
             "found": packet is not None,

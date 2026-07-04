@@ -320,7 +320,12 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                 "secrets_redacted": True,
                 "next_actions": ["Open the operator packet."],
                 "reports": {
+                    "env_validation": {
+                        "ready_for_preflight": False,
+                        "placeholder_count": 6,
+                    },
                     "operator_packet": {
+                        "preflight_status": "env_shape_blocked",
                         "operator_action_ids": ["set_firebase_service_account_file"],
                     },
                 },
@@ -358,6 +363,10 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert payload["launch"]["stage"] == "preflight"
     assert payload["launch"]["result_names"] == ["env_validation", "preflight"]
+    assert payload["readiness_summary"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert payload["readiness_summary"]["env_validation_ready_for_preflight"] is False
+    assert payload["readiness_summary"]["env_validation_placeholder_count"] == 6
+    assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
     assert payload["operator_packet"]["operator_action_ids"] == ["fallback_action"]
 
 
