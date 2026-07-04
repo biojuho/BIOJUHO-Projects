@@ -35,12 +35,14 @@ def _runner_from_results(
 
 
 def _firebase_credentials_json() -> str:
+    begin = "-----BEGIN " + "PRIVATE KEY-----"
+    end = "-----END " + "PRIVATE KEY-----"
     return "\n".join(
         [
             "{",
             '  "type": "service_account",',
             '  "project_id": "agriguard-test",',
-            '  "private_key": "-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----\\n",',
+            f'  "private_key": "{begin}\\nFAKE\\n{end}\\n",',
             '  "client_email": "firebase-adminsdk-test@agriguard-test.iam.gserviceaccount.com",',
             '  "token_uri": "https://oauth2.googleapis.com/token"',
             "}",

@@ -198,8 +198,17 @@ def _env_file_args(env_files: list[Path]) -> list[str]:
     return args
 
 
-def _operator_env_template_validation_command(env_files: list[Path], app_root: Path, workspace_root: Path) -> str:
+def _operator_env_template_validation_command(
+    env_files: list[Path],
+    app_root: Path,
+    workspace_root: Path,
+    *,
+    json_out: Path | None = None,
+    markdown_out: Path | None = None,
+) -> str:
     env_file = env_files[0].resolve() if len(env_files) == 1 else _default_operator_env_file(workspace_root)
+    json_out = (json_out or (workspace_root / "var" / "agriguard-launch-env-template-validation.json")).resolve()
+    markdown_out = (markdown_out or (workspace_root / "var" / "agriguard-launch-env-template-validation.md")).resolve()
     return _format_command(
         [
             sys.executable,
@@ -209,11 +218,17 @@ def _operator_env_template_validation_command(env_files: list[Path], app_root: P
             "--env-file",
             str(env_file),
             "--json-out",
-            str((workspace_root / "var" / "agriguard-launch-env-template-validation.json").resolve()),
+            str(json_out),
             "--markdown-out",
-            str((workspace_root / "var" / "agriguard-launch-env-template-validation.md").resolve()),
+            str(markdown_out),
         ]
     )
+
+
+def _append_optional_path_args(command: list[str], options: list[tuple[str, Path | None]]) -> None:
+    for flag, path in options:
+        if path is not None:
+            command.extend([flag, str(path.resolve())])
 
 
 def _guarded_launch_command(
@@ -564,8 +579,15 @@ def build_operator_packet(
     *,
     preflight_json: Path,
     env_validation_json: Path | None = None,
+    env_validation_markdown: Path | None = None,
     env_files: list[Path] | None = None,
     app_root: Path | None = None,
+    compose_launch_report_json: Path | None = None,
+    operator_packet_json: Path | None = None,
+    operator_packet_markdown: Path | None = None,
+    operator_env_template: Path | None = None,
+    readiness_summary_json: Path | None = None,
+    readiness_summary_markdown: Path | None = None,
     guarded_output_dir: Path | None = None,
     guarded_output_prefix: str | None = None,
     guarded_status_json: Path | None = None,
@@ -582,6 +604,40 @@ def build_operator_packet(
     payload = _read_json(preflight_json)
     env_payload = _read_json(env_validation_json) if env_validation_json is not None else None
 
+    env_validation_json_out = (
+        env_validation_json or (workspace_root / "var" / "agriguard-launch-env-template-validation.json")
+    ).resolve()
+    env_validation_markdown_out = (
+        env_validation_markdown or (workspace_root / "var" / "agriguard-launch-env-template-validation.md")
+    ).resolve()
+    preflight_json_out = preflight_json.resolve()
+    compose_launch_report_json_out = (
+        compose_launch_report_json or (workspace_root / "var" / "agriguard-compose-launch-report.json")
+    ).resolve()
+    operator_packet_json_out = (
+        operator_packet_json or (workspace_root / "var" / "agriguard-launch-operator-packet.json")
+    ).resolve()
+    operator_packet_markdown_out = (
+        operator_packet_markdown or (workspace_root / "var" / "agriguard-launch-operator-packet.md")
+    ).resolve()
+    operator_env_template_out = (operator_env_template or _default_operator_env_file(workspace_root)).resolve()
+    readiness_summary_json_out = readiness_summary_json.resolve() if readiness_summary_json is not None else None
+    readiness_summary_markdown_out = (
+        readiness_summary_markdown.resolve() if readiness_summary_markdown is not None else None
+    )
+    guarded_context_requested = any(
+        value is not None
+        for value in (
+            guarded_output_dir,
+            guarded_output_prefix,
+            guarded_status_json,
+            guarded_handoff_json,
+            guarded_handoff_markdown,
+            guarded_handoff_validation_json,
+            guarded_handoff_consumer_json,
+            guarded_ready_gate_json,
+        )
+    )
     preflight_rel = _rel(preflight_json, workspace_root)
     env_validation_rel = _rel(env_validation_json, workspace_root) if env_validation_json is not None else None
     if payload is None:
@@ -609,29 +665,6 @@ def build_operator_packet(
         actions = _build_actions(errors)
 
     blocked = status != "pass" or bool(actions)
-    validate_env_template = _operator_env_template_validation_command(env_files, app_root, workspace_root)
-    rerun_preflight = _format_command(
-        [
-            sys.executable,
-            _script_path(app_root, "launch_env_preflight.py"),
-            "--check-docker",
-            "--json-out",
-            str((workspace_root / "var" / "agriguard-launch-env-preflight-compose-launch.json").resolve()),
-            *_env_file_args(env_files),
-        ]
-    )
-    rerun_launch = _format_command(
-        [
-            sys.executable,
-            _script_path(app_root, "launch_compose.py"),
-            "--app-root",
-            str(app_root.resolve()),
-            *_env_file_args(env_files),
-            "--run-browser-smoke",
-            "--launch-report-json",
-            str((workspace_root / "var" / "agriguard-compose-launch-report.json").resolve()),
-        ]
-    )
     guarded_output_dir = (guarded_output_dir or (workspace_root / "var")).resolve()
     guarded_output_prefix = guarded_output_prefix or run_guarded_launch.DEFAULT_OUTPUT_PREFIX
     guarded_status_json = (
@@ -639,6 +672,80 @@ def build_operator_packet(
         if guarded_status_json is not None
         else _default_status_json(guarded_output_dir, guarded_output_prefix)
     )
+    validate_env_template = _operator_env_template_validation_command(
+        env_files,
+        app_root,
+        workspace_root,
+        json_out=env_validation_json_out,
+        markdown_out=env_validation_markdown_out,
+    )
+    rerun_preflight = _format_command(
+        [
+            sys.executable,
+            _script_path(app_root, "launch_env_preflight.py"),
+            "--check-docker",
+            "--json-out",
+            str(preflight_json_out),
+            *_env_file_args(env_files),
+        ]
+    )
+    rerun_launch_parts = [
+        sys.executable,
+        _script_path(app_root, "launch_compose.py"),
+        "--app-root",
+        str(app_root.resolve()),
+        *_env_file_args(env_files),
+    ]
+    if len(env_files) == 1:
+        rerun_launch_parts.extend(
+            [
+                "--validate-env-file-shape",
+                "--env-validation-json-out",
+                str(env_validation_json_out),
+                "--env-validation-markdown-out",
+                str(env_validation_markdown_out),
+            ]
+        )
+    rerun_launch_parts.extend(
+        [
+            "--json-out",
+            str(preflight_json_out),
+            "--run-browser-smoke",
+            "--launch-report-json",
+            str(compose_launch_report_json_out),
+            "--operator-packet-json",
+            str(operator_packet_json_out),
+            "--operator-packet-markdown",
+            str(operator_packet_markdown_out),
+            "--operator-env-template",
+            str(operator_env_template_out),
+        ]
+    )
+    if readiness_summary_json_out is not None:
+        rerun_launch_parts.extend(["--readiness-summary-json", str(readiness_summary_json_out)])
+    if readiness_summary_markdown_out is not None:
+        rerun_launch_parts.extend(["--readiness-summary-markdown", str(readiness_summary_markdown_out)])
+    if guarded_context_requested:
+        rerun_launch_parts.extend(
+            [
+                "--guarded-output-dir",
+                str(guarded_output_dir),
+                "--guarded-output-prefix",
+                guarded_output_prefix,
+            ]
+        )
+        _append_optional_path_args(
+            rerun_launch_parts,
+            [
+                ("--guarded-status-json", guarded_status_json),
+                ("--guarded-handoff-json", guarded_handoff_json),
+                ("--guarded-handoff-markdown", guarded_handoff_markdown),
+                ("--guarded-handoff-validation-json", guarded_handoff_validation_json),
+                ("--guarded-handoff-consumer-json", guarded_handoff_consumer_json),
+                ("--guarded-ready-gate-json", guarded_ready_gate_json),
+            ],
+        )
+    rerun_launch = _format_command(rerun_launch_parts)
     guarded_launch = _guarded_launch_command(
         env_files,
         app_root,
@@ -895,6 +1002,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional dotenv template with redacted launch variable placeholders.",
     )
     parser.add_argument(
+        "--env-validation-markdown",
+        type=Path,
+        default=None,
+        help="Env-shape validation Markdown path to embed in safe rerun commands.",
+    )
+    parser.add_argument(
+        "--compose-launch-report-json",
+        type=Path,
+        default=None,
+        help="Compose launch report JSON path to embed in safe rerun commands.",
+    )
+    parser.add_argument(
+        "--readiness-summary-json",
+        type=Path,
+        default=None,
+        help="Launch readiness summary JSON path to embed in safe rerun commands.",
+    )
+    parser.add_argument(
+        "--readiness-summary-markdown",
+        type=Path,
+        default=None,
+        help="Launch readiness summary Markdown path to embed in safe rerun commands.",
+    )
+    parser.add_argument(
         "--guarded-output-dir",
         type=Path,
         default=None,
@@ -929,8 +1060,19 @@ def main(argv: list[str] | None = None) -> int:
     packet = build_operator_packet(
         preflight_json=args.preflight_json.resolve(),
         env_validation_json=args.env_validation_json.resolve() if args.env_validation_json else None,
+        env_validation_markdown=args.env_validation_markdown.resolve() if args.env_validation_markdown else None,
         env_files=[env_file.resolve() for env_file in args.env_file],
         app_root=args.app_root.resolve(),
+        compose_launch_report_json=args.compose_launch_report_json.resolve()
+        if args.compose_launch_report_json
+        else None,
+        operator_packet_json=args.json_out.resolve(),
+        operator_packet_markdown=args.markdown_out.resolve(),
+        operator_env_template=args.env_template_out.resolve() if args.env_template_out else None,
+        readiness_summary_json=args.readiness_summary_json.resolve() if args.readiness_summary_json else None,
+        readiness_summary_markdown=args.readiness_summary_markdown.resolve()
+        if args.readiness_summary_markdown
+        else None,
         guarded_output_dir=args.guarded_output_dir.resolve() if args.guarded_output_dir else None,
         guarded_output_prefix=args.guarded_output_prefix,
         guarded_status_json=args.guarded_status_json.resolve() if args.guarded_status_json else None,

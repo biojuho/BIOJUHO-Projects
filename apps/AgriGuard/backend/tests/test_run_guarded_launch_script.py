@@ -199,6 +199,9 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert _arg_after(payload["operator_packet_refresh_command"], "--env-validation-json") == str(
         output_dir.resolve() / "release-check-env-validation.json"
     )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--env-validation-markdown") == str(
+        output_dir.resolve() / "release-check-env-validation.md"
+    )
     assert _arg_after(payload["operator_packet_refresh_command"], "--env-file") == str(env_file.resolve())
     assert _arg_after(payload["operator_packet_refresh_command"], "--json-out") == str(
         output_dir.resolve() / "release-check-operator-packet.json"
@@ -208,6 +211,15 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     )
     assert _arg_after(payload["operator_packet_refresh_command"], "--env-template-out") == str(
         output_dir.resolve() / "release-check.env.template"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--compose-launch-report-json") == str(
+        output_dir.resolve() / "release-check-launch-report.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--readiness-summary-json") == str(
+        output_dir.resolve() / "release-check-readiness-summary.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--readiness-summary-markdown") == str(
+        output_dir.resolve() / "release-check-readiness-summary.md"
     )
     assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-output-dir") == str(output_dir.resolve())
     assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-output-prefix") == "release-check"

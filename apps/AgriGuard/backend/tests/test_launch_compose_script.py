@@ -98,6 +98,10 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
         str(launch_compose._default_operator_env_template_out(app_root.resolve())),
         "--env-validation-json",
         str(launch_compose._default_env_validation_json_out(app_root.resolve())),
+        "--env-validation-markdown",
+        str(launch_compose._default_env_validation_markdown_out(app_root.resolve())),
+        "--compose-launch-report-json",
+        str(launch_compose._default_launch_report_json_out(app_root.resolve())),
         "--exit-zero-on-blocked",
     ]
     assert payload["will_run_browser_smoke_after_compose"] is False
@@ -192,6 +196,12 @@ def test_launch_compose_dry_run_env_shape_validation_plan(tmp_path: Path, capsys
         str(validation_markdown.resolve()),
     ]
     assert payload["preflight_command"][-2:] == ["--env-file", str(env_file.resolve())]
+    assert _arg_after(payload["operator_packet_command"], "--env-validation-markdown") == str(
+        validation_markdown.resolve()
+    )
+    assert _arg_after(payload["operator_packet_command"], "--compose-launch-report-json") == str(
+        launch_compose._default_launch_report_json_out(app_root.resolve())
+    )
     assert ["--env-file", str(env_file.resolve())] in [
         payload["operator_packet_command"][index : index + 2]
         for index in range(len(payload["operator_packet_command"]) - 1)
@@ -239,6 +249,10 @@ def test_launch_compose_dry_run_readiness_summary_plan(tmp_path: Path, capsys) -
         "--markdown-out",
         str(summary_markdown.resolve()),
     ]
+    assert _arg_after(payload["operator_packet_command"], "--readiness-summary-json") == str(summary_json.resolve())
+    assert _arg_after(payload["operator_packet_command"], "--readiness-summary-markdown") == str(
+        summary_markdown.resolve()
+    )
 
 
 def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, capsys) -> None:

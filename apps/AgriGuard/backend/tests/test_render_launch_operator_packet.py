@@ -187,7 +187,7 @@ def test_operator_packet_preserves_env_file_in_safe_rerun_commands(tmp_path: Pat
             _script(app_root, "launch_env_preflight.py"),
             "--check-docker",
             "--json-out",
-            tmp_path / "var" / "agriguard-launch-env-preflight-compose-launch.json",
+            preflight,
             "--env-file",
             env_file,
         ]
@@ -200,9 +200,22 @@ def test_operator_packet_preserves_env_file_in_safe_rerun_commands(tmp_path: Pat
             app_root,
             "--env-file",
             env_file,
+            "--validate-env-file-shape",
+            "--env-validation-json-out",
+            tmp_path / "var" / "agriguard-launch-env-template-validation.json",
+            "--env-validation-markdown-out",
+            tmp_path / "var" / "agriguard-launch-env-template-validation.md",
+            "--json-out",
+            preflight,
             "--run-browser-smoke",
             "--launch-report-json",
             tmp_path / "var" / "agriguard-compose-launch-report.json",
+            "--operator-packet-json",
+            tmp_path / "var" / "agriguard-launch-operator-packet.json",
+            "--operator-packet-markdown",
+            tmp_path / "var" / "agriguard-launch-operator-packet.md",
+            "--operator-env-template",
+            tmp_path / "var" / "agriguard-launch-operator.env.template",
         ]
     )
     assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
@@ -324,6 +337,133 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
     ]
     assert summary["env_validation_ready_for_preflight"] is True
     assert summary["env_validation_placeholder_count"] == 0
+
+
+def test_operator_packet_can_target_custom_direct_rerun_outputs(tmp_path: Path) -> None:
+    app_root = tmp_path / "apps" / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    env_file = output_dir / "operator.env"
+    preflight = output_dir / "release-check-preflight.json"
+    env_validation = output_dir / "release-check-env-validation.json"
+    env_validation_markdown = output_dir / "release-check-env-validation.md"
+    launch_report = output_dir / "release-check-launch-report.json"
+    operator_packet_json = output_dir / "release-check-operator-packet.json"
+    operator_packet_markdown = output_dir / "release-check-operator-packet.md"
+    operator_env_template = output_dir / "release-check.env.template"
+    readiness_summary_json = output_dir / "release-check-readiness-summary.json"
+    readiness_summary_markdown = output_dir / "release-check-readiness-summary.md"
+    status_json = output_dir / "release-check-status.json"
+    handoff_json = output_dir / "release-check-handoff.json"
+    handoff_markdown = output_dir / "release-check-handoff.md"
+    handoff_validation_json = output_dir / "release-check-handoff.validation.json"
+    handoff_consumer_json = output_dir / "release-check-handoff.consumer.json"
+    ready_gate_json = output_dir / "release-check-ready-gate.json"
+    preflight.parent.mkdir(parents=True)
+    preflight.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "errors": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."],
+                "warnings": [],
+                "checks": {"runtime": "compose", "docker_checked": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=preflight,
+        env_validation_json=env_validation,
+        env_validation_markdown=env_validation_markdown,
+        env_files=[env_file],
+        app_root=app_root,
+        compose_launch_report_json=launch_report,
+        operator_packet_json=operator_packet_json,
+        operator_packet_markdown=operator_packet_markdown,
+        operator_env_template=operator_env_template,
+        readiness_summary_json=readiness_summary_json,
+        readiness_summary_markdown=readiness_summary_markdown,
+        guarded_output_dir=output_dir,
+        guarded_output_prefix="release-check",
+        guarded_status_json=status_json,
+        guarded_handoff_json=handoff_json,
+        guarded_handoff_markdown=handoff_markdown,
+        guarded_handoff_validation_json=handoff_validation_json,
+        guarded_handoff_consumer_json=handoff_consumer_json,
+        guarded_ready_gate_json=ready_gate_json,
+    )
+
+    assert packet["safe_rerun_commands"][0] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "validate_launch_env_template.py"),
+            "--app-root",
+            app_root,
+            "--env-file",
+            env_file,
+            "--json-out",
+            env_validation,
+            "--markdown-out",
+            env_validation_markdown,
+        ]
+    )
+    assert packet["safe_rerun_commands"][2] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "launch_env_preflight.py"),
+            "--check-docker",
+            "--json-out",
+            preflight,
+            "--env-file",
+            env_file,
+        ]
+    )
+    assert packet["safe_rerun_commands"][3] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "launch_compose.py"),
+            "--app-root",
+            app_root,
+            "--env-file",
+            env_file,
+            "--validate-env-file-shape",
+            "--env-validation-json-out",
+            env_validation,
+            "--env-validation-markdown-out",
+            env_validation_markdown,
+            "--json-out",
+            preflight,
+            "--run-browser-smoke",
+            "--launch-report-json",
+            launch_report,
+            "--operator-packet-json",
+            operator_packet_json,
+            "--operator-packet-markdown",
+            operator_packet_markdown,
+            "--operator-env-template",
+            operator_env_template,
+            "--readiness-summary-json",
+            readiness_summary_json,
+            "--readiness-summary-markdown",
+            readiness_summary_markdown,
+            "--guarded-output-dir",
+            output_dir,
+            "--guarded-output-prefix",
+            "release-check",
+            "--guarded-status-json",
+            status_json,
+            "--guarded-handoff-json",
+            handoff_json,
+            "--guarded-handoff-markdown",
+            handoff_markdown,
+            "--guarded-handoff-validation-json",
+            handoff_validation_json,
+            "--guarded-handoff-consumer-json",
+            handoff_consumer_json,
+            "--guarded-ready-gate-json",
+            ready_gate_json,
+        ]
+    )
 
 
 def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:

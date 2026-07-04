@@ -353,10 +353,14 @@ def _build_operator_packet_command(
     *,
     preflight_json: Path,
     env_validation_json: Path | None,
+    env_validation_markdown: Path | None,
+    launch_report_json: Path,
     env_files: list[Path],
     json_out: Path,
     markdown_out: Path,
     env_template_out: Path,
+    readiness_summary_json: Path | None,
+    readiness_summary_markdown: Path | None,
     guarded_output_dir: Path | None,
     guarded_output_prefix: str | None,
     guarded_status_json: Path | None,
@@ -382,6 +386,13 @@ def _build_operator_packet_command(
     ]
     if env_validation_json is not None:
         command.extend(["--env-validation-json", str(env_validation_json)])
+    if env_validation_markdown is not None:
+        command.extend(["--env-validation-markdown", str(env_validation_markdown)])
+    command.extend(["--compose-launch-report-json", str(launch_report_json)])
+    if readiness_summary_json is not None:
+        command.extend(["--readiness-summary-json", str(readiness_summary_json)])
+    if readiness_summary_markdown is not None:
+        command.extend(["--readiness-summary-markdown", str(readiness_summary_markdown)])
     guarded_path_options = [
         ("--guarded-output-dir", guarded_output_dir),
         ("--guarded-status-json", guarded_status_json),
@@ -687,10 +698,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         app_root,
         preflight_json=json_out,
         env_validation_json=env_validation_json_out,
+        env_validation_markdown=env_validation_markdown_out,
+        launch_report_json=launch_report_json,
         env_files=env_files,
         json_out=operator_packet_json,
         markdown_out=operator_packet_markdown,
         env_template_out=operator_env_template,
+        readiness_summary_json=readiness_summary_json,
+        readiness_summary_markdown=readiness_summary_markdown,
         guarded_output_dir=guarded_output_dir,
         guarded_output_prefix=args.guarded_output_prefix,
         guarded_status_json=guarded_status_json,
