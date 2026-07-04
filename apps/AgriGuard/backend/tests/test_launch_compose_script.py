@@ -29,6 +29,14 @@ def _write_operator_packet_outputs(command: list[str]) -> None:
                 "operator_env_template": {
                     "variables": ["AGRIGUARD_SECRET_KEY"],
                 },
+                "guarded_launch_evidence": {
+                    "artifact_index_readiness_summary": {
+                        "status": "pass",
+                        "consumer_packet_validation_status": "pass",
+                        "consumer_command_metadata_status": "pass",
+                        "recovery_command_status": "not_required",
+                    },
+                },
                 "secrets_redacted": True,
             }
         ),
@@ -326,6 +334,7 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     assert report["child_reports"]["operator_packet"]["found"] is True
     assert report["child_reports"]["operator_packet"]["preflight_status"] == "env_shape_blocked"
     assert report["child_reports"]["operator_packet"]["operator_action_ids"] == ["fix_env_shape_validation"]
+    assert report["child_reports"]["operator_packet"]["consumer_command_metadata_status"] == "pass"
 
 
 def test_launch_compose_runs_preflight_after_env_shape_validation_passes(tmp_path: Path) -> None:
@@ -450,6 +459,14 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
                         "operator_env_template": {
                             "variables": ["AGRIGUARD_SECRET_KEY"],
                         },
+                        "guarded_launch_evidence": {
+                            "artifact_index_readiness_summary": {
+                                "status": "pass",
+                                "consumer_packet_validation_status": "pass",
+                                "consumer_command_metadata_status": "pass",
+                                "recovery_command_status": "not_required",
+                            },
+                        },
                         "secrets_redacted": True,
                     }
                 ),
@@ -502,6 +519,10 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "blocking_action_count": 1,
         "operator_action_ids": ["set_secret_key"],
         "env_template_variables": ["AGRIGUARD_SECRET_KEY"],
+        "artifact_index_status": "pass",
+        "consumer_packet_validation_status": "pass",
+        "consumer_command_metadata_status": "pass",
+        "artifact_index_recovery_command_status": "not_required",
         "secrets_redacted": True,
     }
 

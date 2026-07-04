@@ -199,7 +199,7 @@ def _summarize_operator_packet_json(
         if isinstance(env_template.get("variables"), list)
         else []
     )
-    return {
+    summary = {
         "found": True,
         "path": str(path),
         "markdown_path": str(markdown_path),
@@ -212,6 +212,32 @@ def _summarize_operator_packet_json(
         "env_template_variables": template_variables,
         "secrets_redacted": payload.get("secrets_redacted"),
     }
+    guarded_evidence = (
+        payload.get("guarded_launch_evidence")
+        if isinstance(payload.get("guarded_launch_evidence"), dict)
+        else {}
+    )
+    artifact_index_summary = (
+        guarded_evidence.get("artifact_index_readiness_summary")
+        if isinstance(guarded_evidence.get("artifact_index_readiness_summary"), dict)
+        else {}
+    )
+    if artifact_index_summary:
+        summary.update(
+            {
+                "artifact_index_status": artifact_index_summary.get("status"),
+                "consumer_packet_validation_status": artifact_index_summary.get(
+                    "consumer_packet_validation_status"
+                ),
+                "consumer_command_metadata_status": artifact_index_summary.get(
+                    "consumer_command_metadata_status"
+                ),
+                "artifact_index_recovery_command_status": artifact_index_summary.get(
+                    "recovery_command_status"
+                ),
+            }
+        )
+    return summary
 
 
 def _summarize_readiness_next_commands(payload: dict[str, object]) -> list[dict[str, str]]:

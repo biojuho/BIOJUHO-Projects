@@ -540,6 +540,27 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
             encoding="utf-8",
         )
 
+    def write_initial_launch_report() -> None:
+        artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["launch_report_json"].write_text(
+            json.dumps(
+                {
+                    "status": "fail",
+                    "stage": "preflight",
+                    "child_reports": {
+                        "operator_packet": {
+                            "found": True,
+                            "path": str(artifacts["operator_packet_json"]),
+                            "preflight_status": "fail",
+                            "consumer_command_metadata_status": None,
+                        }
+                    },
+                    "results": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+
     def write_refreshed_operator_packet() -> None:
         artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
         artifacts["operator_packet_json"].write_text(
@@ -549,6 +570,10 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
                     "operator_actions": [{"id": "set_firebase_service_account_file"}],
                     "guarded_launch_evidence": {
                         "artifact_index_readiness_summary": {
+                            "status": "pass",
+                            "consumer_packet_validation_status": "pass",
+                            "consumer_command_metadata_status": "pass",
+                            "recovery_command_status": "not_required",
                             "operator_action_ids": ["set_firebase_service_account_file"],
                             "env_validation_ready_for_preflight": True,
                             "env_validation_placeholder_count": 0,
@@ -563,6 +588,8 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
     def runner(command, **kwargs):
         script_name = Path(command[1]).name
         calls.append(script_name)
+        if script_name == "launch_compose.py":
+            write_initial_launch_report()
         if script_name == "index_guarded_launch_artifacts.py":
             write_artifact_index(Path(_arg_after(command, "--json-out")))
         if script_name == "render_launch_operator_packet.py":
@@ -607,6 +634,12 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
     ]
     assert packet_refresh_saw_index == [True]
     assert second_handoff_action_ids == [["set_firebase_service_account_file"]]
+    launch_report = json.loads(artifacts["launch_report_json"].read_text(encoding="utf-8"))
+    operator_packet = launch_report["child_reports"]["operator_packet"]
+    assert operator_packet["artifact_index_status"] == "pass"
+    assert operator_packet["consumer_packet_validation_status"] == "pass"
+    assert operator_packet["consumer_command_metadata_status"] == "pass"
+    assert operator_packet["artifact_index_recovery_command_status"] == "not_required"
 
 
 def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_path: Path) -> None:

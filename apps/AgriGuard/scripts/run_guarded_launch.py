@@ -336,6 +336,52 @@ def _build_status_view(
     }
 
 
+def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dict[str, object]:
+    if packet is None:
+        return {}
+    evidence = packet.get("guarded_launch_evidence") if isinstance(packet.get("guarded_launch_evidence"), dict) else {}
+    artifact_index_summary = (
+        evidence.get("artifact_index_readiness_summary")
+        if isinstance(evidence.get("artifact_index_readiness_summary"), dict)
+        else {}
+    )
+    if not artifact_index_summary:
+        return {}
+    return {
+        "artifact_index_status": artifact_index_summary.get("status"),
+        "consumer_packet_validation_status": artifact_index_summary.get(
+            "consumer_packet_validation_status"
+        ),
+        "consumer_command_metadata_status": artifact_index_summary.get(
+            "consumer_command_metadata_status"
+        ),
+        "artifact_index_recovery_command_status": artifact_index_summary.get(
+            "recovery_command_status"
+        ),
+    }
+
+
+def _refresh_launch_report_operator_packet_fields(
+    *,
+    launch_report_json: Path,
+    operator_packet_json: Path,
+) -> bool:
+    launch_report = _read_json(launch_report_json)
+    packet = _read_json(operator_packet_json)
+    fields = _operator_packet_artifact_index_fields(packet)
+    if launch_report is None or not fields:
+        return False
+    child_reports = launch_report.get("child_reports")
+    if not isinstance(child_reports, dict):
+        return False
+    operator_packet = child_reports.get("operator_packet")
+    if not isinstance(operator_packet, dict):
+        return False
+    operator_packet.update(fields)
+    write_json(launch_report_json, launch_report)
+    return True
+
+
 def _status_view_ready(status_view: dict[str, object]) -> bool:
     return status_view.get("status") == "ready" and status_view.get("blocker_class") == "ready"
 
@@ -1022,6 +1068,10 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         operator_packet_refresh_result = command_runner(operator_packet_refresh_command, cwd=app_root, text=True)
         if operator_packet_refresh_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = operator_packet_refresh_result.returncode
+        _refresh_launch_report_operator_packet_fields(
+            launch_report_json=artifact_paths["launch_report_json"],
+            operator_packet_json=artifact_paths["operator_packet_json"],
+        )
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
         if handoff_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = handoff_result.returncode
