@@ -157,6 +157,13 @@ def _operator_env_template_validation_command() -> str:
     )
 
 
+def _guarded_launch_command() -> str:
+    return (
+        "python apps/AgriGuard/scripts/run_guarded_launch.py "
+        "--env-file var/agriguard-launch-operator.env.template"
+    )
+
+
 def _redact_text(value: object) -> str:
     text = str(value)
     return SENSITIVE_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}<redacted>", text)
@@ -269,6 +276,7 @@ def build_operator_packet(
         "python apps/AgriGuard/scripts/launch_compose.py "
         "--run-browser-smoke --launch-report-json var/agriguard-compose-launch-report.json"
     )
+    guarded_launch = _guarded_launch_command()
 
     return {
         "schema_version": 1,
@@ -296,7 +304,7 @@ def build_operator_packet(
             "variables": [entry["key"] for entry in ENV_TEMPLATE_ENTRIES],
             "validation_command": validate_env_template,
         },
-        "safe_rerun_commands": [validate_env_template, rerun_preflight, rerun_launch],
+        "safe_rerun_commands": [validate_env_template, guarded_launch, rerun_preflight, rerun_launch],
     }
 
 
