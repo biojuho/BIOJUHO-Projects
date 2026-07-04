@@ -170,6 +170,10 @@ def _next_actions(blocker_class: str) -> list[str]:
     return ["Run launch_compose.py or provide report paths to classify the current blocker."]
 
 
+def _command_shell(command: str) -> str | None:
+    return "powershell" if command.lstrip().startswith("&") else None
+
+
 def _next_commands(blocker_class: str, operator_packet: dict[str, object]) -> list[dict[str, str]]:
     if blocker_class not in {"env_shape_blocked", "preflight_blocked", "operator_values_required"}:
         return []
@@ -189,7 +193,11 @@ def _next_commands(blocker_class: str, operator_packet: dict[str, object]) -> li
         if not isinstance(command, str) or not command.strip():
             continue
         name = labels[index] if index < len(labels) else f"safe_rerun_{index + 1}"
-        commands.append({"name": name, "command": command})
+        item = {"name": name, "command": command}
+        shell = _command_shell(command)
+        if shell is not None:
+            item["shell"] = shell
+        commands.append(item)
     return commands
 
 
@@ -260,7 +268,9 @@ def render_markdown(summary: dict[str, object]) -> str:
     if next_commands:
         for item in next_commands:
             if isinstance(item, dict):
-                lines.append(f"- `{item.get('name')}`: `{item.get('command')}`")
+                shell = item.get("shell")
+                shell_text = f" ({shell})" if isinstance(shell, str) else ""
+                lines.append(f"- `{item.get('name')}`{shell_text}: `{item.get('command')}`")
     else:
         lines.append("No copyable next commands are available for the current evidence set.")
     lines.append("")
