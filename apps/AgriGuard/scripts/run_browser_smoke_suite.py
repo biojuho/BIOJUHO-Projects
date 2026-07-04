@@ -9,7 +9,6 @@ import uuid
 from pathlib import Path
 from urllib import error, parse, request
 
-
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = "http://127.0.0.1:8002"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
@@ -22,6 +21,8 @@ REQUIRED_BACKEND_OPENAPI_PATHS = (
     "/sensor-devices",
     "/sensor-devices/{sensor_id}",
 )
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+MIN_SCREENSHOT_BYTES = 512
 
 
 class BrowserSmokeStep:
@@ -255,6 +256,106 @@ def _tail(value: str, *, limit: int = 1200) -> str:
     return value[-limit:] if len(value) > limit else value
 
 
+def _dedupe_paths(paths: list[Path]) -> list[Path]:
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for path in paths:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(path)
+    return unique
+
+
+def _png_dimensions(path: Path) -> tuple[int, int] | None:
+    try:
+        header = path.read_bytes()[:24]
+    except OSError:
+        return None
+    if len(header) < 24 or not header.startswith(PNG_SIGNATURE) or header[12:16] != b"IHDR":
+        return None
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def _artifact_path(value: object) -> Path | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return Path(value)
+
+
+def collect_screenshot_artifacts(payload: object) -> list[Path]:
+    artifacts: list[Path] = []
+
+    def walk(value: object, key: str = "") -> None:
+        normalized_key = key.lower()
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                walk(child_value, str(child_key))
+            return
+        if isinstance(value, list):
+            for item in value:
+                walk(item, key)
+            return
+        if normalized_key == "screenshot":
+            path = _artifact_path(value)
+            if path is not None:
+                artifacts.append(path)
+            return
+        if normalized_key in {"screenshotdir", "screenshot_dir"}:
+            path = _artifact_path(value)
+            if path is not None:
+                if path.exists() and path.is_dir():
+                    pngs = sorted(path.glob("*.png"))
+                    artifacts.extend(pngs if pngs else [path / "*.png"])
+                else:
+                    artifacts.append(path)
+
+    walk(payload)
+    return _dedupe_paths(artifacts)
+
+
+def validate_screenshot_artifacts(payload: object) -> dict[str, object]:
+    artifact_reports: list[dict[str, object]] = []
+    for path in collect_screenshot_artifacts(payload):
+        exists = path.exists()
+        size_bytes = path.stat().st_size if exists else 0
+        dimensions = _png_dimensions(path) if exists else None
+        reason = ""
+        if not exists:
+            reason = "missing"
+        elif path.is_dir():
+            reason = "no PNG screenshots in directory"
+        elif size_bytes < MIN_SCREENSHOT_BYTES:
+            reason = f"too small: {size_bytes} bytes"
+        elif dimensions is None:
+            reason = "invalid PNG header"
+        ok = exists and not path.is_dir() and size_bytes >= MIN_SCREENSHOT_BYTES and dimensions is not None
+        artifact_reports.append(
+            {
+                "path": str(path),
+                "ok": ok,
+                "size_bytes": size_bytes,
+                "width": dimensions[0] if dimensions is not None else None,
+                "height": dimensions[1] if dimensions is not None else None,
+                "reason": reason,
+            }
+        )
+
+    failed = [report for report in artifact_reports if report["ok"] is not True]
+    return {
+        "screenshot_artifacts_total": len(artifact_reports),
+        "screenshot_artifacts_passed": len(artifact_reports) - len(failed),
+        "screenshot_artifacts_failed": len(failed),
+        "failed_screenshot_artifacts": [str(report["path"]) for report in failed],
+        "screenshot_artifacts": artifact_reports,
+    }
+
+
 def _openapi_url(api_url: str) -> str:
     return api_url.rstrip("/") + "/openapi.json"
 
@@ -482,8 +583,10 @@ def summarize_child_report(path: Path) -> dict[str, object]:
             "checks_passed": 0,
             "checks_failed": 0,
             "failed_check_names": [],
+            **validate_screenshot_artifacts({}),
         }
     payload = json.loads(path.read_text(encoding="utf-8"))
+    artifact_summary = validate_screenshot_artifacts(payload)
     checks = payload.get("checks")
     if not isinstance(checks, list):
         return {
@@ -492,6 +595,7 @@ def summarize_child_report(path: Path) -> dict[str, object]:
             "checks_passed": 0,
             "checks_failed": 0,
             "failed_check_names": [],
+            **artifact_summary,
         }
     checks_passed = sum(1 for check in checks if isinstance(check, dict) and check.get("ok") is True)
     checks_total = len(checks)
@@ -506,6 +610,7 @@ def summarize_child_report(path: Path) -> dict[str, object]:
         "checks_passed": checks_passed,
         "checks_failed": checks_total - checks_passed,
         "failed_check_names": failed_check_names,
+        **artifact_summary,
     }
 
 
@@ -528,7 +633,9 @@ def run_step(step: BrowserSmokeStep, *, operator_token: str, timeout_ms: int, dr
     child_summary = summarize_child_report(step.json_out)
     return {
         "name": step.name,
-        "ok": completed.returncode == 0 and child_summary.get("checks_failed") == 0,
+        "ok": completed.returncode == 0
+        and child_summary.get("checks_failed") == 0
+        and child_summary.get("screenshot_artifacts_failed") == 0,
         "dry_run": False,
         "command": redact_command(step.command, operator_token=operator_token),
         "json_out": str(step.json_out),
@@ -621,6 +728,12 @@ def main() -> int:
         for check_name in result.get("failed_check_names", [])
         if isinstance(check_name, str)
     ]
+    failed_screenshot_artifacts = [
+        f"{result.get('name')}:{artifact}"
+        for result in results
+        for artifact in result.get("failed_screenshot_artifacts", [])
+        if isinstance(artifact, str)
+    ]
     failed_precheck_names = [
         str(precheck.get("name") or f"precheck_{index}")
         for index, precheck in enumerate(prechecks, start=1)
@@ -643,6 +756,16 @@ def main() -> int:
             "checks_passed": sum(int(result.get("checks_passed", 0)) for result in results),
             "checks_failed": sum(int(result.get("checks_failed", 0)) for result in results),
             "failed_check_names": failed_check_names,
+            "screenshot_artifacts_total": sum(
+                int(result.get("screenshot_artifacts_total", 0)) for result in results
+            ),
+            "screenshot_artifacts_passed": sum(
+                int(result.get("screenshot_artifacts_passed", 0)) for result in results
+            ),
+            "screenshot_artifacts_failed": sum(
+                int(result.get("screenshot_artifacts_failed", 0)) for result in results
+            ),
+            "failed_screenshot_artifacts": failed_screenshot_artifacts,
             "prechecks_total": len(prechecks),
             "prechecks_passed": prechecks_passed,
             "prechecks_failed": prechecks_failed,

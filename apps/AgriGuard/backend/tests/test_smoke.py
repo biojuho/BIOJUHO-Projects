@@ -402,6 +402,11 @@ def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
         "checks_passed": 2,
         "checks_failed": 1,
         "failed_check_names": ["qr_failed"],
+        "screenshot_artifacts_total": 0,
+        "screenshot_artifacts_passed": 0,
+        "screenshot_artifacts_failed": 0,
+        "failed_screenshot_artifacts": [],
+        "screenshot_artifacts": [],
     }
 
 
@@ -416,6 +421,56 @@ def test_browser_smoke_suite_summarizes_unnamed_failed_child_check(tmp_path: Pat
     summary = script.summarize_child_report(report_path)
 
     assert summary["failed_check_names"] == ["check_1"]
+
+
+def test_browser_smoke_suite_validates_screenshot_artifacts(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_screenshot_artifacts_under_test",
+    )
+    screenshot = tmp_path / "screen.png"
+    png_header = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR"
+        b"\x00\x00\x00\x02"
+        b"\x00\x00\x00\x03"
+        b"\x08\x02\x00\x00\x00"
+    )
+    screenshot.write_bytes(png_header + (b"\x00" * script.MIN_SCREENSHOT_BYTES))
+    report_path = tmp_path / "child.json"
+    report_path.write_text(
+        json.dumps({"checks": [{"name": "rendered", "ok": True}], "screenshot": str(screenshot)}),
+        encoding="utf-8",
+    )
+
+    summary = script.summarize_child_report(report_path)
+
+    assert summary["screenshot_artifacts_total"] == 1
+    assert summary["screenshot_artifacts_passed"] == 1
+    assert summary["screenshot_artifacts_failed"] == 0
+    assert summary["screenshot_artifacts"][0]["width"] == 2
+    assert summary["screenshot_artifacts"][0]["height"] == 3
+
+
+def test_browser_smoke_suite_fails_corrupt_screenshot_artifact(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_corrupt_screenshot_under_test",
+    )
+    screenshot = tmp_path / "screen.png"
+    screenshot.write_bytes(b"not-a-png")
+    report_path = tmp_path / "child.json"
+    report_path.write_text(
+        json.dumps({"checks": [{"name": "rendered", "ok": True}], "screenshot": str(screenshot)}),
+        encoding="utf-8",
+    )
+
+    summary = script.summarize_child_report(report_path)
+
+    assert summary["screenshot_artifacts_total"] == 1
+    assert summary["screenshot_artifacts_passed"] == 0
+    assert summary["screenshot_artifacts_failed"] == 1
+    assert summary["failed_screenshot_artifacts"] == [str(screenshot)]
 
 
 def test_browser_smoke_suite_backend_contract_accepts_required_paths():

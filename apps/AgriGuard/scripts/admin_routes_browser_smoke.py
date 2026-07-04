@@ -11,7 +11,6 @@ from urllib import error, parse, request
 
 from playwright.sync_api import Page, sync_playwright
 
-
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = "http://127.0.0.1:8002"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
@@ -225,6 +224,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         "status": "pass" if ok else "fail",
         "checks": checks,
         "observations": observations,
+        "screenshotDir": str(screenshot_dir),
     }
 
 
@@ -237,6 +237,7 @@ def main() -> int:
             "status": "fail",
             "checks": [check("unhandled_exception", False, str(exc))],
             "observations": {},
+            "screenshotDir": args.screenshot_dir,
         }
     write_json(args.json_out, result)
     print(f"admin routes browser smoke {result['status']}: {args.json_out}")
