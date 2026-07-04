@@ -369,6 +369,89 @@ def test_desci_launch_handoff_refresh_defaults_blank_status_topic_to_desci(
     assert json.loads(status_json.read_text(encoding="utf-8"))["preferred_topic"] == "DeSci"
 
 
+def test_desci_launch_handoff_refresh_final_status_uses_active_bundle(
+    monkeypatch,
+    tmp_path,
+):
+    refresh = load_refresh_module()
+    live_commit = "4" * 40
+    radar = tmp_path / "apps" / "desci-platform" / "var" / "radar.json"
+    radar_md = tmp_path / "apps" / "desci-platform" / "docs" / "reports" / "2026-07" / "RADAR.md"
+    status_json = tmp_path / "apps" / "desci-platform" / "var" / "status.json"
+    status_md = tmp_path / "apps" / "desci-platform" / "docs" / "reports" / "2026-07" / "STATUS.md"
+    scan_json = tmp_path / "apps" / "desci-platform" / "var" / "desci-launch-secret-scan-active.json"
+    bundle_json = tmp_path / "apps" / "desci-platform" / "var" / "desci-launch-handoff-refresh-active.json"
+    radar.parent.mkdir(parents=True, exist_ok=True)
+    radar.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "sources": [
+                    {
+                        "repo": "Veritas-7/autoresearch-skill-system",
+                        "latest_observed_commit": live_commit,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    radar_md.parent.mkdir(parents=True, exist_ok=True)
+    radar_md.write_text("# radar\n", encoding="utf-8")
+    formatted_reports = []
+
+    def fake_build_status(**kwargs):
+        report = desci_status(live_commit)
+        report["desci"] = {
+            "handoff_refresh": {
+                "path": "var/desci-launch-handoff-refresh-stale.json",
+                "live_source_status": "not_checked",
+            },
+            "launch_handoff_secret_scan": {
+                "path": "var/desci-launch-secret-scan-stale.json",
+                "scanned_paths": [],
+            },
+        }
+        return report
+
+    def fake_format_markdown(report):
+        formatted_reports.append(json.loads(json.dumps(report)))
+        return report["desci"]["handoff_refresh"]["path"]
+
+    monkeypatch.setattr(refresh.auto_research_status, "build_status", fake_build_status)
+    monkeypatch.setattr(refresh.auto_research_status, "format_markdown", fake_format_markdown)
+    monkeypatch.setattr(
+        refresh.desci_launch_secret_scan,
+        "build_desci_launch_secret_scan",
+        lambda **kwargs: clean_scan(scanned=19),
+    )
+
+    bundle = refresh.refresh_desci_launch_handoff(
+        workspace_root=tmp_path,
+        radar_json=radar,
+        radar_markdown_out=radar_md,
+        status_json_out=status_json,
+        status_markdown_out=status_md,
+        secret_scan_json_out=scan_json,
+        bundle_json_out=bundle_json,
+        live_source_commit=live_commit,
+        auto_refresh_radar=False,
+    )
+    status_payload = json.loads(status_json.read_text(encoding="utf-8"))
+    handoff = status_payload["desci"]["handoff_refresh"]
+    secret_scan = status_payload["desci"]["launch_handoff_secret_scan"]
+
+    assert bundle["ok"] is True
+    assert handoff["path"] == "apps/desci-platform/var/desci-launch-handoff-refresh-active.json"
+    assert handoff["live_source_status"] == "current"
+    assert handoff["recorded_latest_observed_commit"] == live_commit
+    assert handoff["source_fields_ready"] is True
+    assert secret_scan["path"] == "apps/desci-platform/var/desci-launch-secret-scan-active.json"
+    assert len(secret_scan["scanned_paths"]) == 19
+    assert status_md.read_text(encoding="utf-8") == handoff["path"]
+    assert formatted_reports[-1]["desci"]["handoff_refresh"]["path"] == handoff["path"]
+
+
 def test_desci_launch_handoff_refresh_auto_refreshes_missing_radar_before_status(
     monkeypatch,
     tmp_path,

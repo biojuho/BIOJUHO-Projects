@@ -235,6 +235,10 @@ def refresh_desci_launch_handoff(
         live_source_checked=live_source_checked,
         status_json_out=status_json_out,
         status_markdown_out=status_markdown_out,
+        active_bundle=bundle,
+        active_bundle_json_out=bundle_json_out,
+        active_secret_scan=secret_scan,
+        active_secret_scan_json_out=secret_scan_json_out,
     )
     return bundle
 
@@ -248,6 +252,10 @@ def _write_status(
     live_source_checked: bool,
     status_json_out: Path,
     status_markdown_out: Path,
+    active_bundle: dict[str, Any] | None = None,
+    active_bundle_json_out: Path | None = None,
+    active_secret_scan: dict[str, Any] | None = None,
+    active_secret_scan_json_out: Path | None = None,
 ) -> dict[str, Any]:
     status_report = _build_status_report(
         workspace_root=workspace_root,
@@ -256,9 +264,205 @@ def _write_status(
         live_source_commit=live_source_commit,
         live_source_checked=live_source_checked,
     )
+    status_report = _with_active_desci_artifacts(
+        status_report,
+        workspace_root=workspace_root,
+        active_bundle=active_bundle,
+        active_bundle_json_out=active_bundle_json_out,
+        active_secret_scan=active_secret_scan,
+        active_secret_scan_json_out=active_secret_scan_json_out,
+    )
     _write_json(status_json_out, status_report)
     _write_text(status_markdown_out, _format_status_markdown(status_report))
     return status_report
+
+
+def _with_active_desci_artifacts(
+    status_report: dict[str, Any],
+    *,
+    workspace_root: Path,
+    active_bundle: dict[str, Any] | None,
+    active_bundle_json_out: Path | None,
+    active_secret_scan: dict[str, Any] | None,
+    active_secret_scan_json_out: Path | None,
+) -> dict[str, Any]:
+    if not isinstance(active_bundle, dict):
+        return status_report
+    report = dict(status_report)
+    desci = report.get("desci") if isinstance(report.get("desci"), dict) else {}
+    desci = dict(desci)
+    desci["handoff_refresh"] = _status_handoff_refresh_from_bundle(
+        active_bundle,
+        workspace_root=workspace_root,
+        bundle_json_out=active_bundle_json_out,
+    )
+    if isinstance(active_secret_scan, dict) and active_secret_scan_json_out is not None:
+        desci["launch_handoff_secret_scan"] = _status_secret_scan_from_scan(
+            active_secret_scan,
+            workspace_root=workspace_root,
+            secret_scan_json_out=active_secret_scan_json_out,
+        )
+    report["desci"] = desci
+    return report
+
+
+def _status_handoff_refresh_from_bundle(
+    bundle: dict[str, Any],
+    *,
+    workspace_root: Path,
+    bundle_json_out: Path | None,
+) -> dict[str, Any]:
+    status_info = bundle.get("status") if isinstance(bundle.get("status"), dict) else {}
+    secret_scan = bundle.get("secret_scan") if isinstance(bundle.get("secret_scan"), dict) else {}
+    release_handoff = bundle.get("release_handoff") if isinstance(bundle.get("release_handoff"), dict) else {}
+    result = {
+        "status": "valid",
+        "path": _display_path(bundle_json_out, workspace_root) if bundle_json_out is not None else "",
+        "ok": bundle.get("ok") is True,
+        "status_state": status_info.get("state"),
+        "topic": status_info.get("topic"),
+        "live_source_status": bundle.get("live_source_status"),
+        "action_required_failures_ok": bundle.get("action_required_failures_ok") is True,
+        "failed_checks": _string_list(bundle.get("failed_checks")),
+        "unexpected_failed_checks": _string_list(bundle.get("unexpected_failed_checks")),
+        "secret_scan_state": secret_scan.get("state"),
+        "secret_scan_ok": secret_scan.get("ok") is True,
+        "secret_scan_findings": _optional_nonnegative_int(secret_scan.get("findings")),
+        "secret_scan_missing": _optional_nonnegative_int(secret_scan.get("missing")),
+        "secret_scan_scanned": _optional_nonnegative_int(secret_scan.get("scanned")),
+        "release_handoff_required": release_handoff.get("required") is True,
+        "release_handoff_status": release_handoff.get("status"),
+        "release_handoff_path": release_handoff.get("path"),
+        "release_handoff_ok": release_handoff.get("ok") if isinstance(release_handoff.get("ok"), bool) else None,
+        "release_handoff_release_decision": release_handoff.get("release_decision"),
+        "release_handoff_provider_preflight_present": release_handoff.get("provider_preflight_present") is True,
+        "release_handoff_provider_preflight_ok": release_handoff.get("provider_preflight_ok")
+        if isinstance(release_handoff.get("provider_preflight_ok"), bool)
+        else None,
+        "release_handoff_provider_count": _optional_nonnegative_int(release_handoff.get("provider_count")),
+        "release_handoff_ready_provider_count": _optional_nonnegative_int(release_handoff.get("ready_provider_count")),
+        "release_handoff_check_count": _optional_nonnegative_int(release_handoff.get("check_count")),
+        "release_handoff_failed_check_count": _optional_nonnegative_int(release_handoff.get("failed_check_count")),
+        "release_handoff_missing_cli_count": _optional_nonnegative_int(release_handoff.get("missing_cli_count")),
+        "release_handoff_auth_context_missing_count": _optional_nonnegative_int(
+            release_handoff.get("auth_context_missing_count")
+        ),
+        "release_handoff_provider_preflight_source": release_handoff.get("source_artifact"),
+    }
+    result.update(_status_handoff_source_fields_from_bundle(bundle, workspace_root=workspace_root))
+    return result
+
+
+def _status_secret_scan_from_scan(
+    secret_scan: dict[str, Any],
+    *,
+    workspace_root: Path,
+    secret_scan_json_out: Path,
+) -> dict[str, Any]:
+    findings = _list_of_dicts(secret_scan.get("findings"))
+    return {
+        "status": str(secret_scan.get("status") or "missing"),
+        "path": _display_path(secret_scan_json_out, workspace_root),
+        "ok": secret_scan.get("ok") is True,
+        "scanned_paths": _string_list(secret_scan.get("scanned_paths")),
+        "missing_paths": _string_list(secret_scan.get("missing_paths")),
+        "findings": findings,
+        "finding_patterns": _secret_finding_patterns(secret_scan.get("finding_patterns"), findings),
+    }
+
+
+def _status_handoff_source_fields_from_bundle(
+    bundle: dict[str, Any],
+    *,
+    workspace_root: Path,
+) -> dict[str, Any]:
+    radar = bundle.get("radar") if isinstance(bundle.get("radar"), dict) else {}
+    recorded_commit = str(bundle.get("recorded_latest_observed_commit") or "")
+    nested_commit = str(radar.get("recorded_latest_observed_commit") or "")
+    radar_json_path = str(bundle.get("radar_json_path") or "")
+    radar_markdown_path = str(bundle.get("radar_markdown_path") or "")
+    nested_radar_json_path = str(radar.get("path") or "")
+    nested_radar_markdown_path = str(radar.get("markdown_path") or "")
+    radar_json_commit = _display_path_radar_commit(workspace_root, radar_json_path)
+    commit_valid = _valid_commit(recorded_commit)
+    commit_matches_nested = bool(recorded_commit and nested_commit and recorded_commit == nested_commit)
+    commit_matches_radar_json = bool(recorded_commit and radar_json_commit and recorded_commit == radar_json_commit)
+    radar_json_path_exists = _display_path_is_file(workspace_root, radar_json_path)
+    radar_markdown_path_exists = _display_path_is_file(workspace_root, radar_markdown_path)
+    radar_json_path_matches_nested = bool(radar_json_path and nested_radar_json_path and radar_json_path == nested_radar_json_path)
+    radar_markdown_path_matches_nested = bool(
+        radar_markdown_path and nested_radar_markdown_path and radar_markdown_path == nested_radar_markdown_path
+    )
+    source_fields_consistent = all(
+        (
+            commit_valid,
+            commit_matches_nested,
+            commit_matches_radar_json,
+            radar_json_path_exists,
+            radar_markdown_path_exists,
+            radar_json_path_matches_nested,
+            radar_markdown_path_matches_nested,
+        )
+    )
+    return {
+        "recorded_latest_observed_commit": recorded_commit,
+        "recorded_latest_observed_commit_valid": commit_valid,
+        "nested_recorded_latest_observed_commit": nested_commit,
+        "radar_json_recorded_latest_observed_commit": radar_json_commit,
+        "recorded_latest_observed_commit_matches_nested": commit_matches_nested,
+        "recorded_latest_observed_commit_matches_radar_json": commit_matches_radar_json,
+        "radar_json_path": radar_json_path,
+        "radar_json_path_exists": radar_json_path_exists,
+        "radar_json_path_matches_nested": radar_json_path_matches_nested,
+        "radar_markdown_path": radar_markdown_path,
+        "radar_markdown_path_exists": radar_markdown_path_exists,
+        "radar_markdown_path_matches_nested": radar_markdown_path_matches_nested,
+        "radar_auto_refresh_flags_ready": True,
+        "radar_auto_refresh_needed": bool(bundle.get("radar_auto_refresh_needed")),
+        "radar_auto_refreshed": bool(bundle.get("radar_auto_refreshed")),
+        "radar_auto_refresh_reason": str(bundle.get("radar_auto_refresh_reason") or ""),
+        "source_fields_consistent": source_fields_consistent,
+        "source_fields_ready": source_fields_consistent,
+    }
+
+
+def _display_path_radar_commit(workspace_root: Path, display_path: str) -> str:
+    path = _path_from_display(workspace_root, display_path)
+    return _radar_recorded_veritas_commit(path) if path is not None and path.is_file() else ""
+
+
+def _display_path_is_file(workspace_root: Path, display_path: str) -> bool:
+    path = _path_from_display(workspace_root, display_path)
+    return bool(path and path.is_file())
+
+
+def _path_from_display(workspace_root: Path, display_path: str) -> Path | None:
+    if not display_path:
+        return None
+    path = Path(display_path)
+    return path if path.is_absolute() else workspace_root / path
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item)]
+
+
+def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, dict)]
+
+
+def _secret_finding_patterns(value: Any, findings: list[dict[str, Any]]) -> list[str]:
+    explicit = set(_string_list(value))
+    if explicit:
+        return sorted(explicit)
+    patterns: set[str] = set()
+    for finding in findings:
+        patterns.update(_string_list(finding.get("patterns")))
+    return sorted(patterns)
 
 
 def _build_status_report(
