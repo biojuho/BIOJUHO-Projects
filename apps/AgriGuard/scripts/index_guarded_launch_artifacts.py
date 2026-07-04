@@ -387,6 +387,11 @@ def build_index(
         "consumer_readiness_operator_packet_preflight_status": consumer.get("readiness_operator_packet_preflight_status")
         if isinstance(consumer, dict)
         else None,
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": consumer.get(
+            "readiness_operator_packet_consumer_command_metadata_status"
+        )
+        if isinstance(consumer, dict)
+        else None,
         "consumer_errors": consumer_errors,
         "validation_status": validation_status,
         "launch_status": launch.get("status") if isinstance(launch, dict) else None,
@@ -455,6 +460,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer readiness env validation ready: `{index.get('consumer_readiness_env_validation_ready_for_preflight')}`",
         f"- Consumer readiness placeholder count: `{index.get('consumer_readiness_env_validation_placeholder_count')}`",
         f"- Consumer readiness packet preflight status: `{index.get('consumer_readiness_operator_packet_preflight_status')}`",
+        f"- Consumer readiness command metadata: `{index.get('consumer_readiness_operator_packet_consumer_command_metadata_status')}`",
         f"- Consumer errors: `{consumer_error_text}`",
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
         f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",

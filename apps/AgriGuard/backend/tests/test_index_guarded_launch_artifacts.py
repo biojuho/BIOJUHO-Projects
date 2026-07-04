@@ -85,6 +85,7 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "readiness_env_validation_ready_for_preflight": False,
             "readiness_env_validation_placeholder_count": 6,
             "readiness_operator_packet_preflight_status": "env_shape_blocked",
+            "readiness_operator_packet_consumer_command_metadata_status": "pass",
             "errors": [],
         },
     )
@@ -126,6 +127,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_handoff_validation_command_shell"] == "powershell"
     assert index["consumer_handoff_validation_command_text"] == "& python validate_guarded_launch_handoff.py handoff.json"
     assert index["consumer_readiness_operator_packet_preflight_status"] == "env_shape_blocked"
+    assert index["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert index["missing_required_roles"] == []
     assert index["recovery_action"] is None
     assert index["recovery_command"] is None
@@ -142,6 +144,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     }
     assert "Consumer readiness next command count: `1`" in markdown
     assert "Consumer command metadata: `pass`" in markdown
+    assert "Consumer readiness command metadata: `pass`" in markdown
     assert "Consumer ready gate command shell: `powershell`" in markdown
     assert "Consumer operator command text count: `2`" in markdown
     assert "Consumer handoff validation command: `& python validate_guarded_launch_handoff.py handoff.json`" in markdown
