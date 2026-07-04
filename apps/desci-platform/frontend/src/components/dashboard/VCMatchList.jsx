@@ -4,27 +4,48 @@ import api from '../../services/api';
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatSupportError } from '../../lib/support';
 
+function normalizeMatch(vc, index) {
+    const keywords = Array.isArray(vc.portfolio_keywords) ? vc.portfolio_keywords.slice(0, 2) : [];
+    return {
+        ...vc,
+        score: vc.score ?? Math.max(72, 94 - (index * 6)),
+        thesis_summary: vc.thesis_summary || vc.investment_thesis || '',
+        match_reason: vc.match_reason || (
+            keywords.length > 0
+                ? `Focus areas: ${keywords.join(', ')}`
+                : vc.investment_thesis || ''
+        ),
+    };
+}
+
+function formatVCMatchError(error, fallback) {
+    if (!error?.response) return fallback;
+    return formatSupportError(error, fallback);
+}
+
 export default function VCMatchList() {
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { t } = useLocale();
+    const loadFailedMessage = t('vcMatch.loadFailed');
 
     useEffect(() => {
         const fetchMatches = async () => {
             try {
-                const response = await api.get('/match/vc');
-                setMatches(response.data);
+                const response = await api.get('/vcs', { params: { limit: 3 }, suppressErrorLog: true });
+                const rows = Array.isArray(response.data) ? response.data : [];
+                setMatches(rows.map(normalizeMatch));
             } catch (err) {
-                console.error('VC Match Error:', err);
-                setError(formatSupportError(err, t('vcMatch.loadFailed')));
+                setMatches([]);
+                setError(formatVCMatchError(err, loadFailedMessage));
             } finally {
                 setLoading(false);
             }
         };
 
         fetchMatches();
-    }, [t]);
+    }, [loadFailedMessage]);
 
     if (loading) {
         return (

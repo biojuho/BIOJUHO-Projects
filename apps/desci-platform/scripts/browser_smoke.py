@@ -50,12 +50,14 @@ class BrowserCheckReport:
     ok: bool
     failures: list[str]
     trace_path: str | None = None
+    screenshot_path: str | None = None
 
 
 @dataclass(frozen=True)
 class FreshPageResult:
     failures: list[str]
     trace_path: str | None = None
+    screenshot_path: str | None = None
 
 
 RAW_TRANSPORT_ERROR_TEXT = (
@@ -6914,18 +6916,25 @@ def _trace_artifact_path(trace_dir: str | Path, trace_name: str) -> Path:
     return Path(trace_dir) / f"{_safe_trace_name(trace_name)}.trace.zip"
 
 
+def _screenshot_artifact_path(screenshot_dir: str | Path, screenshot_name: str) -> Path:
+    return Path(screenshot_dir) / f"{_safe_trace_name(screenshot_name)}.png"
+
+
 def _run_with_fresh_page(
     browser,
     runner,
     *args,
     trace_dir: str | Path | None = None,
     trace_name: str | None = None,
+    screenshot_dir: str | Path | None = None,
+    screenshot_name: str | None = None,
 ) -> FreshPageResult:
     page = browser.new_page()
     failed_requests: list[str] = []
     http_error_responses: list[str] = []
     trace_started = False
     trace_path: Path | None = None
+    screenshot_path: Path | None = None
     failures: list[str] = []
 
     def collect_request_failed(request) -> None:
@@ -6956,6 +6965,14 @@ def _run_with_fresh_page(
         if failures:
             failures = list(failures)
             failures.extend(_network_diagnostic_failures(failed_requests, http_error_responses))
+        if screenshot_dir is not None and screenshot_name and not failures:
+            Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
+            screenshot_path = _screenshot_artifact_path(screenshot_dir, screenshot_name)
+            try:
+                page.screenshot(path=str(screenshot_path), full_page=True)
+            except PlaywrightError as exc:
+                failures.append(f"{screenshot_name}: screenshot capture failed ({exc})")
+                screenshot_path = None
     finally:
         if trace_started:
             try:
@@ -6971,7 +6988,11 @@ def _run_with_fresh_page(
         page.remove_listener("requestfailed", collect_request_failed)
         page.remove_listener("response", collect_response)
         page.close()
-    return FreshPageResult(failures=failures, trace_path=str(trace_path) if trace_path else None)
+    return FreshPageResult(
+        failures=failures,
+        trace_path=str(trace_path) if trace_path else None,
+        screenshot_path=str(screenshot_path) if screenshot_path else None,
+    )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -7006,6 +7027,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--trace-on-failure-dir",
         help="Optional directory for Playwright trace zip artifacts. Traces are kept only for failed checks.",
+    )
+    parser.add_argument(
+        "--screenshot-dir",
+        help="Optional directory for PNG screenshots captured after successful checks.",
     )
     return parser.parse_args(argv)
 
@@ -7101,6 +7126,11 @@ def write_json_report(
         for report in reports
         if isinstance(report.trace_path, str) and report.trace_path
     ]
+    screenshot_artifacts = [
+        {"check_name": report.name, "path": report.screenshot_path}
+        for report in reports
+        if isinstance(report.screenshot_path, str) and report.screenshot_path
+    ]
     payload: dict[str, Any] = {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -7120,6 +7150,7 @@ def write_json_report(
         "launch_control": launch_control,
         "launch_click_suite_report": launch_click_suite_report,
         "trace_artifacts": trace_artifacts,
+        "screenshot_artifacts": screenshot_artifacts,
         "failures": failures,
         "checks": [],
     }
@@ -7132,6 +7163,8 @@ def write_json_report(
         }
         if report.trace_path:
             check_payload["trace_path"] = report.trace_path
+        if report.screenshot_path:
+            check_payload["screenshot_path"] = report.screenshot_path
         payload["checks"].append(check_payload)
     if launch_control is None:
         payload.pop("launch_control")
@@ -7141,6 +7174,8 @@ def write_json_report(
         payload.pop("launch_click_suite_report")
     if not trace_artifacts:
         payload.pop("trace_artifacts")
+    if not screenshot_artifacts:
+        payload.pop("screenshot_artifacts")
     write_json_atomic(output_path, payload, trailing_newline=True)
     _print_progress(f"[browser-smoke] json written: {output_path}")
 
@@ -7349,6 +7384,8 @@ def main(argv: list[str] | None = None) -> int:
                     timeout_ms,
                     trace_dir=args.trace_on_failure_dir,
                     trace_name=check.name,
+                    screenshot_dir=args.screenshot_dir,
+                    screenshot_name=check.name,
                 )
                 status = "FAIL" if result.failures else "OK"
                 _print_progress(f"[browser-smoke] {check.name:<18} {status} {check.path}")
@@ -7360,6 +7397,7 @@ def main(argv: list[str] | None = None) -> int:
                         ok=not result.failures,
                         failures=result.failures,
                         trace_path=result.trace_path,
+                        screenshot_path=result.screenshot_path,
                     )
                 )
             for check_name, check_path, check_runner in action_checks:
@@ -7370,6 +7408,8 @@ def main(argv: list[str] | None = None) -> int:
                     timeout_ms,
                     trace_dir=args.trace_on_failure_dir,
                     trace_name=check_name,
+                    screenshot_dir=args.screenshot_dir,
+                    screenshot_name=check_name,
                 )
                 status = "FAIL" if result.failures else "OK"
                 _print_progress(f"[browser-smoke] {check_name:<18} {status} {check_path}")
@@ -7381,6 +7421,7 @@ def main(argv: list[str] | None = None) -> int:
                         ok=not result.failures,
                         failures=result.failures,
                         trace_path=result.trace_path,
+                        screenshot_path=result.screenshot_path,
                     )
                 )
             if _should_run_login_validation(args):
@@ -7391,6 +7432,8 @@ def main(argv: list[str] | None = None) -> int:
                     timeout_ms,
                     trace_dir=args.trace_on_failure_dir,
                     trace_name="login-validation",
+                    screenshot_dir=args.screenshot_dir,
+                    screenshot_name="login-validation",
                 )
                 status = "FAIL" if result.failures else "OK"
                 _print_progress(f"[browser-smoke] {'login-validation':<18} {status} /login")
@@ -7402,6 +7445,7 @@ def main(argv: list[str] | None = None) -> int:
                         ok=not result.failures,
                         failures=result.failures,
                         trace_path=result.trace_path,
+                        screenshot_path=result.screenshot_path,
                     )
                 )
         finally:

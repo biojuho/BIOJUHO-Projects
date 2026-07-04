@@ -47,6 +47,7 @@ class _FakePage:
         self.handlers = {}
         self.removed = []
         self.goto_wait_until = []
+        self.screenshots = []
         self.closed = False
         self.context = _FakeContext()
 
@@ -66,6 +67,10 @@ class _FakePage:
 
     def close(self):
         self.closed = True
+
+    def screenshot(self, path: str, full_page: bool):  # noqa: FBT001
+        self.screenshots.append({"path": path, "full_page": full_page})
+        Path(path).write_bytes(b"fake png")
 
 
 class _CountLocator:
@@ -257,6 +262,30 @@ def test_run_with_fresh_page_discards_trace_when_check_passes(tmp_path: Path) ->
     assert page.context.tracing.started == [{"screenshots": True, "snapshots": True, "sources": True, "title": "home"}]
     assert page.context.tracing.stopped == [None]
     assert list(tmp_path.glob("*.zip")) == []
+    assert page.screenshots == []
+
+
+def test_run_with_fresh_page_captures_success_screenshot_when_requested(tmp_path: Path) -> None:
+    page = _FakePage("DSCI isolated page content is long enough.")
+    browser = _FakeBrowser([page])
+
+    def runner(active_page) -> list[str]:
+        assert active_page is page
+        return []
+
+    result = browser_smoke._run_with_fresh_page(  # pylint: disable=protected-access
+        browser,
+        runner,
+        screenshot_dir=tmp_path,
+        screenshot_name="dashboard readiness refresh",
+    )
+
+    expected_screenshot = tmp_path / "dashboard-readiness-refresh.png"
+    assert result.failures == []
+    assert result.trace_path is None
+    assert result.screenshot_path == str(expected_screenshot)
+    assert page.screenshots == [{"path": str(expected_screenshot), "full_page": True}]
+    assert expected_screenshot.read_bytes() == b"fake png"
 
 
 def test_run_with_fresh_page_keeps_trace_when_check_fails(tmp_path: Path) -> None:
@@ -315,8 +344,15 @@ def test_collect_browser_errors_limits_messages() -> None:
 
 def test_browser_smoke_writes_json_evidence(tmp_path) -> None:
     output = tmp_path / "browser-smoke.json"
+    screenshot_path = tmp_path / "screenshots" / "home.png"
     reports = [
-        browser_smoke.BrowserCheckReport(name="home", path="/", ok=True, failures=[]),
+        browser_smoke.BrowserCheckReport(
+            name="home",
+            path="/",
+            ok=True,
+            failures=[],
+            screenshot_path=str(screenshot_path),
+        ),
         browser_smoke.BrowserCheckReport(name="pricing", path="/pricing", ok=False, failures=["pricing: missing text"]),
     ]
 
@@ -343,6 +379,8 @@ def test_browser_smoke_writes_json_evidence(tmp_path) -> None:
     assert payload["playwright_available"] is True
     assert payload["summary"] == {"total": 2, "passed": 1, "failed": 1}
     assert "launch_control" not in payload
+    assert payload["screenshot_artifacts"] == [{"check_name": "home", "path": str(screenshot_path)}]
+    assert payload["checks"][0]["screenshot_path"] == str(screenshot_path)
     assert payload["checks"][1]["failures"] == ["pricing: missing text"]
     assert not (output.parent / "browser-smoke.json.tmp").exists()
 
@@ -588,6 +626,7 @@ def test_browser_smoke_parse_args_accepts_json_out_and_login_validation_skip() -
     assert args.only_check == []
     assert args.json_out == "browser.json"
     assert args.trace_on_failure_dir is None
+    assert args.screenshot_dir is None
 
 
 def test_browser_smoke_launch_click_suite_selects_release_click_paths() -> None:
