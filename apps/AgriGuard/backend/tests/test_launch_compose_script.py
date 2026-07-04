@@ -54,6 +54,7 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
     ]
     assert payload["browser_smoke_command"] is None
     assert payload["env_validation_command"] is None
+    assert payload["readiness_summary_command"] is None
     assert payload["will_validate_env_file_shape_before_preflight"] is False
     assert payload["operator_packet_command"] == [
         sys.executable,
@@ -111,6 +112,47 @@ def test_launch_compose_dry_run_env_shape_validation_plan(tmp_path: Path, capsys
         str(validation_markdown.resolve()),
     ]
     assert payload["preflight_command"][-2:] == ["--env-file", str(env_file.resolve())]
+
+
+def test_launch_compose_dry_run_readiness_summary_plan(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    launch_report_json = tmp_path / "launch-report.json"
+    summary_json = tmp_path / "summary.json"
+    summary_markdown = tmp_path / "summary.md"
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--launch-report-json",
+            str(launch_report_json),
+            "--readiness-summary-json",
+            str(summary_json),
+            "--readiness-summary-markdown",
+            str(summary_markdown),
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["readiness_summary_json"] == str(summary_json.resolve())
+    assert payload["readiness_summary_markdown"] == str(summary_markdown.resolve())
+    assert payload["readiness_summary_command"] == [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "summarize_launch_readiness.py"),
+        "--launch-report-json",
+        str(launch_report_json.resolve()),
+        "--env-validation-json",
+        str(launch_compose._default_env_validation_json_out(app_root.resolve())),
+        "--operator-packet-json",
+        str(launch_compose._default_operator_packet_json_out(app_root.resolve())),
+        "--json-out",
+        str(summary_json.resolve()),
+        "--exit-zero-on-blocked",
+        "--markdown-out",
+        str(summary_markdown.resolve()),
+    ]
 
 
 def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, capsys) -> None:
@@ -346,6 +388,175 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "operator_action_ids": ["set_secret_key"],
         "env_template_variables": ["AGRIGUARD_SECRET_KEY"],
         "secrets_redacted": True,
+    }
+
+
+def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    json_out = tmp_path / "preflight.json"
+    launch_report_json = tmp_path / "launch-report.json"
+    operator_packet_json = tmp_path / "operator-packet.json"
+    operator_packet_markdown = tmp_path / "operator-packet.md"
+    operator_env_template = tmp_path / "operator.env.template"
+    readiness_summary_json = tmp_path / "readiness-summary.json"
+    readiness_summary_markdown = tmp_path / "readiness-summary.md"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 2:
+            operator_packet_json.write_text(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "preflight_status": "fail",
+                        "blocking_action_count": 1,
+                        "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                        "operator_env_template": {
+                            "variables": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE"],
+                        },
+                        "secrets_redacted": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            operator_packet_markdown.write_text("# Operator packet\n", encoding="utf-8")
+            operator_env_template.write_text(
+                "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=<absolute-path-outside-repo-to-firebase-service-account.json>\n",
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(args=command, returncode=0, stdout="packet written", stderr="")
+        if len(calls) == 3:
+            readiness_summary_json.write_text(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "blocker_class": "preflight_blocked",
+                        "secrets_redacted": True,
+                        "next_actions": ["Open the operator packet."],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            readiness_summary_markdown.write_text("# Summary\n", encoding="utf-8")
+            return subprocess.CompletedProcess(args=command, returncode=0, stdout="summary written", stderr="")
+        return subprocess.CompletedProcess(args=command, returncode=1, stdout="preflight failed", stderr="")
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--json-out",
+            str(json_out),
+            "--launch-report-json",
+            str(launch_report_json),
+            "--operator-packet-json",
+            str(operator_packet_json),
+            "--operator-packet-markdown",
+            str(operator_packet_markdown),
+            "--operator-env-template",
+            str(operator_env_template),
+            "--readiness-summary-json",
+            str(readiness_summary_json),
+            "--readiness-summary-markdown",
+            str(readiness_summary_markdown),
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 1
+    assert len(calls) == 3
+    assert calls[2][1] == str(app_root.resolve() / "scripts" / "summarize_launch_readiness.py")
+    assert "--exit-zero-on-blocked" in calls[2]
+    report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert [item["name"] for item in report["results"]] == [
+        "preflight",
+        "operator_packet",
+        "readiness_summary",
+    ]
+    assert report["child_reports"]["readiness_summary"] == {
+        "found": True,
+        "path": str(readiness_summary_json.resolve()),
+        "status": "blocked",
+        "blocker_class": "preflight_blocked",
+        "secrets_redacted": True,
+        "next_actions": ["Open the operator packet."],
+    }
+
+
+def test_launch_compose_readiness_summary_failure_does_not_reuse_stale_json(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    json_out = tmp_path / "preflight.json"
+    launch_report_json = tmp_path / "launch-report.json"
+    operator_packet_json = tmp_path / "operator-packet.json"
+    operator_packet_markdown = tmp_path / "operator-packet.md"
+    operator_env_template = tmp_path / "operator.env.template"
+    readiness_summary_json = tmp_path / "readiness-summary.json"
+    readiness_summary_json.write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "blocker_class": "stale_blocker",
+                "secrets_redacted": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 2:
+            operator_packet_json.write_text(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "preflight_status": "fail",
+                        "blocking_action_count": 1,
+                        "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                        "secrets_redacted": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            operator_packet_markdown.write_text("# Operator packet\n", encoding="utf-8")
+            operator_env_template.write_text(
+                "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=<absolute-path-outside-repo-to-firebase-service-account.json>\n",
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(args=command, returncode=0, stdout="packet written", stderr="")
+        if len(calls) == 3:
+            return subprocess.CompletedProcess(args=command, returncode=2, stdout="", stderr="summary failed")
+        return subprocess.CompletedProcess(args=command, returncode=1, stdout="preflight failed", stderr="")
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--json-out",
+            str(json_out),
+            "--launch-report-json",
+            str(launch_report_json),
+            "--operator-packet-json",
+            str(operator_packet_json),
+            "--operator-packet-markdown",
+            str(operator_packet_markdown),
+            "--operator-env-template",
+            str(operator_env_template),
+            "--readiness-summary-json",
+            str(readiness_summary_json),
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 1
+    assert len(calls) == 3
+    report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["results"][-1]["name"] == "readiness_summary"
+    assert report["results"][-1]["returncode"] == 2
+    assert report["child_reports"]["readiness_summary"] == {
+        "found": False,
+        "path": str(readiness_summary_json.resolve()),
     }
 
 

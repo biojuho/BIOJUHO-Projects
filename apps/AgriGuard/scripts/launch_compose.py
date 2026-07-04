@@ -59,6 +59,14 @@ def _default_env_validation_markdown_out(app_root: Path) -> Path:
     return _workspace_root(app_root) / "var" / "agriguard-launch-env-template-validation.md"
 
 
+def _default_readiness_summary_json_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-launch-readiness-summary.json"
+
+
+def _default_readiness_summary_markdown_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-launch-readiness-summary.md"
+
+
 def _tail(value: str | None, *, limit: int = 1200) -> str:
     if not value:
         return ""
@@ -172,6 +180,20 @@ def _summarize_operator_packet_json(
         "operator_action_ids": action_ids,
         "env_template_variables": template_variables,
         "secrets_redacted": payload.get("secrets_redacted"),
+    }
+
+
+def _summarize_readiness_summary_json(path: Path) -> dict[str, object]:
+    payload = _read_json_file(path)
+    if payload is None:
+        return {"found": False, "path": str(path)}
+    return {
+        "found": True,
+        "path": str(path),
+        "status": payload.get("status"),
+        "blocker_class": payload.get("blocker_class"),
+        "secrets_redacted": payload.get("secrets_redacted"),
+        "next_actions": payload.get("next_actions") if isinstance(payload.get("next_actions"), list) else [],
     }
 
 
@@ -292,6 +314,64 @@ def _build_operator_packet_command(
     ]
 
 
+def _build_readiness_summary_command(
+    app_root: Path,
+    *,
+    launch_report_json: Path,
+    env_validation_json: Path,
+    operator_packet_json: Path,
+    json_out: Path,
+    markdown_out: Path | None,
+) -> list[str]:
+    command = [
+        sys.executable,
+        str(app_root / "scripts" / "summarize_launch_readiness.py"),
+        "--launch-report-json",
+        str(launch_report_json),
+        "--env-validation-json",
+        str(env_validation_json),
+        "--operator-packet-json",
+        str(operator_packet_json),
+        "--json-out",
+        str(json_out),
+        "--exit-zero-on-blocked",
+    ]
+    if markdown_out is not None:
+        command.extend(["--markdown-out", str(markdown_out)])
+    return command
+
+
+def _write_failed_launch_report(
+    *,
+    app_root: Path,
+    launch_report_json: Path,
+    launch_report: dict[str, object],
+    readiness_summary_command: list[str] | None,
+    readiness_summary_json: Path | None,
+    command_runner: CommandRunner,
+) -> None:
+    write_json(launch_report_json, launch_report)
+    if readiness_summary_command is None or readiness_summary_json is None:
+        return
+
+    results = launch_report["results"]
+    assert isinstance(results, list)
+    child_reports = launch_report["child_reports"]
+    assert isinstance(child_reports, dict)
+    if readiness_summary_json.is_file():
+        readiness_summary_json.unlink()
+    readiness_result = command_runner(readiness_summary_command, cwd=app_root, text=True)
+    results.append(
+        _command_result(
+            name="readiness_summary",
+            command=readiness_summary_command,
+            completed=readiness_result,
+        )
+    )
+    child_reports["readiness_summary"] = _summarize_readiness_summary_json(readiness_summary_json)
+    write_json(launch_report_json, launch_report)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run AgriGuard compose launch behind strict preflight.")
     parser.add_argument("--app-root", type=Path, default=_default_app_root(), help="AgriGuard app root.")
@@ -390,6 +470,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Shape validation Markdown output path when --validate-env-file-shape is enabled.",
     )
+    parser.add_argument(
+        "--readiness-summary-json",
+        type=Path,
+        default=None,
+        help="Optional compact launch-readiness summary JSON emitted after a failed launch stage.",
+    )
+    parser.add_argument(
+        "--readiness-summary-markdown",
+        type=Path,
+        default=None,
+        help="Optional compact launch-readiness summary Markdown emitted after a failed launch stage.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the command plan without running preflight or compose.")
     return parser.parse_args(argv)
 
@@ -439,6 +531,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.env_validation_markdown_out
         else _default_env_validation_markdown_out(app_root)
     )
+    readiness_summary_requested = bool(args.readiness_summary_json or args.readiness_summary_markdown)
+    readiness_summary_json = (
+        args.readiness_summary_json.resolve()
+        if args.readiness_summary_json
+        else (_default_readiness_summary_json_out(app_root) if readiness_summary_requested else None)
+    )
+    readiness_summary_markdown = (
+        args.readiness_summary_markdown.resolve()
+        if args.readiness_summary_markdown
+        else None
+    )
     env_validation_command = (
         _build_env_validation_command(
             app_root,
@@ -476,6 +579,18 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         markdown_out=operator_packet_markdown,
         env_template_out=operator_env_template,
     )
+    readiness_summary_command = (
+        _build_readiness_summary_command(
+            app_root,
+            launch_report_json=launch_report_json,
+            env_validation_json=env_validation_json_out,
+            operator_packet_json=operator_packet_json,
+            json_out=readiness_summary_json,
+            markdown_out=readiness_summary_markdown,
+        )
+        if readiness_summary_json is not None
+        else None
+    )
 
     if args.dry_run:
         plan = {
@@ -485,9 +600,12 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "browser_smoke_command": browser_smoke_command,
             "env_validation_command": env_validation_command,
             "operator_packet_command": operator_packet_command,
+            "readiness_summary_command": readiness_summary_command,
             "launch_report_json": str(launch_report_json),
             "env_validation_json": str(env_validation_json_out) if args.validate_env_file_shape else None,
             "env_validation_markdown": str(env_validation_markdown_out) if args.validate_env_file_shape else None,
+            "readiness_summary_json": str(readiness_summary_json) if readiness_summary_json else None,
+            "readiness_summary_markdown": str(readiness_summary_markdown) if readiness_summary_markdown else None,
             "operator_packet_json": str(operator_packet_json),
             "operator_packet_markdown": str(operator_packet_markdown),
             "operator_env_template": str(operator_env_template),
@@ -508,6 +626,8 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "preflight_json": str(json_out),
         "env_validation_json": str(env_validation_json_out) if args.validate_env_file_shape else None,
         "env_validation_markdown": str(env_validation_markdown_out) if args.validate_env_file_shape else None,
+        "readiness_summary_json": str(readiness_summary_json) if readiness_summary_json else None,
+        "readiness_summary_markdown": str(readiness_summary_markdown) if readiness_summary_markdown else None,
         "operator_packet_json": str(operator_packet_json),
         "operator_packet_markdown": str(operator_packet_markdown),
         "operator_env_template": str(operator_env_template),
@@ -520,6 +640,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "env_validation": env_validation_command,
             "preflight": preflight_command,
             "operator_packet": operator_packet_command,
+            "readiness_summary": readiness_summary_command,
             "compose": compose_command,
             "browser_smoke": browser_smoke_command,
         },
@@ -535,6 +656,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "browser_smoke": (
                 {"found": False, "path": str(browser_smoke_json_out)}
                 if args.run_browser_smoke
+                else None
+            ),
+            "readiness_summary": (
+                {"found": False, "path": str(readiness_summary_json)}
+                if readiness_summary_json
                 else None
             ),
         },
@@ -556,7 +682,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                 "path": str(env_validation_json_out),
                 "error": "Provide exactly one --env-file with --validate-env-file-shape.",
             }
-            write_json(launch_report_json, launch_report)
+            _write_failed_launch_report(
+                app_root=app_root,
+                launch_report_json=launch_report_json,
+                launch_report=launch_report,
+                readiness_summary_command=readiness_summary_command,
+                readiness_summary_json=readiness_summary_json,
+                command_runner=command_runner,
+            )
             print(
                 "AgriGuard launch env shape validation requires exactly one --env-file.",
                 file=sys.stderr,
@@ -576,7 +709,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             launch_report["status"] = "fail"
             launch_report["stage"] = "env_shape_validation"
             launch_report["stop_reason"] = "env_shape_validation_failed"
-            write_json(launch_report_json, launch_report)
+            _write_failed_launch_report(
+                app_root=app_root,
+                launch_report_json=launch_report_json,
+                launch_report=launch_report,
+                readiness_summary_command=readiness_summary_command,
+                readiness_summary_json=readiness_summary_json,
+                command_runner=command_runner,
+            )
             print(
                 "AgriGuard launch env shape validation failed; strict preflight was not run.",
                 file=sys.stderr,
@@ -603,7 +743,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         launch_report["status"] = "fail"
         launch_report["stage"] = "preflight"
         launch_report["stop_reason"] = "preflight_failed"
-        write_json(launch_report_json, launch_report)
+        _write_failed_launch_report(
+            app_root=app_root,
+            launch_report_json=launch_report_json,
+            launch_report=launch_report,
+            readiness_summary_command=readiness_summary_command,
+            readiness_summary_json=readiness_summary_json,
+            command_runner=command_runner,
+        )
         print("AgriGuard launch preflight failed; docker compose up was not run.", file=sys.stderr)
         return preflight_result.returncode
 
@@ -613,7 +760,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         launch_report["status"] = "fail"
         launch_report["stage"] = "compose"
         launch_report["stop_reason"] = "compose_failed"
-        write_json(launch_report_json, launch_report)
+        _write_failed_launch_report(
+            app_root=app_root,
+            launch_report_json=launch_report_json,
+            launch_report=launch_report,
+            readiness_summary_command=readiness_summary_command,
+            readiness_summary_json=readiness_summary_json,
+            command_runner=command_runner,
+        )
         return compose_result.returncode
 
     if browser_smoke_command is None:
@@ -631,7 +785,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     launch_report["status"] = "pass" if browser_smoke_result.returncode == 0 else "fail"
     launch_report["stage"] = "browser_smoke"
     launch_report["stop_reason"] = None if browser_smoke_result.returncode == 0 else "browser_smoke_failed"
-    write_json(launch_report_json, launch_report)
+    if browser_smoke_result.returncode == 0:
+        write_json(launch_report_json, launch_report)
+    else:
+        _write_failed_launch_report(
+            app_root=app_root,
+            launch_report_json=launch_report_json,
+            launch_report=launch_report,
+            readiness_summary_command=readiness_summary_command,
+            readiness_summary_json=readiness_summary_json,
+            command_runner=command_runner,
+        )
     return browser_smoke_result.returncode
 
 
