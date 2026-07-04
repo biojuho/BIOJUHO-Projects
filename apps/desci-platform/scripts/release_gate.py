@@ -1132,6 +1132,55 @@ def _browser_smoke_launch_control_failures(raw_path: str, payload: dict[str, Any
             failures.extend(
                 _launch_env_handoff_failures(raw_path, launch_env_handoff, "launch_control.launch_env_handoff")
             )
+    failures.extend(_browser_launch_control_layout_failures(raw_path, launch_control))
+    return failures
+
+
+def _browser_launch_control_layout_failures(raw_path: str, launch_control: dict[str, Any]) -> list[str]:
+    dashboard_layout = launch_control.get("dashboard_layout")
+    if dashboard_layout is None:
+        return []
+    if not isinstance(dashboard_layout, dict):
+        return [f"JSON evidence artifact launch_control.dashboard_layout must be an object: {raw_path}"]
+
+    failures: list[str] = []
+    viewport_width = dashboard_layout.get("viewportWidth")
+    scroll_width = dashboard_layout.get("scrollWidth")
+    if not _is_non_negative_int(viewport_width):
+        failures.append(
+            f"JSON evidence artifact launch_control.dashboard_layout.viewportWidth must be a non-negative integer: {raw_path}"
+        )
+    if not _is_non_negative_int(scroll_width):
+        failures.append(
+            f"JSON evidence artifact launch_control.dashboard_layout.scrollWidth must be a non-negative integer: {raw_path}"
+        )
+    if isinstance(viewport_width, int) and isinstance(scroll_width, int) and scroll_width > viewport_width + 2:
+        failures.append(
+            f"JSON evidence artifact launch_control.dashboard_layout reports horizontal overflow: {raw_path}"
+        )
+
+    for field in ("missingTargets", "zeroSizedTargets"):
+        values = dashboard_layout.get(field)
+        if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+            failures.append(
+                f"JSON evidence artifact launch_control.dashboard_layout.{field} must be a list of strings: {raw_path}"
+            )
+        elif values:
+            failures.append(
+                f"JSON evidence artifact launch_control.dashboard_layout.{field} must be empty: {raw_path}"
+            )
+
+    clipped_targets = dashboard_layout.get("horizontallyClippedTargets")
+    if not isinstance(clipped_targets, list):
+        failures.append(
+            "JSON evidence artifact launch_control.dashboard_layout.horizontallyClippedTargets "
+            f"must be a list: {raw_path}"
+        )
+    elif clipped_targets:
+        failures.append(
+            "JSON evidence artifact launch_control.dashboard_layout.horizontallyClippedTargets "
+            f"must be empty: {raw_path}"
+        )
     return failures
 
 
@@ -1925,6 +1974,9 @@ def browser_launch_control_summary(reports: list[dict[str, Any]]) -> dict[str, A
     score = _browser_launch_control_score(report)
     if score:
         summary["score"] = score
+    dashboard_layout = _browser_launch_control_layout(report)
+    if dashboard_layout:
+        summary["dashboard_layout"] = dashboard_layout
     return summary
 
 
@@ -1946,6 +1998,38 @@ def _browser_launch_control_score(report: dict[str, Any]) -> dict[str, int]:
         "required_percent": "json_browser_launch_score_required_percent",
     }
     return {target: value for target, source in fields.items() if isinstance((value := report.get(source)), int)}
+
+
+def _browser_launch_control_layout(report: dict[str, Any]) -> dict[str, Any]:
+    layout: dict[str, Any] = {}
+    for target, source in (
+        ("viewportWidth", "json_browser_launch_layout_viewport_width"),
+        ("scrollWidth", "json_browser_launch_layout_scroll_width"),
+    ):
+        value = report.get(source)
+        if isinstance(value, int):
+            layout[target] = value
+
+    for target, source in (
+        ("missingTargets", "json_browser_launch_layout_missing_targets"),
+        ("zeroSizedTargets", "json_browser_launch_layout_zero_sized_targets"),
+    ):
+        values = report.get(source)
+        if isinstance(values, list) and all(isinstance(value, str) for value in values):
+            layout[target] = values
+
+    clipped_targets = report.get("json_browser_launch_layout_horizontally_clipped_targets")
+    if isinstance(clipped_targets, list):
+        layout["horizontallyClippedTargets"] = clipped_targets
+
+    for target, source in (
+        ("hasHorizontalOverflow", "json_browser_launch_layout_has_horizontal_overflow"),
+        ("hasLayoutTargetFailures", "json_browser_launch_layout_has_target_failures"),
+    ):
+        value = report.get(source)
+        if isinstance(value, bool):
+            layout[target] = value
+    return layout
 
 
 def launch_action_coverage_comparison(
@@ -2573,6 +2657,32 @@ def _artifact_json_browser_launch_control_report(payload: dict[str, Any]) -> dic
             if isinstance(value, int):
                 report[f"json_browser_launch_score_{field}"] = value
 
+    dashboard_layout = launch_control.get("dashboard_layout")
+    if isinstance(dashboard_layout, dict):
+        viewport_width = dashboard_layout.get("viewportWidth")
+        scroll_width = dashboard_layout.get("scrollWidth")
+        if isinstance(viewport_width, int):
+            report["json_browser_launch_layout_viewport_width"] = viewport_width
+        if isinstance(scroll_width, int):
+            report["json_browser_launch_layout_scroll_width"] = scroll_width
+        if isinstance(viewport_width, int) and isinstance(scroll_width, int):
+            report["json_browser_launch_layout_has_horizontal_overflow"] = scroll_width > viewport_width + 2
+
+        missing_targets = dashboard_layout.get("missingTargets")
+        if isinstance(missing_targets, list) and all(isinstance(target, str) for target in missing_targets):
+            report["json_browser_launch_layout_missing_targets"] = missing_targets
+        zero_sized_targets = dashboard_layout.get("zeroSizedTargets")
+        if isinstance(zero_sized_targets, list) and all(isinstance(target, str) for target in zero_sized_targets):
+            report["json_browser_launch_layout_zero_sized_targets"] = zero_sized_targets
+        clipped_targets = dashboard_layout.get("horizontallyClippedTargets")
+        if isinstance(clipped_targets, list):
+            report["json_browser_launch_layout_horizontally_clipped_targets"] = clipped_targets
+
+        if isinstance(missing_targets, list) and isinstance(zero_sized_targets, list) and isinstance(clipped_targets, list):
+            report["json_browser_launch_layout_has_target_failures"] = bool(
+                missing_targets or zero_sized_targets or clipped_targets
+            )
+
     return report
 
 
@@ -2768,6 +2878,18 @@ def json_report_schema() -> dict[str, Any]:
                         "properties": {
                             "overall_percent": {"type": "integer"},
                             "required_percent": {"type": "integer"},
+                        },
+                    },
+                    "dashboard_layout": {
+                        "type": "object",
+                        "properties": {
+                            "viewportWidth": {"type": "integer"},
+                            "scrollWidth": {"type": "integer"},
+                            "missingTargets": _string_array_schema(),
+                            "zeroSizedTargets": _string_array_schema(),
+                            "horizontallyClippedTargets": {"type": "array"},
+                            "hasHorizontalOverflow": {"type": "boolean"},
+                            "hasLayoutTargetFailures": {"type": "boolean"},
                         },
                     },
                 },

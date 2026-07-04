@@ -2703,6 +2703,13 @@ def test_release_gate_report_schema_documents_parent_contract() -> None:
         "type": "array",
         "items": {"type": "string"},
     }
+    assert browser_launch_schema["properties"]["dashboard_layout"]["properties"]["missingTargets"] == {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+    assert browser_launch_schema["properties"]["dashboard_layout"]["properties"]["hasHorizontalOverflow"] == {
+        "type": "boolean",
+    }
     assert comparison_schema["properties"]["status"] == {"type": "string", "enum": ["match", "drift"]}
     assert comparison_schema["properties"]["live_only_action_ids"] == {"type": "array", "items": {"type": "string"}}
     assert comparison_schema["properties"]["browser_only_required_env"] == {
@@ -3120,6 +3127,18 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
         "NFT_CONTRACT_ADDRESS",
         "DESCI_DAO_CONTRACT_ADDRESS",
     ]
+    dashboard_layout = {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "missingTargets": [],
+        "zeroSizedTargets": [],
+        "horizontallyClippedTargets": [],
+    }
+    expected_dashboard_layout = {
+        **dashboard_layout,
+        "hasHorizontalOverflow": False,
+        "hasLayoutTargetFailures": False,
+    }
     browser_artifact.write_text(
         json.dumps(
             {
@@ -3155,6 +3174,7 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
                     "next_action_count": 5,
                     "next_action_ids": next_action_ids,
                     "next_action_required_env": next_action_required_env,
+                    "dashboard_layout": dashboard_layout,
                     "failures": [],
                 },
                 "failures": [],
@@ -3200,6 +3220,7 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
             "warning_count": 3,
         },
         "score": {"overall_percent": 29, "required_percent": 25},
+        "dashboard_layout": expected_dashboard_layout,
     }
     artifact_report = payload["results"][0]["artifact_reports"][0]
     assert artifact_report["json_browser_launch_check_name"] == "dashboard-readiness-refresh"
@@ -3214,6 +3235,89 @@ def test_release_gate_json_report_exposes_browser_launch_control_summary(tmp_pat
     assert artifact_report["json_browser_launch_action_ids"] == next_action_ids
     assert artifact_report["json_browser_launch_action_required_env"] == next_action_required_env
     assert artifact_report["json_browser_launch_score_required_percent"] == 25
+    assert artifact_report["json_browser_launch_layout_viewport_width"] == 1280
+    assert artifact_report["json_browser_launch_layout_scroll_width"] == 1280
+    assert artifact_report["json_browser_launch_layout_missing_targets"] == []
+    assert artifact_report["json_browser_launch_layout_zero_sized_targets"] == []
+    assert artifact_report["json_browser_launch_layout_horizontally_clipped_targets"] == []
+    assert artifact_report["json_browser_launch_layout_has_horizontal_overflow"] is False
+    assert artifact_report["json_browser_launch_layout_has_target_failures"] is False
+
+
+def test_release_gate_reports_browser_launch_layout_overflow(tmp_path: Path) -> None:
+    report_path = tmp_path / "release-gate-runtime.json"
+    browser_artifact = tmp_path / "desci-browser-smoke-release-gate.json"
+    browser_artifact.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "schema_version": 1,
+                "generated_at": "2026-05-27T00:00:00+00:00",
+                "frontend": "http://frontend",
+                "timeout_seconds": 20.0,
+                "skip_protected": False,
+                "skip_login_validation": True,
+                "expect_dev_auth": True,
+                "playwright_available": True,
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "launch_control": {
+                    "check_name": "dashboard-readiness-refresh",
+                    "ok": True,
+                    "evidence_source": "browser-smoke-dashboard-fixture",
+                    "api_mocked": True,
+                    "mocked_endpoints": ["/ready", "/launch"],
+                    "release_decision": "no-go",
+                    "operator_phase": "blocked",
+                    "readiness_status": "blocked",
+                    "summary": {
+                        "ready_count": 2,
+                        "total": 7,
+                        "required_ready_count": 1,
+                        "required_total": 4,
+                        "blocker_count": 1,
+                        "warning_count": 1,
+                    },
+                    "score": {"overall_percent": 29, "required_percent": 25},
+                    "launch_blockers": ["stripe"],
+                    "next_action_count": 2,
+                    "next_action_ids": ["stripe", "cors"],
+                    "next_action_required_env": ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS"],
+                    "dashboard_layout": {
+                        "viewportWidth": 1280,
+                        "scrollWidth": 1320,
+                        "missingTargets": [],
+                        "zeroSizedTargets": [],
+                        "horizontallyClippedTargets": [],
+                    },
+                    "failures": [],
+                },
+                "failures": [],
+                "checks": [
+                    {"name": "dashboard-readiness-refresh", "path": "/dashboard", "ok": True, "failures": []},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = release_gate.GateResult(
+        name="browser-smoke",
+        command=f"python scripts/browser_smoke.py --json-out {browser_artifact}",
+        cwd=str(release_gate.PROJECT_ROOT),
+        returncode=0,
+        elapsed_ms=12.5,
+        artifacts=[str(browser_artifact)],
+    )
+
+    release_gate.write_json_report(report_path, [result])
+
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    artifact_report = payload["results"][0]["artifact_reports"][0]
+    assert (
+        f"JSON evidence artifact launch_control.dashboard_layout reports horizontal overflow: {browser_artifact}"
+        in artifact_report["validation_failures"]
+    )
+    assert artifact_report["json_browser_launch_layout_has_horizontal_overflow"] is True
+    assert "browser_launch_control_summary" not in payload
 
 
 def test_release_gate_json_report_compares_live_and_browser_launch_action_coverage(tmp_path: Path) -> None:
