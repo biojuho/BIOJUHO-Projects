@@ -140,6 +140,76 @@ def test_operator_packet_preserves_env_file_in_safe_rerun_commands(tmp_path: Pat
     assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
 
 
+def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Path) -> None:
+    app_root = tmp_path / "apps" / "AgriGuard"
+    env_file = tmp_path / "var" / "operator.env"
+    preflight = tmp_path / "var" / "preflight.json"
+    output_dir = tmp_path / "launch-artifacts"
+    status_json = tmp_path / "custom-status" / "guarded-status.json"
+    artifact_index = output_dir / "custom-prefix-artifact-index.json"
+    preflight.parent.mkdir(parents=True)
+    output_dir.mkdir(parents=True)
+    preflight.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "errors": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."],
+                "warnings": [],
+                "checks": {"runtime": "compose", "docker_checked": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifact_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "consumer_packet_validation_status": "pass",
+                "recovery_command_status": "not_required",
+                "recovery_summary": {
+                    "required": False,
+                    "action": None,
+                    "status": "not_required",
+                    "note": None,
+                    "command": None,
+                },
+                "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "consumer_readiness_env_validation_ready_for_preflight": True,
+                "consumer_readiness_env_validation_placeholder_count": 0,
+                "consumer_readiness_operator_packet_preflight_status": "fail",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=preflight,
+        env_files=[env_file],
+        app_root=app_root,
+        guarded_output_dir=output_dir,
+        guarded_output_prefix="custom-prefix",
+        guarded_status_json=status_json,
+    )
+    evidence = packet["guarded_launch_evidence"]
+    summary = evidence["artifact_index_readiness_summary"]
+
+    assert packet["safe_rerun_commands"][1] == (
+        "python apps/AgriGuard/scripts/run_guarded_launch.py "
+        "--env-file var/operator.env "
+        "--output-dir launch-artifacts "
+        "--output-prefix custom-prefix "
+        "--emit-handoff "
+        "--status-json-out custom-status/guarded-status.json"
+    )
+    assert evidence["outputs"]["status_json"] == "custom-status/guarded-status.json"
+    assert evidence["outputs"]["launch_report_json"] == "launch-artifacts/custom-prefix-launch-report.json"
+    assert evidence["outputs"]["artifact_index_json"] == "launch-artifacts/custom-prefix-artifact-index.json"
+    assert summary["path"] == "launch-artifacts/custom-prefix-artifact-index.json"
+    assert summary["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert summary["env_validation_ready_for_preflight"] is True
+    assert summary["env_validation_placeholder_count"] == 0
+
+
 def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:
     packet = render_launch_operator_packet.build_operator_packet(
         preflight_json=tmp_path / "missing.json",

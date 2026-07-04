@@ -555,8 +555,11 @@ def _build_operator_packet_refresh_command(
     json_out: Path,
     markdown_out: Path,
     env_template_out: Path,
+    guarded_output_dir: Path,
+    guarded_output_prefix: str,
+    guarded_status_json: Path | None,
 ) -> list[str]:
-    return [
+    command = [
         sys.executable,
         str(app_root / "scripts" / "render_launch_operator_packet.py"),
         "--app-root",
@@ -573,8 +576,15 @@ def _build_operator_packet_refresh_command(
         str(markdown_out),
         "--env-template-out",
         str(env_template_out),
+        "--guarded-output-dir",
+        str(guarded_output_dir),
+        "--guarded-output-prefix",
+        guarded_output_prefix,
         "--exit-zero-on-blocked",
     ]
+    if guarded_status_json is not None:
+        command.extend(["--guarded-status-json", str(guarded_status_json)])
+    return command
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -744,6 +754,9 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             json_out=artifact_paths["operator_packet_json"],
             markdown_out=artifact_paths["operator_packet_markdown"],
             env_template_out=artifact_paths["operator_env_template"],
+            guarded_output_dir=output_dir,
+            guarded_output_prefix=args.output_prefix,
+            guarded_status_json=args.status_json_out.resolve() if args.status_json_out else None,
         )
         if handoff_requested
         else None

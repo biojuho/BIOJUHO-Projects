@@ -205,31 +205,51 @@ def _operator_env_template_validation_command(env_files: list[Path], workspace_r
     )
 
 
-def _guarded_launch_command(env_files: list[Path], workspace_root: Path) -> str:
+def _guarded_launch_command(
+    env_files: list[Path],
+    workspace_root: Path,
+    *,
+    output_dir: Path | None = None,
+    output_prefix: str = run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+    status_json: Path | None = None,
+) -> str:
     env_file = _env_file_refs(env_files, workspace_root)[0] if len(env_files) == 1 else "var/agriguard-launch-operator.env.template"
-    status_json = f"var/{run_guarded_launch.DEFAULT_OUTPUT_PREFIX}-status.json"
-    return _format_command(
+    output_dir = (output_dir or (workspace_root / "var")).resolve()
+    status_json = (status_json or _default_status_json(output_dir, output_prefix)).resolve()
+    command = [
+        "python",
+        "apps/AgriGuard/scripts/run_guarded_launch.py",
+        "--env-file",
+        env_file,
+    ]
+    if output_dir != (workspace_root / "var").resolve():
+        command.extend(["--output-dir", _rel(output_dir, workspace_root)])
+    if output_prefix != run_guarded_launch.DEFAULT_OUTPUT_PREFIX:
+        command.extend(["--output-prefix", output_prefix])
+    command.extend(
         [
-            "python",
-            "apps/AgriGuard/scripts/run_guarded_launch.py",
-            "--env-file",
-            env_file,
             "--emit-handoff",
             "--status-json-out",
-            status_json,
+            _rel(status_json, workspace_root),
         ]
     )
+    return _format_command(command)
 
 
 def _default_status_json(output_dir: Path, output_prefix: str) -> Path:
     return output_dir / f"{output_prefix}-status.json"
 
 
-def _guarded_launch_evidence_outputs(*, app_root: Path) -> dict[str, str]:
+def _guarded_launch_evidence_outputs(
+    *,
+    app_root: Path,
+    output_dir: Path | None = None,
+    output_prefix: str = run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+    status_json: Path | None = None,
+) -> dict[str, str]:
     workspace_root = _workspace_root(app_root)
-    output_dir = workspace_root / "var"
-    output_prefix = run_guarded_launch.DEFAULT_OUTPUT_PREFIX
-    status_json = _default_status_json(output_dir, output_prefix)
+    output_dir = (output_dir or (workspace_root / "var")).resolve()
+    status_json = (status_json or _default_status_json(output_dir, output_prefix)).resolve()
     artifact_paths = index_guarded_launch_artifacts._artifact_paths(output_dir, output_prefix, status_json)
     paths = {
         key: artifact_paths[key]
@@ -480,6 +500,9 @@ def build_operator_packet(
     env_validation_json: Path | None = None,
     env_files: list[Path] | None = None,
     app_root: Path | None = None,
+    guarded_output_dir: Path | None = None,
+    guarded_output_prefix: str | None = None,
+    guarded_status_json: Path | None = None,
 ) -> dict[str, object]:
     app_root = (app_root or _default_app_root()).resolve()
     workspace_root = _workspace_root(app_root)
@@ -537,12 +560,27 @@ def build_operator_packet(
             "var/agriguard-compose-launch-report.json",
         ]
     )
-    guarded_launch = _guarded_launch_command(env_files, workspace_root)
-    guarded_launch_outputs = _guarded_launch_evidence_outputs(app_root=app_root)
-    artifact_index_json = run_guarded_launch._default_artifact_index_json(
-        workspace_root / "var",
-        run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+    guarded_output_dir = (guarded_output_dir or (workspace_root / "var")).resolve()
+    guarded_output_prefix = guarded_output_prefix or run_guarded_launch.DEFAULT_OUTPUT_PREFIX
+    guarded_status_json = (
+        guarded_status_json.resolve()
+        if guarded_status_json is not None
+        else _default_status_json(guarded_output_dir, guarded_output_prefix)
     )
+    guarded_launch = _guarded_launch_command(
+        env_files,
+        workspace_root,
+        output_dir=guarded_output_dir,
+        output_prefix=guarded_output_prefix,
+        status_json=guarded_status_json,
+    )
+    guarded_launch_outputs = _guarded_launch_evidence_outputs(
+        app_root=app_root,
+        output_dir=guarded_output_dir,
+        output_prefix=guarded_output_prefix,
+        status_json=guarded_status_json,
+    )
+    artifact_index_json = run_guarded_launch._default_artifact_index_json(guarded_output_dir, guarded_output_prefix)
 
     return {
         "schema_version": 1,
@@ -758,6 +796,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional dotenv template with redacted launch variable placeholders.",
     )
     parser.add_argument(
+        "--guarded-output-dir",
+        type=Path,
+        default=None,
+        help="Guarded-launch output directory to embed in evidence outputs. Defaults to workspace var/.",
+    )
+    parser.add_argument(
+        "--guarded-output-prefix",
+        default=None,
+        help="Guarded-launch output prefix to embed in evidence outputs.",
+    )
+    parser.add_argument(
+        "--guarded-status-json",
+        type=Path,
+        default=None,
+        help="Guarded-launch compact status JSON path to embed in evidence outputs.",
+    )
+    parser.add_argument(
         "--exit-zero-on-blocked",
         action="store_true",
         help="Write the packet but return 0 even when launch remains blocked.",
@@ -772,6 +827,9 @@ def main(argv: list[str] | None = None) -> int:
         env_validation_json=args.env_validation_json.resolve() if args.env_validation_json else None,
         env_files=[env_file.resolve() for env_file in args.env_file],
         app_root=args.app_root.resolve(),
+        guarded_output_dir=args.guarded_output_dir.resolve() if args.guarded_output_dir else None,
+        guarded_output_prefix=args.guarded_output_prefix,
+        guarded_status_json=args.guarded_status_json.resolve() if args.guarded_status_json else None,
     )
     markdown = render_markdown(packet)
     evidence = packet.get("guarded_launch_evidence")

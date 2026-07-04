@@ -169,6 +169,9 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert _arg_after(payload["operator_packet_refresh_command"], "--env-template-out") == str(
         output_dir.resolve() / "release-check.env.template"
     )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-output-dir") == str(output_dir.resolve())
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-output-prefix") == "release-check"
+    assert "--guarded-status-json" not in payload["operator_packet_refresh_command"]
 
 
 def test_guarded_launch_artifact_index_uses_custom_handoff_outputs(tmp_path: Path, capsys) -> None:
@@ -216,6 +219,37 @@ def test_guarded_launch_artifact_index_uses_custom_handoff_outputs(tmp_path: Pat
     )
     assert _arg_after(artifact_index_command, "--handoff-consumer-json") == str(handoff_consumer_json.resolve())
     assert _arg_after(artifact_index_command, "--ready-gate-json") == str(ready_gate_json.resolve())
+
+
+def test_guarded_launch_packet_refresh_uses_custom_status_json(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+    status_json = tmp_path / "status" / "guarded-status.json"
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--status-json-out",
+            str(status_json),
+            "--emit-handoff",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    command = payload["operator_packet_refresh_command"]
+    assert result == 0
+    assert _arg_after(command, "--guarded-output-dir") == str(output_dir.resolve())
+    assert _arg_after(command, "--guarded-output-prefix") == "release-check"
+    assert _arg_after(command, "--guarded-status-json") == str(status_json.resolve())
 
 
 def test_guarded_launch_dry_run_reports_missing_artifact_index_hint(tmp_path: Path, capsys) -> None:
