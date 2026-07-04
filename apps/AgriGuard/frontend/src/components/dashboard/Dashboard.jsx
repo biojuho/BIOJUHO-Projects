@@ -18,7 +18,7 @@ function getDashboardLoadError(error) {
     return {
       kind: 'auth',
       title: 'Operator authentication required',
-      description: 'Save a Firebase/operator token in QR Tokens or Sensors, then reload the dashboard.',
+      description: 'Paste a Firebase/operator token below, or save one in QR Tokens or Sensors.',
       toast: 'Operator authentication required for dashboard metrics.',
       detail,
     };

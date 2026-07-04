@@ -179,7 +179,7 @@ describe('Dashboard', () => {
     render(<Dashboard />);
 
     expect(await screen.findByText('Operator authentication required')).toBeInTheDocument();
-    expect(screen.getByText('Save a Firebase/operator token in QR Tokens or Sensors, then reload the dashboard.')).toBeInTheDocument();
+    expect(screen.getByText('Paste a Firebase/operator token below, or save one in QR Tokens or Sensors.')).toBeInTheDocument();
     expect(screen.queryByText('백엔드 연결 실패')).not.toBeInTheDocument();
     expect(screen.getByText('Request failed with status code 401')).toBeInTheDocument();
   });
