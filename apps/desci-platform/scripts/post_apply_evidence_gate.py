@@ -71,11 +71,30 @@ def secret_marker_names(payload: dict[str, Any]) -> list[str]:
     return secret_marker_names_in_text(serialized)
 
 
+def _provider_blockers(provider_payload: dict[str, Any]) -> list[dict[str, str]]:
+    blockers: list[dict[str, str]] = []
+    for check in _as_list(provider_payload.get("failed_checks")):
+        if not isinstance(check, dict):
+            continue
+        blockers.append(
+            {
+                "provider": str(check.get("provider") or "").strip().lower(),
+                "id": str(check.get("id") or ""),
+                "command": str(check.get("command") or "").strip(),
+                "failure_reason": str(check.get("failure_reason") or "unknown"),
+                "docs_url": str(check.get("docs_url") or "").strip(),
+                "remediation": str(check.get("remediation") or "").strip(),
+            }
+        )
+    return blockers
+
+
 def validate_post_apply_payload(payload: dict[str, Any], *, evidence_path: str | Path) -> dict[str, Any]:
     summary = _as_dict(payload.get("summary"))
     deploy_payload = _as_dict(payload.get("deploy_readiness"))
     provider_payload = _as_dict(payload.get("provider_preflight"))
     markers = secret_marker_names(payload)
+    provider_blockers = _provider_blockers(provider_payload)
     failures: list[str] = []
 
     if payload.get("schema_version") != 1:
@@ -122,12 +141,14 @@ def validate_post_apply_payload(payload: dict[str, Any], *, evidence_path: str |
             "provider_check_count": int(summary.get("provider_check_count") or 0),
             "provider_missing_cli_count": provider_missing_cli_count,
             "provider_auth_context_missing_count": provider_auth_context_missing_count,
+            "provider_blocker_count": len(provider_blockers),
             "failed_surface_count": int(summary.get("failed_surface_count") or 0),
             "provider_ready": provider_ready,
             "provider_count": provider_count,
             "secret_marker_count": len(markers),
         },
         "secret_marker_names": markers,
+        "provider_blockers": provider_blockers,
         "failures": failures,
     }
 
@@ -541,6 +562,21 @@ def _promotion_blocking_reasons(
     if gate_payload.get("ok") is not True:
         gate_failures = [str(item) for item in _as_list(gate_payload.get("failures")) if str(item)]
         reasons.extend(gate_failures or ["post_apply_evidence_gate.ok must be true"])
+        for blocker in _as_list(gate_payload.get("provider_blockers")):
+            if not isinstance(blocker, dict):
+                continue
+            provider = str(blocker.get("provider") or "provider")
+            command = str(blocker.get("command") or "").strip()
+            failure_reason = str(blocker.get("failure_reason") or "unknown")
+            remediation = str(blocker.get("remediation") or "").strip()
+            docs_url = str(blocker.get("docs_url") or "").strip()
+            command_label = f" {command}" if command else ""
+            reason = f"provider_preflight {provider}{command_label}: {failure_reason}"
+            if remediation:
+                reason = f"{reason}; next={remediation}"
+            elif docs_url:
+                reason = f"{reason}; docs={docs_url}"
+            reasons.append(reason)
 
     if manifest_payload is None:
         reasons.append("evidence manifest was not generated")
@@ -632,10 +668,25 @@ def print_report(payload: dict[str, Any]) -> None:
         f"provider_failed_checks={summary.get('provider_failed_checks')} "
         f"provider_checks={summary.get('provider_check_count')} "
         f"missing_cli={summary.get('provider_missing_cli_count')} "
-        f"auth_context_missing={summary.get('provider_auth_context_missing_count')}"
+        f"auth_context_missing={summary.get('provider_auth_context_missing_count')} "
+        f"provider_blockers={summary.get('provider_blocker_count')}"
     )
     for failure in _as_list(payload.get("failures")):
         print(f"  - {failure}")
+    for blocker in _as_list(payload.get("provider_blockers")):
+        if not isinstance(blocker, dict):
+            continue
+        provider = blocker.get("provider")
+        command = blocker.get("command")
+        reason = blocker.get("failure_reason")
+        docs_url = blocker.get("docs_url")
+        remediation = blocker.get("remediation")
+        details = f"  - provider_blocker {provider} {command}: {reason}"
+        if docs_url:
+            details = f"{details} docs={docs_url}"
+        if remediation:
+            details = f"{details} next={remediation}"
+        print(details)
 
 
 def print_manifest_verification_report(payload: dict[str, Any]) -> None:
