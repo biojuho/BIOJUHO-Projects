@@ -381,6 +381,50 @@
           },
           "type": "array"
         },
+        "artifact_index_recovery_summary": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "string",
+                "array",
+                "null"
+              ]
+            },
+            "note": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "required",
+            "action",
+            "status",
+            "note",
+            "command"
+          ],
+          "type": "object"
+        },
         "operator_packet": {
           "additionalProperties": false,
           "properties": {
@@ -505,6 +549,7 @@
         "status",
         "blocker_class",
         "operator_action_ids",
+        "artifact_index_recovery_summary",
         "output_dir",
         "output_prefix",
         "secrets_redacted",

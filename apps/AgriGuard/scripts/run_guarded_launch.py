@@ -107,6 +107,44 @@ def _summary_report(payload: dict[str, Any] | None, report_name: str) -> dict[st
     return report if isinstance(report, dict) else {}
 
 
+MISSING_STATUS_RECOVERY_ACTION = (
+    "Generate the guarded launch operator packet so artifact-index recovery status can be read."
+)
+MISSING_STATUS_RECOVERY_NOTE = "Artifact index recovery status is unavailable because the operator packet is missing."
+
+
+def _packet_artifact_index_recovery_summary(packet: dict[str, Any] | None) -> dict[str, object]:
+    if packet is None:
+        return {
+            "required": True,
+            "action": MISSING_STATUS_RECOVERY_ACTION,
+            "status": None,
+            "note": MISSING_STATUS_RECOVERY_NOTE,
+            "command": None,
+        }
+    evidence = packet.get("guarded_launch_evidence") if isinstance(packet.get("guarded_launch_evidence"), dict) else {}
+    artifact_summary = (
+        evidence.get("artifact_index_readiness_summary")
+        if isinstance(evidence.get("artifact_index_readiness_summary"), dict)
+        else {}
+    )
+    recovery_summary = artifact_summary.get("recovery_summary")
+    if isinstance(recovery_summary, dict):
+        return dict(recovery_summary)
+    recovery_status = artifact_summary.get("recovery_command_status")
+    recovery_note = artifact_summary.get("recovery_command_note")
+    note = recovery_note if isinstance(recovery_note, str) else None
+    if not isinstance(recovery_status, str) and note is None:
+        note = "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
+    return {
+        "required": not isinstance(recovery_status, str),
+        "action": artifact_summary.get("missing_index_action"),
+        "status": recovery_status if isinstance(recovery_status, str) else None,
+        "note": note,
+        "command": artifact_summary.get("missing_index_command"),
+    }
+
+
 def _build_status_view(
     *,
     output_dir: Path,
@@ -140,6 +178,7 @@ def _build_status_view(
         "output_dir": str(output_dir),
         "output_prefix": output_prefix,
         "secrets_redacted": True,
+        "artifact_index_recovery_summary": _packet_artifact_index_recovery_summary(packet),
         "artifacts": {key: str(value) for key, value in artifact_paths.items()},
         "launch": {
             "found": launch is not None,

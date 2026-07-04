@@ -382,6 +382,13 @@ def test_guarded_launch_status_only_reports_missing_artifacts(tmp_path: Path, ca
     assert payload["launch"]["found"] is False
     assert payload["readiness_summary"]["found"] is False
     assert payload["operator_packet"]["found"] is False
+    assert payload["artifact_index_recovery_summary"] == {
+        "required": True,
+        "action": "Generate the guarded launch operator packet so artifact-index recovery status can be read.",
+        "status": None,
+        "note": "Artifact index recovery status is unavailable because the operator packet is missing.",
+        "command": None,
+    }
     assert payload["operator_action_ids"] == []
 
 
@@ -428,6 +435,17 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                 "status": "blocked",
                 "operator_actions": [{"id": "fallback_action"}],
                 "secrets_redacted": True,
+                "guarded_launch_evidence": {
+                    "artifact_index_readiness_summary": {
+                        "recovery_summary": {
+                            "required": False,
+                            "action": None,
+                            "status": "not_required",
+                            "note": None,
+                            "command": None,
+                        },
+                    },
+                },
             }
         ),
         encoding="utf-8",
@@ -457,6 +475,13 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["readiness_summary"]["env_validation_placeholder_count"] == 6
     assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
     assert payload["operator_packet"]["operator_action_ids"] == ["fallback_action"]
+    assert payload["artifact_index_recovery_summary"] == {
+        "required": False,
+        "action": None,
+        "status": "not_required",
+        "note": None,
+        "command": None,
+    }
 
 
 def test_guarded_launch_status_require_ready_fails_for_blocked_prefix(tmp_path: Path, capsys) -> None:
