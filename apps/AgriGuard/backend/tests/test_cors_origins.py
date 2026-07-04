@@ -136,6 +136,20 @@ def test_agriguard_readme_uses_fail_closed_compose_launcher() -> None:
     assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE" in readme
 
 
+def test_agriguard_compose_env_example_keeps_forbidden_launch_flags_disabled() -> None:
+    env_example = (WORKSPACE_ROOT / "apps/AgriGuard/.env.example").read_text(encoding="utf-8")
+    assignments = {}
+    for raw_line in env_example.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        assignments[key.strip()] = value.strip().lower()
+
+    assert assignments["ALLOW_TEST_BYPASS"] == "false"
+    assert assignments.get("ALLOW_DEV_AUTH_FALLBACK") != "true"
+
+
 def test_agriguard_compose_postgres_healthcheck_uses_configured_database_identity() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
 
