@@ -207,6 +207,47 @@ def test_alembic_revision_ids_fit_postgres_version_column():
     assert all(len(revision) <= 32 for revision in revision_ids)
 
 
+def test_run_migrations_rewrites_deprecated_revision_aliases():
+    """Existing local databases may have recorded pre-shortened revision ids."""
+    if importlib.util.find_spec("alembic") is None or not _python_can_import("from alembic import command"):
+        pytest.skip("alembic is not installed in the current test environment")
+
+    script_path = Path(backend_dir) / "scripts" / "run_migrations.py"
+    spec = importlib.util.spec_from_file_location("run_migrations_for_test", script_path)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    db_path = os.path.join(temp_root, f"{uuid.uuid4().hex}-deprecated-revisions.db")
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    try:
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("CREATE TABLE alembic_version (version_num VARCHAR(255))")
+            connection.execute("INSERT INTO alembic_version (version_num) VALUES (?)", ("0005_add_qr_scan_event_kpi_indexes",))
+            connection.execute("INSERT INTO alembic_version (version_num) VALUES (?)", ("0006_add_sensor_device_owner_scope",))
+
+        rewrites = module._rewrite_deprecated_revision_aliases(f"sqlite:///{db_path}")
+
+        with sqlite3.connect(db_path) as connection:
+            versions = {
+                row[0] for row in connection.execute("SELECT version_num FROM alembic_version").fetchall()
+            }
+
+        assert rewrites == [
+            {"from": "0005_add_qr_scan_event_kpi_indexes", "to": "0005_qr_kpi_indexes"},
+            {"from": "0006_add_sensor_device_owner_scope", "to": "0006_sensor_owner_scope"},
+        ]
+        assert versions == {"0005_qr_kpi_indexes", "0006_sensor_owner_scope"}
+    finally:
+        try:
+            os.remove(db_path)
+        except OSError:
+            pass
+
+
 def test_qr_ab_script_handles_missing_variant_data():
     """Verify the QR A/B helper exits cleanly when one variant has no samples yet."""
     dataset_path = os.path.join(temp_root, f"qr-ab-{uuid.uuid4().hex}.json")

@@ -19,6 +19,10 @@ BASELINE_TABLES = {
     "certificates",
     "sensor_readings",
 }
+DEPRECATED_REVISION_ALIASES = {
+    "0005_add_qr_scan_event_kpi_indexes": "0005_qr_kpi_indexes",
+    "0006_add_sensor_device_owner_scope": "0006_sensor_owner_scope",
+}
 
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -74,6 +78,33 @@ def _needs_legacy_baseline(database_url: str | None) -> bool:
         engine.dispose()
 
 
+def _rewrite_deprecated_revision_aliases(database_url: str | None) -> list[dict[str, str]]:
+    if not database_url:
+        return []
+
+    engine = create_engine(database_url)
+    try:
+        with engine.begin() as connection:
+            inspector = inspect(connection)
+            if "alembic_version" not in set(inspector.get_table_names()):
+                return []
+
+            versions = connection.execute(text("SELECT version_num FROM alembic_version")).fetchall()
+            rewrites: list[dict[str, str]] = []
+            for (version_num,) in versions:
+                replacement = DEPRECATED_REVISION_ALIASES.get(str(version_num))
+                if not replacement:
+                    continue
+                connection.execute(
+                    text("UPDATE alembic_version SET version_num = :replacement WHERE version_num = :version_num"),
+                    {"replacement": replacement, "version_num": version_num},
+                )
+                rewrites.append({"from": str(version_num), "to": replacement})
+            return rewrites
+    finally:
+        engine.dispose()
+
+
 def main() -> int:
     database_url = os.environ.get("DATABASE_URL")
     config = build_config()
@@ -83,6 +114,10 @@ def main() -> int:
     if _needs_legacy_baseline(database_url):
         print(f"Detected a pre-Alembic baseline database; stamping revision {BASELINE_REVISION} before upgrade.")
         command.stamp(config, BASELINE_REVISION)
+
+    rewritten_revisions = _rewrite_deprecated_revision_aliases(database_url)
+    for rewrite in rewritten_revisions:
+        print(f"Rewrote deprecated Alembic revision {rewrite['from']} -> {rewrite['to']}.")
 
     command.upgrade(config, "head")
     print("Alembic migrations applied successfully.")
