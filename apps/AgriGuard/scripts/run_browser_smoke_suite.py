@@ -5,8 +5,9 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
-from urllib import error, request
+from urllib import error, parse, request
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
@@ -46,7 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-backend-contract-check",
         action="store_true",
-        help="Skip the live backend OpenAPI freshness check before running browser steps.",
+        help="Skip the live backend and frontend proxy prechecks before running browser steps.",
     )
     parser.add_argument(
         "--include-unavailable-check",
@@ -237,6 +238,10 @@ def _openapi_url(api_url: str) -> str:
     return api_url.rstrip("/") + "/openapi.json"
 
 
+def _frontend_api_url(base_url: str) -> str:
+    return base_url.rstrip("/") + "/api"
+
+
 def summarize_backend_openapi_contract(payload: dict[str, object]) -> dict[str, object]:
     paths = payload.get("paths")
     if not isinstance(paths, dict):
@@ -304,6 +309,148 @@ def check_backend_contract(api_url: str, *, timeout_ms: int) -> dict[str, object
     summary["name"] = "backend_contract"
     summary["url"] = url
     return summary
+
+
+def api_request(
+    *,
+    api_url: str,
+    method: str,
+    path: str,
+    token: str,
+    payload: dict[str, object] | None = None,
+    timeout_seconds: int,
+) -> dict[str, object]:
+    body = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = request.Request(
+        api_url.rstrip("/") + path,
+        data=body,
+        method=method,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    with request.urlopen(req, timeout=timeout_seconds) as response:
+        raw = response.read().decode("utf-8")
+    return json.loads(raw) if raw else {}
+
+
+def summarize_backend_proxy_alignment(
+    *,
+    api_url: str,
+    frontend_api_url: str,
+    seeded_product: dict[str, object],
+    proxy_product: dict[str, object] | None = None,
+    proxy_error: str = "",
+) -> dict[str, object]:
+    product_id = str(seeded_product.get("id") or "")
+    product_name = str(seeded_product.get("name") or "")
+    summary = {
+        "name": "backend_proxy_alignment",
+        "api_url": api_url.rstrip("/"),
+        "frontend_api_url": frontend_api_url.rstrip("/"),
+        "product_id": product_id,
+        "product_name": product_name,
+    }
+    if not product_id or not product_name:
+        return {
+            **summary,
+            "ok": False,
+            "detail": "api_url seed product response did not include an id and name",
+        }
+    if proxy_error:
+        return {
+            **summary,
+            "ok": False,
+            "detail": (
+                "seeded product was not visible through frontend /api; "
+                f"--api-url may target a different backend than the frontend proxy: {proxy_error}"
+            ),
+        }
+
+    proxy_product = proxy_product or {}
+    proxy_product_id = str(proxy_product.get("id") or "")
+    proxy_product_name = str(proxy_product.get("name") or "")
+    ok = proxy_product_id == product_id and proxy_product_name == product_name
+    return {
+        **summary,
+        "ok": ok,
+        "proxy_product_id": proxy_product_id,
+        "proxy_product_name": proxy_product_name,
+        "detail": (
+            "backend API and frontend /api proxy share seeded product state"
+            if ok
+            else "frontend /api returned a different product than the one seeded through --api-url"
+        ),
+    }
+
+
+def check_backend_proxy_alignment(
+    *, base_url: str, api_url: str, operator_token: str, timeout_ms: int
+) -> dict[str, object]:
+    timeout_seconds = max(1, min(15, int(timeout_ms / 1000)))
+    frontend_api_url = _frontend_api_url(base_url)
+    owner_id = "browser-smoke-precheck"
+    payload = {
+        "name": f"Browser Smoke Proxy Precheck {uuid.uuid4().hex[:8]}",
+        "description": "Precheck product used to verify that --api-url matches the frontend /api proxy state.",
+        "category": "Precheck",
+        "origin": "Browser Smoke Suite",
+        "requires_cold_chain": False,
+    }
+    seed_path = f"/products/?owner_id={parse.quote(owner_id)}"
+    try:
+        seeded_product = api_request(
+            api_url=api_url,
+            method="POST",
+            path=seed_path,
+            token=operator_token,
+            payload=payload,
+            timeout_seconds=timeout_seconds,
+        )
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        return {
+            "name": "backend_proxy_alignment",
+            "ok": False,
+            "api_url": api_url.rstrip("/"),
+            "frontend_api_url": frontend_api_url.rstrip("/"),
+            "detail": f"api_url seed request failed with HTTP {exc.code}: {detail}",
+        }
+    except (OSError, TimeoutError, json.JSONDecodeError) as exc:
+        return {
+            "name": "backend_proxy_alignment",
+            "ok": False,
+            "api_url": api_url.rstrip("/"),
+            "frontend_api_url": frontend_api_url.rstrip("/"),
+            "detail": f"api_url seed request failed: {exc}",
+        }
+
+    product_id = str(seeded_product.get("id") or "")
+    proxy_product: dict[str, object] | None = None
+    proxy_error = ""
+    if product_id:
+        try:
+            proxy_product = api_request(
+                api_url=frontend_api_url,
+                method="GET",
+                path=f"/products/{parse.quote(product_id)}",
+                token=operator_token,
+                timeout_seconds=timeout_seconds,
+            )
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            proxy_error = f"HTTP {exc.code}: {detail}"
+        except (OSError, TimeoutError, json.JSONDecodeError) as exc:
+            proxy_error = str(exc)
+
+    return summarize_backend_proxy_alignment(
+        api_url=api_url,
+        frontend_api_url=frontend_api_url,
+        seeded_product=seeded_product,
+        proxy_product=proxy_product,
+        proxy_error=proxy_error,
+    )
 
 
 def summarize_child_report(path: Path) -> dict[str, object]:
@@ -377,6 +524,40 @@ def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def build_precheck_failure_report(args: argparse.Namespace, prechecks: list[dict[str, object]]) -> dict[str, object]:
+    failed_precheck_names = [
+        str(precheck.get("name") or f"precheck_{index}")
+        for index, precheck in enumerate(prechecks, start=1)
+        if precheck.get("ok") is not True
+    ]
+    prechecks_passed = len(prechecks) - len(failed_precheck_names)
+    return {
+        "status": "fail",
+        "base_url": args.base_url,
+        "api_url": args.api_url,
+        "mobile": args.mobile,
+        "include_unavailable_check": args.include_unavailable_check,
+        "dry_run": args.dry_run,
+        "skip_backend_contract_check": args.skip_backend_contract_check,
+        "summary": {
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "failed_step_names": [],
+            "checks_total": 0,
+            "checks_passed": 0,
+            "checks_failed": 0,
+            "failed_check_names": [],
+            "prechecks_total": len(prechecks),
+            "prechecks_passed": prechecks_passed,
+            "prechecks_failed": len(failed_precheck_names),
+            "failed_precheck_names": failed_precheck_names,
+        },
+        "prechecks": prechecks,
+        "results": [],
+    }
+
+
 def main() -> int:
     args = parse_args()
     steps = build_steps(args)
@@ -386,35 +567,20 @@ def main() -> int:
         backend_contract = check_backend_contract(args.api_url, timeout_ms=args.timeout_ms)
         prechecks.append(backend_contract)
         if backend_contract.get("ok") is not True:
-            report = {
-                "status": "fail",
-                "base_url": args.base_url,
-                "api_url": args.api_url,
-                "mobile": args.mobile,
-                "include_unavailable_check": args.include_unavailable_check,
-                "dry_run": args.dry_run,
-                "skip_backend_contract_check": args.skip_backend_contract_check,
-                "summary": {
-                    "total": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "failed_step_names": [],
-                    "checks_total": 0,
-                    "checks_passed": 0,
-                    "checks_failed": 0,
-                    "failed_check_names": [],
-                    "prechecks_total": len(prechecks),
-                    "prechecks_passed": 0,
-                    "prechecks_failed": 1,
-                    "failed_precheck_names": [
-                        str(precheck.get("name") or f"precheck_{index}")
-                        for index, precheck in enumerate(prechecks, start=1)
-                        if precheck.get("ok") is not True
-                    ],
-                },
-                "prechecks": prechecks,
-                "results": [],
-            }
+            report = build_precheck_failure_report(args, prechecks)
+            write_json(args.json_out, report)
+            print(json.dumps(report["summary"], indent=2, sort_keys=True))
+            return 1
+
+        backend_proxy_alignment = check_backend_proxy_alignment(
+            base_url=args.base_url,
+            api_url=args.api_url,
+            operator_token=args.operator_token,
+            timeout_ms=args.timeout_ms,
+        )
+        prechecks.append(backend_proxy_alignment)
+        if backend_proxy_alignment.get("ok") is not True:
+            report = build_precheck_failure_report(args, prechecks)
             write_json(args.json_out, report)
             print(json.dumps(report["summary"], indent=2, sort_keys=True))
             return 1

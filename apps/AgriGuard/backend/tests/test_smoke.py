@@ -447,6 +447,44 @@ def test_browser_smoke_suite_backend_contract_flags_stale_backend():
     assert "restart/rebuild the backend" in summary["detail"]
 
 
+def test_browser_smoke_suite_backend_proxy_alignment_accepts_shared_state():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_proxy_alignment_pass_under_test",
+    )
+
+    summary = script.summarize_backend_proxy_alignment(
+        api_url="http://127.0.0.1:8002/",
+        frontend_api_url="http://127.0.0.1:5174/api/",
+        seeded_product={"id": "product-1", "name": "Proxy Probe"},
+        proxy_product={"id": "product-1", "name": "Proxy Probe"},
+    )
+
+    assert summary["ok"] is True
+    assert summary["api_url"] == "http://127.0.0.1:8002"
+    assert summary["frontend_api_url"] == "http://127.0.0.1:5174/api"
+    assert "share seeded product state" in summary["detail"]
+
+
+def test_browser_smoke_suite_backend_proxy_alignment_flags_mismatched_state():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_proxy_alignment_fail_under_test",
+    )
+
+    summary = script.summarize_backend_proxy_alignment(
+        api_url="http://127.0.0.1:8102",
+        frontend_api_url="http://127.0.0.1:5174/api",
+        seeded_product={"id": "product-1", "name": "Proxy Probe"},
+        proxy_error='HTTP 404: {"detail":"Product not found"}',
+    )
+
+    assert summary["ok"] is False
+    assert summary["product_id"] == "product-1"
+    assert "different backend" in summary["detail"]
+    assert "HTTP 404" in summary["detail"]
+
+
 def test_nav_browser_smoke_defaults_operator_token_for_local_dev(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
