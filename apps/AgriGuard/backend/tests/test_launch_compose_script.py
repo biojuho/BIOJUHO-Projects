@@ -38,6 +38,10 @@ def _write_operator_packet_outputs(command: list[str]) -> None:
     env_template_out.write_text("AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>\n", encoding="utf-8")
 
 
+def _arg_after(command: list[str], flag: str) -> str:
+    return command[command.index(flag) + 1]
+
+
 def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     json_out = tmp_path / "preflight.json"
@@ -98,6 +102,53 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
     ]
     assert payload["will_run_browser_smoke_after_compose"] is False
     assert payload["will_write_operator_packet_on_preflight_failure"] is True
+
+
+def test_launch_compose_dry_run_passes_guarded_metadata_to_operator_packet(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    status_json = output_dir / "release-check-status.json"
+    handoff_json = output_dir / "release-check-handoff.json"
+    handoff_markdown = output_dir / "release-check-handoff.md"
+    handoff_validation_json = output_dir / "release-check-handoff.validation.json"
+    handoff_consumer_json = output_dir / "release-check-handoff.consumer.json"
+    ready_gate_json = output_dir / "release-check-ready-gate.json"
+
+    result = launch_compose.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--guarded-output-dir",
+            str(output_dir),
+            "--guarded-output-prefix",
+            "release-check",
+            "--guarded-status-json",
+            str(status_json),
+            "--guarded-handoff-json",
+            str(handoff_json),
+            "--guarded-handoff-markdown",
+            str(handoff_markdown),
+            "--guarded-handoff-validation-json",
+            str(handoff_validation_json),
+            "--guarded-handoff-consumer-json",
+            str(handoff_consumer_json),
+            "--guarded-ready-gate-json",
+            str(ready_gate_json),
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    command = payload["operator_packet_command"]
+    assert result == 0
+    assert _arg_after(command, "--guarded-output-dir") == str(output_dir.resolve())
+    assert _arg_after(command, "--guarded-output-prefix") == "release-check"
+    assert _arg_after(command, "--guarded-status-json") == str(status_json.resolve())
+    assert _arg_after(command, "--guarded-handoff-json") == str(handoff_json.resolve())
+    assert _arg_after(command, "--guarded-handoff-markdown") == str(handoff_markdown.resolve())
+    assert _arg_after(command, "--guarded-handoff-validation-json") == str(handoff_validation_json.resolve())
+    assert _arg_after(command, "--guarded-handoff-consumer-json") == str(handoff_consumer_json.resolve())
+    assert _arg_after(command, "--guarded-ready-gate-json") == str(ready_gate_json.resolve())
 
 
 def test_launch_compose_dry_run_env_shape_validation_plan(tmp_path: Path, capsys) -> None:

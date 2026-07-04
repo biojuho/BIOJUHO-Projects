@@ -357,6 +357,14 @@ def _build_operator_packet_command(
     json_out: Path,
     markdown_out: Path,
     env_template_out: Path,
+    guarded_output_dir: Path | None,
+    guarded_output_prefix: str | None,
+    guarded_status_json: Path | None,
+    guarded_handoff_json: Path | None,
+    guarded_handoff_markdown: Path | None,
+    guarded_handoff_validation_json: Path | None,
+    guarded_handoff_consumer_json: Path | None,
+    guarded_ready_gate_json: Path | None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -374,6 +382,20 @@ def _build_operator_packet_command(
     ]
     if env_validation_json is not None:
         command.extend(["--env-validation-json", str(env_validation_json)])
+    guarded_path_options = [
+        ("--guarded-output-dir", guarded_output_dir),
+        ("--guarded-status-json", guarded_status_json),
+        ("--guarded-handoff-json", guarded_handoff_json),
+        ("--guarded-handoff-markdown", guarded_handoff_markdown),
+        ("--guarded-handoff-validation-json", guarded_handoff_validation_json),
+        ("--guarded-handoff-consumer-json", guarded_handoff_consumer_json),
+        ("--guarded-ready-gate-json", guarded_ready_gate_json),
+    ]
+    for flag, path in guarded_path_options:
+        if path is not None:
+            command.extend([flag, str(path)])
+    if guarded_output_prefix:
+        command.extend(["--guarded-output-prefix", guarded_output_prefix])
     for env_file in env_files:
         command.extend(["--env-file", str(env_file)])
     command.append("--exit-zero-on-blocked")
@@ -521,6 +543,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Operator dotenv template path written when launch preflight fails.",
     )
+    parser.add_argument("--guarded-output-dir", type=Path, default=None)
+    parser.add_argument("--guarded-output-prefix", default=None)
+    parser.add_argument("--guarded-status-json", type=Path, default=None)
+    parser.add_argument("--guarded-handoff-json", type=Path, default=None)
+    parser.add_argument("--guarded-handoff-markdown", type=Path, default=None)
+    parser.add_argument("--guarded-handoff-validation-json", type=Path, default=None)
+    parser.add_argument("--guarded-handoff-consumer-json", type=Path, default=None)
+    parser.add_argument("--guarded-ready-gate-json", type=Path, default=None)
     parser.add_argument(
         "--validate-env-file-shape",
         action="store_true",
@@ -640,6 +670,19 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.run_browser_smoke
         else None
     )
+    guarded_output_dir = args.guarded_output_dir.resolve() if args.guarded_output_dir else None
+    guarded_status_json = args.guarded_status_json.resolve() if args.guarded_status_json else None
+    guarded_handoff_json = args.guarded_handoff_json.resolve() if args.guarded_handoff_json else None
+    guarded_handoff_markdown = (
+        args.guarded_handoff_markdown.resolve() if args.guarded_handoff_markdown else None
+    )
+    guarded_handoff_validation_json = (
+        args.guarded_handoff_validation_json.resolve() if args.guarded_handoff_validation_json else None
+    )
+    guarded_handoff_consumer_json = (
+        args.guarded_handoff_consumer_json.resolve() if args.guarded_handoff_consumer_json else None
+    )
+    guarded_ready_gate_json = args.guarded_ready_gate_json.resolve() if args.guarded_ready_gate_json else None
     operator_packet_command = _build_operator_packet_command(
         app_root,
         preflight_json=json_out,
@@ -648,6 +691,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         json_out=operator_packet_json,
         markdown_out=operator_packet_markdown,
         env_template_out=operator_env_template,
+        guarded_output_dir=guarded_output_dir,
+        guarded_output_prefix=args.guarded_output_prefix,
+        guarded_status_json=guarded_status_json,
+        guarded_handoff_json=guarded_handoff_json,
+        guarded_handoff_markdown=guarded_handoff_markdown,
+        guarded_handoff_validation_json=guarded_handoff_validation_json,
+        guarded_handoff_consumer_json=guarded_handoff_consumer_json,
+        guarded_ready_gate_json=guarded_ready_gate_json,
     )
     readiness_summary_command = (
         _build_readiness_summary_command(

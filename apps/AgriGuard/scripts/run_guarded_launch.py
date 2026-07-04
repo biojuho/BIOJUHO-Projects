@@ -345,6 +345,14 @@ def _build_launch_command(
     compose_files: list[Path],
     services: list[str],
     run_browser_smoke: bool,
+    guarded_output_dir: Path,
+    guarded_output_prefix: str,
+    guarded_status_json: Path | None,
+    guarded_handoff_json: Path | None,
+    guarded_handoff_markdown: Path | None,
+    guarded_handoff_validation_json: Path | None,
+    guarded_handoff_consumer_json: Path | None,
+    guarded_ready_gate_json: Path | None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -379,8 +387,23 @@ def _build_launch_command(
             str(artifact_paths["readiness_summary_json"]),
             "--readiness-summary-markdown",
             str(artifact_paths["readiness_summary_markdown"]),
+            "--guarded-output-dir",
+            str(guarded_output_dir),
+            "--guarded-output-prefix",
+            guarded_output_prefix,
         ]
     )
+    guarded_path_options = [
+        ("--guarded-status-json", guarded_status_json),
+        ("--guarded-handoff-json", guarded_handoff_json),
+        ("--guarded-handoff-markdown", guarded_handoff_markdown),
+        ("--guarded-handoff-validation-json", guarded_handoff_validation_json),
+        ("--guarded-handoff-consumer-json", guarded_handoff_consumer_json),
+        ("--guarded-ready-gate-json", guarded_ready_gate_json),
+    ]
+    for flag, path in guarded_path_options:
+        if path is not None:
+            command.extend([flag, str(path)])
     if run_browser_smoke:
         command.append("--run-browser-smoke")
     return command
@@ -754,14 +777,6 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     env_file = args.env_file.resolve() if args.env_file else _default_env_file(app_root)
     compose_files = [compose_file.resolve() for compose_file in args.compose_file]
     artifact_paths = _artifact_paths(output_dir, args.output_prefix)
-    command = _build_launch_command(
-        app_root=app_root,
-        env_file=env_file,
-        artifact_paths=artifact_paths,
-        compose_files=compose_files,
-        services=args.service,
-        run_browser_smoke=not args.no_browser_smoke,
-    )
     handoff_requested = bool(
         args.emit_handoff
         or args.handoff_json_out
@@ -807,6 +822,22 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         args.artifact_index_markdown_out.resolve()
         if args.artifact_index_markdown_out
         else _default_artifact_index_markdown(output_dir, args.output_prefix)
+    )
+    command = _build_launch_command(
+        app_root=app_root,
+        env_file=env_file,
+        artifact_paths=artifact_paths,
+        compose_files=compose_files,
+        services=args.service,
+        run_browser_smoke=not args.no_browser_smoke,
+        guarded_output_dir=output_dir,
+        guarded_output_prefix=args.output_prefix,
+        guarded_status_json=effective_status_json_out,
+        guarded_handoff_json=handoff_json if handoff_requested else None,
+        guarded_handoff_markdown=handoff_markdown if handoff_requested else None,
+        guarded_handoff_validation_json=handoff_validation_json if handoff_requested else None,
+        guarded_handoff_consumer_json=handoff_consumer_json if handoff_requested else None,
+        guarded_ready_gate_json=handoff_ready_gate_json if handoff_requested else None,
     )
     handoff_command = (
         _build_handoff_command(
