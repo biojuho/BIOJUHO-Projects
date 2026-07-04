@@ -1014,6 +1014,13 @@ def apply_results_recorder_plan(
         blocked_reasons.append("provider preflight blockers remain")
     if project_context_missing:
         blocked_reasons.append("provider project context missing")
+    next_required_action = (
+        "Run provider apply commands and record provider apply results."
+        if plan_ready
+        else "Resolve provider CLI authentication and project-link context blockers, then rerun provider preflight."
+        if provider_preflight_blockers
+        else "Fill blank provider templates in a private local directory."
+    )
     plan = {
         "schema_version": 1,
         "ok": True,
@@ -1039,6 +1046,7 @@ def apply_results_recorder_plan(
             "apply_plan_safe_to_commit": True,
             "private_template_values_present": template_ready,
             "completion_marker": "external_release_gate.ok=true",
+            "next_required_action": next_required_action,
         },
         "providers": [
             {
@@ -1245,6 +1253,8 @@ def test_external_gate_handoff_provider_apply_workflow_accepts_complete_go(
     assert verification["ready_to_apply"] is True
     assert verification["all_commands_succeeded"] is True
     assert verification["promotion_receipt_ok"] is True
+    assert verification["summary"]["next_required_action_count"] == 0
+    assert verification["next_required_actions"] == []
     assert verification["failures"] == []
 
 
@@ -1345,10 +1355,21 @@ def test_external_gate_handoff_provider_apply_workflow_surfaces_context_blockers
     assert "| Provider project context missing | `1` |" in markdown
     assert "## Plan Blocking Reasons" in markdown
     assert "- provider preflight blockers remain: 2" in markdown
+    assert "## Next Required Actions" in markdown
+    assert "`provider_preflight` / `provider_context_blocked`" in markdown
     assert any("provider preflight blockers remain: 2" in annotation for annotation in annotations)
+    assert verification["summary"]["next_required_action_count"] == 3
+    assert [item["scope"] for item in verification["next_required_actions"]] == [
+        "provider_apply_plan",
+        "provider_preflight",
+        "provider_apply_results",
+    ]
     assert outputs["provider_apply_workflow_provider_preflight_blocker_count"] == "2"
     assert outputs["provider_apply_workflow_provider_project_context_missing_count"] == "1"
     assert "provider project context missing: 1" in outputs["provider_apply_workflow_plan_blocked_reasons"]
+    assert outputs["provider_apply_workflow_next_required_action_count"] == "3"
+    assert "provider_preflight:provider_context_blocked" in outputs["provider_apply_workflow_next_required_actions"]
+    assert '"scope": "provider_preflight"' in outputs["provider_apply_workflow_next_required_actions_json"]
 
 
 def test_external_gate_handoff_provider_apply_workflow_github_annotations_escape_values() -> None:
@@ -1385,6 +1406,9 @@ def test_external_gate_handoff_provider_apply_workflow_github_outputs(tmp_path: 
     assert outputs["provider_apply_workflow_all_commands_succeeded"] == "true"
     assert outputs["provider_apply_workflow_promotion_receipt_ok"] == "true"
     assert outputs["provider_apply_workflow_failure_count"] == "0"
+    assert outputs["provider_apply_workflow_next_required_action_count"] == "0"
+    assert outputs["provider_apply_workflow_next_required_actions"] == ""
+    assert outputs["provider_apply_workflow_next_required_actions_json"] == "[]"
     assert outputs["provider_apply_workflow_results_command_failure_count"] == "0"
     assert outputs["provider_apply_workflow_promotion_blocking_reason_count"] == "0"
     assert outputs["provider_apply_workflow_promotion_blocking_reasons"] == ""

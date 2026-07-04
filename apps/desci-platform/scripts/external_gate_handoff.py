@@ -1585,6 +1585,68 @@ def _missing_artifact_verification(path: str | Path, label: str) -> dict[str, An
     }
 
 
+def _provider_apply_workflow_next_required_actions(
+    plan: dict[str, Any],
+    plan_context: dict[str, Any],
+    results_verification: dict[str, Any],
+    promotion_verification: dict[str, Any],
+) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def add_action(scope: str, reason: str, action: str, **extra: Any) -> None:
+        key = (scope, reason, action)
+        if key in seen:
+            return
+        seen.add(key)
+        item: dict[str, Any] = {
+            "scope": scope,
+            "reason": reason,
+            "action": action,
+        }
+        item.update({name: value for name, value in extra.items() if value not in ("", None, [], {})})
+        actions.append(item)
+
+    operator_status = _as_dict(plan.get("operator_status"))
+    operator_action = str(operator_status.get("next_required_action") or "").strip()
+    operator_stage = str(plan_context.get("operator_stage") or "").strip()
+    if plan_context.get("ready_to_apply") is not True and operator_action:
+        add_action(
+            "provider_apply_plan",
+            operator_stage or "plan_not_ready",
+            operator_action,
+            blocked_provider_count=plan_context.get("blocked_provider_count"),
+        )
+    provider_preflight_blockers = int(plan_context.get("provider_preflight_blocker_count") or 0)
+    project_context_missing = int(plan_context.get("provider_project_context_missing_count") or 0)
+    if provider_preflight_blockers or project_context_missing:
+        add_action(
+            "provider_preflight",
+            "provider_context_blocked",
+            (
+                "Resolve provider CLI authentication and project-link context blockers, then rerun provider "
+                "preflight and regenerate the provider apply plan."
+            ),
+            provider_preflight_blocker_count=provider_preflight_blockers,
+            provider_project_context_missing_count=project_context_missing,
+        )
+    if results_verification.get("ok") is not True or results_verification.get("all_commands_succeeded") is not True:
+        add_action(
+            "provider_apply_results",
+            "results_not_successful",
+            "Record provider apply results again after the provider apply plan is ready and commands have run.",
+            command_failure_count=int(_as_dict(results_verification.get("summary")).get("command_failure_count") or 0),
+        )
+    if promotion_verification.get("promotion_receipt_ok") is not True:
+        add_action(
+            "post_apply_promotion",
+            "promotion_receipt_not_go",
+            "Rerun post-apply evidence and promotion receipt verification after provider checks pass.",
+            promotion_blocking_reason_count=len(_string_list(promotion_verification.get("blocking_reasons"))),
+        )
+    return actions
+
+
 def verify_provider_apply_workflow(
     plan_path: str | Path,
     *,
@@ -1658,6 +1720,12 @@ def verify_provider_apply_workflow(
     all_commands_succeeded = results_verification.get("all_commands_succeeded") is True
     promotion_receipt_ok = promotion_verification.get("promotion_receipt_ok") is True
     promotion_blocking_reasons = _string_list(promotion_verification.get("blocking_reasons"))
+    next_required_actions = _provider_apply_workflow_next_required_actions(
+        plan,
+        plan_context,
+        results_verification,
+        promotion_verification,
+    )
     workflow_ok = ready_to_apply and all_commands_succeeded and promotion_receipt_ok and not failures
     return {
         "schema_version": 1,
@@ -1680,6 +1748,7 @@ def verify_provider_apply_workflow(
         "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
         "plan_blocked_reasons": plan_context["blocked_reasons"],
         "provider_blockers": plan_context["provider_blockers"],
+        "next_required_actions": next_required_actions,
         "summary": {
             "failure_count": len(failures),
             "plan_ok": plan_verification.get("ok") is True,
@@ -1696,6 +1765,7 @@ def verify_provider_apply_workflow(
             "promotion_blocking_reason_count": len(promotion_blocking_reasons),
             "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
             "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
+            "next_required_action_count": len(next_required_actions),
         },
         "failures": failures,
         "promotion_blocking_reasons": promotion_blocking_reasons,
@@ -1958,6 +2028,7 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
     failures = _string_list(payload.get("failures"))
     plan_blocked_reasons = _string_list(payload.get("plan_blocked_reasons"))
     provider_blockers = _string_list(payload.get("provider_blockers"))
+    next_required_actions = [item for item in _as_list(payload.get("next_required_actions")) if isinstance(item, dict)]
     promotion_blocking_reasons = _string_list(payload.get("promotion_blocking_reasons"))
     result = "pass" if payload.get("ok") is True else "fail"
     plan_path = _markdown_scalar(payload.get("provider_apply_plan_json"))
@@ -1982,6 +2053,7 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
         f"| Provider commands succeeded | `{_markdown_scalar(payload.get('all_commands_succeeded'))}` |",
         f"| Promotion receipt go | `{_markdown_scalar(payload.get('promotion_receipt_ok'))}` |",
         f"| Failure count | `{_markdown_scalar(summary.get('failure_count'))}` |",
+        f"| Next required actions | `{_markdown_scalar(summary.get('next_required_action_count', 0))}` |",
         "",
         "## Artifacts",
         "",
@@ -2015,6 +2087,27 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
     if provider_blockers:
         lines.extend(["", "## Provider Blockers"])
         lines.extend(f"- {reason}" for reason in provider_blockers)
+    lines.extend(["", "## Next Required Actions"])
+    if next_required_actions:
+        for item in next_required_actions:
+            counts = []
+            if item.get("provider_preflight_blocker_count") is not None:
+                counts.append(f"provider_preflight_blockers={item.get('provider_preflight_blocker_count')}")
+            if item.get("provider_project_context_missing_count") is not None:
+                counts.append(f"project_context_missing={item.get('provider_project_context_missing_count')}")
+            if item.get("blocked_provider_count") is not None:
+                counts.append(f"blocked_providers={item.get('blocked_provider_count')}")
+            if item.get("command_failure_count") is not None:
+                counts.append(f"command_failures={item.get('command_failure_count')}")
+            if item.get("promotion_blocking_reason_count") is not None:
+                counts.append(f"promotion_blocking_reasons={item.get('promotion_blocking_reason_count')}")
+            suffix = f" ({', '.join(counts)})" if counts else ""
+            lines.append(
+                f"- `{_markdown_scalar(item.get('scope'))}` / `{_markdown_scalar(item.get('reason'))}`: "
+                f"{item.get('action')}{suffix}"
+            )
+    else:
+        lines.append("- None.")
     lines.extend(
         [
             "",
@@ -2080,6 +2173,7 @@ def provider_apply_workflow_github_annotations(payload: dict[str, Any]) -> list[
 
 def provider_apply_workflow_github_outputs(payload: dict[str, Any]) -> dict[str, str]:
     summary = _as_dict(payload.get("summary"))
+    next_required_actions = [item for item in _as_list(payload.get("next_required_actions")) if isinstance(item, dict)]
     return {
         "provider_apply_workflow_ok": str(payload.get("ok") is True).lower(),
         "provider_apply_workflow_phase": str(payload.get("operator_phase") or ""),
@@ -2099,6 +2193,18 @@ def provider_apply_workflow_github_outputs(payload: dict[str, Any]) -> dict[str,
         ),
         "provider_apply_workflow_plan_blocked_reasons": "\n".join(
             _string_list(payload.get("plan_blocked_reasons"))
+        ),
+        "provider_apply_workflow_next_required_action_count": str(
+            int(summary.get("next_required_action_count") or 0)
+        ),
+        "provider_apply_workflow_next_required_actions": "\n".join(
+            f"{item.get('scope')}:{item.get('reason')}: {item.get('action')}"
+            for item in next_required_actions
+        ),
+        "provider_apply_workflow_next_required_actions_json": json.dumps(
+            next_required_actions,
+            ensure_ascii=False,
+            sort_keys=True,
         ),
         "provider_apply_workflow_results_command_failure_count": str(
             int(summary.get("results_command_failure_count") or 0)
@@ -2222,10 +2328,17 @@ def print_provider_apply_workflow_verification_report(payload: dict[str, Any]) -
         f"provider_preflight_blockers={summary.get('provider_preflight_blocker_count')} "
         f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"failures={summary.get('failure_count')} "
+        f"next_required_actions={summary.get('next_required_action_count')} "
         f"promotion_blocking_reasons={summary.get('promotion_blocking_reason_count')}"
     )
     for failure in _string_list(payload.get("failures")):
         print(f"  - {failure}")
+    for action in _as_list(payload.get("next_required_actions")):
+        if isinstance(action, dict):
+            print(
+                "  - next_required_action: "
+                f"{action.get('scope')}/{action.get('reason')}: {action.get('action')}"
+            )
     for reason in _string_list(payload.get("promotion_blocking_reasons")):
         print(f"  - promotion_blocking_reason: {reason}")
 
