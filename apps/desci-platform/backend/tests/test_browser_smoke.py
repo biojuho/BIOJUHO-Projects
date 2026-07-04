@@ -269,9 +269,12 @@ def test_run_with_fresh_page_captures_success_screenshot_when_requested(tmp_path
     page = _FakePage("DSCI isolated page content is long enough.")
     browser = _FakeBrowser([page])
 
-    def runner(active_page) -> list[str]:
+    def runner(active_page) -> browser_smoke.BrowserRunnerResult:
         assert active_page is page
-        return []
+        return browser_smoke.BrowserRunnerResult(
+            failures=[],
+            metadata={"layout": {"viewportWidth": 1280, "scrollWidth": 1280}},
+        )
 
     result = browser_smoke._run_with_fresh_page(  # pylint: disable=protected-access
         browser,
@@ -284,6 +287,7 @@ def test_run_with_fresh_page_captures_success_screenshot_when_requested(tmp_path
     assert result.failures == []
     assert result.trace_path is None
     assert result.screenshot_path == str(expected_screenshot)
+    assert result.metadata == {"layout": {"viewportWidth": 1280, "scrollWidth": 1280}}
     assert page.screenshots == [{"path": str(expected_screenshot), "full_page": True}]
     assert expected_screenshot.read_bytes() == b"fake png"
 
@@ -352,6 +356,7 @@ def test_browser_smoke_writes_json_evidence(tmp_path) -> None:
             ok=True,
             failures=[],
             screenshot_path=str(screenshot_path),
+            metadata={"probe": {"ok": True}},
         ),
         browser_smoke.BrowserCheckReport(name="pricing", path="/pricing", ok=False, failures=["pricing: missing text"]),
     ]
@@ -381,14 +386,28 @@ def test_browser_smoke_writes_json_evidence(tmp_path) -> None:
     assert "launch_control" not in payload
     assert payload["screenshot_artifacts"] == [{"check_name": "home", "path": str(screenshot_path)}]
     assert payload["checks"][0]["screenshot_path"] == str(screenshot_path)
+    assert payload["checks"][0]["metadata"] == {"probe": {"ok": True}}
     assert payload["checks"][1]["failures"] == ["pricing: missing text"]
     assert not (output.parent / "browser-smoke.json.tmp").exists()
 
 
 def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
     output = tmp_path / "browser-smoke-launch-control.json"
+    dashboard_layout = {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "missingTargets": [],
+        "zeroSizedTargets": [],
+        "horizontallyClippedTargets": [],
+    }
     reports = [
-        browser_smoke.BrowserCheckReport(name="dashboard-readiness-refresh", path="/dashboard", ok=True, failures=[]),
+        browser_smoke.BrowserCheckReport(
+            name="dashboard-readiness-refresh",
+            path="/dashboard",
+            ok=True,
+            failures=[],
+            metadata={"dashboard_layout": dashboard_layout},
+        ),
     ]
     expected_action_ids = ["auth", "stripe", "cors", "rabbitmq", "ipfs", "grobid"]
     expected_handoff_required_env = [
@@ -480,6 +499,7 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
             "operator_copy_line_count": len(expected_operator_copy_lines),
             "bad_copy_lines": [],
         },
+        "dashboard_layout": dashboard_layout,
         "failures": [],
     }
 

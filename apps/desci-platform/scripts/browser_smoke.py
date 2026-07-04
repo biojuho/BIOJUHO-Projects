@@ -51,6 +51,13 @@ class BrowserCheckReport:
     failures: list[str]
     trace_path: str | None = None
     screenshot_path: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class BrowserRunnerResult:
+    failures: list[str]
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +65,7 @@ class FreshPageResult:
     failures: list[str]
     trace_path: str | None = None
     screenshot_path: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 RAW_TRANSPORT_ERROR_TEXT = (
@@ -789,6 +797,7 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
     ready_requests: list[str] = []
     launch_requests: list[str] = []
     dashboard_shell_requests: list[str] = []
+    layout_metrics: dict[str, Any] | None = None
     ready_route_pattern = "**/ready"
     launch_route_pattern = "**/launch"
     dashboard_shell_routes = _dashboard_shell_api_routes(dashboard_shell_requests)
@@ -1189,7 +1198,8 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
             page.unroute(pattern, handler)
 
     failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
-    return failures
+    metadata = {"dashboard_layout": layout_metrics} if isinstance(layout_metrics, dict) else None
+    return BrowserRunnerResult(failures=failures, metadata=metadata)
 
 
 def _run_dashboard_readiness_clipboard_failure_check(page, base_url: str, timeout_ms: int) -> list[str]:
@@ -7002,6 +7012,7 @@ def _run_with_fresh_page(
     trace_path: Path | None = None
     screenshot_path: Path | None = None
     failures: list[str] = []
+    metadata: dict[str, Any] | None = None
 
     def collect_request_failed(request) -> None:
         if _is_network_diagnostic_request(request):
@@ -7027,7 +7038,12 @@ def _run_with_fresh_page(
             trace_started = True
         page.on("requestfailed", collect_request_failed)
         page.on("response", collect_response)
-        failures = runner(page, *args)
+        runner_result = runner(page, *args)
+        if isinstance(runner_result, BrowserRunnerResult):
+            failures = list(runner_result.failures)
+            metadata = runner_result.metadata
+        else:
+            failures = list(runner_result or [])
         if failures:
             failures = list(failures)
             failures.extend(_network_diagnostic_failures(failed_requests, http_error_responses))
@@ -7058,6 +7074,7 @@ def _run_with_fresh_page(
         failures=failures,
         trace_path=str(trace_path) if trace_path else None,
         screenshot_path=str(screenshot_path) if screenshot_path else None,
+        metadata=metadata,
     )
 
 
@@ -7231,6 +7248,8 @@ def write_json_report(
             check_payload["trace_path"] = report.trace_path
         if report.screenshot_path:
             check_payload["screenshot_path"] = report.screenshot_path
+        if report.metadata:
+            check_payload["metadata"] = report.metadata
         payload["checks"].append(check_payload)
     if launch_control is None:
         payload.pop("launch_control")
@@ -7280,6 +7299,10 @@ def browser_launch_control_report(reports: list[BrowserCheckReport]) -> dict[str
         report["next_action_required_env"] = next_action_required_env
     if launch_env_handoff is not None:
         report["launch_env_handoff"] = launch_env_handoff
+    if isinstance(check_report.metadata, dict):
+        dashboard_layout = check_report.metadata.get("dashboard_layout")
+        if isinstance(dashboard_layout, dict):
+            report["dashboard_layout"] = dashboard_layout
     return report
 
 
@@ -7464,6 +7487,7 @@ def main(argv: list[str] | None = None) -> int:
                         failures=result.failures,
                         trace_path=result.trace_path,
                         screenshot_path=result.screenshot_path,
+                        metadata=result.metadata,
                     )
                 )
             for check_name, check_path, check_runner in action_checks:
@@ -7488,6 +7512,7 @@ def main(argv: list[str] | None = None) -> int:
                         failures=result.failures,
                         trace_path=result.trace_path,
                         screenshot_path=result.screenshot_path,
+                        metadata=result.metadata,
                     )
                 )
             if _should_run_login_validation(args):
@@ -7512,6 +7537,7 @@ def main(argv: list[str] | None = None) -> int:
                         failures=result.failures,
                         trace_path=result.trace_path,
                         screenshot_path=result.screenshot_path,
+                        metadata=result.metadata,
                     )
                 )
         finally:
