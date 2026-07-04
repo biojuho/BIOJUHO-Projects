@@ -124,6 +124,62 @@ def test_provider_preflight_marks_missing_auth_context() -> None:
     assert all("VERCEL_TOKEN" in check["remediation"] for check in checks)
 
 
+def test_provider_preflight_detects_vercel_project_json(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("VERCEL_ORG_ID", raising=False)
+    monkeypatch.delenv("VERCEL_PROJECT_ID", raising=False)
+    project_json = tmp_path / ".vercel" / "project.json"
+    project_json.parent.mkdir()
+    project_json.write_text(
+        json.dumps({"orgId": "team_example", "projectId": "prj_example"}),
+        encoding="utf-8",
+    )
+
+    assert provider_preflight._has_vercel_project_context(tmp_path) is True
+    assert provider_preflight._has_vercel_project_context(tmp_path / "missing") is False
+
+
+def test_provider_preflight_execute_command_marks_vercel_contexts_missing(monkeypatch) -> None:
+    spec = provider_preflight.command_specs_for_provider("vercel")[0]
+
+    monkeypatch.setattr(provider_preflight, "_resolve_executable", lambda executable: "vercel.cmd")
+    monkeypatch.setattr(provider_preflight, "_has_vercel_auth_context", lambda: False)
+    monkeypatch.setattr(provider_preflight, "_has_vercel_project_context", lambda: False)
+
+    execution = provider_preflight.execute_command(spec, timeout_seconds=1)
+    payload = provider_preflight.check_payload(spec, execution)
+
+    assert execution.auth_context_missing is True
+    assert execution.project_context_missing is True
+    assert payload["failure_reason"] == "auth_context_missing"
+    assert payload["project_context_missing"] is True
+    assert "vercel link" in payload["remediation"]
+    assert "VERCEL_ORG_ID" in payload["remediation"]
+
+
+def test_provider_preflight_counts_vercel_project_context_missing() -> None:
+    def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
+        if provider_preflight._vercel_command_needs_project_context(spec):
+            return provider_preflight.CommandExecution(
+                exit_code=None,
+                duration_ms=0,
+                project_context_missing=True,
+                error="vercel project context is not configured",
+            )
+        return provider_preflight.CommandExecution(exit_code=0, duration_ms=1)
+
+    payload = provider_preflight.run_preflight(("vercel",), runner=runner)
+    markdown = provider_preflight.render_markdown_report(payload)
+
+    assert payload["ok"] is False
+    assert payload["summary"]["auth_context_missing_count"] == 0
+    assert payload["summary"]["project_context_missing_count"] == 1
+    assert payload["failed_checks"][0]["failure_reason"] == "project_context_missing"
+    assert payload["failed_checks"][0]["project_context_missing"] is True
+    assert "Project context missing: `1`" in markdown
+    assert "project_context=`missing`" in markdown
+    assert "vercel link" in markdown
+
+
 def test_provider_preflight_classifies_unauthorized_output_as_missing_auth_context() -> None:
     def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
         return provider_preflight.CommandExecution(

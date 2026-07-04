@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shlex
@@ -23,6 +24,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import release_handoff
 from evidence_io import write_json_atomic
 
+PROJECT_ROOT = SCRIPT_DIR.parent
 DEFAULT_PROVIDERS = ("railway", "vercel", "github")
 SECRET_PATTERNS = (
     re.compile(r"sk_(?:live|test)_[A-Za-z0-9_/-]+"),
@@ -57,6 +59,7 @@ class CommandExecution:
     stderr: str = ""
     command_found: bool = True
     auth_context_missing: bool = False
+    project_context_missing: bool = False
     timed_out: bool = False
     error: str = ""
 
@@ -133,12 +136,28 @@ def _failure_remediation(spec: CommandSpec, failure_reason: str) -> str:
         return f"Authenticate the {provider} CLI context, then rerun `{command_text}`."
     if failure_reason == "timeout":
         return f"Run `{command_text}` manually to resolve the timeout, then rerun provider preflight."
+    if failure_reason == "project_context_missing":
+        if provider == "vercel":
+            return (
+                "Run `vercel link --yes --project <name-or-id> --scope <team>` or set "
+                "VERCEL_ORG_ID and VERCEL_PROJECT_ID before rerunning provider preflight."
+            )
+        return f"Link the {provider} project context, then rerun `{command_text}`."
     if failure_reason == "nonzero_exit":
         return (
             f"Resolve the provider CLI error for `{command_text}`. If the command requires a selected project or "
             "workspace, relink the local checkout before rerunning provider preflight."
         )
     return f"Resolve `{command_text}` and rerun provider preflight."
+
+
+def _with_vercel_project_context_remediation(remediation: str) -> str:
+    if "vercel link" in remediation or "VERCEL_ORG_ID" in remediation:
+        return remediation
+    return (
+        f"{remediation} Also run `vercel link --yes --project <name-or-id> --scope <team>` "
+        "or set VERCEL_ORG_ID and VERCEL_PROJECT_ID if this checkout is not linked."
+    )
 
 
 def _resolve_executable(executable: str) -> str | None:
@@ -156,6 +175,26 @@ def _has_vercel_auth_context() -> bool:
     if os.environ.get("VERCEL_TOKEN"):
         return True
     return (Path.home() / ".vercel" / "auth.json").exists()
+
+
+def _has_vercel_project_context(project_root: Path = PROJECT_ROOT) -> bool:
+    if os.environ.get("VERCEL_ORG_ID") and os.environ.get("VERCEL_PROJECT_ID"):
+        return True
+    return _vercel_project_json_has_ids(project_root / ".vercel" / "project.json")
+
+
+def _vercel_project_json_has_ids(path: Path) -> bool:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    return bool(payload.get("orgId") and payload.get("projectId"))
+
+
+def _vercel_command_needs_project_context(spec: CommandSpec) -> bool:
+    return len(spec.command) >= 2 and spec.command[1] in {"env", "deploy", "build", "pull", "open"}
 
 
 def _terminate_process_tree(process: subprocess.Popen[str]) -> None:
@@ -191,7 +230,20 @@ def execute_command(spec: CommandSpec, timeout_seconds: int) -> CommandExecution
             exit_code=None,
             duration_ms=0,
             auth_context_missing=True,
-            error="vercel auth context is not configured; set VERCEL_TOKEN or run vercel login",
+            project_context_missing=not _has_vercel_project_context(),
+            error=(
+                "vercel auth context is not configured; set VERCEL_TOKEN or run vercel login"
+            ),
+        )
+    if spec.provider == "vercel" and _vercel_command_needs_project_context(spec) and not _has_vercel_project_context():
+        return CommandExecution(
+            exit_code=None,
+            duration_ms=0,
+            project_context_missing=True,
+            error=(
+                "vercel project context is not configured; run vercel link or set "
+                "VERCEL_ORG_ID and VERCEL_PROJECT_ID"
+            ),
         )
 
     env = os.environ.copy()
@@ -267,6 +319,8 @@ def check_payload(
         payload["failure_reason"] = "missing_cli"
     elif _looks_like_auth_context_missing(execution):
         payload["failure_reason"] = "auth_context_missing"
+    elif execution.project_context_missing:
+        payload["failure_reason"] = "project_context_missing"
     elif execution.timed_out:
         payload["failure_reason"] = "timeout"
     elif execution.exit_code != 0:
@@ -274,6 +328,10 @@ def check_payload(
     failure_reason = payload.get("failure_reason")
     if isinstance(failure_reason, str) and failure_reason:
         payload["remediation"] = _failure_remediation(spec, failure_reason)
+        if execution.project_context_missing and spec.provider == "vercel":
+            payload["remediation"] = _with_vercel_project_context_remediation(payload["remediation"])
+    if execution.project_context_missing:
+        payload["project_context_missing"] = True
     if execution.error:
         payload["error"] = _sanitize_output(execution.error)
     if include_output_preview:
@@ -329,6 +387,9 @@ def run_preflight(
             "auth_context_missing_count": sum(
                 1 for check in failed_checks if check.get("failure_reason") == "auth_context_missing"
             ),
+            "project_context_missing_count": sum(
+                1 for check in failed_checks if check.get("project_context_missing") is True
+            ),
         },
         "providers": provider_reports,
         "failed_checks": [
@@ -339,6 +400,7 @@ def run_preflight(
                 "failure_reason": check.get("failure_reason", "unknown"),
                 "remediation": check.get("remediation", "") if isinstance(check.get("remediation"), str) else "",
                 "docs_url": check.get("docs_url", "") if isinstance(check.get("docs_url"), str) else "",
+                "project_context_missing": check.get("project_context_missing") is True,
             }
             for check in failed_checks
         ],
@@ -364,6 +426,7 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
         f"- Failed checks: `{_markdown_count(summary.get('failed_check_count'))}`",
         f"- Missing CLI: `{_markdown_count(summary.get('missing_cli_count'))}`",
         f"- Auth context missing: `{_markdown_count(summary.get('auth_context_missing_count'))}`",
+        f"- Project context missing: `{_markdown_count(summary.get('project_context_missing_count'))}`",
         "",
         "## Providers",
         "",
@@ -394,7 +457,8 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
         provider = _markdown_code(check.get("provider") or "provider")
         command = _markdown_code(check.get("command") or "manual provider check")
         reason = _markdown_code(check.get("failure_reason") or "unknown")
-        lines.append(f"- `{provider}` `{command}`: `{reason}`")
+        project_context = " project_context=`missing`" if check.get("project_context_missing") is True else ""
+        lines.append(f"- `{provider}` `{command}`: `{reason}`{project_context}")
         docs_url = _markdown_text(check.get("docs_url"))
         remediation = _markdown_text(check.get("remediation"))
         if docs_url:
