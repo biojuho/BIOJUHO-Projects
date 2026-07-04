@@ -35,6 +35,38 @@ def _default_browser_smoke_output_dir(app_root: Path) -> Path:
     return _workspace_root(app_root) / "var" / "agriguard-browser-smoke-suite-compose-launch"
 
 
+def _default_launch_report_json_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-compose-launch-report.json"
+
+
+def _tail(value: str | None, *, limit: int = 1200) -> str:
+    if not value:
+        return ""
+    value = value.strip()
+    return value[-limit:] if len(value) > limit else value
+
+
+def write_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _command_result(
+    *,
+    name: str,
+    command: list[str],
+    completed: subprocess.CompletedProcess[str],
+) -> dict[str, object]:
+    return {
+        "name": name,
+        "command": command,
+        "returncode": completed.returncode,
+        "ok": completed.returncode == 0,
+        "stdout_tail": _tail(completed.stdout),
+        "stderr_tail": _tail(completed.stderr),
+    }
+
+
 def _build_preflight_command(app_root: Path, json_out: Path, env_files: list[Path]) -> list[str]:
     command = [
         sys.executable,
@@ -151,6 +183,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--browser-smoke-timeout-ms", type=int, default=30_000)
     parser.add_argument("--browser-smoke-mobile", action="store_true", help="Run post-compose browser smoke mobile variants.")
+    parser.add_argument(
+        "--launch-report-json",
+        type=Path,
+        default=None,
+        help="Aggregate launch report JSON path. Defaults to workspace var/agriguard-compose-launch-report.json.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the command plan without running preflight or compose.")
     return parser.parse_args(argv)
 
@@ -168,6 +206,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         args.browser_smoke_output_dir.resolve()
         if args.browser_smoke_output_dir
         else _default_browser_smoke_output_dir(app_root)
+    )
+    launch_report_json = (
+        args.launch_report_json.resolve()
+        if args.launch_report_json
+        else _default_launch_report_json_out(app_root)
     )
     preflight_command = _build_preflight_command(app_root, json_out, args.env_file)
     compose_command = _build_compose_command(
@@ -196,22 +239,68 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "preflight_command": preflight_command,
             "compose_command": compose_command,
             "browser_smoke_command": browser_smoke_command,
+            "launch_report_json": str(launch_report_json),
             "will_run_compose_after_preflight": True,
             "will_run_browser_smoke_after_compose": args.run_browser_smoke,
         }
         print(json.dumps(plan, indent=2, sort_keys=True))
         return 0
 
+    launch_report: dict[str, object] = {
+        "schema_version": 1,
+        "status": "running",
+        "stage": "preflight",
+        "app_root": str(app_root),
+        "preflight_json": str(json_out),
+        "browser_smoke_json": str(browser_smoke_json_out) if args.run_browser_smoke else None,
+        "browser_smoke_output_dir": str(browser_smoke_output_dir) if args.run_browser_smoke else None,
+        "run_browser_smoke": args.run_browser_smoke,
+        "compose_wait": args.run_browser_smoke and not args.no_compose_wait,
+        "services": args.service,
+        "commands": {
+            "preflight": preflight_command,
+            "compose": compose_command,
+            "browser_smoke": browser_smoke_command,
+        },
+        "results": [],
+    }
+
     preflight_result = command_runner(preflight_command, cwd=app_root, text=True)
+    results = launch_report["results"]
+    assert isinstance(results, list)
+    results.append(_command_result(name="preflight", command=preflight_command, completed=preflight_result))
     if preflight_result.returncode != 0:
+        launch_report["status"] = "fail"
+        launch_report["stage"] = "preflight"
+        launch_report["stop_reason"] = "preflight_failed"
+        write_json(launch_report_json, launch_report)
         print("AgriGuard launch preflight failed; docker compose up was not run.", file=sys.stderr)
         return preflight_result.returncode
 
     compose_result = command_runner(compose_command, cwd=app_root, text=True)
-    if compose_result.returncode != 0 or browser_smoke_command is None:
+    results.append(_command_result(name="compose", command=compose_command, completed=compose_result))
+    if compose_result.returncode != 0:
+        launch_report["status"] = "fail"
+        launch_report["stage"] = "compose"
+        launch_report["stop_reason"] = "compose_failed"
+        write_json(launch_report_json, launch_report)
+        return compose_result.returncode
+
+    if browser_smoke_command is None:
+        launch_report["status"] = "pass"
+        launch_report["stage"] = "compose"
+        launch_report["stop_reason"] = None
+        write_json(launch_report_json, launch_report)
         return compose_result.returncode
 
     browser_smoke_result = command_runner(browser_smoke_command, cwd=app_root, text=True)
+    results.append(
+        _command_result(name="browser_smoke", command=browser_smoke_command, completed=browser_smoke_result)
+    )
+    launch_report["status"] = "pass" if browser_smoke_result.returncode == 0 else "fail"
+    launch_report["stage"] = "browser_smoke"
+    launch_report["stop_reason"] = None if browser_smoke_result.returncode == 0 else "browser_smoke_failed"
+    write_json(launch_report_json, launch_report)
     return browser_smoke_result.returncode
 
 
