@@ -42,6 +42,7 @@ def test_guarded_launch_dry_run_prints_canonical_command(tmp_path: Path, capsys)
     command = payload["command"]
     assert result == 0
     assert command[:2] == [sys.executable, str(app_root.resolve() / "scripts" / "launch_compose.py")]
+    assert _arg_after(command, "--app-root") == str(app_root.resolve())
     assert "--validate-env-file-shape" in command
     assert "--run-browser-smoke" in command
     assert _arg_after(command, "--env-file") == str(env_file.resolve())
@@ -350,6 +351,7 @@ def test_guarded_launch_delegates_and_returns_exit_code(tmp_path: Path) -> None:
     assert len(calls) == 1
     command, kwargs = calls[0]
     assert command[1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
+    assert _arg_after(command, "--app-root") == str(app_root.resolve())
     assert _arg_after(command, "--env-file") == str(env_file.resolve())
     assert kwargs == {"cwd": app_root.resolve(), "text": True}
 
@@ -377,6 +379,7 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     assert result == 1
     assert len(calls) == 8
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
+    assert _arg_after(calls[0], "--app-root") == str(app_root.resolve())
     assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
     assert calls[2][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
     assert calls[3][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")

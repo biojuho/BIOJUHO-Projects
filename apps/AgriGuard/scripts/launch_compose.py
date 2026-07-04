@@ -267,6 +267,8 @@ def _build_env_validation_command(
     return [
         sys.executable,
         str(app_root / "scripts" / "validate_launch_env_template.py"),
+        "--app-root",
+        str(app_root),
         "--env-file",
         str(env_file),
         "--json-out",
@@ -335,6 +337,8 @@ def _build_operator_packet_command(
     command = [
         sys.executable,
         str(app_root / "scripts" / "render_launch_operator_packet.py"),
+        "--app-root",
+        str(app_root),
         "--preflight-json",
         str(preflight_json),
         "--json-out",
@@ -364,6 +368,8 @@ def _build_readiness_summary_command(
     command = [
         sys.executable,
         str(app_root / "scripts" / "summarize_launch_readiness.py"),
+        "--app-root",
+        str(app_root),
         "--launch-report-json",
         str(launch_report_json),
         "--env-validation-json",

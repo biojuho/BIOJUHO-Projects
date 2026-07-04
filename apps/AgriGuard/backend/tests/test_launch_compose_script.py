@@ -82,6 +82,8 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
     assert payload["operator_packet_command"] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py"),
+        "--app-root",
+        str(app_root.resolve()),
         "--preflight-json",
         str(json_out.resolve()),
         "--json-out",
@@ -129,6 +131,8 @@ def test_launch_compose_dry_run_env_shape_validation_plan(tmp_path: Path, capsys
     assert payload["env_validation_command"] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "validate_launch_env_template.py"),
+        "--app-root",
+        str(app_root.resolve()),
         "--env-file",
         str(env_file.resolve()),
         "--json-out",
@@ -170,6 +174,8 @@ def test_launch_compose_dry_run_readiness_summary_plan(tmp_path: Path, capsys) -
     assert payload["readiness_summary_command"] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "summarize_launch_readiness.py"),
+        "--app-root",
+        str(app_root.resolve()),
         "--launch-report-json",
         str(launch_report_json.resolve()),
         "--env-validation-json",

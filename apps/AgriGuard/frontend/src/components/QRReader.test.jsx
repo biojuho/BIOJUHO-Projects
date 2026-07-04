@@ -199,6 +199,21 @@ describe('QRReader', () => {
     );
   });
 
+  it('navigates with URL-safe manual tokens that start with a dash', async () => {
+    renderReader();
+
+    fireEvent.change(screen.getByLabelText(/Manual verification code/i), {
+      target: { value: ' -mock_0 ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify code/i }));
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith(
+        '/verify/-mock_0?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
+      );
+    });
+  });
+
   it('navigates with a full public verify URL entered manually', async () => {
     renderReader();
 

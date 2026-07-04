@@ -287,6 +287,8 @@ def _build_launch_command(
     command = [
         sys.executable,
         str(app_root / "scripts" / "launch_compose.py"),
+        "--app-root",
+        str(app_root),
     ]
     for compose_file in compose_files:
         command.extend(["--compose-file", str(compose_file)])
