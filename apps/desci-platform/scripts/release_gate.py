@@ -90,6 +90,15 @@ READY_LAUNCH_COVERAGE_ARRAY_FIELDS = (
     "ready_only_required_env",
     "launch_only_required_env",
 )
+READINESS_SUMMARY_FIELDS = (
+    "total",
+    "ready_count",
+    "required_total",
+    "required_ready_count",
+    "blocker_count",
+    "warning_count",
+)
+LAUNCH_SCORE_FIELDS = ("overall_percent", "required_percent")
 LAUNCH_ENV_HANDOFF_ARRAY_FIELDS = (
     "required_action_ids",
     "optional_action_ids",
@@ -1623,6 +1632,9 @@ def json_report_payload(
         coverage_comparison = launch_action_coverage_comparison(launch_summary, browser_launch_summary)
         if coverage_comparison is not None:
             payload["launch_action_coverage_comparison"] = coverage_comparison
+        decision_comparison = launch_decision_comparison(launch_summary, browser_launch_summary)
+        if decision_comparison is not None:
+            payload["launch_decision_comparison"] = decision_comparison
         browser_trace_summary = browser_trace_artifact_summary(artifact_result_reports)
         if browser_trace_summary is not None:
             payload["browser_trace_artifact_summary"] = browser_trace_summary
@@ -2308,6 +2320,82 @@ def launch_action_coverage_comparison(
     return comparison
 
 
+def launch_decision_comparison(
+    launch_summary: dict[str, Any] | None,
+    browser_launch_summary: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if launch_summary is None or browser_launch_summary is None:
+        return None
+
+    comparison: dict[str, Any] = {}
+    matches: list[bool] = []
+    for field in ("release_decision", "operator_phase", "readiness_status"):
+        live_value = _summary_string(launch_summary, field)
+        browser_value = _summary_string(browser_launch_summary, field)
+        match = live_value is not None and browser_value is not None and live_value == browser_value
+        matches.append(match)
+        comparison[f"{field}_match"] = match
+        if live_value is not None:
+            comparison[f"live_{field}"] = live_value
+        if browser_value is not None:
+            comparison[f"browser_{field}"] = browser_value
+
+    for field in ("launch_blocker_count", "next_action_count"):
+        live_value = _summary_int(launch_summary, field)
+        browser_value = _summary_int(browser_launch_summary, field)
+        match = live_value is not None and browser_value is not None and live_value == browser_value
+        matches.append(match)
+        comparison[f"{field}_match"] = match
+        if live_value is not None:
+            comparison[f"live_{field}"] = live_value
+        if browser_value is not None:
+            comparison[f"browser_{field}"] = browser_value
+
+    live_readiness = _summary_int_map(launch_summary, "readiness_summary", READINESS_SUMMARY_FIELDS)
+    browser_readiness = _summary_int_map(browser_launch_summary, "readiness_summary", READINESS_SUMMARY_FIELDS)
+    readiness_match = live_readiness == browser_readiness and set(live_readiness) == set(READINESS_SUMMARY_FIELDS)
+    matches.append(readiness_match)
+    comparison["readiness_summary_match"] = readiness_match
+    comparison["live_readiness_summary"] = live_readiness
+    comparison["browser_readiness_summary"] = browser_readiness
+
+    live_score = _summary_int_map(launch_summary, "score", LAUNCH_SCORE_FIELDS)
+    browser_score = _summary_int_map(browser_launch_summary, "score", LAUNCH_SCORE_FIELDS)
+    score_match = live_score == browser_score and set(live_score) == set(LAUNCH_SCORE_FIELDS)
+    matches.append(score_match)
+    comparison["score_match"] = score_match
+    comparison["live_score"] = live_score
+    comparison["browser_score"] = browser_score
+
+    for source_summary, prefix in ((launch_summary, "live"), (browser_launch_summary, "browser")):
+        artifact_path = source_summary.get("artifact_path")
+        if isinstance(artifact_path, str) and artifact_path:
+            comparison[f"{prefix}_artifact_path"] = artifact_path
+        evidence_source = source_summary.get("evidence_source")
+        if isinstance(evidence_source, str) and evidence_source:
+            comparison[f"{prefix}_evidence_source"] = evidence_source
+
+    comparison["status"] = "match" if all(matches) else "drift"
+    return comparison
+
+
+def _summary_string(summary: dict[str, Any], key: str) -> str | None:
+    value = summary.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _summary_int(summary: dict[str, Any], key: str) -> int | None:
+    value = summary.get(key)
+    return value if isinstance(value, int) else None
+
+
+def _summary_int_map(summary: dict[str, Any], key: str, fields: tuple[str, ...]) -> dict[str, int]:
+    values = summary.get(key)
+    if not isinstance(values, dict):
+        return {}
+    return {field: value for field in fields if isinstance((value := values.get(field)), int)}
+
+
 def _summary_string_list(summary: dict[str, Any], key: str) -> list[str]:
     values = summary.get(key)
     if not isinstance(values, list):
@@ -2363,6 +2451,64 @@ def strict_launch_action_coverage_failures(payload: dict[str, Any]) -> list[str]
         if isinstance(values, list) and all(isinstance(value, str) for value in values) and values:
             failures.append(f"{label}: {', '.join(values)}")
     return failures
+
+
+def strict_launch_decision_consistency_result(payload: dict[str, Any]) -> GateResult | None:
+    failures = strict_launch_decision_consistency_failures(payload)
+    if not failures:
+        return None
+    return GateResult(
+        name="launch-decision-consistency",
+        command="release_gate strict launch decision consistency comparison",
+        cwd=str(PROJECT_ROOT),
+        returncode=1,
+        elapsed_ms=0.0,
+        command_argv=["release_gate", "strict", "launch-decision-consistency"],
+        failures=failures,
+    )
+
+
+def strict_launch_decision_consistency_failures(payload: dict[str, Any]) -> list[str]:
+    comparison = payload.get("launch_decision_comparison")
+    if not isinstance(comparison, dict):
+        return [
+            "strict launch decision consistency requires validated product-smoke and browser-smoke launch summaries"
+        ]
+    status = comparison.get("status")
+    if status == "match":
+        return []
+    if status != "drift":
+        return ["strict launch decision consistency comparison status must be match or drift"]
+
+    failures = ["strict launch decision consistency drift: live and browser launch decision differ"]
+    for key, label in (
+        ("release_decision", "release decision"),
+        ("operator_phase", "operator phase"),
+        ("readiness_status", "readiness status"),
+        ("launch_blocker_count", "launch blocker count"),
+        ("next_action_count", "next action count"),
+    ):
+        if comparison.get(f"{key}_match") is False:
+            failures.append(
+                f"{label}: live={_comparison_display(comparison.get(f'live_{key}'))} "
+                f"browser={_comparison_display(comparison.get(f'browser_{key}'))}"
+            )
+    for key, label in (
+        ("readiness_summary", "readiness summary"),
+        ("score", "score"),
+    ):
+        if comparison.get(f"{key}_match") is False:
+            failures.append(
+                f"{label}: live={_comparison_display(comparison.get(f'live_{key}'))} "
+                f"browser={_comparison_display(comparison.get(f'browser_{key}'))}"
+            )
+    return failures
+
+
+def _comparison_display(value: Any) -> str:
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return str(value)
 
 
 def browser_trace_artifact_summary(reports: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -3208,6 +3354,52 @@ def json_report_schema() -> dict[str, Any]:
                     },
                 },
             },
+            "launch_decision_comparison": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "enum": ["match", "drift"]},
+                    "release_decision_match": {"type": "boolean"},
+                    "operator_phase_match": {"type": "boolean"},
+                    "readiness_status_match": {"type": "boolean"},
+                    "launch_blocker_count_match": {"type": "boolean"},
+                    "next_action_count_match": {"type": "boolean"},
+                    "readiness_summary_match": {"type": "boolean"},
+                    "score_match": {"type": "boolean"},
+                    "live_release_decision": {"type": "string", "enum": ["go", "go-with-watch", "no-go"]},
+                    "browser_release_decision": {"type": "string", "enum": ["go", "go-with-watch", "no-go"]},
+                    "live_operator_phase": {"type": "string", "enum": ["launch-ready", "operator-review", "blocked"]},
+                    "browser_operator_phase": {
+                        "type": "string",
+                        "enum": ["launch-ready", "operator-review", "blocked"],
+                    },
+                    "live_readiness_status": {"type": "string", "enum": ["ready", "degraded", "blocked"]},
+                    "browser_readiness_status": {"type": "string", "enum": ["ready", "degraded", "blocked"]},
+                    "live_launch_blocker_count": {"type": "integer"},
+                    "browser_launch_blocker_count": {"type": "integer"},
+                    "live_next_action_count": {"type": "integer"},
+                    "browser_next_action_count": {"type": "integer"},
+                    "live_readiness_summary": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer"},
+                    },
+                    "browser_readiness_summary": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer"},
+                    },
+                    "live_score": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer"},
+                    },
+                    "browser_score": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer"},
+                    },
+                    "live_artifact_path": {"type": "string"},
+                    "browser_artifact_path": {"type": "string"},
+                    "live_evidence_source": {"type": "string"},
+                    "browser_evidence_source": {"type": "string"},
+                },
+            },
             "launch_action_coverage_comparison": {
                 "type": "object",
                 "properties": {
@@ -3437,6 +3629,14 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--runtime-smoke-strict-launch-decision",
+        action="store_true",
+        help=(
+            "Fail after runtime smoke when live /launch decision, score, or blocker counts differ "
+            "from browser dashboard launch-control evidence."
+        ),
+    )
+    parser.add_argument(
         "--runtime-smoke-step",
         action="append",
         choices=("product", "browser"),
@@ -3565,6 +3765,13 @@ def main() -> int:
 
     if args.runtime_smoke_strict_action_coverage and not args.dry_run and all(result.ok for result in results):
         strict_result = strict_launch_action_coverage_result(json_report_payload(results))
+        if strict_result is not None:
+            for failure in strict_result.failures or []:
+                print(f"[release-gate] STRICT {strict_result.name}: {failure}", flush=True)
+            results.append(strict_result)
+
+    if args.runtime_smoke_strict_launch_decision and not args.dry_run and all(result.ok for result in results):
+        strict_result = strict_launch_decision_consistency_result(json_report_payload(results))
         if strict_result is not None:
             for failure in strict_result.failures or []:
                 print(f"[release-gate] STRICT {strict_result.name}: {failure}", flush=True)

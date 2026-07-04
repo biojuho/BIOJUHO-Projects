@@ -1109,6 +1109,159 @@ def test_release_gate_cli_strict_action_coverage_skips_dry_run(monkeypatch, tmp_
     assert "launch_action_coverage_comparison" not in payload
 
 
+def test_release_gate_cli_strict_launch_decision_fails_on_drift(monkeypatch, tmp_path: Path) -> None:
+    report_path = tmp_path / "release-gate.json"
+    product_artifact = tmp_path / "product.json"
+    browser_artifact = tmp_path / "browser.json"
+    product_artifact.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "schema_version": 1,
+                "generated_at": "2026-07-04T00:00:00+00:00",
+                "api": "http://api",
+                "frontend": "http://frontend",
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "launch_handoff": {
+                    "ok": True,
+                    "release_decision": "no-go",
+                    "operator_phase": "blocked",
+                    "readiness_status": "blocked",
+                    "summary": {
+                        "total": 1,
+                        "ready_count": 0,
+                        "required_total": 1,
+                        "required_ready_count": 0,
+                        "blocker_count": 1,
+                        "warning_count": 0,
+                    },
+                    "score": {"overall_percent": 0, "required_percent": 0},
+                    "launch_blockers": ["stripe"],
+                    "next_actions": [
+                        {
+                            "id": "stripe",
+                            "required": True,
+                            "status": "fail",
+                            "remediation": "Configure Stripe secret.",
+                            "required_env": ["STRIPE_SECRET_KEY"],
+                        }
+                    ],
+                    "failures": [],
+                },
+                "failures": [],
+                "checks": [{"name": "api", "ok": True, "failures": []}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    browser_artifact.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "schema_version": 1,
+                "generated_at": "2026-07-04T00:00:00+00:00",
+                "frontend": "http://frontend",
+                "timeout_seconds": 20.0,
+                "skip_protected": False,
+                "skip_login_validation": True,
+                "expect_dev_auth": True,
+                "playwright_available": True,
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "launch_control": {
+                    "check_name": "dashboard-readiness-refresh",
+                    "ok": True,
+                    "evidence_source": "browser-smoke-dashboard-fixture",
+                    "api_mocked": True,
+                    "mocked_endpoints": ["/ready", "/launch"],
+                    "release_decision": "go-with-watch",
+                    "operator_phase": "blocked",
+                    "readiness_status": "blocked",
+                    "summary": {
+                        "total": 1,
+                        "ready_count": 0,
+                        "required_total": 1,
+                        "required_ready_count": 0,
+                        "blocker_count": 1,
+                        "warning_count": 0,
+                    },
+                    "score": {"overall_percent": 0, "required_percent": 0},
+                    "launch_blockers": ["stripe"],
+                    "next_action_count": 1,
+                    "next_action_ids": ["stripe"],
+                    "next_action_required_env": ["STRIPE_SECRET_KEY"],
+                    "dashboard_layout": _valid_browser_dashboard_layout(),
+                    "launch_action_copy_coverage": _valid_browser_launch_action_copy_coverage(["stripe"]),
+                    "launch_action_copy_all": _valid_browser_launch_action_copy_all(["stripe"]),
+                    "failures": [],
+                },
+                "failures": [],
+                "checks": [
+                    {"name": "dashboard-readiness-refresh", "path": "/dashboard", "ok": True, "failures": []},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    steps = [
+        release_gate.GateStep("product-smoke", ("python", "scripts/product_smoke.py"), release_gate.PROJECT_ROOT),
+        release_gate.GateStep("browser-smoke", ("python", "scripts/browser_smoke.py"), release_gate.PROJECT_ROOT),
+    ]
+    results = {
+        "product-smoke": release_gate.GateResult(
+            name="product-smoke",
+            command=f"python scripts/product_smoke.py --json-out {product_artifact}",
+            cwd=str(release_gate.PROJECT_ROOT),
+            returncode=0,
+            elapsed_ms=12.5,
+            artifacts=[str(product_artifact)],
+        ),
+        "browser-smoke": release_gate.GateResult(
+            name="browser-smoke",
+            command=f"python scripts/browser_smoke.py --json-out {browser_artifact}",
+            cwd=str(release_gate.PROJECT_ROOT),
+            returncode=0,
+            elapsed_ms=30.0,
+            artifacts=[str(browser_artifact)],
+        ),
+    }
+
+    monkeypatch.setattr(release_gate, "build_steps", lambda _args: steps)
+    monkeypatch.setattr(release_gate, "run_step", lambda step, *, dry_run: results[step.name])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "release_gate.py",
+            "--runtime-smoke-strict-launch-decision",
+            "--json-out",
+            str(report_path),
+        ],
+    )
+
+    assert release_gate.main() == 1
+
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload["ok"] is False
+    assert payload["summary"]["failed_step"] == "launch-decision-consistency"
+    assert payload["launch_decision_comparison"]["status"] == "drift"
+    assert payload["launch_decision_comparison"]["release_decision_match"] is False
+    assert payload["results"][-1] == {
+        "name": "launch-decision-consistency",
+        "command": "release_gate strict launch decision consistency comparison",
+        "cwd": str(release_gate.PROJECT_ROOT),
+        "returncode": 1,
+        "elapsed_ms": 0.0,
+        "command_argv": ["release_gate", "strict", "launch-decision-consistency"],
+        "skipped": False,
+        "attempts": 1,
+        "failures": [
+            "strict launch decision consistency drift: live and browser launch decision differ",
+            "release decision: live=no-go browser=go-with-watch",
+        ],
+        "ok": False,
+    }
+
+
 def test_release_gate_isolates_contract_cache_environment(monkeypatch) -> None:
     monkeypatch.setenv("LOCALAPPDATA", "C:\\shared-cache")
 
@@ -1936,6 +2089,64 @@ def test_release_gate_launch_action_coverage_comparison_reports_drift() -> None:
     }
 
 
+def test_release_gate_launch_decision_comparison_reports_drift() -> None:
+    live_summary = {
+        "artifact_path": "product.json",
+        "evidence_source": "product-smoke-live-api",
+        "release_decision": "no-go",
+        "operator_phase": "blocked",
+        "readiness_status": "blocked",
+        "launch_blocker_count": 1,
+        "next_action_count": 2,
+        "readiness_summary": {
+            "total": 7,
+            "ready_count": 5,
+            "required_total": 4,
+            "required_ready_count": 3,
+            "blocker_count": 1,
+            "warning_count": 1,
+        },
+        "score": {"overall_percent": 71, "required_percent": 75},
+    }
+    browser_summary = {
+        **live_summary,
+        "artifact_path": "browser.json",
+        "evidence_source": "browser-smoke-dashboard-fixture",
+        "release_decision": "go-with-watch",
+    }
+
+    comparison = release_gate.launch_decision_comparison(live_summary, browser_summary)
+
+    assert comparison == {
+        "status": "drift",
+        "release_decision_match": False,
+        "live_release_decision": "no-go",
+        "browser_release_decision": "go-with-watch",
+        "operator_phase_match": True,
+        "live_operator_phase": "blocked",
+        "browser_operator_phase": "blocked",
+        "readiness_status_match": True,
+        "live_readiness_status": "blocked",
+        "browser_readiness_status": "blocked",
+        "launch_blocker_count_match": True,
+        "live_launch_blocker_count": 1,
+        "browser_launch_blocker_count": 1,
+        "next_action_count_match": True,
+        "live_next_action_count": 2,
+        "browser_next_action_count": 2,
+        "readiness_summary_match": True,
+        "live_readiness_summary": live_summary["readiness_summary"],
+        "browser_readiness_summary": live_summary["readiness_summary"],
+        "score_match": True,
+        "live_score": live_summary["score"],
+        "browser_score": live_summary["score"],
+        "live_artifact_path": "product.json",
+        "live_evidence_source": "product-smoke-live-api",
+        "browser_artifact_path": "browser.json",
+        "browser_evidence_source": "browser-smoke-dashboard-fixture",
+    }
+
+
 def test_release_gate_strict_launch_action_coverage_result_reports_drift() -> None:
     result = release_gate.strict_launch_action_coverage_result(
         {
@@ -1978,6 +2189,42 @@ def test_release_gate_strict_launch_action_coverage_result_passes_match() -> Non
                 "browser_only_required_env": [],
             }
         }
+    )
+
+    assert result is None
+
+
+def test_release_gate_strict_launch_decision_consistency_result_reports_drift() -> None:
+    result = release_gate.strict_launch_decision_consistency_result(
+        {
+            "launch_decision_comparison": {
+                "status": "drift",
+                "release_decision_match": False,
+                "live_release_decision": "no-go",
+                "browser_release_decision": "go-with-watch",
+                "operator_phase_match": True,
+                "readiness_status_match": True,
+                "launch_blocker_count_match": True,
+                "next_action_count_match": True,
+                "readiness_summary_match": True,
+                "score_match": True,
+            }
+        }
+    )
+
+    assert result is not None
+    assert result.name == "launch-decision-consistency"
+    assert result.returncode == 1
+    assert result.command_argv == ["release_gate", "strict", "launch-decision-consistency"]
+    assert result.failures == [
+        "strict launch decision consistency drift: live and browser launch decision differ",
+        "release decision: live=no-go browser=go-with-watch",
+    ]
+
+
+def test_release_gate_strict_launch_decision_consistency_result_passes_match() -> None:
+    result = release_gate.strict_launch_decision_consistency_result(
+        {"launch_decision_comparison": {"status": "match"}}
     )
 
     assert result is None
@@ -2722,6 +2969,7 @@ def test_release_gate_report_schema_documents_parent_contract() -> None:
     launch_env_schema = schema["properties"]["launch_env_handoff_summary"]
     browser_launch_schema = schema["properties"]["browser_launch_control_summary"]
     comparison_schema = schema["properties"]["launch_action_coverage_comparison"]
+    decision_comparison_schema = schema["properties"]["launch_decision_comparison"]
     release_approval_handoff_schema = schema["properties"]["release_approval_handoff_summary"]
     assert release_approval_handoff_schema["required"] == [
         "path",
@@ -2762,6 +3010,9 @@ def test_release_gate_report_schema_documents_parent_contract() -> None:
         "type": "array",
         "items": {"type": "string"},
     }
+    assert decision_comparison_schema["properties"]["status"] == {"type": "string", "enum": ["match", "drift"]}
+    assert decision_comparison_schema["properties"]["release_decision_match"] == {"type": "boolean"}
+    assert decision_comparison_schema["properties"]["live_score"]["additionalProperties"] == {"type": "integer"}
     assert comparison_schema["properties"]["status"] == {"type": "string", "enum": ["match", "drift"]}
     assert comparison_schema["properties"]["live_only_action_ids"] == {"type": "array", "items": {"type": "string"}}
     assert comparison_schema["properties"]["browser_only_required_env"] == {
@@ -3709,6 +3960,48 @@ def test_release_gate_json_report_compares_live_and_browser_launch_action_covera
         "live_evidence_source": "product-smoke-live-api",
         "browser_artifact_path": str(browser_artifact),
         "browser_evidence_source": "browser-smoke-dashboard-fixture",
+    }
+    assert payload["launch_decision_comparison"] == {
+        "release_decision_match": True,
+        "live_release_decision": "no-go",
+        "browser_release_decision": "no-go",
+        "operator_phase_match": True,
+        "live_operator_phase": "blocked",
+        "browser_operator_phase": "blocked",
+        "readiness_status_match": True,
+        "live_readiness_status": "blocked",
+        "browser_readiness_status": "blocked",
+        "launch_blocker_count_match": True,
+        "live_launch_blocker_count": 1,
+        "browser_launch_blocker_count": 1,
+        "next_action_count_match": True,
+        "live_next_action_count": 2,
+        "browser_next_action_count": 2,
+        "readiness_summary_match": True,
+        "live_readiness_summary": {
+            "total": 7,
+            "ready_count": 5,
+            "required_total": 4,
+            "required_ready_count": 3,
+            "blocker_count": 1,
+            "warning_count": 1,
+        },
+        "browser_readiness_summary": {
+            "total": 7,
+            "ready_count": 5,
+            "required_total": 4,
+            "required_ready_count": 3,
+            "blocker_count": 1,
+            "warning_count": 1,
+        },
+        "score_match": True,
+        "live_score": {"overall_percent": 71, "required_percent": 75},
+        "browser_score": {"overall_percent": 71, "required_percent": 75},
+        "live_artifact_path": str(product_artifact),
+        "live_evidence_source": "product-smoke-live-api",
+        "browser_artifact_path": str(browser_artifact),
+        "browser_evidence_source": "browser-smoke-dashboard-fixture",
+        "status": "match",
     }
 
 
