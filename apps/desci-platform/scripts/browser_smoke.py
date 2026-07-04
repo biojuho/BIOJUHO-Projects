@@ -912,6 +912,7 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
             failures.append(f"{route_name}: missing launch action queue")
         else:
             accessible_buttons = (
+                "Copy launch env handoff",
                 "Copy all 6 launch actions",
                 "Copy Authentication launch action",
                 "Copy Stripe billing launch action",
@@ -925,6 +926,81 @@ def _run_dashboard_readiness_refresh_check(page, base_url: str, timeout_ms: int)
                     page.get_by_role("button", name=button_name).wait_for(state="visible", timeout=timeout_ms)
                 except PlaywrightTimeoutError:
                     failures.append(f"{route_name}: missing accessible button name {button_name!r}")
+
+            env_handoff = page.get_by_test_id("product-readiness-env-handoff")
+            if env_handoff.count() != 1:
+                failures.append(f"{route_name}: missing launch env handoff")
+            else:
+                handoff_text = env_handoff.inner_text(timeout=timeout_ms)
+                handoff_text_lower = handoff_text.lower()
+                expected_fragments = (
+                    "launch env handoff",
+                    "13 placeholder env value",
+                    "required before release",
+                    "GOOGLE_APPLICATION_CREDENTIALS",
+                    "STRIPE_SECRET_KEY",
+                    "STRIPE_PRICE_PRO_MONTHLY",
+                    "ALLOWED_ORIGINS",
+                    "optional launch hardening",
+                    "RABBITMQ_URL",
+                    "PINATA_JWT",
+                    "GROBID_URL",
+                )
+                missing_fragments = [
+                    fragment
+                    for fragment in expected_fragments
+                    if fragment.lower() not in handoff_text_lower
+                ]
+                if missing_fragments:
+                    failures.append(f"{route_name}: launch env handoff missing {missing_fragments}: {handoff_text!r}")
+
+                copy_env_button = page.get_by_test_id("product-readiness-env-handoff-copy")
+                if copy_env_button.count() != 1:
+                    failures.append(f"{route_name}: missing launch env handoff copy button")
+                else:
+                    copy_env_button.click(timeout=timeout_ms)
+                    try:
+                        page.wait_for_timeout(200)
+                        clipboard_payload = page.evaluate("() => navigator.clipboard.readText()")
+                    except PlaywrightError as exc:
+                        failures.append(f"{route_name}: could not read launch env handoff clipboard ({exc})")
+                    else:
+                        expected_fragments = (
+                            "# DSCI launch env handoff",
+                            "# Required before release",
+                            "GOOGLE_APPLICATION_CREDENTIALS=<set-secure-value>",
+                            "FIREBASE_SERVICE_ACCOUNT_JSON=<set-secure-value>",
+                            "STRIPE_SECRET_KEY=<set-secure-value>",
+                            "STRIPE_WEBHOOK_SECRET=<set-secure-value>",
+                            "STRIPE_PRICE_PRO_MONTHLY=<set-secure-value>",
+                            "STRIPE_PRICE_PRO_YEARLY=<set-secure-value>",
+                            "ALLOWED_ORIGINS=<set-secure-value>",
+                            "# Optional launch hardening",
+                            "RABBITMQ_URL=<set-secure-value>",
+                            "PINATA_JWT=<set-secure-value>",
+                            "PINATA_API_KEY=<set-secure-value>",
+                            "PINATA_API_SECRET=<set-secure-value>",
+                            "GROBID_ENABLED=<set-secure-value>",
+                            "GROBID_URL=<set-secure-value>",
+                        )
+                        missing_fragments = [fragment for fragment in expected_fragments if fragment not in clipboard_payload]
+                        if missing_fragments:
+                            failures.append(
+                                f"{route_name}: launch env handoff clipboard missing {missing_fragments}: {clipboard_payload!r}"
+                            )
+                        forbidden_fragments = ("sk_live_", "whsec_", "paid checkout")
+                        leaked_fragments = [fragment for fragment in forbidden_fragments if fragment in clipboard_payload]
+                        if leaked_fragments:
+                            failures.append(
+                                f"{route_name}: launch env handoff clipboard exposed non-placeholder detail {leaked_fragments}"
+                            )
+                    try:
+                        feedback_text = page.get_by_test_id("product-readiness-copy-feedback").inner_text(timeout=timeout_ms)
+                    except PlaywrightError as exc:
+                        failures.append(f"{route_name}: missing env handoff copy feedback ({exc})")
+                    else:
+                        if "Copied launch env handoff." not in feedback_text:
+                            failures.append(f"{route_name}: env handoff copy feedback mismatch: {feedback_text!r}")
 
             auth_action = page.get_by_test_id("product-readiness-next-action-auth")
             if auth_action.count() != 1:

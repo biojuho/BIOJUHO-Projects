@@ -697,6 +697,9 @@ def test_dashboard_readiness_smoke_routes_launch_control_contract() -> None:
     assert "product-readiness-release-decision" in source
     assert "product-readiness-operator-phase" in source
     assert "product-readiness-launch-drift" in source
+    assert "product-readiness-env-handoff" in source
+    assert "Copy launch env handoff" in source
+    assert "GOOGLE_APPLICATION_CREDENTIALS=<set-secure-value>" in source
     assert "refresh did not issue another /launch request" in source
     assert set(browser_smoke.DASHBOARD_READINESS_MOCKED_ENDPOINTS) == {
         "/ready",
