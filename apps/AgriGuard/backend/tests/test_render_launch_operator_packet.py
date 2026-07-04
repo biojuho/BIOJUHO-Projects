@@ -57,6 +57,10 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     }
     assert "password123" not in json.dumps(packet)
     assert packet["preflight_checks"]["runtime"] == "compose"
+    assert packet["safe_rerun_commands"][0].startswith(
+        "python apps/AgriGuard/scripts/validate_launch_env_template.py"
+    )
+    assert packet["operator_env_template"]["validation_command"] == packet["safe_rerun_commands"][0]
 
 
 def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:
@@ -93,8 +97,10 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert "# AgriGuard Launch Operator Packet" in markdown
     assert "SECRET_KEY=<redacted>" in markdown
     assert "super-secret-value" not in markdown
+    assert "validate_launch_env_template.py --env-file var/agriguard-launch-operator.env.template" in markdown
     assert "launch_env_preflight.py --check-docker" in markdown
     assert "launch_compose.py --run-browser-smoke" in markdown
+    assert markdown.index("validate_launch_env_template.py") < markdown.index("launch_env_preflight.py")
 
 
 def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp_path: Path) -> None:
@@ -124,6 +130,7 @@ def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp
     assert "ALLOW_DEV_AUTH_FALLBACK=false" in template
     assert "super-secret-value" not in template
     assert packet["operator_env_template"]["placeholder_values_must_be_replaced"] is True
+    assert "validate_launch_env_template.py" in packet["operator_env_template"]["validation_command"]
 
 
 def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_path: Path) -> None:
@@ -149,6 +156,10 @@ def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_
     )
 
     assert result == 1
-    assert json.loads(json_out.read_text(encoding="utf-8"))["blocking_action_count"] == 1
+    packet = json.loads(json_out.read_text(encoding="utf-8"))
+    assert packet["blocking_action_count"] == 1
+    assert packet["safe_rerun_commands"][0].startswith(
+        "python apps/AgriGuard/scripts/validate_launch_env_template.py"
+    )
     assert "`set_secret_key`" in markdown_out.read_text(encoding="utf-8")
     assert "AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>" in env_template_out.read_text(encoding="utf-8")

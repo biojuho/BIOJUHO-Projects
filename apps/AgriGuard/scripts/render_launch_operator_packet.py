@@ -9,7 +9,7 @@ from typing import Any
 
 
 SENSITIVE_ASSIGNMENT_RE = re.compile(
-    r"(?i)\b([A-Z0-9_]*(?:SECRET|PASSWORD|PEPPER|PRIVATE_KEY|TOKEN|CREDENTIAL)[A-Z0-9_]*)\s*([:=])\s*([^,\s]+)"
+    r"(?i)\b([A-Z0-9_]*(?:SECRET|PASSWORD|PEPPER|PRIVATE_KEY|TOKEN|CREDENTIAL|SERVICE_ACCOUNT)[A-Z0-9_]*)\s*([:=])\s*([^,\s]+)"
 )
 
 
@@ -148,6 +148,15 @@ def _rel(path: Path, root: Path) -> str:
         return str(path)
 
 
+def _operator_env_template_validation_command() -> str:
+    return (
+        "python apps/AgriGuard/scripts/validate_launch_env_template.py "
+        "--env-file var/agriguard-launch-operator.env.template "
+        "--json-out var/agriguard-launch-env-template-validation.json "
+        "--markdown-out var/agriguard-launch-env-template-validation.md"
+    )
+
+
 def _redact_text(value: object) -> str:
     text = str(value)
     return SENSITIVE_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}<redacted>", text)
@@ -251,6 +260,7 @@ def build_operator_packet(
         actions = _build_actions(errors)
 
     blocked = status != "pass" or bool(actions)
+    validate_env_template = _operator_env_template_validation_command()
     rerun_preflight = (
         "python apps/AgriGuard/scripts/launch_env_preflight.py "
         "--check-docker --json-out var/agriguard-launch-env-preflight-compose-launch.json"
@@ -284,8 +294,9 @@ def build_operator_packet(
             "format": "dotenv",
             "placeholder_values_must_be_replaced": True,
             "variables": [entry["key"] for entry in ENV_TEMPLATE_ENTRIES],
+            "validation_command": validate_env_template,
         },
-        "safe_rerun_commands": [rerun_preflight, rerun_launch],
+        "safe_rerun_commands": [validate_env_template, rerun_preflight, rerun_launch],
     }
 
 
