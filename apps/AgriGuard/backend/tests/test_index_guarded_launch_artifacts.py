@@ -88,6 +88,13 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["recovery_command"] is None
     assert index["recovery_command_status"] == "not_required"
     assert index["recovery_command_note"] is None
+    assert index["recovery_summary"] == {
+        "required": False,
+        "action": None,
+        "status": "not_required",
+        "note": None,
+        "command": None,
+    }
 
 
 def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:
@@ -114,6 +121,11 @@ def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: 
     assert index["recovery_command_note"] == (
         "Recovery command is present because this artifact index did not meet pass criteria."
     )
+    assert index["recovery_summary"]["required"] is True
+    assert index["recovery_summary"]["action"] == index["recovery_action"]
+    assert index["recovery_summary"]["status"] == "pass"
+    assert index["recovery_summary"]["note"] == index["recovery_command_note"]
+    assert index["recovery_summary"]["command"] == index["recovery_command"]
     assert "--emit-handoff" in index["recovery_command"]
 
 
@@ -200,6 +212,7 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
     assert payload["status"] == "pass"
     assert "Consumer packet validation: `pass`" in markdown
     assert "Consumer readiness action IDs: `fix_env_shape_validation`" in markdown
+    assert "Recovery summary required: `false`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery command note: `-`" in markdown
     assert "Recovery command: `-`" in markdown
