@@ -133,4 +133,4 @@ volumes:
 
 secrets:
   agriguard_firebase_service_account:
-    file: ${AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE:-./backend/firebase-service-account.json}
+    file: ${AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE:?Set AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE to an outside-repo Firebase service account JSON}

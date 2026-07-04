@@ -231,7 +231,8 @@ def test_agriguard_compose_mounts_firebase_credentials_as_secret() -> None:
 
     assert "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/agriguard_firebase_service_account" in compose
     assert "secrets:\n      - agriguard_firebase_service_account" in compose
-    assert "agriguard_firebase_service_account:\n    file: ${AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE:-./backend/firebase-service-account.json}" in compose
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE:?" in compose
+    assert "./backend/firebase-service-account.json" not in compose
 
 
 def test_agriguard_compose_exposes_dev_auth_fallback_as_disabled_opt_in() -> None:
