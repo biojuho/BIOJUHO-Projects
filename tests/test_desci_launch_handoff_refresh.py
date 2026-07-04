@@ -187,6 +187,7 @@ def test_desci_launch_handoff_refresh_summarizes_release_handoff_provider_prefli
         auto_refresh_radar=False,
     )
     raw_bundle = json.dumps(bundle)
+    status_markdown = status_md.read_text(encoding="utf-8")
 
     assert bundle["ok"] is True
     assert all(release_handoff_json in call for call in scan_calls)
@@ -207,6 +208,10 @@ def test_desci_launch_handoff_refresh_summarizes_release_handoff_provider_prefli
     ]
     assert "Unauthorized" not in raw_bundle
     assert "stderr_preview" not in raw_bundle
+    assert "## DeSci Provider Blockers" in status_markdown
+    assert "`railway` `railway whoami`: `nonzero_exit`" in status_markdown
+    assert "Unauthorized" not in status_markdown
+    assert "stderr_preview" not in status_markdown
 
 
 def test_desci_launch_handoff_refresh_auto_discovers_latest_release_handoff(

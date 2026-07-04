@@ -506,8 +506,46 @@ def _with_desci_topic_if_blank(status_report: dict[str, Any]) -> dict[str, Any]:
 
 def _format_status_markdown(status_report: dict[str, Any]) -> str:
     if auto_research_status is not None:
-        return auto_research_status.format_markdown(status_report)
-    return _format_fallback_status_markdown(status_report)
+        markdown = auto_research_status.format_markdown(status_report)
+    else:
+        markdown = _format_fallback_status_markdown(status_report)
+    return _append_desci_provider_blockers_markdown(markdown, status_report)
+
+
+def _append_desci_provider_blockers_markdown(markdown: str, status_report: dict[str, Any]) -> str:
+    blockers = _status_report_provider_blockers(status_report)
+    if not blockers:
+        return markdown
+    lines = [markdown.rstrip(), "", "## DeSci Provider Blockers", ""]
+    for blocker in blockers:
+        provider = _markdown_code_text(blocker.get("provider") or "provider")
+        command = _markdown_code_text(blocker.get("command") or "manual provider check")
+        reason = _markdown_code_text(blocker.get("failure_reason") or "unknown")
+        lines.append(f"- `{provider}` `{command}`: `{reason}`")
+        docs_url = _markdown_plain_text(blocker.get("docs_url"))
+        remediation = _markdown_plain_text(blocker.get("remediation"))
+        if docs_url:
+            lines.append(f"  Docs: {docs_url}")
+        if remediation:
+            lines.append(f"  Next: {remediation}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _status_report_provider_blockers(status_report: dict[str, Any]) -> list[dict[str, Any]]:
+    desci = status_report.get("desci") if isinstance(status_report.get("desci"), dict) else {}
+    handoff = desci.get("handoff_refresh") if isinstance(desci.get("handoff_refresh"), dict) else {}
+    return _list_of_dicts(handoff.get("release_handoff_provider_blockers"))
+
+
+def _markdown_code_text(value: Any) -> str:
+    return _markdown_plain_text(value).replace("`", "'")
+
+
+def _markdown_plain_text(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.split())
 
 
 def _write_secret_scan(
