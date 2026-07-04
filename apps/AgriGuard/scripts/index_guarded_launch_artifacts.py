@@ -87,6 +87,31 @@ def _artifact_paths(output_dir: Path, output_prefix: str, status_json: Path | No
     return paths
 
 
+def _recovery_command(
+    *,
+    app_root: Path,
+    output_dir: Path,
+    output_prefix: str,
+    status_json: Path | None,
+) -> list[str]:
+    command = [
+        sys.executable,
+        str(app_root / "scripts" / "run_guarded_launch.py"),
+        "--app-root",
+        str(app_root),
+        "--env-file",
+        str(run_guarded_launch._default_env_file(app_root)),
+        "--output-dir",
+        str(output_dir),
+        "--output-prefix",
+        output_prefix,
+        "--emit-handoff",
+    ]
+    if status_json is not None:
+        command.extend(["--status-json-out", str(status_json)])
+    return command
+
+
 def build_index(
     *,
     app_root: Path,
@@ -144,6 +169,16 @@ def build_index(
         and not consumer_errors
         else "fail"
     )
+    recovery_command = (
+        None
+        if index_status == "pass"
+        else _recovery_command(
+            app_root=app_root,
+            output_dir=output_dir,
+            output_prefix=output_prefix,
+            status_json=status_json.resolve() if status_json else None,
+        )
+    )
     return {
         "schema_version": 1,
         "status": index_status,
@@ -178,6 +213,10 @@ def build_index(
         "validation_status": validation_status,
         "launch_status": launch.get("status") if isinstance(launch, dict) else None,
         "launch_stage": launch.get("stage") if isinstance(launch, dict) else None,
+        "recovery_action": None
+        if recovery_command is None
+        else "Run the guarded launch wrapper command to regenerate required artifact-index evidence.",
+        "recovery_command": recovery_command,
         "secrets_redacted": True,
     }
 
@@ -195,6 +234,7 @@ def render_markdown(index: dict[str, object]) -> str:
         if isinstance(index.get("consumer_readiness_operator_action_ids"), list)
         else []
     )
+    recovery_command = index.get("recovery_command") if isinstance(index.get("recovery_command"), list) else []
     lines = [
         "# AgriGuard Guarded Launch Artifact Index",
         "",
@@ -211,6 +251,8 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer readiness placeholder count: `{index.get('consumer_readiness_env_validation_placeholder_count')}`",
         f"- Consumer readiness packet preflight status: `{index.get('consumer_readiness_operator_packet_preflight_status')}`",
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
+        f"- Recovery action: `{index.get('recovery_action') or '-'}`",
+        f"- Recovery command: `{' '.join(str(part) for part in recovery_command) if recovery_command else '-'}`",
         "",
         "## Artifacts",
         "",

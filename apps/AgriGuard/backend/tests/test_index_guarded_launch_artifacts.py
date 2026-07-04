@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 
@@ -83,6 +84,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_readiness_operator_action_ids"] == ["fix_env_shape_validation"]
     assert index["consumer_readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert index["missing_required_roles"] == []
+    assert index["recovery_action"] is None
+    assert index["recovery_command"] is None
 
 
 def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:
@@ -102,6 +105,10 @@ def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: 
     assert index["status"] == "fail"
     assert index["consumer_packet_validation_status"] == "fail"
     assert index["consumer_packet_markdown_table_status"] == "fail"
+    assert index["recovery_action"] == (
+        "Run the guarded launch wrapper command to regenerate required artifact-index evidence."
+    )
+    assert "--emit-handoff" in index["recovery_command"]
 
 
 def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -> None:
@@ -117,6 +124,18 @@ def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -
 
     assert index["status"] == "fail"
     assert index["missing_required_roles"] == ["handoff_consumer_json"]
+    recovery_command = index["recovery_command"]
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
+    assert recovery_command[:2] == [
+        sys.executable,
+        str(APP_ROOT / "scripts" / "run_guarded_launch.py"),
+    ]
+    assert "--dry-run" not in recovery_command
+    assert "--emit-handoff" in recovery_command
+    assert recovery_command[recovery_command.index("--output-prefix") + 1] == "blocked"
+    assert recovery_command[recovery_command.index("--output-dir") + 1] == str(output_dir.resolve())
+    assert "Recovery command:" in markdown
+    assert "run_guarded_launch.py" in markdown
 
 
 def test_index_guarded_launch_artifacts_can_require_status_json(tmp_path: Path) -> None:
@@ -170,4 +189,5 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
     assert payload["status"] == "pass"
     assert "Consumer packet validation: `pass`" in markdown
     assert "Consumer readiness action IDs: `fix_env_shape_validation`" in markdown
+    assert "Recovery command: `-`" in markdown
     assert "`handoff_consumer_json`" in markdown
