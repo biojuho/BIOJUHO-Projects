@@ -338,6 +338,30 @@
                 "null"
               ]
             },
+            "consumer_readiness_env_validation_placeholder_count": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "consumer_readiness_env_validation_ready_for_preflight": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "consumer_readiness_operator_action_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "consumer_readiness_operator_packet_preflight_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "found": {
               "type": "boolean"
             },
@@ -372,6 +396,10 @@
             "status",
             "missing_required_roles",
             "consumer_packet_validation_status",
+            "consumer_readiness_operator_action_ids",
+            "consumer_readiness_env_validation_ready_for_preflight",
+            "consumer_readiness_env_validation_placeholder_count",
+            "consumer_readiness_operator_packet_preflight_status",
             "recovery_command_status"
           ],
           "type": "object"

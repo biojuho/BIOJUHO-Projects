@@ -628,6 +628,10 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                 "status": "pass",
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
+                "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "consumer_readiness_env_validation_ready_for_preflight": True,
+                "consumer_readiness_env_validation_placeholder_count": 0,
+                "consumer_readiness_operator_packet_preflight_status": "fail",
                 "recovery_command_status": "not_required",
                 "recovery_summary": {
                     "required": False,
@@ -670,6 +674,10 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "status": "pass",
         "missing_required_roles": [],
         "consumer_packet_validation_status": "pass",
+        "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+        "consumer_readiness_env_validation_ready_for_preflight": True,
+        "consumer_readiness_env_validation_placeholder_count": 0,
+        "consumer_readiness_operator_packet_preflight_status": "fail",
         "recovery_command_status": "not_required",
     }
     assert payload["artifacts"]["artifact_index_json"] == str(custom_index.resolve())

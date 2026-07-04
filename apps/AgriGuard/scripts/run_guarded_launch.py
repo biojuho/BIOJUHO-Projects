@@ -231,6 +231,28 @@ def _build_status_view(
             "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status")
             if artifact_index is not None
             else None,
+            "consumer_readiness_operator_action_ids": [
+                str(action_id)
+                for action_id in artifact_index.get("consumer_readiness_operator_action_ids", [])
+                if isinstance(action_id, str)
+            ]
+            if artifact_index is not None
+            else [],
+            "consumer_readiness_env_validation_ready_for_preflight": artifact_index.get(
+                "consumer_readiness_env_validation_ready_for_preflight"
+            )
+            if artifact_index is not None
+            else None,
+            "consumer_readiness_env_validation_placeholder_count": artifact_index.get(
+                "consumer_readiness_env_validation_placeholder_count"
+            )
+            if artifact_index is not None
+            else None,
+            "consumer_readiness_operator_packet_preflight_status": artifact_index.get(
+                "consumer_readiness_operator_packet_preflight_status"
+            )
+            if artifact_index is not None
+            else None,
             "recovery_command_status": artifact_index.get("recovery_command_status")
             if artifact_index is not None
             else None,
