@@ -172,6 +172,16 @@ def _format_operator_command(command: list[object]) -> str:
     return run_guarded_launch._format_powershell_command([str(part) for part in command]) or ""
 
 
+def _operator_command_entry(*, command_id: str, description: str, command: list[str]) -> dict[str, object]:
+    return {
+        "id": command_id,
+        "description": description,
+        "command": command,
+        "command_shell": "powershell",
+        "command_text": _format_operator_command(command),
+    }
+
+
 def _external_blocker(status_view: dict[str, object], ready: bool) -> dict[str, object]:
     if ready:
         return {
@@ -224,6 +234,8 @@ def build_handoff(
             require_ready=True,
         ),
     }
+    ready_gate["command_shell"] = "powershell"
+    ready_gate["command_text"] = _format_operator_command(ready_gate["command"])
     handoff: dict[str, object] = {
         "schema_version": 1,
         "status": "ready" if ready else "blocked",
@@ -235,33 +247,36 @@ def build_handoff(
         "packet_validation": packet_validation,
         "external_blocker": _external_blocker(status_view, ready),
         "operator_commands": [
-            {
-                "id": "inspect_status",
-                "description": "Print the compact guarded-launch status view.",
-                "command": _wrapper_status_argv(
+            _operator_command_entry(
+                command_id="inspect_status",
+                description="Print the compact guarded-launch status view.",
+                command=_wrapper_status_argv(
                     app_root=app_root,
                     output_dir=output_dir,
                     output_prefix=output_prefix,
                 ),
-            },
-            {
-                "id": "require_ready",
-                "description": "Fail closed unless the selected guarded-launch prefix is ready.",
-                "command": ready_gate["command"],
-            },
+            ),
+            _operator_command_entry(
+                command_id="require_ready",
+                description="Fail closed unless the selected guarded-launch prefix is ready.",
+                command=ready_gate["command"],
+            ),
         ],
     }
     if handoff_json is not None and validation_json is not None:
+        validation_command = [
+            sys.executable,
+            str(app_root / "scripts" / "validate_guarded_launch_handoff.py"),
+            str(handoff_json),
+            "--json-out",
+            str(validation_json),
+        ]
         handoff["validation"] = {
             "schema_json": str(validate_guarded_launch_handoff.DEFAULT_SCHEMA_PATH),
             "validation_json": str(validation_json),
-            "command": [
-                sys.executable,
-                str(app_root / "scripts" / "validate_guarded_launch_handoff.py"),
-                str(handoff_json),
-                "--json-out",
-                str(validation_json),
-            ],
+            "command": validation_command,
+            "command_shell": "powershell",
+            "command_text": _format_operator_command(validation_command),
         }
     return handoff
 
@@ -344,7 +359,10 @@ def render_markdown(handoff: dict[str, object]) -> str:
         if not isinstance(command, dict):
             continue
         argv = command.get("command") if isinstance(command.get("command"), list) else []
-        lines.append(f"- `{command.get('id')}`: `{_format_operator_command(argv)}`")
+        command_text = command.get("command_text")
+        if not isinstance(command_text, str) or not command_text:
+            command_text = _format_operator_command(argv)
+        lines.append(f"- `{command.get('id')}`: `{command_text}`")
     lines.append("")
     return "\n".join(lines)
 

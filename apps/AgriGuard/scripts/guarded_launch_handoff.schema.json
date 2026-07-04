@@ -43,6 +43,14 @@
             "minItems": 1,
             "type": "array"
           },
+          "command_shell": {
+            "const": "powershell",
+            "type": "string"
+          },
+          "command_text": {
+            "minLength": 1,
+            "type": "string"
+          },
           "description": {
             "minLength": 1,
             "type": "string"
@@ -55,7 +63,9 @@
         "required": [
           "id",
           "description",
-          "command"
+          "command",
+          "command_shell",
+          "command_text"
         ],
         "type": "object"
       },
@@ -226,6 +236,14 @@
           "minItems": 1,
           "type": "array"
         },
+        "command_shell": {
+          "const": "powershell",
+          "type": "string"
+        },
+        "command_text": {
+          "minLength": 1,
+          "type": "string"
+        },
         "exit_code": {
           "minimum": 0,
           "type": "integer"
@@ -250,7 +268,9 @@
         "required_blocker_class",
         "exit_code",
         "status_json_out",
-        "command"
+        "command",
+        "command_shell",
+        "command_text"
       ],
       "type": "object"
     },
@@ -274,6 +294,14 @@
           "minItems": 1,
           "type": "array"
         },
+        "command_shell": {
+          "const": "powershell",
+          "type": "string"
+        },
+        "command_text": {
+          "minLength": 1,
+          "type": "string"
+        },
         "schema_json": {
           "minLength": 1,
           "type": "string"
@@ -286,7 +314,9 @@
       "required": [
         "schema_json",
         "validation_json",
-        "command"
+        "command",
+        "command_shell",
+        "command_text"
       ],
       "type": "object"
     },

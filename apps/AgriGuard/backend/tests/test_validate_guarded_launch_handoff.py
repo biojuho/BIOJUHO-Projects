@@ -4,7 +4,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 APP_ROOT = Path(__file__).resolve().parents[2]
 
 HANDOFF_PATH = APP_ROOT / "scripts" / "render_guarded_launch_handoff.py"
@@ -73,11 +72,13 @@ def test_validate_guarded_launch_handoff_accepts_rendered_handoff(tmp_path: Path
 def test_validate_guarded_launch_handoff_rejects_shape_drift(tmp_path: Path) -> None:
     handoff = _write_blocked_handoff(tmp_path)
     del handoff["ready_gate"]["command"]
+    del handoff["operator_commands"][0]["command_text"]
     handoff["unexpected"] = True
 
     errors = validate_guarded_launch_handoff.validate_handoff(handoff)
 
     assert "$.ready_gate.command: missing required property" in errors
+    assert "$.operator_commands[0].command_text: missing required property" in errors
     assert "$: unexpected properties: unexpected" in errors
 
 

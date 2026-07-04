@@ -153,6 +153,16 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert inspect_command[inspect_command.index("--app-root") + 1] == str(APP_ROOT.resolve())
     assert inspect_command[inspect_command.index("--output-dir") + 1] == str(output_dir.resolve())
     assert "--require-ready" not in inspect_command
+    assert handoff["ready_gate"]["command_shell"] == "powershell"
+    assert handoff["ready_gate"]["command_text"] == render_guarded_launch_handoff._format_operator_command(
+        ready_command
+    )
+    assert handoff["operator_commands"][0]["command_shell"] == "powershell"
+    assert handoff["operator_commands"][0]["command_text"] == render_guarded_launch_handoff._format_operator_command(
+        inspect_command
+    )
+    assert handoff["operator_commands"][1]["command_shell"] == "powershell"
+    assert handoff["operator_commands"][1]["command_text"] == handoff["ready_gate"]["command_text"]
     assert handoff["secrets_redacted"] is True
     assert "Readiness next command count: `1`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
@@ -281,7 +291,15 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert payload["validation"]["command"][1] == str(APP_ROOT / "scripts" / "validate_guarded_launch_handoff.py")
     assert payload["validation"]["command"][2] == str(json_out.resolve())
     assert payload["validation"]["command"][-1] == str(validation_json.resolve())
+    assert payload["validation"]["command_shell"] == "powershell"
+    assert payload["validation"]["command_text"] == render_guarded_launch_handoff._format_operator_command(
+        payload["validation"]["command"]
+    )
     assert payload["ready_gate"]["command"][1] == str(APP_ROOT / "scripts" / "run_guarded_launch.py")
+    assert payload["ready_gate"]["command_shell"] == "powershell"
+    assert payload["ready_gate"]["command_text"] == render_guarded_launch_handoff._format_operator_command(
+        payload["ready_gate"]["command"]
+    )
     assert payload["ready_gate"]["command"][payload["ready_gate"]["command"].index("--app-root") + 1] == str(
         APP_ROOT.resolve()
     )
