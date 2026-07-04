@@ -769,13 +769,26 @@ def _provider_apply_workflow_verification(plan_path: str | Path) -> dict[str, An
     plan_json = str(plan_path)
     results_json = _json_path_with_suffix(plan_path, "-results")
     workflow_json_out = _json_path_with_suffix(plan_path, "-workflow-verify")
+    github_output_path = str(
+        Path(workflow_json_out).with_name(f"{Path(workflow_json_out).stem}-github-output.txt")
+    )
+    github_output_verify_json_out = _json_path_with_suffix(plan_path, "-workflow-github-output-verify")
     promotion_receipt_json = "var/post-apply-promotion-receipt.json"
+    require_go_command = (
+        "python scripts/external_gate_handoff.py "
+        f"--verify-provider-apply-workflow {plan_json} "
+        f"--provider-apply-results {results_json} "
+        f"--promotion-receipt {promotion_receipt_json} "
+        f"--require-promotion-go --json-out {workflow_json_out}"
+    )
     return {
         "success_condition": PROVIDER_APPLY_WORKFLOW_CONDITION,
         "provider_apply_plan_json": plan_json,
         "provider_apply_results_json": results_json,
         "promotion_receipt_json": promotion_receipt_json,
         "verify_json_out": workflow_json_out,
+        "github_output_path": github_output_path,
+        "github_output_verify_json_out": github_output_verify_json_out,
         "default_verify_command": (
             "python scripts/external_gate_handoff.py "
             f"--verify-provider-apply-workflow {plan_json} --json-out {workflow_json_out}"
@@ -792,12 +805,16 @@ def _provider_apply_workflow_verification(plan_path: str | Path) -> dict[str, An
             f"--promotion-receipt {promotion_receipt_json} "
             f"--json-out {workflow_json_out}"
         ),
-        "require_go_command": (
+        "require_go_command": require_go_command,
+        "github_output_powershell_command": (
+            f"$env:GITHUB_OUTPUT={_powershell_single_quoted(github_output_path)}; "
+            f"{require_go_command} --github-output"
+        ),
+        "github_output_verify_command": (
             "python scripts/external_gate_handoff.py "
-            f"--verify-provider-apply-workflow {plan_json} "
-            f"--provider-apply-results {results_json} "
-            f"--promotion-receipt {promotion_receipt_json} "
-            f"--require-promotion-go --json-out {workflow_json_out}"
+            f"--verify-provider-apply-workflow-github-output {github_output_path} "
+            f"--provider-apply-workflow-json {workflow_json_out} "
+            f"--json-out {github_output_verify_json_out}"
         ),
     }
 
@@ -1932,11 +1949,18 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Provider apply results JSON: `{_markdown_scalar(workflow_verification.get('provider_apply_results_json'))}`",
                 f"- Promotion receipt JSON: `{_markdown_scalar(workflow_verification.get('promotion_receipt_json'))}`",
                 f"- Verify JSON: `{_markdown_scalar(workflow_verification.get('verify_json_out'))}`",
+                f"- GitHub output file: `{_markdown_scalar(workflow_verification.get('github_output_path'))}`",
+                f"- GitHub output verify JSON: "
+                f"`{_markdown_scalar(workflow_verification.get('github_output_verify_json_out'))}`",
                 f"- Default verify command: `{_markdown_scalar(workflow_verification.get('default_verify_command'))}`",
                 f"- Default require-go command: "
                 f"`{_markdown_scalar(workflow_verification.get('default_require_go_command'))}`",
                 f"- Verify command: `{_markdown_scalar(workflow_verification.get('verify_command'))}`",
                 f"- Require-go command: `{_markdown_scalar(workflow_verification.get('require_go_command'))}`",
+                f"- GitHub output command: "
+                f"`{_markdown_scalar(workflow_verification.get('github_output_powershell_command'))}`",
+                f"- GitHub output verify command: "
+                f"`{_markdown_scalar(workflow_verification.get('github_output_verify_command'))}`",
                 "",
             ]
         )

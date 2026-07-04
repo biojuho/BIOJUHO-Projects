@@ -377,6 +377,12 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert plan["provider_apply_workflow_verification"]["verify_json_out"] == str(
         tmp_path / "apply-plan-workflow-verify.json"
     )
+    assert plan["provider_apply_workflow_verification"]["github_output_path"] == str(
+        tmp_path / "apply-plan-workflow-verify-github-output.txt"
+    )
+    assert plan["provider_apply_workflow_verification"]["github_output_verify_json_out"] == str(
+        tmp_path / "apply-plan-workflow-github-output-verify.json"
+    )
     assert (
         plan["provider_apply_workflow_verification"]["default_verify_command"]
         == "python scripts/external_gate_handoff.py "
@@ -404,6 +410,25 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
         f"--provider-apply-results {tmp_path / 'apply-plan-results.json'} "
         "--promotion-receipt var/post-apply-promotion-receipt.json "
         f"--require-promotion-go --json-out {tmp_path / 'apply-plan-workflow-verify.json'}"
+    )
+    assert (
+        plan["provider_apply_workflow_verification"]["github_output_powershell_command"]
+        == "$env:GITHUB_OUTPUT="
+        f"'{tmp_path / 'apply-plan-workflow-verify-github-output.txt'}'; "
+        "python scripts/external_gate_handoff.py "
+        f"--verify-provider-apply-workflow {plan_path} "
+        f"--provider-apply-results {tmp_path / 'apply-plan-results.json'} "
+        "--promotion-receipt var/post-apply-promotion-receipt.json "
+        f"--require-promotion-go --json-out {tmp_path / 'apply-plan-workflow-verify.json'} "
+        "--github-output"
+    )
+    assert (
+        plan["provider_apply_workflow_verification"]["github_output_verify_command"]
+        == "python scripts/external_gate_handoff.py "
+        f"--verify-provider-apply-workflow-github-output "
+        f"{tmp_path / 'apply-plan-workflow-verify-github-output.txt'} "
+        f"--provider-apply-workflow-json {tmp_path / 'apply-plan-workflow-verify.json'} "
+        f"--json-out {tmp_path / 'apply-plan-workflow-github-output-verify.json'}"
     )
     assert (
         plan["provider_apply_plan_verification"]["verify_command"]
@@ -516,9 +541,14 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "--verify-provider-apply-results" in markdown
     assert "Provider Apply Workflow Verification" in markdown
     assert "apply-plan-workflow-verify.json" in markdown
+    assert "apply-plan-workflow-verify-github-output.txt" in markdown
+    assert "apply-plan-workflow-github-output-verify.json" in markdown
     assert "Default verify command" in markdown
     assert "Default require-go command" in markdown
+    assert "GitHub output command" in markdown
+    assert "GitHub output verify command" in markdown
     assert "--verify-provider-apply-workflow" in markdown
+    assert "--verify-provider-apply-workflow-github-output" in markdown
     assert "--require-promotion-go" in markdown
     assert "Post-Apply Evidence" in markdown
     assert "external-release-gate-post-apply-all.json" in markdown
