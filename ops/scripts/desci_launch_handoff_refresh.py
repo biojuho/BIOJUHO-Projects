@@ -68,6 +68,7 @@ def refresh_desci_launch_handoff(
     secret_scan_json_out: Path = DEFAULT_SECRET_SCAN_JSON,
     bundle_json_out: Path = DEFAULT_BUNDLE_JSON,
     release_handoff_json: Path | None = None,
+    provider_workflow_bundle_json: Path | None = None,
     live_source_commit: str | None = None,
     check_live_source: bool = False,
     allow_action_required: bool = True,
@@ -94,6 +95,7 @@ def refresh_desci_launch_handoff(
         radar_json=radar_json,
         radar_markdown_out=radar_markdown_out,
         release_handoff_json=release_handoff_json,
+        provider_workflow_bundle_json=provider_workflow_bundle_json,
     )
     secret_scan = _write_secret_scan(
         workspace_root=workspace_root,
@@ -118,6 +120,7 @@ def refresh_desci_launch_handoff(
         radar_json=radar_json,
         radar_markdown_out=radar_markdown_out,
         release_handoff_json=release_handoff_json,
+        provider_workflow_bundle_json=provider_workflow_bundle_json,
     )
     secret_scan = _write_secret_scan(
         workspace_root=workspace_root,
@@ -145,6 +148,7 @@ def refresh_desci_launch_handoff(
         status_markdown_out=status_markdown_out,
         secret_scan_json_out=secret_scan_json_out,
         release_handoff_json=release_handoff_json,
+        provider_workflow_bundle_json=provider_workflow_bundle_json,
         status_report=status_report,
         secret_scan=secret_scan,
         secret_scan_passes=secret_scan_passes,
@@ -186,6 +190,7 @@ def refresh_desci_launch_handoff(
         status_markdown_out=status_markdown_out,
         secret_scan_json_out=secret_scan_json_out,
         release_handoff_json=release_handoff_json,
+        provider_workflow_bundle_json=provider_workflow_bundle_json,
         status_report=status_report,
         secret_scan=secret_scan,
         secret_scan_passes=secret_scan_passes,
@@ -216,6 +221,7 @@ def refresh_desci_launch_handoff(
         status_markdown_out=status_markdown_out,
         secret_scan_json_out=secret_scan_json_out,
         release_handoff_json=release_handoff_json,
+        provider_workflow_bundle_json=provider_workflow_bundle_json,
         status_report=status_report,
         secret_scan=secret_scan,
         secret_scan_passes=secret_scan_passes,
@@ -315,6 +321,11 @@ def _status_handoff_refresh_from_bundle(
     status_info = bundle.get("status") if isinstance(bundle.get("status"), dict) else {}
     secret_scan = bundle.get("secret_scan") if isinstance(bundle.get("secret_scan"), dict) else {}
     release_handoff = bundle.get("release_handoff") if isinstance(bundle.get("release_handoff"), dict) else {}
+    provider_workflow_bundle = (
+        bundle.get("provider_workflow_bundle")
+        if isinstance(bundle.get("provider_workflow_bundle"), dict)
+        else {}
+    )
     result = {
         "status": "valid",
         "path": _display_path(bundle_json_out, workspace_root) if bundle_json_out is not None else "",
@@ -349,6 +360,34 @@ def _status_handoff_refresh_from_bundle(
         ),
         "release_handoff_provider_preflight_source": release_handoff.get("source_artifact"),
         "release_handoff_provider_blockers": _list_of_dicts(release_handoff.get("provider_blockers")),
+        "provider_workflow_bundle_required": provider_workflow_bundle.get("required") is True,
+        "provider_workflow_bundle_status": provider_workflow_bundle.get("status"),
+        "provider_workflow_bundle_path": provider_workflow_bundle.get("path"),
+        "provider_workflow_bundle_ok": provider_workflow_bundle.get("ok")
+        if isinstance(provider_workflow_bundle.get("ok"), bool)
+        else None,
+        "provider_workflow_bundle_require_complete": provider_workflow_bundle.get("require_complete_bundle")
+        if isinstance(provider_workflow_bundle.get("require_complete_bundle"), bool)
+        else None,
+        "provider_workflow_bundle_index_complete": provider_workflow_bundle.get("index_complete_bundle")
+        if isinstance(provider_workflow_bundle.get("index_complete_bundle"), bool)
+        else None,
+        "provider_workflow_bundle_missing_required_count": _optional_nonnegative_int(
+            provider_workflow_bundle.get("missing_required_count")
+        ),
+        "provider_workflow_bundle_artifact_failure_count": _optional_nonnegative_int(
+            provider_workflow_bundle.get("artifact_failure_count")
+        ),
+        "provider_workflow_bundle_workflow_ok": provider_workflow_bundle.get("workflow_ok")
+        if isinstance(provider_workflow_bundle.get("workflow_ok"), bool)
+        else None,
+        "provider_workflow_bundle_workflow_phase": provider_workflow_bundle.get("workflow_phase"),
+        "provider_workflow_bundle_operator_command_count": _optional_nonnegative_int(
+            provider_workflow_bundle.get("operator_command_count")
+        ),
+        "provider_workflow_bundle_operator_command_failure_count": _optional_nonnegative_int(
+            provider_workflow_bundle.get("operator_command_failure_count")
+        ),
     }
     result.update(_status_handoff_source_fields_from_bundle(bundle, workspace_root=workspace_root))
     return result
@@ -509,7 +548,8 @@ def _format_status_markdown(status_report: dict[str, Any]) -> str:
         markdown = auto_research_status.format_markdown(status_report)
     else:
         markdown = _format_fallback_status_markdown(status_report)
-    return _append_desci_provider_blockers_markdown(markdown, status_report)
+    markdown = _append_desci_provider_blockers_markdown(markdown, status_report)
+    return _append_desci_provider_workflow_bundle_markdown(markdown, status_report)
 
 
 def _append_desci_provider_blockers_markdown(markdown: str, status_report: dict[str, Any]) -> str:
@@ -538,13 +578,47 @@ def _status_report_provider_blockers(status_report: dict[str, Any]) -> list[dict
     return _list_of_dicts(handoff.get("release_handoff_provider_blockers"))
 
 
+def _append_desci_provider_workflow_bundle_markdown(markdown: str, status_report: dict[str, Any]) -> str:
+    bundle = _status_report_provider_workflow_bundle(status_report)
+    if not bundle or bundle.get("provider_workflow_bundle_required") is not True:
+        return markdown
+    lines = [markdown.rstrip(), "", "## DeSci Provider Workflow Bundle", ""]
+    lines.extend(
+        [
+            f"- Status: `{_markdown_code_text(bundle.get('provider_workflow_bundle_status'))}`",
+            f"- Path: `{_markdown_code_text(bundle.get('provider_workflow_bundle_path'))}`",
+            f"- Bundle OK: `{_markdown_code_text(bundle.get('provider_workflow_bundle_ok'))}`",
+            f"- Index complete: `{_markdown_code_text(bundle.get('provider_workflow_bundle_index_complete'))}`",
+            f"- Missing required artifacts: "
+            f"`{_markdown_code_text(bundle.get('provider_workflow_bundle_missing_required_count'))}`",
+            f"- Artifact failures: "
+            f"`{_markdown_code_text(bundle.get('provider_workflow_bundle_artifact_failure_count'))}`",
+            f"- Workflow phase: `{_markdown_code_text(bundle.get('provider_workflow_bundle_workflow_phase'))}`",
+            f"- Operator commands: "
+            f"`{_markdown_code_text(bundle.get('provider_workflow_bundle_operator_command_count'))}`",
+            f"- Operator command failures: "
+            f"`{_markdown_code_text(bundle.get('provider_workflow_bundle_operator_command_failure_count'))}`",
+        ]
+    )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _status_report_provider_workflow_bundle(status_report: dict[str, Any]) -> dict[str, Any]:
+    desci = status_report.get("desci") if isinstance(status_report.get("desci"), dict) else {}
+    handoff = desci.get("handoff_refresh") if isinstance(desci.get("handoff_refresh"), dict) else {}
+    return handoff if isinstance(handoff, dict) else {}
+
+
 def _markdown_code_text(value: Any) -> str:
     return _markdown_plain_text(value).replace("`", "'")
 
 
 def _markdown_plain_text(value: Any) -> str:
-    if not isinstance(value, str):
+    if value is None:
         return ""
+    if not isinstance(value, str):
+        value = str(value)
     return " ".join(value.split())
 
 
@@ -579,6 +653,7 @@ def _build_bundle(
     status_markdown_out: Path,
     secret_scan_json_out: Path,
     release_handoff_json: Path | None,
+    provider_workflow_bundle_json: Path | None,
     status_report: dict[str, Any],
     secret_scan: dict[str, Any],
     secret_scan_passes: int,
@@ -599,6 +674,10 @@ def _build_bundle(
     live_source_context = _live_source_context(source, require_live_source)
     secret_scan_summary = _secret_scan_summary(secret_scan)
     release_handoff_summary = _release_handoff_summary(release_handoff_json, workspace_root)
+    provider_workflow_bundle_summary = _provider_workflow_bundle_summary(
+        provider_workflow_bundle_json,
+        workspace_root,
+    )
     radar_paths = _radar_display_paths(radar_json, radar_markdown_out, workspace_root)
     recorded_latest_observed_commit = _recorded_latest_observed_commit(radar_refresh, source)
     return {
@@ -612,6 +691,7 @@ def _build_bundle(
             live_source_context,
             secret_scan_summary,
             release_handoff_summary,
+            provider_workflow_bundle_summary,
         ),
         "status_allowed": status_context["allowed"],
         "action_required_failures_ok": status_context["action_required_failures_ok"],
@@ -649,6 +729,7 @@ def _build_bundle(
             **secret_scan_summary,
         },
         "release_handoff": release_handoff_summary,
+        "provider_workflow_bundle": provider_workflow_bundle_summary,
     }
 
 
@@ -730,6 +811,7 @@ def _bundle_ok(
     live_source_context: dict[str, Any],
     secret_scan_summary: dict[str, Any],
     release_handoff_summary: dict[str, Any],
+    provider_workflow_bundle_summary: dict[str, Any],
 ) -> bool:
     return bool(
         status_context["allowed"]
@@ -737,6 +819,7 @@ def _bundle_ok(
         and live_source_context["ok"]
         and secret_scan_summary["ok"]
         and _release_handoff_evidence_ready(release_handoff_summary)
+        and _provider_workflow_bundle_evidence_ready(provider_workflow_bundle_summary)
     )
 
 
@@ -747,6 +830,12 @@ def _release_handoff_evidence_ready(release_handoff_summary: dict[str, Any]) -> 
         release_handoff_summary.get("status") == "valid"
         and release_handoff_summary.get("provider_preflight_present") is True
     )
+
+
+def _provider_workflow_bundle_evidence_ready(summary: dict[str, Any]) -> bool:
+    if summary.get("required") is not True:
+        return True
+    return summary.get("status") == "valid"
 
 
 def _release_handoff_summary(path: Path | None, workspace_root: Path) -> dict[str, Any]:
@@ -798,6 +887,61 @@ def _empty_release_handoff_summary(status: str, path: str, *, required: bool) ->
         "auth_context_missing_count": None,
         "source_artifact": "",
         "provider_blockers": [],
+    }
+
+
+def _provider_workflow_bundle_summary(path: Path | None, workspace_root: Path) -> dict[str, Any]:
+    if path is None:
+        return _empty_provider_workflow_bundle_summary("not_configured", "", required=False)
+    display_path = _display_path(path, workspace_root)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except FileNotFoundError:
+        return _empty_provider_workflow_bundle_summary("missing", display_path, required=True)
+    except (OSError, json.JSONDecodeError):
+        return _empty_provider_workflow_bundle_summary("invalid", display_path, required=True)
+    if not isinstance(payload, dict):
+        return _empty_provider_workflow_bundle_summary("invalid", display_path, required=True)
+    workflow = payload.get("provider_apply_workflow")
+    if not isinstance(workflow, dict):
+        workflow = {}
+    summary = payload.get("summary")
+    if not isinstance(summary, dict):
+        summary = {}
+    return {
+        "required": True,
+        "status": "valid",
+        "path": display_path,
+        "ok": _optional_bool(payload.get("ok")),
+        "require_complete_bundle": _optional_bool(payload.get("require_complete_bundle")),
+        "index_complete_bundle": _optional_bool(payload.get("index_complete_bundle")),
+        "first_decision_artifact": str(payload.get("first_decision_artifact") or ""),
+        "missing_required_count": _optional_nonnegative_int(summary.get("missing_required_count")),
+        "artifact_failure_count": _optional_nonnegative_int(summary.get("artifact_failure_count")),
+        "workflow_ok": _optional_bool(workflow.get("ok")),
+        "workflow_phase": str(workflow.get("operator_phase") or ""),
+        "operator_command_count": _optional_nonnegative_int(workflow.get("operator_command_count")),
+        "operator_command_failure_count": _optional_nonnegative_int(
+            workflow.get("operator_command_failure_count")
+        ),
+    }
+
+
+def _empty_provider_workflow_bundle_summary(status: str, path: str, *, required: bool) -> dict[str, Any]:
+    return {
+        "required": required,
+        "status": status,
+        "path": path,
+        "ok": None,
+        "require_complete_bundle": None,
+        "index_complete_bundle": None,
+        "first_decision_artifact": "",
+        "missing_required_count": None,
+        "artifact_failure_count": None,
+        "workflow_ok": None,
+        "workflow_phase": "",
+        "operator_command_count": None,
+        "operator_command_failure_count": None,
     }
 
 
@@ -1363,6 +1507,7 @@ def _extra_scan_paths(
     radar_json: Path | None = None,
     radar_markdown_out: Path | None = None,
     release_handoff_json: Path | None = None,
+    provider_workflow_bundle_json: Path | None = None,
 ) -> list[Path]:
     paths: list[Path] = []
     if status_json_out is not None:
@@ -1375,6 +1520,8 @@ def _extra_scan_paths(
         paths.append(radar_markdown_out)
     if release_handoff_json is not None:
         paths.append(release_handoff_json)
+    if provider_workflow_bundle_json is not None:
+        paths.append(provider_workflow_bundle_json)
     return paths
 
 
@@ -1442,6 +1589,11 @@ def main(argv: list[str] | None = None, *, workspace_root: Path = WORKSPACE_ROOT
             "When omitted, the latest apps/desci-platform/var/release-handoff*.json is used if present."
         ),
     )
+    parser.add_argument(
+        "--provider-workflow-bundle-json",
+        type=Path,
+        help="Optional provider workflow artifact bundle verification JSON to summarize and scan.",
+    )
     parser.add_argument("--live-source-commit")
     parser.add_argument("--check-live-source", action="store_true")
     parser.add_argument(
@@ -1485,6 +1637,7 @@ def main(argv: list[str] | None = None, *, workspace_root: Path = WORKSPACE_ROOT
             secret_scan_json_out=args.secret_scan_json_out,
             bundle_json_out=args.bundle_json_out,
             release_handoff_json=args.release_handoff_json,
+            provider_workflow_bundle_json=args.provider_workflow_bundle_json,
             live_source_commit=args.live_source_commit,
             check_live_source=args.check_live_source,
             allow_action_required=args.allow_action_required,

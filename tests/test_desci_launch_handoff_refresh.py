@@ -214,6 +214,84 @@ def test_desci_launch_handoff_refresh_summarizes_release_handoff_provider_prefli
     assert "stderr_preview" not in status_markdown
 
 
+def test_desci_launch_handoff_refresh_summarizes_provider_workflow_bundle(
+    monkeypatch,
+    tmp_path,
+):
+    refresh = load_refresh_module()
+    radar = tmp_path / "var" / "radar.json"
+    radar_md = tmp_path / "docs" / "reports" / "2026-07" / "RADAR.md"
+    status_json = tmp_path / "var" / "status.json"
+    status_md = tmp_path / "docs" / "reports" / "2026-07" / "AUTO_RESEARCH_OPERATOR_STATUS_DESCI.md"
+    scan_json = tmp_path / "var" / "desci-launch-secret-scan-handoff-refresh.json"
+    bundle_json = tmp_path / "var" / "bundle.json"
+    provider_workflow_json = tmp_path / "apps" / "desci-platform" / "var" / "provider-workflow-bundle.json"
+    live_commit = "8" * 40
+    provider_workflow_json.parent.mkdir(parents=True, exist_ok=True)
+    provider_workflow_json.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "ok": True,
+                "require_complete_bundle": False,
+                "index_complete_bundle": False,
+                "first_decision_artifact": "var/provider-workflow.json",
+                "provider_apply_workflow": {
+                    "ok": False,
+                    "operator_phase": "provider_apply_workflow_blocked",
+                    "operator_command_count": 8,
+                    "operator_command_failure_count": 0,
+                },
+                "summary": {
+                    "missing_required_count": 8,
+                    "artifact_failure_count": 0,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    scan_calls: list[list[Path]] = []
+
+    def fake_scan(*, workspace_root, extra_paths=None):
+        scan_calls.append([Path(path) for path in extra_paths or []])
+        return clean_scan(scanned=16)
+
+    monkeypatch.setattr(refresh.desci_launch_secret_scan, "build_desci_launch_secret_scan", fake_scan)
+    monkeypatch.setattr(refresh.auto_research_status, "build_status", lambda **kwargs: desci_status(live_commit))
+    monkeypatch.setattr(refresh.auto_research_status, "format_markdown", lambda report: "operator markdown")
+
+    bundle = refresh.refresh_desci_launch_handoff(
+        workspace_root=tmp_path,
+        radar_json=radar,
+        radar_markdown_out=radar_md,
+        status_json_out=status_json,
+        status_markdown_out=status_md,
+        secret_scan_json_out=scan_json,
+        bundle_json_out=bundle_json,
+        provider_workflow_bundle_json=provider_workflow_json,
+        live_source_commit=live_commit,
+        auto_refresh_radar=False,
+    )
+    status_payload = json.loads(status_json.read_text(encoding="utf-8"))
+    handoff = status_payload["desci"]["handoff_refresh"]
+    status_markdown = status_md.read_text(encoding="utf-8")
+
+    assert bundle["ok"] is True
+    assert all(provider_workflow_json in call for call in scan_calls)
+    assert bundle["provider_workflow_bundle"]["status"] == "valid"
+    assert bundle["provider_workflow_bundle"]["ok"] is True
+    assert bundle["provider_workflow_bundle"]["operator_command_count"] == 8
+    assert handoff["provider_workflow_bundle_required"] is True
+    assert handoff["provider_workflow_bundle_ok"] is True
+    assert handoff["provider_workflow_bundle_workflow_ok"] is False
+    assert handoff["provider_workflow_bundle_missing_required_count"] == 8
+    assert handoff["provider_workflow_bundle_artifact_failure_count"] == 0
+    assert handoff["provider_workflow_bundle_operator_command_count"] == 8
+    assert "## DeSci Provider Workflow Bundle" in status_markdown
+    assert "- Operator commands: `8`" in status_markdown
+    assert "- Missing required artifacts: `8`" in status_markdown
+
+
 def test_desci_launch_handoff_refresh_auto_discovers_latest_release_handoff(
     monkeypatch,
     tmp_path,
