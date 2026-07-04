@@ -198,11 +198,22 @@ def build_summary(
 
 def render_markdown(summary: dict[str, object]) -> str:
     reports = summary.get("reports") if isinstance(summary.get("reports"), dict) else {}
+    env_validation = reports.get("env_validation") if isinstance(reports.get("env_validation"), dict) else {}
+    operator_packet = reports.get("operator_packet") if isinstance(reports.get("operator_packet"), dict) else {}
+    action_ids = (
+        operator_packet.get("operator_action_ids")
+        if isinstance(operator_packet.get("operator_action_ids"), list)
+        else []
+    )
     lines = [
         "# AgriGuard Launch Readiness Summary",
         "",
         f"- Status: `{summary['status']}`",
         f"- Blocker class: `{summary['blocker_class']}`",
+        f"- Env validation ready for preflight: `{env_validation.get('ready_for_preflight')}`",
+        f"- Env validation placeholder count: `{env_validation.get('placeholder_count')}`",
+        f"- Operator packet preflight status: `{operator_packet.get('preflight_status')}`",
+        f"- Operator action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
         f"- Secrets redacted: `{str(summary['secrets_redacted']).lower()}`",
         "",
         "## Reports",

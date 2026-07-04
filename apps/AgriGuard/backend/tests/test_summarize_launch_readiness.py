@@ -55,6 +55,48 @@ def test_launch_readiness_summary_classifies_env_shape_blocker(tmp_path: Path) -
     assert "AGRIGUARD_SECRET_KEY" in summary["reports"]["env_validation"]["missing_required_keys"]
 
 
+def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Path) -> None:
+    validation = tmp_path / "validation.json"
+    packet = tmp_path / "packet.json"
+    validation.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "ready_for_preflight": False,
+                "placeholder_count": 6,
+                "missing_required_keys": ["AGRIGUARD_SECRET_KEY"],
+                "forbidden_flags_enabled": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    packet.write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "preflight_status": "env_shape_blocked",
+                "blocking_action_count": 1,
+                "operator_actions": [{"id": "fix_env_shape_validation"}],
+                "secrets_redacted": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary = summarize_launch_readiness.build_summary(
+        launch_report_json=tmp_path / "missing-launch.json",
+        env_validation_json=validation,
+        operator_packet_json=packet,
+        app_root=APP_ROOT,
+    )
+
+    markdown = summarize_launch_readiness.render_markdown(summary)
+
+    assert "- Env validation ready for preflight: `False`" in markdown
+    assert "- Env validation placeholder count: `6`" in markdown
+    assert "- Operator packet preflight status: `env_shape_blocked`" in markdown
+    assert "- Operator action IDs: `fix_env_shape_validation`" in markdown
+
+
 def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -> None:
     validation = tmp_path / "validation.json"
     launch = tmp_path / "launch.json"
