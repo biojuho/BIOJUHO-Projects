@@ -217,6 +217,10 @@ def _default_handoff_validation_json(output_dir: Path, output_prefix: str) -> Pa
     return output_dir / f"{output_prefix}-handoff.validation.json"
 
 
+def _default_handoff_consumer_json(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-handoff.consumer.json"
+
+
 def _default_ready_gate_json(output_dir: Path, output_prefix: str) -> Path:
     return output_dir / f"{output_prefix}-ready-gate.json"
 
@@ -246,6 +250,25 @@ def _build_handoff_command(
         str(handoff_markdown),
         "--validation-json-out",
         str(validation_json),
+        "--exit-zero-on-blocked",
+    ]
+
+
+def _build_handoff_consumer_command(
+    *,
+    app_root: Path,
+    handoff_json: Path,
+    validation_json: Path,
+    consumer_json: Path,
+) -> list[str]:
+    return [
+        sys.executable,
+        str(app_root / "scripts" / "consume_guarded_launch_handoff.py"),
+        str(handoff_json),
+        "--validation-json",
+        str(validation_json),
+        "--json-out",
+        str(consumer_json),
         "--exit-zero-on-blocked",
     ]
 
@@ -314,6 +337,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--handoff-json-out", type=Path, default=None)
     parser.add_argument("--handoff-markdown-out", type=Path, default=None)
     parser.add_argument("--handoff-validation-json-out", type=Path, default=None)
+    parser.add_argument("--handoff-consumer-json-out", type=Path, default=None)
     parser.add_argument("--handoff-ready-gate-json-out", type=Path, default=None)
     parser.add_argument("--dry-run", action="store_true", help="Print the delegated launch_compose.py command plan.")
     return parser.parse_args(argv)
@@ -339,6 +363,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         or args.handoff_json_out
         or args.handoff_markdown_out
         or args.handoff_validation_json_out
+        or args.handoff_consumer_json_out
         or args.handoff_ready_gate_json_out
     )
     handoff_json = args.handoff_json_out.resolve() if args.handoff_json_out else _default_handoff_json(output_dir, args.output_prefix)
@@ -351,6 +376,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         args.handoff_validation_json_out.resolve()
         if args.handoff_validation_json_out
         else _default_handoff_validation_json(output_dir, args.output_prefix)
+    )
+    handoff_consumer_json = (
+        args.handoff_consumer_json_out.resolve()
+        if args.handoff_consumer_json_out
+        else _default_handoff_consumer_json(output_dir, args.output_prefix)
     )
     handoff_ready_gate_json = (
         args.handoff_ready_gate_json_out.resolve()
@@ -366,6 +396,16 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             handoff_json=handoff_json,
             handoff_markdown=handoff_markdown,
             validation_json=handoff_validation_json,
+        )
+        if handoff_requested
+        else None
+    )
+    handoff_consumer_command = (
+        _build_handoff_consumer_command(
+            app_root=app_root,
+            handoff_json=handoff_json,
+            validation_json=handoff_validation_json,
+            consumer_json=handoff_consumer_json,
         )
         if handoff_requested
         else None
@@ -397,6 +437,8 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     "handoff_json": str(handoff_json) if handoff_requested else None,
                     "handoff_markdown": str(handoff_markdown) if handoff_requested else None,
                     "handoff_validation_json": str(handoff_validation_json) if handoff_requested else None,
+                    "handoff_consumer_command": handoff_consumer_command,
+                    "handoff_consumer_json": str(handoff_consumer_json) if handoff_requested else None,
                     "handoff_ready_gate_json": str(handoff_ready_gate_json) if handoff_requested else None,
                 },
                 indent=2,
@@ -419,6 +461,10 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
         if handoff_result.returncode != 0:
             return handoff_result.returncode
+    if handoff_consumer_command is not None:
+        consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
+        if consumer_result.returncode != 0:
+            return consumer_result.returncode
     if args.require_ready and status_view is not None and not _status_view_ready(status_view):
         return completed.returncode or 1
     return completed.returncode

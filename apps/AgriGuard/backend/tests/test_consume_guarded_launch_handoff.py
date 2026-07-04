@@ -172,3 +172,42 @@ def test_consume_guarded_launch_handoff_main_writes_output_and_exits_nonzero_for
     assert result == 1
     assert view["status"] == "fail"
     assert view["blocker_class"] == "env_shape_blocked"
+
+
+def test_consume_guarded_launch_handoff_exit_zero_on_clean_blocked_only(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_readiness_summary(
+        output_dir,
+        "blocked",
+        {
+            "status": "blocked",
+            "blocker_class": "env_shape_blocked",
+            "secrets_redacted": True,
+            "reports": {},
+        },
+    )
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
+
+    blocked_result = consume_guarded_launch_handoff.main(
+        [
+            str(handoff_json),
+            "--validation-json",
+            str(validation_json),
+            "--exit-zero-on-blocked",
+        ]
+    )
+
+    payload = json.loads(handoff_json.read_text(encoding="utf-8"))
+    payload["output_prefix"] = "tampered"
+    handoff_json.write_text(json.dumps(payload), encoding="utf-8")
+    stale_result = consume_guarded_launch_handoff.main(
+        [
+            str(handoff_json),
+            "--validation-json",
+            str(validation_json),
+            "--exit-zero-on-blocked",
+        ]
+    )
+
+    assert blocked_result == 0
+    assert stale_result == 1

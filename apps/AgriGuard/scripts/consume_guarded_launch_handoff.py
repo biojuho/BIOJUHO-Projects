@@ -145,7 +145,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_out is not None:
         write_json(args.json_out, view)
     print(json.dumps(view, indent=2, sort_keys=True))
-    if view["status"] == "pass" or args.exit_zero_on_blocked:
+    if view["status"] == "pass":
+        return 0
+    if args.exit_zero_on_blocked and not view["errors"] and view.get("handoff_status") == "blocked":
         return 0
     return 1
 
