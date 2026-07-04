@@ -11,6 +11,10 @@ if str(SCRIPTS_DIR) not in sys.path:
 import provider_preflight  # noqa: E402
 
 
+def fake_secret(*parts: str) -> str:
+    return "".join(parts)
+
+
 def test_provider_preflight_reuses_release_handoff_guidance() -> None:
     specs = provider_preflight.command_specs_for_provider("vercel")
 
@@ -38,12 +42,14 @@ def test_provider_preflight_prefers_windows_cmd_shim(monkeypatch) -> None:
 
 
 def test_provider_preflight_reports_ready_providers_without_output_preview() -> None:
+    fake_key = fake_secret("sk_", "live_", "should_not_be_written")
+
     def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
         assert timeout_seconds == 7
         return provider_preflight.CommandExecution(
             exit_code=0,
             duration_ms=12,
-            stdout="token=sk_live_should_not_be_written",
+            stdout=f"token={fake_key}",
             stderr="",
         )
 
@@ -63,14 +69,17 @@ def test_provider_preflight_reports_ready_providers_without_output_preview() -> 
 
 
 def test_provider_preflight_marks_missing_cli_and_redacts_preview() -> None:
+    fake_webhook_secret = fake_secret("whsec", "_abc123")
+    fake_gh_token = fake_secret("ghp", "_abc123")
+
     def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
         return provider_preflight.CommandExecution(
             exit_code=None,
             duration_ms=0,
             command_found=False,
             error="gh executable was not found on PATH token=github_pat_abc123",
-            stdout="secret=whsec_abc123",
-            stderr="private_key=ghp_abc123",
+            stdout=f"secret={fake_webhook_secret}",
+            stderr=f"private_key={fake_gh_token}",
         )
 
     payload = provider_preflight.run_preflight(
@@ -155,12 +164,55 @@ def test_provider_preflight_writes_json_report_atomically(tmp_path: Path) -> Non
     assert not (output.parent / "provider-preflight.json.tmp").exists()
 
 
+def test_provider_preflight_markdown_report_lists_sanitized_failed_checks() -> None:
+    fake_key = fake_secret("sk_", "live_", "should_not_render")
+
+    def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
+        return provider_preflight.CommandExecution(
+            exit_code=1,
+            duration_ms=4,
+            stderr=f"Unauthorized token={fake_key}. Please login.",
+        )
+
+    payload = provider_preflight.run_preflight(
+        ("railway",),
+        include_output_preview=True,
+        runner=runner,
+    )
+    markdown = provider_preflight.render_markdown_report(payload)
+
+    assert "# DeSci Provider Preflight" in markdown
+    assert "Providers ready: `0/1`" in markdown
+    assert "`railway` `railway whoami`: `auth_context_missing`" in markdown
+    assert "Run `railway login`" in markdown
+    assert "stdout_preview" not in markdown
+    assert "stderr_preview" not in markdown
+    assert fake_key not in markdown
+    assert "Unauthorized" not in markdown
+
+
+def test_provider_preflight_writes_markdown_report_atomically(tmp_path: Path) -> None:
+    output = tmp_path / "provider-preflight.md"
+    payload = provider_preflight.run_preflight(
+        ("github",),
+        runner=lambda spec, timeout_seconds: provider_preflight.CommandExecution(exit_code=0, duration_ms=1),
+    )
+
+    provider_preflight.write_markdown_report(output, payload)
+
+    markdown = output.read_text(encoding="utf-8")
+    assert markdown.startswith("# DeSci Provider Preflight")
+    assert "Status: `true`" in markdown
+    assert not (output.parent / "provider-preflight.md.tmp").exists()
+
+
 def test_provider_preflight_parse_args_defaults_to_all_providers() -> None:
     args = provider_preflight.parse_args([])
 
     assert args.provider is None
     assert args.timeout == 15
     assert args.include_output_preview is False
+    assert args.markdown_out is None
 
 
 def test_provider_preflight_console_prints_failed_check_docs(monkeypatch, capsys) -> None:
@@ -192,3 +244,40 @@ def test_provider_preflight_console_prints_failed_check_docs(monkeypatch, capsys
     assert code == 1
     assert "vercel whoami: FAIL auth_context_missing docs=https://vercel.com/docs/cli/env" in output
     assert "next=Set `VERCEL_TOKEN` or run `vercel login`." in output
+
+
+def test_provider_preflight_cli_writes_markdown(monkeypatch, tmp_path: Path, capsys) -> None:
+    markdown_out = tmp_path / "provider-preflight.md"
+
+    def fake_run_preflight(*args: object, **kwargs: object) -> dict[str, object]:
+        return {
+            "ok": True,
+            "generated_at": "2026-07-04T00:00:00+00:00",
+            "summary": {
+                "provider_count": 1,
+                "ready_provider_count": 1,
+                "check_count": 1,
+                "passed_check_count": 1,
+                "failed_check_count": 0,
+                "missing_cli_count": 0,
+                "auth_context_missing_count": 0,
+            },
+            "providers": [
+                {
+                    "provider": "github",
+                    "ok": True,
+                    "docs_url": "https://docs.github.com/actions/security-guides/using-secrets-in-github-actions",
+                    "checks": [{"command": "gh auth status", "ok": True}],
+                }
+            ],
+            "failed_checks": [],
+        }
+
+    monkeypatch.setattr(provider_preflight, "run_preflight", fake_run_preflight)
+
+    code = provider_preflight.main(["--provider", "github", "--markdown-out", str(markdown_out)])
+
+    output = capsys.readouterr().out
+    assert code == 0
+    assert f"[provider-preflight] markdown written: {markdown_out}" in output
+    assert "Providers ready: `1/1`" in markdown_out.read_text(encoding="utf-8")

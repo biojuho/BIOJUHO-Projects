@@ -350,6 +350,97 @@ def write_json_report(path: str | Path, payload: dict[str, Any]) -> Path:
     return write_json_atomic(path, payload, trailing_newline=True)
 
 
+def render_markdown_report(payload: dict[str, Any]) -> str:
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    lines = [
+        "# DeSci Provider Preflight",
+        "",
+        "## Summary",
+        "",
+        f"- Status: `{_markdown_bool(payload.get('ok') is True)}`",
+        f"- Generated at: `{_markdown_code(payload.get('generated_at'))}`",
+        f"- Providers ready: `{_markdown_count(summary.get('ready_provider_count'))}/{_markdown_count(summary.get('provider_count'))}`",
+        f"- Checks passed: `{_markdown_count(summary.get('passed_check_count'))}/{_markdown_count(summary.get('check_count'))}`",
+        f"- Failed checks: `{_markdown_count(summary.get('failed_check_count'))}`",
+        f"- Missing CLI: `{_markdown_count(summary.get('missing_cli_count'))}`",
+        f"- Auth context missing: `{_markdown_count(summary.get('auth_context_missing_count'))}`",
+        "",
+        "## Providers",
+        "",
+    ]
+    providers = payload.get("providers") if isinstance(payload.get("providers"), list) else []
+    if not providers:
+        lines.append("- `none`")
+    for provider in providers:
+        if not isinstance(provider, dict):
+            continue
+        status = "OK" if provider.get("ok") is True else "FAIL"
+        failed = sum(
+            1
+            for check in provider.get("checks", [])
+            if isinstance(check, dict) and check.get("ok") is not True
+        )
+        lines.append(
+            f"- `{_markdown_code(provider.get('provider'))}`: `{status}` "
+            f"failed=`{failed}` docs={_markdown_link_or_none(provider.get('docs_url'))}"
+        )
+    lines.extend(["", "## Failed Checks", ""])
+    failed_checks = payload.get("failed_checks") if isinstance(payload.get("failed_checks"), list) else []
+    if not failed_checks:
+        lines.append("- `none`")
+    for check in failed_checks:
+        if not isinstance(check, dict):
+            continue
+        provider = _markdown_code(check.get("provider") or "provider")
+        command = _markdown_code(check.get("command") or "manual provider check")
+        reason = _markdown_code(check.get("failure_reason") or "unknown")
+        lines.append(f"- `{provider}` `{command}`: `{reason}`")
+        docs_url = _markdown_text(check.get("docs_url"))
+        remediation = _markdown_text(check.get("remediation"))
+        if docs_url:
+            lines.append(f"  Docs: {docs_url}")
+        if remediation:
+            lines.append(f"  Next: {remediation}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_markdown_report(path: str | Path, payload: dict[str, Any]) -> Path:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = output_path.with_name(f"{output_path.name}.tmp")
+    temp_path.write_text(render_markdown_report(payload), encoding="utf-8")
+    temp_path.replace(output_path)
+    return output_path
+
+
+def _markdown_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _markdown_count(value: Any) -> str:
+    if isinstance(value, bool):
+        return "0"
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return "0"
+    return str(max(number, 0))
+
+
+def _markdown_code(value: Any) -> str:
+    return _markdown_text(value).replace("`", "'")
+
+
+def _markdown_text(value: Any) -> str:
+    return " ".join(str(value or "").split())
+
+
+def _markdown_link_or_none(value: Any) -> str:
+    text = _markdown_text(value)
+    return text or "`none`"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run secret-free DeSci provider CLI preflight checks.")
     parser.add_argument(
@@ -360,6 +451,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--timeout", type=int, default=15, help="Timeout per CLI command in seconds.")
     parser.add_argument("--json-out", help="Optional JSON evidence output path.")
+    parser.add_argument("--markdown-out", help="Optional Markdown evidence output path.")
     parser.add_argument(
         "--include-output-preview",
         action="store_true",
@@ -389,6 +481,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_out:
         write_json_report(args.json_out, payload)
         print(f"[provider-preflight] json written: {args.json_out}")
+    if args.markdown_out:
+        write_markdown_report(args.markdown_out, payload)
+        print(f"[provider-preflight] markdown written: {args.markdown_out}")
     print(f"[provider-preflight] ok={payload['ok']}")
     return 0 if payload["ok"] else 1
 
