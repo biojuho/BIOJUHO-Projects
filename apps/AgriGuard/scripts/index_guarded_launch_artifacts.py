@@ -21,6 +21,15 @@ def _load_peer_module(module_name: str) -> Any:
 
 run_guarded_launch = _load_peer_module("run_guarded_launch")
 
+REQUIRED_CORE_ARTIFACT_ROLES = (
+    "launch_report_json",
+    "handoff_json",
+    "handoff_markdown",
+    "handoff_validation_json",
+    "handoff_consumer_json",
+)
+STATUS_ARTIFACT_ROLE = "status_json"
+
 
 def _default_app_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -88,15 +97,9 @@ def build_index(
     app_root = app_root.resolve()
     output_dir = output_dir.resolve()
     paths = _artifact_paths(output_dir, output_prefix, status_json.resolve() if status_json else None)
-    required_roles = {
-        "launch_report_json",
-        "handoff_json",
-        "handoff_markdown",
-        "handoff_validation_json",
-        "handoff_consumer_json",
-    }
+    required_roles = set(REQUIRED_CORE_ARTIFACT_ROLES)
     if status_json is not None:
-        required_roles.add("status_json")
+        required_roles.add(STATUS_ARTIFACT_ROLE)
 
     artifacts = [
         _artifact(role, paths[role], role in required_roles)

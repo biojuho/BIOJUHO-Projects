@@ -71,6 +71,15 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     assert packet["guarded_launch_evidence"]["outputs"]["artifact_index_json"] == (
         "var/agriguard-guarded-launch-artifact-index.json"
     )
+    assert packet["guarded_launch_evidence"]["outputs"]["handoff_markdown"] == (
+        "var/agriguard-guarded-launch-handoff.md"
+    )
+    required_from_artifact_index = {
+        render_launch_operator_packet.index_guarded_launch_artifacts.STATUS_ARTIFACT_ROLE,
+        *render_launch_operator_packet.index_guarded_launch_artifacts.REQUIRED_CORE_ARTIFACT_ROLES,
+        "artifact_index_json",
+    }
+    assert set(packet["guarded_launch_evidence"]["validation"]["required_output_keys"]) == required_from_artifact_index
     assert packet["guarded_launch_evidence"]["validation"] == {
         "status": "pass",
         "required_output_keys": list(render_launch_operator_packet.REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS),
@@ -122,6 +131,7 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert "launch_compose.py --run-browser-smoke" in markdown
     assert "## Guarded Launch Evidence Outputs" in markdown
     assert "`artifact_index_json` | `var/agriguard-guarded-launch-artifact-index.json`" in markdown
+    assert "`handoff_markdown` | `var/agriguard-guarded-launch-handoff.md`" in markdown
     assert markdown.index("validate_launch_env_template.py") < markdown.index("run_guarded_launch.py")
     assert markdown.index("run_guarded_launch.py") < markdown.index("launch_env_preflight.py")
 

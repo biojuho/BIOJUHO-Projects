@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import sys
@@ -130,18 +131,29 @@ ENV_TEMPLATE_ENTRIES: tuple[dict[str, str], ...] = (
     },
 )
 
-REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS = (
-    "status_json",
-    "launch_report_json",
-    "handoff_json",
-    "handoff_validation_json",
-    "handoff_consumer_json",
-    "artifact_index_json",
-)
-
 
 def _default_app_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def _load_peer_module(module_name: str) -> Any:
+    script_path = Path(__file__).resolve().with_name(f"{module_name}.py")
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+index_guarded_launch_artifacts = _load_peer_module("index_guarded_launch_artifacts")
+run_guarded_launch = index_guarded_launch_artifacts.run_guarded_launch
+
+REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS = (
+    index_guarded_launch_artifacts.STATUS_ARTIFACT_ROLE,
+    *index_guarded_launch_artifacts.REQUIRED_CORE_ARTIFACT_ROLES,
+    "artifact_index_json",
+)
 
 
 def _workspace_root(app_root: Path) -> Path:
@@ -167,23 +179,32 @@ def _operator_env_template_validation_command() -> str:
 
 
 def _guarded_launch_command() -> str:
+    status_json = f"var/{run_guarded_launch.DEFAULT_OUTPUT_PREFIX}-status.json"
     return (
         "python apps/AgriGuard/scripts/run_guarded_launch.py "
         "--env-file var/agriguard-launch-operator.env.template "
         "--emit-handoff "
-        "--status-json-out var/agriguard-guarded-launch-status.json"
+        f"--status-json-out {status_json}"
     )
 
 
-def _guarded_launch_evidence_outputs() -> dict[str, str]:
-    return {
-        "status_json": "var/agriguard-guarded-launch-status.json",
-        "launch_report_json": "var/agriguard-guarded-launch-launch-report.json",
-        "handoff_json": "var/agriguard-guarded-launch-handoff.json",
-        "handoff_validation_json": "var/agriguard-guarded-launch-handoff.validation.json",
-        "handoff_consumer_json": "var/agriguard-guarded-launch-handoff.consumer.json",
-        "artifact_index_json": "var/agriguard-guarded-launch-artifact-index.json",
+def _default_status_json(output_dir: Path, output_prefix: str) -> Path:
+    return output_dir / f"{output_prefix}-status.json"
+
+
+def _guarded_launch_evidence_outputs(*, app_root: Path) -> dict[str, str]:
+    workspace_root = _workspace_root(app_root)
+    output_dir = workspace_root / "var"
+    output_prefix = run_guarded_launch.DEFAULT_OUTPUT_PREFIX
+    status_json = _default_status_json(output_dir, output_prefix)
+    artifact_paths = index_guarded_launch_artifacts._artifact_paths(output_dir, output_prefix, status_json)
+    paths = {
+        key: artifact_paths[key]
+        for key in REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS
+        if key != "artifact_index_json"
     }
+    paths["artifact_index_json"] = run_guarded_launch._default_artifact_index_json(output_dir, output_prefix)
+    return {key: _rel(path, workspace_root) for key, path in paths.items()}
 
 
 def _guarded_launch_evidence_validation(outputs: dict[str, str]) -> dict[str, object]:
@@ -310,7 +331,7 @@ def build_operator_packet(
         "--run-browser-smoke --launch-report-json var/agriguard-compose-launch-report.json"
     )
     guarded_launch = _guarded_launch_command()
-    guarded_launch_outputs = _guarded_launch_evidence_outputs()
+    guarded_launch_outputs = _guarded_launch_evidence_outputs(app_root=app_root)
 
     return {
         "schema_version": 1,
