@@ -60,6 +60,20 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     app_root = tmp_path / "AgriGuard"
     env_file = tmp_path / "operator.env"
     output_dir = tmp_path / "launch-artifacts"
+    output_dir.mkdir()
+    (output_dir / "release-check-artifact-index.json").write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "consumer_packet_validation_status": "pass",
+                "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
+                "consumer_readiness_env_validation_ready_for_preflight": False,
+                "consumer_readiness_env_validation_placeholder_count": 6,
+                "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     result = run_guarded_launch.main(
         [
@@ -85,6 +99,16 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert payload["handoff_ready_gate_json"] == str(output_dir.resolve() / "release-check-ready-gate.json")
     assert payload["artifact_index_json"] == str(output_dir.resolve() / "release-check-artifact-index.json")
     assert payload["artifact_index_markdown"] == str(output_dir.resolve() / "release-check-artifact-index.md")
+    assert payload["artifact_index_readiness_summary"] == {
+        "found": True,
+        "path": str(output_dir.resolve() / "release-check-artifact-index.json"),
+        "status": "pass",
+        "consumer_packet_validation_status": "pass",
+        "operator_action_ids": ["fix_env_shape_validation"],
+        "env_validation_ready_for_preflight": False,
+        "env_validation_placeholder_count": 6,
+        "operator_packet_preflight_status": "env_shape_blocked",
+    }
     assert payload["handoff_command"][:2] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py"),

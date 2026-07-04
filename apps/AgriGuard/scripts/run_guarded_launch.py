@@ -249,6 +249,31 @@ def _default_artifact_index_markdown(output_dir: Path, output_prefix: str) -> Pa
     return output_dir / f"{output_prefix}-artifact-index.md"
 
 
+def _artifact_index_readiness_summary(index_json: Path) -> dict[str, object]:
+    index = _read_json(index_json)
+    action_ids = (
+        index.get("consumer_readiness_operator_action_ids")
+        if isinstance(index, dict) and isinstance(index.get("consumer_readiness_operator_action_ids"), list)
+        else []
+    )
+    return {
+        "found": index is not None,
+        "path": str(index_json),
+        "status": index.get("status") if index is not None else None,
+        "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
+        "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
+        "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
+        if index is not None
+        else None,
+        "env_validation_placeholder_count": index.get("consumer_readiness_env_validation_placeholder_count")
+        if index is not None
+        else None,
+        "operator_packet_preflight_status": index.get("consumer_readiness_operator_packet_preflight_status")
+        if index is not None
+        else None,
+    }
+
+
 def _build_handoff_command(
     *,
     app_root: Path,
@@ -519,6 +544,9 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     "artifact_index_command": artifact_index_command,
                     "artifact_index_json": str(artifact_index_json) if handoff_requested else None,
                     "artifact_index_markdown": str(artifact_index_markdown) if handoff_requested else None,
+                    "artifact_index_readiness_summary": _artifact_index_readiness_summary(artifact_index_json)
+                    if handoff_requested
+                    else None,
                 },
                 indent=2,
                 sort_keys=True,
