@@ -283,7 +283,11 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _artifact_index_readiness_summary(index_json: Path, workspace_root: Path) -> dict[str, object]:
+def _artifact_index_readiness_summary(
+    index_json: Path,
+    workspace_root: Path,
+    missing_index_command: str,
+) -> dict[str, object]:
     index = _read_json(index_json)
     action_ids = (
         index.get("consumer_readiness_operator_action_ids")
@@ -305,6 +309,10 @@ def _artifact_index_readiness_summary(index_json: Path, workspace_root: Path) ->
         "operator_packet_preflight_status": index.get("consumer_readiness_operator_packet_preflight_status")
         if index is not None
         else None,
+        "missing_index_action": None
+        if index is not None
+        else "Run the guarded launch wrapper command to generate the artifact index evidence.",
+        "missing_index_command": None if index is not None else missing_index_command,
     }
 
 
@@ -490,7 +498,11 @@ def build_operator_packet(
             "wrapper_command": guarded_launch,
             "outputs": guarded_launch_outputs,
             "validation": _guarded_launch_evidence_validation(guarded_launch_outputs),
-            "artifact_index_readiness_summary": _artifact_index_readiness_summary(artifact_index_json, workspace_root),
+            "artifact_index_readiness_summary": _artifact_index_readiness_summary(
+                artifact_index_json,
+                workspace_root,
+                guarded_launch,
+            ),
         },
         "safe_rerun_commands": [validate_env_template, guarded_launch, rerun_preflight, rerun_launch],
     }
@@ -579,6 +591,8 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Env validation ready: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
             f"- Env placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
             f"- Packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
+            f"- Missing index action: `{readiness_summary.get('missing_index_action')}`",
+            f"- Missing index command: `{readiness_summary.get('missing_index_command')}`",
         ]
     )
     lines.append("")

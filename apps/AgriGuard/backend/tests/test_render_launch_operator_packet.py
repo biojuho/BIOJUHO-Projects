@@ -260,10 +260,29 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
         "operator_packet_preflight_status": "env_shape_blocked",
+        "missing_index_action": None,
+        "missing_index_command": None,
     }
     assert "## Guarded Launch Readiness Summary" in markdown
     assert "Action IDs: `fix_env_shape_validation`" in markdown
     assert "Packet preflight status: `env_shape_blocked`" in markdown
+
+
+def test_operator_packet_reports_missing_artifact_index_hint(tmp_path: Path) -> None:
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=tmp_path / "missing-preflight.json",
+        app_root=tmp_path / "apps" / "AgriGuard",
+    )
+    summary = packet["guarded_launch_evidence"]["artifact_index_readiness_summary"]
+    markdown = render_launch_operator_packet.render_markdown(packet)
+
+    assert summary["found"] is False
+    assert summary["missing_index_action"] == (
+        "Run the guarded launch wrapper command to generate the artifact index evidence."
+    )
+    assert summary["missing_index_command"] == packet["guarded_launch_evidence"]["wrapper_command"]
+    assert "Missing index action: `Run the guarded launch wrapper command" in markdown
+    assert "Missing index command: `python apps/AgriGuard/scripts/run_guarded_launch.py" in markdown
 
 
 def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp_path: Path) -> None:
