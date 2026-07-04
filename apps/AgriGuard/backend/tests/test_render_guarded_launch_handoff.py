@@ -277,4 +277,6 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert "Readiness action IDs: `fix_env_shape_validation`" in markdown
     assert "Env validation ready for preflight: `False`" in markdown
     assert "Operator packet preflight status: `env_shape_blocked`" in markdown
+    assert "`inspect_status`: `& " in markdown
+    assert "`require_ready`: `& " in markdown
     assert "run_guarded_launch.py" in markdown

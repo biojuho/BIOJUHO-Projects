@@ -103,6 +103,7 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     )
     assert packet["operator_env_template"]["validation_command"] == packet["safe_rerun_commands"][0]
     assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
+    assert all(command.startswith("& ") for command in packet["safe_rerun_commands"])
     assert packet["guarded_launch_evidence"]["outputs"]["artifact_index_json"] == (
         "var/agriguard-guarded-launch-artifact-index.json"
     )
@@ -402,6 +403,8 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert "--check-docker" in markdown
     assert "launch_compose.py" in markdown
     assert "--run-browser-smoke" in markdown
+    assert "## Safe Rerun Commands" in markdown
+    assert "- `& " in markdown
     assert "## Guarded Launch Evidence Outputs" in markdown
     assert "`artifact_index_json` | `var/agriguard-guarded-launch-artifact-index.json`" in markdown
     assert "`handoff_markdown` | `var/agriguard-guarded-launch-handoff.md`" in markdown

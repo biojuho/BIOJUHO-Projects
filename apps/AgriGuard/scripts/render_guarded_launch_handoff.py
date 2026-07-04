@@ -168,6 +168,10 @@ def _wrapper_status_argv(
     return argv
 
 
+def _format_operator_command(command: list[object]) -> str:
+    return run_guarded_launch._format_powershell_command([str(part) for part in command]) or ""
+
+
 def _external_blocker(status_view: dict[str, object], ready: bool) -> dict[str, object]:
     if ready:
         return {
@@ -319,7 +323,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         if not isinstance(command, dict):
             continue
         argv = command.get("command") if isinstance(command.get("command"), list) else []
-        lines.append(f"- `{command.get('id')}`: `{' '.join(str(part) for part in argv)}`")
+        lines.append(f"- `{command.get('id')}`: `{_format_operator_command(argv)}`")
     lines.append("")
     return "\n".join(lines)
 

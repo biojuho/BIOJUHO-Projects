@@ -175,7 +175,8 @@ def _quote_cli_arg(value: str) -> str:
 
 
 def _format_command(parts: list[str]) -> str:
-    return " ".join(_quote_cli_arg(part) for part in parts)
+    command_text = " ".join(_quote_cli_arg(part) for part in parts)
+    return f"& {command_text}" if command_text else ""
 
 
 def _script_path(app_root: Path, script_name: str) -> str:
