@@ -437,6 +437,7 @@ def test_post_apply_promotion_receipt_verifier_accepts_valid_no_go_receipt(tmp_p
     assert verification["summary"]["artifact_failure_count"] == 0
     assert verification["summary"]["artifact_secret_marker_count"] == 0
     assert verification["summary"]["blocking_reason_count"] > 0
+    assert any("VERCEL_TOKEN" in reason for reason in verification["blocking_reasons"])
 
 
 def test_post_apply_promotion_receipt_verifier_require_go_blocks_valid_no_go_receipt(tmp_path: Path) -> None:

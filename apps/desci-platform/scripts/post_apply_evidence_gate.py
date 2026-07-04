@@ -547,6 +547,7 @@ def verify_promotion_receipt(
             "artifact_secret_marker_count": artifact_secret_marker_count,
             "blocking_reason_count": len(blocking_reasons),
         },
+        "blocking_reasons": blocking_reasons,
         "failures": failures,
         "artifacts": artifacts,
     }

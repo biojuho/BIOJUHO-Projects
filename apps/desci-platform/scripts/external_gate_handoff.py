@@ -1473,6 +1473,7 @@ def verify_provider_apply_workflow(
     ready_to_apply = plan_verification.get("ready_to_apply") is True
     all_commands_succeeded = results_verification.get("all_commands_succeeded") is True
     promotion_receipt_ok = promotion_verification.get("promotion_receipt_ok") is True
+    promotion_blocking_reasons = _string_list(promotion_verification.get("blocking_reasons"))
     workflow_ok = ready_to_apply and all_commands_succeeded and promotion_receipt_ok and not failures
     return {
         "schema_version": 1,
@@ -1504,8 +1505,10 @@ def verify_provider_apply_workflow(
             "promotion_failure_count": int(
                 _as_dict(promotion_verification.get("summary")).get("failure_count") or 0
             ),
+            "promotion_blocking_reason_count": len(promotion_blocking_reasons),
         },
         "failures": failures,
+        "promotion_blocking_reasons": promotion_blocking_reasons,
         "provider_apply_plan_verification": plan_verification,
         "provider_apply_results_verification": results_verification,
         "post_apply_promotion_receipt_verification": promotion_verification,
@@ -1744,6 +1747,7 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
     summary = _as_dict(payload.get("summary"))
     artifact_resolution = _as_dict(payload.get("artifact_resolution"))
     failures = _string_list(payload.get("failures"))
+    promotion_blocking_reasons = _string_list(payload.get("promotion_blocking_reasons"))
     result = "pass" if payload.get("ok") is True else "fail"
     plan_path = _markdown_scalar(payload.get("provider_apply_plan_json"))
     results_path = _markdown_scalar(payload.get("provider_apply_results_json"))
@@ -1788,8 +1792,18 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
         f"| Promotion receipt verification | `{_markdown_scalar(summary.get('promotion_verification_ok'))}` | "
         f"`{_markdown_scalar(summary.get('promotion_failure_count'))}` |",
         "",
-        "## Failures",
+        "## Promotion Receipt Blocking Reasons",
     ]
+    if promotion_blocking_reasons:
+        lines.extend(f"- {reason}" for reason in promotion_blocking_reasons)
+    else:
+        lines.append("- None.")
+    lines.extend(
+        [
+            "",
+            "## Failures",
+        ]
+    )
     if failures:
         lines.extend(f"- {failure}" for failure in failures)
     else:
@@ -1815,6 +1829,10 @@ def provider_apply_workflow_github_annotations(payload: dict[str, Any]) -> list[
         return [f"::notice title={_github_command_property(title)}::{_github_command_data(message)}"]
 
     failures = _string_list(payload.get("failures"))
+    promotion_blocking_reasons = _string_list(payload.get("promotion_blocking_reasons"))
+    actionable_blockers = [reason for reason in promotion_blocking_reasons if "next=" in reason]
+    other_blockers = [reason for reason in promotion_blocking_reasons if reason not in actionable_blockers]
+    failures = _dedupe([*failures, *actionable_blockers, *other_blockers])
     if not failures:
         failures = ["provider apply workflow verification failed"]
     annotations = [
@@ -1847,6 +1865,12 @@ def provider_apply_workflow_github_outputs(payload: dict[str, Any]) -> dict[str,
         "provider_apply_workflow_failure_count": str(int(summary.get("failure_count") or 0)),
         "provider_apply_workflow_results_command_failure_count": str(
             int(summary.get("results_command_failure_count") or 0)
+        ),
+        "provider_apply_workflow_promotion_blocking_reason_count": str(
+            int(summary.get("promotion_blocking_reason_count") or 0)
+        ),
+        "provider_apply_workflow_promotion_blocking_reasons": "\n".join(
+            _string_list(payload.get("promotion_blocking_reasons"))
         ),
         "provider_apply_workflow_plan_json": str(payload.get("provider_apply_plan_json") or ""),
         "provider_apply_workflow_results_json": str(payload.get("provider_apply_results_json") or ""),
@@ -1949,10 +1973,13 @@ def print_provider_apply_workflow_verification_report(payload: dict[str, Any]) -
         f"ready_to_apply={payload.get('ready_to_apply')} "
         f"all_commands_succeeded={payload.get('all_commands_succeeded')} "
         f"promotion_receipt_ok={payload.get('promotion_receipt_ok')} "
-        f"failures={summary.get('failure_count')}"
+        f"failures={summary.get('failure_count')} "
+        f"promotion_blocking_reasons={summary.get('promotion_blocking_reason_count')}"
     )
     for failure in _string_list(payload.get("failures")):
         print(f"  - {failure}")
+    for reason in _string_list(payload.get("promotion_blocking_reasons")):
+        print(f"  - promotion_blocking_reason: {reason}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

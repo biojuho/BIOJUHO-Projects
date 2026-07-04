@@ -1175,6 +1175,8 @@ def test_external_gate_handoff_provider_apply_workflow_github_outputs(tmp_path: 
     assert outputs["provider_apply_workflow_promotion_receipt_ok"] == "true"
     assert outputs["provider_apply_workflow_failure_count"] == "0"
     assert outputs["provider_apply_workflow_results_command_failure_count"] == "0"
+    assert outputs["provider_apply_workflow_promotion_blocking_reason_count"] == "0"
+    assert outputs["provider_apply_workflow_promotion_blocking_reasons"] == ""
     assert outputs["provider_apply_workflow_plan_json"] == str(plan_path)
     assert outputs["provider_apply_workflow_results_json"] == str(results_path)
     assert outputs["provider_apply_workflow_promotion_receipt_json"] == str(receipt_path)
@@ -1208,8 +1210,24 @@ def test_external_gate_handoff_provider_apply_workflow_blocks_no_go_receipt(
 
     assert verification["ok"] is False
     assert verification["promotion_receipt_ok"] is False
+    assert verification["summary"]["promotion_blocking_reason_count"] == len(
+        verification["promotion_blocking_reasons"]
+    )
+    assert any("VERCEL_TOKEN" in reason for reason in verification["promotion_blocking_reasons"])
     assert "post-apply promotion receipt verification failed" in verification["failures"]
     assert "post-apply promotion receipt must be go" in verification["failures"]
+
+    markdown = external_gate_handoff.render_provider_apply_workflow_verification_markdown(verification)
+    annotations = external_gate_handoff.provider_apply_workflow_github_annotations(verification)
+    outputs = external_gate_handoff.provider_apply_workflow_github_outputs(verification)
+
+    assert "## Promotion Receipt Blocking Reasons" in markdown
+    assert "VERCEL_TOKEN" in markdown
+    assert any("VERCEL_TOKEN" in annotation for annotation in annotations)
+    assert outputs["provider_apply_workflow_promotion_blocking_reason_count"] == str(
+        len(verification["promotion_blocking_reasons"])
+    )
+    assert "VERCEL_TOKEN" in outputs["provider_apply_workflow_promotion_blocking_reasons"]
 
 
 def test_external_gate_handoff_cli_verifies_provider_apply_workflow(
