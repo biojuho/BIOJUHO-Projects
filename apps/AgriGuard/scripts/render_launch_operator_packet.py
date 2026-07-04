@@ -299,6 +299,7 @@ def _artifact_index_readiness_summary(
         "path": _rel(index_json, workspace_root),
         "status": index.get("status") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
+        "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
         "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
         if index is not None
@@ -587,6 +588,7 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Artifact index path: `{readiness_summary.get('path')}`",
             f"- Artifact index status: `{readiness_summary.get('status')}`",
             f"- Consumer packet validation: `{readiness_summary.get('consumer_packet_validation_status')}`",
+            f"- Recovery command status: `{readiness_summary.get('recovery_command_status')}`",
             f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
             f"- Env validation ready: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
             f"- Env placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",

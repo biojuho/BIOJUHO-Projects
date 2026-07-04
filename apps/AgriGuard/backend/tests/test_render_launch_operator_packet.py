@@ -235,6 +235,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
             {
                 "status": "pass",
                 "consumer_packet_validation_status": "pass",
+                "recovery_command_status": "not_required",
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
@@ -256,6 +257,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         "path": "var/agriguard-guarded-launch-artifact-index.json",
         "status": "pass",
         "consumer_packet_validation_status": "pass",
+        "recovery_command_status": "not_required",
         "operator_action_ids": ["fix_env_shape_validation"],
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
@@ -265,6 +267,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     }
     assert "## Guarded Launch Readiness Summary" in markdown
     assert "Action IDs: `fix_env_shape_validation`" in markdown
+    assert "Recovery command status: `not_required`" in markdown
     assert "Packet preflight status: `env_shape_blocked`" in markdown
 
 
@@ -277,6 +280,7 @@ def test_operator_packet_reports_missing_artifact_index_hint(tmp_path: Path) -> 
     markdown = render_launch_operator_packet.render_markdown(packet)
 
     assert summary["found"] is False
+    assert summary["recovery_command_status"] is None
     assert summary["missing_index_action"] == (
         "Run the guarded launch wrapper command to generate the artifact index evidence."
     )
