@@ -7,6 +7,10 @@ scope:
   owned_paths:
     - apps/desci-platform/scripts/product_smoke.py
     - docs/reports/2026-06/AUTO_RESEARCH_LOOP_example.md
+  adoption_surface: "tracked product surface, app-owned report, skill resource, or validator"
+  scratch_paths_not_committed:
+    - var/
+    - generated one-off status prototypes
 external_research:
   required: true
   sources:
@@ -33,11 +37,25 @@ ab_test:
 verification:
   targeted:
     - "python -m pytest apps/desci-platform/backend/tests/test_product_smoke.py -q -p no:cacheprovider"
+  provider_gate_chain:
+    - "python apps/desci-platform/scripts/provider_preflight.py --json-out apps/desci-platform/var/provider-preflight-auto-research.json --include-output-preview"
+    - "python apps/desci-platform/scripts/external_release_gate.py --json-out apps/desci-platform/var/external-release-gate-auto-research.json"
+    - "python apps/desci-platform/scripts/external_gate_handoff.py --external-gate-json apps/desci-platform/var/external-release-gate-auto-research.json --json-out apps/desci-platform/var/external-gate-handoff-auto-research.json --markdown-out apps/desci-platform/var/external-gate-handoff-auto-research.md"
+    - "python apps/desci-platform/scripts/post_apply_evidence_gate.py --external-gate-json apps/desci-platform/var/external-release-gate-auto-research.json --json-out apps/desci-platform/var/post-apply-evidence-gate-auto-research.json"
+  provider_blocker_fields:
+    - provider_check_count
+    - missing_cli_count
+    - auth_context_missing_count
+    - failed_check_count
+  browser_click:
+    command: "python apps/desci-platform/scripts/browser_smoke.py --frontend http://127.0.0.1:5173 --expect-dev-auth --launch-click-suite --json-out apps/desci-platform/var/browser-smoke-launch-click-auto-research.json --screenshot-dir apps/desci-platform/var/browser-smoke-launch-click-auto-research-screens --trace-on-failure-dir apps/desci-platform/var/browser-smoke-launch-click-auto-research-traces"
+    evidence_path: apps/desci-platform/var/browser-smoke-launch-click-auto-research.json
   smoke:
     - "python ops/scripts/run_workspace_smoke.py --scope desci --json-out var/workspace-smoke-desci-auto-research.json"
 commit_policy:
   stage_only_owned_paths: true
   require_cached_diff_check: true
+  require_cached_name_review: true
   push_when_remote_available: true
 next_cycle:
   choose_by: "highest product impact, clearest verification, smallest reversible patch"

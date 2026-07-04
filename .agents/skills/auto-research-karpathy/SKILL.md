@@ -32,6 +32,12 @@ the current cycle. Never hide failing evidence behind a successful summary. Do
 not treat a passing unit test, manifest, or validator as completion unless it
 covers the explicit objective.
 
+Favor tracked product surfaces. Treat large untracked root ops scripts,
+generated status prototypes, and ad hoc evidence files as scratch context until
+the cycle converts the learning into a tracked product path, report, skill
+resource, or validator. Do not commit untracked megafiles to make a launch loop
+look complete.
+
 Prefer "Karpathy-style" partial autonomy: let natural-language goals steer the
 system, but keep deterministic checks, human-readable evidence, and explicit
 adoption rules in the loop. Use agents, tools, browser automation, and GitHub
@@ -118,6 +124,14 @@ and confirm that UI text does not overlap. Prefer existing scripts such as
 `apps/desci-platform/scripts/browser_smoke.py` and the dashboard/app smoke
 paths before inventing a new browser runner.
 
+For release or deployment gates blocked by providers, keep the classifier and
+all downstream gates aligned. In DeSci cycles, propagate provider facts from
+`provider_preflight.py` through `external_release_gate.py`,
+`external_gate_handoff.py`, and `post_apply_evidence_gate.py`. Preserve counts
+for `missing_cli`, `auth_context_missing`, and nonzero provider failures so the
+operator can distinguish local code regressions from external auth/config
+blockers.
+
 ### 5. Verify Before Adopting
 
 Run targeted tests first, then the smallest canonical smoke scope that covers
@@ -134,6 +148,10 @@ python ops/scripts/run_workspace_smoke.py --scope cie --json-out var/workspace-s
 
 Use the release approval overlay only when preparing an actual release
 candidate. Do not substitute it for product smoke or browser evidence.
+
+For launch claims, include direct app-click evidence. Run the relevant browser
+path, such as the DeSci `browser_smoke.py --launch-click-suite`, and keep JSON,
+screenshots, or traces with the report when the product surface is user-facing.
 
 ### 6. Record, Commit, and Push Safely
 
@@ -154,6 +172,10 @@ explicit files, review the staged diff, run `git diff --cached --check`, then
 commit. Push the current branch only when the user requested push and the remote
 is configured. If authentication, branch policy, or remote state blocks the
 push, record the exact blocker and leave the local commit intact.
+
+In a dirty or concurrently edited branch, check `git diff --cached --name-only`
+before every commit and unstage unrelated exact paths. Confirm the remote branch
+still points at the intended parent before pushing.
 
 ## Adoption Rules
 

@@ -28,6 +28,13 @@ REQUIRED_TERMS = [
     "github_modernization_radar.py",
     "run_workspace_smoke.py",
     "browser_smoke.py",
+    "provider_preflight.py",
+    "external_release_gate.py",
+    "external_gate_handoff.py",
+    "post_apply_evidence_gate.py",
+    "auth_context_missing",
+    "launch-click",
+    "git diff --cached --name-only",
     "Veritas-7/autoresearch-skill-system",
     "stop-file/watchdog controls",
     "research basis",
@@ -124,6 +131,33 @@ def validate(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
         checks.append({"name": f"example_key:{key}", "ok": ok})
         if not ok:
             errors.append(f"example is missing key: {key}")
+
+    for key in [
+        "adoption_surface:",
+        "provider_gate_chain:",
+        "provider_blocker_fields:",
+        "browser_click:",
+        "require_cached_name_review:",
+    ]:
+        ok = key in example_text
+        checks.append({"name": f"example_operational_key:{key}", "ok": ok})
+        if not ok:
+            errors.append(f"example is missing operational key: {key}")
+
+    workspace_loop = skill_dir / "references" / "workspace-loop.md"
+    workspace_text = workspace_loop.read_text(encoding="utf-8") if workspace_loop.exists() else ""
+    for term in [
+        "tracked product surfaces",
+        "provider_check_count",
+        "missing_cli_count",
+        "auth_context_missing_count",
+        "git diff --cached --name-only",
+        "git branch -vv",
+    ]:
+        ok = term in workspace_text
+        checks.append({"name": f"workspace_loop:{term}", "ok": ok})
+        if not ok:
+            errors.append(f"workspace loop is missing term: {term}")
 
     return {
         "ok": not errors,

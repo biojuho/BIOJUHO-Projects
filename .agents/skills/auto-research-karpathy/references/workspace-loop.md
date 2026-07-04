@@ -15,6 +15,12 @@ python ops/scripts/github_modernization_radar.py --json-out var/github-moderniza
 If the worktree is dirty, identify owned paths for the current cycle and avoid
 staging unrelated files.
 
+Prefer tracked product surfaces for adoption. Keep large untracked root ops
+scripts, generated one-off status files, and scratch evidence out of commits
+unless the user explicitly requested those files as the product change. Convert
+useful findings into existing tracked scripts, app-owned reports, skill
+resources, or validators.
+
 When a user names `Veritas-7/autoresearch-skill-system`, also verify the current
 source commit before choosing the experiment:
 
@@ -68,6 +74,33 @@ or JSON evidence when UI changes are part of the objective. Treat missing
 Playwright, unavailable browsers, or blocked ports as environment blockers only
 after confirming the script help path works.
 
+For launch claims, run the direct click suite that covers the product path:
+
+```powershell
+python apps/desci-platform/scripts/browser_smoke.py --frontend http://127.0.0.1:5173 --expect-dev-auth --launch-click-suite --json-out apps/desci-platform/var/browser-smoke-launch-click-auto-research.json --screenshot-dir apps/desci-platform/var/browser-smoke-launch-click-auto-research-screens --trace-on-failure-dir apps/desci-platform/var/browser-smoke-launch-click-auto-research-traces
+```
+
+Record the JSON result and screenshot or trace directory in the cycle report.
+Do not claim a user-facing launch path is ready from backend tests alone.
+
+## DeSci Provider Gate Chain
+
+When DeSci release readiness is blocked by Railway, Vercel, GitHub, or another
+provider, keep provider classification consistent across every gate:
+
+```powershell
+python apps/desci-platform/scripts/provider_preflight.py --json-out apps/desci-platform/var/provider-preflight-auto-research.json --include-output-preview
+python apps/desci-platform/scripts/external_release_gate.py --json-out apps/desci-platform/var/external-release-gate-auto-research.json
+python apps/desci-platform/scripts/external_gate_handoff.py --external-gate-json apps/desci-platform/var/external-release-gate-auto-research.json --json-out apps/desci-platform/var/external-gate-handoff-auto-research.json --markdown-out apps/desci-platform/var/external-gate-handoff-auto-research.md
+python apps/desci-platform/scripts/post_apply_evidence_gate.py --external-gate-json apps/desci-platform/var/external-release-gate-auto-research.json --json-out apps/desci-platform/var/post-apply-evidence-gate-auto-research.json
+```
+
+Preserve `provider_check_count`, `missing_cli_count`,
+`auth_context_missing_count`, and failed-provider details in generated JSON,
+Markdown, console output, and reports. Classify provider auth/config blockers
+as external blockers after local tests and DeSci smoke pass; do not recast them
+as launch-ready success.
+
 ## Canonical Smoke Matrix
 
 Run the smallest affected scope first:
@@ -106,6 +139,7 @@ Use explicit staging only:
 
 ```powershell
 git add -- <owned-path-1> <owned-path-2>
+git diff --cached --name-only
 git diff --cached --stat
 git diff --cached --check
 git commit -m "<type>(<scope>): <summary>"
@@ -115,3 +149,11 @@ git push origin HEAD
 Do not stage broad globs in a dirty worktree. Do not push when targeted
 verification fails, secrets are present, or the branch is not the intended
 remote branch.
+
+Before pushing from a branch with concurrent commits, confirm the current branch
+tracks the expected remote and that the intended commit is the local tip:
+
+```powershell
+git branch -vv
+git status --short --branch
+```

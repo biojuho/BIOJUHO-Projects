@@ -40,6 +40,10 @@ def test_auto_research_skill_has_launch_loop_contract() -> None:
     assert "stop-file/watchdog controls" in skill
     assert "research basis" in skill
     assert "source-bound hypotheses" in skill
+    assert "provider_preflight.py" in skill
+    assert "auth_context_missing" in skill
+    assert "git diff --cached --name-only" in skill
+    assert "launch-click" in skill
 
 
 def test_auto_research_references_map_sources_to_local_evidence() -> None:
@@ -90,8 +94,13 @@ def test_auto_research_workspace_loop_documents_safe_git_flow() -> None:
     reference = (SKILL_DIR / "references" / "workspace-loop.md").read_text(encoding="utf-8")
 
     assert "git add -- <owned-path-1> <owned-path-2>" in reference
+    assert "git diff --cached --name-only" in reference
     assert "git diff --cached --check" in reference
     assert "Do not stage broad globs" in reference
     assert "run_workspace_smoke.py --scope getdaytrends" in reference
     assert "git ls-remote https://github.com/Veritas-7/autoresearch-skill-system.git" in reference
     assert "var/external/" in reference
+    assert "provider_check_count" in reference
+    assert "auth_context_missing_count" in reference
+    assert "provider_preflight.py" in reference
+    assert "--launch-click-suite" in reference
