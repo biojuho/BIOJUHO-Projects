@@ -4807,6 +4807,62 @@ def test_release_gate_json_report_exposes_child_failed_check_names(tmp_path: Pat
     assert artifact_report["json_failed_checks"] == ["ready"]
 
 
+def test_release_gate_json_report_exposes_provider_blocker_artifact_context(tmp_path: Path) -> None:
+    artifact = tmp_path / "post-apply.json"
+    remediation = "Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight."
+    blocking_reason = f"provider_preflight vercel vercel whoami: auth_context_missing; next={remediation}"
+    artifact.write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "schema_version": 1,
+                "generated_at": "2026-07-04T00:00:00+00:00",
+                "summary": {"failure_count": 1, "provider_blocker_count": 1},
+                "provider_blockers": [
+                    {
+                        "provider": "vercel",
+                        "id": "vercel_preflight_1",
+                        "command": "vercel whoami",
+                        "failure_reason": "auth_context_missing",
+                        "docs_url": "https://vercel.com/docs/cli/env",
+                        "remediation": remediation,
+                    }
+                ],
+                "promotion_blocking_reasons": [blocking_reason],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = release_gate.GateResult(
+        name="provider-workflow",
+        command="python scripts/external_gate_handoff.py --verify-provider-apply-workflow plan.json",
+        cwd=str(tmp_path),
+        returncode=1,
+        elapsed_ms=10.0,
+        artifacts=["post-apply.json"],
+        artifact_failures=["JSON evidence artifact must report ok=true: post-apply.json"],
+    )
+
+    payload = release_gate.json_report_payload([result])
+
+    artifact_report = payload["results"][0]["artifact_reports"][0]
+    artifact_summary = payload["results"][0]["artifact_summary"]
+    assert artifact_report["json_provider_blocker_count"] == 1
+    assert artifact_report["json_provider_blocker_providers"] == ["vercel"]
+    assert artifact_report["json_provider_blocker_commands"] == ["vercel whoami"]
+    assert artifact_report["json_provider_blocker_failure_reasons"] == ["auth_context_missing"]
+    assert artifact_report["json_provider_blocker_remediations"] == [remediation]
+    assert artifact_report["json_promotion_blocking_reason_count"] == 1
+    assert artifact_report["json_promotion_blocking_reasons"] == [blocking_reason]
+    assert artifact_summary["json_provider_blocker_count"] == 1
+    assert artifact_summary["has_provider_blockers"] is True
+    assert artifact_summary["json_provider_blocker_commands"] == ["vercel whoami"]
+    assert artifact_summary["json_provider_blocker_remediations"] == [remediation]
+    assert artifact_summary["json_promotion_blocking_reason_count"] == 1
+    assert artifact_summary["has_promotion_blocking_reasons"] is True
+    assert artifact_summary["json_promotion_blocking_reasons"] == [blocking_reason]
+
+
 def test_release_gate_summarizes_browser_smoke_nested_launch_env_handoff(tmp_path: Path) -> None:
     browser_artifact = tmp_path / "browser-smoke.json"
     operator_copy_lines = [

@@ -1802,6 +1802,53 @@ def artifact_report_summary(reports: list[dict[str, Any]]) -> dict[str, Any]:
     warning_checks = _aggregate_artifact_check_names(reports, "json_warning_checks")
     if warning_checks:
         summary["json_warning_checks"] = warning_checks
+    provider_blocker_counts = [report.get("json_provider_blocker_count") for report in reports]
+    if any(isinstance(count, int) for count in provider_blocker_counts):
+        provider_blocker_count = sum(count for count in provider_blocker_counts if isinstance(count, int))
+        summary["json_provider_blocker_count"] = provider_blocker_count
+        summary["has_provider_blockers"] = provider_blocker_count > 0
+    provider_blocker_providers = _aggregate_artifact_check_names(reports, "json_provider_blocker_providers")
+    if provider_blocker_providers:
+        summary["json_provider_blocker_providers"] = provider_blocker_providers
+    provider_blocker_commands = _aggregate_artifact_check_names(reports, "json_provider_blocker_commands")
+    if provider_blocker_commands:
+        summary["json_provider_blocker_commands"] = provider_blocker_commands
+    provider_blocker_failure_reasons = _aggregate_artifact_check_names(
+        reports,
+        "json_provider_blocker_failure_reasons",
+    )
+    if provider_blocker_failure_reasons:
+        summary["json_provider_blocker_failure_reasons"] = provider_blocker_failure_reasons
+    provider_blocker_remediations = _aggregate_artifact_check_names(
+        reports,
+        "json_provider_blocker_remediations",
+    )
+    if provider_blocker_remediations:
+        summary["json_provider_blocker_remediations"] = provider_blocker_remediations
+    provider_unsafe_remediation_counts = [
+        report.get("json_provider_blocker_unsafe_remediation_count") for report in reports
+    ]
+    if any(isinstance(count, int) for count in provider_unsafe_remediation_counts):
+        summary["json_provider_blocker_unsafe_remediation_count"] = sum(
+            count for count in provider_unsafe_remediation_counts if isinstance(count, int)
+        )
+    promotion_blocking_reason_counts = [report.get("json_promotion_blocking_reason_count") for report in reports]
+    if any(isinstance(count, int) for count in promotion_blocking_reason_counts):
+        promotion_blocking_reason_count = sum(
+            count for count in promotion_blocking_reason_counts if isinstance(count, int)
+        )
+        summary["json_promotion_blocking_reason_count"] = promotion_blocking_reason_count
+        summary["has_promotion_blocking_reasons"] = promotion_blocking_reason_count > 0
+    promotion_blocking_reasons = _aggregate_artifact_check_names(reports, "json_promotion_blocking_reasons")
+    if promotion_blocking_reasons:
+        summary["json_promotion_blocking_reasons"] = promotion_blocking_reasons
+    promotion_unsafe_reason_counts = [
+        report.get("json_promotion_blocking_reason_unsafe_count") for report in reports
+    ]
+    if any(isinstance(count, int) for count in promotion_unsafe_reason_counts):
+        summary["json_promotion_blocking_reason_unsafe_count"] = sum(
+            count for count in promotion_unsafe_reason_counts if isinstance(count, int)
+        )
     missing_env_file_counts = [report.get("json_missing_env_file_count") for report in reports]
     if any(isinstance(count, int) for count in missing_env_file_counts):
         missing_env_file_count = sum(count for count in missing_env_file_counts if isinstance(count, int))
@@ -2672,6 +2719,7 @@ def _artifact_json_report(path: Path, cwd: str | Path) -> dict[str, Any]:
         "json_api": payload.get("api"),
         "json_frontend": payload.get("frontend"),
         **_artifact_json_provenance_report(payload),
+        **_artifact_json_provider_blocker_report(payload),
         **_artifact_json_trace_report(payload, cwd),
         **_artifact_json_screenshot_report(payload, cwd),
         **_artifact_json_launch_handoff_report(payload),
@@ -2798,6 +2846,68 @@ def _artifact_json_provenance_report(payload: dict[str, Any]) -> dict[str, Any]:
         include_process_env = sources.get("include_process_env")
         if isinstance(include_process_env, bool):
             report["json_include_process_env"] = include_process_env
+    return report
+
+
+def _artifact_json_provider_blocker_report(payload: dict[str, Any]) -> dict[str, Any]:
+    report: dict[str, Any] = {}
+    provider_blockers = payload.get("provider_blockers")
+    if isinstance(provider_blockers, list):
+        providers: list[str] = []
+        commands: list[str] = []
+        failure_reasons: list[str] = []
+        remediations: list[str] = []
+        unsafe_remediation_count = 0
+        for blocker in provider_blockers:
+            if not isinstance(blocker, dict):
+                continue
+            provider = blocker.get("provider")
+            if isinstance(provider, str) and provider and provider not in providers:
+                providers.append(provider)
+            command = blocker.get("command")
+            if isinstance(command, str) and command and command not in commands:
+                commands.append(command)
+            failure_reason = blocker.get("failure_reason")
+            if isinstance(failure_reason, str) and failure_reason and failure_reason not in failure_reasons:
+                failure_reasons.append(failure_reason)
+            remediation = blocker.get("remediation")
+            if isinstance(remediation, str) and remediation:
+                if _contains_secret_shaped_value(remediation):
+                    unsafe_remediation_count += 1
+                elif remediation not in remediations:
+                    remediations.append(remediation)
+        report["json_provider_blocker_count"] = len([item for item in provider_blockers if isinstance(item, dict)])
+        if providers:
+            report["json_provider_blocker_providers"] = providers
+        if commands:
+            report["json_provider_blocker_commands"] = commands
+        if failure_reasons:
+            report["json_provider_blocker_failure_reasons"] = failure_reasons
+        if remediations:
+            report["json_provider_blocker_remediations"] = remediations
+        if unsafe_remediation_count:
+            report["json_provider_blocker_unsafe_remediation_count"] = unsafe_remediation_count
+
+    promotion_reasons = payload.get("promotion_blocking_reasons")
+    if not isinstance(promotion_reasons, list):
+        promotion_reasons = payload.get("blocking_reasons")
+    if isinstance(promotion_reasons, list):
+        safe_reasons: list[str] = []
+        unsafe_reason_count = 0
+        for reason in promotion_reasons:
+            if not isinstance(reason, str) or not reason:
+                continue
+            if _contains_secret_shaped_value(reason):
+                unsafe_reason_count += 1
+            elif reason not in safe_reasons:
+                safe_reasons.append(reason)
+        report["json_promotion_blocking_reason_count"] = len(
+            [item for item in promotion_reasons if isinstance(item, str) and item]
+        )
+        if safe_reasons:
+            report["json_promotion_blocking_reasons"] = safe_reasons
+        if unsafe_reason_count:
+            report["json_promotion_blocking_reason_unsafe_count"] = unsafe_reason_count
     return report
 
 
