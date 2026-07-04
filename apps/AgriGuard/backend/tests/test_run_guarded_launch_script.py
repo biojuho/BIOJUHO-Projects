@@ -67,6 +67,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
                 "status": "pass",
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 "recovery_command_status": "not_required",
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
                 "consumer_readiness_next_commands": [
@@ -122,6 +123,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         "status": "pass",
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
         "recovery_command_status": "not_required",
         "recovery_command_note": None,
         "recovery_summary": {
@@ -438,7 +440,7 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     )
 
     assert result == 1
-    assert len(calls) == 8
+    assert len(calls) == 11
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
     assert _arg_after(calls[0], "--app-root") == str(app_root.resolve())
     assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
@@ -448,6 +450,9 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     assert calls[5][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
     assert calls[6][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
     assert calls[7][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
+    assert calls[8][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
+    assert calls[9][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
+    assert calls[10][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
     assert "--exit-zero-on-blocked" in calls[1]
     assert "--exit-zero-on-blocked" in calls[2]
     assert _arg_after(calls[3], "--markdown-out").endswith("-artifact-index.md")
@@ -492,7 +497,7 @@ def test_guarded_launch_emit_handoff_writes_default_status_json(tmp_path: Path) 
     assert payload["artifacts"]["artifact_index_json"] == str(
         output_dir.resolve() / "release-check-artifact-index.json"
     )
-    assert len(index_commands) == 2
+    assert len(index_commands) == 3
     assert _arg_after(index_commands[0], "--status-json") == str(status_json)
     assert len(refresh_commands) == 1
     assert _arg_after(refresh_commands[0], "--guarded-status-json") == str(status_json)
@@ -516,6 +521,7 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
                     "consumer_command_metadata_status": "pass",
+                    "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                     "recovery_command_status": "not_required",
                     "recovery_summary": {
                         "required": False,
@@ -652,6 +658,9 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
         "render_guarded_launch_handoff.py",
         "consume_guarded_launch_handoff.py",
         "index_guarded_launch_artifacts.py",
+        "render_guarded_launch_handoff.py",
+        "consume_guarded_launch_handoff.py",
+        "index_guarded_launch_artifacts.py",
     ]
     assert packet_refresh_saw_index == [True]
     assert second_handoff_action_ids == [["set_firebase_service_account_file"]]
@@ -687,6 +696,7 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
                     "consumer_command_metadata_status": "pass",
+                    "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                     "recovery_command_status": "not_required",
                     "recovery_summary": {
                         "required": False,
@@ -729,8 +739,12 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
 
     final_status = json.loads(status_json.read_text(encoding="utf-8"))
     assert result == 0
-    assert status_seen_by_index == [False, True]
+    assert status_seen_by_index == [False, True, True]
     assert final_status["artifact_index"]["found"] is True
+    assert (
+        final_status["artifact_index"]["consumer_readiness_operator_packet_consumer_command_metadata_status"]
+        == "pass"
+    )
     assert final_status["artifact_index_recovery_summary"]["required"] is False
 
 
@@ -1033,6 +1047,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
                 "consumer_readiness_next_commands": [
                     {
@@ -1089,6 +1104,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "missing_required_roles": [],
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
         "consumer_readiness_next_commands": [
             {

@@ -300,6 +300,12 @@ def build_index(
         and consumer_handoff_validation_command_text
         else "fail"
     )
+    consumer_readiness_operator_packet_consumer_command_metadata_status = (
+        _string_value(consumer.get("consumer_readiness_operator_packet_consumer_command_metadata_status"))
+        or _string_value(consumer.get("readiness_operator_packet_consumer_command_metadata_status"))
+        if isinstance(consumer, dict)
+        else None
+    )
     validation_status = validation.get("status") if isinstance(validation, dict) else None
     index_status = (
         "pass"
@@ -387,11 +393,9 @@ def build_index(
         "consumer_readiness_operator_packet_preflight_status": consumer.get("readiness_operator_packet_preflight_status")
         if isinstance(consumer, dict)
         else None,
-        "consumer_readiness_operator_packet_consumer_command_metadata_status": consumer.get(
-            "readiness_operator_packet_consumer_command_metadata_status"
-        )
-        if isinstance(consumer, dict)
-        else None,
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": (
+            consumer_readiness_operator_packet_consumer_command_metadata_status
+        ),
         "consumer_errors": consumer_errors,
         "validation_status": validation_status,
         "launch_status": launch.get("status") if isinstance(launch, dict) else None,

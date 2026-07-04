@@ -153,6 +153,23 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 
 
+def test_index_guarded_launch_artifacts_prefers_status_view_command_metadata(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    consumer = json.loads(paths["handoff_consumer_json"].read_text(encoding="utf-8"))
+    consumer["consumer_readiness_operator_packet_consumer_command_metadata_status"] = "pass"
+    consumer["readiness_operator_packet_consumer_command_metadata_status"] = "fail"
+    _write_json(paths["handoff_consumer_json"], consumer)
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+
+    assert index["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
+
+
 def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     custom_dir = tmp_path / "custom-handoff"

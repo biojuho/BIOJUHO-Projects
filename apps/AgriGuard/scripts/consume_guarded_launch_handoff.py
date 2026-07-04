@@ -294,6 +294,9 @@ def build_consumer_view(
         "artifact_index_status": artifact_index.get("status"),
         "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status"),
         "consumer_command_metadata_status": artifact_index.get("consumer_command_metadata_status"),
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index.get(
+            "consumer_readiness_operator_packet_consumer_command_metadata_status"
+        ),
         "artifact_index_recovery_command_status": artifact_index.get("recovery_command_status"),
         "readiness_operator_action_ids": readiness_action_ids,
         "readiness_next_commands": readiness_next_commands,

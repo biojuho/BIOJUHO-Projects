@@ -325,6 +325,11 @@ def _build_status_view(
             "consumer_command_metadata_status": artifact_index.get("consumer_command_metadata_status")
             if artifact_index is not None
             else None,
+            "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index.get(
+                "consumer_readiness_operator_packet_consumer_command_metadata_status"
+            )
+            if artifact_index is not None
+            else None,
             "consumer_readiness_operator_action_ids": [
                 str(action_id)
                 for action_id in artifact_index.get("consumer_readiness_operator_action_ids", [])
@@ -590,6 +595,11 @@ def _artifact_index_readiness_summary(
         "status": index.get("status") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
         "consumer_command_metadata_status": index.get("consumer_command_metadata_status") if index is not None else None,
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": index.get(
+            "consumer_readiness_operator_packet_consumer_command_metadata_status"
+        )
+        if index is not None
+        else None,
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
@@ -1136,6 +1146,25 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
         if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = artifact_index_result.returncode
+        if post_launch_returncode == 0:
+            if effective_status_json_out is not None or args.require_ready:
+                status_view = _build_status_view(
+                    output_dir=output_dir,
+                    output_prefix=args.output_prefix,
+                    artifact_paths=artifact_paths,
+                    artifact_index_json=artifact_index_json,
+                )
+            if effective_status_json_out is not None and status_view is not None:
+                write_json(effective_status_json_out, status_view)
+            handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
+            if handoff_result.returncode != 0 and post_launch_returncode == 0:
+                post_launch_returncode = handoff_result.returncode
+            consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
+            if consumer_result.returncode != 0 and post_launch_returncode == 0:
+                post_launch_returncode = consumer_result.returncode
+            artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+            if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
+                post_launch_returncode = artifact_index_result.returncode
     if effective_status_json_out is not None or args.require_ready:
         status_view = _build_status_view(
             output_dir=output_dir,

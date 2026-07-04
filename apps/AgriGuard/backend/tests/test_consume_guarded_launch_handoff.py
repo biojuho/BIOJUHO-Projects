@@ -113,6 +113,7 @@ def _write_artifact_index(output_dir: Path, prefix: str) -> None:
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 "recovery_command_status": "not_required",
                 "recovery_summary": {
                     "required": False,
@@ -259,6 +260,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["artifact_index_status"] == "pass"
     assert view["consumer_packet_validation_status"] == "pass"
     assert view["consumer_command_metadata_status"] == "pass"
+    assert view["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert view["artifact_index_recovery_command_status"] == "not_required"
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["readiness_next_commands"] == [

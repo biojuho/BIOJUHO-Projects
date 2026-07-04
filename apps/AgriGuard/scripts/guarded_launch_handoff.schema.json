@@ -386,6 +386,12 @@
                 "null"
               ]
             },
+            "consumer_readiness_operator_packet_consumer_command_metadata_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "consumer_readiness_env_validation_placeholder_count": {
               "type": [
                 "integer",
@@ -470,6 +476,7 @@
             "missing_required_roles",
             "consumer_packet_validation_status",
             "consumer_command_metadata_status",
+            "consumer_readiness_operator_packet_consumer_command_metadata_status",
             "consumer_readiness_operator_action_ids",
             "consumer_readiness_env_validation_ready_for_preflight",
             "consumer_readiness_env_validation_placeholder_count",
