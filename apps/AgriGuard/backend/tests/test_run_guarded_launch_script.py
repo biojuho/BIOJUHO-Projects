@@ -531,6 +531,85 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     }
 
 
+def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    custom_index = tmp_path / "handoff" / "current.artifact-index.json"
+    artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
+    custom_index.parent.mkdir(parents=True, exist_ok=True)
+    artifacts["operator_packet_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "guarded_launch_evidence": {
+                    "artifact_index_readiness_summary": {
+                        "recovery_summary": {
+                            "required": True,
+                            "action": "Regenerate stale packet evidence.",
+                            "status": "pass",
+                            "note": "Recovery command is present because this artifact index did not meet pass criteria.",
+                            "command": ["python", "stale-recovery.py"],
+                        },
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    custom_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "missing_required_roles": [],
+                "consumer_packet_validation_status": "pass",
+                "recovery_command_status": "not_required",
+                "recovery_summary": {
+                    "required": False,
+                    "action": None,
+                    "status": "not_required",
+                    "note": None,
+                    "command": None,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json-out",
+            str(custom_index),
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["artifact_index_recovery_summary"] == {
+        "required": False,
+        "action": None,
+        "status": "not_required",
+        "note": None,
+        "command": None,
+    }
+    assert payload["artifact_index"] == {
+        "found": True,
+        "path": str(custom_index.resolve()),
+        "status": "pass",
+        "missing_required_roles": [],
+        "consumer_packet_validation_status": "pass",
+        "recovery_command_status": "not_required",
+    }
+    assert payload["artifacts"]["artifact_index_json"] == str(custom_index.resolve())
+
+
 def test_guarded_launch_status_require_ready_fails_for_blocked_prefix(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     output_dir = tmp_path / "launch-artifacts"

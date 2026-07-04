@@ -284,6 +284,9 @@
         "artifacts": {
           "additionalProperties": false,
           "properties": {
+            "artifact_index_json": {
+              "type": "string"
+            },
             "env_validation_json": {
               "type": "string"
             },
@@ -313,6 +316,7 @@
             }
           },
           "required": [
+            "artifact_index_json",
             "env_validation_json",
             "env_validation_markdown",
             "preflight_json",
@@ -322,6 +326,53 @@
             "operator_env_template",
             "readiness_summary_json",
             "readiness_summary_markdown"
+          ],
+          "type": "object"
+        },
+        "artifact_index": {
+          "additionalProperties": false,
+          "properties": {
+            "consumer_packet_validation_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "found": {
+              "type": "boolean"
+            },
+            "missing_required_roles": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "recovery_command_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "found",
+            "path",
+            "status",
+            "missing_required_roles",
+            "consumer_packet_validation_status",
+            "recovery_command_status"
           ],
           "type": "object"
         },
@@ -550,6 +601,7 @@
         "blocker_class",
         "operator_action_ids",
         "artifact_index_recovery_summary",
+        "artifact_index",
         "output_dir",
         "output_prefix",
         "secrets_redacted",

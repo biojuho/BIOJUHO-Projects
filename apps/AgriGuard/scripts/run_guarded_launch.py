@@ -150,13 +150,28 @@ def _build_status_view(
     output_dir: Path,
     output_prefix: str,
     artifact_paths: dict[str, Path],
+    artifact_index_json: Path | None = None,
 ) -> dict[str, object]:
     launch = _read_json(artifact_paths["launch_report_json"])
     summary = _read_json(artifact_paths["readiness_summary_json"])
     packet = _read_json(artifact_paths["operator_packet_json"])
+    artifact_index = _read_json(artifact_index_json) if artifact_index_json is not None else None
     action_ids = _operator_action_ids_from_summary(summary) or _operator_action_ids_from_packet(packet)
     summary_env_validation = _summary_report(summary, "env_validation")
     summary_operator_packet = _summary_report(summary, "operator_packet")
+    artifacts = {key: str(value) for key, value in artifact_paths.items()}
+    if artifact_index_json is not None:
+        artifacts["artifact_index_json"] = str(artifact_index_json)
+    missing_required_roles = (
+        artifact_index.get("missing_required_roles")
+        if artifact_index is not None and isinstance(artifact_index.get("missing_required_roles"), list)
+        else []
+    )
+    artifact_index_recovery_summary = (
+        _artifact_index_recovery_summary(artifact_index, None)
+        if artifact_index is not None
+        else _packet_artifact_index_recovery_summary(packet)
+    )
     status = "missing_artifacts"
     if summary is not None:
         status = str(summary.get("status") or "unknown")
@@ -178,8 +193,8 @@ def _build_status_view(
         "output_dir": str(output_dir),
         "output_prefix": output_prefix,
         "secrets_redacted": True,
-        "artifact_index_recovery_summary": _packet_artifact_index_recovery_summary(packet),
-        "artifacts": {key: str(value) for key, value in artifact_paths.items()},
+        "artifact_index_recovery_summary": artifact_index_recovery_summary,
+        "artifacts": artifacts,
         "launch": {
             "found": launch is not None,
             "path": str(artifact_paths["launch_report_json"]),
@@ -205,6 +220,20 @@ def _build_status_view(
             "status": packet.get("status") if packet is not None else None,
             "operator_action_ids": _operator_action_ids_from_packet(packet),
             "secrets_redacted": packet.get("secrets_redacted") if packet is not None else None,
+        },
+        "artifact_index": {
+            "found": artifact_index is not None,
+            "path": str(artifact_index_json) if artifact_index_json is not None else None,
+            "status": artifact_index.get("status") if artifact_index is not None else None,
+            "missing_required_roles": [
+                str(role) for role in missing_required_roles if isinstance(role, str)
+            ],
+            "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status")
+            if artifact_index is not None
+            else None,
+            "recovery_command_status": artifact_index.get("recovery_command_status")
+            if artifact_index is not None
+            else None,
         },
     }
 
@@ -669,6 +698,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
+            artifact_index_json=artifact_index_json,
         )
         if args.status_json_out:
             write_json(args.status_json_out.resolve(), status_view)
@@ -711,13 +741,13 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
 
     completed = command_runner(command, cwd=app_root, text=True)
     status_view = None
-    if args.status_json_out or args.require_ready:
+    if args.status_json_out:
         status_view = _build_status_view(
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
+            artifact_index_json=artifact_index_json,
         )
-    if args.status_json_out and status_view is not None:
         write_json(args.status_json_out.resolve(), status_view)
     post_launch_returncode = 0
     if handoff_command is not None:
@@ -732,6 +762,15 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
         if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = artifact_index_result.returncode
+    if args.status_json_out or args.require_ready:
+        status_view = _build_status_view(
+            output_dir=output_dir,
+            output_prefix=args.output_prefix,
+            artifact_paths=artifact_paths,
+            artifact_index_json=artifact_index_json,
+        )
+    if args.status_json_out and status_view is not None:
+        write_json(args.status_json_out.resolve(), status_view)
     if post_launch_returncode != 0:
         return post_launch_returncode
     if args.require_ready and status_view is not None and not _status_view_ready(status_view):

@@ -101,7 +101,12 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
     )
     evidence_status = evidence_validation.get("status")
     markdown_status = markdown_validation.get("status")
-    recovery_summary = _artifact_index_recovery_summary(artifact_index_summary)
+    status_recovery_summary = status_view.get("artifact_index_recovery_summary")
+    recovery_summary = (
+        dict(status_recovery_summary)
+        if isinstance(status_recovery_summary, dict)
+        else _artifact_index_recovery_summary(artifact_index_summary)
+    )
     recovery_command_status = recovery_summary.get("status")
     recovery_command_note = recovery_summary.get("note")
     expected_output_keys = _string_list(markdown_validation.get("expected_output_keys"))
@@ -185,6 +190,7 @@ def build_handoff(
         output_dir=output_dir,
         output_prefix=output_prefix,
         artifact_paths=artifact_paths,
+        artifact_index_json=run_guarded_launch._default_artifact_index_json(output_dir, output_prefix),
     )
     packet_validation = _packet_validation_summary(status_view)
     ready = run_guarded_launch._status_view_ready(status_view)
