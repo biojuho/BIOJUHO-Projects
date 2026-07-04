@@ -116,15 +116,35 @@ def _redacted_env_summary(env: dict[str, str]) -> list[dict[str, object]]:
     ]
 
 
-def _firebase_file_findings(env: dict[str, str], *, allow_missing_firebase_file: bool) -> list[str]:
-    if allow_missing_firebase_file:
-        return []
+def _resolve_firebase_file(value: str, *, app_root: Path) -> Path:
+    return launch_env_preflight._resolve_app_relative_path(value, app_root=app_root)  # noqa: SLF001
+
+
+def _firebase_file_checks(
+    env: dict[str, str],
+    *,
+    allow_missing_firebase_file: bool,
+    app_root: Path,
+) -> dict[str, object]:
     value = (env.get("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE") or "").strip()
     if not value:
-        return ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE is required."]
-    if not Path(value).is_file():
-        return ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist on this host."]
-    return []
+        return {
+            "findings": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE is required."],
+            "exists": False,
+            "valid": False,
+        }
+
+    path = _resolve_firebase_file(value, app_root=app_root)
+    exists = path.is_file()
+    if allow_missing_firebase_file and not exists:
+        return {"findings": [], "exists": False, "valid": False}
+
+    findings, exists = launch_env_preflight._firebase_credentials_file_check(  # noqa: SLF001
+        value,
+        source="AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+        app_root=app_root,
+    )
+    return {"findings": findings, "exists": exists, "valid": not findings}
 
 
 def build_report(
@@ -136,7 +156,13 @@ def build_report(
 ) -> dict[str, object]:
     workspace_root = _workspace_root(app_root)
     validation = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=app_root)
-    local_file_findings = _firebase_file_findings(env, allow_missing_firebase_file=allow_missing_firebase_file)
+    firebase_checks = _firebase_file_checks(
+        env,
+        allow_missing_firebase_file=allow_missing_firebase_file,
+        app_root=app_root,
+    )
+    local_file_findings = firebase_checks["findings"]
+    assert isinstance(local_file_findings, list)
     validation_ready = validation.get("ready_for_preflight") is True
     ready_for_preflight = validation_ready and not local_file_findings
     validation_findings = validation.get("blocking_findings")
@@ -163,9 +189,8 @@ def build_report(
         },
         "local_file_checks": {
             "allow_missing_firebase_file": allow_missing_firebase_file,
-            "firebase_service_account_file_exists": Path(
-                env.get("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE") or ""
-            ).is_file(),
+            "firebase_service_account_file_exists": firebase_checks["exists"],
+            "firebase_service_account_file_valid": firebase_checks["valid"],
             "firebase_service_account_file_path": "<redacted>",
         },
         "safe_next_commands": [

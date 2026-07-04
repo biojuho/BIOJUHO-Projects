@@ -14,12 +14,27 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(prepare_launch_env)
 
 
+def _firebase_credentials_json() -> str:
+    return "\n".join(
+        [
+            "{",
+            '  "type": "service_account",',
+            '  "project_id": "agriguard-test",',
+            '  "private_key": "-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----\\n",',
+            '  "client_email": "firebase-adminsdk-test@agriguard-test.iam.gserviceaccount.com",',
+            '  "token_uri": "https://oauth2.googleapis.com/token"',
+            "}",
+            "",
+        ]
+    )
+
+
 def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path, capsys) -> None:
     env_file = tmp_path / "operator.env"
     json_out = tmp_path / "prepared.json"
     markdown_out = tmp_path / "prepared.md"
     firebase_file = tmp_path / "firebase-service-account.json"
-    firebase_file.write_text("{}", encoding="utf-8")
+    firebase_file.write_text(_firebase_credentials_json(), encoding="utf-8")
 
     result = prepare_launch_env.main(
         [
@@ -60,6 +75,7 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     assert report["local_file_checks"] == {
         "allow_missing_firebase_file": False,
         "firebase_service_account_file_exists": True,
+        "firebase_service_account_file_valid": True,
         "firebase_service_account_file_path": "<redacted>",
     }
     assert env["ALLOW_TEST_BYPASS"] == "false"
@@ -162,10 +178,11 @@ def test_prepare_launch_env_fails_closed_on_missing_firebase_file(tmp_path: Path
     assert report["local_file_checks"] == {
         "allow_missing_firebase_file": False,
         "firebase_service_account_file_exists": False,
+        "firebase_service_account_file_valid": False,
         "firebase_service_account_file_path": "<redacted>",
     }
     assert (
-        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist on this host."
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."
         in report["validation"]["blocking_findings"]
     )
 
@@ -199,3 +216,44 @@ def test_prepare_launch_env_can_allow_missing_firebase_file_for_planning(tmp_pat
     assert report["ready_for_preflight"] is True
     assert report["local_file_checks"]["allow_missing_firebase_file"] is True
     assert report["local_file_checks"]["firebase_service_account_file_exists"] is False
+    assert report["local_file_checks"]["firebase_service_account_file_valid"] is False
+
+
+def test_prepare_launch_env_fails_closed_on_invalid_firebase_file_shape(tmp_path: Path, capsys) -> None:
+    env_file = tmp_path / "operator.env"
+    json_out = tmp_path / "prepared.json"
+    firebase_file = tmp_path / "firebase-service-account.json"
+    firebase_file.write_text("{}", encoding="utf-8")
+
+    result = prepare_launch_env.main(
+        [
+            "--app-root",
+            str(APP_ROOT),
+            "--out",
+            str(env_file),
+            "--allowed-origins",
+            "https://app.agriguard.io",
+            "--public-verify-base-url",
+            "https://verify.agriguard.io",
+            "--firebase-service-account-file",
+            str(firebase_file),
+            "--json-out",
+            str(json_out),
+        ]
+    )
+
+    report = json.loads(json_out.read_text(encoding="utf-8"))
+    capsys.readouterr()
+    assert result == 1
+    assert report["status"] == "fail"
+    assert report["ready_for_preflight"] is False
+    assert report["local_file_checks"] == {
+        "allow_missing_firebase_file": False,
+        "firebase_service_account_file_exists": True,
+        "firebase_service_account_file_valid": False,
+        "firebase_service_account_file_path": "<redacted>",
+    }
+    assert (
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE is missing required service account fields: "
+        "type, project_id, private_key, client_email, token_uri."
+    ) in report["validation"]["blocking_findings"]
