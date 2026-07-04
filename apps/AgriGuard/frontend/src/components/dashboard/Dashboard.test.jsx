@@ -3,7 +3,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import Dashboard from './Dashboard';
 import api from '../../services/api';
 
+const serviceMocks = vi.hoisted(() => ({
+  getOperatorToken: vi.fn(() => ''),
+  setOperatorToken: vi.fn(),
+  showToast: vi.fn(),
+}));
+
 vi.mock('../../services/api', () => ({
+  getOperatorToken: serviceMocks.getOperatorToken,
+  setOperatorToken: serviceMocks.setOperatorToken,
   withOperatorAuth: (config = {}) => config,
   default: {
     get: vi.fn(),
@@ -12,7 +20,7 @@ vi.mock('../../services/api', () => ({
 
 vi.mock('../../contexts/ToastContext', () => ({
   useToast: () => ({
-    showToast: vi.fn(),
+    showToast: serviceMocks.showToast,
   }),
 }));
 
@@ -73,6 +81,8 @@ const qrTrend = {
 describe('Dashboard', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    serviceMocks.getOperatorToken.mockReturnValue('');
+    serviceMocks.showToast.mockClear();
     api.get.mockImplementation((url, config = {}) => {
       if (url === '/dashboard/summary') {
         return Promise.resolve({ data: dashboardSummary });
@@ -172,5 +182,46 @@ describe('Dashboard', () => {
     expect(screen.getByText('Save a Firebase/operator token in QR Tokens or Sensors, then reload the dashboard.')).toBeInTheDocument();
     expect(screen.queryByText('백엔드 연결 실패')).not.toBeInTheDocument();
     expect(screen.getByText('Request failed with status code 401')).toBeInTheDocument();
+  });
+
+  it('saves an operator token from the auth error and retries the dashboard summary', async () => {
+    let summaryAttempts = 0;
+    api.get.mockImplementation((url, config = {}) => {
+      if (url === '/dashboard/summary') {
+        summaryAttempts += 1;
+        if (summaryAttempts === 1) {
+          return Promise.reject({
+            message: 'Request failed with status code 401',
+            response: { status: 401 },
+          });
+        }
+        return Promise.resolve({ data: dashboardSummary });
+      }
+      if (url === '/qr-events/kpis') {
+        return Promise.resolve({ data: qrKpis });
+      }
+      if (url === '/qr-events/kpis/trend') {
+        return Promise.resolve({
+          data: {
+            ...qrTrend,
+            timezone: config.params?.timezone || qrTrend.timezone,
+          },
+        });
+      }
+      return Promise.reject(new Error(`unexpected URL ${url}`));
+    });
+
+    render(<Dashboard />);
+
+    const tokenInput = await screen.findByLabelText('Operator bearer token');
+    fireEvent.change(tokenInput, { target: { value: 'operator-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and retry' }));
+
+    await waitFor(() => {
+      expect(serviceMocks.setOperatorToken).toHaveBeenCalledWith('operator-token');
+      expect(summaryAttempts).toBeGreaterThanOrEqual(2);
+    });
+    expect(await screen.findByText('AgriGuard 공급망 현황')).toBeInTheDocument();
+    expect(screen.queryByText('Operator authentication required')).not.toBeInTheDocument();
   });
 });

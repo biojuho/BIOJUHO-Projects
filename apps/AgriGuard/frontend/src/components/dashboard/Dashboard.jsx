@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Activity, Package, ShieldCheck, Thermometer, AlertTriangle, CheckCircle2, TrendingUp, MapPin, Clock3 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
-import api, { withOperatorAuth } from '../../services/api';
+import api, { getOperatorToken, setOperatorToken, withOperatorAuth } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 
 const QR_KPI_TIMEZONE_STORAGE_KEY = 'agriguard.qrKpi.reportingTimezone';
 const DEFAULT_REPORTING_TIMEZONES = ['UTC', 'Asia/Seoul', 'America/Los_Angeles', 'Europe/Amsterdam'];
@@ -14,6 +16,7 @@ function getDashboardLoadError(error) {
 
   if (error?.response?.status === 401) {
     return {
+      kind: 'auth',
       title: 'Operator authentication required',
       description: 'Save a Firebase/operator token in QR Tokens or Sensors, then reload the dashboard.',
       toast: 'Operator authentication required for dashboard metrics.',
@@ -22,6 +25,7 @@ function getDashboardLoadError(error) {
   }
 
   return {
+    kind: 'backend',
     title: '백엔드 연결 실패',
     description: 'AgriGuard 백엔드(포트 8002)가 실행 중인지 확인하세요.',
     toast: '백엔드 연결 실패: 포트 8002 서버를 확인해주세요.',
@@ -53,9 +57,10 @@ export default function Dashboard() {
   const [qrKpiError, setQrKpiError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [operatorTokenInput, setOperatorTokenInput] = useState(() => getOperatorToken());
   const { showToast } = useToast();
 
-  useEffect(() => {
+  const fetchDashboardSummary = useCallback(() => {
     api.get('/dashboard/summary', withOperatorAuth())
       .then(res => {
         setData(res.data);
@@ -68,6 +73,24 @@ export default function Dashboard() {
         showToast(dashboardError.toast, 'error');
       });
   }, [showToast]);
+
+  useEffect(() => {
+    fetchDashboardSummary();
+  }, [fetchDashboardSummary]);
+
+  const handleSaveOperatorToken = useCallback((event) => {
+    event.preventDefault();
+    setOperatorToken(operatorTokenInput);
+    setLoading(true);
+    setError(null);
+    showToast(
+      operatorTokenInput.trim()
+        ? 'Operator token saved. Retrying dashboard metrics.'
+        : 'Operator token cleared. Protected dashboard metrics will still require authentication.',
+      'success',
+    );
+    fetchDashboardSummary();
+  }, [fetchDashboardSummary, operatorTokenInput, showToast]);
 
   useEffect(() => {
     try {
@@ -123,6 +146,29 @@ export default function Dashboard() {
           <h2 className="text-xl font-semibold text-destructive">{error.title}</h2>
           <p className="text-destructive/70 mt-2 text-sm">{error.description}</p>
           <p className="text-muted-foreground mt-1 text-xs font-mono">{error.detail}</p>
+          {error.kind === 'auth' && (
+            <form onSubmit={handleSaveOperatorToken} className="mx-auto mt-6 max-w-xl text-left">
+              <label htmlFor="dashboard-operator-token" className="text-sm font-medium text-foreground">
+                Operator bearer token
+              </label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <Input
+                  id="dashboard-operator-token"
+                  type="password"
+                  value={operatorTokenInput}
+                  onChange={(event) => setOperatorTokenInput(event.target.value)}
+                  placeholder="Paste Firebase/operator token"
+                  className="min-h-11"
+                />
+                <Button type="submit" className="min-h-11">
+                  Save and retry
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                The token stays in this browser local storage and is used only for operator API calls.
+              </p>
+            </form>
+          )}
         </CardContent>
       </Card>
     );
