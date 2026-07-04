@@ -913,12 +913,67 @@ def _expected_apply_commands(plan: dict[str, Any]) -> list[dict[str, Any]]:
     return expected
 
 
+def _provider_apply_plan_execution_context(plan: dict[str, Any]) -> dict[str, Any]:
+    operator_status = _as_dict(plan.get("operator_status"))
+    providers = [provider for provider in _as_list(plan.get("providers")) if isinstance(provider, dict)]
+    ready_provider_count = sum(1 for provider in providers if provider.get("ready_to_apply") is True)
+    blocked_provider_count = max(len(providers) - ready_provider_count, 0)
+    provider_preflight_blocker_count = sum(
+        int(provider.get("provider_preflight_blocker_count") or 0) for provider in providers
+    )
+    project_context_missing_count = sum(
+        int(provider.get("project_context_missing_count") or 0) for provider in providers
+    )
+    if operator_status:
+        provider_preflight_blocker_count = int(
+            operator_status.get("provider_preflight_blocker_count") or provider_preflight_blocker_count
+        )
+        project_context_missing_count = int(
+            operator_status.get("provider_project_context_missing_count") or project_context_missing_count
+        )
+        blocked_provider_count = int(operator_status.get("blocked_provider_count") or blocked_provider_count)
+        ready_provider_count = int(operator_status.get("ready_provider_count") or ready_provider_count)
+    ready_to_apply = operator_status.get("ready_to_apply") is True
+    operator_stage = str(operator_status.get("stage") or "")
+    blocked_reasons: list[str] = []
+    if not ready_to_apply:
+        blocked_reasons.append("provider apply plan is not ready_to_apply")
+    if operator_stage and operator_stage != "apply_provider_values":
+        blocked_reasons.append(f"operator stage is {operator_stage}")
+    if provider_preflight_blocker_count:
+        blocked_reasons.append(f"provider preflight blockers remain: {provider_preflight_blocker_count}")
+    if project_context_missing_count:
+        blocked_reasons.append(f"provider project context missing: {project_context_missing_count}")
+    if blocked_provider_count:
+        blocked_reasons.append(f"blocked providers: {blocked_provider_count}")
+    provider_blockers: list[str] = []
+    for provider in providers:
+        if provider.get("ready_to_apply") is True:
+            continue
+        provider_key = str(provider.get("provider") or "provider")
+        blocked_reason = str(provider.get("blocked_reason") or "").strip()
+        if blocked_reason:
+            provider_blockers.append(f"{provider_key}: {blocked_reason}")
+    return {
+        "ready_to_apply": ready_to_apply,
+        "operator_stage": operator_stage,
+        "ready_provider_count": ready_provider_count,
+        "blocked_provider_count": blocked_provider_count,
+        "provider_preflight_blocker_count": provider_preflight_blocker_count,
+        "provider_project_context_missing_count": project_context_missing_count,
+        "blocked_reasons": _dedupe(blocked_reasons),
+        "blocked_reason": "; ".join(_dedupe(blocked_reasons)),
+        "provider_blockers": _dedupe(provider_blockers),
+    }
+
+
 def provider_apply_results_template_payload(
     plan: dict[str, Any],
     *,
     plan_path: str | Path,
 ) -> dict[str, Any]:
     expected = _expected_apply_commands(plan)
+    plan_context = _provider_apply_plan_execution_context(plan)
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -927,6 +982,12 @@ def provider_apply_results_template_payload(
         "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
         "provider_count": int(plan.get("provider_count") or 0),
         "command_count": len(expected),
+        "plan_ready_to_apply": plan_context["ready_to_apply"],
+        "operator_stage": plan_context["operator_stage"],
+        "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
+        "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
+        "plan_blocked_reason": plan_context["blocked_reason"],
+        "plan_blocked_reasons": plan_context["blocked_reasons"],
         "results": [
             {
                 "provider": item["provider"],
@@ -1126,8 +1187,8 @@ def record_provider_apply_results(
     plan = load_provider_apply_plan(plan_path)
     expected = _expected_apply_commands(plan)
     env_values = _provider_env_values(plan)
-    operator_status = _as_dict(plan.get("operator_status"))
-    plan_not_ready = execute and operator_status and operator_status.get("ready_to_apply") is not True
+    plan_context = _provider_apply_plan_execution_context(plan)
+    plan_not_ready = execute and plan_context["ready_to_apply"] is not True
     results: list[dict[str, Any]] = []
     for command in expected:
         if plan_not_ready:
@@ -1140,7 +1201,8 @@ def record_provider_apply_results(
                     "started_at": "",
                     "finished_at": "",
                     "stdout_excerpt": "",
-                    "stderr_excerpt": "provider apply plan is not ready_to_apply",
+                    "stderr_excerpt": plan_context["blocked_reason"] or "provider apply plan is not ready_to_apply",
+                    "blocked_reasons": plan_context["blocked_reasons"],
                     "redacted_secret_marker_names": [],
                 }
             )
@@ -1166,6 +1228,12 @@ def record_provider_apply_results(
         "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
         "provider_count": int(plan.get("provider_count") or 0),
         "command_count": len(expected),
+        "plan_ready_to_apply": plan_context["ready_to_apply"],
+        "operator_stage": plan_context["operator_stage"],
+        "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
+        "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
+        "plan_blocked_reason": plan_context["blocked_reason"],
+        "plan_blocked_reasons": plan_context["blocked_reasons"],
         "results": results,
     }
 
@@ -1331,10 +1399,15 @@ def verify_provider_apply_plan(
     if require_ready_to_apply and operator_status.get("ready_to_apply") is not True:
         failures.append("provider apply plan must be ready_to_apply")
     if require_ready_to_apply:
-        for provider in provider_checks:
-            if provider.get("ready_to_apply") is not True:
-                provider.setdefault("failures", []).append("provider template has blank values")
-                provider["ok"] = False
+        providers_by_key = {str(provider.get("provider") or ""): provider for provider in providers}
+        for provider_check in provider_checks:
+            if provider_check.get("ready_to_apply") is not True:
+                plan_provider = providers_by_key.get(str(provider_check.get("provider") or ""), {})
+                blocked_reason = str(plan_provider.get("blocked_reason") or "").strip()
+                provider_check.setdefault("failures", []).append(
+                    blocked_reason or "provider is not ready_to_apply"
+                )
+                provider_check["ok"] = False
 
     provider_failure_count = sum(1 for provider in provider_checks if provider.get("ok") is not True)
     return {
@@ -1371,6 +1444,7 @@ def verify_provider_apply_results(
 ) -> dict[str, Any]:
     plan = load_provider_apply_plan(plan_path)
     results = load_provider_apply_results(results_path)
+    plan_context = _provider_apply_plan_execution_context(plan)
     expected_commands = _expected_apply_commands(plan)
     expected_by_key = {
         (item["provider"], item["command_id"]): item
@@ -1391,6 +1465,25 @@ def verify_provider_apply_results(
         failures.append("provider apply results contain secret-shaped markers")
     if int(results.get("command_count") or 0) != len(expected_commands):
         failures.append("provider apply results command_count must match expected commands")
+    if results.get("plan_ready_to_apply") is not None and (
+        results.get("plan_ready_to_apply") is True
+    ) != plan_context["ready_to_apply"]:
+        failures.append("provider apply results plan_ready_to_apply does not match apply plan")
+    if int(results.get("provider_preflight_blocker_count") or 0) != int(
+        plan_context["provider_preflight_blocker_count"] or 0
+    ):
+        failures.append("provider apply results provider_preflight_blocker_count does not match apply plan")
+    if int(results.get("provider_project_context_missing_count") or 0) != int(
+        plan_context["provider_project_context_missing_count"] or 0
+    ):
+        failures.append("provider apply results provider_project_context_missing_count does not match apply plan")
+    if plan_context["ready_to_apply"] is not True:
+        failures.append("provider apply plan is not ready_to_apply")
+        failures.extend(
+            reason
+            for reason in _string_list(plan_context.get("blocked_reasons"))
+            if reason != "provider apply plan is not ready_to_apply"
+        )
 
     for item in result_items:
         provider = str(item.get("provider") or "")
@@ -1459,6 +1552,11 @@ def verify_provider_apply_results(
         "provider_apply_plan_json": str(plan_path),
         "success_condition": PROVIDER_APPLY_RESULTS_CONDITION,
         "all_commands_succeeded": command_failure_count == 0 and len(command_checks) == len(expected_commands),
+        "plan_ready_to_apply": plan_context["ready_to_apply"],
+        "operator_stage": plan_context["operator_stage"],
+        "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
+        "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
+        "plan_blocked_reasons": plan_context["blocked_reasons"],
         "summary": {
             "failure_count": len(failures),
             "expected_command_count": len(expected_commands),
@@ -1466,6 +1564,8 @@ def verify_provider_apply_results(
             "checked_command_count": len(command_checks),
             "missing_command_count": len(missing_expected),
             "command_failure_count": command_failure_count,
+            "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
+            "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
             "secret_marker_count": len(secret_markers),
         },
         "secret_marker_names": secret_markers,
@@ -1494,6 +1594,7 @@ def verify_provider_apply_workflow(
 ) -> dict[str, Any]:
     failures: list[str] = []
     plan = load_provider_apply_plan(plan_path)
+    plan_context = _provider_apply_plan_execution_context(plan)
     workflow_metadata = _as_dict(plan.get("provider_apply_workflow_verification"))
     default_results_path, results_path_source = _metadata_path(
         workflow_metadata,
@@ -1517,6 +1618,14 @@ def verify_provider_apply_workflow(
     plan_verification = verify_provider_apply_plan(plan_path, require_ready_to_apply=True)
     if plan_verification.get("ok") is not True:
         failures.append("provider apply plan is not ready")
+    if int(plan_context["provider_preflight_blocker_count"] or 0):
+        failures.append(
+            f"provider preflight blockers remain: {plan_context['provider_preflight_blocker_count']}"
+        )
+    if int(plan_context["provider_project_context_missing_count"] or 0):
+        failures.append(
+            f"provider project context missing: {plan_context['provider_project_context_missing_count']}"
+        )
 
     if resolved_results_path and Path(resolved_results_path).exists():
         results_verification = verify_provider_apply_results(resolved_results_path, plan_path=plan_path)
@@ -1567,6 +1676,10 @@ def verify_provider_apply_workflow(
         "ready_to_apply": ready_to_apply,
         "all_commands_succeeded": all_commands_succeeded,
         "promotion_receipt_ok": promotion_receipt_ok,
+        "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
+        "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
+        "plan_blocked_reasons": plan_context["blocked_reasons"],
+        "provider_blockers": plan_context["provider_blockers"],
         "summary": {
             "failure_count": len(failures),
             "plan_ok": plan_verification.get("ok") is True,
@@ -1581,6 +1694,8 @@ def verify_provider_apply_workflow(
                 _as_dict(promotion_verification.get("summary")).get("failure_count") or 0
             ),
             "promotion_blocking_reason_count": len(promotion_blocking_reasons),
+            "provider_preflight_blocker_count": plan_context["provider_preflight_blocker_count"],
+            "provider_project_context_missing_count": plan_context["provider_project_context_missing_count"],
         },
         "failures": failures,
         "promotion_blocking_reasons": promotion_blocking_reasons,
@@ -1841,6 +1956,8 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
     summary = _as_dict(payload.get("summary"))
     artifact_resolution = _as_dict(payload.get("artifact_resolution"))
     failures = _string_list(payload.get("failures"))
+    plan_blocked_reasons = _string_list(payload.get("plan_blocked_reasons"))
+    provider_blockers = _string_list(payload.get("provider_blockers"))
     promotion_blocking_reasons = _string_list(payload.get("promotion_blocking_reasons"))
     result = "pass" if payload.get("ok") is True else "fail"
     plan_path = _markdown_scalar(payload.get("provider_apply_plan_json"))
@@ -1859,6 +1976,9 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
         "| Check | Value |",
         "| --- | --- |",
         f"| Plan ready to apply | `{_markdown_scalar(payload.get('ready_to_apply'))}` |",
+        f"| Provider preflight blockers | `{_markdown_scalar(payload.get('provider_preflight_blocker_count', 0))}` |",
+        f"| Provider project context missing | "
+        f"`{_markdown_scalar(payload.get('provider_project_context_missing_count', 0))}` |",
         f"| Provider commands succeeded | `{_markdown_scalar(payload.get('all_commands_succeeded'))}` |",
         f"| Promotion receipt go | `{_markdown_scalar(payload.get('promotion_receipt_ok'))}` |",
         f"| Failure count | `{_markdown_scalar(summary.get('failure_count'))}` |",
@@ -1886,8 +2006,21 @@ def render_provider_apply_workflow_verification_markdown(payload: dict[str, Any]
         f"| Promotion receipt verification | `{_markdown_scalar(summary.get('promotion_verification_ok'))}` | "
         f"`{_markdown_scalar(summary.get('promotion_failure_count'))}` |",
         "",
-        "## Promotion Receipt Blocking Reasons",
+        "## Plan Blocking Reasons",
     ]
+    if plan_blocked_reasons:
+        lines.extend(f"- {reason}" for reason in plan_blocked_reasons)
+    else:
+        lines.append("- None.")
+    if provider_blockers:
+        lines.extend(["", "## Provider Blockers"])
+        lines.extend(f"- {reason}" for reason in provider_blockers)
+    lines.extend(
+        [
+            "",
+            "## Promotion Receipt Blocking Reasons",
+        ]
+    )
     if promotion_blocking_reasons:
         lines.extend(f"- {reason}" for reason in promotion_blocking_reasons)
     else:
@@ -1923,10 +2056,11 @@ def provider_apply_workflow_github_annotations(payload: dict[str, Any]) -> list[
         return [f"::notice title={_github_command_property(title)}::{_github_command_data(message)}"]
 
     failures = _string_list(payload.get("failures"))
+    plan_blocked_reasons = _string_list(payload.get("plan_blocked_reasons"))
     promotion_blocking_reasons = _string_list(payload.get("promotion_blocking_reasons"))
     actionable_blockers = [reason for reason in promotion_blocking_reasons if "next=" in reason]
     other_blockers = [reason for reason in promotion_blocking_reasons if reason not in actionable_blockers]
-    failures = _dedupe([*failures, *actionable_blockers, *other_blockers])
+    failures = _dedupe([*failures, *plan_blocked_reasons, *actionable_blockers, *other_blockers])
     if not failures:
         failures = ["provider apply workflow verification failed"]
     annotations = [
@@ -1957,6 +2091,15 @@ def provider_apply_workflow_github_outputs(payload: dict[str, Any]) -> dict[str,
             payload.get("promotion_receipt_ok") is True
         ).lower(),
         "provider_apply_workflow_failure_count": str(int(summary.get("failure_count") or 0)),
+        "provider_apply_workflow_provider_preflight_blocker_count": str(
+            int(summary.get("provider_preflight_blocker_count") or 0)
+        ),
+        "provider_apply_workflow_provider_project_context_missing_count": str(
+            int(summary.get("provider_project_context_missing_count") or 0)
+        ),
+        "provider_apply_workflow_plan_blocked_reasons": "\n".join(
+            _string_list(payload.get("plan_blocked_reasons"))
+        ),
         "provider_apply_workflow_results_command_failure_count": str(
             int(summary.get("results_command_failure_count") or 0)
         ),
@@ -2028,10 +2171,13 @@ def print_provider_apply_results_verification_report(payload: dict[str, Any]) ->
     print(f"[external-gate-handoff] provider_apply_results_ok={payload.get('ok')}")
     print(
         "[external-gate-handoff] "
+        f"plan_ready_to_apply={payload.get('plan_ready_to_apply')} "
         f"all_commands_succeeded={payload.get('all_commands_succeeded')} "
         f"expected={summary.get('expected_command_count')} "
         f"reported={summary.get('reported_command_count')} "
         f"command_failures={summary.get('command_failure_count')} "
+        f"provider_preflight_blockers={summary.get('provider_preflight_blocker_count')} "
+        f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"failures={summary.get('failure_count')} "
         f"secret_markers={summary.get('secret_marker_count')}"
     )
@@ -2051,7 +2197,10 @@ def print_provider_apply_results_record_report(payload: dict[str, Any]) -> None:
     print(
         "[external-gate-handoff] "
         f"execution_mode={payload.get('execution_mode')} "
+        f"plan_ready_to_apply={payload.get('plan_ready_to_apply')} "
         f"command_count={payload.get('command_count')} "
+        f"provider_preflight_blockers={payload.get('provider_preflight_blocker_count')} "
+        f"project_context_missing={payload.get('provider_project_context_missing_count')} "
         f"failed_commands={len(failed)}"
     )
     for command in failed:
@@ -2070,6 +2219,8 @@ def print_provider_apply_workflow_verification_report(payload: dict[str, Any]) -
         f"ready_to_apply={payload.get('ready_to_apply')} "
         f"all_commands_succeeded={payload.get('all_commands_succeeded')} "
         f"promotion_receipt_ok={payload.get('promotion_receipt_ok')} "
+        f"provider_preflight_blockers={summary.get('provider_preflight_blocker_count')} "
+        f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"failures={summary.get('failure_count')} "
         f"promotion_blocking_reasons={summary.get('promotion_blocking_reason_count')}"
     )

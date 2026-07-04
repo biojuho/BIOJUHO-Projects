@@ -682,7 +682,7 @@ def test_external_gate_handoff_provider_apply_plan_verifier_require_ready_blocks
     assert verification["ready_to_apply"] is False
     assert "provider apply plan must be ready_to_apply" in verification["failures"]
     assert verification["summary"]["provider_failure_count"] == 1
-    assert "provider template has blank values" in verification["providers"][0]["failures"]
+    assert "template has blank values" in verification["providers"][0]["failures"]
 
 
 def test_external_gate_handoff_provider_apply_plan_verifier_accepts_ready_private_templates_without_leaking_values(
@@ -734,6 +734,10 @@ def test_external_gate_handoff_provider_apply_results_template_is_redacted(tmp_p
     assert template["ok"] is False
     assert template["provider_apply_plan_json"] == str(plan_path)
     assert template["command_count"] == 2
+    assert template["plan_ready_to_apply"] is True
+    assert template["provider_preflight_blocker_count"] == 0
+    assert template["provider_project_context_missing_count"] == 0
+    assert template["plan_blocked_reasons"] == []
     assert {item["status"] for item in template["results"]} == {"pending"}
     assert {item["exit_code"] for item in template["results"]} == {None}
     assert "super-secret" not in serialized
@@ -790,6 +794,40 @@ def test_external_gate_handoff_provider_apply_results_verifier_accepts_powershel
 
     assert verification["ok"] is True
     assert verification["all_commands_succeeded"] is True
+
+
+def test_external_gate_handoff_provider_apply_results_verifier_blocks_not_ready_plan_context(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(
+        tmp_path,
+        f'"{sys.executable}" -c "print(\'applied\')"',
+        ready=False,
+        provider_preflight_blockers=2,
+        project_context_missing=1,
+    )
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    results_path = tmp_path / "apply-results.json"
+    template = external_gate_handoff.provider_apply_results_template_payload(plan, plan_path=plan_path)
+    for item in template["results"]:
+        item["status"] = "success"
+        item["exit_code"] = 0
+        item["stdout_excerpt"] = "applied"
+    template["ok"] = True
+    results_path.write_text(json.dumps(template), encoding="utf-8")
+
+    verification = external_gate_handoff.verify_provider_apply_results(results_path, plan_path=plan_path)
+
+    assert verification["ok"] is False
+    assert verification["all_commands_succeeded"] is True
+    assert verification["plan_ready_to_apply"] is False
+    assert verification["provider_preflight_blocker_count"] == 2
+    assert verification["provider_project_context_missing_count"] == 1
+    assert verification["summary"]["provider_preflight_blocker_count"] == 2
+    assert verification["summary"]["provider_project_context_missing_count"] == 1
+    assert "provider apply plan is not ready_to_apply" in verification["failures"]
+    assert "provider preflight blockers remain: 2" in verification["failures"]
+    assert "provider project context missing: 1" in verification["failures"]
 
 
 def test_external_gate_handoff_provider_apply_results_verifier_blocks_failed_or_missing_results(
@@ -954,32 +992,52 @@ def test_external_gate_handoff_cli_writes_and_verifies_provider_apply_results_te
     assert verification["all_commands_succeeded"] is True
 
 
-def apply_results_recorder_plan(tmp_path: Path, command: str, *, ready: bool = True) -> Path:
+def apply_results_recorder_plan(
+    tmp_path: Path,
+    command: str,
+    *,
+    ready: bool = True,
+    provider_preflight_blockers: int = 0,
+    project_context_missing: int = 0,
+) -> Path:
     plan_path = tmp_path / "apply-plan.json"
     template_path = tmp_path / "local.env"
-    template_value = "filled" if ready else ""
+    template_ready = ready or provider_preflight_blockers > 0 or project_context_missing > 0
+    plan_ready = template_ready and provider_preflight_blockers == 0
+    template_value = "filled" if template_ready else ""
     template_path.write_text(f"DUMMY={template_value}\n", encoding="utf-8")
-    populated_key_count = 1 if ready else 0
+    populated_key_count = 1 if template_ready else 0
+    blocked_reasons = []
+    if not template_ready:
+        blocked_reasons.append("template has blank values")
+    if provider_preflight_blockers:
+        blocked_reasons.append("provider preflight blockers remain")
+    if project_context_missing:
+        blocked_reasons.append("provider project context missing")
     plan = {
         "schema_version": 1,
         "ok": True,
         "provider_count": 1,
-        "ready_provider_count": 1 if ready else 0,
+        "ready_provider_count": 1 if plan_ready else 0,
         "provider_template_index": {
-            "safe_to_commit": not ready,
+            "safe_to_commit": not template_ready,
             "provider_template_count": 1,
             "populated_key_count": populated_key_count,
         },
         "operator_status": {
-            "stage": "apply_provider_values" if ready else "fill_provider_templates",
-            "ready_to_apply": ready,
-            "ready_provider_count": 1 if ready else 0,
-            "blocked_provider_count": 0 if ready else 1,
-            "provider_preflight_blocker_count": 0,
-            "provider_project_context_missing_count": 0,
-            "provider_templates_safe_to_commit": not ready,
+            "stage": "apply_provider_values"
+            if plan_ready
+            else "resolve_provider_preflight"
+            if provider_preflight_blockers
+            else "fill_provider_templates",
+            "ready_to_apply": plan_ready,
+            "ready_provider_count": 1 if plan_ready else 0,
+            "blocked_provider_count": 0 if plan_ready else 1,
+            "provider_preflight_blocker_count": provider_preflight_blockers,
+            "provider_project_context_missing_count": project_context_missing,
+            "provider_templates_safe_to_commit": not template_ready,
             "apply_plan_safe_to_commit": True,
-            "private_template_values_present": ready,
+            "private_template_values_present": template_ready,
             "completion_marker": "external_release_gate.ok=true",
         },
         "providers": [
@@ -990,11 +1048,13 @@ def apply_results_recorder_plan(tmp_path: Path, command: str, *, ready: bool = T
                 "env_keys": ["DUMMY"],
                 "env_key_count": 1,
                 "populated_key_count": populated_key_count,
-                "blank_key_count": 0 if ready else 1,
-                "template_ready": ready,
-                "provider_preflight_blocker_count": 0,
-                "project_context_missing_count": 0,
-                "ready_to_apply": ready,
+                "blank_key_count": 0 if template_ready else 1,
+                "template_ready": template_ready,
+                "provider_preflight_blocker_count": provider_preflight_blockers,
+                "project_context_missing_count": project_context_missing,
+                "ready_to_apply": plan_ready,
+                "blocked_reason": "" if plan_ready else "; ".join(blocked_reasons),
+                "blocked_reasons": blocked_reasons,
                 "commands": [
                     {
                         "id": "local_apply",
@@ -1028,6 +1088,32 @@ def test_external_gate_handoff_provider_apply_results_recorder_dry_run_does_not_
     assert payload["execution_mode"] == "dry_run"
     assert payload["results"][0]["status"] == "dry_run"
     assert payload["results"][0]["exit_code"] is None
+    assert marker_path.exists() is False
+
+
+def test_external_gate_handoff_provider_apply_results_recorder_execute_blocks_context_not_ready(
+    tmp_path: Path,
+) -> None:
+    marker_path = tmp_path / "should-not-exist.txt"
+    command = f'"{sys.executable}" -c "from pathlib import Path; Path({str(marker_path)!r}).write_text(\'ran\')"'
+    plan_path = apply_results_recorder_plan(
+        tmp_path,
+        command,
+        ready=False,
+        provider_preflight_blockers=2,
+        project_context_missing=1,
+    )
+
+    payload = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+
+    assert payload["ok"] is False
+    assert payload["execution_mode"] == "execute"
+    assert payload["plan_ready_to_apply"] is False
+    assert payload["provider_preflight_blocker_count"] == 2
+    assert payload["provider_project_context_missing_count"] == 1
+    assert payload["results"][0]["status"] == "blocked"
+    assert "provider preflight blockers remain: 2" in payload["results"][0]["stderr_excerpt"]
+    assert "provider project context missing: 1" in payload["results"][0]["stderr_excerpt"]
     assert marker_path.exists() is False
 
 
@@ -1220,6 +1306,49 @@ def test_external_gate_handoff_provider_apply_workflow_markdown_reports_resoluti
     assert "`plan_metadata`" in markdown
     assert "provider apply results are not successful" in markdown
     assert "Keep the release blocked" in markdown
+
+
+def test_external_gate_handoff_provider_apply_workflow_surfaces_context_blockers(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(
+        tmp_path,
+        f'"{sys.executable}" -c "print(\'applied\')"',
+        ready=False,
+        provider_preflight_blockers=2,
+        project_context_missing=1,
+    )
+    results_path = tmp_path / "apply-results.json"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+    markdown = external_gate_handoff.render_provider_apply_workflow_verification_markdown(verification)
+    annotations = external_gate_handoff.provider_apply_workflow_github_annotations(verification)
+    outputs = external_gate_handoff.provider_apply_workflow_github_outputs(verification)
+
+    assert verification["ok"] is False
+    assert verification["operator_phase"] == "provider_apply_workflow_blocked"
+    assert verification["provider_preflight_blocker_count"] == 2
+    assert verification["provider_project_context_missing_count"] == 1
+    assert verification["summary"]["provider_preflight_blocker_count"] == 2
+    assert verification["summary"]["provider_project_context_missing_count"] == 1
+    assert "provider preflight blockers remain: 2" in verification["failures"]
+    assert "provider project context missing: 1" in verification["failures"]
+    assert "| Provider preflight blockers | `2` |" in markdown
+    assert "| Provider project context missing | `1` |" in markdown
+    assert "## Plan Blocking Reasons" in markdown
+    assert "- provider preflight blockers remain: 2" in markdown
+    assert any("provider preflight blockers remain: 2" in annotation for annotation in annotations)
+    assert outputs["provider_apply_workflow_provider_preflight_blocker_count"] == "2"
+    assert outputs["provider_apply_workflow_provider_project_context_missing_count"] == "1"
+    assert "provider project context missing: 1" in outputs["provider_apply_workflow_plan_blocked_reasons"]
 
 
 def test_external_gate_handoff_provider_apply_workflow_github_annotations_escape_values() -> None:
