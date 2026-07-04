@@ -166,6 +166,17 @@ def _guarded_launch_command() -> str:
     )
 
 
+def _guarded_launch_evidence_outputs() -> dict[str, str]:
+    return {
+        "status_json": "var/agriguard-guarded-launch-status.json",
+        "launch_report_json": "var/agriguard-guarded-launch-launch-report.json",
+        "handoff_json": "var/agriguard-guarded-launch-handoff.json",
+        "handoff_validation_json": "var/agriguard-guarded-launch-handoff.validation.json",
+        "handoff_consumer_json": "var/agriguard-guarded-launch-handoff.consumer.json",
+        "artifact_index_json": "var/agriguard-guarded-launch-artifact-index.json",
+    }
+
+
 def _redact_text(value: object) -> str:
     text = str(value)
     return SENSITIVE_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}<redacted>", text)
@@ -306,6 +317,10 @@ def build_operator_packet(
             "variables": [entry["key"] for entry in ENV_TEMPLATE_ENTRIES],
             "validation_command": validate_env_template,
         },
+        "guarded_launch_evidence": {
+            "wrapper_command": guarded_launch,
+            "outputs": _guarded_launch_evidence_outputs(),
+        },
         "safe_rerun_commands": [validate_env_template, guarded_launch, rerun_preflight, rerun_launch],
     }
 
@@ -358,6 +373,17 @@ def render_markdown(packet: dict[str, object]) -> str:
     commands = packet.get("safe_rerun_commands")
     if isinstance(commands, list):
         lines.extend(f"- `{command}`" for command in commands)
+
+    evidence = packet.get("guarded_launch_evidence") if isinstance(packet.get("guarded_launch_evidence"), dict) else {}
+    outputs = evidence.get("outputs") if isinstance(evidence.get("outputs"), dict) else {}
+    lines.extend(["", "## Guarded Launch Evidence Outputs", ""])
+    if outputs:
+        lines.append("| Artifact | Path |")
+        lines.append("| --- | --- |")
+        for key, path in outputs.items():
+            lines.append(f"| `{key}` | `{path}` |")
+    else:
+        lines.append("No guarded-launch evidence outputs are listed.")
     lines.append("")
     return "\n".join(lines)
 

@@ -67,6 +67,10 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
         "--status-json-out var/agriguard-guarded-launch-status.json"
     )
     assert packet["operator_env_template"]["validation_command"] == packet["safe_rerun_commands"][0]
+    assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
+    assert packet["guarded_launch_evidence"]["outputs"]["artifact_index_json"] == (
+        "var/agriguard-guarded-launch-artifact-index.json"
+    )
 
 
 def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:
@@ -110,6 +114,8 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     ) in markdown
     assert "launch_env_preflight.py --check-docker" in markdown
     assert "launch_compose.py --run-browser-smoke" in markdown
+    assert "## Guarded Launch Evidence Outputs" in markdown
+    assert "`artifact_index_json` | `var/agriguard-guarded-launch-artifact-index.json`" in markdown
     assert markdown.index("validate_launch_env_template.py") < markdown.index("run_guarded_launch.py")
     assert markdown.index("run_guarded_launch.py") < markdown.index("launch_env_preflight.py")
 
