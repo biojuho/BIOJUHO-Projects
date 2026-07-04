@@ -4,7 +4,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 APP_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = APP_ROOT / "scripts" / "render_guarded_launch_handoff.py"
 SPEC = importlib.util.spec_from_file_location("render_guarded_launch_handoff", SCRIPT_PATH)
@@ -123,7 +122,20 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         "note": None,
         "command": None,
     }
-    assert "--require-ready" in handoff["ready_gate"]["command"]
+    ready_command = handoff["ready_gate"]["command"]
+    inspect_command = handoff["operator_commands"][0]["command"]
+    assert ready_command[1] == str(APP_ROOT / "scripts" / "run_guarded_launch.py")
+    assert ready_command[ready_command.index("--app-root") + 1] == str(APP_ROOT.resolve())
+    assert ready_command[ready_command.index("--output-dir") + 1] == str(output_dir.resolve())
+    assert ready_command[ready_command.index("--output-prefix") + 1] == "blocked"
+    assert ready_command[ready_command.index("--status-json-out") + 1] == str(
+        (output_dir / "blocked-ready-gate.json").resolve()
+    )
+    assert "--require-ready" in ready_command
+    assert inspect_command[1] == str(APP_ROOT / "scripts" / "run_guarded_launch.py")
+    assert inspect_command[inspect_command.index("--app-root") + 1] == str(APP_ROOT.resolve())
+    assert inspect_command[inspect_command.index("--output-dir") + 1] == str(output_dir.resolve())
+    assert "--require-ready" not in inspect_command
     assert handoff["secrets_redacted"] is True
 
 
@@ -241,7 +253,13 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert payload["status"] == "blocked"
     assert payload["ready_gate"]["status"] == "fail"
     assert payload["validation"]["validation_json"] == str(validation_json.resolve())
-    assert payload["validation"]["command"][-1].endswith("handoff.validation.json")
+    assert payload["validation"]["command"][1] == str(APP_ROOT / "scripts" / "validate_guarded_launch_handoff.py")
+    assert payload["validation"]["command"][2] == str(json_out.resolve())
+    assert payload["validation"]["command"][-1] == str(validation_json.resolve())
+    assert payload["ready_gate"]["command"][1] == str(APP_ROOT / "scripts" / "run_guarded_launch.py")
+    assert payload["ready_gate"]["command"][payload["ready_gate"]["command"].index("--app-root") + 1] == str(
+        APP_ROOT.resolve()
+    )
     assert validation["status"] == "pass"
     assert "Ready gate: `fail`" in markdown
     assert "Packet validation: `pass`" in markdown

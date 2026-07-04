@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -141,18 +142,21 @@ def _wrapper_status_argv(
     ready_gate_json: Path | None = None,
     require_ready: bool = False,
 ) -> list[str]:
-    workspace_root = _workspace_root(app_root)
     argv = [
-        "python",
-        "apps/AgriGuard/scripts/run_guarded_launch.py",
+        sys.executable,
+        str(app_root / "scripts" / "run_guarded_launch.py"),
+        "--app-root",
+        str(app_root),
+        "--output-dir",
+        str(output_dir),
+        "--output-prefix",
+        output_prefix,
+        "--status-only",
     ]
-    if output_dir.resolve() != (workspace_root / "var").resolve():
-        argv.extend(["--output-dir", str(output_dir)])
-    argv.extend(["--output-prefix", output_prefix, "--status-only"])
     if require_ready:
         argv.append("--require-ready")
     if ready_gate_json is not None:
-        argv.extend(["--status-json-out", _rel(ready_gate_json, workspace_root)])
+        argv.extend(["--status-json-out", str(ready_gate_json)])
     return argv
 
 
@@ -236,16 +240,15 @@ def build_handoff(
         ],
     }
     if handoff_json is not None and validation_json is not None:
-        workspace_root = _workspace_root(app_root)
         handoff["validation"] = {
             "schema_json": str(validate_guarded_launch_handoff.DEFAULT_SCHEMA_PATH),
             "validation_json": str(validation_json),
             "command": [
-                "python",
-                "apps/AgriGuard/scripts/validate_guarded_launch_handoff.py",
-                _rel(handoff_json, workspace_root),
+                sys.executable,
+                str(app_root / "scripts" / "validate_guarded_launch_handoff.py"),
+                str(handoff_json),
                 "--json-out",
-                _rel(validation_json, workspace_root),
+                str(validation_json),
             ],
         }
     return handoff
