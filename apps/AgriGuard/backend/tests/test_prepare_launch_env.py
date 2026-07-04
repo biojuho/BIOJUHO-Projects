@@ -18,6 +18,8 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     env_file = tmp_path / "operator.env"
     json_out = tmp_path / "prepared.json"
     markdown_out = tmp_path / "prepared.md"
+    firebase_file = tmp_path / "firebase-service-account.json"
+    firebase_file.write_text("{}", encoding="utf-8")
 
     result = prepare_launch_env.main(
         [
@@ -30,7 +32,7 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
             "--public-verify-base-url",
             "https://verify.agriguard.io",
             "--firebase-service-account-file",
-            "C:/secure/firebase-service-account.json",
+            str(firebase_file),
             "--json-out",
             str(json_out),
             "--markdown-out",
@@ -54,7 +56,12 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     assert len(env["AGRIGUARD_QR_TOKEN_PEPPER"]) >= 32
     assert env["AGRIGUARD_ALLOWED_ORIGINS"] == "https://app.agriguard.io,https://admin.agriguard.io"
     assert env["AGRIGUARD_PUBLIC_VERIFY_BASE_URL"] == "https://verify.agriguard.io"
-    assert env["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE"] == str(Path("C:/secure/firebase-service-account.json"))
+    assert env["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE"] == str(firebase_file)
+    assert report["local_file_checks"] == {
+        "allow_missing_firebase_file": False,
+        "firebase_service_account_file_exists": True,
+        "firebase_service_account_file_path": "<redacted>",
+    }
     assert env["ALLOW_TEST_BYPASS"] == "false"
     assert env["ALLOW_DEV_AUTH_FALLBACK"] == "false"
     assert env["AGRIGUARD_DB_PASSWORD"] not in encoded_report
@@ -123,3 +130,72 @@ def test_prepare_launch_env_fails_closed_on_sample_domains(tmp_path: Path, capsy
         "Replace sample domain value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight."
         in report["validation"]["blocking_findings"]
     )
+
+
+def test_prepare_launch_env_fails_closed_on_missing_firebase_file(tmp_path: Path, capsys) -> None:
+    env_file = tmp_path / "operator.env"
+    json_out = tmp_path / "prepared.json"
+    missing_firebase_file = tmp_path / "missing-firebase-service-account.json"
+
+    result = prepare_launch_env.main(
+        [
+            "--app-root",
+            str(APP_ROOT),
+            "--out",
+            str(env_file),
+            "--allowed-origins",
+            "https://app.agriguard.io",
+            "--public-verify-base-url",
+            "https://verify.agriguard.io",
+            "--firebase-service-account-file",
+            str(missing_firebase_file),
+            "--json-out",
+            str(json_out),
+        ]
+    )
+
+    report = json.loads(json_out.read_text(encoding="utf-8"))
+    capsys.readouterr()
+    assert result == 1
+    assert report["status"] == "fail"
+    assert report["ready_for_preflight"] is False
+    assert report["local_file_checks"] == {
+        "allow_missing_firebase_file": False,
+        "firebase_service_account_file_exists": False,
+        "firebase_service_account_file_path": "<redacted>",
+    }
+    assert (
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist on this host."
+        in report["validation"]["blocking_findings"]
+    )
+
+
+def test_prepare_launch_env_can_allow_missing_firebase_file_for_planning(tmp_path: Path, capsys) -> None:
+    env_file = tmp_path / "operator.env"
+    json_out = tmp_path / "prepared.json"
+
+    result = prepare_launch_env.main(
+        [
+            "--app-root",
+            str(APP_ROOT),
+            "--out",
+            str(env_file),
+            "--allowed-origins",
+            "https://app.agriguard.io",
+            "--public-verify-base-url",
+            "https://verify.agriguard.io",
+            "--firebase-service-account-file",
+            str(tmp_path / "missing-firebase-service-account.json"),
+            "--allow-missing-firebase-file",
+            "--json-out",
+            str(json_out),
+        ]
+    )
+
+    report = json.loads(json_out.read_text(encoding="utf-8"))
+    capsys.readouterr()
+    assert result == 0
+    assert report["status"] == "pass"
+    assert report["ready_for_preflight"] is True
+    assert report["local_file_checks"]["allow_missing_firebase_file"] is True
+    assert report["local_file_checks"]["firebase_service_account_file_exists"] is False

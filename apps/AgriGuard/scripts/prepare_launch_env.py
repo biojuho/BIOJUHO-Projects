@@ -116,13 +116,36 @@ def _redacted_env_summary(env: dict[str, str]) -> list[dict[str, object]]:
     ]
 
 
-def build_report(*, env_file: Path, app_root: Path, env: dict[str, str]) -> dict[str, object]:
+def _firebase_file_findings(env: dict[str, str], *, allow_missing_firebase_file: bool) -> list[str]:
+    if allow_missing_firebase_file:
+        return []
+    value = (env.get("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE") or "").strip()
+    if not value:
+        return ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE is required."]
+    if not Path(value).is_file():
+        return ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist on this host."]
+    return []
+
+
+def build_report(
+    *,
+    env_file: Path,
+    app_root: Path,
+    env: dict[str, str],
+    allow_missing_firebase_file: bool = False,
+) -> dict[str, object]:
     workspace_root = _workspace_root(app_root)
     validation = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=app_root)
+    local_file_findings = _firebase_file_findings(env, allow_missing_firebase_file=allow_missing_firebase_file)
+    validation_ready = validation.get("ready_for_preflight") is True
+    ready_for_preflight = validation_ready and not local_file_findings
+    validation_findings = validation.get("blocking_findings")
+    blocking_findings = list(validation_findings) if isinstance(validation_findings, list) else []
+    blocking_findings.extend(local_file_findings)
     return {
         "schema_version": 1,
-        "status": validation.get("status"),
-        "ready_for_preflight": validation.get("ready_for_preflight"),
+        "status": "pass" if ready_for_preflight else "fail",
+        "ready_for_preflight": ready_for_preflight,
         "env_file": _rel(env_file, workspace_root),
         "secrets_redacted": True,
         "generated_fields": list(GENERATED_FIELDS),
@@ -136,7 +159,14 @@ def build_report(*, env_file: Path, app_root: Path, env: dict[str, str]) -> dict
             "placeholder_count": validation.get("placeholder_count"),
             "missing_required_keys": validation.get("missing_required_keys"),
             "forbidden_flags_enabled": validation.get("forbidden_flags_enabled"),
-            "blocking_findings": validation.get("blocking_findings"),
+            "blocking_findings": blocking_findings,
+        },
+        "local_file_checks": {
+            "allow_missing_firebase_file": allow_missing_firebase_file,
+            "firebase_service_account_file_exists": Path(
+                env.get("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE") or ""
+            ).is_file(),
+            "firebase_service_account_file_path": "<redacted>",
         },
         "safe_next_commands": [
             (
@@ -207,6 +237,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--db-password", default=None)
     parser.add_argument("--secret-key", default=None)
     parser.add_argument("--qr-token-pepper", default=None)
+    parser.add_argument(
+        "--allow-missing-firebase-file",
+        action="store_true",
+        help="Permit report generation before the Firebase service account JSON exists on this host.",
+    )
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--markdown-out", type=Path, default=None)
@@ -233,7 +268,12 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    report = build_report(env_file=env_file, app_root=app_root, env=env)
+    report = build_report(
+        env_file=env_file,
+        app_root=app_root,
+        env=env,
+        allow_missing_firebase_file=args.allow_missing_firebase_file,
+    )
     if args.json_out is not None:
         write_json(args.json_out.resolve(), report)
     if args.markdown_out is not None:
