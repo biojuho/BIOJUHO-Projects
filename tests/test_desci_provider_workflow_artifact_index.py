@@ -128,6 +128,32 @@ def test_desci_provider_workflow_artifact_index_reports_missing_bundle_members(t
     assert payload["artifacts"][1]["sha256_short"] is None
 
 
+def test_desci_provider_workflow_artifact_index_replaces_review_order_verify_json(
+    tmp_path,
+) -> None:
+    module = load_module()
+    verify_json = "var/custom-provider-workflow-verify.json"
+    _write_verify_json(tmp_path, verify_json)
+
+    payload = module.build_payload(
+        root=tmp_path,
+        json_out=module.DEFAULT_INDEX_PATH,
+        external_exit_code=None,
+        handoff_exit_code=None,
+        results_exit_code=None,
+        verify_exit_code="1",
+        verify_json=verify_json,
+    )
+
+    assert payload["first_decision_artifact"] == verify_json
+    assert verify_json in {item["path"] for item in payload["review_order"]}
+    assert module.DEFAULT_VERIFY_JSON not in {item["path"] for item in payload["review_order"]}
+    matching = [item for item in payload["artifacts"] if item["path"] == verify_json]
+    assert matching
+    assert matching[0]["id"] == "provider_workflow_verification_json"
+    assert matching[0]["exists"] is True
+
+
 def test_desci_provider_workflow_artifact_index_renders_markdown_summary(tmp_path) -> None:
     module = load_module()
     first_artifact = module.REVIEW_ORDER[0]["path"]

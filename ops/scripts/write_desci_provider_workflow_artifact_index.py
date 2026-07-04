@@ -65,6 +65,21 @@ REVIEW_ORDER = [
 ]
 
 
+def _artifact_path_key(path: str) -> str:
+    return path.replace("\\", "/")
+
+
+def review_order_for_verify_json(verify_json: str) -> list[dict[str, str]]:
+    review_order = [dict(item) for item in REVIEW_ORDER]
+    if _artifact_path_key(verify_json) == _artifact_path_key(DEFAULT_VERIFY_JSON):
+        return review_order
+    for item in review_order:
+        if item["id"] == "provider_workflow_verification_json":
+            item["path"] = verify_json
+            break
+    return review_order
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -197,8 +212,9 @@ def build_payload(
     verify_json: str = DEFAULT_VERIFY_JSON,
     provider_template_dir: str = PROVIDER_TEMPLATE_DIR,
 ) -> dict[str, Any]:
+    review_order = review_order_for_verify_json(verify_json)
     required_artifacts = [
-        artifact_metadata(item, root=root, required_for_complete_bundle=True) for item in REVIEW_ORDER
+        artifact_metadata(item, root=root, required_for_complete_bundle=True) for item in review_order
     ]
     provider_templates = discover_provider_templates(root=root, template_dir=provider_template_dir)
     artifacts = [*required_artifacts, *provider_templates]
@@ -224,7 +240,7 @@ def build_payload(
             "provider_apply_workflow_verifier": verify_exit_code,
         },
         "provider_apply_workflow": provider_apply_workflow_summary(root=root, verify_json=verify_json),
-        "review_order": REVIEW_ORDER,
+        "review_order": review_order,
         "artifacts": artifacts,
         "provider_templates": provider_templates,
     }
