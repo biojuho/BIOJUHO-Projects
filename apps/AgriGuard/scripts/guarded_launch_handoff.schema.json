@@ -70,6 +70,81 @@
       "minLength": 1,
       "type": "string"
     },
+    "packet_validation": {
+      "additionalProperties": false,
+      "properties": {
+        "empty_output_keys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "evidence_outputs_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_output_key_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "extra_markdown_rows": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "found": {
+          "type": "boolean"
+        },
+        "markdown_table_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "missing_markdown_rows": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "missing_output_keys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "operator_packet_json": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path_mismatch_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "found",
+        "operator_packet_json",
+        "evidence_outputs_status",
+        "markdown_table_status",
+        "missing_output_keys",
+        "empty_output_keys",
+        "expected_output_key_count",
+        "missing_markdown_rows",
+        "extra_markdown_rows",
+        "path_mismatch_count"
+      ],
+      "type": "object"
+    },
     "ready_gate": {
       "additionalProperties": false,
       "properties": {
@@ -362,6 +437,7 @@
     "output_dir",
     "status_view",
     "ready_gate",
+    "packet_validation",
     "external_blocker",
     "operator_commands"
   ],

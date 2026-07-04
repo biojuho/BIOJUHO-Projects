@@ -16,6 +16,33 @@ SPEC.loader.exec_module(render_guarded_launch_handoff)
 RUN_WRAPPER = render_guarded_launch_handoff.run_guarded_launch
 
 
+def _write_operator_packet(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "secrets_redacted": True,
+                "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                "guarded_launch_evidence": {
+                    "validation": {
+                        "status": "pass",
+                        "missing_output_keys": [],
+                        "empty_output_keys": [],
+                    },
+                    "markdown_table_validation": {
+                        "status": "pass",
+                        "expected_output_keys": ["status_json", "launch_report_json"],
+                        "missing_rows": [],
+                        "extra_rows": [],
+                        "path_mismatches": [],
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), "blocked")
@@ -46,6 +73,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         ),
         encoding="utf-8",
     )
+    _write_operator_packet(artifacts["operator_packet_json"])
 
     handoff = render_guarded_launch_handoff.build_handoff(
         app_root=APP_ROOT,
@@ -59,6 +87,10 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["ready_gate"]["exit_code"] == 1
     assert handoff["external_blocker"]["blocker_class"] == "preflight_blocked"
     assert handoff["external_blocker"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert handoff["packet_validation"]["status"] == "pass"
+    assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
+    assert handoff["packet_validation"]["markdown_table_status"] == "pass"
+    assert handoff["packet_validation"]["expected_output_key_count"] == 2
     assert "--require-ready" in handoff["ready_gate"]["command"]
     assert handoff["secrets_redacted"] is True
 
@@ -115,6 +147,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
         ),
         encoding="utf-8",
     )
+    _write_operator_packet(artifacts["operator_packet_json"])
 
     result = render_guarded_launch_handoff.main(
         [
@@ -143,4 +176,6 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert payload["validation"]["command"][-1].endswith("handoff.validation.json")
     assert validation["status"] == "pass"
     assert "Ready gate: `fail`" in markdown
+    assert "Packet validation: `pass`" in markdown
+    assert "Markdown table: `pass`" in markdown
     assert "run_guarded_launch.py" in markdown

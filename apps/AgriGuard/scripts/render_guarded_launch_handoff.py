@@ -50,6 +50,52 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _read_json(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str)]
+
+
+def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, object]:
+    operator_packet = status_view.get("operator_packet")
+    packet_path_value = operator_packet.get("path") if isinstance(operator_packet, dict) else None
+    packet_path = Path(packet_path_value) if isinstance(packet_path_value, str) else None
+    packet = _read_json(packet_path) if packet_path is not None else None
+    evidence = packet.get("guarded_launch_evidence") if isinstance(packet, dict) else None
+    evidence = evidence if isinstance(evidence, dict) else {}
+    evidence_validation = evidence.get("validation") if isinstance(evidence.get("validation"), dict) else {}
+    markdown_validation = (
+        evidence.get("markdown_table_validation") if isinstance(evidence.get("markdown_table_validation"), dict) else {}
+    )
+    evidence_status = evidence_validation.get("status")
+    markdown_status = markdown_validation.get("status")
+    expected_output_keys = _string_list(markdown_validation.get("expected_output_keys"))
+    status = "pass" if packet is not None and evidence_status == "pass" and markdown_status == "pass" else "fail"
+    return {
+        "status": status,
+        "found": packet is not None,
+        "operator_packet_json": str(packet_path) if packet_path is not None else None,
+        "evidence_outputs_status": evidence_status if isinstance(evidence_status, str) else None,
+        "markdown_table_status": markdown_status if isinstance(markdown_status, str) else None,
+        "missing_output_keys": _string_list(evidence_validation.get("missing_output_keys")),
+        "empty_output_keys": _string_list(evidence_validation.get("empty_output_keys")),
+        "expected_output_key_count": len(expected_output_keys),
+        "missing_markdown_rows": _string_list(markdown_validation.get("missing_rows")),
+        "extra_markdown_rows": _string_list(markdown_validation.get("extra_rows")),
+        "path_mismatch_count": len(markdown_validation.get("path_mismatches"))
+        if isinstance(markdown_validation.get("path_mismatches"), list)
+        else 0,
+    }
+
+
 def _wrapper_status_argv(
     *,
     app_root: Path,
@@ -108,6 +154,7 @@ def build_handoff(
         output_prefix=output_prefix,
         artifact_paths=artifact_paths,
     )
+    packet_validation = _packet_validation_summary(status_view)
     ready = run_guarded_launch._status_view_ready(status_view)
     ready_gate = {
         "status": "pass" if ready else "fail",
@@ -131,6 +178,7 @@ def build_handoff(
         "output_dir": str(output_dir),
         "status_view": status_view,
         "ready_gate": ready_gate,
+        "packet_validation": packet_validation,
         "external_blocker": _external_blocker(status_view, ready),
         "operator_commands": [
             {
@@ -169,6 +217,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
     status_view = handoff.get("status_view") if isinstance(handoff.get("status_view"), dict) else {}
     launch = status_view.get("launch") if isinstance(status_view.get("launch"), dict) else {}
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
+    packet_validation = handoff.get("packet_validation") if isinstance(handoff.get("packet_validation"), dict) else {}
     external_blocker = handoff.get("external_blocker") if isinstance(handoff.get("external_blocker"), dict) else {}
     commands = handoff.get("operator_commands") if isinstance(handoff.get("operator_commands"), list) else []
     action_ids = external_blocker.get("operator_action_ids")
@@ -181,7 +230,20 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Launch stage: `{launch.get('stage')}`",
         f"- Blocker class: `{status_view.get('blocker_class')}`",
         f"- Ready gate: `{ready_gate.get('status')}`",
+        f"- Packet validation: `{packet_validation.get('status')}`",
         f"- Secrets redacted: `{str(handoff.get('secrets_redacted')).lower()}`",
+        "",
+        "## Packet Validation",
+        "",
+        f"- Operator packet JSON: `{packet_validation.get('operator_packet_json')}`",
+        f"- Evidence outputs: `{packet_validation.get('evidence_outputs_status')}`",
+        f"- Markdown table: `{packet_validation.get('markdown_table_status')}`",
+        f"- Expected evidence keys: `{packet_validation.get('expected_output_key_count')}`",
+        f"- Missing output keys: `{', '.join(packet_validation.get('missing_output_keys', [])) or '-'}`",
+        f"- Empty output keys: `{', '.join(packet_validation.get('empty_output_keys', [])) or '-'}`",
+        f"- Missing Markdown rows: `{', '.join(packet_validation.get('missing_markdown_rows', [])) or '-'}`",
+        f"- Extra Markdown rows: `{', '.join(packet_validation.get('extra_markdown_rows', [])) or '-'}`",
+        f"- Path mismatch count: `{packet_validation.get('path_mismatch_count')}`",
         "",
         "## External Blocker",
         "",
