@@ -160,7 +160,9 @@ def _operator_env_template_validation_command() -> str:
 def _guarded_launch_command() -> str:
     return (
         "python apps/AgriGuard/scripts/run_guarded_launch.py "
-        "--env-file var/agriguard-launch-operator.env.template"
+        "--env-file var/agriguard-launch-operator.env.template "
+        "--emit-handoff "
+        "--status-json-out var/agriguard-guarded-launch-status.json"
     )
 
 

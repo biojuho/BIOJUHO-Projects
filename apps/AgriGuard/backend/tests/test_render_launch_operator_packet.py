@@ -62,7 +62,9 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     )
     assert packet["safe_rerun_commands"][1] == (
         "python apps/AgriGuard/scripts/run_guarded_launch.py "
-        "--env-file var/agriguard-launch-operator.env.template"
+        "--env-file var/agriguard-launch-operator.env.template "
+        "--emit-handoff "
+        "--status-json-out var/agriguard-guarded-launch-status.json"
     )
     assert packet["operator_env_template"]["validation_command"] == packet["safe_rerun_commands"][0]
 
@@ -102,7 +104,10 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert "SECRET_KEY=<redacted>" in markdown
     assert "super-secret-value" not in markdown
     assert "validate_launch_env_template.py --env-file var/agriguard-launch-operator.env.template" in markdown
-    assert "run_guarded_launch.py --env-file var/agriguard-launch-operator.env.template" in markdown
+    assert (
+        "run_guarded_launch.py --env-file var/agriguard-launch-operator.env.template "
+        "--emit-handoff --status-json-out var/agriguard-guarded-launch-status.json"
+    ) in markdown
     assert "launch_env_preflight.py --check-docker" in markdown
     assert "launch_compose.py --run-browser-smoke" in markdown
     assert markdown.index("validate_launch_env_template.py") < markdown.index("run_guarded_launch.py")
