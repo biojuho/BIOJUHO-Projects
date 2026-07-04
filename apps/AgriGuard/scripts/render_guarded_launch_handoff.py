@@ -362,7 +362,9 @@ def render_markdown(handoff: dict[str, object]) -> str:
         command_text = command.get("command_text")
         if not isinstance(command_text, str) or not command_text:
             command_text = _format_operator_command(argv)
-        lines.append(f"- `{command.get('id')}`: `{command_text}`")
+        shell = command.get("command_shell")
+        shell_text = f" ({shell})" if isinstance(shell, str) and shell else ""
+        lines.append(f"- `{command.get('id')}`{shell_text}: `{command_text}`")
     lines.append("")
     return "\n".join(lines)
 
