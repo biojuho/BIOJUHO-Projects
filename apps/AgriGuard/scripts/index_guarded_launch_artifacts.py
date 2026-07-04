@@ -72,15 +72,27 @@ def _artifact(role: str, path: Path, required: bool) -> dict[str, object]:
     }
 
 
-def _artifact_paths(output_dir: Path, output_prefix: str, status_json: Path | None) -> dict[str, Path]:
+def _artifact_paths(
+    output_dir: Path,
+    output_prefix: str,
+    status_json: Path | None,
+    *,
+    handoff_json: Path | None = None,
+    handoff_markdown: Path | None = None,
+    handoff_validation_json: Path | None = None,
+    handoff_consumer_json: Path | None = None,
+    ready_gate_json: Path | None = None,
+) -> dict[str, Path]:
     paths = run_guarded_launch._artifact_paths(output_dir, output_prefix)
     paths.update(
         {
-            "handoff_json": run_guarded_launch._default_handoff_json(output_dir, output_prefix),
-            "handoff_markdown": run_guarded_launch._default_handoff_markdown(output_dir, output_prefix),
-            "handoff_validation_json": run_guarded_launch._default_handoff_validation_json(output_dir, output_prefix),
-            "handoff_consumer_json": run_guarded_launch._default_handoff_consumer_json(output_dir, output_prefix),
-            "ready_gate_json": run_guarded_launch._default_ready_gate_json(output_dir, output_prefix),
+            "handoff_json": handoff_json or run_guarded_launch._default_handoff_json(output_dir, output_prefix),
+            "handoff_markdown": handoff_markdown or run_guarded_launch._default_handoff_markdown(output_dir, output_prefix),
+            "handoff_validation_json": handoff_validation_json
+            or run_guarded_launch._default_handoff_validation_json(output_dir, output_prefix),
+            "handoff_consumer_json": handoff_consumer_json
+            or run_guarded_launch._default_handoff_consumer_json(output_dir, output_prefix),
+            "ready_gate_json": ready_gate_json or run_guarded_launch._default_ready_gate_json(output_dir, output_prefix),
             "status_json": status_json or (output_dir / f"{output_prefix}-status.json"),
         }
     )
@@ -93,6 +105,11 @@ def _recovery_command(
     output_dir: Path,
     output_prefix: str,
     status_json: Path | None,
+    handoff_json: Path | None,
+    handoff_markdown: Path | None,
+    handoff_validation_json: Path | None,
+    handoff_consumer_json: Path | None,
+    ready_gate_json: Path | None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -109,6 +126,16 @@ def _recovery_command(
     ]
     if status_json is not None:
         command.extend(["--status-json-out", str(status_json)])
+    if handoff_json is not None:
+        command.extend(["--handoff-json-out", str(handoff_json)])
+    if handoff_markdown is not None:
+        command.extend(["--handoff-markdown-out", str(handoff_markdown)])
+    if handoff_validation_json is not None:
+        command.extend(["--handoff-validation-json-out", str(handoff_validation_json)])
+    if handoff_consumer_json is not None:
+        command.extend(["--handoff-consumer-json-out", str(handoff_consumer_json)])
+    if ready_gate_json is not None:
+        command.extend(["--handoff-ready-gate-json-out", str(ready_gate_json)])
     return command
 
 
@@ -118,10 +145,24 @@ def build_index(
     output_dir: Path,
     output_prefix: str,
     status_json: Path | None = None,
+    handoff_json: Path | None = None,
+    handoff_markdown: Path | None = None,
+    handoff_validation_json: Path | None = None,
+    handoff_consumer_json: Path | None = None,
+    ready_gate_json: Path | None = None,
 ) -> dict[str, object]:
     app_root = app_root.resolve()
     output_dir = output_dir.resolve()
-    paths = _artifact_paths(output_dir, output_prefix, status_json.resolve() if status_json else None)
+    paths = _artifact_paths(
+        output_dir,
+        output_prefix,
+        status_json.resolve() if status_json else None,
+        handoff_json=handoff_json.resolve() if handoff_json else None,
+        handoff_markdown=handoff_markdown.resolve() if handoff_markdown else None,
+        handoff_validation_json=handoff_validation_json.resolve() if handoff_validation_json else None,
+        handoff_consumer_json=handoff_consumer_json.resolve() if handoff_consumer_json else None,
+        ready_gate_json=ready_gate_json.resolve() if ready_gate_json else None,
+    )
     required_roles = set(REQUIRED_CORE_ARTIFACT_ROLES)
     if status_json is not None:
         required_roles.add(STATUS_ARTIFACT_ROLE)
@@ -177,6 +218,11 @@ def build_index(
             output_dir=output_dir,
             output_prefix=output_prefix,
             status_json=status_json.resolve() if status_json else None,
+            handoff_json=handoff_json.resolve() if handoff_json else None,
+            handoff_markdown=handoff_markdown.resolve() if handoff_markdown else None,
+            handoff_validation_json=handoff_validation_json.resolve() if handoff_validation_json else None,
+            handoff_consumer_json=handoff_consumer_json.resolve() if handoff_consumer_json else None,
+            ready_gate_json=ready_gate_json.resolve() if ready_gate_json else None,
         )
     )
     recovery_command_status = "not_required" if index_status == "pass" else "pass" if recovery_command else "fail"
@@ -311,6 +357,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=workspace_root / "var")
     parser.add_argument("--output-prefix", default=run_guarded_launch.DEFAULT_OUTPUT_PREFIX)
     parser.add_argument("--status-json", type=Path, default=None)
+    parser.add_argument("--handoff-json", type=Path, default=None)
+    parser.add_argument("--handoff-markdown", type=Path, default=None)
+    parser.add_argument("--handoff-validation-json", type=Path, default=None)
+    parser.add_argument("--handoff-consumer-json", type=Path, default=None)
+    parser.add_argument("--ready-gate-json", type=Path, default=None)
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--markdown-out", type=Path, default=None)
     parser.add_argument("--exit-zero-on-fail", action="store_true")
@@ -324,6 +375,11 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=args.output_dir,
         output_prefix=args.output_prefix,
         status_json=args.status_json,
+        handoff_json=args.handoff_json,
+        handoff_markdown=args.handoff_markdown,
+        handoff_validation_json=args.handoff_validation_json,
+        handoff_consumer_json=args.handoff_consumer_json,
+        ready_gate_json=args.ready_gate_json,
     )
     if args.json_out is not None:
         write_json(args.json_out, index)

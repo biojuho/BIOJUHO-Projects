@@ -97,6 +97,68 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     }
 
 
+def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    custom_dir = tmp_path / "custom-handoff"
+    custom_paths = {
+        "handoff_json": custom_dir / "current.handoff.json",
+        "handoff_markdown": custom_dir / "current.handoff.md",
+        "handoff_validation_json": custom_dir / "current.handoff.validation.json",
+        "handoff_consumer_json": custom_dir / "current.handoff.consumer.json",
+        "ready_gate_json": custom_dir / "current.ready-gate.json",
+    }
+    paths = index_guarded_launch_artifacts._artifact_paths(
+        output_dir.resolve(),
+        "blocked",
+        None,
+        **custom_paths,
+    )
+    _write_json(
+        paths["launch_report_json"],
+        {"status": "fail", "stage": "preflight", "results": [{"name": "preflight"}]},
+    )
+    _write_json(paths["handoff_json"], {"status": "blocked"})
+    paths["handoff_markdown"].parent.mkdir(parents=True, exist_ok=True)
+    paths["handoff_markdown"].write_text("# Custom handoff\n", encoding="utf-8")
+    _write_json(paths["handoff_validation_json"], {"status": "pass", "errors": []})
+    _write_json(
+        paths["handoff_consumer_json"],
+        {
+            "status": "fail",
+            "blocker_class": "preflight_blocked",
+            "validation_matches_handoff": True,
+            "validation_status": "pass",
+            "packet_validation_status": "pass",
+            "packet_evidence_outputs_status": "pass",
+            "packet_markdown_table_status": "pass",
+            "packet_path_mismatch_count": 0,
+            "readiness_operator_action_ids": ["fix_env_shape_validation"],
+            "errors": [],
+        },
+    )
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+        handoff_json=custom_paths["handoff_json"],
+        handoff_markdown=custom_paths["handoff_markdown"],
+        handoff_validation_json=custom_paths["handoff_validation_json"],
+        handoff_consumer_json=custom_paths["handoff_consumer_json"],
+        ready_gate_json=custom_paths["ready_gate_json"],
+    )
+
+    artifacts_by_role = {
+        artifact["role"]: artifact
+        for artifact in index["artifacts"]
+        if isinstance(artifact, dict)
+    }
+    assert index["status"] == "pass"
+    assert index["missing_required_roles"] == []
+    assert artifacts_by_role["handoff_json"]["path"] == str(custom_paths["handoff_json"].resolve())
+    assert artifacts_by_role["handoff_consumer_json"]["path"] == str(custom_paths["handoff_consumer_json"].resolve())
+
+
 def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     paths = _write_core_artifacts(output_dir, "blocked")

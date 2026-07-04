@@ -447,6 +447,11 @@ def _build_artifact_index_command(
     json_out: Path,
     markdown_out: Path,
     status_json: Path | None,
+    handoff_json: Path,
+    handoff_markdown: Path,
+    handoff_validation_json: Path,
+    handoff_consumer_json: Path,
+    ready_gate_json: Path,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -462,6 +467,20 @@ def _build_artifact_index_command(
     ]
     if status_json is not None:
         command.extend(["--status-json", str(status_json)])
+    command.extend(
+        [
+            "--handoff-json",
+            str(handoff_json),
+            "--handoff-markdown",
+            str(handoff_markdown),
+            "--handoff-validation-json",
+            str(handoff_validation_json),
+            "--handoff-consumer-json",
+            str(handoff_consumer_json),
+            "--ready-gate-json",
+            str(ready_gate_json),
+        ]
+    )
     return command
 
 
@@ -614,6 +633,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             json_out=artifact_index_json,
             markdown_out=artifact_index_markdown,
             status_json=args.status_json_out.resolve() if args.status_json_out else None,
+            handoff_json=handoff_json,
+            handoff_markdown=handoff_markdown,
+            handoff_validation_json=handoff_validation_json,
+            handoff_consumer_json=handoff_consumer_json,
+            ready_gate_json=handoff_ready_gate_json,
         )
         if handoff_requested
         else None

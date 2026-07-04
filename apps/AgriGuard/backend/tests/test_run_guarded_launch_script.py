@@ -150,6 +150,53 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     )
 
 
+def test_guarded_launch_artifact_index_uses_custom_handoff_outputs(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+    custom_dir = tmp_path / "custom-handoff"
+    handoff_json = custom_dir / "current.handoff.json"
+    handoff_markdown = custom_dir / "current.handoff.md"
+    handoff_validation_json = custom_dir / "current.handoff.validation.json"
+    handoff_consumer_json = custom_dir / "current.handoff.consumer.json"
+    ready_gate_json = custom_dir / "current.ready-gate.json"
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--handoff-json-out",
+            str(handoff_json),
+            "--handoff-markdown-out",
+            str(handoff_markdown),
+            "--handoff-validation-json-out",
+            str(handoff_validation_json),
+            "--handoff-consumer-json-out",
+            str(handoff_consumer_json),
+            "--handoff-ready-gate-json-out",
+            str(ready_gate_json),
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    artifact_index_command = payload["artifact_index_command"]
+    assert result == 0
+    assert _arg_after(artifact_index_command, "--handoff-json") == str(handoff_json.resolve())
+    assert _arg_after(artifact_index_command, "--handoff-markdown") == str(handoff_markdown.resolve())
+    assert _arg_after(artifact_index_command, "--handoff-validation-json") == str(
+        handoff_validation_json.resolve()
+    )
+    assert _arg_after(artifact_index_command, "--handoff-consumer-json") == str(handoff_consumer_json.resolve())
+    assert _arg_after(artifact_index_command, "--ready-gate-json") == str(ready_gate_json.resolve())
+
+
 def test_guarded_launch_dry_run_reports_missing_artifact_index_hint(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     env_file = tmp_path / "operator.env"
