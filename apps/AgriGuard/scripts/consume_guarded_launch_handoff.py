@@ -116,6 +116,11 @@ def build_consumer_view(
     )
     packet_validation = _packet_validation(handoff)
     packet_validation_status = packet_validation.get("status")
+    packet_recovery_summary = (
+        packet_validation.get("artifact_index_recovery_summary")
+        if isinstance(packet_validation.get("artifact_index_recovery_summary"), dict)
+        else {}
+    )
     if handoff is not None and packet_validation_status != "pass":
         errors.append("packet_validation status is not pass")
     ready_gate_status = ready_gate.get("status")
@@ -140,6 +145,7 @@ def build_consumer_view(
             "artifact_index_recovery_command_status"
         ),
         "packet_artifact_index_recovery_command_note": packet_validation.get("artifact_index_recovery_command_note"),
+        "packet_artifact_index_recovery_summary": packet_recovery_summary,
         "readiness_operator_action_ids": readiness_action_ids,
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),

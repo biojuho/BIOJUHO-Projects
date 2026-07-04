@@ -236,6 +236,13 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
                 "status": "pass",
                 "consumer_packet_validation_status": "pass",
                 "recovery_command_status": "not_required",
+                "recovery_summary": {
+                    "required": False,
+                    "action": None,
+                    "status": "not_required",
+                    "note": None,
+                    "command": None,
+                },
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
@@ -259,6 +266,13 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         "consumer_packet_validation_status": "pass",
         "recovery_command_status": "not_required",
         "recovery_command_note": None,
+        "recovery_summary": {
+            "required": False,
+            "action": None,
+            "status": "not_required",
+            "note": None,
+            "command": None,
+        },
         "operator_action_ids": ["fix_env_shape_validation"],
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
@@ -269,6 +283,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     assert "## Guarded Launch Readiness Summary" in markdown
     assert "Action IDs: `fix_env_shape_validation`" in markdown
     assert "Recovery command status: `not_required`" in markdown
+    assert "Recovery summary required: `false`" in markdown
     assert "Packet preflight status: `env_shape_blocked`" in markdown
 
 
@@ -285,6 +300,13 @@ def test_operator_packet_reports_missing_artifact_index_hint(tmp_path: Path) -> 
     assert summary["recovery_command_note"] == (
         "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
     )
+    assert summary["recovery_summary"] == {
+        "required": True,
+        "action": "Run the guarded launch wrapper command to generate the artifact index evidence.",
+        "status": None,
+        "note": "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
+        "command": packet["guarded_launch_evidence"]["wrapper_command"],
+    }
     assert summary["missing_index_action"] == (
         "Run the guarded launch wrapper command to generate the artifact index evidence."
     )

@@ -64,6 +64,25 @@ def _string_list(value: object) -> list[str]:
     return [str(item) for item in value if isinstance(item, str)]
 
 
+def _artifact_index_recovery_summary(artifact_index_summary: dict[str, object]) -> dict[str, object]:
+    recovery_summary = artifact_index_summary.get("recovery_summary")
+    if isinstance(recovery_summary, dict):
+        return dict(recovery_summary)
+    recovery_command_status = artifact_index_summary.get("recovery_command_status")
+    recovery_command_note = (
+        None
+        if isinstance(recovery_command_status, str)
+        else "Artifact index recovery status is resolved after the wrapper emits the artifact index."
+    )
+    return {
+        "required": not isinstance(recovery_command_status, str),
+        "action": artifact_index_summary.get("missing_index_action"),
+        "status": recovery_command_status if isinstance(recovery_command_status, str) else None,
+        "note": recovery_command_note,
+        "command": artifact_index_summary.get("missing_index_command"),
+    }
+
+
 def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, object]:
     operator_packet = status_view.get("operator_packet")
     packet_path_value = operator_packet.get("path") if isinstance(operator_packet, dict) else None
@@ -82,12 +101,9 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
     )
     evidence_status = evidence_validation.get("status")
     markdown_status = markdown_validation.get("status")
-    recovery_command_status = artifact_index_summary.get("recovery_command_status")
-    recovery_command_note = (
-        None
-        if isinstance(recovery_command_status, str)
-        else "Artifact index recovery status is resolved after the wrapper emits the artifact index."
-    )
+    recovery_summary = _artifact_index_recovery_summary(artifact_index_summary)
+    recovery_command_status = recovery_summary.get("status")
+    recovery_command_note = recovery_summary.get("note")
     expected_output_keys = _string_list(markdown_validation.get("expected_output_keys"))
     status = "pass" if packet is not None and evidence_status == "pass" and markdown_status == "pass" else "fail"
     return {
@@ -108,6 +124,7 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
         if isinstance(recovery_command_status, str)
         else None,
         "artifact_index_recovery_command_note": recovery_command_note,
+        "artifact_index_recovery_summary": recovery_summary,
     }
 
 
@@ -264,6 +281,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Path mismatch count: `{packet_validation.get('path_mismatch_count')}`",
         f"- Artifact index recovery command status: `{packet_validation.get('artifact_index_recovery_command_status')}`",
         f"- Artifact index recovery command note: `{packet_validation.get('artifact_index_recovery_command_note') or '-'}`",
+        f"- Artifact index recovery required: `{str((packet_validation.get('artifact_index_recovery_summary') or {}).get('required')).lower()}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
         f"- Env validation ready for preflight: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
         f"- Env validation placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",

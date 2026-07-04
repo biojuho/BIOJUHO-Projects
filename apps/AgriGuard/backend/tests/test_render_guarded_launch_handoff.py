@@ -17,10 +17,27 @@ RUN_WRAPPER = render_guarded_launch_handoff.run_guarded_launch
 
 
 def _write_operator_packet(path: Path, *, recovery_command_status: str | None = "not_required") -> None:
-    artifact_summary = (
-        {"recovery_command_status": recovery_command_status}
+    recovery_summary = (
+        {
+            "required": False,
+            "action": None,
+            "status": recovery_command_status,
+            "note": None,
+            "command": None,
+        }
         if recovery_command_status is not None
-        else {}
+        else {
+            "required": True,
+            "action": "Run the guarded launch wrapper command to generate the artifact index evidence.",
+            "status": None,
+            "note": "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
+            "command": "python apps/AgriGuard/scripts/run_guarded_launch.py --emit-handoff",
+        }
+    )
+    artifact_summary = (
+        {"recovery_command_status": recovery_command_status, "recovery_summary": recovery_summary}
+        if recovery_command_status is not None
+        else {"recovery_summary": recovery_summary}
     )
     path.write_text(
         json.dumps(
@@ -99,6 +116,13 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
     assert handoff["packet_validation"]["artifact_index_recovery_command_status"] == "not_required"
     assert handoff["packet_validation"]["artifact_index_recovery_command_note"] is None
+    assert handoff["packet_validation"]["artifact_index_recovery_summary"] == {
+        "required": False,
+        "action": None,
+        "status": "not_required",
+        "note": None,
+        "command": None,
+    }
     assert "--require-ready" in handoff["ready_gate"]["command"]
     assert handoff["secrets_redacted"] is True
 
@@ -123,9 +147,11 @@ def test_guarded_launch_handoff_notes_deferred_artifact_index_recovery_status(tm
 
     assert handoff["packet_validation"]["artifact_index_recovery_command_status"] is None
     assert handoff["packet_validation"]["artifact_index_recovery_command_note"] == (
-        "Artifact index recovery status is resolved after the wrapper emits the artifact index."
+        "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
     )
+    assert handoff["packet_validation"]["artifact_index_recovery_summary"]["required"] is True
     assert "Artifact index recovery command note: `Artifact index recovery status is resolved" in markdown
+    assert "Artifact index recovery required: `true`" in markdown
 
 
 def test_guarded_launch_handoff_accepts_ready_prefix(tmp_path: Path) -> None:

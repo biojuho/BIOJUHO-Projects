@@ -52,10 +52,27 @@ def _write_operator_packet(
     recovery_command_status: str | None = "not_required",
 ) -> None:
     artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), prefix)
-    artifact_summary = (
-        {"recovery_command_status": recovery_command_status}
+    recovery_summary = (
+        {
+            "required": False,
+            "action": None,
+            "status": recovery_command_status,
+            "note": None,
+            "command": None,
+        }
         if recovery_command_status is not None
-        else {}
+        else {
+            "required": True,
+            "action": "Run the guarded launch wrapper command to generate the artifact index evidence.",
+            "status": None,
+            "note": "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
+            "command": "python apps/AgriGuard/scripts/run_guarded_launch.py --emit-handoff",
+        }
+    )
+    artifact_summary = (
+        {"recovery_command_status": recovery_command_status, "recovery_summary": recovery_summary}
+        if recovery_command_status is not None
+        else {"recovery_summary": recovery_summary}
     )
     artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
     artifacts["operator_packet_json"].write_text(
@@ -130,6 +147,13 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["packet_markdown_table_status"] == "pass"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["packet_artifact_index_recovery_command_note"] is None
+    assert view["packet_artifact_index_recovery_summary"] == {
+        "required": False,
+        "action": None,
+        "status": "not_required",
+        "note": None,
+        "command": None,
+    }
     assert view["validation_matches_handoff"] is True
     assert view["errors"] == []
 
@@ -170,6 +194,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["packet_validation_status"] == "pass"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["packet_artifact_index_recovery_command_note"] is None
+    assert view["packet_artifact_index_recovery_summary"]["required"] is False
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["readiness_env_validation_ready_for_preflight"] is False
     assert view["readiness_env_validation_placeholder_count"] == 6
@@ -199,8 +224,9 @@ def test_consume_guarded_launch_handoff_exposes_deferred_recovery_status_note(tm
 
     assert view["packet_artifact_index_recovery_command_status"] is None
     assert view["packet_artifact_index_recovery_command_note"] == (
-        "Artifact index recovery status is resolved after the wrapper emits the artifact index."
+        "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
     )
+    assert view["packet_artifact_index_recovery_summary"]["required"] is True
 
 
 def test_consume_guarded_launch_handoff_fails_packet_validation_drift(tmp_path: Path) -> None:

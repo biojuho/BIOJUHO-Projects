@@ -283,6 +283,34 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+MISSING_ARTIFACT_INDEX_RECOVERY_ACTION = "Run the guarded launch wrapper command to generate the artifact index evidence."
+MISSING_ARTIFACT_INDEX_RECOVERY_NOTE = (
+    "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
+)
+
+
+def _artifact_index_recovery_summary(index: dict[str, Any] | None, missing_index_command: str) -> dict[str, object]:
+    if index is not None:
+        recovery_summary = index.get("recovery_summary")
+        if isinstance(recovery_summary, dict):
+            return dict(recovery_summary)
+        recovery_command = index.get("recovery_command")
+        return {
+            "required": recovery_command is not None,
+            "action": index.get("recovery_action"),
+            "status": index.get("recovery_command_status"),
+            "note": index.get("recovery_command_note"),
+            "command": recovery_command,
+        }
+    return {
+        "required": True,
+        "action": MISSING_ARTIFACT_INDEX_RECOVERY_ACTION,
+        "status": None,
+        "note": MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
+        "command": missing_index_command,
+    }
+
+
 def _artifact_index_readiness_summary(
     index_json: Path,
     workspace_root: Path,
@@ -300,9 +328,8 @@ def _artifact_index_readiness_summary(
         "status": index.get("status") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
-        "recovery_command_note": None
-        if index is not None
-        else "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
+        "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
+        "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
         "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
         if index is not None
@@ -313,9 +340,7 @@ def _artifact_index_readiness_summary(
         "operator_packet_preflight_status": index.get("consumer_readiness_operator_packet_preflight_status")
         if index is not None
         else None,
-        "missing_index_action": None
-        if index is not None
-        else "Run the guarded launch wrapper command to generate the artifact index evidence.",
+        "missing_index_action": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_ACTION,
         "missing_index_command": None if index is not None else missing_index_command,
     }
 
@@ -582,6 +607,11 @@ def render_markdown(packet: dict[str, object]) -> str:
         if isinstance(readiness_summary.get("operator_action_ids"), list)
         else []
     )
+    recovery_summary = (
+        readiness_summary.get("recovery_summary")
+        if isinstance(readiness_summary.get("recovery_summary"), dict)
+        else {}
+    )
     lines.extend(
         [
             "",
@@ -593,6 +623,7 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Consumer packet validation: `{readiness_summary.get('consumer_packet_validation_status')}`",
             f"- Recovery command status: `{readiness_summary.get('recovery_command_status')}`",
             f"- Recovery command note: `{readiness_summary.get('recovery_command_note') or '-'}`",
+            f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
             f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
             f"- Env validation ready: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
             f"- Env placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",

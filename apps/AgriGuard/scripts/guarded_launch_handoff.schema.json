@@ -91,6 +91,50 @@
             "null"
           ]
         },
+        "artifact_index_recovery_summary": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "string",
+                "array",
+                "null"
+              ]
+            },
+            "note": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "required",
+            "action",
+            "status",
+            "note",
+            "command"
+          ],
+          "type": "object"
+        },
         "evidence_outputs_status": {
           "type": [
             "string",
@@ -155,7 +199,8 @@
         "extra_markdown_rows",
         "path_mismatch_count",
         "artifact_index_recovery_command_status",
-        "artifact_index_recovery_command_note"
+        "artifact_index_recovery_command_note",
+        "artifact_index_recovery_summary"
       ],
       "type": "object"
     },
