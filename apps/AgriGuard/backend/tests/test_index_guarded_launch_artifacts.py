@@ -86,6 +86,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["missing_required_roles"] == []
     assert index["recovery_action"] is None
     assert index["recovery_command"] is None
+    assert index["recovery_command_status"] == "not_required"
 
 
 def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:
@@ -108,6 +109,7 @@ def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: 
     assert index["recovery_action"] == (
         "Run the guarded launch wrapper command to regenerate required artifact-index evidence."
     )
+    assert index["recovery_command_status"] == "pass"
     assert "--emit-handoff" in index["recovery_command"]
 
 
@@ -124,6 +126,7 @@ def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -
 
     assert index["status"] == "fail"
     assert index["missing_required_roles"] == ["handoff_consumer_json"]
+    assert index["recovery_command_status"] == "pass"
     recovery_command = index["recovery_command"]
     markdown = index_guarded_launch_artifacts.render_markdown(index)
     assert recovery_command[:2] == [
@@ -189,5 +192,6 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
     assert payload["status"] == "pass"
     assert "Consumer packet validation: `pass`" in markdown
     assert "Consumer readiness action IDs: `fix_env_shape_validation`" in markdown
+    assert "Recovery command status: `not_required`" in markdown
     assert "Recovery command: `-`" in markdown
     assert "`handoff_consumer_json`" in markdown

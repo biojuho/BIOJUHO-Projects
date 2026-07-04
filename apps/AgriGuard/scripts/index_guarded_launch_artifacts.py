@@ -179,6 +179,7 @@ def build_index(
             status_json=status_json.resolve() if status_json else None,
         )
     )
+    recovery_command_status = "not_required" if index_status == "pass" else "pass" if recovery_command else "fail"
     return {
         "schema_version": 1,
         "status": index_status,
@@ -217,6 +218,7 @@ def build_index(
         if recovery_command is None
         else "Run the guarded launch wrapper command to regenerate required artifact-index evidence.",
         "recovery_command": recovery_command,
+        "recovery_command_status": recovery_command_status,
         "secrets_redacted": True,
     }
 
@@ -252,6 +254,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer readiness packet preflight status: `{index.get('consumer_readiness_operator_packet_preflight_status')}`",
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
         f"- Recovery action: `{index.get('recovery_action') or '-'}`",
+        f"- Recovery command status: `{index.get('recovery_command_status')}`",
         f"- Recovery command: `{' '.join(str(part) for part in recovery_command) if recovery_command else '-'}`",
         "",
         "## Artifacts",
