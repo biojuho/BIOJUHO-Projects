@@ -140,6 +140,7 @@ def test_index_guarded_launch_artifacts_can_require_status_json(tmp_path: Path) 
 def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     json_out = tmp_path / "index.json"
+    markdown_out = tmp_path / "index.md"
     _write_core_artifacts(output_dir, "blocked")
 
     result = index_guarded_launch_artifacts.main(
@@ -152,9 +153,14 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
             "blocked",
             "--json-out",
             str(json_out),
+            "--markdown-out",
+            str(markdown_out),
         ]
     )
 
     payload = json.loads(json_out.read_text(encoding="utf-8"))
+    markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
     assert payload["status"] == "pass"
+    assert "Consumer packet validation: `pass`" in markdown
+    assert "`handoff_consumer_json`" in markdown

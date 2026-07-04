@@ -172,6 +172,48 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def render_markdown(index: dict[str, object]) -> str:
+    missing_roles = index.get("missing_required_roles") if isinstance(index.get("missing_required_roles"), list) else []
+    artifacts = index.get("artifacts") if isinstance(index.get("artifacts"), list) else []
+    lines = [
+        "# AgriGuard Guarded Launch Artifact Index",
+        "",
+        f"- Status: `{index.get('status')}`",
+        f"- Output prefix: `{index.get('output_prefix')}`",
+        f"- Launch status: `{index.get('launch_status')}`",
+        f"- Validation status: `{index.get('validation_status')}`",
+        f"- Consumer validation matches handoff: `{str(index.get('consumer_validation_matches_handoff')).lower()}`",
+        f"- Consumer packet validation: `{index.get('consumer_packet_validation_status')}`",
+        f"- Consumer packet Markdown table: `{index.get('consumer_packet_markdown_table_status')}`",
+        f"- Consumer packet path mismatch count: `{index.get('consumer_packet_path_mismatch_count')}`",
+        f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
+        "",
+        "## Artifacts",
+        "",
+        "| Role | Required | Exists | Size | SHA-256 | Path |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    f"`{artifact.get('role')}`",
+                    str(artifact.get("required")).lower(),
+                    str(artifact.get("exists")).lower(),
+                    str(artifact.get("size_bytes") if artifact.get("size_bytes") is not None else "-"),
+                    f"`{artifact.get('sha256') or '-'}`",
+                    f"`{artifact.get('path')}`",
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     app_root = _default_app_root()
     workspace_root = _workspace_root(app_root)
@@ -181,6 +223,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-prefix", default=run_guarded_launch.DEFAULT_OUTPUT_PREFIX)
     parser.add_argument("--status-json", type=Path, default=None)
     parser.add_argument("--json-out", type=Path, default=None)
+    parser.add_argument("--markdown-out", type=Path, default=None)
     parser.add_argument("--exit-zero-on-fail", action="store_true")
     return parser.parse_args(argv)
 
@@ -195,6 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.json_out is not None:
         write_json(args.json_out, index)
+    if args.markdown_out is not None:
+        args.markdown_out.parent.mkdir(parents=True, exist_ok=True)
+        args.markdown_out.write_text(render_markdown(index), encoding="utf-8")
     print(json.dumps(index, indent=2, sort_keys=True))
     return 0 if index["status"] == "pass" or args.exit_zero_on_fail else 1
 
