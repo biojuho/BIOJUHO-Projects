@@ -108,6 +108,8 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
         "operator_packet_preflight_status": "env_shape_blocked",
+        "missing_index_action": None,
+        "missing_index_command": None,
     }
     assert payload["handoff_command"][:2] == [
         sys.executable,
@@ -129,6 +131,41 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert _arg_after(payload["artifact_index_command"], "--markdown-out") == str(
         output_dir.resolve() / "release-check-artifact-index.md"
     )
+
+
+def test_guarded_launch_dry_run_reports_missing_artifact_index_hint(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--emit-handoff",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    summary = payload["artifact_index_readiness_summary"]
+    missing_command = summary["missing_index_command"]
+    assert result == 0
+    assert summary["found"] is False
+    assert summary["missing_index_action"] == (
+        "Run the guarded launch wrapper without --dry-run to generate the artifact index evidence."
+    )
+    assert missing_command[:2] == [sys.executable, str(SCRIPT_PATH.resolve())]
+    assert "--dry-run" not in missing_command
+    assert "--emit-handoff" in missing_command
+    assert _arg_after(missing_command, "--output-prefix") == "release-check"
+    assert _arg_after(missing_command, "--output-dir") == str(output_dir.resolve())
 
 
 def test_guarded_launch_delegates_and_returns_exit_code(tmp_path: Path) -> None:

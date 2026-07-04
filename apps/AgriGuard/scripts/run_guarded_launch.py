@@ -249,7 +249,10 @@ def _default_artifact_index_markdown(output_dir: Path, output_prefix: str) -> Pa
     return output_dir / f"{output_prefix}-artifact-index.md"
 
 
-def _artifact_index_readiness_summary(index_json: Path) -> dict[str, object]:
+def _artifact_index_readiness_summary(
+    index_json: Path,
+    missing_index_command: list[str] | None = None,
+) -> dict[str, object]:
     index = _read_json(index_json)
     action_ids = (
         index.get("consumer_readiness_operator_action_ids")
@@ -271,7 +274,48 @@ def _artifact_index_readiness_summary(index_json: Path) -> dict[str, object]:
         "operator_packet_preflight_status": index.get("consumer_readiness_operator_packet_preflight_status")
         if index is not None
         else None,
+        "missing_index_action": None
+        if index is not None
+        else "Run the guarded launch wrapper without --dry-run to generate the artifact index evidence.",
+        "missing_index_command": None if index is not None else missing_index_command,
     }
+
+
+def _build_wrapper_command(
+    *,
+    app_root: Path,
+    env_file: Path,
+    output_dir: Path,
+    output_prefix: str,
+    compose_files: list[Path],
+    services: list[str],
+    run_browser_smoke: bool,
+    emit_handoff: bool,
+    status_json_out: Path | None,
+) -> list[str]:
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--app-root",
+        str(app_root),
+        "--env-file",
+        str(env_file),
+        "--output-dir",
+        str(output_dir),
+        "--output-prefix",
+        output_prefix,
+    ]
+    for compose_file in compose_files:
+        command.extend(["--compose-file", str(compose_file)])
+    for service in services:
+        command.extend(["--service", service])
+    if not run_browser_smoke:
+        command.append("--no-browser-smoke")
+    if emit_handoff:
+        command.append("--emit-handoff")
+    if status_json_out is not None:
+        command.extend(["--status-json-out", str(status_json_out)])
+    return command
 
 
 def _build_handoff_command(
@@ -511,6 +555,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if handoff_requested
         else None
     )
+    wrapper_command = _build_wrapper_command(
+        app_root=app_root,
+        env_file=env_file,
+        output_dir=output_dir,
+        output_prefix=args.output_prefix,
+        compose_files=compose_files,
+        services=args.service,
+        run_browser_smoke=not args.no_browser_smoke,
+        emit_handoff=handoff_requested,
+        status_json_out=args.status_json_out.resolve() if args.status_json_out else None,
+    )
 
     if args.status_only:
         status_view = _build_status_view(
@@ -544,7 +599,10 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     "artifact_index_command": artifact_index_command,
                     "artifact_index_json": str(artifact_index_json) if handoff_requested else None,
                     "artifact_index_markdown": str(artifact_index_markdown) if handoff_requested else None,
-                    "artifact_index_readiness_summary": _artifact_index_readiness_summary(artifact_index_json)
+                    "artifact_index_readiness_summary": _artifact_index_readiness_summary(
+                        artifact_index_json,
+                        wrapper_command,
+                    )
                     if handoff_requested
                     else None,
                 },
