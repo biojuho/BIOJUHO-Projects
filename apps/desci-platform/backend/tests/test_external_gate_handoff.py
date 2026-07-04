@@ -1442,6 +1442,67 @@ def test_external_gate_handoff_appends_multiline_github_output(tmp_path: Path) -
     text = written.read_text(encoding="utf-8")
     assert text.startswith("sample<<desci_")
     assert "\nline 1\nline 2\n" in text
+    assert external_gate_handoff.parse_github_output(written) == {"sample": "line 1\nline 2"}
+
+
+def test_external_gate_handoff_provider_apply_workflow_github_output_verifier_accepts_written_outputs(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+    output_path = tmp_path / "github-output.txt"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+    external_gate_handoff.append_github_output(
+        output_path,
+        external_gate_handoff.provider_apply_workflow_github_outputs(verification),
+    )
+
+    output_verification = external_gate_handoff.verify_provider_apply_workflow_github_output(
+        output_path,
+        verification,
+    )
+
+    assert output_verification["ok"] is True
+    assert output_verification["summary"]["failure_count"] == 0
+    assert output_verification["summary"]["mismatched_output_count"] == 0
+    assert output_verification["summary"]["secret_marker_count"] == 0
+
+
+def test_external_gate_handoff_provider_apply_workflow_github_output_verifier_blocks_mismatch(
+    tmp_path: Path,
+) -> None:
+    plan_path = apply_results_recorder_plan(tmp_path, f'"{sys.executable}" -c "print(\'applied\')"')
+    results_path = tmp_path / "apply-results.json"
+    output_path = tmp_path / "github-output.txt"
+    results = external_gate_handoff.record_provider_apply_results(plan_path, execute=True, timeout_seconds=10)
+    external_gate_handoff.write_json_report(results_path, results)
+    receipt_path = write_provider_apply_workflow_receipt(tmp_path, ok=True)
+    verification = external_gate_handoff.verify_provider_apply_workflow(
+        plan_path,
+        results_path=results_path,
+        promotion_receipt_path=receipt_path,
+        require_promotion_go=True,
+    )
+    outputs = external_gate_handoff.provider_apply_workflow_github_outputs(verification)
+    outputs["provider_apply_workflow_ok"] = "false"
+    external_gate_handoff.append_github_output(output_path, outputs)
+
+    output_verification = external_gate_handoff.verify_provider_apply_workflow_github_output(
+        output_path,
+        verification,
+    )
+
+    assert output_verification["ok"] is False
+    assert output_verification["summary"]["mismatched_output_count"] == 1
+    assert "GitHub output provider_apply_workflow_ok does not match workflow payload" in output_verification["failures"]
 
 
 def test_external_gate_handoff_provider_apply_workflow_blocks_no_go_receipt(

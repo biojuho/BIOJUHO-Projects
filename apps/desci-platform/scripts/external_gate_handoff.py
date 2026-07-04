@@ -421,6 +421,82 @@ def append_github_output(path: str | Path, outputs: dict[str, str]) -> Path:
     return output_path
 
 
+def parse_github_output(path: str | Path) -> dict[str, str]:
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    parsed: dict[str, str] = {}
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if not line:
+            index += 1
+            continue
+        if "<<" in line:
+            name, delimiter = line.split("<<", 1)
+            if not name or not delimiter:
+                raise ValueError(f"invalid GitHub output multiline header: {line}")
+            index += 1
+            chunks: list[str] = []
+            while index < len(lines) and lines[index] != delimiter:
+                chunks.append(lines[index])
+                index += 1
+            if index >= len(lines):
+                raise ValueError(f"unterminated GitHub output multiline value for {name}")
+            parsed[name] = "\n".join(chunks)
+            index += 1
+            continue
+        if "=" not in line:
+            raise ValueError(f"invalid GitHub output line: {line}")
+        name, value = line.split("=", 1)
+        if not name:
+            raise ValueError(f"invalid GitHub output line: {line}")
+        parsed[name] = value
+        index += 1
+    return parsed
+
+
+def verify_provider_apply_workflow_github_output(path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    expected = provider_apply_workflow_github_outputs(payload)
+    parsed = parse_github_output(path)
+    failures: list[str] = []
+    output_checks: list[dict[str, Any]] = []
+    for name, expected_value in expected.items():
+        present = name in parsed
+        matches = present and parsed.get(name) == expected_value
+        if not present:
+            failures.append(f"GitHub output {name} is missing")
+        elif not matches:
+            failures.append(f"GitHub output {name} does not match workflow payload")
+        output_checks.append(
+            {
+                "name": name,
+                "present": present,
+                "matches": matches,
+                "ok": present and matches,
+            }
+        )
+    secret_markers = secret_marker_names_in_text(json.dumps(parsed, ensure_ascii=False, sort_keys=True))
+    if secret_markers:
+        failures.append("GitHub output file contains secret-shaped markers")
+    mismatched_count = sum(1 for item in output_checks if item.get("matches") is not True)
+    return {
+        "schema_version": 1,
+        "generated_at": _iso_now(),
+        "ok": not failures and mismatched_count == 0,
+        "github_output_path": str(path),
+        "summary": {
+            "failure_count": len(failures),
+            "expected_output_count": len(expected),
+            "parsed_output_count": len(parsed),
+            "checked_output_count": len(output_checks),
+            "mismatched_output_count": mismatched_count,
+            "secret_marker_count": len(secret_markers),
+        },
+        "secret_marker_names": secret_markers,
+        "failures": failures,
+        "outputs": output_checks,
+    }
+
+
 def write_provider_templates(
     directory: str | Path,
     payload: dict[str, Any],
