@@ -212,11 +212,49 @@ def _deploy_only_actions(
     return actions
 
 
+def release_gate_consistency_report(release_gate_payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(release_gate_payload, dict):
+        return None
+
+    action_comparison = _as_dict(release_gate_payload.get("launch_action_coverage_comparison"))
+    decision_comparison = _as_dict(release_gate_payload.get("launch_decision_comparison"))
+    if not action_comparison and not decision_comparison:
+        return None
+
+    action_status = action_comparison.get("status") if isinstance(action_comparison.get("status"), str) else "missing"
+    decision_status = (
+        decision_comparison.get("status") if isinstance(decision_comparison.get("status"), str) else "missing"
+    )
+    decision_match_flags = {
+        key: value
+        for key in (
+            "release_decision_match",
+            "operator_phase_match",
+            "readiness_status_match",
+            "launch_blocker_count_match",
+            "next_action_count_match",
+            "readiness_summary_match",
+            "score_match",
+        )
+        if isinstance((value := decision_comparison.get(key)), bool)
+    }
+    return {
+        "ok": action_status == "match" and decision_status == "match",
+        "release_gate_ok": release_gate_payload.get("ok") is True,
+        "action_coverage_status": action_status,
+        "launch_decision_status": decision_status,
+        "action_ids_match": action_comparison.get("action_ids_match") is True,
+        "required_env_match": action_comparison.get("required_env_match") is True,
+        "decision_match_flags": decision_match_flags,
+    }
+
+
 def build_handoff(
     product_payload: dict[str, Any],
     deploy_payload: dict[str, Any],
     *,
     sources: dict[str, str] | None = None,
+    release_gate_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     launch_handoff = extract_launch_handoff(product_payload)
     launch_actions = [action for action in _as_list(launch_handoff.get("next_actions")) if isinstance(action, dict)]
@@ -236,7 +274,9 @@ def build_handoff(
 
     product_ok = product_payload.get("ok") is True
     deploy_ok = deploy_payload.get("ok") is True
-    ok = product_ok and deploy_ok and not missing_required_coverage
+    consistency = release_gate_consistency_report(release_gate_payload)
+    consistency_ok = consistency is None or consistency.get("ok") is True
+    ok = product_ok and deploy_ok and not missing_required_coverage and consistency_ok
     release_decision = launch_handoff.get("release_decision") if isinstance(launch_handoff.get("release_decision"), str) else None
     if not ok:
         release_decision = "no-go"
@@ -249,6 +289,7 @@ def build_handoff(
         "strict_ready_ok": product_ok and deploy_ok,
         "product_smoke_ok": product_ok,
         "deploy_readiness_ok": deploy_ok,
+        "release_gate_consistency_ok": consistency_ok,
         "launch": {
             "release_decision": launch_handoff.get("release_decision"),
             "operator_phase": launch_handoff.get("operator_phase"),
@@ -270,6 +311,10 @@ def build_handoff(
         "deploy_failed_checks": _string_list(_as_dict(deploy_payload.get("summary")).get("failed_checks")),
         "sources": sources or {},
     }
+    if consistency is not None:
+        if sources and sources.get("release_gate_json"):
+            consistency["source_artifact"] = sources["release_gate_json"]
+        payload["release_gate_consistency"] = consistency
     payload["provider_summary"] = provider_summary(payload)
     return payload
 
@@ -499,6 +544,27 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
             f"env={_markdown_values(group.get('required_env'))}"
         )
 
+    consistency = _as_dict(payload.get("release_gate_consistency"))
+    lines.extend(["", "## Release Gate Consistency"])
+    if not consistency:
+        lines.append("- Not provided.")
+    else:
+        lines.extend(
+            [
+                f"- Overall consistency ok: `{_markdown_scalar(consistency.get('ok'))}`",
+                f"- Release gate ok: `{_markdown_scalar(consistency.get('release_gate_ok'))}`",
+                f"- Action coverage status: `{_markdown_scalar(consistency.get('action_coverage_status'))}`",
+                f"- Launch decision status: `{_markdown_scalar(consistency.get('launch_decision_status'))}`",
+                f"- Action IDs match: `{_markdown_scalar(consistency.get('action_ids_match'))}`",
+                f"- Required env match: `{_markdown_scalar(consistency.get('required_env_match'))}`",
+            ]
+        )
+        decision_flags = _as_dict(consistency.get("decision_match_flags"))
+        if decision_flags:
+            lines.append("- Decision match flags:")
+            for key in sorted(decision_flags):
+                lines.append(f"  - {key}: `{_markdown_scalar(decision_flags[key])}`")
+
     lines.extend(["", "## Provider Apply Guidance"])
     if not provider_groups:
         lines.append("- None.")
@@ -611,6 +677,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build DeSci launch handoff evidence from existing smoke reports.")
     parser.add_argument("--product-smoke-json", required=True, help="Path to product_smoke.py JSON evidence.")
     parser.add_argument("--deploy-readiness-json", required=True, help="Path to deploy_readiness.py JSON evidence.")
+    parser.add_argument("--release-gate-json", help="Optional release_gate.py parent JSON evidence.")
     parser.add_argument("--json", action="store_true", help="Print the handoff as JSON.")
     parser.add_argument("--json-out", help="Write the handoff JSON to a file.")
     parser.add_argument("--env-template-out", help="Write a no-secret env template for unresolved handoff actions.")
@@ -623,13 +690,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     product_path = Path(args.product_smoke_json)
     deploy_path = Path(args.deploy_readiness_json)
+    release_gate_path = Path(args.release_gate_json) if args.release_gate_json else None
+    sources = {
+        "product_smoke_json": str(product_path),
+        "deploy_readiness_json": str(deploy_path),
+    }
+    if release_gate_path is not None:
+        sources["release_gate_json"] = str(release_gate_path)
     payload = build_handoff(
         load_json(product_path),
         load_json(deploy_path),
-        sources={
-            "product_smoke_json": str(product_path),
-            "deploy_readiness_json": str(deploy_path),
-        },
+        release_gate_payload=load_json(release_gate_path) if release_gate_path is not None else None,
+        sources=sources,
     )
 
     if args.json:

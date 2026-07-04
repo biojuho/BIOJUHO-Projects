@@ -556,6 +556,69 @@ def test_release_handoff_lists_failed_deploy_checks_not_owned_by_product_actions
     assert payload["ok"] is False
 
 
+def test_release_handoff_includes_release_gate_consistency_in_packet(tmp_path: Path) -> None:
+    product_payload = _product_smoke_handoff_payload([], ok=True)
+    checks = deploy_readiness.run_checks(_ready_env(), targets=("railway", "vercel", "amoy", "github"))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway", "vercel", "amoy", "github"))
+    release_gate_payload = {
+        "ok": True,
+        "launch_action_coverage_comparison": {
+            "status": "match",
+            "action_ids_match": True,
+            "required_env_match": True,
+        },
+        "launch_decision_comparison": {
+            "status": "match",
+            "release_decision_match": True,
+            "operator_phase_match": True,
+            "readiness_status_match": True,
+            "launch_blocker_count_match": True,
+            "next_action_count_match": True,
+            "readiness_summary_match": True,
+            "score_match": True,
+        },
+    }
+    payload = release_handoff.build_handoff(
+        product_payload,
+        deploy_payload,
+        release_gate_payload=release_gate_payload,
+        sources={
+            "product_smoke_json": "var/product.json",
+            "deploy_readiness_json": "var/deploy.json",
+            "release_gate_json": "var/release-gate.json",
+        },
+    )
+    output_path = tmp_path / "handoff.md"
+
+    release_handoff.write_markdown_report(output_path, payload)
+
+    assert payload["ok"] is True
+    assert payload["release_gate_consistency_ok"] is True
+    assert payload["release_gate_consistency"] == {
+        "ok": True,
+        "release_gate_ok": True,
+        "action_coverage_status": "match",
+        "launch_decision_status": "match",
+        "action_ids_match": True,
+        "required_env_match": True,
+        "decision_match_flags": {
+            "release_decision_match": True,
+            "operator_phase_match": True,
+            "readiness_status_match": True,
+            "launch_blocker_count_match": True,
+            "next_action_count_match": True,
+            "readiness_summary_match": True,
+            "score_match": True,
+        },
+        "source_artifact": "var/release-gate.json",
+    }
+    text = output_path.read_text(encoding="utf-8")
+    assert "## Release Gate Consistency" in text
+    assert "Action coverage status: `match`" in text
+    assert "Launch decision status: `match`" in text
+    assert "release_decision_match: `true`" in text
+
+
 def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
     product_payload = _product_smoke_handoff_payload(
         [
@@ -574,9 +637,24 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
     deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway",))
     product_path = tmp_path / "product.json"
     deploy_path = tmp_path / "deploy.json"
+    release_gate_path = tmp_path / "release-gate.json"
     output_path = tmp_path / "handoff.json"
     product_path.write_text(json.dumps(product_payload), encoding="utf-8")
     deploy_path.write_text(json.dumps(deploy_payload), encoding="utf-8")
+    release_gate_path.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "launch_action_coverage_comparison": {
+                    "status": "match",
+                    "action_ids_match": True,
+                    "required_env_match": True,
+                },
+                "launch_decision_comparison": {"status": "match"},
+            }
+        ),
+        encoding="utf-8",
+    )
 
     code = release_handoff.main(
         [
@@ -584,6 +662,8 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
             str(product_path),
             "--deploy-readiness-json",
             str(deploy_path),
+            "--release-gate-json",
+            str(release_gate_path),
             "--json-out",
             str(output_path),
         ]
@@ -595,6 +675,8 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
     assert "[release-handoff] PRODUCT ACTION CHECKLIST" in output
     assert written["schema_version"] == 1
     assert written["sources"]["product_smoke_json"] == str(product_path)
+    assert written["sources"]["release_gate_json"] == str(release_gate_path)
+    assert written["release_gate_consistency"]["action_coverage_status"] == "match"
     assert not (output_path.parent / "handoff.json.tmp").exists()
 
 
