@@ -614,6 +614,30 @@ def summarize_child_report(path: Path) -> dict[str, object]:
     }
 
 
+def screenshot_artifact_gate(child_summary: dict[str, object]) -> dict[str, object]:
+    artifact_total = int(child_summary.get("screenshot_artifacts_total", 0) or 0)
+    artifact_failed = int(child_summary.get("screenshot_artifacts_failed", 0) or 0)
+    artifact_missing = artifact_total <= 0
+    return {
+        "screenshot_artifacts_required": True,
+        "screenshot_artifacts_missing": artifact_missing,
+        "screenshot_artifacts_gate_ok": not artifact_missing and artifact_failed == 0,
+    }
+
+
+def child_report_passes_launch_gate(returncode: int, child_summary: dict[str, object]) -> bool:
+    artifact_gate = screenshot_artifact_gate(child_summary)
+    return (
+        returncode == 0
+        and child_summary.get("checks_failed") == 0
+        and artifact_gate["screenshot_artifacts_gate_ok"] is True
+    )
+
+
+def child_process_timeout_seconds(timeout_ms: int) -> int:
+    return max(120, int(timeout_ms / 1000) * 3)
+
+
 def run_step(step: BrowserSmokeStep, *, operator_token: str, timeout_ms: int, dry_run: bool) -> dict[str, object]:
     if dry_run:
         return {
@@ -623,26 +647,47 @@ def run_step(step: BrowserSmokeStep, *, operator_token: str, timeout_ms: int, dr
             "command": redact_command(step.command, operator_token=operator_token),
             "json_out": str(step.json_out),
         }
-    completed = subprocess.run(
-        step.command,
-        capture_output=True,
-        text=True,
-        timeout=max(30, int(timeout_ms / 1000) + 30),
-        check=False,
-    )
+    timeout_seconds = child_process_timeout_seconds(timeout_ms)
+    try:
+        completed = subprocess.run(
+            step.command,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        child_summary = summarize_child_report(step.json_out)
+        artifact_gate = screenshot_artifact_gate(child_summary)
+        return {
+            "name": step.name,
+            "ok": False,
+            "dry_run": False,
+            "command": redact_command(step.command, operator_token=operator_token),
+            "json_out": str(step.json_out),
+            "returncode": None,
+            "timed_out": True,
+            "timeout_seconds": timeout_seconds,
+            "stdout_tail": _tail(exc.stdout or ""),
+            "stderr_tail": _tail(exc.stderr or ""),
+            **child_summary,
+            **artifact_gate,
+        }
     child_summary = summarize_child_report(step.json_out)
+    artifact_gate = screenshot_artifact_gate(child_summary)
     return {
         "name": step.name,
-        "ok": completed.returncode == 0
-        and child_summary.get("checks_failed") == 0
-        and child_summary.get("screenshot_artifacts_failed") == 0,
+        "ok": child_report_passes_launch_gate(completed.returncode, child_summary),
         "dry_run": False,
         "command": redact_command(step.command, operator_token=operator_token),
         "json_out": str(step.json_out),
         "returncode": completed.returncode,
+        "timed_out": False,
+        "timeout_seconds": timeout_seconds,
         "stdout_tail": _tail(completed.stdout),
         "stderr_tail": _tail(completed.stderr),
         **child_summary,
+        **artifact_gate,
     }
 
 
@@ -734,6 +779,11 @@ def main() -> int:
         for artifact in result.get("failed_screenshot_artifacts", [])
         if isinstance(artifact, str)
     ]
+    screenshot_artifacts_missing_steps = [
+        str(result.get("name"))
+        for result in results
+        if result.get("screenshot_artifacts_missing") is True
+    ]
     failed_precheck_names = [
         str(precheck.get("name") or f"precheck_{index}")
         for index, precheck in enumerate(prechecks, start=1)
@@ -766,6 +816,7 @@ def main() -> int:
                 int(result.get("screenshot_artifacts_failed", 0)) for result in results
             ),
             "failed_screenshot_artifacts": failed_screenshot_artifacts,
+            "screenshot_artifacts_missing_steps": screenshot_artifacts_missing_steps,
             "prechecks_total": len(prechecks),
             "prechecks_passed": prechecks_passed,
             "prechecks_failed": prechecks_failed,

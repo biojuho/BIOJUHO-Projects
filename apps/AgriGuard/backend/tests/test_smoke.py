@@ -473,6 +473,78 @@ def test_browser_smoke_suite_fails_corrupt_screenshot_artifact(tmp_path: Path):
     assert summary["failed_screenshot_artifacts"] == [str(screenshot)]
 
 
+def test_browser_smoke_suite_launch_gate_requires_screenshot_artifact(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_launch_gate_requires_artifact_under_test",
+    )
+    report_path = tmp_path / "child.json"
+    report_path.write_text(
+        json.dumps({"checks": [{"name": "rendered", "ok": True}]}),
+        encoding="utf-8",
+    )
+
+    summary = script.summarize_child_report(report_path)
+
+    assert script.screenshot_artifact_gate(summary) == {
+        "screenshot_artifacts_required": True,
+        "screenshot_artifacts_missing": True,
+        "screenshot_artifacts_gate_ok": False,
+    }
+    assert not script.child_report_passes_launch_gate(0, summary)
+
+
+def test_browser_smoke_suite_launch_gate_accepts_valid_screenshot_artifact(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_launch_gate_valid_artifact_under_test",
+    )
+    screenshot = tmp_path / "screen.png"
+    png_header = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR"
+        b"\x00\x00\x00\x02"
+        b"\x00\x00\x00\x03"
+        b"\x08\x02\x00\x00\x00"
+    )
+    screenshot.write_bytes(png_header + (b"\x00" * script.MIN_SCREENSHOT_BYTES))
+    report_path = tmp_path / "child.json"
+    report_path.write_text(
+        json.dumps({"checks": [{"name": "rendered", "ok": True}], "screenshot": str(screenshot)}),
+        encoding="utf-8",
+    )
+
+    summary = script.summarize_child_report(report_path)
+
+    assert script.screenshot_artifact_gate(summary)["screenshot_artifacts_gate_ok"] is True
+    assert script.child_report_passes_launch_gate(0, summary)
+
+
+def test_browser_smoke_suite_timeout_writes_failed_step(monkeypatch, tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_timeout_step_under_test",
+    )
+    step = script.BrowserSmokeStep(
+        name="slow_step",
+        command=["python", "slow.py", "--operator-token", "secret"],
+        json_out=tmp_path / "missing-child.json",
+    )
+
+    def timeout_run(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(cmd=step.command, timeout=120, output="partial out", stderr="partial err")
+
+    monkeypatch.setattr(script.subprocess, "run", timeout_run)
+
+    result = script.run_step(step, operator_token="secret", timeout_ms=30_000, dry_run=False)
+
+    assert result["ok"] is False
+    assert result["timed_out"] is True
+    assert result["report_found"] is False
+    assert result["screenshot_artifacts_missing"] is True
+    assert result["command"] == ["python", "slow.py", "--operator-token", "<redacted>"]
+
+
 def test_browser_smoke_suite_backend_contract_accepts_required_paths():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
