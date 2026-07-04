@@ -152,6 +152,9 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert _arg_after(payload["artifact_index_command"], "--markdown-out") == str(
         output_dir.resolve() / "release-check-artifact-index.md"
     )
+    assert _arg_after(payload["artifact_index_command"], "--status-json") == str(
+        output_dir.resolve() / "release-check-status.json"
+    )
     assert _arg_after(payload["operator_packet_refresh_command"], "--app-root") == str(app_root.resolve())
     assert _arg_after(payload["operator_packet_refresh_command"], "--preflight-json") == str(
         output_dir.resolve() / "release-check-preflight.json"
@@ -171,7 +174,9 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     )
     assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-output-dir") == str(output_dir.resolve())
     assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-output-prefix") == "release-check"
-    assert "--guarded-status-json" not in payload["operator_packet_refresh_command"]
+    assert _arg_after(payload["operator_packet_refresh_command"], "--guarded-status-json") == str(
+        output_dir.resolve() / "release-check-status.json"
+    )
 
 
 def test_guarded_launch_artifact_index_uses_custom_handoff_outputs(tmp_path: Path, capsys) -> None:
@@ -359,6 +364,50 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     assert "--exit-zero-on-blocked" in calls[2]
     assert _arg_after(calls[3], "--markdown-out").endswith("-artifact-index.md")
     assert _arg_after(calls[4], "--json-out").endswith("-operator-packet.json")
+
+
+def test_guarded_launch_emit_handoff_writes_default_status_json(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+    status_json = output_dir.resolve() / "release-check-status.json"
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--emit-handoff",
+        ],
+        command_runner=runner,
+    )
+
+    index_commands = [
+        command for command in calls if Path(command[1]).name == "index_guarded_launch_artifacts.py"
+    ]
+    refresh_commands = [
+        command for command in calls if Path(command[1]).name == "render_launch_operator_packet.py"
+    ]
+    payload = json.loads(status_json.read_text(encoding="utf-8"))
+    assert result == 0
+    assert status_json.exists()
+    assert payload["artifacts"]["artifact_index_json"] == str(
+        output_dir.resolve() / "release-check-artifact-index.json"
+    )
+    assert len(index_commands) == 2
+    assert _arg_after(index_commands[0], "--status-json") == str(status_json)
+    assert len(refresh_commands) == 1
+    assert _arg_after(refresh_commands[0], "--guarded-status-json") == str(status_json)
 
 
 def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp_path: Path) -> None:

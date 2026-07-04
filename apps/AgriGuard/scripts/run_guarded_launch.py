@@ -684,6 +684,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         or args.artifact_index_markdown_out
         or args.handoff_ready_gate_json_out
     )
+    effective_status_json_out = (
+        args.status_json_out.resolve()
+        if args.status_json_out
+        else (output_dir / f"{args.output_prefix}-status.json" if handoff_requested and not args.status_only else None)
+    )
     handoff_json = args.handoff_json_out.resolve() if args.handoff_json_out else _default_handoff_json(output_dir, args.output_prefix)
     handoff_markdown = (
         args.handoff_markdown_out.resolve()
@@ -735,7 +740,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             output_prefix=args.output_prefix,
             json_out=artifact_index_json,
             markdown_out=artifact_index_markdown,
-            status_json=args.status_json_out.resolve() if args.status_json_out else None,
+            status_json=effective_status_json_out,
             handoff_json=handoff_json,
             handoff_markdown=handoff_markdown,
             handoff_validation_json=handoff_validation_json,
@@ -756,7 +761,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             env_template_out=artifact_paths["operator_env_template"],
             guarded_output_dir=output_dir,
             guarded_output_prefix=args.output_prefix,
-            guarded_status_json=args.status_json_out.resolve() if args.status_json_out else None,
+            guarded_status_json=effective_status_json_out,
         )
         if handoff_requested
         else None
@@ -780,7 +785,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         services=args.service,
         run_browser_smoke=not args.no_browser_smoke,
         emit_handoff=handoff_requested,
-        status_json_out=args.status_json_out.resolve() if args.status_json_out else None,
+        status_json_out=effective_status_json_out,
     )
 
     if args.status_only:
@@ -832,14 +837,14 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
 
     completed = command_runner(command, cwd=app_root, text=True)
     status_view = None
-    if args.status_json_out:
+    if effective_status_json_out is not None:
         status_view = _build_status_view(
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
         )
-        write_json(args.status_json_out.resolve(), status_view)
+        write_json(effective_status_json_out, status_view)
     post_launch_returncode = 0
     if handoff_command is not None:
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
@@ -860,15 +865,15 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         and operator_packet_refresh_command is not None
         and post_launch_returncode == 0
     ):
-        if args.status_json_out or args.require_ready:
+        if effective_status_json_out is not None or args.require_ready:
             status_view = _build_status_view(
                 output_dir=output_dir,
                 output_prefix=args.output_prefix,
                 artifact_paths=artifact_paths,
                 artifact_index_json=artifact_index_json,
             )
-        if args.status_json_out and status_view is not None:
-            write_json(args.status_json_out.resolve(), status_view)
+        if effective_status_json_out is not None and status_view is not None:
+            write_json(effective_status_json_out, status_view)
         operator_packet_refresh_result = command_runner(operator_packet_refresh_command, cwd=app_root, text=True)
         if operator_packet_refresh_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = operator_packet_refresh_result.returncode
@@ -881,15 +886,15 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
         if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = artifact_index_result.returncode
-    if args.status_json_out or args.require_ready:
+    if effective_status_json_out is not None or args.require_ready:
         status_view = _build_status_view(
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
         )
-    if args.status_json_out and status_view is not None:
-        write_json(args.status_json_out.resolve(), status_view)
+    if effective_status_json_out is not None and status_view is not None:
+        write_json(effective_status_json_out, status_view)
     if post_launch_returncode != 0:
         return post_launch_returncode
     if args.require_ready and status_view is not None and not _status_view_ready(status_view):
