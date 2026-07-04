@@ -4,15 +4,25 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import auto_research_status
-import desci_launch_secret_scan
 import github_modernization_radar
 from workspace_paths import find_workspace_root
+
+try:
+    import auto_research_status
+except ImportError:
+    auto_research_status = None
+
+try:
+    import desci_launch_secret_scan
+except ImportError:
+    desci_launch_secret_scan = None
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -21,7 +31,9 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         pass
 
 WORKSPACE_ROOT = find_workspace_root(Path(__file__))
+VERITAS_REPO = "Veritas-7/autoresearch-skill-system"
 DEFAULT_RADAR_JSON = WORKSPACE_ROOT / "var" / "github-modernization-radar-desci-handoff-refresh-2026-06-06.json"
+DEFAULT_STOP_FILE = WORKSPACE_ROOT / "var" / "auto-research.stop"
 DEFAULT_RADAR_MARKDOWN = (
     WORKSPACE_ROOT
     / "docs"
@@ -237,17 +249,60 @@ def _write_status(
     status_json_out: Path,
     status_markdown_out: Path,
 ) -> dict[str, Any]:
-    status_report = auto_research_status.build_status(
+    status_report = _build_status_report(
         workspace_root=workspace_root,
         radar_json=radar_json,
         stop_file=stop_file,
         live_source_commit=live_source_commit,
         live_source_checked=live_source_checked,
-        live_sources_checked=False,
     )
     _write_json(status_json_out, status_report)
-    _write_text(status_markdown_out, auto_research_status.format_markdown(status_report))
+    _write_text(status_markdown_out, _format_status_markdown(status_report))
     return status_report
+
+
+def _build_status_report(
+    *,
+    workspace_root: Path,
+    radar_json: Path | None,
+    stop_file: Path | None,
+    live_source_commit: str | None,
+    live_source_checked: bool,
+) -> dict[str, Any]:
+    if auto_research_status is not None:
+        return _with_desci_topic_if_blank(
+            auto_research_status.build_status(
+                workspace_root=workspace_root,
+                radar_json=radar_json,
+                stop_file=stop_file,
+                live_source_commit=live_source_commit,
+                live_source_checked=live_source_checked,
+                live_sources_checked=False,
+            )
+        )
+    return _with_desci_topic_if_blank(
+        _build_fallback_status_report(
+            workspace_root=workspace_root,
+            radar_json=radar_json,
+            stop_file=stop_file,
+            live_source_commit=live_source_commit,
+            live_source_checked=live_source_checked,
+        )
+    )
+
+
+def _with_desci_topic_if_blank(status_report: dict[str, Any]) -> dict[str, Any]:
+    if str(status_report.get("preferred_topic") or "").strip():
+        return status_report
+    status_report = dict(status_report)
+    status_report["preferred_topic"] = "DeSci"
+    return status_report
+
+
+def _format_status_markdown(status_report: dict[str, Any]) -> str:
+    if auto_research_status is not None:
+        return auto_research_status.format_markdown(status_report)
+    return _format_fallback_status_markdown(status_report)
 
 
 def _write_secret_scan(
@@ -256,12 +311,18 @@ def _write_secret_scan(
     secret_scan_json_out: Path,
     extra_paths: list[Path],
 ) -> dict[str, Any]:
-    secret_scan = desci_launch_secret_scan.build_desci_launch_secret_scan(
-        workspace_root=workspace_root,
-        extra_paths=extra_paths,
-    )
+    secret_scan = _build_secret_scan(workspace_root=workspace_root, extra_paths=extra_paths)
     _write_json(secret_scan_json_out, secret_scan)
     return secret_scan
+
+
+def _build_secret_scan(*, workspace_root: Path, extra_paths: list[Path]) -> dict[str, Any]:
+    if desci_launch_secret_scan is not None:
+        return desci_launch_secret_scan.build_desci_launch_secret_scan(
+            workspace_root=workspace_root,
+            extra_paths=extra_paths,
+        )
+    return _build_fallback_desci_launch_secret_scan(workspace_root=workspace_root, extra_paths=extra_paths)
 
 
 def _build_bundle(
@@ -355,7 +416,7 @@ def _resolved_live_source_commit(
     require_live_source: bool,
 ) -> str | None:
     if (check_live_source or require_live_source) and not live_source_commit:
-        return auto_research_status._fetch_veritas_live_commit(workspace_root)
+        return _fetch_veritas_live_commit(workspace_root)
     return live_source_commit
 
 
@@ -624,7 +685,7 @@ def _run_radar_refresh(
 
 def _latest_commit_overrides(live_source_commit: str | None) -> dict[str, str] | None:
     if live_source_commit:
-        return {auto_research_status.VERITAS_REPO: live_source_commit}
+        return {VERITAS_REPO: live_source_commit}
     return None
 
 
@@ -664,10 +725,344 @@ def _veritas_commit_from_sources(sources: Any) -> str:
 
 
 def _veritas_commit_from_source(source: Any) -> str:
-    if not isinstance(source, dict) or source.get("repo") != auto_research_status.VERITAS_REPO:
+    if not isinstance(source, dict) or source.get("repo") != VERITAS_REPO:
         return ""
     commit = source.get("latest_observed_commit")
     return commit if isinstance(commit, str) else ""
+
+
+def _build_fallback_status_report(
+    *,
+    workspace_root: Path,
+    radar_json: Path | None,
+    stop_file: Path | None,
+    live_source_commit: str | None,
+    live_source_checked: bool,
+) -> dict[str, Any]:
+    radar_payload = _read_json_dict(radar_json) if radar_json is not None else {}
+    veritas_source = _find_veritas_source(radar_payload)
+    recorded_commit = _veritas_commit_from_source(veritas_source)
+    live_source = _fallback_live_source_state(recorded_commit, live_source_commit, checked=live_source_checked)
+    stop_state = _fallback_stop_state(stop_file, workspace_root)
+    checks = _fallback_status_checks(veritas_source, recorded_commit, live_source, radar_payload, stop_state)
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "status": "ok" if all(check["ok"] for check in checks) else "action_required",
+        "workspace_root": str(workspace_root),
+        "preferred_topic": "DeSci",
+        "source": {
+            "repo": VERITAS_REPO,
+            "latest_observed_commit": recorded_commit,
+            "live_source": live_source,
+            "live_sources": {"checked": False, "status": "not_checked", "sources": []},
+            "radar_path": _optional_display_path(radar_json, workspace_root),
+        },
+        "radar": _fallback_radar_summary(radar_payload),
+        "latest_smoke": {},
+        "stop": stop_state,
+        "checks": checks,
+    }
+
+
+def _find_veritas_source(radar_payload: dict[str, Any]) -> dict[str, Any]:
+    sources = radar_payload.get("sources")
+    if not isinstance(sources, list):
+        return {}
+    for source in sources:
+        if isinstance(source, dict) and source.get("repo") == VERITAS_REPO:
+            return source
+    return {}
+
+
+def _fallback_live_source_state(
+    recorded_commit: str,
+    live_source_commit: str | None,
+    *,
+    checked: bool,
+) -> dict[str, Any]:
+    live_commit = (live_source_commit or "").strip()
+    if not checked:
+        return {
+            "checked": False,
+            "recorded_commit": recorded_commit,
+            "live_observed_commit": live_commit,
+            "status": "not_checked",
+            "detail": "not checked",
+        }
+    if not live_commit:
+        status = "unavailable"
+        detail = "live source unavailable"
+    elif not _valid_commit(live_commit):
+        status = "invalid"
+        detail = "live source returned invalid commit"
+    elif live_commit == recorded_commit:
+        status = "current"
+        detail = f"recorded={recorded_commit} live={live_commit}"
+    else:
+        status = "stale"
+        detail = f"recorded={recorded_commit} live={live_commit}"
+    return {
+        "checked": True,
+        "recorded_commit": recorded_commit,
+        "live_observed_commit": live_commit,
+        "status": status,
+        "detail": detail,
+    }
+
+
+def _fallback_status_checks(
+    veritas_source: dict[str, Any],
+    recorded_commit: str,
+    live_source: dict[str, Any],
+    radar_payload: dict[str, Any],
+    stop_state: dict[str, Any],
+) -> list[dict[str, Any]]:
+    checks = [
+        {
+            "name": "veritas_source_tracked",
+            "ok": bool(veritas_source),
+            "detail": "tracked" if veritas_source else f"{VERITAS_REPO} missing from radar",
+        },
+        {
+            "name": "veritas_latest_commit_recorded",
+            "ok": _valid_commit(recorded_commit),
+            "detail": recorded_commit or "missing",
+        },
+        {
+            "name": "veritas_source_matches_live",
+            "ok": live_source.get("status") in {"current", "not_checked"},
+            "detail": str(live_source.get("detail") or ""),
+        },
+        {
+            "name": "modernization_radar_all_adopted",
+            "ok": _radar_all_adopted(radar_payload),
+            "detail": _radar_adoption_detail(radar_payload),
+        },
+        {
+            "name": "desci_launch_handoff_refresh_ready",
+            "ok": False,
+            "detail": "fallback status keeps launch handoff in expected action_required state",
+        },
+        {
+            "name": "stop_file_not_effective",
+            "ok": not stop_state["effective"],
+            "detail": stop_state["state"],
+        },
+    ]
+    return checks
+
+
+def _format_fallback_status_markdown(status_report: dict[str, Any]) -> str:
+    source = status_report.get("source") if isinstance(status_report.get("source"), dict) else {}
+    live_source = source.get("live_source") if isinstance(source.get("live_source"), dict) else {}
+    lines = [
+        "# AutoResearch Operator Status",
+        "",
+        "## Summary",
+        "",
+        f"- Status: `{status_report.get('status')}`",
+        f"- Generated at: `{status_report.get('generated_at')}`",
+        f"- Source repo: `{source.get('repo', VERITAS_REPO)}`",
+        f"- Latest observed commit: `{source.get('latest_observed_commit', '')}`",
+        f"- Live source status: `{live_source.get('status', 'not_checked')}`",
+        f"- Preferred topic: `{status_report.get('preferred_topic', 'DeSci')}`",
+        "",
+        "## Checks",
+        "",
+    ]
+    for check in status_report.get("checks") or []:
+        if isinstance(check, dict):
+            state = "PASS" if check.get("ok") is True else "FAIL"
+            lines.append(f"- {state} `{check.get('name')}`: {check.get('detail', '')}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _fallback_stop_state(stop_file: Path | None, workspace_root: Path) -> dict[str, Any]:
+    path = stop_file or DEFAULT_STOP_FILE
+    present = path.is_file()
+    try:
+        has_content = bool(path.read_text(encoding="utf-8-sig").strip()) if present else False
+    except OSError:
+        has_content = False
+    return {
+        "path": _display_path(path, workspace_root),
+        "present": present,
+        "has_content": has_content,
+        "effective": present and has_content,
+        "state": "effective" if present and has_content else ("present_empty" if present else "absent"),
+    }
+
+
+def _fallback_radar_summary(radar_payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source_count": radar_payload.get("source_count"),
+        "adoption_status_counts": radar_payload.get("adoption_status_counts", {}),
+    }
+
+
+def _radar_all_adopted(radar_payload: dict[str, Any]) -> bool:
+    source_count = radar_payload.get("source_count")
+    counts = radar_payload.get("adoption_status_counts")
+    return isinstance(source_count, int) and isinstance(counts, dict) and counts.get("adopted") == source_count
+
+
+def _radar_adoption_detail(radar_payload: dict[str, Any]) -> str:
+    return f"sources={radar_payload.get('source_count')} counts={radar_payload.get('adoption_status_counts', {})}"
+
+
+def _valid_commit(value: str) -> bool:
+    return bool(re.fullmatch(r"[0-9a-f]{40}", value or ""))
+
+
+def _fetch_veritas_live_commit(workspace_root: Path) -> str:
+    if auto_research_status is not None:
+        return auto_research_status._fetch_veritas_live_commit(workspace_root)
+    return _fetch_live_commit(VERITAS_REPO, workspace_root)
+
+
+def _fetch_live_commit(repo: str, workspace_root: Path) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        return ""
+    try:
+        completed = subprocess.run(
+            ["git", "ls-remote", f"https://github.com/{repo}.git", "HEAD", "refs/heads/main"],
+            cwd=workspace_root,
+            text=True,
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if completed.returncode != 0:
+        return ""
+    return _preferred_live_commit_from_ls_remote_output(completed.stdout)
+
+
+def _preferred_live_commit_from_ls_remote_output(output: str) -> str:
+    commit_by_ref = _ls_remote_commit_map(output)
+    return commit_by_ref.get("refs/heads/main") or commit_by_ref.get("HEAD", "")
+
+
+def _ls_remote_commit_map(output: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and _valid_commit(parts[0]):
+            result[parts[1]] = parts[0]
+    return result
+
+
+def _build_fallback_desci_launch_secret_scan(
+    *,
+    workspace_root: Path,
+    extra_paths: list[Path] | None = None,
+) -> dict[str, Any]:
+    candidates = _fallback_secret_scan_targets(workspace_root, extra_paths or [])
+    scan = _scan_secret_value_paths(workspace_root, candidates, _desci_secret_value_patterns())
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "scope": "desci_launch_handoff",
+        "status": scan["status"],
+        "ok": scan["status"] == "valid" and not scan["findings"] and not scan["missing_paths"],
+        **scan,
+    }
+
+
+def _fallback_secret_scan_targets(workspace_root: Path, extra_paths: list[Path]) -> list[tuple[str, Path]]:
+    targets: list[tuple[str, Path]] = []
+    for label, path in _fallback_default_secret_scan_targets(workspace_root):
+        if path.is_file():
+            targets.append((label, path))
+    for index, path in enumerate(extra_paths, start=1):
+        targets.append((f"extra_{index}", path))
+    return targets
+
+
+def _fallback_default_secret_scan_targets(workspace_root: Path) -> list[tuple[str, Path]]:
+    reports_root = workspace_root / "docs" / "reports"
+    var_root = workspace_root / "var"
+    return [
+        ("next_actions", workspace_root / "next-actions.md"),
+        ("handoff", workspace_root / "HANDOFF.md"),
+        ("desci_qc_log", workspace_root / "apps" / "desci-platform" / "QC_LOG.md"),
+        ("desci_devlog", workspace_root / "apps" / "desci-platform" / "devlog.md"),
+        ("cycle_report", _latest_match(reports_root, "20*/AUTO_RESEARCH_DESCI_*.md")),
+        ("operator_status", _latest_match(reports_root, "20*/AUTO_RESEARCH_OPERATOR_STATUS_DESCI*.md")),
+        ("modernization_report", _latest_match(reports_root, "20*/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_DESCI*.md")),
+        ("browser_smoke_json", _latest_match(var_root, "desci-browser-smoke*.json")),
+        ("desci_smoke_json", _latest_match(var_root, "workspace-smoke-desci*.json")),
+        ("workspace_smoke_json", _latest_match(var_root, "workspace-smoke-workspace*.json")),
+        ("operator_status_json", _latest_match(var_root, "auto-research-status-desci*.json")),
+        ("modernization_json", _latest_match(var_root, "github-modernization-radar-desci*.json")),
+        ("deploy_readiness_json", _latest_match(var_root, "desci-deploy-readiness*.json")),
+    ]
+
+
+def _latest_match(root: Path, pattern: str) -> Path:
+    try:
+        matches = [path for path in root.glob(pattern) if path.is_file()]
+    except OSError:
+        return root / pattern.replace("*", "missing")
+    if not matches:
+        return root / pattern.replace("*", "missing")
+    return max(matches, key=lambda path: (_mtime_ns(path), path.name))
+
+
+def _desci_secret_value_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
+    return (
+        ("google_api_key", re.compile(r"\b" + "AI" + r"za[0-9A-Za-z_-]{16,}\b")),
+        ("anthropic_api_key", re.compile(r"\b" + "sk" + r"-ant-[A-Za-z0-9_-]{16,}\b")),
+        ("openai_api_key", re.compile(r"\b" + "sk" + r"-(?!ant-)[A-Za-z0-9_-]{20,}\b")),
+        ("github_token", re.compile(r"\b(?:" + "ghp" + r"|" + "github" + r"_pat)_[A-Za-z0-9_]{20,}\b")),
+        ("passworded_database_url", re.compile(r"\bpostgres(?:ql)?://[^:\s/@]+:[^@\s]+@[^\s\"']+", re.IGNORECASE)),
+        ("stripe_secret_key", re.compile(r"\b" + "sk" + r"_(?:live|test)_[A-Za-z0-9]{16,}\b")),
+        ("stripe_restricted_key", re.compile(r"\b" + "rk" + r"_(?:live|test)_[A-Za-z0-9]{16,}\b")),
+        ("stripe_webhook_secret", re.compile(r"\b" + "whsec" + r"_[A-Za-z0-9]{16,}\b")),
+        (
+            "evm_private_key_assignment",
+            re.compile(r"\b(?:PRIVATE" + r"_KEY|WALLET_PRIVATE" + r"_KEY|DEPLOYER_PRIVATE" + r"_KEY)\s*=\s*(?:0x)?[0-9a-fA-F]{64}\b"),
+        ),
+        ("firebase_private_key_block", re.compile("-" * 5 + "BEGIN" + " " + "PRIVATE" + " " + "KEY" + "-" * 5)),
+        ("infura_project_secret_url", re.compile(r"\binfura\.io/v3/[A-Za-z0-9_-]{24,}\b", re.IGNORECASE)),
+        ("alchemy_project_secret_url", re.compile(r"\balchemy\.com/v2/[A-Za-z0-9_-]{24,}\b", re.IGNORECASE)),
+        ("railway_token_assignment", re.compile(r"\bRAILWAY_TOKEN\s*=\s*[A-Za-z0-9._-]{20,}\b")),
+        ("vercel_token_assignment", re.compile(r"\bVERCEL_TOKEN\s*=\s*[A-Za-z0-9._-]{20,}\b")),
+    )
+
+
+def _scan_secret_value_paths(
+    workspace_root: Path,
+    candidates: list[tuple[str, Path]],
+    patterns: tuple[tuple[str, re.Pattern[str]], ...],
+) -> dict[str, Any]:
+    scanned_paths: list[str] = []
+    missing_paths: list[str] = []
+    findings: list[dict[str, Any]] = []
+    for label, path in candidates:
+        display_path = _display_path(path, workspace_root)
+        try:
+            text = path.read_text(encoding="utf-8-sig", errors="replace")
+        except FileNotFoundError:
+            missing_paths.append(display_path)
+            continue
+        except OSError:
+            findings.append({"label": label, "path": display_path, "patterns": ["unreadable"]})
+            continue
+        scanned_paths.append(display_path)
+        matched = [name for name, pattern in patterns if pattern.search(text)]
+        if matched:
+            findings.append({"label": label, "path": display_path, "patterns": matched})
+    return {
+        "status": "valid" if not findings else "invalid",
+        "scanned_paths": scanned_paths,
+        "missing_paths": missing_paths,
+        "findings": findings,
+        "finding_patterns": sorted({pattern for finding in findings for pattern in finding.get("patterns", [])}),
+    }
 
 
 def _failed_check_names(status_report: dict[str, Any]) -> list[str]:
@@ -769,7 +1164,7 @@ def main(argv: list[str] | None = None, *, workspace_root: Path = WORKSPACE_ROOT
         action="store_true",
         help="Fail closed instead of regenerating the GitHub modernization radar when --radar-json is missing or stale.",
     )
-    parser.add_argument("--stop-file", type=Path, default=auto_research_status.DEFAULT_STOP_FILE)
+    parser.add_argument("--stop-file", type=Path, default=DEFAULT_STOP_FILE)
     parser.add_argument("--status-json-out", type=Path, default=DEFAULT_STATUS_JSON)
     parser.add_argument("--status-markdown-out", type=Path, default=DEFAULT_STATUS_MARKDOWN)
     parser.add_argument("--secret-scan-json-out", type=Path, default=DEFAULT_SECRET_SCAN_JSON)

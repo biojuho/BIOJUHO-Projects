@@ -262,6 +262,113 @@ def test_desci_launch_handoff_refresh_auto_discovers_latest_release_handoff(
     assert all(older not in call for call in scan_calls)
 
 
+def test_desci_launch_handoff_refresh_runs_without_optional_local_helpers(
+    monkeypatch,
+    tmp_path,
+):
+    refresh = load_refresh_module()
+    commit = "1" * 40
+    radar = tmp_path / "var" / "radar.json"
+    status_json = tmp_path / "var" / "status.json"
+    status_md = tmp_path / "docs" / "reports" / "2026-07" / "AUTO_RESEARCH_OPERATOR_STATUS_DESCI.md"
+    scan_json = tmp_path / "var" / "desci-launch-secret-scan-handoff-refresh.json"
+    bundle_json = tmp_path / "var" / "bundle.json"
+    release_handoff_json = tmp_path / "apps" / "desci-platform" / "var" / "release-handoff-current.json"
+    radar.parent.mkdir(parents=True, exist_ok=True)
+    radar.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "source_count": 1,
+                "adoption_status_counts": {"adopted": 1},
+                "sources": [
+                    {
+                        "repo": "Veritas-7/autoresearch-skill-system",
+                        "adoption_status": "adopted",
+                        "latest_observed_commit": commit,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    release_handoff_json.parent.mkdir(parents=True, exist_ok=True)
+    release_handoff_json.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "ok": False,
+                "release_decision": "no-go",
+                "provider_preflight_ok": False,
+                "provider_preflight": {
+                    "ok": False,
+                    "provider_count": 3,
+                    "ready_provider_count": 1,
+                    "check_count": 7,
+                    "failed_check_count": 4,
+                    "missing_cli_count": 0,
+                    "auth_context_missing_count": 2,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(refresh, "auto_research_status", None)
+    monkeypatch.setattr(refresh, "desci_launch_secret_scan", None)
+
+    bundle = refresh.refresh_desci_launch_handoff(
+        workspace_root=tmp_path,
+        radar_json=radar,
+        status_json_out=status_json,
+        status_markdown_out=status_md,
+        secret_scan_json_out=scan_json,
+        bundle_json_out=bundle_json,
+        live_source_commit=commit,
+        auto_refresh_radar=False,
+    )
+    status_payload = json.loads(status_json.read_text(encoding="utf-8"))
+    scan_payload = json.loads(scan_json.read_text(encoding="utf-8"))
+
+    assert bundle["ok"] is True
+    assert bundle["release_handoff"]["status"] == "valid"
+    assert bundle["release_handoff"]["provider_preflight_present"] is True
+    assert bundle["unexpected_failed_checks"] == []
+    assert status_payload["source"]["live_source"]["status"] == "current"
+    assert scan_payload["ok"] is True
+    assert status_md.read_text(encoding="utf-8").startswith("# AutoResearch Operator Status")
+
+
+def test_desci_launch_handoff_refresh_defaults_blank_status_topic_to_desci(
+    monkeypatch,
+    tmp_path,
+):
+    refresh = load_refresh_module()
+    status_json = tmp_path / "var" / "status.json"
+    status_md = tmp_path / "docs" / "reports" / "2026-07" / "AUTO_RESEARCH_OPERATOR_STATUS_DESCI.md"
+    scan_json = tmp_path / "var" / "desci-launch-secret-scan-handoff-refresh.json"
+    bundle_json = tmp_path / "var" / "bundle.json"
+    status = desci_status(topic="")
+
+    monkeypatch.setattr(refresh.auto_research_status, "build_status", lambda **kwargs: status)
+    monkeypatch.setattr(refresh.auto_research_status, "format_markdown", lambda report: "operator markdown")
+    monkeypatch.setattr(refresh.desci_launch_secret_scan, "build_desci_launch_secret_scan", lambda **kwargs: clean_scan())
+
+    bundle = refresh.refresh_desci_launch_handoff(
+        workspace_root=tmp_path,
+        radar_json=tmp_path / "var" / "radar.json",
+        status_json_out=status_json,
+        status_markdown_out=status_md,
+        secret_scan_json_out=scan_json,
+        bundle_json_out=bundle_json,
+        live_source_commit="2" * 40,
+        auto_refresh_radar=False,
+    )
+
+    assert bundle["ok"] is True
+    assert bundle["status"]["topic"] == "DeSci"
+    assert json.loads(status_json.read_text(encoding="utf-8"))["preferred_topic"] == "DeSci"
+
+
 def test_desci_launch_handoff_refresh_auto_refreshes_missing_radar_before_status(
     monkeypatch,
     tmp_path,
