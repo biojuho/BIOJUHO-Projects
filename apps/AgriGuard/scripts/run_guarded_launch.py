@@ -768,6 +768,15 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         and artifact_index_command is not None
         and post_launch_returncode == 0
     ):
+        if args.status_json_out or args.require_ready:
+            status_view = _build_status_view(
+                output_dir=output_dir,
+                output_prefix=args.output_prefix,
+                artifact_paths=artifact_paths,
+                artifact_index_json=artifact_index_json,
+            )
+        if args.status_json_out and status_view is not None:
+            write_json(args.status_json_out.resolve(), status_view)
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
         if handoff_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = handoff_result.returncode

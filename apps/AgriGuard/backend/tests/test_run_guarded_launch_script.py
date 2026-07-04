@@ -304,6 +304,68 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     assert _arg_after(calls[3], "--markdown-out").endswith("-artifact-index.md")
 
 
+def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+    status_json = output_dir / "guarded-status.json"
+    status_seen_by_index: list[bool | None] = []
+
+    def write_passing_artifact_index(path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "missing_required_roles": [],
+                    "consumer_packet_validation_status": "pass",
+                    "recovery_command_status": "not_required",
+                    "recovery_summary": {
+                        "required": False,
+                        "action": None,
+                        "status": "not_required",
+                        "note": None,
+                        "command": None,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def runner(command, **kwargs):
+        if Path(command[1]).name == "index_guarded_launch_artifacts.py":
+            status_payload = json.loads(status_json.read_text(encoding="utf-8"))
+            artifact_index = status_payload.get("artifact_index")
+            status_seen_by_index.append(
+                artifact_index.get("found") if isinstance(artifact_index, dict) else None
+            )
+            write_passing_artifact_index(Path(_arg_after(command, "--json-out")))
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--emit-handoff",
+            "--status-json-out",
+            str(status_json),
+        ],
+        command_runner=runner,
+    )
+
+    final_status = json.loads(status_json.read_text(encoding="utf-8"))
+    assert result == 0
+    assert status_seen_by_index == [False, True]
+    assert final_status["artifact_index"]["found"] is True
+    assert final_status["artifact_index_recovery_summary"]["required"] is False
+
+
 def test_guarded_launch_returns_handoff_validation_failure(tmp_path: Path) -> None:
     app_root = tmp_path / "AgriGuard"
     env_file = tmp_path / "operator.env"
