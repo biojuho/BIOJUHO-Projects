@@ -71,6 +71,13 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
+                "recovery_summary": {
+                    "required": False,
+                    "action": None,
+                    "status": "not_required",
+                    "note": None,
+                    "command": None,
+                },
             }
         ),
         encoding="utf-8",
@@ -107,6 +114,13 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         "consumer_packet_validation_status": "pass",
         "recovery_command_status": "not_required",
         "recovery_command_note": None,
+        "recovery_summary": {
+            "required": False,
+            "action": None,
+            "status": "not_required",
+            "note": None,
+            "command": None,
+        },
         "operator_action_ids": ["fix_env_shape_validation"],
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
@@ -165,6 +179,13 @@ def test_guarded_launch_dry_run_reports_missing_artifact_index_hint(tmp_path: Pa
     assert summary["recovery_command_note"] == (
         "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
     )
+    assert summary["recovery_summary"] == {
+        "required": True,
+        "action": "Run the guarded launch wrapper without --dry-run to generate the artifact index evidence.",
+        "status": None,
+        "note": "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
+        "command": missing_command,
+    }
     assert summary["missing_index_action"] == (
         "Run the guarded launch wrapper without --dry-run to generate the artifact index evidence."
     )
