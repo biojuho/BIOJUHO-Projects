@@ -24,9 +24,9 @@ def _write_operator_packet_outputs(command: list[str]) -> None:
         json.dumps(
             {
                 "status": "blocked",
-                "preflight_status": "missing_preflight",
+                "preflight_status": "env_shape_blocked",
                 "blocking_action_count": 1,
-                "operator_actions": [{"id": "run_launch_preflight"}],
+                "operator_actions": [{"id": "fix_env_shape_validation"}],
                 "operator_env_template": {
                     "variables": ["AGRIGUARD_SECRET_KEY"],
                 },
@@ -91,6 +91,8 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
         str(launch_compose._default_operator_packet_markdown_out(app_root.resolve())),
         "--env-template-out",
         str(launch_compose._default_operator_env_template_out(app_root.resolve())),
+        "--env-validation-json",
+        str(launch_compose._default_env_validation_json_out(app_root.resolve())),
         "--exit-zero-on-blocked",
     ]
     assert payload["will_run_browser_smoke_after_compose"] is False
@@ -244,8 +246,8 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     }
     assert report["child_reports"]["preflight"] == {"found": False, "path": str(launch_compose._default_json_out(app_root.resolve()))}
     assert report["child_reports"]["operator_packet"]["found"] is True
-    assert report["child_reports"]["operator_packet"]["preflight_status"] == "missing_preflight"
-    assert report["child_reports"]["operator_packet"]["operator_action_ids"] == ["run_launch_preflight"]
+    assert report["child_reports"]["operator_packet"]["preflight_status"] == "env_shape_blocked"
+    assert report["child_reports"]["operator_packet"]["operator_action_ids"] == ["fix_env_shape_validation"]
 
 
 def test_launch_compose_runs_preflight_after_env_shape_validation_passes(tmp_path: Path) -> None:

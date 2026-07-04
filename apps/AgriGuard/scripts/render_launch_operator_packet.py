@@ -283,6 +283,45 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _env_shape_actions(env_payload: dict[str, Any], env_validation_rel: str) -> tuple[list[dict[str, object]], list[str]]:
+    raw_findings = env_payload.get("blocking_findings") if isinstance(env_payload.get("blocking_findings"), list) else []
+    findings = [_redact_text(finding) for finding in raw_findings]
+    if not findings:
+        findings = [f"Env validation blocked strict preflight: {env_validation_rel}"]
+    variables: list[str] = []
+    missing = env_payload.get("missing_required_keys") if isinstance(env_payload.get("missing_required_keys"), list) else []
+    variables.extend(str(key) for key in missing if isinstance(key, str))
+    placeholders = (
+        env_payload.get("placeholder_variables")
+        if isinstance(env_payload.get("placeholder_variables"), list)
+        else []
+    )
+    variables.extend(
+        str(item.get("key"))
+        for item in placeholders
+        if isinstance(item, dict) and isinstance(item.get("key"), str)
+    )
+    forbidden = (
+        env_payload.get("forbidden_flags_enabled")
+        if isinstance(env_payload.get("forbidden_flags_enabled"), list)
+        else []
+    )
+    variables.extend(str(flag) for flag in forbidden if isinstance(flag, str))
+    variables = sorted(set(variables))
+    return (
+        [
+            {
+                "id": "fix_env_shape_validation",
+                "variables": variables,
+                "operator_action": "Fix the launch env template findings before strict preflight can run.",
+                "validation": "Env template validation must report ready_for_preflight=true.",
+                "source_errors": findings,
+            }
+        ],
+        findings,
+    )
+
+
 def _first_matching_rule(error: str) -> dict[str, object] | None:
     normalized = error.lower()
     for rule in ACTION_RULES:
@@ -343,25 +382,32 @@ def _build_actions(errors: list[str]) -> list[dict[str, object]]:
 def build_operator_packet(
     *,
     preflight_json: Path,
+    env_validation_json: Path | None = None,
     app_root: Path | None = None,
 ) -> dict[str, object]:
     app_root = (app_root or _default_app_root()).resolve()
     workspace_root = _workspace_root(app_root)
     payload = _read_json(preflight_json)
+    env_payload = _read_json(env_validation_json) if env_validation_json is not None else None
 
     preflight_rel = _rel(preflight_json, workspace_root)
+    env_validation_rel = _rel(env_validation_json, workspace_root) if env_validation_json is not None else None
     if payload is None:
-        actions = [
-            {
-                "id": "run_launch_preflight",
-                "variables": [],
-                "operator_action": "Run the strict launch preflight before retrying compose launch.",
-                "validation": "A readable launch preflight JSON report exists.",
-                "source_errors": [f"Preflight JSON not found or unreadable: {preflight_rel}"],
-            }
-        ]
-        status = "missing_preflight"
-        errors = [actions[0]["source_errors"][0]]
+        if env_payload is not None and env_payload.get("status") != "pass":
+            actions, errors = _env_shape_actions(env_payload, env_validation_rel or "<unknown>")
+            status = "env_shape_blocked"
+        else:
+            actions = [
+                {
+                    "id": "run_launch_preflight",
+                    "variables": [],
+                    "operator_action": "Run the strict launch preflight before retrying compose launch.",
+                    "validation": "A readable launch preflight JSON report exists.",
+                    "source_errors": [f"Preflight JSON not found or unreadable: {preflight_rel}"],
+                }
+            ]
+            status = "missing_preflight"
+            errors = [actions[0]["source_errors"][0]]
         checks: dict[str, object] = {}
     else:
         status = str(payload.get("status") or "unknown")
@@ -388,6 +434,8 @@ def build_operator_packet(
         "status": "blocked" if blocked else "ready",
         "preflight_status": status,
         "preflight_json": preflight_rel,
+        "env_validation_json": env_validation_rel,
+        "env_validation_status": env_payload.get("status") if isinstance(env_payload, dict) else None,
         "secrets_redacted": True,
         "blocking_action_count": len(actions),
         "operator_actions": actions,
@@ -524,6 +572,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=workspace_root / "var" / "agriguard-launch-env-preflight-compose-launch.json",
     )
     parser.add_argument(
+        "--env-validation-json",
+        type=Path,
+        default=None,
+        help="Optional env-template validation JSON used when strict preflight did not run.",
+    )
+    parser.add_argument(
         "--json-out",
         type=Path,
         default=workspace_root / "var" / "agriguard-launch-operator-packet.json",
@@ -549,7 +603,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    packet = build_operator_packet(preflight_json=args.preflight_json.resolve(), app_root=args.app_root.resolve())
+    packet = build_operator_packet(
+        preflight_json=args.preflight_json.resolve(),
+        env_validation_json=args.env_validation_json.resolve() if args.env_validation_json else None,
+        app_root=args.app_root.resolve(),
+    )
     markdown = render_markdown(packet)
     evidence = packet.get("guarded_launch_evidence")
     if isinstance(evidence, dict):

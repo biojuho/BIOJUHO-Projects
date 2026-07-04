@@ -99,6 +99,54 @@ def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:
     assert packet["operator_actions"][0]["id"] == "run_launch_preflight"
 
 
+def test_operator_packet_maps_env_validation_failure_when_preflight_missing(tmp_path: Path) -> None:
+    env_validation = tmp_path / "env-validation.json"
+    env_validation.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "ready_for_preflight": False,
+                "missing_required_keys": ["AGRIGUARD_SECRET_KEY"],
+                "placeholder_variables": [{"key": "AGRIGUARD_PUBLIC_VERIFY_BASE_URL", "reason": "sample_domain"}],
+                "forbidden_flags_enabled": ["ALLOW_TEST_BYPASS"],
+                "blocking_findings": [
+                    "Missing required launch env key: AGRIGUARD_SECRET_KEY",
+                    "Replace placeholder value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight.",
+                    "ALLOW_TEST_BYPASS must be false for launch.",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=tmp_path / "missing-preflight.json",
+        env_validation_json=env_validation,
+        app_root=Path(__file__).resolve().parents[2],
+    )
+
+    assert packet["status"] == "blocked"
+    assert packet["preflight_status"] == "env_shape_blocked"
+    assert packet["env_validation_status"] == "fail"
+    assert packet["operator_actions"] == [
+        {
+            "id": "fix_env_shape_validation",
+            "variables": [
+                "AGRIGUARD_PUBLIC_VERIFY_BASE_URL",
+                "AGRIGUARD_SECRET_KEY",
+                "ALLOW_TEST_BYPASS",
+            ],
+            "operator_action": "Fix the launch env template findings before strict preflight can run.",
+            "validation": "Env template validation must report ready_for_preflight=true.",
+            "source_errors": [
+                "Missing required launch env key: AGRIGUARD_SECRET_KEY",
+                "Replace placeholder value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight.",
+                "ALLOW_TEST_BYPASS must be false for launch.",
+            ],
+        }
+    ]
+
+
 def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: Path) -> None:
     preflight = tmp_path / "preflight.json"
     preflight.write_text(

@@ -295,11 +295,12 @@ def _build_operator_packet_command(
     app_root: Path,
     *,
     preflight_json: Path,
+    env_validation_json: Path | None,
     json_out: Path,
     markdown_out: Path,
     env_template_out: Path,
 ) -> list[str]:
-    return [
+    command = [
         sys.executable,
         str(app_root / "scripts" / "render_launch_operator_packet.py"),
         "--preflight-json",
@@ -310,8 +311,11 @@ def _build_operator_packet_command(
         str(markdown_out),
         "--env-template-out",
         str(env_template_out),
-        "--exit-zero-on-blocked",
     ]
+    if env_validation_json is not None:
+        command.extend(["--env-validation-json", str(env_validation_json)])
+    command.append("--exit-zero-on-blocked")
+    return command
 
 
 def _build_readiness_summary_command(
@@ -575,6 +579,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     operator_packet_command = _build_operator_packet_command(
         app_root,
         preflight_json=json_out,
+        env_validation_json=env_validation_json_out,
         json_out=operator_packet_json,
         markdown_out=operator_packet_markdown,
         env_template_out=operator_env_template,
