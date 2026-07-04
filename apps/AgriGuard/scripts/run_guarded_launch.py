@@ -69,6 +69,12 @@ def _result_names(payload: dict[str, Any] | None) -> list[str]:
     ]
 
 
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str)]
+
+
 def _operator_action_ids_from_packet(payload: dict[str, Any] | None) -> list[str]:
     if payload is None:
         return []
@@ -219,6 +225,11 @@ def _build_status_view(
             "path": str(artifact_paths["operator_packet_json"]),
             "status": packet.get("status") if packet is not None else None,
             "operator_action_ids": _operator_action_ids_from_packet(packet),
+            "blocking_action_count": packet.get("blocking_action_count")
+            if packet is not None and isinstance(packet.get("blocking_action_count"), int)
+            else None,
+            "preflight_status": packet.get("preflight_status") if packet is not None else None,
+            "preflight_errors": _string_list(packet.get("preflight_errors")) if packet is not None else [],
             "secrets_redacted": packet.get("secrets_redacted") if packet is not None else None,
         },
         "artifact_index": {

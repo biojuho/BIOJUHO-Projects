@@ -507,6 +507,12 @@
         "operator_packet": {
           "additionalProperties": false,
           "properties": {
+            "blocking_action_count": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
             "found": {
               "type": "boolean"
             },
@@ -518,6 +524,18 @@
             },
             "path": {
               "type": "string"
+            },
+            "preflight_errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "preflight_status": {
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "secrets_redacted": {
               "type": [
@@ -537,6 +555,9 @@
             "path",
             "status",
             "operator_action_ids",
+            "blocking_action_count",
+            "preflight_status",
+            "preflight_errors",
             "secrets_redacted"
           ],
           "type": "object"

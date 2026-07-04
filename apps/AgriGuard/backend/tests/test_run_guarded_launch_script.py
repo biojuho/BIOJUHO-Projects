@@ -545,6 +545,9 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
         json.dumps(
             {
                 "status": "blocked",
+                "blocking_action_count": 1,
+                "preflight_status": "fail",
+                "preflight_errors": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."],
                 "operator_actions": [{"id": "fallback_action"}],
                 "secrets_redacted": True,
                 "guarded_launch_evidence": {
@@ -587,6 +590,11 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["readiness_summary"]["env_validation_placeholder_count"] == 6
     assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
     assert payload["operator_packet"]["operator_action_ids"] == ["fallback_action"]
+    assert payload["operator_packet"]["blocking_action_count"] == 1
+    assert payload["operator_packet"]["preflight_status"] == "fail"
+    assert payload["operator_packet"]["preflight_errors"] == [
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."
+    ]
     assert payload["artifact_index_recovery_summary"] == {
         "required": False,
         "action": None,
