@@ -110,15 +110,20 @@ def _build_status_view(
     status = "missing_artifacts"
     if summary is not None:
         status = str(summary.get("status") or "unknown")
+    elif launch is not None and launch.get("status") == "pass":
+        status = "ready"
     elif launch is not None:
         status = str(launch.get("status") or "unknown")
     elif packet is not None:
         status = str(packet.get("status") or "unknown")
+    blocker_class = summary.get("blocker_class") if summary is not None else None
+    if status == "ready" and blocker_class is None:
+        blocker_class = "ready"
 
     return {
         "schema_version": 1,
         "status": status,
-        "blocker_class": summary.get("blocker_class") if summary is not None else None,
+        "blocker_class": blocker_class,
         "operator_action_ids": action_ids,
         "output_dir": str(output_dir),
         "output_prefix": output_prefix,
@@ -147,6 +152,10 @@ def _build_status_view(
             "secrets_redacted": packet.get("secrets_redacted") if packet is not None else None,
         },
     }
+
+
+def _status_view_ready(status_view: dict[str, object]) -> bool:
+    return status_view.get("status") == "ready" and status_view.get("blocker_class") == "ready"
 
 
 def _build_launch_command(
@@ -247,6 +256,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional path for the compact status view JSON.",
     )
+    parser.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="Exit nonzero unless the selected guarded-launch prefix is ready.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the delegated launch_compose.py command plan.")
     return parser.parse_args(argv)
 
@@ -276,7 +290,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.status_json_out:
             write_json(args.status_json_out.resolve(), status_view)
         print(json.dumps(status_view, indent=2, sort_keys=True))
-        return 0
+        return 0 if not args.require_ready or _status_view_ready(status_view) else 1
 
     if args.dry_run:
         print(
@@ -297,13 +311,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         return 0
 
     completed = command_runner(command, cwd=app_root, text=True)
-    if args.status_json_out:
+    status_view = None
+    if args.status_json_out or args.require_ready:
         status_view = _build_status_view(
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
         )
+    if args.status_json_out and status_view is not None:
         write_json(args.status_json_out.resolve(), status_view)
+    if args.require_ready and status_view is not None and not _status_view_ready(status_view):
+        return completed.returncode or 1
     return completed.returncode
 
 

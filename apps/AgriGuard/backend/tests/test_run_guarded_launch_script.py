@@ -205,6 +205,79 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["operator_packet"]["operator_action_ids"] == ["fallback_action"]
 
 
+def test_guarded_launch_status_require_ready_fails_for_blocked_prefix(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    artifacts["readiness_summary_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["readiness_summary_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "blocker_class": "env_shape_blocked",
+                "secrets_redacted": True,
+                "reports": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--status-only",
+            "--require-ready",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 1
+    assert payload["status"] == "blocked"
+    assert payload["blocker_class"] == "env_shape_blocked"
+
+
+def test_guarded_launch_status_require_ready_accepts_passing_launch(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "ready")
+    artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["launch_report_json"].write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "stage": "browser_smoke",
+                "stop_reason": None,
+                "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "ready",
+            "--status-only",
+            "--require-ready",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["status"] == "ready"
+    assert payload["blocker_class"] == "ready"
+    assert payload["launch"]["stage"] == "browser_smoke"
+
+
 def test_guarded_launch_can_write_status_json_after_run(tmp_path: Path) -> None:
     app_root = tmp_path / "AgriGuard"
     output_dir = tmp_path / "launch-artifacts"
@@ -247,3 +320,42 @@ def test_guarded_launch_can_write_status_json_after_run(tmp_path: Path) -> None:
     assert result == 9
     assert payload["status"] == "blocked"
     assert payload["blocker_class"] == "env_shape_blocked"
+
+
+def test_guarded_launch_require_ready_checks_status_after_run(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    env_file = tmp_path / "operator.env"
+
+    def runner(command, **kwargs):
+        artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "after-run")
+        artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["launch_report_json"].write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "stage": "browser_smoke",
+                    "stop_reason": None,
+                    "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "after-run",
+            "--require-ready",
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 0
