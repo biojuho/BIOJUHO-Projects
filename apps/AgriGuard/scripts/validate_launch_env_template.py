@@ -111,6 +111,16 @@ def _placeholder_variables(env: dict[str, str]) -> list[dict[str, str]]:
     return placeholders
 
 
+def _placeholder_finding(item: dict[str, str]) -> str:
+    key = item["key"]
+    reason = item.get("reason")
+    if reason == "angle_bracket_placeholder":
+        return f"Replace angle-bracket placeholder value for {key} before launch preflight."
+    if reason == "sample_domain_placeholder":
+        return f"Replace sample domain value for {key} before launch preflight."
+    return f"Replace placeholder-like value for {key} before launch preflight."
+
+
 def _forbidden_flags_enabled(env: dict[str, str]) -> list[str]:
     return [key for key in FORBIDDEN_TRUE_FLAGS if _env_flag_enabled(env.get(key))]
 
@@ -191,10 +201,7 @@ def build_validation_report(*, env_file: Path, app_root: Path | None = None) -> 
     if not env_file_found:
         blocking_findings.append(f"Env file not found: {_rel(env_file, workspace_root)}")
     blocking_findings.extend(f"Missing required launch env key: {key}" for key in missing_keys)
-    blocking_findings.extend(
-        f"Replace placeholder value for {item['key']} before launch preflight."
-        for item in placeholder_variables
-    )
+    blocking_findings.extend(_placeholder_finding(item) for item in placeholder_variables)
     blocking_findings.extend(f"{flag} must be false for launch." for flag in forbidden_flags)
     blocking_findings.extend(_firebase_path_shape_errors(env))
     blocking_findings.extend(f"Launch shape validation: {error}" for error in launch_errors)

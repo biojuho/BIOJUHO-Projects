@@ -111,7 +111,7 @@ def test_operator_packet_maps_env_validation_failure_when_preflight_missing(tmp_
                 "forbidden_flags_enabled": ["ALLOW_TEST_BYPASS"],
                 "blocking_findings": [
                     "Missing required launch env key: AGRIGUARD_SECRET_KEY",
-                    "Replace placeholder value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight.",
+                    "Replace sample domain value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight.",
                     "ALLOW_TEST_BYPASS must be false for launch.",
                 ],
             }
@@ -140,7 +140,7 @@ def test_operator_packet_maps_env_validation_failure_when_preflight_missing(tmp_
             "validation": "Env template validation must report ready_for_preflight=true.",
             "source_errors": [
                 "Missing required launch env key: AGRIGUARD_SECRET_KEY",
-                "Replace placeholder value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight.",
+                "Replace sample domain value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight.",
                 "ALLOW_TEST_BYPASS must be false for launch.",
             ],
         }

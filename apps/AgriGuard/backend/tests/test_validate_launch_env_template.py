@@ -62,6 +62,18 @@ def test_validate_launch_env_template_rejects_generated_placeholder_template(tmp
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL",
         "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
     }.issubset(placeholder_keys)
+    assert (
+        "Replace sample domain value for AGRIGUARD_ALLOWED_ORIGINS before launch preflight."
+        in report["blocking_findings"]
+    )
+    assert (
+        "Replace sample domain value for AGRIGUARD_PUBLIC_VERIFY_BASE_URL before launch preflight."
+        in report["blocking_findings"]
+    )
+    assert (
+        "Replace angle-bracket placeholder value for AGRIGUARD_SECRET_KEY before launch preflight."
+        in report["blocking_findings"]
+    )
     assert report["secrets_redacted"] is True
 
 
