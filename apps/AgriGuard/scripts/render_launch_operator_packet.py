@@ -72,6 +72,64 @@ ACTION_RULES: tuple[dict[str, object], ...] = (
     },
 )
 
+ENV_TEMPLATE_ENTRIES: tuple[dict[str, str], ...] = (
+    {
+        "key": "AGRIGUARD_DB_USER",
+        "value": "agriguard",
+        "comment": "Compose PostgreSQL user.",
+    },
+    {
+        "key": "AGRIGUARD_DB_PASSWORD",
+        "value": "<set-strong-db-password-16-plus-chars>",
+        "comment": "Use a strong database password or set AGRIGUARD_DATABASE_URL instead.",
+    },
+    {
+        "key": "AGRIGUARD_DB_NAME",
+        "value": "agriguard",
+        "comment": "Compose PostgreSQL database name.",
+    },
+    {
+        "key": "AGRIGUARD_AUTO_CREATE_SCHEMA",
+        "value": "false",
+        "comment": "Keep schema auto-creation disabled for launch.",
+    },
+    {
+        "key": "AGRIGUARD_ALLOWED_ORIGINS",
+        "value": "https://app.example.com",
+        "comment": "Comma-separated production browser origins; do not use localhost for launch.",
+    },
+    {
+        "key": "AGRIGUARD_SECRET_KEY",
+        "value": "<set-strong-secret-32-plus-chars>",
+        "comment": "Strong app-scoped secret.",
+    },
+    {
+        "key": "AGRIGUARD_QR_TOKEN_PEPPER",
+        "value": "<set-stable-qr-token-pepper-32-plus-chars>",
+        "comment": "Stable per-environment token pepper; changing it invalidates stored token hashes.",
+    },
+    {
+        "key": "AGRIGUARD_PUBLIC_VERIFY_BASE_URL",
+        "value": "https://verify.example.com",
+        "comment": "Public HTTPS URL opened by scanned QR labels.",
+    },
+    {
+        "key": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+        "value": "<absolute-path-outside-repo-to-firebase-service-account.json>",
+        "comment": "Host path to a Firebase Admin service account JSON file outside the repo.",
+    },
+    {
+        "key": "ALLOW_TEST_BYPASS",
+        "value": "false",
+        "comment": "Must remain false for launch.",
+    },
+    {
+        "key": "ALLOW_DEV_AUTH_FALLBACK",
+        "value": "false",
+        "comment": "Must remain false for launch.",
+    },
+)
+
 
 def _default_app_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -222,6 +280,11 @@ def build_operator_packet(
             "database_password_source": checks.get("database_password_source"),
             "database_url_source": checks.get("database_url_source"),
         },
+        "operator_env_template": {
+            "format": "dotenv",
+            "placeholder_values_must_be_replaced": True,
+            "variables": [entry["key"] for entry in ENV_TEMPLATE_ENTRIES],
+        },
         "safe_rerun_commands": [rerun_preflight, rerun_launch],
     }
 
@@ -278,6 +341,33 @@ def render_markdown(packet: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def render_env_template(packet: dict[str, object]) -> str:
+    action_ids: list[str] = []
+    actions = packet.get("operator_actions")
+    if isinstance(actions, list):
+        action_ids = [
+            str(action.get("id"))
+            for action in actions
+            if isinstance(action, dict) and isinstance(action.get("id"), str)
+        ]
+
+    lines = [
+        "# AgriGuard launch env template",
+        "# Replace every <...> placeholder before running launch preflight.",
+        "# Keep this file out of git after real values are added.",
+        f"# Packet status: {packet.get('status')}",
+        f"# Blocking action IDs: {', '.join(action_ids) if action_ids else 'none'}",
+        "",
+    ]
+    for entry in ENV_TEMPLATE_ENTRIES:
+        comment = entry.get("comment")
+        if comment:
+            lines.append(f"# {comment}")
+        lines.append(f"{entry['key']}={entry['value']}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def write_json(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -304,6 +394,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=workspace_root / "var" / "agriguard-launch-operator-packet.md",
     )
     parser.add_argument(
+        "--env-template-out",
+        type=Path,
+        default=None,
+        help="Optional dotenv template with redacted launch variable placeholders.",
+    )
+    parser.add_argument(
         "--exit-zero-on-blocked",
         action="store_true",
         help="Write the packet but return 0 even when launch remains blocked.",
@@ -317,6 +413,10 @@ def main(argv: list[str] | None = None) -> int:
     write_json(args.json_out.resolve(), packet)
     args.markdown_out.resolve().parent.mkdir(parents=True, exist_ok=True)
     args.markdown_out.resolve().write_text(render_markdown(packet), encoding="utf-8")
+    if args.env_template_out:
+        args.env_template_out.resolve().parent.mkdir(parents=True, exist_ok=True)
+        args.env_template_out.resolve().write_text(render_env_template(packet), encoding="utf-8")
+        print(f"wrote launch env template: {args.env_template_out}")
     print(f"wrote launch operator packet: {args.json_out}")
     print(f"wrote launch operator packet markdown: {args.markdown_out}")
     return 0 if args.exit_zero_on_blocked or packet["status"] == "ready" else 1

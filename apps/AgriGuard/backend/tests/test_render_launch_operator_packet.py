@@ -97,10 +97,40 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert "launch_compose.py --run-browser-smoke" in markdown
 
 
+def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp_path: Path) -> None:
+    preflight = tmp_path / "preflight.json"
+    preflight.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "errors": ["Set AGRIGUARD_SECRET_KEY before compose launch."],
+                "warnings": [],
+                "checks": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=preflight,
+        app_root=Path(__file__).resolve().parents[2],
+    )
+    template = render_launch_operator_packet.render_env_template(packet)
+
+    assert "AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>" in template
+    assert "AGRIGUARD_QR_TOKEN_PEPPER=<set-stable-qr-token-pepper-32-plus-chars>" in template
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=<absolute-path-outside-repo-to-firebase-service-account.json>" in template
+    assert "ALLOW_TEST_BYPASS=false" in template
+    assert "ALLOW_DEV_AUTH_FALLBACK=false" in template
+    assert "super-secret-value" not in template
+    assert packet["operator_env_template"]["placeholder_values_must_be_replaced"] is True
+
+
 def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_path: Path) -> None:
     preflight = tmp_path / "preflight.json"
     json_out = tmp_path / "packet.json"
     markdown_out = tmp_path / "packet.md"
+    env_template_out = tmp_path / "launch.env.template"
     preflight.write_text(json.dumps({"status": "fail", "errors": ["Set AGRIGUARD_SECRET_KEY before compose launch."]}), encoding="utf-8")
 
     result = render_launch_operator_packet.main(
@@ -113,9 +143,12 @@ def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_
             str(json_out),
             "--markdown-out",
             str(markdown_out),
+            "--env-template-out",
+            str(env_template_out),
         ]
     )
 
     assert result == 1
     assert json.loads(json_out.read_text(encoding="utf-8"))["blocking_action_count"] == 1
     assert "`set_secret_key`" in markdown_out.read_text(encoding="utf-8")
+    assert "AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>" in env_template_out.read_text(encoding="utf-8")

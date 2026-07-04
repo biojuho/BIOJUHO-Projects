@@ -47,6 +47,10 @@ def _default_operator_packet_markdown_out(app_root: Path) -> Path:
     return _workspace_root(app_root) / "var" / "agriguard-launch-operator-packet.md"
 
 
+def _default_operator_env_template_out(app_root: Path) -> Path:
+    return _workspace_root(app_root) / "var" / "agriguard-launch-operator.env.template"
+
+
 def _tail(value: str | None, *, limit: int = 1200) -> str:
     if not value:
         return ""
@@ -95,24 +99,47 @@ def _summarize_browser_smoke_json(path: Path) -> dict[str, object]:
     }
 
 
-def _summarize_operator_packet_json(path: Path, markdown_path: Path) -> dict[str, object]:
+def _summarize_operator_packet_json(
+    path: Path,
+    markdown_path: Path,
+    env_template_path: Path,
+) -> dict[str, object]:
     payload = _read_json_file(path)
     if payload is None:
-        return {"found": False, "path": str(path), "markdown_path": str(markdown_path)}
+        return {
+            "found": False,
+            "path": str(path),
+            "markdown_path": str(markdown_path),
+            "env_template_path": str(env_template_path),
+            "env_template_found": env_template_path.exists(),
+        }
     actions = payload.get("operator_actions") if isinstance(payload.get("operator_actions"), list) else []
     action_ids = [
         action.get("id")
         for action in actions
         if isinstance(action, dict) and isinstance(action.get("id"), str)
     ]
+    env_template = (
+        payload.get("operator_env_template")
+        if isinstance(payload.get("operator_env_template"), dict)
+        else {}
+    )
+    template_variables = (
+        env_template.get("variables")
+        if isinstance(env_template.get("variables"), list)
+        else []
+    )
     return {
         "found": True,
         "path": str(path),
         "markdown_path": str(markdown_path),
+        "env_template_path": str(env_template_path),
+        "env_template_found": env_template_path.exists(),
         "status": payload.get("status"),
         "preflight_status": payload.get("preflight_status"),
         "blocking_action_count": payload.get("blocking_action_count"),
         "operator_action_ids": action_ids,
+        "env_template_variables": template_variables,
         "secrets_redacted": payload.get("secrets_redacted"),
     }
 
@@ -198,6 +225,7 @@ def _build_operator_packet_command(
     preflight_json: Path,
     json_out: Path,
     markdown_out: Path,
+    env_template_out: Path,
 ) -> list[str]:
     return [
         sys.executable,
@@ -208,6 +236,8 @@ def _build_operator_packet_command(
         str(json_out),
         "--markdown-out",
         str(markdown_out),
+        "--env-template-out",
+        str(env_template_out),
         "--exit-zero-on-blocked",
     ]
 
@@ -287,6 +317,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Operator packet Markdown path written when launch preflight fails.",
     )
+    parser.add_argument(
+        "--operator-env-template",
+        type=Path,
+        default=None,
+        help="Operator dotenv template path written when launch preflight fails.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the command plan without running preflight or compose.")
     return parser.parse_args(argv)
 
@@ -320,6 +356,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if args.operator_packet_markdown
         else _default_operator_packet_markdown_out(app_root)
     )
+    operator_env_template = (
+        args.operator_env_template.resolve()
+        if args.operator_env_template
+        else _default_operator_env_template_out(app_root)
+    )
     preflight_command = _build_preflight_command(app_root, json_out, args.env_file)
     compose_command = _build_compose_command(
         app_root,
@@ -345,6 +386,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         preflight_json=json_out,
         json_out=operator_packet_json,
         markdown_out=operator_packet_markdown,
+        env_template_out=operator_env_template,
     )
 
     if args.dry_run:
@@ -357,6 +399,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             "launch_report_json": str(launch_report_json),
             "operator_packet_json": str(operator_packet_json),
             "operator_packet_markdown": str(operator_packet_markdown),
+            "operator_env_template": str(operator_env_template),
             "will_run_compose_after_preflight": True,
             "will_run_browser_smoke_after_compose": args.run_browser_smoke,
             "will_write_operator_packet_on_preflight_failure": True,
@@ -372,6 +415,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "preflight_json": str(json_out),
         "operator_packet_json": str(operator_packet_json),
         "operator_packet_markdown": str(operator_packet_markdown),
+        "operator_env_template": str(operator_env_template),
         "browser_smoke_json": str(browser_smoke_json_out) if args.run_browser_smoke else None,
         "browser_smoke_output_dir": str(browser_smoke_output_dir) if args.run_browser_smoke else None,
         "run_browser_smoke": args.run_browser_smoke,
@@ -389,6 +433,8 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                 "found": False,
                 "path": str(operator_packet_json),
                 "markdown_path": str(operator_packet_markdown),
+                "env_template_path": str(operator_env_template),
+                "env_template_found": False,
             },
             "browser_smoke": (
                 {"found": False, "path": str(browser_smoke_json_out)}
@@ -418,6 +464,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         child_reports["operator_packet"] = _summarize_operator_packet_json(
             operator_packet_json,
             operator_packet_markdown,
+            operator_env_template,
         )
         launch_report["status"] = "fail"
         launch_report["stage"] = "preflight"

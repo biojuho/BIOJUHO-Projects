@@ -62,6 +62,8 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
         str(launch_compose._default_operator_packet_json_out(app_root.resolve())),
         "--markdown-out",
         str(launch_compose._default_operator_packet_markdown_out(app_root.resolve())),
+        "--env-template-out",
+        str(launch_compose._default_operator_env_template_out(app_root.resolve())),
         "--exit-zero-on-blocked",
     ]
     assert payload["will_run_browser_smoke_after_compose"] is False
@@ -74,6 +76,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
     launch_report_json = tmp_path / "launch-report.json"
     operator_packet_json = tmp_path / "operator-packet.json"
     operator_packet_markdown = tmp_path / "operator-packet.md"
+    operator_env_template = tmp_path / "operator.env.template"
     calls: list[list[str]] = []
 
     def runner(command, **kwargs):
@@ -86,12 +89,16 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
                         "preflight_status": "fail",
                         "blocking_action_count": 1,
                         "operator_actions": [{"id": "set_secret_key"}],
+                        "operator_env_template": {
+                            "variables": ["AGRIGUARD_SECRET_KEY"],
+                        },
                         "secrets_redacted": True,
                     }
                 ),
                 encoding="utf-8",
             )
             operator_packet_markdown.write_text("# Operator packet\n", encoding="utf-8")
+            operator_env_template.write_text("AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>\n", encoding="utf-8")
             return subprocess.CompletedProcess(args=command, returncode=0, stdout="packet written", stderr="")
         return subprocess.CompletedProcess(args=command, returncode=1, stdout="preflight failed", stderr="")
 
@@ -107,6 +114,8 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
             str(operator_packet_json),
             "--operator-packet-markdown",
             str(operator_packet_markdown),
+            "--operator-env-template",
+            str(operator_env_template),
         ],
         command_runner=runner,
     )
@@ -128,10 +137,13 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "found": True,
         "path": str(operator_packet_json.resolve()),
         "markdown_path": str(operator_packet_markdown.resolve()),
+        "env_template_path": str(operator_env_template.resolve()),
+        "env_template_found": True,
         "status": "blocked",
         "preflight_status": "fail",
         "blocking_action_count": 1,
         "operator_action_ids": ["set_secret_key"],
+        "env_template_variables": ["AGRIGUARD_SECRET_KEY"],
         "secrets_redacted": True,
     }
 
