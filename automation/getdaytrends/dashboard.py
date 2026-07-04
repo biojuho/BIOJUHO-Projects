@@ -131,7 +131,7 @@ SCHEDULER_NEAR_STALE_RATIO = 0.9
 READINESS_REFRESH_COMMAND = (
     "python scripts\\readiness_check.py --max-scheduler-age-hours 24 "
     "--max-cli-smoke-age-hours 24 --max-browser-smoke-age-hours 24 "
-    "--fail-on-runtime-fallback --require-live-db"
+    "--fail-on-runtime-fallback --require-live-db --require-windows-scheduled-task"
 )
 TAP_FIXTURE_BROWSER_REFRESH_COMMAND = "python scripts\\browser_smoke.py --tap-source-fixture --timeout 45"
 READINESS_VERIFICATION_COMMANDS = (

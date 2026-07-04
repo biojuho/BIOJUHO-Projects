@@ -1073,7 +1073,7 @@ class TestDashboardEnhancements:
         assert data["artifacts"]["readiness_refresh_command"] == (
             "python scripts\\readiness_check.py --max-scheduler-age-hours 24 "
             "--max-cli-smoke-age-hours 24 --max-browser-smoke-age-hours 24 "
-            "--fail-on-runtime-fallback --require-live-db"
+            "--fail-on-runtime-fallback --require-live-db --require-windows-scheduled-task"
         )
         assert [item["key"] for item in data["artifact_actions"]] == [
             "readiness_report",
@@ -1334,7 +1334,7 @@ class TestDashboardEnhancements:
                 "remediation": (
                     "python scripts\\readiness_check.py --max-scheduler-age-hours 24 "
                     "--max-cli-smoke-age-hours 24 --max-browser-smoke-age-hours 24 "
-                    "--fail-on-runtime-fallback --require-live-db"
+                    "--fail-on-runtime-fallback --require-live-db --require-windows-scheduled-task"
                 ),
             }
         ]
