@@ -1,0 +1,231 @@
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+from pathlib import Path
+from typing import Any
+
+
+def _load_peer_module(module_name: str) -> Any:
+    script_path = Path(__file__).resolve().with_name(f"{module_name}.py")
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+run_guarded_launch = _load_peer_module("run_guarded_launch")
+
+
+EXTERNAL_BLOCKER_SUMMARY = (
+    "Real compose/browser launch remains externally blocked until the operator supplies a real Firebase Admin "
+    "service-account JSON outside the repo plus production-strength secret, pepper, public verify URL, allowed "
+    "origins, and database credentials."
+)
+
+
+def _default_app_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _workspace_root(app_root: Path) -> Path:
+    if app_root.parent.name == "apps":
+        return app_root.parents[1]
+    return app_root.parent
+
+
+def _rel(path: Path, root: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def write_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _wrapper_status_argv(
+    *,
+    app_root: Path,
+    output_dir: Path,
+    output_prefix: str,
+    ready_gate_json: Path | None = None,
+    require_ready: bool = False,
+) -> list[str]:
+    workspace_root = _workspace_root(app_root)
+    argv = [
+        "python",
+        "apps/AgriGuard/scripts/run_guarded_launch.py",
+    ]
+    if output_dir.resolve() != (workspace_root / "var").resolve():
+        argv.extend(["--output-dir", str(output_dir)])
+    argv.extend(["--output-prefix", output_prefix, "--status-only"])
+    if require_ready:
+        argv.append("--require-ready")
+    if ready_gate_json is not None:
+        argv.extend(["--status-json-out", _rel(ready_gate_json, workspace_root)])
+    return argv
+
+
+def _external_blocker(status_view: dict[str, object], ready: bool) -> dict[str, object]:
+    if ready:
+        return {
+            "status": "resolved",
+            "blocker_class": "ready",
+            "operator_action_ids": [],
+            "summary": "Selected guarded-launch prefix is ready.",
+        }
+    return {
+        "status": "blocked",
+        "blocker_class": status_view.get("blocker_class"),
+        "operator_action_ids": status_view.get("operator_action_ids")
+        if isinstance(status_view.get("operator_action_ids"), list)
+        else [],
+        "summary": EXTERNAL_BLOCKER_SUMMARY,
+    }
+
+
+def build_handoff(
+    *,
+    app_root: Path,
+    output_dir: Path,
+    output_prefix: str,
+    ready_gate_json: Path,
+) -> dict[str, object]:
+    app_root = app_root.resolve()
+    output_dir = output_dir.resolve()
+    artifact_paths = run_guarded_launch._artifact_paths(output_dir, output_prefix)
+    status_view = run_guarded_launch._build_status_view(
+        output_dir=output_dir,
+        output_prefix=output_prefix,
+        artifact_paths=artifact_paths,
+    )
+    ready = run_guarded_launch._status_view_ready(status_view)
+    ready_gate = {
+        "status": "pass" if ready else "fail",
+        "required_status": "ready",
+        "required_blocker_class": "ready",
+        "exit_code": 0 if ready else 1,
+        "status_json_out": str(ready_gate_json),
+        "command": _wrapper_status_argv(
+            app_root=app_root,
+            output_dir=output_dir,
+            output_prefix=output_prefix,
+            ready_gate_json=ready_gate_json,
+            require_ready=True,
+        ),
+    }
+    return {
+        "schema_version": 1,
+        "status": "ready" if ready else "blocked",
+        "secrets_redacted": True,
+        "output_prefix": output_prefix,
+        "output_dir": str(output_dir),
+        "status_view": status_view,
+        "ready_gate": ready_gate,
+        "external_blocker": _external_blocker(status_view, ready),
+        "operator_commands": [
+            {
+                "id": "inspect_status",
+                "description": "Print the compact guarded-launch status view.",
+                "command": _wrapper_status_argv(
+                    app_root=app_root,
+                    output_dir=output_dir,
+                    output_prefix=output_prefix,
+                ),
+            },
+            {
+                "id": "require_ready",
+                "description": "Fail closed unless the selected guarded-launch prefix is ready.",
+                "command": ready_gate["command"],
+            },
+        ],
+    }
+
+
+def render_markdown(handoff: dict[str, object]) -> str:
+    status_view = handoff.get("status_view") if isinstance(handoff.get("status_view"), dict) else {}
+    launch = status_view.get("launch") if isinstance(status_view.get("launch"), dict) else {}
+    ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
+    external_blocker = handoff.get("external_blocker") if isinstance(handoff.get("external_blocker"), dict) else {}
+    commands = handoff.get("operator_commands") if isinstance(handoff.get("operator_commands"), list) else []
+    action_ids = external_blocker.get("operator_action_ids")
+    action_text = ", ".join(f"`{item}`" for item in action_ids) if isinstance(action_ids, list) and action_ids else "-"
+    lines = [
+        "# AgriGuard Guarded Launch Handoff",
+        "",
+        f"- Status: `{handoff.get('status')}`",
+        f"- Output prefix: `{handoff.get('output_prefix')}`",
+        f"- Launch stage: `{launch.get('stage')}`",
+        f"- Blocker class: `{status_view.get('blocker_class')}`",
+        f"- Ready gate: `{ready_gate.get('status')}`",
+        f"- Secrets redacted: `{str(handoff.get('secrets_redacted')).lower()}`",
+        "",
+        "## External Blocker",
+        "",
+        f"- Status: `{external_blocker.get('status')}`",
+        f"- Operator action IDs: {action_text}",
+        f"- Summary: {external_blocker.get('summary')}",
+        "",
+        "## Operator Commands",
+        "",
+    ]
+    for command in commands:
+        if not isinstance(command, dict):
+            continue
+        argv = command.get("command") if isinstance(command.get("command"), list) else []
+        lines.append(f"- `{command.get('id')}`: `{' '.join(str(part) for part in argv)}`")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    app_root = _default_app_root()
+    workspace_root = _workspace_root(app_root)
+    parser = argparse.ArgumentParser(description="Render an AgriGuard guarded-launch operator handoff.")
+    parser.add_argument("--app-root", type=Path, default=app_root)
+    parser.add_argument("--output-dir", type=Path, default=workspace_root / "var")
+    parser.add_argument("--output-prefix", default=run_guarded_launch.DEFAULT_OUTPUT_PREFIX)
+    parser.add_argument("--ready-gate-json", type=Path, default=None)
+    parser.add_argument("--json-out", type=Path, default=None)
+    parser.add_argument("--markdown-out", type=Path, default=None)
+    parser.add_argument("--exit-zero-on-blocked", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    app_root = args.app_root.resolve()
+    output_dir = args.output_dir.resolve()
+    ready_gate_json = (
+        args.ready_gate_json.resolve()
+        if args.ready_gate_json
+        else output_dir / f"{args.output_prefix}-ready-gate.json"
+    )
+    json_out = args.json_out.resolve() if args.json_out else output_dir / f"{args.output_prefix}-handoff.json"
+    markdown_out = (
+        args.markdown_out.resolve()
+        if args.markdown_out
+        else output_dir / f"{args.output_prefix}-handoff.md"
+    )
+    handoff = build_handoff(
+        app_root=app_root,
+        output_dir=output_dir,
+        output_prefix=args.output_prefix,
+        ready_gate_json=ready_gate_json,
+    )
+    write_json(json_out, handoff)
+    markdown_out.parent.mkdir(parents=True, exist_ok=True)
+    markdown_out.write_text(render_markdown(handoff), encoding="utf-8")
+    print(f"wrote guarded launch handoff markdown: {markdown_out}")
+    print(f"wrote guarded launch handoff: {json_out}")
+    return 0 if args.exit_zero_on_blocked or handoff["status"] == "ready" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
