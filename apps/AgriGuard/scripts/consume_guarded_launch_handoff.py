@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import importlib.util
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -63,9 +62,59 @@ def _operator_action_ids(handoff: dict[str, Any]) -> list[str]:
     return [str(action_id) for action_id in action_ids if isinstance(action_id, str)]
 
 
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str)]
+
+
 def _packet_validation(handoff: dict[str, Any] | None) -> dict[str, Any]:
     packet_validation = handoff.get("packet_validation") if handoff is not None else None
     return packet_validation if isinstance(packet_validation, dict) else {}
+
+
+def _append_semantic_consistency_errors(
+    errors: list[str],
+    *,
+    handoff_status: object,
+    ready_gate_status: object,
+    status_view: dict[str, Any],
+    external_blocker: dict[str, Any],
+    external_action_ids: list[str],
+) -> None:
+    status_view_status = status_view.get("status")
+    status_view_blocker_class = status_view.get("blocker_class")
+    status_view_action_ids = _string_list(status_view.get("operator_action_ids"))
+    external_blocker_status = external_blocker.get("status")
+    external_blocker_class = external_blocker.get("blocker_class")
+
+    if handoff_status in {"ready", "blocked"} and status_view_status != handoff_status:
+        errors.append(
+            f"status_view status {status_view_status!r} does not match handoff status {handoff_status!r}"
+        )
+    if external_blocker_class != status_view_blocker_class:
+        errors.append(
+            "external_blocker blocker_class "
+            f"{external_blocker_class!r} does not match status_view blocker_class {status_view_blocker_class!r}"
+        )
+    if external_action_ids != status_view_action_ids:
+        errors.append(
+            "external_blocker operator_action_ids "
+            f"{external_action_ids!r} do not match status_view operator_action_ids {status_view_action_ids!r}"
+        )
+
+    if handoff_status == "ready":
+        if ready_gate_status != "pass":
+            errors.append(f"ready handoff has ready_gate status {ready_gate_status!r}")
+        if external_blocker_status != "resolved":
+            errors.append(f"ready handoff has external_blocker status {external_blocker_status!r}")
+        if status_view_blocker_class != "ready":
+            errors.append(f"ready handoff has status_view blocker_class {status_view_blocker_class!r}")
+    elif handoff_status == "blocked":
+        if ready_gate_status != "fail":
+            errors.append(f"blocked handoff has ready_gate status {ready_gate_status!r}")
+        if external_blocker_status != "blocked":
+            errors.append(f"blocked handoff has external_blocker status {external_blocker_status!r}")
 
 
 def build_consumer_view(
@@ -114,6 +163,17 @@ def build_consumer_view(
         if handoff is not None and isinstance(handoff.get("external_blocker"), dict)
         else {}
     )
+    external_action_ids = _operator_action_ids(handoff or {})
+    ready_gate_status = ready_gate.get("status")
+    if handoff is not None:
+        _append_semantic_consistency_errors(
+            errors,
+            handoff_status=handoff_status,
+            ready_gate_status=ready_gate_status,
+            status_view=status_view,
+            external_blocker=external_blocker,
+            external_action_ids=external_action_ids,
+        )
     packet_validation = _packet_validation(handoff)
     packet_validation_status = packet_validation.get("status")
     packet_recovery_summary = (
@@ -123,7 +183,6 @@ def build_consumer_view(
     )
     if handoff is not None and packet_validation_status != "pass":
         errors.append("packet_validation status is not pass")
-    ready_gate_status = ready_gate.get("status")
     pass_ready = handoff_status == "ready" and ready_gate_status == "pass"
     status = "pass" if pass_ready and not errors else "fail"
 
@@ -137,6 +196,7 @@ def build_consumer_view(
         "validation_matches_handoff": validation_matches_handoff,
         "handoff_status": handoff_status,
         "ready_gate_status": ready_gate_status,
+        "status_view_status": status_view.get("status"),
         "packet_validation_status": packet_validation_status,
         "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),
         "packet_markdown_table_status": packet_validation.get("markdown_table_status"),
@@ -151,8 +211,10 @@ def build_consumer_view(
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),
         "readiness_operator_packet_preflight_status": readiness_summary.get("operator_packet_preflight_status"),
         "blocker_class": status_view.get("blocker_class"),
-        "operator_action_ids": _operator_action_ids(handoff or {}),
+        "status_view_operator_action_ids": _string_list(status_view.get("operator_action_ids")),
+        "operator_action_ids": external_action_ids,
         "external_blocker_status": external_blocker.get("status"),
+        "external_blocker_class": external_blocker.get("blocker_class"),
         "external_blocker_summary": external_blocker.get("summary"),
         "errors": errors,
         "secrets_redacted": True,

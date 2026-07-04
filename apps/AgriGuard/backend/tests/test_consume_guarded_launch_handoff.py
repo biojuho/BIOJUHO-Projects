@@ -4,7 +4,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 APP_ROOT = Path(__file__).resolve().parents[2]
 
 HANDOFF_PATH = APP_ROOT / "scripts" / "render_guarded_launch_handoff.py"
@@ -50,8 +49,10 @@ def _write_operator_packet(
     evidence_status: str = "pass",
     markdown_status: str = "pass",
     recovery_command_status: str | None = "not_required",
+    operator_action_ids: list[str] | None = None,
 ) -> None:
     artifacts = RUN_WRAPPER._artifact_paths(output_dir.resolve(), prefix)
+    action_ids = ["set_firebase_service_account_file"] if operator_action_ids is None else operator_action_ids
     recovery_summary = (
         {
             "required": False,
@@ -80,7 +81,7 @@ def _write_operator_packet(
             {
                 "status": "blocked",
                 "secrets_redacted": True,
-                "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                "operator_actions": [{"id": action_id} for action_id in action_ids],
                 "guarded_launch_evidence": {
                     "artifact_index_readiness_summary": artifact_summary,
                     "validation": {
@@ -131,7 +132,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
             "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
         },
     )
-    _write_operator_packet(output_dir, "ready")
+    _write_operator_packet(output_dir, "ready", operator_action_ids=[])
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "ready")
 
     view = consume_guarded_launch_handoff.build_consumer_view(
@@ -267,7 +268,7 @@ def test_consume_guarded_launch_handoff_fails_stale_validation_report(tmp_path: 
             "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
         },
     )
-    _write_operator_packet(output_dir, "ready")
+    _write_operator_packet(output_dir, "ready", operator_action_ids=[])
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "ready")
     payload = json.loads(handoff_json.read_text(encoding="utf-8"))
     payload["output_prefix"] = "tampered"
@@ -281,6 +282,45 @@ def test_consume_guarded_launch_handoff_fails_stale_validation_report(tmp_path: 
     assert view["status"] == "fail"
     assert view["validation_matches_handoff"] is False
     assert "validation report handoff_sha256 does not match current handoff" in view["errors"]
+
+
+def test_consume_guarded_launch_handoff_fails_semantic_blocker_drift(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    _write_readiness_summary(
+        output_dir,
+        "blocked",
+        {
+            "status": "blocked",
+            "blocker_class": "preflight_blocked",
+            "secrets_redacted": True,
+            "reports": {
+                "operator_packet": {
+                    "operator_action_ids": ["set_firebase_service_account_file"],
+                },
+            },
+        },
+    )
+    _write_operator_packet(output_dir, "blocked")
+    handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
+    payload = json.loads(handoff_json.read_text(encoding="utf-8"))
+    payload["external_blocker"]["status"] = "resolved"
+    payload["external_blocker"]["operator_action_ids"] = ["wrong_action"]
+    payload["ready_gate"]["status"] = "pass"
+    handoff_json.write_text(json.dumps(payload), encoding="utf-8")
+    assert validate_guarded_launch_handoff.main([str(handoff_json), "--json-out", str(validation_json)]) == 0
+
+    view = consume_guarded_launch_handoff.build_consumer_view(
+        handoff_json=handoff_json,
+        validation_json=validation_json,
+    )
+
+    assert view["status"] == "fail"
+    assert view["validation_matches_handoff"] is True
+    assert view["external_blocker_status"] == "resolved"
+    assert view["operator_action_ids"] == ["wrong_action"]
+    assert "blocked handoff has external_blocker status 'resolved'" in view["errors"]
+    assert "blocked handoff has ready_gate status 'pass'" in view["errors"]
+    assert any("external_blocker operator_action_ids" in error for error in view["errors"])
 
 
 def test_consume_guarded_launch_handoff_main_writes_output_and_exits_nonzero_for_blocked(tmp_path: Path) -> None:
