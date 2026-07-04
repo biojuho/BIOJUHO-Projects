@@ -283,6 +283,31 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _artifact_index_readiness_summary(index_json: Path, workspace_root: Path) -> dict[str, object]:
+    index = _read_json(index_json)
+    action_ids = (
+        index.get("consumer_readiness_operator_action_ids")
+        if isinstance(index, dict) and isinstance(index.get("consumer_readiness_operator_action_ids"), list)
+        else []
+    )
+    return {
+        "found": index is not None,
+        "path": _rel(index_json, workspace_root),
+        "status": index.get("status") if index is not None else None,
+        "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
+        "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
+        "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
+        if index is not None
+        else None,
+        "env_validation_placeholder_count": index.get("consumer_readiness_env_validation_placeholder_count")
+        if index is not None
+        else None,
+        "operator_packet_preflight_status": index.get("consumer_readiness_operator_packet_preflight_status")
+        if index is not None
+        else None,
+    }
+
+
 def _env_shape_actions(env_payload: dict[str, Any], env_validation_rel: str) -> tuple[list[dict[str, object]], list[str]]:
     raw_findings = env_payload.get("blocking_findings") if isinstance(env_payload.get("blocking_findings"), list) else []
     findings = [_redact_text(finding) for finding in raw_findings]
@@ -428,6 +453,10 @@ def build_operator_packet(
     )
     guarded_launch = _guarded_launch_command()
     guarded_launch_outputs = _guarded_launch_evidence_outputs(app_root=app_root)
+    artifact_index_json = run_guarded_launch._default_artifact_index_json(
+        workspace_root / "var",
+        run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+    )
 
     return {
         "schema_version": 1,
@@ -461,6 +490,7 @@ def build_operator_packet(
             "wrapper_command": guarded_launch,
             "outputs": guarded_launch_outputs,
             "validation": _guarded_launch_evidence_validation(guarded_launch_outputs),
+            "artifact_index_readiness_summary": _artifact_index_readiness_summary(artifact_index_json, workspace_root),
         },
         "safe_rerun_commands": [validate_env_template, guarded_launch, rerun_preflight, rerun_launch],
     }
@@ -525,6 +555,32 @@ def render_markdown(packet: dict[str, object]) -> str:
             lines.append(f"| `{key}` | `{path}` |")
     else:
         lines.append("No guarded-launch evidence outputs are listed.")
+
+    readiness_summary = (
+        evidence.get("artifact_index_readiness_summary")
+        if isinstance(evidence.get("artifact_index_readiness_summary"), dict)
+        else {}
+    )
+    action_ids = (
+        readiness_summary.get("operator_action_ids")
+        if isinstance(readiness_summary.get("operator_action_ids"), list)
+        else []
+    )
+    lines.extend(
+        [
+            "",
+            "## Guarded Launch Readiness Summary",
+            "",
+            f"- Artifact index found: `{readiness_summary.get('found')}`",
+            f"- Artifact index path: `{readiness_summary.get('path')}`",
+            f"- Artifact index status: `{readiness_summary.get('status')}`",
+            f"- Consumer packet validation: `{readiness_summary.get('consumer_packet_validation_status')}`",
+            f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
+            f"- Env validation ready: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
+            f"- Env placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
+            f"- Packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
+        ]
+    )
     lines.append("")
     return "\n".join(lines)
 

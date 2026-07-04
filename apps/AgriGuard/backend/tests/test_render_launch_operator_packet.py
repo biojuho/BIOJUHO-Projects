@@ -226,6 +226,46 @@ def test_operator_packet_markdown_evidence_table_reports_path_drift(tmp_path: Pa
     ]
 
 
+def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path) -> None:
+    app_root = tmp_path / "apps" / "AgriGuard"
+    artifact_index = tmp_path / "var" / "agriguard-guarded-launch-artifact-index.json"
+    artifact_index.parent.mkdir(parents=True)
+    artifact_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "consumer_packet_validation_status": "pass",
+                "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
+                "consumer_readiness_env_validation_ready_for_preflight": False,
+                "consumer_readiness_env_validation_placeholder_count": 6,
+                "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=tmp_path / "missing-preflight.json",
+        app_root=app_root,
+    )
+    summary = packet["guarded_launch_evidence"]["artifact_index_readiness_summary"]
+    markdown = render_launch_operator_packet.render_markdown(packet)
+
+    assert summary == {
+        "found": True,
+        "path": "var/agriguard-guarded-launch-artifact-index.json",
+        "status": "pass",
+        "consumer_packet_validation_status": "pass",
+        "operator_action_ids": ["fix_env_shape_validation"],
+        "env_validation_ready_for_preflight": False,
+        "env_validation_placeholder_count": 6,
+        "operator_packet_preflight_status": "env_shape_blocked",
+    }
+    assert "## Guarded Launch Readiness Summary" in markdown
+    assert "Action IDs: `fix_env_shape_validation`" in markdown
+    assert "Packet preflight status: `env_shape_blocked`" in markdown
+
+
 def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp_path: Path) -> None:
     preflight = tmp_path / "preflight.json"
     preflight.write_text(
