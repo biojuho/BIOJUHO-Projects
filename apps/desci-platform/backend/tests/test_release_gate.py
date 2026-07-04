@@ -39,6 +39,7 @@ def _args(**overrides):
         "runtime_smoke_step": [],
         "runtime_browser_expect_dev_auth": False,
         "runtime_browser_trace_on_failure_dir": None,
+        "runtime_browser_screenshot_dir": None,
         "runtime_browser_only_check": [],
         "runtime_browser_timeout": None,
         "runtime_evidence_dir": "../../var",
@@ -555,6 +556,30 @@ def test_release_gate_runtime_browser_smoke_can_capture_failure_traces(tmp_path:
     assert browser_smoke.command[:2] == (sys.executable, "scripts/browser_smoke.py")
     assert "--trace-on-failure-dir" in browser_smoke.command
     assert str(trace_dir) in browser_smoke.command
+
+
+def test_release_gate_runtime_browser_smoke_can_capture_success_screenshots(tmp_path: Path) -> None:
+    screenshot_dir = tmp_path / "browser-screenshots"
+    steps = release_gate.build_steps(
+        _args(
+            runtime_smoke=True,
+            runtime_frontend="http://127.0.0.1:5175",
+            runtime_browser_screenshot_dir=str(screenshot_dir),
+            runtime_evidence_dir=str(tmp_path),
+            skip_env=True,
+            skip_compose=True,
+            skip_backend=True,
+            skip_frontend=True,
+            skip_contracts=True,
+        )
+    )
+
+    browser_smoke = steps[1]
+
+    assert browser_smoke.name == "browser-smoke"
+    assert browser_smoke.command[:2] == (sys.executable, "scripts/browser_smoke.py")
+    assert "--screenshot-dir" in browser_smoke.command
+    assert str(screenshot_dir) in browser_smoke.command
 
 
 def test_release_gate_runtime_smoke_can_target_single_browser_check(tmp_path: Path) -> None:
@@ -2637,6 +2662,7 @@ def test_release_gate_report_schema_documents_parent_contract() -> None:
         "failed_step",
     ]
     browser_trace_schema = schema["properties"]["browser_trace_artifact_summary"]
+    browser_screenshot_schema = schema["properties"]["browser_screenshot_artifact_summary"]
     ready_web3_schema = schema["properties"]["ready_web3_summary"]
     ready_launch_schema = schema["properties"]["ready_launch_action_coverage_summary"]
     launch_schema = schema["properties"]["launch_handoff_summary"]
@@ -2694,6 +2720,17 @@ def test_release_gate_report_schema_documents_parent_contract() -> None:
         "has_missing_trace_artifacts",
     ]
     assert browser_trace_schema["properties"]["trace_viewer_commands"]["items"]["required"] == ["path", "argv"]
+    assert browser_screenshot_schema["required"] == [
+        "artifact_paths",
+        "screenshot_artifact_count",
+        "existing_count",
+        "missing_count",
+        "has_missing_screenshot_artifacts",
+    ]
+    assert browser_screenshot_schema["properties"]["screenshot_artifact_paths"] == {
+        "type": "array",
+        "items": {"type": "string"},
+    }
 
 
 def test_release_gate_json_report_replaces_existing_report_atomically(tmp_path: Path) -> None:
@@ -3450,6 +3487,148 @@ def test_release_gate_reports_missing_browser_trace_artifact(tmp_path: Path) -> 
         "trace_artifact_paths": [str(trace_path)],
         "resolved_paths": [str(trace_path.resolve())],
         "missing_paths": [str(trace_path.resolve())],
+        "checks": ["home"],
+    }
+
+
+def test_release_gate_json_report_exposes_browser_screenshot_artifacts(tmp_path: Path) -> None:
+    report_path = tmp_path / "release-gate-runtime.json"
+    browser_artifact = tmp_path / "desci-browser-smoke-release-gate.json"
+    screenshot_path = tmp_path / "browser-screenshots" / "dashboard-readiness-refresh.png"
+    screenshot_path.parent.mkdir()
+    screenshot_path.write_bytes(b"png")
+    browser_artifact.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "schema_version": 1,
+                "generated_at": "2026-07-04T00:00:00+00:00",
+                "frontend": "http://frontend",
+                "timeout_seconds": 1.0,
+                "skip_protected": True,
+                "skip_login_validation": True,
+                "playwright_available": True,
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "screenshot_artifacts": [
+                    {"check_name": "dashboard-readiness-refresh", "path": str(screenshot_path)}
+                ],
+                "failures": [],
+                "checks": [
+                    {
+                        "name": "dashboard-readiness-refresh",
+                        "path": "/dashboard",
+                        "ok": True,
+                        "failures": [],
+                        "screenshot_path": str(screenshot_path),
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = release_gate.GateResult(
+        name="browser-smoke",
+        command=f"python scripts/browser_smoke.py --json-out {browser_artifact}",
+        cwd=str(release_gate.PROJECT_ROOT),
+        returncode=0,
+        elapsed_ms=12.5,
+        artifacts=[str(browser_artifact)],
+    )
+
+    release_gate.write_json_report(report_path, [result])
+
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    artifact_report = payload["results"][0]["artifact_reports"][0]
+    assert artifact_report["validation_ok"] is True
+    assert artifact_report["json_screenshot_artifact_count"] == 1
+    assert artifact_report["json_screenshot_artifact_paths"] == [str(screenshot_path)]
+    assert artifact_report["json_screenshot_artifact_resolved_paths"] == [str(screenshot_path.resolve())]
+    assert artifact_report["json_screenshot_artifact_existing_count"] == 1
+    assert artifact_report["json_screenshot_artifact_missing_count"] == 0
+    assert artifact_report["json_screenshot_artifact_missing_paths"] == []
+    assert artifact_report["json_screenshot_artifact_checks"] == ["dashboard-readiness-refresh"]
+    assert payload["artifact_summary"]["json_screenshot_artifact_count"] == 1
+    assert payload["artifact_summary"]["has_screenshot_artifacts"] is True
+    assert payload["artifact_summary"]["json_screenshot_artifact_paths"] == [str(screenshot_path)]
+    assert payload["artifact_summary"]["json_screenshot_artifact_resolved_paths"] == [str(screenshot_path.resolve())]
+    assert payload["artifact_summary"]["json_screenshot_artifact_existing_count"] == 1
+    assert payload["artifact_summary"]["json_screenshot_artifact_missing_count"] == 0
+    assert payload["artifact_summary"]["has_missing_screenshot_artifacts"] is False
+    assert payload["browser_screenshot_artifact_summary"] == {
+        "artifact_paths": [str(browser_artifact)],
+        "screenshot_artifact_count": 1,
+        "existing_count": 1,
+        "missing_count": 0,
+        "has_missing_screenshot_artifacts": False,
+        "screenshot_artifact_paths": [str(screenshot_path)],
+        "resolved_paths": [str(screenshot_path.resolve())],
+        "checks": ["dashboard-readiness-refresh"],
+    }
+
+
+def test_release_gate_reports_missing_browser_screenshot_artifact(tmp_path: Path) -> None:
+    report_path = tmp_path / "release-gate-runtime.json"
+    browser_artifact = tmp_path / "desci-browser-smoke-release-gate.json"
+    screenshot_path = tmp_path / "browser-screenshots" / "missing.png"
+    browser_artifact.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "schema_version": 1,
+                "generated_at": "2026-07-04T00:00:00+00:00",
+                "frontend": "http://frontend",
+                "timeout_seconds": 1.0,
+                "skip_protected": True,
+                "skip_login_validation": True,
+                "playwright_available": True,
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "screenshot_artifacts": [{"check_name": "home", "path": str(screenshot_path)}],
+                "failures": [],
+                "checks": [
+                    {
+                        "name": "home",
+                        "path": "/",
+                        "ok": True,
+                        "failures": [],
+                        "screenshot_path": str(screenshot_path),
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = release_gate.GateResult(
+        name="browser-smoke",
+        command=f"python scripts/browser_smoke.py --json-out {browser_artifact}",
+        cwd=str(release_gate.PROJECT_ROOT),
+        returncode=0,
+        elapsed_ms=12.5,
+        artifacts=[str(browser_artifact)],
+    )
+
+    release_gate.write_json_report(report_path, [result])
+
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    artifact_report = payload["results"][0]["artifact_reports"][0]
+    expected_failure = (
+        f"JSON evidence artifact screenshot_artifacts path does not exist: {screenshot_path} ({browser_artifact})"
+    )
+    assert expected_failure in artifact_report["validation_failures"]
+    assert artifact_report["json_screenshot_artifact_existing_count"] == 0
+    assert artifact_report["json_screenshot_artifact_missing_count"] == 1
+    assert artifact_report["json_screenshot_artifact_missing_paths"] == [str(screenshot_path.resolve())]
+    assert payload["artifact_summary"]["json_screenshot_artifact_missing_count"] == 1
+    assert payload["artifact_summary"]["has_missing_screenshot_artifacts"] is True
+    assert payload["artifact_summary"]["json_screenshot_artifact_missing_paths"] == [str(screenshot_path.resolve())]
+    assert payload["browser_screenshot_artifact_summary"] == {
+        "artifact_paths": [str(browser_artifact)],
+        "screenshot_artifact_count": 1,
+        "existing_count": 0,
+        "missing_count": 1,
+        "has_missing_screenshot_artifacts": True,
+        "screenshot_artifact_paths": [str(screenshot_path)],
+        "resolved_paths": [str(screenshot_path.resolve())],
+        "missing_paths": [str(screenshot_path.resolve())],
         "checks": ["home"],
     }
 

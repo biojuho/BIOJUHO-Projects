@@ -261,6 +261,8 @@ def _runtime_smoke_steps(args: argparse.Namespace, python_cmd: tuple[str, ...]) 
         browser_command.append("--expect-dev-auth")
     if args.runtime_browser_trace_on_failure_dir:
         browser_command.extend(["--trace-on-failure-dir", args.runtime_browser_trace_on_failure_dir])
+    if args.runtime_browser_screenshot_dir:
+        browser_command.extend(["--screenshot-dir", args.runtime_browser_screenshot_dir])
     for check_name in args.runtime_browser_only_check:
         browser_command.extend(["--only-check", check_name])
     if args.runtime_browser_timeout is not None:
@@ -621,6 +623,7 @@ def _artifact_schema_failures(
             failures.append(f"JSON evidence artifact missing frontend target URL: {raw_path}")
         failures.extend(_browser_smoke_launch_control_failures(raw_path, payload))
         failures.extend(_browser_smoke_trace_artifact_failures(raw_path, payload, cwd))
+        failures.extend(_browser_smoke_screenshot_artifact_failures(raw_path, payload, cwd))
 
     summary = payload.get("summary")
     if not isinstance(summary, dict):
@@ -1169,6 +1172,48 @@ def _browser_smoke_trace_artifact_failures(raw_path: str, payload: dict[str, Any
     return failures
 
 
+def _browser_smoke_screenshot_artifact_failures(raw_path: str, payload: dict[str, Any], cwd: str | Path) -> list[str]:
+    screenshot_artifacts = payload.get("screenshot_artifacts")
+    if screenshot_artifacts is None:
+        return []
+    if not isinstance(screenshot_artifacts, list):
+        return [f"JSON evidence artifact screenshot_artifacts must be a list: {raw_path}"]
+
+    failures: list[str] = []
+    for screenshot_artifact in screenshot_artifacts:
+        if (
+            not isinstance(screenshot_artifact, dict)
+            or not isinstance(screenshot_artifact.get("check_name"), str)
+            or not screenshot_artifact.get("check_name")
+            or not isinstance(screenshot_artifact.get("path"), str)
+            or not screenshot_artifact.get("path")
+        ):
+            failures.append(
+                f"JSON evidence artifact screenshot_artifacts entries must include non-empty check_name and path: {raw_path}"
+            )
+            break
+        screenshot_path = screenshot_artifact.get("path")
+        if isinstance(screenshot_path, str) and screenshot_path:
+            resolved_path = _resolve_child_artifact_path(screenshot_path, cwd)
+            if not resolved_path.exists():
+                failures.append(
+                    f"JSON evidence artifact screenshot_artifacts path does not exist: {screenshot_path} ({raw_path})"
+                )
+
+    checks = payload.get("checks")
+    if isinstance(checks, list):
+        invalid_check_screenshot_paths = [
+            index
+            for index, check in enumerate(checks)
+            if isinstance(check, dict)
+            and "screenshot_path" in check
+            and (not isinstance(check.get("screenshot_path"), str) or not check.get("screenshot_path"))
+        ]
+        if invalid_check_screenshot_paths:
+            failures.append(f"JSON evidence artifact checks screenshot_path values must be non-empty strings: {raw_path}")
+    return failures
+
+
 def _is_non_negative_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
@@ -1307,6 +1352,9 @@ def json_report_payload(
         browser_trace_summary = browser_trace_artifact_summary(artifact_result_reports)
         if browser_trace_summary is not None:
             payload["browser_trace_artifact_summary"] = browser_trace_summary
+        browser_screenshot_summary = browser_screenshot_artifact_summary(artifact_result_reports)
+        if browser_screenshot_summary is not None:
+            payload["browser_screenshot_artifact_summary"] = browser_screenshot_summary
     return payload
 
 
@@ -1502,6 +1550,36 @@ def artifact_report_summary(reports: list[dict[str, Any]]) -> dict[str, Any]:
     trace_artifact_missing_paths = _aggregate_artifact_check_names(reports, "json_trace_artifact_missing_paths")
     if trace_artifact_missing_paths:
         summary["json_trace_artifact_missing_paths"] = trace_artifact_missing_paths
+    screenshot_artifact_counts = [report.get("json_screenshot_artifact_count") for report in reports]
+    if any(isinstance(count, int) for count in screenshot_artifact_counts):
+        screenshot_artifact_count = sum(count for count in screenshot_artifact_counts if isinstance(count, int))
+        summary["json_screenshot_artifact_count"] = screenshot_artifact_count
+        summary["has_screenshot_artifacts"] = screenshot_artifact_count > 0
+    screenshot_artifact_paths = _aggregate_artifact_check_names(reports, "json_screenshot_artifact_paths")
+    if screenshot_artifact_paths:
+        summary["json_screenshot_artifact_paths"] = screenshot_artifact_paths
+    screenshot_artifact_resolved_paths = _aggregate_artifact_check_names(
+        reports, "json_screenshot_artifact_resolved_paths"
+    )
+    if screenshot_artifact_resolved_paths:
+        summary["json_screenshot_artifact_resolved_paths"] = screenshot_artifact_resolved_paths
+    screenshot_artifact_existing_counts = [report.get("json_screenshot_artifact_existing_count") for report in reports]
+    if any(isinstance(count, int) for count in screenshot_artifact_existing_counts):
+        summary["json_screenshot_artifact_existing_count"] = sum(
+            count for count in screenshot_artifact_existing_counts if isinstance(count, int)
+        )
+    screenshot_artifact_missing_counts = [report.get("json_screenshot_artifact_missing_count") for report in reports]
+    if any(isinstance(count, int) for count in screenshot_artifact_missing_counts):
+        screenshot_artifact_missing_count = sum(
+            count for count in screenshot_artifact_missing_counts if isinstance(count, int)
+        )
+        summary["json_screenshot_artifact_missing_count"] = screenshot_artifact_missing_count
+        summary["has_missing_screenshot_artifacts"] = screenshot_artifact_missing_count > 0
+    screenshot_artifact_missing_paths = _aggregate_artifact_check_names(
+        reports, "json_screenshot_artifact_missing_paths"
+    )
+    if screenshot_artifact_missing_paths:
+        summary["json_screenshot_artifact_missing_paths"] = screenshot_artifact_missing_paths
     if failed_checks or warning_checks:
         summary["artifact_paths"] = [
             report["path"] for report in reports if isinstance(report.get("path"), str) and report.get("path")
@@ -1940,6 +2018,54 @@ def browser_trace_artifact_summary(reports: list[dict[str, Any]]) -> dict[str, A
     return summary
 
 
+def browser_screenshot_artifact_summary(reports: list[dict[str, Any]]) -> dict[str, Any] | None:
+    screenshot_reports = [
+        report
+        for report in reports
+        if isinstance(report.get("json_screenshot_artifact_count"), int)
+        and report.get("json_screenshot_artifact_count") > 0
+    ]
+    if not screenshot_reports:
+        return None
+
+    screenshot_artifact_count = sum(
+        count
+        for report in screenshot_reports
+        if isinstance((count := report.get("json_screenshot_artifact_count")), int)
+    )
+    existing_count = sum(
+        count
+        for report in screenshot_reports
+        if isinstance((count := report.get("json_screenshot_artifact_existing_count")), int)
+    )
+    missing_count = sum(
+        count
+        for report in screenshot_reports
+        if isinstance((count := report.get("json_screenshot_artifact_missing_count")), int)
+    )
+    summary: dict[str, Any] = {
+        "artifact_paths": _artifact_paths(screenshot_reports),
+        "screenshot_artifact_count": screenshot_artifact_count,
+        "existing_count": existing_count,
+        "missing_count": missing_count,
+        "has_missing_screenshot_artifacts": missing_count > 0,
+    }
+
+    screenshot_artifact_paths = _aggregate_artifact_check_names(screenshot_reports, "json_screenshot_artifact_paths")
+    if screenshot_artifact_paths:
+        summary["screenshot_artifact_paths"] = screenshot_artifact_paths
+    resolved_paths = _aggregate_artifact_check_names(screenshot_reports, "json_screenshot_artifact_resolved_paths")
+    if resolved_paths:
+        summary["resolved_paths"] = resolved_paths
+    missing_paths = _aggregate_artifact_check_names(screenshot_reports, "json_screenshot_artifact_missing_paths")
+    if missing_paths:
+        summary["missing_paths"] = missing_paths
+    checks = _aggregate_artifact_check_names(screenshot_reports, "json_screenshot_artifact_checks")
+    if checks:
+        summary["checks"] = checks
+    return summary
+
+
 def _trace_viewer_commands(resolved_paths: list[str], missing_paths: list[str]) -> list[dict[str, Any]]:
     missing_path_set = set(missing_paths)
     return [
@@ -1986,6 +2112,7 @@ def _artifact_json_report(path: Path, cwd: str | Path) -> dict[str, Any]:
         "json_frontend": payload.get("frontend"),
         **_artifact_json_provenance_report(payload),
         **_artifact_json_trace_report(payload, cwd),
+        **_artifact_json_screenshot_report(payload, cwd),
         **_artifact_json_launch_handoff_report(payload),
         **_artifact_json_launch_env_handoff_report(payload),
         **_artifact_json_ready_web3_report(payload),
@@ -2026,6 +2153,40 @@ def _artifact_json_trace_report(payload: dict[str, Any], cwd: str | Path) -> dic
         "json_trace_artifact_missing_count": len(missing_paths),
         "json_trace_artifact_missing_paths": missing_paths,
         "json_trace_artifact_checks": checks,
+    }
+
+
+def _artifact_json_screenshot_report(payload: dict[str, Any], cwd: str | Path) -> dict[str, Any]:
+    screenshot_artifacts = payload.get("screenshot_artifacts")
+    if not isinstance(screenshot_artifacts, list):
+        return {}
+    paths: list[str] = []
+    resolved_paths: list[str] = []
+    missing_paths: list[str] = []
+    checks: list[str] = []
+    for screenshot_artifact in screenshot_artifacts:
+        if not isinstance(screenshot_artifact, dict):
+            continue
+        path = screenshot_artifact.get("path")
+        check_name = screenshot_artifact.get("check_name")
+        if isinstance(path, str) and path:
+            paths.append(path)
+            resolved_path = _resolve_child_artifact_path(path, cwd)
+            resolved_path_text = str(resolved_path)
+            resolved_paths.append(resolved_path_text)
+            if not resolved_path.exists():
+                missing_paths.append(resolved_path_text)
+        if isinstance(check_name, str) and check_name:
+            checks.append(check_name)
+    existing_count = len(resolved_paths) - len(missing_paths)
+    return {
+        "json_screenshot_artifact_count": len(paths),
+        "json_screenshot_artifact_paths": paths,
+        "json_screenshot_artifact_resolved_paths": resolved_paths,
+        "json_screenshot_artifact_existing_count": existing_count,
+        "json_screenshot_artifact_missing_count": len(missing_paths),
+        "json_screenshot_artifact_missing_paths": missing_paths,
+        "json_screenshot_artifact_checks": checks,
     }
 
 
@@ -2549,6 +2710,27 @@ def json_report_schema() -> dict[str, Any]:
                     },
                 },
             },
+            "browser_screenshot_artifact_summary": {
+                "type": "object",
+                "required": [
+                    "artifact_paths",
+                    "screenshot_artifact_count",
+                    "existing_count",
+                    "missing_count",
+                    "has_missing_screenshot_artifacts",
+                ],
+                "properties": {
+                    "artifact_paths": _string_array_schema(),
+                    "screenshot_artifact_count": {"type": "integer"},
+                    "existing_count": {"type": "integer"},
+                    "missing_count": {"type": "integer"},
+                    "has_missing_screenshot_artifacts": {"type": "boolean"},
+                    "screenshot_artifact_paths": _string_array_schema(),
+                    "resolved_paths": _string_array_schema(),
+                    "missing_paths": _string_array_schema(),
+                    "checks": _string_array_schema(),
+                },
+            },
         },
     }
 
@@ -2708,6 +2890,10 @@ def main() -> int:
     parser.add_argument(
         "--runtime-browser-trace-on-failure-dir",
         help="Pass --trace-on-failure-dir to runtime browser smoke and surface trace evidence in parent JSON.",
+    )
+    parser.add_argument(
+        "--runtime-browser-screenshot-dir",
+        help="Pass --screenshot-dir to runtime browser smoke and surface successful PNG evidence in parent JSON.",
     )
     parser.add_argument(
         "--runtime-browser-only-check",
