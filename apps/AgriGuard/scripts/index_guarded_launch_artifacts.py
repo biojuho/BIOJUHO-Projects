@@ -128,6 +128,11 @@ def build_index(
     consumer_errors = consumer.get("errors") if isinstance(consumer, dict) and isinstance(consumer.get("errors"), list) else []
     consumer_validation_matches = bool(consumer.get("validation_matches_handoff")) if isinstance(consumer, dict) else False
     consumer_packet_validation_status = consumer.get("packet_validation_status") if isinstance(consumer, dict) else None
+    consumer_readiness_action_ids = (
+        consumer.get("readiness_operator_action_ids")
+        if isinstance(consumer, dict) and isinstance(consumer.get("readiness_operator_action_ids"), list)
+        else []
+    )
     validation_status = validation.get("status") if isinstance(validation, dict) else None
     index_status = (
         "pass"
@@ -159,6 +164,16 @@ def build_index(
         "consumer_packet_path_mismatch_count": consumer.get("packet_path_mismatch_count")
         if isinstance(consumer, dict)
         else None,
+        "consumer_readiness_operator_action_ids": consumer_readiness_action_ids,
+        "consumer_readiness_env_validation_ready_for_preflight": consumer.get("readiness_env_validation_ready_for_preflight")
+        if isinstance(consumer, dict)
+        else None,
+        "consumer_readiness_env_validation_placeholder_count": consumer.get("readiness_env_validation_placeholder_count")
+        if isinstance(consumer, dict)
+        else None,
+        "consumer_readiness_operator_packet_preflight_status": consumer.get("readiness_operator_packet_preflight_status")
+        if isinstance(consumer, dict)
+        else None,
         "consumer_errors": consumer_errors,
         "validation_status": validation_status,
         "launch_status": launch.get("status") if isinstance(launch, dict) else None,
@@ -175,6 +190,11 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
 def render_markdown(index: dict[str, object]) -> str:
     missing_roles = index.get("missing_required_roles") if isinstance(index.get("missing_required_roles"), list) else []
     artifacts = index.get("artifacts") if isinstance(index.get("artifacts"), list) else []
+    readiness_action_ids = (
+        index.get("consumer_readiness_operator_action_ids")
+        if isinstance(index.get("consumer_readiness_operator_action_ids"), list)
+        else []
+    )
     lines = [
         "# AgriGuard Guarded Launch Artifact Index",
         "",
@@ -186,6 +206,10 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer packet validation: `{index.get('consumer_packet_validation_status')}`",
         f"- Consumer packet Markdown table: `{index.get('consumer_packet_markdown_table_status')}`",
         f"- Consumer packet path mismatch count: `{index.get('consumer_packet_path_mismatch_count')}`",
+        f"- Consumer readiness action IDs: `{', '.join(str(action_id) for action_id in readiness_action_ids) if readiness_action_ids else '-'}`",
+        f"- Consumer readiness env validation ready: `{index.get('consumer_readiness_env_validation_ready_for_preflight')}`",
+        f"- Consumer readiness placeholder count: `{index.get('consumer_readiness_env_validation_placeholder_count')}`",
+        f"- Consumer readiness packet preflight status: `{index.get('consumer_readiness_operator_packet_preflight_status')}`",
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
         "",
         "## Artifacts",

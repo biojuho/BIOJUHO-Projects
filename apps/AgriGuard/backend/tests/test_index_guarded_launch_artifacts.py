@@ -54,6 +54,10 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "packet_evidence_outputs_status": "pass",
             "packet_markdown_table_status": "pass",
             "packet_path_mismatch_count": 0,
+            "readiness_operator_action_ids": ["fix_env_shape_validation"],
+            "readiness_env_validation_ready_for_preflight": False,
+            "readiness_env_validation_placeholder_count": 6,
+            "readiness_operator_packet_preflight_status": "env_shape_blocked",
             "errors": [],
         },
     )
@@ -76,6 +80,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["validation_status"] == "pass"
     assert index["consumer_packet_validation_status"] == "pass"
     assert index["consumer_packet_markdown_table_status"] == "pass"
+    assert index["consumer_readiness_operator_action_ids"] == ["fix_env_shape_validation"]
+    assert index["consumer_readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert index["missing_required_roles"] == []
 
 
@@ -163,4 +169,5 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
     assert result == 0
     assert payload["status"] == "pass"
     assert "Consumer packet validation: `pass`" in markdown
+    assert "Consumer readiness action IDs: `fix_env_shape_validation`" in markdown
     assert "`handoff_consumer_json`" in markdown
