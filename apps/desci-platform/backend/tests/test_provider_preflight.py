@@ -180,6 +180,82 @@ def test_provider_preflight_counts_vercel_project_context_missing() -> None:
     assert "vercel link" in markdown
 
 
+def test_provider_preflight_detects_railway_project_context(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("RAILWAY_TOKEN", raising=False)
+    monkeypatch.delenv("RAILWAY_API_TOKEN", raising=False)
+    monkeypatch.delenv("RAILWAY_PROJECT_ID", raising=False)
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT_ID", raising=False)
+    railway_config = tmp_path / ".railway" / "project.json"
+    railway_config.parent.mkdir()
+    railway_config.write_text(
+        json.dumps(
+            {
+                "projectId": "project_example",
+                "environmentId": "environment_example",
+                "serviceId": "service_example",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    incomplete = tmp_path / "incomplete"
+    (incomplete / ".railway").mkdir(parents=True)
+    (incomplete / ".railway" / "project.json").write_text(
+        json.dumps({"projectId": "project_example"}),
+        encoding="utf-8",
+    )
+
+    assert provider_preflight._has_railway_project_context(tmp_path) is True
+    assert provider_preflight._has_railway_project_context(incomplete) is False
+
+    monkeypatch.setenv("RAILWAY_TOKEN", "token_project_scoped")
+
+    assert provider_preflight._has_railway_project_context(incomplete) is True
+
+
+def test_provider_preflight_execute_command_marks_railway_contexts_missing(monkeypatch) -> None:
+    spec = provider_preflight.command_specs_for_provider("railway")[1]
+
+    monkeypatch.setattr(provider_preflight, "_resolve_executable", lambda executable: "railway.cmd")
+    monkeypatch.setattr(provider_preflight, "_has_railway_auth_context", lambda: False)
+    monkeypatch.setattr(provider_preflight, "_has_railway_project_context", lambda: False)
+
+    execution = provider_preflight.execute_command(spec, timeout_seconds=1)
+    payload = provider_preflight.check_payload(spec, execution)
+
+    assert spec.command == ("railway", "status")
+    assert execution.auth_context_missing is True
+    assert execution.project_context_missing is True
+    assert payload["failure_reason"] == "auth_context_missing"
+    assert payload["project_context_missing"] is True
+    assert "railway login" in payload["remediation"]
+    assert "railway link" in payload["remediation"]
+
+
+def test_provider_preflight_counts_railway_project_context_missing() -> None:
+    def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
+        if provider_preflight._railway_command_needs_project_context(spec):
+            return provider_preflight.CommandExecution(
+                exit_code=None,
+                duration_ms=0,
+                project_context_missing=True,
+                error="railway project context is not configured",
+            )
+        return provider_preflight.CommandExecution(exit_code=0, duration_ms=1)
+
+    payload = provider_preflight.run_preflight(("railway",), runner=runner)
+    markdown = provider_preflight.render_markdown_report(payload)
+
+    assert payload["ok"] is False
+    assert payload["summary"]["auth_context_missing_count"] == 0
+    assert payload["summary"]["project_context_missing_count"] == 1
+    assert payload["failed_checks"][0]["failure_reason"] == "project_context_missing"
+    assert payload["failed_checks"][0]["project_context_missing"] is True
+    assert "Project context missing: `1`" in markdown
+    assert "project_context=`missing`" in markdown
+    assert "railway link" in markdown
+
+
 def test_provider_preflight_classifies_unauthorized_output_as_missing_auth_context() -> None:
     def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
         return provider_preflight.CommandExecution(

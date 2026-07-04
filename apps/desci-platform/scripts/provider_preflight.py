@@ -197,6 +197,109 @@ def _vercel_command_needs_project_context(spec: CommandSpec) -> bool:
     return len(spec.command) >= 2 and spec.command[1] in {"env", "deploy", "build", "pull", "open"}
 
 
+def _has_railway_auth_context() -> bool:
+    if os.environ.get("RAILWAY_TOKEN") or os.environ.get("RAILWAY_API_TOKEN"):
+        return True
+    railway_home = Path.home() / ".railway"
+    return any(
+        (railway_home / name).exists()
+        for name in ("auth.json", "config.json", "credentials.json", "settings.json")
+    )
+
+
+def _has_railway_project_context(project_root: Path = PROJECT_ROOT) -> bool:
+    if os.environ.get("RAILWAY_TOKEN"):
+        return True
+    if os.environ.get("RAILWAY_PROJECT_ID") and os.environ.get("RAILWAY_ENVIRONMENT_ID"):
+        return True
+    return _railway_link_has_ids(project_root / ".railway")
+
+
+def _railway_link_has_ids(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    project_found = False
+    environment_found = False
+    for item in path.rglob("*"):
+        try:
+            if not item.is_file() or item.stat().st_size > 65536:
+                continue
+            text = item.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            payload = None
+        if payload is not None:
+            project_found = project_found or _json_contains_key(payload, {"project", "projectid"})
+            environment_found = environment_found or _json_contains_key(
+                payload, {"environment", "environmentid"}
+            )
+        else:
+            project_found = project_found or _text_contains_assignment(text, ("project", "project_id", "projectId"))
+            environment_found = environment_found or _text_contains_assignment(
+                text, ("environment", "environment_id", "environmentId")
+            )
+        if project_found and environment_found:
+            return True
+    return False
+
+
+def _json_contains_key(value: Any, normalized_keys: set[str]) -> bool:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            normalized_key = re.sub(r"[^a-z0-9]", "", str(key).lower())
+            if normalized_key in normalized_keys and child not in (None, ""):
+                return True
+            if _json_contains_key(child, normalized_keys):
+                return True
+    if isinstance(value, list):
+        return any(_json_contains_key(child, normalized_keys) for child in value)
+    return False
+
+
+def _text_contains_assignment(text: str, keys: tuple[str, ...]) -> bool:
+    key_pattern = "|".join(re.escape(key) for key in keys)
+    return re.search(rf"(?i)\b(?:{key_pattern})\b\s*[:=]\s*['\"]?[A-Za-z0-9_-]{{4,}}", text) is not None
+
+
+def _railway_command_needs_project_context(spec: CommandSpec) -> bool:
+    if len(spec.command) < 2:
+        return False
+    command = spec.command[1]
+    args = set(spec.command[2:])
+    if {"--help", "-h", "--version", "-V"} & args:
+        return False
+    if {"--project", "-p"} & args:
+        return False
+    return command in {
+        "status",
+        "up",
+        "deploy",
+        "redeploy",
+        "restart",
+        "down",
+        "logs",
+        "open",
+        "run",
+        "shell",
+        "variable",
+        "variables",
+        "var",
+        "vars",
+    }
+
+
+def _with_railway_project_context_remediation(remediation: str) -> str:
+    if "railway link" in remediation or "RAILWAY_TOKEN" in remediation:
+        return remediation
+    return (
+        f"{remediation} Also run `railway link --project <id> --environment <name-or-id> "
+        "--service <name-or-id>` or set RAILWAY_TOKEN for project-scoped automation."
+    )
+
+
 def _terminate_process_tree(process: subprocess.Popen[str]) -> None:
     if process.poll() is not None:
         return
@@ -243,6 +346,21 @@ def execute_command(spec: CommandSpec, timeout_seconds: int) -> CommandExecution
             error=(
                 "vercel project context is not configured; run vercel link or set "
                 "VERCEL_ORG_ID and VERCEL_PROJECT_ID"
+            ),
+        )
+    if (
+        spec.provider == "railway"
+        and _railway_command_needs_project_context(spec)
+        and not _has_railway_project_context()
+    ):
+        return CommandExecution(
+            exit_code=None,
+            duration_ms=0,
+            auth_context_missing=not _has_railway_auth_context(),
+            project_context_missing=True,
+            error=(
+                "railway project context is not configured; run railway link or set "
+                "RAILWAY_TOKEN for project-scoped automation"
             ),
         )
 
@@ -330,6 +448,8 @@ def check_payload(
         payload["remediation"] = _failure_remediation(spec, failure_reason)
         if execution.project_context_missing and spec.provider == "vercel":
             payload["remediation"] = _with_vercel_project_context_remediation(payload["remediation"])
+        if execution.project_context_missing and spec.provider == "railway":
+            payload["remediation"] = _with_railway_project_context_remediation(payload["remediation"])
     if execution.project_context_missing:
         payload["project_context_missing"] = True
     if execution.error:
