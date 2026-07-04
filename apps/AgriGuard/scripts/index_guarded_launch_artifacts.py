@@ -105,6 +105,40 @@ def _next_commands(value: object) -> list[dict[str, str]]:
     return commands
 
 
+def _string_value(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value
+    return None
+
+
+def _int_value(value: object) -> int | None:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
+
+
+def _operator_commands(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    commands: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        command_id = _string_value(item.get("id"))
+        command_text = _string_value(item.get("command_text"))
+        if command_id is None or command_text is None:
+            continue
+        summary = {"id": command_id, "command_text": command_text}
+        description = _string_value(item.get("description"))
+        command_shell = _string_value(item.get("command_shell"))
+        if description is not None:
+            summary["description"] = description
+        if command_shell is not None:
+            summary["command_shell"] = command_shell
+        commands.append(summary)
+    return commands
+
+
 def _artifact_paths(
     output_dir: Path,
     output_prefix: str,
@@ -237,6 +271,35 @@ def build_index(
     consumer_readiness_next_commands = (
         _next_commands(consumer.get("readiness_next_commands")) if isinstance(consumer, dict) else []
     )
+    consumer_operator_commands = _operator_commands(consumer.get("operator_commands")) if isinstance(consumer, dict) else []
+    consumer_ready_gate_command_shell = (
+        _string_value(consumer.get("ready_gate_command_shell")) if isinstance(consumer, dict) else None
+    )
+    consumer_ready_gate_command_text = (
+        _string_value(consumer.get("ready_gate_command_text")) if isinstance(consumer, dict) else None
+    )
+    consumer_operator_command_count = (
+        _int_value(consumer.get("operator_command_count")) if isinstance(consumer, dict) else None
+    )
+    consumer_operator_command_text_count = (
+        _int_value(consumer.get("operator_command_text_count")) if isinstance(consumer, dict) else None
+    )
+    consumer_handoff_validation_command_shell = (
+        _string_value(consumer.get("handoff_validation_command_shell")) if isinstance(consumer, dict) else None
+    )
+    consumer_handoff_validation_command_text = (
+        _string_value(consumer.get("handoff_validation_command_text")) if isinstance(consumer, dict) else None
+    )
+    consumer_command_metadata_status = (
+        "pass"
+        if consumer_ready_gate_command_text
+        and consumer_operator_command_count is not None
+        and consumer_operator_command_count > 0
+        and consumer_operator_command_text_count == consumer_operator_command_count
+        and len(consumer_operator_commands) == consumer_operator_command_count
+        and consumer_handoff_validation_command_text
+        else "fail"
+    )
     validation_status = validation.get("status") if isinstance(validation, dict) else None
     index_status = (
         "pass"
@@ -244,6 +307,7 @@ def build_index(
         and isinstance(consumer, dict)
         and consumer_validation_matches
         and consumer_packet_validation_status == "pass"
+        and consumer_command_metadata_status == "pass"
         and validation_status == "pass"
         and not consumer_errors
         else "fail"
@@ -306,6 +370,14 @@ def build_index(
         else None,
         "consumer_readiness_operator_action_ids": consumer_readiness_action_ids,
         "consumer_readiness_next_commands": consumer_readiness_next_commands,
+        "consumer_command_metadata_status": consumer_command_metadata_status,
+        "consumer_ready_gate_command_shell": consumer_ready_gate_command_shell,
+        "consumer_ready_gate_command_text": consumer_ready_gate_command_text,
+        "consumer_operator_command_count": consumer_operator_command_count,
+        "consumer_operator_command_text_count": consumer_operator_command_text_count,
+        "consumer_operator_commands": consumer_operator_commands,
+        "consumer_handoff_validation_command_shell": consumer_handoff_validation_command_shell,
+        "consumer_handoff_validation_command_text": consumer_handoff_validation_command_text,
         "consumer_readiness_env_validation_ready_for_preflight": consumer.get("readiness_env_validation_ready_for_preflight")
         if isinstance(consumer, dict)
         else None,
@@ -350,9 +422,16 @@ def render_markdown(index: dict[str, object]) -> str:
         if isinstance(index.get("consumer_readiness_next_commands"), list)
         else []
     )
+    operator_commands = (
+        index.get("consumer_operator_commands")
+        if isinstance(index.get("consumer_operator_commands"), list)
+        else []
+    )
     recovery_summary = index.get("recovery_summary") if isinstance(index.get("recovery_summary"), dict) else {}
     recovery_command_text = index.get("recovery_command_text")
     recovery_command_shell = index.get("recovery_command_shell")
+    operator_command_count = index.get("consumer_operator_command_count")
+    operator_command_text_count = index.get("consumer_operator_command_text_count")
     lines = [
         "# AgriGuard Guarded Launch Artifact Index",
         "",
@@ -366,6 +445,13 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer packet path mismatch count: `{index.get('consumer_packet_path_mismatch_count')}`",
         f"- Consumer readiness action IDs: `{', '.join(str(action_id) for action_id in readiness_action_ids) if readiness_action_ids else '-'}`",
         f"- Consumer readiness next command count: `{len(readiness_next_commands)}`",
+        f"- Consumer command metadata: `{index.get('consumer_command_metadata_status')}`",
+        f"- Consumer ready gate command shell: `{index.get('consumer_ready_gate_command_shell') or '-'}`",
+        f"- Consumer ready gate command: `{index.get('consumer_ready_gate_command_text') or '-'}`",
+        f"- Consumer operator command count: `{operator_command_count if isinstance(operator_command_count, int) else '-'}`",
+        f"- Consumer operator command text count: `{operator_command_text_count if isinstance(operator_command_text_count, int) else '-'}`",
+        f"- Consumer handoff validation command shell: `{index.get('consumer_handoff_validation_command_shell') or '-'}`",
+        f"- Consumer handoff validation command: `{index.get('consumer_handoff_validation_command_text') or '-'}`",
         f"- Consumer readiness env validation ready: `{index.get('consumer_readiness_env_validation_ready_for_preflight')}`",
         f"- Consumer readiness placeholder count: `{index.get('consumer_readiness_env_validation_placeholder_count')}`",
         f"- Consumer readiness packet preflight status: `{index.get('consumer_readiness_operator_packet_preflight_status')}`",
@@ -391,6 +477,19 @@ def render_markdown(index: dict[str, object]) -> str:
             shell = item.get("shell")
             shell_text = f" ({shell})" if isinstance(shell, str) and shell else ""
             lines.append(f"- `{name}`{shell_text}: `{command}`")
+        lines.append("")
+    if operator_commands:
+        lines.extend(["## Consumer Operator Commands", ""])
+        for item in operator_commands:
+            if not isinstance(item, dict):
+                continue
+            command_id = item.get("id")
+            command_text = item.get("command_text")
+            if not isinstance(command_id, str) or not isinstance(command_text, str):
+                continue
+            shell = item.get("command_shell")
+            shell_text = f" ({shell})" if isinstance(shell, str) and shell else ""
+            lines.append(f"- `{command_id}`{shell_text}: `{command_text}`")
         lines.append("")
     lines.extend(
         [

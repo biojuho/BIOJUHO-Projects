@@ -54,6 +54,26 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "packet_evidence_outputs_status": "pass",
             "packet_markdown_table_status": "pass",
             "packet_path_mismatch_count": 0,
+            "ready_gate_command_shell": "powershell",
+            "ready_gate_command_text": "& python run_guarded_launch.py --require-ready",
+            "operator_command_count": 2,
+            "operator_command_text_count": 2,
+            "operator_commands": [
+                {
+                    "id": "inspect_status",
+                    "description": "Print the compact guarded-launch status view.",
+                    "command_shell": "powershell",
+                    "command_text": "& python run_guarded_launch.py --status-only",
+                },
+                {
+                    "id": "require_ready",
+                    "description": "Fail closed unless the selected guarded-launch prefix is ready.",
+                    "command_shell": "powershell",
+                    "command_text": "& python run_guarded_launch.py --require-ready",
+                },
+            ],
+            "handoff_validation_command_shell": "powershell",
+            "handoff_validation_command_text": "& python validate_guarded_launch_handoff.py handoff.json",
             "readiness_operator_action_ids": ["fix_env_shape_validation"],
             "readiness_next_commands": [
                 {
@@ -96,6 +116,15 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
             "shell": "powershell",
         }
     ]
+    assert index["consumer_command_metadata_status"] == "pass"
+    assert index["consumer_ready_gate_command_shell"] == "powershell"
+    assert index["consumer_ready_gate_command_text"] == "& python run_guarded_launch.py --require-ready"
+    assert index["consumer_operator_command_count"] == 2
+    assert index["consumer_operator_command_text_count"] == 2
+    assert index["consumer_operator_commands"][0]["id"] == "inspect_status"
+    assert index["consumer_operator_commands"][0]["command_text"] == "& python run_guarded_launch.py --status-only"
+    assert index["consumer_handoff_validation_command_shell"] == "powershell"
+    assert index["consumer_handoff_validation_command_text"] == "& python validate_guarded_launch_handoff.py handoff.json"
     assert index["consumer_readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert index["missing_required_roles"] == []
     assert index["recovery_action"] is None
@@ -112,6 +141,12 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         "command": None,
     }
     assert "Consumer readiness next command count: `1`" in markdown
+    assert "Consumer command metadata: `pass`" in markdown
+    assert "Consumer ready gate command shell: `powershell`" in markdown
+    assert "Consumer operator command text count: `2`" in markdown
+    assert "Consumer handoff validation command: `& python validate_guarded_launch_handoff.py handoff.json`" in markdown
+    assert "## Consumer Operator Commands" in markdown
+    assert "`inspect_status` (powershell): `& python run_guarded_launch.py --status-only`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 
 
@@ -150,6 +185,19 @@ def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: P
             "packet_evidence_outputs_status": "pass",
             "packet_markdown_table_status": "pass",
             "packet_path_mismatch_count": 0,
+            "ready_gate_command_shell": "powershell",
+            "ready_gate_command_text": "& python run_guarded_launch.py --require-ready",
+            "operator_command_count": 1,
+            "operator_command_text_count": 1,
+            "operator_commands": [
+                {
+                    "id": "require_ready",
+                    "command_shell": "powershell",
+                    "command_text": "& python run_guarded_launch.py --require-ready",
+                }
+            ],
+            "handoff_validation_command_shell": "powershell",
+            "handoff_validation_command_text": "& python validate_guarded_launch_handoff.py current.handoff.json",
             "readiness_operator_action_ids": ["fix_env_shape_validation"],
             "errors": [],
         },
@@ -175,6 +223,33 @@ def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: P
     assert index["missing_required_roles"] == []
     assert artifacts_by_role["handoff_json"]["path"] == str(custom_paths["handoff_json"].resolve())
     assert artifacts_by_role["handoff_consumer_json"]["path"] == str(custom_paths["handoff_consumer_json"].resolve())
+
+
+def test_index_guarded_launch_artifacts_fails_stale_consumer_command_metadata(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    consumer = json.loads(paths["handoff_consumer_json"].read_text(encoding="utf-8"))
+    for key in (
+        "ready_gate_command_shell",
+        "ready_gate_command_text",
+        "operator_command_count",
+        "operator_command_text_count",
+        "operator_commands",
+        "handoff_validation_command_shell",
+        "handoff_validation_command_text",
+    ):
+        consumer.pop(key)
+    paths["handoff_consumer_json"].write_text(json.dumps(consumer), encoding="utf-8")
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+
+    assert index["status"] == "fail"
+    assert index["consumer_command_metadata_status"] == "fail"
+    assert index["recovery_command_status"] == "pass"
 
 
 def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:

@@ -158,6 +158,18 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
         "command": None,
     }
     assert view["validation_matches_handoff"] is True
+    handoff = json.loads(handoff_json.read_text(encoding="utf-8"))
+    assert view["ready_gate_command_shell"] == "powershell"
+    assert view["ready_gate_command_text"] == handoff["ready_gate"]["command_text"]
+    assert view["operator_command_count"] == 2
+    assert view["operator_command_text_count"] == 2
+    assert view["operator_commands"][0]["id"] == "inspect_status"
+    assert view["operator_commands"][0]["command_shell"] == "powershell"
+    assert view["operator_commands"][0]["command_text"] == handoff["operator_commands"][0]["command_text"]
+    assert view["operator_commands"][1]["id"] == "require_ready"
+    assert view["operator_commands"][1]["command_text"] == handoff["operator_commands"][1]["command_text"]
+    assert view["handoff_validation_command_shell"] == "powershell"
+    assert view["handoff_validation_command_text"] == handoff["validation"]["command_text"]
     assert view["errors"] == []
 
 

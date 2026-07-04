@@ -102,6 +102,34 @@ def _next_commands(value: object) -> list[dict[str, str]]:
     return commands
 
 
+def _string_value(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value
+    return None
+
+
+def _operator_commands(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    commands: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        command_id = _string_value(item.get("id"))
+        command_text = _string_value(item.get("command_text"))
+        if command_id is None or command_text is None:
+            continue
+        summary = {"id": command_id, "command_text": command_text}
+        description = _string_value(item.get("description"))
+        command_shell = _string_value(item.get("command_shell"))
+        if description is not None:
+            summary["description"] = description
+        if command_shell is not None:
+            summary["command_shell"] = command_shell
+        commands.append(summary)
+    return commands
+
+
 def _packet_validation(handoff: dict[str, Any] | None) -> dict[str, Any]:
     packet_validation = handoff.get("packet_validation") if handoff is not None else None
     return packet_validation if isinstance(packet_validation, dict) else {}
@@ -181,6 +209,11 @@ def build_consumer_view(
 
     handoff_status = handoff.get("status") if handoff is not None else None
     ready_gate = handoff.get("ready_gate") if handoff is not None and isinstance(handoff.get("ready_gate"), dict) else {}
+    validation_block = (
+        handoff.get("validation")
+        if handoff is not None and isinstance(handoff.get("validation"), dict)
+        else {}
+    )
     status_view = handoff.get("status_view") if handoff is not None and isinstance(handoff.get("status_view"), dict) else {}
     readiness_summary = (
         status_view.get("readiness_summary")
@@ -220,6 +253,7 @@ def build_consumer_view(
     pass_ready = handoff_status == "ready" and ready_gate_status == "pass"
     status = "pass" if pass_ready and not errors else "fail"
     readiness_next_commands = _next_commands(readiness_summary.get("next_commands"))
+    operator_commands = _operator_commands(handoff.get("operator_commands") if handoff is not None else None)
 
     return {
         "schema_version": 1,
@@ -231,6 +265,13 @@ def build_consumer_view(
         "validation_matches_handoff": validation_matches_handoff,
         "handoff_status": handoff_status,
         "ready_gate_status": ready_gate_status,
+        "ready_gate_command_shell": _string_value(ready_gate.get("command_shell")),
+        "ready_gate_command_text": _string_value(ready_gate.get("command_text")),
+        "operator_command_count": len(operator_commands),
+        "operator_command_text_count": sum(1 for command in operator_commands if command.get("command_text")),
+        "operator_commands": operator_commands,
+        "handoff_validation_command_shell": _string_value(validation_block.get("command_shell")),
+        "handoff_validation_command_text": _string_value(validation_block.get("command_text")),
         "status_view_status": status_view.get("status"),
         "packet_validation_status": packet_validation_status,
         "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),
