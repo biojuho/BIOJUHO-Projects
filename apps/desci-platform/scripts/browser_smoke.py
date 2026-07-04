@@ -2055,6 +2055,7 @@ def _run_pricing_layout_inset_check(page, base_url: str, timeout_ms: int) -> lis
     failures: list[str] = []
     console_errors: list[str] = []
     page_errors: list[str] = []
+    tier_route_pattern = "**/subscription/tier"
     viewports = (
         ("mobile", {"width": 390, "height": 844}, 12),
         ("desktop", {"width": 1440, "height": 900}, 12),
@@ -2067,8 +2068,20 @@ def _run_pricing_layout_inset_check(page, base_url: str, timeout_ms: int) -> lis
     def collect_page_error(error) -> None:
         page_errors.append(str(error))
 
+    def fulfill_tier(route) -> None:
+        request = route.request
+        if request.method.upper() != "GET":
+            route.continue_()
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"uid": "browser-smoke-layout-user", "tier": "free", "rate_limit": "30/minute"}),
+        )
+
     page.on("console", collect_console)
     page.on("pageerror", collect_page_error)
+    page.route(tier_route_pattern, fulfill_tier)
 
     try:
         for viewport_name, viewport, min_inset in viewports:
@@ -2124,6 +2137,7 @@ def _run_pricing_layout_inset_check(page, base_url: str, timeout_ms: int) -> lis
     finally:
         page.remove_listener("console", collect_console)
         page.remove_listener("pageerror", collect_page_error)
+        page.unroute(tier_route_pattern, fulfill_tier)
 
     failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
     return failures
@@ -2134,6 +2148,7 @@ def _run_public_touch_targets_check(page, base_url: str, timeout_ms: int) -> lis
     failures: list[str] = []
     console_errors: list[str] = []
     page_errors: list[str] = []
+    tier_route_pattern = "**/subscription/tier"
     routes = ("/", "/explore", "/investors", "/pricing")
 
     def collect_console(message) -> None:
@@ -2143,8 +2158,20 @@ def _run_public_touch_targets_check(page, base_url: str, timeout_ms: int) -> lis
     def collect_page_error(error) -> None:
         page_errors.append(str(error))
 
+    def fulfill_tier(route) -> None:
+        request = route.request
+        if request.method.upper() != "GET":
+            route.continue_()
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"uid": "browser-smoke-touch-user", "tier": "free", "rate_limit": "30/minute"}),
+        )
+
     page.on("console", collect_console)
     page.on("pageerror", collect_page_error)
+    page.route(tier_route_pattern, fulfill_tier)
 
     try:
         page.set_viewport_size({"width": 390, "height": 844})
@@ -2216,6 +2243,7 @@ def _run_public_touch_targets_check(page, base_url: str, timeout_ms: int) -> lis
     finally:
         page.remove_listener("console", collect_console)
         page.remove_listener("pageerror", collect_page_error)
+        page.unroute(tier_route_pattern, fulfill_tier)
 
     failures.extend(_browser_error_failures(route_name, console_errors, page_errors))
     return failures
@@ -7117,9 +7145,15 @@ AUTHENTICATED_ACTION_CHECKS = (
 LAUNCH_CLICK_SUITE_CHECKS = (
     "landing-cta-intent",
     "explore-analyze-intent",
+    "investors-filter-directory",
+    "investors-seed-directory-fallback",
     "pricing-enterprise-contact-intent",
+    "pricing-layout-inset",
+    "public-touch-targets",
     "dashboard-quick-upload-click",
     "dashboard-readiness-refresh",
+    "dashboard-readiness-copy-failure",
+    "dashboard-recommendation-source-link-fallback",
     "pricing-checkout-mocked",
     "pricing-checkout-yearly",
     "pricing-checkout-cancelled",
@@ -7151,6 +7185,8 @@ LAUNCH_CLICK_SUITE_CHECKS = (
     "governance-wallet-required",
     "governance-connected-create-vote",
     "wallet-restore-direct-governance",
+    "wallet-extension-missing",
+    "wallet-provider-amoy",
 )
 
 

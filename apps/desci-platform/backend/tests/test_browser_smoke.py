@@ -758,6 +758,22 @@ def test_browser_smoke_launch_click_suite_includes_wallet_governance_paths() -> 
         assert name in names
 
 
+def test_browser_smoke_launch_click_suite_includes_remaining_action_paths() -> None:
+    names = list(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS)
+
+    for name in [
+        "investors-filter-directory",
+        "investors-seed-directory-fallback",
+        "pricing-layout-inset",
+        "public-touch-targets",
+        "dashboard-readiness-copy-failure",
+        "dashboard-recommendation-source-link-fallback",
+        "wallet-extension-missing",
+        "wallet-provider-amoy",
+    ]:
+        assert name in names
+
+
 def test_browser_smoke_launch_click_suite_requires_dev_auth() -> None:
     args = browser_smoke.parse_args([
         "--frontend",
@@ -1032,6 +1048,9 @@ def test_pricing_subscription_browser_smoke_mocks_tier_fetch_after_redirects() -
 def test_pricing_layout_smoke_checks_responsive_inset_and_touch_target() -> None:
     source = inspect.getsource(browser_smoke._run_pricing_layout_inset_check)  # pylint: disable=protected-access
 
+    assert 'tier_route_pattern = "**/subscription/tier"' in source
+    assert "page.route(tier_route_pattern, fulfill_tier)" in source
+    assert "page.unroute(tier_route_pattern, fulfill_tier)" in source
     assert '"mobile", {"width": 390, "height": 844}' in source
     assert '"desktop", {"width": 1440, "height": 900}' in source
     assert ".pricing-page-container h1" in source
@@ -1065,6 +1084,9 @@ def test_dashboard_readiness_smoke_clicks_every_launch_action_copy_button() -> N
 def test_public_touch_target_smoke_checks_public_mobile_controls() -> None:
     source = inspect.getsource(browser_smoke._run_public_touch_targets_check)  # pylint: disable=protected-access
 
+    assert 'tier_route_pattern = "**/subscription/tier"' in source
+    assert "page.route(tier_route_pattern, fulfill_tier)" in source
+    assert "page.unroute(tier_route_pattern, fulfill_tier)" in source
     assert 'set_viewport_size({"width": 390, "height": 844})' in source
     assert 'routes = ("/", "/explore", "/investors", "/pricing")' in source
     assert ".locale-toggle-button" in source
