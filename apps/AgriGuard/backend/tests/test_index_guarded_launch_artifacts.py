@@ -190,6 +190,26 @@ def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: 
     assert "--emit-handoff" in index["recovery_command"]
 
 
+def test_index_guarded_launch_artifacts_markdown_exposes_consumer_errors(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    consumer = json.loads(paths["handoff_consumer_json"].read_text(encoding="utf-8"))
+    consumer["errors"] = ["blocked handoff has ready_gate status 'pass'"]
+    paths["handoff_consumer_json"].write_text(json.dumps(consumer), encoding="utf-8")
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
+
+    assert index["status"] == "fail"
+    assert index["consumer_errors"] == ["blocked handoff has ready_gate status 'pass'"]
+    assert "Consumer errors: `blocked handoff has ready_gate status 'pass'`" in markdown
+    assert "Recovery command status: `pass`" in markdown
+
+
 def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     paths = _write_core_artifacts(output_dir, "blocked")
@@ -292,6 +312,7 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
     assert payload["status"] == "pass"
     assert "Consumer packet validation: `pass`" in markdown
     assert "Consumer readiness action IDs: `fix_env_shape_validation`" in markdown
+    assert "Consumer errors: `-`" in markdown
     assert "Recovery summary required: `false`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery command note: `-`" in markdown
