@@ -619,6 +619,111 @@ def test_release_handoff_includes_release_gate_consistency_in_packet(tmp_path: P
     assert "release_decision_match: `true`" in text
 
 
+def test_release_handoff_includes_provider_preflight_in_packet(tmp_path: Path) -> None:
+    product_payload = _product_smoke_handoff_payload([], ok=True)
+    checks = deploy_readiness.run_checks(_ready_env(), targets=("railway", "vercel", "github"))
+    deploy_payload = deploy_readiness.json_report_payload(checks, targets=("railway", "vercel", "github"))
+    provider_preflight_payload = {
+        "ok": False,
+        "summary": {
+            "provider_count": 3,
+            "ready_provider_count": 1,
+            "check_count": 7,
+            "passed_check_count": 3,
+            "failed_check_count": 4,
+            "missing_cli_count": 0,
+            "auth_context_missing_count": 2,
+        },
+        "providers": [
+            {
+                "provider": "railway",
+                "label": "Railway",
+                "ok": False,
+                "docs_url": "https://docs.railway.com/variables",
+                "checks": [
+                    {
+                        "id": "railway_preflight_1",
+                        "command": "railway whoami",
+                        "ok": False,
+                        "failure_reason": "nonzero_exit",
+                        "stderr_preview": "Unauthorized. Please login with `railway login`",
+                    }
+                ],
+            },
+            {
+                "provider": "vercel",
+                "label": "Vercel",
+                "ok": False,
+                "docs_url": "https://vercel.com/docs/cli/env",
+                "checks": [
+                    {
+                        "id": "vercel_preflight_1",
+                        "command": "vercel whoami",
+                        "ok": False,
+                        "failure_reason": "auth_context_missing",
+                        "error": "vercel auth context is not configured",
+                    }
+                ],
+            },
+            {
+                "provider": "github",
+                "label": "GitHub",
+                "ok": True,
+                "docs_url": "https://cli.github.com/manual/gh_secret_set",
+                "checks": [
+                    {"id": "github_preflight_1", "command": "gh auth status", "ok": True},
+                ],
+            },
+        ],
+        "failed_checks": [
+            {
+                "provider": "railway",
+                "id": "railway_preflight_1",
+                "command": "railway whoami",
+                "failure_reason": "nonzero_exit",
+            },
+            {
+                "provider": "vercel",
+                "id": "vercel_preflight_1",
+                "command": "vercel whoami",
+                "failure_reason": "auth_context_missing",
+            },
+        ],
+    }
+    payload = release_handoff.build_handoff(
+        product_payload,
+        deploy_payload,
+        provider_preflight_payload=provider_preflight_payload,
+        sources={
+            "product_smoke_json": "var/product.json",
+            "deploy_readiness_json": "var/deploy.json",
+            "provider_preflight_json": "var/provider-preflight.json",
+        },
+    )
+    output_path = tmp_path / "handoff.md"
+
+    release_handoff.write_markdown_report(output_path, payload)
+
+    assert payload["ok"] is False
+    assert payload["provider_preflight_ok"] is False
+    assert payload["provider_preflight"]["source_artifact"] == "var/provider-preflight.json"
+    assert payload["provider_preflight"]["failed_check_count"] == 4
+    assert payload["provider_preflight"]["auth_context_missing_count"] == 2
+    assert payload["provider_preflight"]["providers"][0]["failed_checks"] == [
+        {
+            "id": "railway_preflight_1",
+            "command": "railway whoami",
+            "failure_reason": "nonzero_exit",
+        }
+    ]
+    text = output_path.read_text(encoding="utf-8")
+    assert "## Provider CLI Preflight" in text
+    assert "Overall preflight ok: `false`" in text
+    assert "`railway whoami`: `nonzero_exit`" in text
+    assert "`vercel whoami`: `auth_context_missing`" in text
+    assert "Unauthorized" not in text
+
+
 def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
     product_payload = _product_smoke_handoff_payload(
         [
@@ -638,6 +743,7 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
     product_path = tmp_path / "product.json"
     deploy_path = tmp_path / "deploy.json"
     release_gate_path = tmp_path / "release-gate.json"
+    provider_preflight_path = tmp_path / "provider-preflight.json"
     output_path = tmp_path / "handoff.json"
     product_path.write_text(json.dumps(product_payload), encoding="utf-8")
     deploy_path.write_text(json.dumps(deploy_payload), encoding="utf-8")
@@ -655,6 +761,32 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
         ),
         encoding="utf-8",
     )
+    provider_preflight_path.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "summary": {
+                    "provider_count": 1,
+                    "ready_provider_count": 1,
+                    "check_count": 1,
+                    "passed_check_count": 1,
+                    "failed_check_count": 0,
+                    "missing_cli_count": 0,
+                    "auth_context_missing_count": 0,
+                },
+                "providers": [
+                    {
+                        "provider": "github",
+                        "label": "GitHub",
+                        "ok": True,
+                        "checks": [{"id": "github_preflight_1", "command": "gh auth status", "ok": True}],
+                    }
+                ],
+                "failed_checks": [],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     code = release_handoff.main(
         [
@@ -664,6 +796,8 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
             str(deploy_path),
             "--release-gate-json",
             str(release_gate_path),
+            "--provider-preflight-json",
+            str(provider_preflight_path),
             "--json-out",
             str(output_path),
         ]
@@ -676,7 +810,9 @@ def test_release_handoff_cli_writes_json_report(tmp_path: Path, capsys) -> None:
     assert written["schema_version"] == 1
     assert written["sources"]["product_smoke_json"] == str(product_path)
     assert written["sources"]["release_gate_json"] == str(release_gate_path)
+    assert written["sources"]["provider_preflight_json"] == str(provider_preflight_path)
     assert written["release_gate_consistency"]["action_coverage_status"] == "match"
+    assert written["provider_preflight"]["ok"] is True
     assert not (output_path.parent / "handoff.json.tmp").exists()
 
 

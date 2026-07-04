@@ -249,12 +249,68 @@ def release_gate_consistency_report(release_gate_payload: dict[str, Any] | None)
     }
 
 
+def provider_preflight_report(provider_preflight_payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(provider_preflight_payload, dict):
+        return None
+
+    summary = _as_dict(provider_preflight_payload.get("summary"))
+    providers = []
+    for provider in _as_list(provider_preflight_payload.get("providers")):
+        if not isinstance(provider, dict):
+            continue
+        checks = [check for check in _as_list(provider.get("checks")) if isinstance(check, dict)]
+        failed_checks = [
+            {
+                "id": check.get("id"),
+                "command": check.get("command"),
+                "failure_reason": check.get("failure_reason"),
+            }
+            for check in checks
+            if check.get("ok") is not True
+        ]
+        providers.append(
+            {
+                "provider": provider.get("provider"),
+                "label": provider.get("label"),
+                "ok": provider.get("ok") is True,
+                "docs_url": provider.get("docs_url") if isinstance(provider.get("docs_url"), str) else "",
+                "check_count": len(checks),
+                "failed_check_count": len(failed_checks),
+                "failed_checks": failed_checks,
+            }
+        )
+
+    failed_checks = [
+        {
+            "provider": check.get("provider"),
+            "id": check.get("id"),
+            "command": check.get("command"),
+            "failure_reason": check.get("failure_reason"),
+        }
+        for check in _as_list(provider_preflight_payload.get("failed_checks"))
+        if isinstance(check, dict)
+    ]
+    return {
+        "ok": provider_preflight_payload.get("ok") is True,
+        "provider_count": summary.get("provider_count"),
+        "ready_provider_count": summary.get("ready_provider_count"),
+        "check_count": summary.get("check_count"),
+        "passed_check_count": summary.get("passed_check_count"),
+        "failed_check_count": summary.get("failed_check_count"),
+        "missing_cli_count": summary.get("missing_cli_count"),
+        "auth_context_missing_count": summary.get("auth_context_missing_count"),
+        "providers": providers,
+        "failed_checks": failed_checks,
+    }
+
+
 def build_handoff(
     product_payload: dict[str, Any],
     deploy_payload: dict[str, Any],
     *,
     sources: dict[str, str] | None = None,
     release_gate_payload: dict[str, Any] | None = None,
+    provider_preflight_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     launch_handoff = extract_launch_handoff(product_payload)
     launch_actions = [action for action in _as_list(launch_handoff.get("next_actions")) if isinstance(action, dict)]
@@ -276,7 +332,9 @@ def build_handoff(
     deploy_ok = deploy_payload.get("ok") is True
     consistency = release_gate_consistency_report(release_gate_payload)
     consistency_ok = consistency is None or consistency.get("ok") is True
-    ok = product_ok and deploy_ok and not missing_required_coverage and consistency_ok
+    preflight = provider_preflight_report(provider_preflight_payload)
+    provider_preflight_ok = preflight is None or preflight.get("ok") is True
+    ok = product_ok and deploy_ok and not missing_required_coverage and consistency_ok and provider_preflight_ok
     release_decision = launch_handoff.get("release_decision") if isinstance(launch_handoff.get("release_decision"), str) else None
     if not ok:
         release_decision = "no-go"
@@ -290,6 +348,7 @@ def build_handoff(
         "product_smoke_ok": product_ok,
         "deploy_readiness_ok": deploy_ok,
         "release_gate_consistency_ok": consistency_ok,
+        "provider_preflight_ok": provider_preflight_ok,
         "launch": {
             "release_decision": launch_handoff.get("release_decision"),
             "operator_phase": launch_handoff.get("operator_phase"),
@@ -315,6 +374,10 @@ def build_handoff(
         if sources and sources.get("release_gate_json"):
             consistency["source_artifact"] = sources["release_gate_json"]
         payload["release_gate_consistency"] = consistency
+    if preflight is not None:
+        if sources and sources.get("provider_preflight_json"):
+            preflight["source_artifact"] = sources["provider_preflight_json"]
+        payload["provider_preflight"] = preflight
     payload["provider_summary"] = provider_summary(payload)
     return payload
 
@@ -565,6 +628,37 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
             for key in sorted(decision_flags):
                 lines.append(f"  - {key}: `{_markdown_scalar(decision_flags[key])}`")
 
+    preflight = _as_dict(payload.get("provider_preflight"))
+    lines.extend(["", "## Provider CLI Preflight"])
+    if not preflight:
+        lines.append("- Not provided.")
+    else:
+        lines.extend(
+            [
+                f"- Overall preflight ok: `{_markdown_scalar(preflight.get('ok'))}`",
+                f"- Ready providers: `{_markdown_scalar(preflight.get('ready_provider_count'))}` / "
+                f"`{_markdown_scalar(preflight.get('provider_count'))}`",
+                f"- Passed checks: `{_markdown_scalar(preflight.get('passed_check_count'))}` / "
+                f"`{_markdown_scalar(preflight.get('check_count'))}`",
+                f"- Failed checks: `{_markdown_scalar(preflight.get('failed_check_count'))}`",
+                f"- Missing CLI count: `{_markdown_scalar(preflight.get('missing_cli_count'))}`",
+                f"- Auth context missing count: `{_markdown_scalar(preflight.get('auth_context_missing_count'))}`",
+            ]
+        )
+        provider_reports = [provider for provider in preflight.get("providers") or [] if isinstance(provider, dict)]
+        for provider in provider_reports:
+            lines.append(
+                f"- {provider.get('label') or provider.get('provider')}: "
+                f"`{_markdown_scalar(provider.get('ok'))}`, "
+                f"failed=`{_markdown_scalar(provider.get('failed_check_count'))}`"
+            )
+            failed_checks = [check for check in provider.get("failed_checks") or [] if isinstance(check, dict)]
+            for check in failed_checks:
+                lines.append(
+                    f"  - `{_markdown_scalar(check.get('command'))}`: "
+                    f"`{_markdown_scalar(check.get('failure_reason'))}`"
+                )
+
     lines.extend(["", "## Provider Apply Guidance"])
     if not provider_groups:
         lines.append("- None.")
@@ -678,6 +772,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--product-smoke-json", required=True, help="Path to product_smoke.py JSON evidence.")
     parser.add_argument("--deploy-readiness-json", required=True, help="Path to deploy_readiness.py JSON evidence.")
     parser.add_argument("--release-gate-json", help="Optional release_gate.py parent JSON evidence.")
+    parser.add_argument("--provider-preflight-json", help="Optional provider_preflight.py JSON evidence.")
     parser.add_argument("--json", action="store_true", help="Print the handoff as JSON.")
     parser.add_argument("--json-out", help="Write the handoff JSON to a file.")
     parser.add_argument("--env-template-out", help="Write a no-secret env template for unresolved handoff actions.")
@@ -691,16 +786,20 @@ def main(argv: list[str] | None = None) -> int:
     product_path = Path(args.product_smoke_json)
     deploy_path = Path(args.deploy_readiness_json)
     release_gate_path = Path(args.release_gate_json) if args.release_gate_json else None
+    provider_preflight_path = Path(args.provider_preflight_json) if args.provider_preflight_json else None
     sources = {
         "product_smoke_json": str(product_path),
         "deploy_readiness_json": str(deploy_path),
     }
     if release_gate_path is not None:
         sources["release_gate_json"] = str(release_gate_path)
+    if provider_preflight_path is not None:
+        sources["provider_preflight_json"] = str(provider_preflight_path)
     payload = build_handoff(
         load_json(product_path),
         load_json(deploy_path),
         release_gate_payload=load_json(release_gate_path) if release_gate_path is not None else None,
+        provider_preflight_payload=load_json(provider_preflight_path) if provider_preflight_path is not None else None,
         sources=sources,
     )
 
