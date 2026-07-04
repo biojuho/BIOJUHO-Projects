@@ -234,6 +234,13 @@ def test_agriguard_compose_mounts_firebase_credentials_as_secret() -> None:
     assert "agriguard_firebase_service_account:\n    file: ${AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE:-./backend/firebase-service-account.json}" in compose
 
 
+def test_agriguard_compose_exposes_dev_auth_fallback_as_disabled_opt_in() -> None:
+    compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "ALLOW_DEV_AUTH_FALLBACK=${ALLOW_DEV_AUTH_FALLBACK:-false}" in compose
+    assert "DEV_AUTH_FALLBACK_ROLE=${DEV_AUTH_FALLBACK_ROLE:-}" in compose
+
+
 def test_agriguard_compose_does_not_publish_unconfigured_https_port() -> None:
     compose = (WORKSPACE_ROOT / "apps/AgriGuard/docker-compose.yml").read_text(encoding="utf-8")
     edge_nginx = (WORKSPACE_ROOT / "apps/AgriGuard/nginx/nginx.conf").read_text(encoding="utf-8")

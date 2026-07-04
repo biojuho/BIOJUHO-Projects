@@ -1,15 +1,15 @@
 """Add owner scope to sensor devices
 
-Revision ID: 0006_add_sensor_device_owner_scope
-Revises: 0005_add_qr_scan_event_kpi_indexes
+Revision ID: 0006_sensor_owner_scope
+Revises: 0005_qr_kpi_indexes
 Create Date: 2026-06-10 00:00:00.000000
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0006_add_sensor_device_owner_scope"
-down_revision = "0005_add_qr_scan_event_kpi_indexes"
+revision = "0006_sensor_owner_scope"
+down_revision = "0005_qr_kpi_indexes"
 branch_labels = None
 depends_on = None
 

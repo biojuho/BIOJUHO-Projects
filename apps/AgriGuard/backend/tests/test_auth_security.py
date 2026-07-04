@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import auth
 import pytest
 from admin import AdminAuth
@@ -47,6 +52,27 @@ def test_firebase_missing_rejects_without_explicit_dev_fallback(monkeypatch):
         auth.verify_firebase_token("any-token")
 
     assert excinfo.value.status_code == 503
+
+
+def test_firebase_credentials_directory_does_not_crash_import(tmp_path):
+    credentials_dir = tmp_path / "firebase-service-account.json"
+    credentials_dir.mkdir()
+    backend_dir = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env["GOOGLE_APPLICATION_CREDENTIALS"] = str(credentials_dir)
+    env["AGRIGUARD_ENV_FILE"] = str(tmp_path / "missing.env")
+    env.pop("ALLOW_DEV_AUTH_FALLBACK", None)
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import auth; assert auth._firebase_initialized is False"],
+        cwd=backend_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "path is not a file" in result.stderr
 
 
 def test_test_bypass_still_requires_explicit_flag(monkeypatch):

@@ -10,7 +10,7 @@ Closed a launch-readiness gap where committed runtime models had advanced past t
 - Added `0004_add_sensor_devices.py` for the sensor device registry.
 - Added `0005_add_qr_scan_event_kpi_indexes.py` for QR KPI query indexes.
 - Added `0006_add_sensor_device_owner_scope.py` for sensor ownership scoping.
-- Strengthened `test_run_migrations_script_applies_head_revision` so a fresh database must upgrade to `0006_add_sensor_device_owner_scope` and expose the launch-critical tables/indexes.
+- Strengthened `test_run_migrations_script_applies_head_revision` so a fresh database must upgrade to `0006_sensor_owner_scope` and expose the launch-critical tables/indexes.
 
 ## Source-Backed Rationale
 

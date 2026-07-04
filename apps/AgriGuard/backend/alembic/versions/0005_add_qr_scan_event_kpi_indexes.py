@@ -1,6 +1,6 @@
 """Add QR scan event KPI indexes
 
-Revision ID: 0005_add_qr_scan_event_kpi_indexes
+Revision ID: 0005_qr_kpi_indexes
 Revises: 0004_add_sensor_devices
 Create Date: 2026-06-10 00:00:00.000000
 """
@@ -8,7 +8,7 @@ Create Date: 2026-06-10 00:00:00.000000
 from alembic import op
 
 
-revision = "0005_add_qr_scan_event_kpi_indexes"
+revision = "0005_qr_kpi_indexes"
 down_revision = "0004_add_sensor_devices"
 branch_labels = None
 depends_on = None

@@ -178,7 +178,7 @@ def test_run_migrations_script_applies_head_revision():
             qr_indexes = {row[1] for row in connection.execute("PRAGMA index_list('qr_scan_events')").fetchall()}
             sensor_indexes = {row[1] for row in connection.execute("PRAGMA index_list('sensor_devices')").fetchall()}
 
-        assert revision == ("0006_add_sensor_device_owner_scope",)
+        assert revision == ("0006_sensor_owner_scope",)
         assert "qr_scan_events" in tables
         assert "qr_tokens" in tables
         assert "sensor_devices" in tables
@@ -190,6 +190,21 @@ def test_run_migrations_script_applies_head_revision():
             os.remove(db_path)
         except OSError:
             pass
+
+
+def test_alembic_revision_ids_fit_postgres_version_column():
+    """Postgres enforces Alembic's varchar(32) version column."""
+    versions_dir = Path(backend_dir) / "alembic" / "versions"
+    revision_ids: list[str] = []
+    for path in versions_dir.glob("*.py"):
+        namespace: dict[str, object] = {}
+        exec(path.read_text(encoding="utf-8"), namespace)
+        revision = namespace.get("revision")
+        if isinstance(revision, str):
+            revision_ids.append(revision)
+
+    assert revision_ids
+    assert all(len(revision) <= 32 for revision in revision_ids)
 
 
 def test_qr_ab_script_handles_missing_variant_data():

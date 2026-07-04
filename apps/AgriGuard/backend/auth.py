@@ -25,12 +25,16 @@ load_backend_env(override=False)
 _firebase_initialized = False
 if FIREBASE_AVAILABLE and not firebase_admin._apps:
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "firebase-service-account.json")
-    if os.path.exists(cred_path):
+    if os.path.isfile(cred_path):
         cred = credentials.Certificate(cred_path)
         firebase_admin.initialize_app(cred)
         _firebase_initialized = True
     else:
-        print("[WARNING] No Firebase service account key found. Token verification disabled.", file=sys.stderr)
+        reason = "path is not a file" if os.path.exists(cred_path) else "file not found"
+        print(
+            f"[WARNING] No Firebase service account key found ({reason}). Token verification disabled.",
+            file=sys.stderr,
+        )
 elif FIREBASE_AVAILABLE and firebase_admin._apps:
     _firebase_initialized = True
 
