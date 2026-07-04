@@ -84,6 +84,27 @@ def build_steps(args: argparse.Namespace) -> list[BrowserSmokeStep]:
     python = sys.executable
     steps = [
         BrowserSmokeStep(
+            name="dashboard_auth_recovery",
+            json_out=_json_path(output_dir, "dashboard-auth-recovery"),
+            command=_add_mobile(
+                [
+                    python,
+                    _script_path("dashboard_auth_browser_smoke.py"),
+                    "--base-url",
+                    args.base_url,
+                    "--operator-token",
+                    args.operator_token,
+                    "--json-out",
+                    str(_json_path(output_dir, "dashboard-auth-recovery")),
+                    "--screenshot",
+                    str(output_dir / "dashboard-auth-recovery.png"),
+                    "--timeout-ms",
+                    str(args.timeout_ms),
+                ],
+                mobile=args.mobile,
+            ),
+        ),
+        BrowserSmokeStep(
             name="nav",
             json_out=_json_path(output_dir, "nav"),
             command=_add_mobile(

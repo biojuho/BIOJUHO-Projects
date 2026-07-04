@@ -350,11 +350,19 @@ def test_browser_smoke_suite_builds_live_backend_steps_and_redacts_operator_toke
     args = script.parse_args()
     steps = script.build_steps(args)
 
-    assert [step.name for step in steps] == ["nav", "supply_chain", "qr_path", "admin_routes", "product_detail"]
-    assert "--click-nav" in steps[0].command
+    assert [step.name for step in steps] == [
+        "dashboard_auth_recovery",
+        "nav",
+        "supply_chain",
+        "qr_path",
+        "admin_routes",
+        "product_detail",
+    ]
     assert "--mobile" in steps[0].command
+    assert "--click-nav" in steps[1].command
     assert "--mobile" in steps[1].command
-    assert "--mobile" in steps[4].command
+    assert "--mobile" in steps[2].command
+    assert "--mobile" in steps[5].command
     redacted = script.redact_command(steps[0].command, operator_token=args.operator_token)
     assert "secret-operator-token" not in redacted
     assert "<redacted>" in redacted
