@@ -32,6 +32,12 @@ SECRET_PATTERNS = (
     re.compile(r"AIza[0-9A-Za-z_-]+"),
     re.compile(r"(?i)(token|secret|password|private[_-]?key)\s*[:=]\s*\S+"),
 )
+AUTH_CONTEXT_PATTERNS = (
+    re.compile(r"(?i)\bunauthorized\b"),
+    re.compile(r"(?i)\bnot\s+(?:logged\s+in|authenticated)\b"),
+    re.compile(r"(?i)\bplease\s+(?:log\s*in|login)\b"),
+    re.compile(r"(?i)\blogin\s+required\b"),
+)
 
 
 @dataclass(frozen=True)
@@ -88,6 +94,17 @@ def _sanitize_output(value: str, *, max_chars: int = 500) -> str:
     for pattern in SECRET_PATTERNS:
         sanitized = pattern.sub("[REDACTED]", sanitized)
     return sanitized
+
+
+def _looks_like_auth_context_missing(execution: CommandExecution) -> bool:
+    if execution.auth_context_missing:
+        return True
+    if execution.exit_code in {None, 0} or not execution.command_found or execution.timed_out:
+        return False
+    combined_output = "\n".join(
+        value for value in (execution.stdout, execution.stderr, execution.error) if value
+    )
+    return any(pattern.search(combined_output) for pattern in AUTH_CONTEXT_PATTERNS)
 
 
 def _resolve_executable(executable: str) -> str | None:
@@ -214,7 +231,7 @@ def check_payload(
     }
     if not execution.command_found:
         payload["failure_reason"] = "missing_cli"
-    elif execution.auth_context_missing:
+    elif _looks_like_auth_context_missing(execution):
         payload["failure_reason"] = "auth_context_missing"
     elif execution.timed_out:
         payload["failure_reason"] = "timeout"

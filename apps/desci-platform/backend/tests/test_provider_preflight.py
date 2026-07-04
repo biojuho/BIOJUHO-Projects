@@ -111,6 +111,29 @@ def test_provider_preflight_marks_missing_auth_context() -> None:
     assert all(check["failure_reason"] == "auth_context_missing" for check in checks)
 
 
+def test_provider_preflight_classifies_unauthorized_output_as_missing_auth_context() -> None:
+    def runner(spec: provider_preflight.CommandSpec, timeout_seconds: int) -> provider_preflight.CommandExecution:
+        return provider_preflight.CommandExecution(
+            exit_code=1,
+            duration_ms=4,
+            stderr="Unauthorized. Please login with `railway login`",
+        )
+
+    payload = provider_preflight.run_preflight(
+        ("railway",),
+        runner=runner,
+    )
+
+    assert payload["ok"] is False
+    assert payload["summary"]["auth_context_missing_count"] == payload["summary"]["failed_check_count"]
+    assert payload["summary"]["missing_cli_count"] == 0
+    assert payload["failed_checks"][0]["failure_reason"] == "auth_context_missing"
+    assert all(
+        check["failure_reason"] == "auth_context_missing"
+        for check in payload["providers"][0]["checks"]
+    )
+
+
 def test_provider_preflight_writes_json_report_atomically(tmp_path: Path) -> None:
     output = tmp_path / "provider-preflight.json"
     payload = provider_preflight.run_preflight(
