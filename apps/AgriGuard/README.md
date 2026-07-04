@@ -72,6 +72,28 @@ and a reachable Docker daemon. Direct backend launches use `SECRET_KEY`,
 `QR_TOKEN_PEPPER`, `ALLOWED_ORIGINS`, `PUBLIC_VERIFY_BASE_URL`, and
 `DATABASE_URL` instead.
 
+### Operator env retry flow
+
+When the launch wrapper emits `var/agriguard-launch-operator.env.template`,
+replace every placeholder in an operator-controlled env file before retrying.
+Validate that filled file first:
+
+```bash
+python apps/AgriGuard/scripts/validate_launch_env_template.py --env-file var/agriguard-launch-operator.env.template --json-out var/agriguard-launch-env-template-validation.json --markdown-out var/agriguard-launch-env-template-validation.md
+```
+
+Then run the guarded compose launcher with exactly one env file:
+
+```bash
+python apps/AgriGuard/scripts/launch_compose.py --env-file var/agriguard-launch-operator.env.template --validate-env-file-shape --run-browser-smoke
+```
+
+`--validate-env-file-shape` stops before strict preflight if placeholders,
+missing required keys, or forbidden launch flags remain. A shape pass does not
+prove the Firebase file exists; strict preflight still verifies Docker,
+Firebase JSON shape, URLs, origins, and database credentials before compose
+starts.
+
 ### Frontend
 
 ```bash
