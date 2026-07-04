@@ -4,9 +4,9 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
-
+from typing import Any
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 DEFAULT_OUTPUT_PREFIX = "agriguard-guarded-launch"
@@ -546,6 +546,37 @@ def _build_artifact_index_command(
     return command
 
 
+def _build_operator_packet_refresh_command(
+    *,
+    app_root: Path,
+    preflight_json: Path,
+    env_validation_json: Path,
+    env_file: Path,
+    json_out: Path,
+    markdown_out: Path,
+    env_template_out: Path,
+) -> list[str]:
+    return [
+        sys.executable,
+        str(app_root / "scripts" / "render_launch_operator_packet.py"),
+        "--app-root",
+        str(app_root),
+        "--preflight-json",
+        str(preflight_json),
+        "--env-validation-json",
+        str(env_validation_json),
+        "--env-file",
+        str(env_file),
+        "--json-out",
+        str(json_out),
+        "--markdown-out",
+        str(markdown_out),
+        "--env-template-out",
+        str(env_template_out),
+        "--exit-zero-on-blocked",
+    ]
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the canonical AgriGuard guarded compose launch with env-shape validation and readiness artifacts."
@@ -704,6 +735,19 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if handoff_requested
         else None
     )
+    operator_packet_refresh_command = (
+        _build_operator_packet_refresh_command(
+            app_root=app_root,
+            preflight_json=artifact_paths["preflight_json"],
+            env_validation_json=artifact_paths["env_validation_json"],
+            env_file=env_file,
+            json_out=artifact_paths["operator_packet_json"],
+            markdown_out=artifact_paths["operator_packet_markdown"],
+            env_template_out=artifact_paths["operator_env_template"],
+        )
+        if handoff_requested
+        else None
+    )
     handoff_consumer_command = (
         _build_handoff_consumer_command(
             app_root=app_root,
@@ -756,6 +800,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     "handoff_consumer_command": handoff_consumer_command,
                     "handoff_consumer_json": str(handoff_consumer_json) if handoff_requested else None,
                     "handoff_ready_gate_json": str(handoff_ready_gate_json) if handoff_requested else None,
+                    "operator_packet_refresh_command": operator_packet_refresh_command,
                     "artifact_index_command": artifact_index_command,
                     "artifact_index_json": str(artifact_index_json) if handoff_requested else None,
                     "artifact_index_markdown": str(artifact_index_markdown) if handoff_requested else None,
@@ -799,6 +844,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         handoff_command is not None
         and handoff_consumer_command is not None
         and artifact_index_command is not None
+        and operator_packet_refresh_command is not None
         and post_launch_returncode == 0
     ):
         if args.status_json_out or args.require_ready:
@@ -810,6 +856,9 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             )
         if args.status_json_out and status_view is not None:
             write_json(args.status_json_out.resolve(), status_view)
+        operator_packet_refresh_result = command_runner(operator_packet_refresh_command, cwd=app_root, text=True)
+        if operator_packet_refresh_result.returncode != 0 and post_launch_returncode == 0:
+            post_launch_returncode = operator_packet_refresh_result.returncode
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
         if handoff_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = handoff_result.returncode

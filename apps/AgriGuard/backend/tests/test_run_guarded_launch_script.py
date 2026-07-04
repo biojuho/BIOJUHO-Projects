@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 APP_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = APP_ROOT / "scripts" / "run_guarded_launch.py"
 SPEC = importlib.util.spec_from_file_location("run_guarded_launch", SCRIPT_PATH)
@@ -140,13 +139,35 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         sys.executable,
         str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py"),
     ]
+    assert payload["operator_packet_refresh_command"][:2] == [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py"),
+    ]
     assert "--exit-zero-on-blocked" in payload["handoff_command"]
     assert "--exit-zero-on-blocked" in payload["handoff_consumer_command"]
+    assert "--exit-zero-on-blocked" in payload["operator_packet_refresh_command"]
     assert _arg_after(payload["artifact_index_command"], "--json-out") == str(
         output_dir.resolve() / "release-check-artifact-index.json"
     )
     assert _arg_after(payload["artifact_index_command"], "--markdown-out") == str(
         output_dir.resolve() / "release-check-artifact-index.md"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--app-root") == str(app_root.resolve())
+    assert _arg_after(payload["operator_packet_refresh_command"], "--preflight-json") == str(
+        output_dir.resolve() / "release-check-preflight.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--env-validation-json") == str(
+        output_dir.resolve() / "release-check-env-validation.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--env-file") == str(env_file.resolve())
+    assert _arg_after(payload["operator_packet_refresh_command"], "--json-out") == str(
+        output_dir.resolve() / "release-check-operator-packet.json"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--markdown-out") == str(
+        output_dir.resolve() / "release-check-operator-packet.md"
+    )
+    assert _arg_after(payload["operator_packet_refresh_command"], "--env-template-out") == str(
+        output_dir.resolve() / "release-check.env.template"
     )
 
 
@@ -291,17 +312,122 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     )
 
     assert result == 1
-    assert len(calls) == 7
+    assert len(calls) == 8
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
     assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
     assert calls[2][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
     assert calls[3][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
-    assert calls[4][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
-    assert calls[5][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
-    assert calls[6][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
+    assert calls[4][1] == str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py")
+    assert calls[5][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
+    assert calls[6][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
+    assert calls[7][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
     assert "--exit-zero-on-blocked" in calls[1]
     assert "--exit-zero-on-blocked" in calls[2]
     assert _arg_after(calls[3], "--markdown-out").endswith("-artifact-index.md")
+    assert _arg_after(calls[4], "--json-out").endswith("-operator-packet.json")
+
+
+def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "release-check")
+    calls: list[str] = []
+    packet_refresh_saw_index: list[bool] = []
+    second_handoff_action_ids: list[list[str]] = []
+
+    def write_artifact_index(path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "missing_required_roles": [],
+                    "consumer_packet_validation_status": "pass",
+                    "recovery_command_status": "not_required",
+                    "recovery_summary": {
+                        "required": False,
+                        "action": None,
+                        "status": "not_required",
+                        "note": None,
+                        "command": None,
+                    },
+                    "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                    "consumer_readiness_env_validation_ready_for_preflight": True,
+                    "consumer_readiness_env_validation_placeholder_count": 0,
+                    "consumer_readiness_operator_packet_preflight_status": "fail",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def write_refreshed_operator_packet() -> None:
+        artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["operator_packet_json"].write_text(
+            json.dumps(
+                {
+                    "status": "blocked",
+                    "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                    "guarded_launch_evidence": {
+                        "artifact_index_readiness_summary": {
+                            "operator_action_ids": ["set_firebase_service_account_file"],
+                            "env_validation_ready_for_preflight": True,
+                            "env_validation_placeholder_count": 0,
+                            "operator_packet_preflight_status": "fail",
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def runner(command, **kwargs):
+        script_name = Path(command[1]).name
+        calls.append(script_name)
+        if script_name == "index_guarded_launch_artifacts.py":
+            write_artifact_index(Path(_arg_after(command, "--json-out")))
+        if script_name == "render_launch_operator_packet.py":
+            packet_refresh_saw_index.append((output_dir.resolve() / "release-check-artifact-index.json").exists())
+            write_refreshed_operator_packet()
+        if script_name == "render_guarded_launch_handoff.py" and calls.count("render_guarded_launch_handoff.py") == 2:
+            packet = json.loads(artifacts["operator_packet_json"].read_text(encoding="utf-8"))
+            evidence = packet.get("guarded_launch_evidence")
+            assert isinstance(evidence, dict)
+            summary = evidence.get("artifact_index_readiness_summary")
+            assert isinstance(summary, dict)
+            action_ids = summary.get("operator_action_ids")
+            assert isinstance(action_ids, list)
+            second_handoff_action_ids.append([str(action_id) for action_id in action_ids])
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--emit-handoff",
+        ],
+        command_runner=runner,
+    )
+
+    assert result == 0
+    assert calls == [
+        "launch_compose.py",
+        "render_guarded_launch_handoff.py",
+        "consume_guarded_launch_handoff.py",
+        "index_guarded_launch_artifacts.py",
+        "render_launch_operator_packet.py",
+        "render_guarded_launch_handoff.py",
+        "consume_guarded_launch_handoff.py",
+        "index_guarded_launch_artifacts.py",
+    ]
+    assert packet_refresh_saw_index == [True]
+    assert second_handoff_action_ids == [["set_firebase_service_account_file"]]
 
 
 def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_path: Path) -> None:
