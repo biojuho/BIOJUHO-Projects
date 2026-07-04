@@ -136,6 +136,48 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert markdown.index("run_guarded_launch.py") < markdown.index("launch_env_preflight.py")
 
 
+def test_operator_packet_markdown_evidence_table_matches_json_outputs(tmp_path: Path) -> None:
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=tmp_path / "missing.json",
+        app_root=Path(__file__).resolve().parents[2],
+    )
+    markdown = render_launch_operator_packet.render_markdown(packet)
+
+    validation = render_launch_operator_packet.validate_markdown_evidence_table(packet, markdown)
+
+    assert validation == {
+        "status": "pass",
+        "expected_output_keys": list(packet["guarded_launch_evidence"]["outputs"]),
+        "missing_rows": [],
+        "extra_rows": [],
+        "path_mismatches": [],
+    }
+
+
+def test_operator_packet_markdown_evidence_table_reports_path_drift(tmp_path: Path) -> None:
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=tmp_path / "missing.json",
+        app_root=Path(__file__).resolve().parents[2],
+    )
+    markdown = render_launch_operator_packet.render_markdown(packet).replace(
+        "var/agriguard-guarded-launch-artifact-index.json",
+        "var/wrong-artifact-index.json",
+    )
+
+    validation = render_launch_operator_packet.validate_markdown_evidence_table(packet, markdown)
+
+    assert validation["status"] == "fail"
+    assert validation["missing_rows"] == []
+    assert validation["extra_rows"] == []
+    assert validation["path_mismatches"] == [
+        {
+            "key": "artifact_index_json",
+            "expected": "var/agriguard-guarded-launch-artifact-index.json",
+            "actual": "var/wrong-artifact-index.json",
+        }
+    ]
+
+
 def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp_path: Path) -> None:
     preflight = tmp_path / "preflight.json"
     preflight.write_text(
@@ -191,6 +233,7 @@ def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_
     assert result == 1
     packet = json.loads(json_out.read_text(encoding="utf-8"))
     assert packet["blocking_action_count"] == 1
+    assert packet["guarded_launch_evidence"]["markdown_table_validation"]["status"] == "pass"
     assert packet["safe_rerun_commands"][0].startswith(
         "python apps/AgriGuard/scripts/validate_launch_env_template.py"
     )

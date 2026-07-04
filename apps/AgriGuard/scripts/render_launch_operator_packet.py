@@ -218,6 +218,56 @@ def _guarded_launch_evidence_validation(outputs: dict[str, str]) -> dict[str, ob
     }
 
 
+def _guarded_launch_outputs_from_packet(packet: dict[str, object]) -> dict[str, str]:
+    evidence = packet.get("guarded_launch_evidence")
+    if not isinstance(evidence, dict):
+        return {}
+    outputs = evidence.get("outputs")
+    if not isinstance(outputs, dict):
+        return {}
+    return {str(key): str(value) for key, value in outputs.items() if isinstance(key, str)}
+
+
+def _extract_guarded_launch_evidence_table(markdown: str) -> dict[str, str]:
+    rows: dict[str, str] = {}
+    in_section = False
+    for line in markdown.splitlines():
+        if line == "## Guarded Launch Evidence Outputs":
+            in_section = True
+            continue
+        if in_section and line.startswith("## "):
+            break
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 2 or cells[0] in {"Artifact", "---"}:
+            continue
+        key = cells[0].strip("`")
+        path = cells[1].strip("`")
+        if key and path:
+            rows[key] = path
+    return rows
+
+
+def validate_markdown_evidence_table(packet: dict[str, object], markdown: str) -> dict[str, object]:
+    expected = _guarded_launch_outputs_from_packet(packet)
+    actual = _extract_guarded_launch_evidence_table(markdown)
+    missing = [key for key in expected if key not in actual]
+    extra = [key for key in actual if key not in expected]
+    mismatches = [
+        {"key": key, "expected": expected[key], "actual": actual[key]}
+        for key in expected
+        if key in actual and actual[key] != expected[key]
+    ]
+    return {
+        "status": "pass" if not missing and not extra and not mismatches else "fail",
+        "expected_output_keys": list(expected),
+        "missing_rows": missing,
+        "extra_rows": extra,
+        "path_mismatches": mismatches,
+    }
+
+
 def _redact_text(value: object) -> str:
     text = str(value)
     return SENSITIVE_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}<redacted>", text)
@@ -500,9 +550,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     packet = build_operator_packet(preflight_json=args.preflight_json.resolve(), app_root=args.app_root.resolve())
+    markdown = render_markdown(packet)
+    evidence = packet.get("guarded_launch_evidence")
+    if isinstance(evidence, dict):
+        evidence["markdown_table_validation"] = validate_markdown_evidence_table(packet, markdown)
     write_json(args.json_out.resolve(), packet)
     args.markdown_out.resolve().parent.mkdir(parents=True, exist_ok=True)
-    args.markdown_out.resolve().write_text(render_markdown(packet), encoding="utf-8")
+    args.markdown_out.resolve().write_text(markdown, encoding="utf-8")
     if args.env_template_out:
         args.env_template_out.resolve().parent.mkdir(parents=True, exist_ok=True)
         args.env_template_out.resolve().write_text(render_env_template(packet), encoding="utf-8")
