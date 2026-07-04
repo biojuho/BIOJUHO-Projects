@@ -136,6 +136,9 @@ def build_consumer_view(
         "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),
         "packet_markdown_table_status": packet_validation.get("markdown_table_status"),
         "packet_path_mismatch_count": packet_validation.get("path_mismatch_count"),
+        "packet_artifact_index_recovery_command_status": packet_validation.get(
+            "artifact_index_recovery_command_status"
+        ),
         "readiness_operator_action_ids": readiness_action_ids,
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),

@@ -59,6 +59,9 @@ def _write_operator_packet(
                 "secrets_redacted": True,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
                 "guarded_launch_evidence": {
+                    "artifact_index_readiness_summary": {
+                        "recovery_command_status": "not_required",
+                    },
                     "validation": {
                         "status": evidence_status,
                         "missing_output_keys": [] if evidence_status == "pass" else ["handoff_json"],
@@ -121,6 +124,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["packet_validation_status"] == "pass"
     assert view["packet_evidence_outputs_status"] == "pass"
     assert view["packet_markdown_table_status"] == "pass"
+    assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["validation_matches_handoff"] is True
     assert view["errors"] == []
 
@@ -159,6 +163,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["blocker_class"] == "preflight_blocked"
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["packet_validation_status"] == "pass"
+    assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["readiness_env_validation_ready_for_preflight"] is False
     assert view["readiness_env_validation_placeholder_count"] == 6

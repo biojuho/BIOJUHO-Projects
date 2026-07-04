@@ -75,8 +75,14 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
     markdown_validation = (
         evidence.get("markdown_table_validation") if isinstance(evidence.get("markdown_table_validation"), dict) else {}
     )
+    artifact_index_summary = (
+        evidence.get("artifact_index_readiness_summary")
+        if isinstance(evidence.get("artifact_index_readiness_summary"), dict)
+        else {}
+    )
     evidence_status = evidence_validation.get("status")
     markdown_status = markdown_validation.get("status")
+    recovery_command_status = artifact_index_summary.get("recovery_command_status")
     expected_output_keys = _string_list(markdown_validation.get("expected_output_keys"))
     status = "pass" if packet is not None and evidence_status == "pass" and markdown_status == "pass" else "fail"
     return {
@@ -93,6 +99,9 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
         "path_mismatch_count": len(markdown_validation.get("path_mismatches"))
         if isinstance(markdown_validation.get("path_mismatches"), list)
         else 0,
+        "artifact_index_recovery_command_status": recovery_command_status
+        if isinstance(recovery_command_status, str)
+        else None,
     }
 
 
@@ -247,6 +256,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Missing Markdown rows: `{', '.join(packet_validation.get('missing_markdown_rows', [])) or '-'}`",
         f"- Extra Markdown rows: `{', '.join(packet_validation.get('extra_markdown_rows', [])) or '-'}`",
         f"- Path mismatch count: `{packet_validation.get('path_mismatch_count')}`",
+        f"- Artifact index recovery command status: `{packet_validation.get('artifact_index_recovery_command_status')}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
         f"- Env validation ready for preflight: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
         f"- Env validation placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",

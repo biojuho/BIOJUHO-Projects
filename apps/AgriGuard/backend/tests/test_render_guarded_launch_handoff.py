@@ -24,6 +24,9 @@ def _write_operator_packet(path: Path) -> None:
                 "secrets_redacted": True,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
                 "guarded_launch_evidence": {
+                    "artifact_index_readiness_summary": {
+                        "recovery_command_status": "not_required",
+                    },
                     "validation": {
                         "status": "pass",
                         "missing_output_keys": [],
@@ -91,6 +94,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
     assert handoff["packet_validation"]["markdown_table_status"] == "pass"
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
+    assert handoff["packet_validation"]["artifact_index_recovery_command_status"] == "not_required"
     assert "--require-ready" in handoff["ready_gate"]["command"]
     assert handoff["secrets_redacted"] is True
 
@@ -187,6 +191,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert "Ready gate: `fail`" in markdown
     assert "Packet validation: `pass`" in markdown
     assert "Markdown table: `pass`" in markdown
+    assert "Artifact index recovery command status: `not_required`" in markdown
     assert "Readiness action IDs: `fix_env_shape_validation`" in markdown
     assert "Env validation ready for preflight: `False`" in markdown
     assert "Operator packet preflight status: `env_shape_blocked`" in markdown
