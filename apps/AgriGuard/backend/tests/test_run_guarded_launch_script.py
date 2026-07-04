@@ -149,6 +149,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
     assert _arg_after(payload["artifact_index_command"], "--json-out") == str(
         output_dir.resolve() / "release-check-artifact-index.json"
     )
+    assert _arg_after(payload["artifact_index_command"], "--env-file") == str(env_file.resolve())
     assert _arg_after(payload["artifact_index_command"], "--markdown-out") == str(
         output_dir.resolve() / "release-check-artifact-index.md"
     )

@@ -5,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-
 APP_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = APP_ROOT / "scripts" / "index_guarded_launch_artifacts.py"
 SPEC = importlib.util.spec_from_file_location("index_guarded_launch_artifacts", SCRIPT_PATH)
@@ -221,6 +220,25 @@ def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -
     assert "Recovery command:" in markdown
     assert "Recovery command note: `Recovery command is present" in markdown
     assert "run_guarded_launch.py" in markdown
+
+
+def test_index_guarded_launch_artifacts_recovery_command_preserves_env_file(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    env_file = tmp_path / "operator.env"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    paths["handoff_consumer_json"].unlink()
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        env_file=env_file,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+
+    recovery_command = index["recovery_command"]
+    assert recovery_command[recovery_command.index("--env-file") + 1] == str(env_file.resolve())
+    assert recovery_command[recovery_command.index("--output-prefix") + 1] == "blocked"
+    assert recovery_command[recovery_command.index("--output-dir") + 1] == str(output_dir.resolve())
 
 
 def test_index_guarded_launch_artifacts_can_require_status_json(tmp_path: Path) -> None:

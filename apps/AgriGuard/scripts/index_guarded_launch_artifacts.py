@@ -102,6 +102,7 @@ def _artifact_paths(
 def _recovery_command(
     *,
     app_root: Path,
+    env_file: Path | None,
     output_dir: Path,
     output_prefix: str,
     status_json: Path | None,
@@ -117,7 +118,7 @@ def _recovery_command(
         "--app-root",
         str(app_root),
         "--env-file",
-        str(run_guarded_launch._default_env_file(app_root)),
+        str(env_file or run_guarded_launch._default_env_file(app_root)),
         "--output-dir",
         str(output_dir),
         "--output-prefix",
@@ -144,6 +145,7 @@ def build_index(
     app_root: Path,
     output_dir: Path,
     output_prefix: str,
+    env_file: Path | None = None,
     status_json: Path | None = None,
     handoff_json: Path | None = None,
     handoff_markdown: Path | None = None,
@@ -215,6 +217,7 @@ def build_index(
         if index_status == "pass"
         else _recovery_command(
             app_root=app_root,
+            env_file=env_file.resolve() if env_file else None,
             output_dir=output_dir,
             output_prefix=output_prefix,
             status_json=status_json.resolve() if status_json else None,
@@ -354,6 +357,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     workspace_root = _workspace_root(app_root)
     parser = argparse.ArgumentParser(description="Index AgriGuard guarded-launch artifacts for an output prefix.")
     parser.add_argument("--app-root", type=Path, default=app_root)
+    parser.add_argument("--env-file", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, default=workspace_root / "var")
     parser.add_argument("--output-prefix", default=run_guarded_launch.DEFAULT_OUTPUT_PREFIX)
     parser.add_argument("--status-json", type=Path, default=None)
@@ -372,6 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     index = build_index(
         app_root=args.app_root,
+        env_file=args.env_file,
         output_dir=args.output_dir,
         output_prefix=args.output_prefix,
         status_json=args.status_json,

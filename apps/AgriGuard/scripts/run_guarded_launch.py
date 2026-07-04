@@ -504,6 +504,7 @@ def _build_handoff_consumer_command(
 def _build_artifact_index_command(
     *,
     app_root: Path,
+    env_file: Path,
     output_dir: Path,
     output_prefix: str,
     json_out: Path,
@@ -518,6 +519,8 @@ def _build_artifact_index_command(
     command = [
         sys.executable,
         str(app_root / "scripts" / "index_guarded_launch_artifacts.py"),
+        "--env-file",
+        str(env_file),
         "--output-dir",
         str(output_dir),
         "--output-prefix",
@@ -736,6 +739,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     artifact_index_command = (
         _build_artifact_index_command(
             app_root=app_root,
+            env_file=env_file,
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             json_out=artifact_index_json,
