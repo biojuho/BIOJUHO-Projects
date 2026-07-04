@@ -230,6 +230,7 @@ def build_handoff_payload(gate_payload: dict[str, Any], *, evidence_path: str | 
     provider_payload = _as_dict(gate_payload.get("provider_preflight"))
     actions = [*deploy_surface_actions(deploy_payload), *provider_preflight_actions(provider_payload)]
     gate_summary = _as_dict(gate_payload.get("summary"))
+    provider_summary = _as_dict(provider_payload.get("summary"))
     ok = gate_payload.get("ok") is True
     return {
         "schema_version": 1,
@@ -247,6 +248,9 @@ def build_handoff_payload(gate_payload: dict[str, Any], *, evidence_path: str | 
             "provider_ready": int(gate_summary.get("provider_ready") or 0),
             "provider_count": int(gate_summary.get("provider_count") or 0),
             "provider_failed_checks": int(gate_summary.get("provider_failed_checks") or 0),
+            "provider_check_count": int(provider_summary.get("check_count") or 0),
+            "provider_missing_cli_count": int(provider_summary.get("missing_cli_count") or 0),
+            "provider_auth_context_missing_count": int(provider_summary.get("auth_context_missing_count") or 0),
             "failed_surface_count": int(gate_summary.get("failed_surface_count") or 0),
             "next_action_count": len(actions),
         },
@@ -1654,6 +1658,10 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
         f"- Provider ready: `{_markdown_scalar(summary.get('provider_ready', 0))}`/"
         f"`{_markdown_scalar(summary.get('provider_count', 0))}`",
         f"- Provider failed checks: `{_markdown_scalar(summary.get('provider_failed_checks', 0))}`",
+        f"- Provider total checks: `{_markdown_scalar(summary.get('provider_check_count', 0))}`",
+        f"- Provider missing CLI checks: `{_markdown_scalar(summary.get('provider_missing_cli_count', 0))}`",
+        f"- Provider auth context missing checks: "
+        f"`{_markdown_scalar(summary.get('provider_auth_context_missing_count', 0))}`",
         f"- Next actions: `{_markdown_scalar(summary.get('next_action_count', 0))}`",
         "",
         "## Provider Rollup",

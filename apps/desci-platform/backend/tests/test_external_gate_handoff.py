@@ -77,6 +77,15 @@ def gate_payload(*, ok: bool = False) -> dict[str, object]:
         },
         "provider_preflight": {
             "ok": ok,
+            "summary": {
+                "provider_count": 3,
+                "ready_provider_count": 3 if ok else 1,
+                "check_count": 7,
+                "passed_check_count": 7 if ok else 5,
+                "failed_check_count": 0 if ok else 2,
+                "missing_cli_count": 0,
+                "auth_context_missing_count": 0 if ok else 2,
+            },
             "failed_checks": []
             if ok
             else [
@@ -106,6 +115,9 @@ def test_external_gate_handoff_fails_closed_with_provider_rollup() -> None:
     assert payload["release_decision"] == "no-go"
     assert payload["operator_phase"] == "external_launch_blocked"
     assert payload["summary"]["next_action_count"] == 3
+    assert payload["summary"]["provider_check_count"] == 7
+    assert payload["summary"]["provider_missing_cli_count"] == 0
+    assert payload["summary"]["provider_auth_context_missing_count"] == 2
     assert railway["failed"] == 1
     assert railway["warnings"] == 1
     assert railway["template_filename"] == "railway.env"
@@ -137,6 +149,8 @@ def test_external_gate_handoff_markdown_uses_no_secret_values() -> None:
     assert "Release decision: `no-go`" in markdown
     assert "`FIREBASE_SERVICE_ACCOUNT_JSON`" in markdown
     assert "vercel whoami" in markdown
+    assert "Provider total checks: `7`" in markdown
+    assert "Provider auth context missing checks: `2`" in markdown
     assert "private_key" not in markdown
     assert "sk_live_" not in markdown
 
