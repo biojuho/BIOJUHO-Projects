@@ -288,6 +288,8 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
         "ready_to_apply": False,
         "ready_provider_count": 0,
         "blocked_provider_count": 1,
+        "provider_preflight_blocker_count": 0,
+        "provider_project_context_missing_count": 0,
         "provider_templates_safe_to_commit": True,
         "apply_plan_safe_to_commit": True,
         "private_template_values_present": False,
@@ -300,6 +302,10 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     provider = plan["providers"][0]
     assert provider["provider"] == "railway"
     assert provider["ready_to_apply"] is False
+    assert provider["template_ready"] is False
+    assert provider["provider_preflight_blocker_count"] == 0
+    assert provider["project_context_missing_count"] == 0
+    assert provider["blocked_reasons"] == ["template has blank values"]
     assert provider["env_keys"] == ["FIREBASE_SERVICE_ACCOUNT_JSON", "PINATA_JWT"]
     assert provider["blank_key_count"] == 2
     assert plan["provider_apply_plan_verification"]["success_condition"] == (
@@ -533,6 +539,63 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "POSIX: `railway variable set FIREBASE_SERVICE_ACCOUNT_JSON --stdin" in markdown
 
 
+def test_external_gate_handoff_apply_plan_blocks_filled_template_with_provider_preflight(
+    tmp_path: Path,
+) -> None:
+    template_dir = tmp_path / "providers"
+    template_dir.mkdir()
+    railway_env = template_dir / "railway.env"
+    railway_env.write_text(
+        "FIREBASE_SERVICE_ACCOUNT_JSON=filled\nPINATA_JWT=filled\n",
+        encoding="utf-8",
+    )
+    payload = {
+        "release_decision": "no-go",
+        "external_gate_json": "var/gate.json",
+        "provider_rollup": [
+            {
+                "provider": "railway",
+                "label": "Railway",
+                "template_filename": "railway.env",
+                "has_env_template": True,
+                "provider_preflight_failed_count": 2,
+                "project_context_missing_count": 1,
+                "failure_reasons": ["auth_context_missing"],
+                "commands": ["railway whoami", "railway status"],
+                "remediations": [
+                    "Run `railway login`.",
+                    "Run `railway link --project <id>`.",
+                ],
+            }
+        ],
+    }
+    plan = external_gate_handoff.provider_apply_plan_payload(
+        payload,
+        {"railway": railway_env},
+        plan_path=tmp_path / "apply-plan.json",
+    )
+    markdown = external_gate_handoff.render_provider_apply_plan_markdown(plan)
+
+    provider = plan["providers"][0]
+    assert plan["operator_status"]["stage"] == "resolve_provider_preflight"
+    assert plan["operator_status"]["ready_to_apply"] is False
+    assert plan["operator_status"]["provider_preflight_blocker_count"] == 2
+    assert plan["operator_status"]["provider_project_context_missing_count"] == 1
+    assert provider["template_ready"] is True
+    assert provider["ready_to_apply"] is False
+    assert provider["blank_key_count"] == 0
+    assert provider["provider_preflight_blocker_count"] == 2
+    assert provider["project_context_missing_count"] == 1
+    assert provider["blocked_reasons"] == [
+        "provider preflight blockers remain",
+        "provider project context missing",
+    ]
+    assert provider["provider_preflight_commands"] == ["railway whoami", "railway status"]
+    assert "Stage: `resolve_provider_preflight`" in markdown
+    assert "Provider preflight blockers: `2`" in markdown
+    assert "Provider project context missing: `1`" in markdown
+
+
 def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaking_values(tmp_path: Path) -> None:
     payload = external_gate_handoff.build_handoff_payload(gate_payload(), evidence_path="var/gate.json")
     paths = external_gate_handoff.write_provider_templates(tmp_path / "providers", payload)
@@ -547,6 +610,8 @@ def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaki
     assert plan["operator_status"]["stage"] == "apply_provider_values"
     assert plan["operator_status"]["ready_to_apply"] is True
     assert plan["operator_status"]["blocked_provider_count"] == 0
+    assert plan["operator_status"]["provider_preflight_blocker_count"] == 0
+    assert plan["operator_status"]["provider_project_context_missing_count"] == 0
     assert plan["operator_status"]["provider_templates_safe_to_commit"] is False
     assert plan["operator_status"]["apply_plan_safe_to_commit"] is True
     assert plan["operator_status"]["private_template_values_present"] is True
@@ -574,6 +639,9 @@ def test_external_gate_handoff_apply_plan_detects_filled_templates_without_leaki
         == "var/post-apply-promotion-receipt-require-go.json"
     )
     assert plan["providers"][0]["ready_to_apply"] is True
+    assert plan["providers"][0]["template_ready"] is True
+    assert plan["providers"][0]["provider_preflight_blocker_count"] == 0
+    assert plan["providers"][0]["project_context_missing_count"] == 0
     assert plan["providers"][0]["env_keys"] == ["FIREBASE_SERVICE_ACCOUNT_JSON", "PINATA_JWT"]
     assert plan["providers"][0]["blank_key_count"] == 0
     assert "super-secret" not in serialized
@@ -907,6 +975,8 @@ def apply_results_recorder_plan(tmp_path: Path, command: str, *, ready: bool = T
             "ready_to_apply": ready,
             "ready_provider_count": 1 if ready else 0,
             "blocked_provider_count": 0 if ready else 1,
+            "provider_preflight_blocker_count": 0,
+            "provider_project_context_missing_count": 0,
             "provider_templates_safe_to_commit": not ready,
             "apply_plan_safe_to_commit": True,
             "private_template_values_present": ready,
@@ -921,6 +991,9 @@ def apply_results_recorder_plan(tmp_path: Path, command: str, *, ready: bool = T
                 "env_key_count": 1,
                 "populated_key_count": populated_key_count,
                 "blank_key_count": 0 if ready else 1,
+                "template_ready": ready,
+                "provider_preflight_blocker_count": 0,
+                "project_context_missing_count": 0,
                 "ready_to_apply": ready,
                 "commands": [
                     {

@@ -223,6 +223,7 @@ def provider_rollup(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "docs_urls": [],
                 "remediations": [],
                 "project_context_missing_count": 0,
+                "provider_preflight_failed_count": 0,
                 "action_count": 0,
                 "apply_guidance": _provider_guidance(provider),
             },
@@ -230,6 +231,8 @@ def provider_rollup(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         group["failed"] += int(action.get("failed") or 0)
         group["warnings"] += int(action.get("warnings") or 0)
         group["project_context_missing_count"] += int(action.get("project_context_missing_count") or 0)
+        if action.get("source") == "provider_preflight":
+            group["provider_preflight_failed_count"] += int(action.get("failed") or 0)
         group["action_count"] += 1
         for key in _string_list(action.get("required_env")):
             if key not in group["required_env"]:
@@ -481,6 +484,11 @@ def provider_template_index_payload(payload: dict[str, Any], provider_paths: dic
                 "template_filename": rollup.get("template_filename")
                 or release_handoff.PROVIDER_TEMPLATE_FILENAMES.get(provider, f"{provider}.env"),
                 "has_env_template": rollup.get("has_env_template") is True,
+                "provider_preflight_failed_count": int(rollup.get("provider_preflight_failed_count") or 0),
+                "project_context_missing_count": int(rollup.get("project_context_missing_count") or 0),
+                "provider_preflight_failure_reasons": _string_list(rollup.get("failure_reasons")),
+                "provider_preflight_commands": _string_list(rollup.get("commands")),
+                "provider_preflight_remediations": _string_list(rollup.get("remediations")),
                 **audit,
             }
         )
@@ -581,15 +589,28 @@ def _provider_apply_operator_status(index: dict[str, Any], providers: list[dict[
     ready_provider_count = sum(1 for provider in providers if provider.get("ready_to_apply") is True)
     blocked_provider_count = max(provider_count - ready_provider_count, 0)
     populated_key_count = int(index.get("populated_key_count") or 0)
+    blank_key_count = sum(int(provider.get("blank_key_count") or 0) for provider in providers)
+    provider_preflight_blocker_count = sum(
+        int(provider.get("provider_preflight_blocker_count") or 0) for provider in providers
+    )
+    project_context_missing_count = sum(
+        int(provider.get("project_context_missing_count") or 0) for provider in providers
+    )
     ready_to_apply = provider_count > 0 and blocked_provider_count == 0
     if provider_count == 0:
         stage = "no_provider_templates"
         next_required_action = "Regenerate the handoff with --provider-template-dir after external gate evidence exists."
-    elif not ready_to_apply:
+    elif blank_key_count > 0:
         stage = "fill_provider_templates"
         next_required_action = (
             "Fill blank provider templates in a private local directory, then regenerate this apply plan with "
             "--preserve-provider-templates."
+        )
+    elif provider_preflight_blocker_count > 0:
+        stage = "resolve_provider_preflight"
+        next_required_action = (
+            "Resolve provider CLI authentication and project-link context blockers, then rerun the external gate "
+            "handoff and provider apply plan."
         )
     else:
         stage = "apply_provider_values"
@@ -602,6 +623,8 @@ def _provider_apply_operator_status(index: dict[str, Any], providers: list[dict[
         "ready_to_apply": ready_to_apply,
         "ready_provider_count": ready_provider_count,
         "blocked_provider_count": blocked_provider_count,
+        "provider_preflight_blocker_count": provider_preflight_blocker_count,
+        "provider_project_context_missing_count": project_context_missing_count,
         "provider_templates_safe_to_commit": index.get("safe_to_commit") is True,
         "apply_plan_safe_to_commit": True,
         "private_template_values_present": populated_key_count > 0,
@@ -793,7 +816,17 @@ def provider_apply_plan_payload(
         keys = _string_list(provider.get("env_keys"))
         env_key_count = int(provider.get("env_key_count") or 0)
         populated_key_count = int(provider.get("populated_key_count") or 0)
-        ready_to_apply = env_key_count > 0 and populated_key_count == env_key_count
+        template_ready = env_key_count > 0 and populated_key_count == env_key_count
+        provider_preflight_blocker_count = int(provider.get("provider_preflight_failed_count") or 0)
+        project_context_missing_count = int(provider.get("project_context_missing_count") or 0)
+        ready_to_apply = template_ready and provider_preflight_blocker_count == 0
+        blocked_reasons: list[str] = []
+        if not template_ready:
+            blocked_reasons.append("template has blank values")
+        if provider_preflight_blocker_count:
+            blocked_reasons.append("provider preflight blockers remain")
+        if project_context_missing_count:
+            blocked_reasons.append("provider project context missing")
         guidance = _provider_guidance(provider_key)
         providers.append(
             {
@@ -807,8 +840,19 @@ def provider_apply_plan_payload(
                 "env_key_count": env_key_count,
                 "populated_key_count": populated_key_count,
                 "blank_key_count": max(env_key_count - populated_key_count, 0),
+                "template_ready": template_ready,
+                "provider_preflight_blocker_count": provider_preflight_blocker_count,
+                "project_context_missing_count": project_context_missing_count,
+                "provider_preflight_failure_reasons": _string_list(
+                    provider.get("provider_preflight_failure_reasons")
+                ),
+                "provider_preflight_commands": _string_list(provider.get("provider_preflight_commands")),
+                "provider_preflight_remediations": _string_list(
+                    provider.get("provider_preflight_remediations")
+                ),
                 "ready_to_apply": ready_to_apply,
-                "blocked_reason": "" if ready_to_apply else "template has blank values",
+                "blocked_reason": "" if ready_to_apply else "; ".join(blocked_reasons),
+                "blocked_reasons": blocked_reasons,
                 "commands": _provider_apply_commands(provider_key, str(provider.get("path") or ""), keys),
                 "post_apply_verify_commands": [
                     _post_apply_verify_command(template_dir, provider_key)
@@ -1155,8 +1199,12 @@ def _provider_apply_plan_provider_verification(provider: dict[str, Any]) -> dict
     populated_key_count = int(provider.get("populated_key_count") or 0)
     blank_key_count = int(provider.get("blank_key_count") or 0)
     expected_blank_key_count = max(env_key_count - populated_key_count, 0)
+    template_ready = provider.get("template_ready") is True
+    expected_template_ready = env_key_count > 0 and populated_key_count == env_key_count
+    provider_preflight_blocker_count = int(provider.get("provider_preflight_blocker_count") or 0)
+    project_context_missing_count = int(provider.get("project_context_missing_count") or 0)
     ready_to_apply = provider.get("ready_to_apply") is True
-    expected_ready = env_key_count > 0 and populated_key_count == env_key_count
+    expected_ready = expected_template_ready and provider_preflight_blocker_count == 0
     failures: list[str] = []
     template_audit: dict[str, Any] = {
         "exists": False,
@@ -1173,8 +1221,12 @@ def _provider_apply_plan_provider_verification(provider: dict[str, Any]) -> dict
         failures.append("provider populated_key_count must not exceed env_key_count")
     if blank_key_count != expected_blank_key_count:
         failures.append("provider blank_key_count must equal env_key_count minus populated_key_count")
+    if template_ready is not expected_template_ready:
+        failures.append("provider template_ready does not match env counts")
+    if project_context_missing_count > provider_preflight_blocker_count:
+        failures.append("provider project_context_missing_count exceeds provider preflight blockers")
     if ready_to_apply is not expected_ready:
-        failures.append("provider ready_to_apply does not match env counts")
+        failures.append("provider ready_to_apply does not match env and preflight counts")
     if not template_path:
         failures.append("provider template_path is required")
     else:
@@ -1213,6 +1265,9 @@ def _provider_apply_plan_provider_verification(provider: dict[str, Any]) -> dict
         "env_key_count": env_key_count,
         "populated_key_count": populated_key_count,
         "blank_key_count": blank_key_count,
+        "template_ready": template_ready,
+        "provider_preflight_blocker_count": provider_preflight_blocker_count,
+        "project_context_missing_count": project_context_missing_count,
         "template_audit": template_audit,
         "ok": not failures,
         "failures": failures,
@@ -1231,6 +1286,12 @@ def verify_provider_apply_plan(
     provider_checks = [_provider_apply_plan_provider_verification(provider) for provider in providers]
     ready_provider_count = sum(1 for provider in providers if provider.get("ready_to_apply") is True)
     blocked_provider_count = max(len(providers) - ready_provider_count, 0)
+    provider_preflight_blocker_count = sum(
+        int(provider.get("provider_preflight_blocker_count") or 0) for provider in providers
+    )
+    project_context_missing_count = sum(
+        int(provider.get("project_context_missing_count") or 0) for provider in providers
+    )
     failures: list[str] = []
     serialized = json.dumps(plan, ensure_ascii=False, sort_keys=True)
     secret_markers = secret_marker_names_in_text(serialized)
@@ -1259,6 +1320,10 @@ def verify_provider_apply_plan(
         failures.append("operator_status.ready_provider_count does not match providers")
     if int(operator_status.get("blocked_provider_count") or 0) != blocked_provider_count:
         failures.append("operator_status.blocked_provider_count does not match providers")
+    if int(operator_status.get("provider_preflight_blocker_count") or 0) != provider_preflight_blocker_count:
+        failures.append("operator_status.provider_preflight_blocker_count does not match providers")
+    if int(operator_status.get("provider_project_context_missing_count") or 0) != project_context_missing_count:
+        failures.append("operator_status.provider_project_context_missing_count does not match providers")
     if operator_status.get("apply_plan_safe_to_commit") is not True:
         failures.append("operator_status.apply_plan_safe_to_commit must be true")
     if operator_status.get("completion_marker") != "external_release_gate.ok=true":
@@ -1288,6 +1353,8 @@ def verify_provider_apply_plan(
             "provider_count": len(providers),
             "ready_provider_count": ready_provider_count,
             "blocked_provider_count": blocked_provider_count,
+            "provider_preflight_blocker_count": provider_preflight_blocker_count,
+            "provider_project_context_missing_count": project_context_missing_count,
             "provider_failure_count": provider_failure_count,
             "secret_marker_count": len(secret_markers),
         },
@@ -1541,6 +1608,10 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
                 f"- Stage: `{_markdown_scalar(operator_status.get('stage'))}`",
                 f"- Ready to apply: `{_markdown_scalar(operator_status.get('ready_to_apply'))}`",
                 f"- Blocked providers: `{_markdown_scalar(operator_status.get('blocked_provider_count', 0))}`",
+                f"- Provider preflight blockers: "
+                f"`{_markdown_scalar(operator_status.get('provider_preflight_blocker_count', 0))}`",
+                f"- Provider project context missing: "
+                f"`{_markdown_scalar(operator_status.get('provider_project_context_missing_count', 0))}`",
                 f"- Provider templates safe to commit: "
                 f"`{_markdown_scalar(operator_status.get('provider_templates_safe_to_commit'))}`",
                 f"- Apply plan safe to commit: "
@@ -1648,6 +1719,15 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
         commands = [item for item in _as_list(provider.get("commands")) if isinstance(item, dict)]
         lines.append(f"### {provider.get('label')}")
         lines.append(f"- Template: `{_markdown_scalar(provider.get('template_path'))}`")
+        lines.append(f"- Template ready: `{_markdown_scalar(provider.get('template_ready'))}`")
+        lines.append(
+            f"- Provider preflight blockers: "
+            f"`{_markdown_scalar(provider.get('provider_preflight_blocker_count', 0))}`"
+        )
+        lines.append(
+            f"- Provider project context missing: "
+            f"`{_markdown_scalar(provider.get('project_context_missing_count', 0))}`"
+        )
         lines.append(f"- Ready to apply: `{_markdown_scalar(provider.get('ready_to_apply'))}`")
         if provider.get("blocked_reason"):
             lines.append(f"- Blocked reason: `{provider.get('blocked_reason')}`")
@@ -1928,6 +2008,8 @@ def print_provider_apply_plan_verification_report(payload: dict[str, Any]) -> No
         f"ready_to_apply={payload.get('ready_to_apply')} "
         f"require_ready={payload.get('require_ready_to_apply')} "
         f"providers={summary.get('ready_provider_count')}/{summary.get('provider_count')} "
+        f"provider_preflight_blockers={summary.get('provider_preflight_blocker_count')} "
+        f"project_context_missing={summary.get('provider_project_context_missing_count')} "
         f"provider_failures={summary.get('provider_failure_count')} "
         f"failures={summary.get('failure_count')} "
         f"secret_markers={summary.get('secret_marker_count')}"
