@@ -4,12 +4,26 @@ import importlib.util
 import json
 from pathlib import Path
 
-SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "render_launch_operator_packet.py"
+APP_ROOT = Path(__file__).resolve().parents[2]
+WORKSPACE_ROOT = APP_ROOT.parents[1]
+SCRIPT_PATH = APP_ROOT / "scripts" / "render_launch_operator_packet.py"
 SPEC = importlib.util.spec_from_file_location("render_launch_operator_packet", SCRIPT_PATH)
 assert SPEC is not None
 render_launch_operator_packet = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(render_launch_operator_packet)
+
+
+def _command(parts: list[object]) -> str:
+    return render_launch_operator_packet._format_command([str(part) for part in parts])
+
+
+def _script(app_root: Path, script_name: str) -> str:
+    return str((app_root / "scripts" / script_name).resolve())
+
+
+def _default_operator_env(workspace_root: Path) -> Path:
+    return (workspace_root / "var" / "agriguard-launch-operator.env.template").resolve()
 
 
 def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Path) -> None:
@@ -56,14 +70,36 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     }
     assert "password123" not in json.dumps(packet)
     assert packet["preflight_checks"]["runtime"] == "compose"
-    assert packet["safe_rerun_commands"][0].startswith(
-        "python apps/AgriGuard/scripts/validate_launch_env_template.py"
+    assert packet["safe_rerun_commands"][0] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(APP_ROOT, "validate_launch_env_template.py"),
+            "--app-root",
+            APP_ROOT,
+            "--env-file",
+            _default_operator_env(WORKSPACE_ROOT),
+            "--json-out",
+            WORKSPACE_ROOT / "var" / "agriguard-launch-env-template-validation.json",
+            "--markdown-out",
+            WORKSPACE_ROOT / "var" / "agriguard-launch-env-template-validation.md",
+        ]
     )
-    assert packet["safe_rerun_commands"][1] == (
-        "python apps/AgriGuard/scripts/run_guarded_launch.py "
-        "--env-file var/agriguard-launch-operator.env.template "
-        "--emit-handoff "
-        "--status-json-out var/agriguard-guarded-launch-status.json"
+    assert packet["safe_rerun_commands"][1] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(APP_ROOT, "run_guarded_launch.py"),
+            "--app-root",
+            APP_ROOT,
+            "--env-file",
+            _default_operator_env(WORKSPACE_ROOT),
+            "--output-dir",
+            WORKSPACE_ROOT / "var",
+            "--output-prefix",
+            render_launch_operator_packet.run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+            "--emit-handoff",
+            "--status-json-out",
+            WORKSPACE_ROOT / "var" / "agriguard-guarded-launch-status.json",
+        ]
     )
     assert packet["operator_env_template"]["validation_command"] == packet["safe_rerun_commands"][0]
     assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
@@ -113,29 +149,60 @@ def test_operator_packet_preserves_env_file_in_safe_rerun_commands(tmp_path: Pat
     )
 
     assert packet["operator_env_files"] == ["var/operator.env"]
-    assert packet["safe_rerun_commands"][0] == (
-        "python apps/AgriGuard/scripts/validate_launch_env_template.py "
-        "--env-file var/operator.env "
-        "--json-out var/agriguard-launch-env-template-validation.json "
-        "--markdown-out var/agriguard-launch-env-template-validation.md"
+    assert packet["safe_rerun_commands"][0] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "validate_launch_env_template.py"),
+            "--app-root",
+            app_root,
+            "--env-file",
+            env_file,
+            "--json-out",
+            tmp_path / "var" / "agriguard-launch-env-template-validation.json",
+            "--markdown-out",
+            tmp_path / "var" / "agriguard-launch-env-template-validation.md",
+        ]
     )
-    assert packet["safe_rerun_commands"][1] == (
-        "python apps/AgriGuard/scripts/run_guarded_launch.py "
-        "--env-file var/operator.env "
-        "--emit-handoff "
-        "--status-json-out var/agriguard-guarded-launch-status.json"
+    assert packet["safe_rerun_commands"][1] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "run_guarded_launch.py"),
+            "--app-root",
+            app_root,
+            "--env-file",
+            env_file,
+            "--output-dir",
+            tmp_path / "var",
+            "--output-prefix",
+            render_launch_operator_packet.run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+            "--emit-handoff",
+            "--status-json-out",
+            tmp_path / "var" / "agriguard-guarded-launch-status.json",
+        ]
     )
-    assert packet["safe_rerun_commands"][2] == (
-        "python apps/AgriGuard/scripts/launch_env_preflight.py "
-        "--check-docker "
-        "--json-out var/agriguard-launch-env-preflight-compose-launch.json "
-        "--env-file var/operator.env"
+    assert packet["safe_rerun_commands"][2] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "launch_env_preflight.py"),
+            "--check-docker",
+            "--json-out",
+            tmp_path / "var" / "agriguard-launch-env-preflight-compose-launch.json",
+            "--env-file",
+            env_file,
+        ]
     )
-    assert packet["safe_rerun_commands"][3] == (
-        "python apps/AgriGuard/scripts/launch_compose.py "
-        "--env-file var/operator.env "
-        "--run-browser-smoke "
-        "--launch-report-json var/agriguard-compose-launch-report.json"
+    assert packet["safe_rerun_commands"][3] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "launch_compose.py"),
+            "--app-root",
+            app_root,
+            "--env-file",
+            env_file,
+            "--run-browser-smoke",
+            "--launch-report-json",
+            tmp_path / "var" / "agriguard-compose-launch-report.json",
+        ]
     )
     assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
 
@@ -204,18 +271,32 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
     evidence = packet["guarded_launch_evidence"]
     summary = evidence["artifact_index_readiness_summary"]
 
-    assert packet["safe_rerun_commands"][1] == (
-        "python apps/AgriGuard/scripts/run_guarded_launch.py "
-        "--env-file var/operator.env "
-        "--output-dir launch-artifacts "
-        "--output-prefix custom-prefix "
-        "--emit-handoff "
-        "--status-json-out custom-status/guarded-status.json "
-        "--handoff-json-out custom-handoff/current.handoff.json "
-        "--handoff-markdown-out custom-handoff/current.handoff.md "
-        "--handoff-validation-json-out custom-handoff/current.handoff.validation.json "
-        "--handoff-consumer-json-out custom-handoff/current.handoff.consumer.json "
-        "--handoff-ready-gate-json-out custom-handoff/current.ready-gate.json"
+    assert packet["safe_rerun_commands"][1] == _command(
+        [
+            render_launch_operator_packet.sys.executable,
+            _script(app_root, "run_guarded_launch.py"),
+            "--app-root",
+            app_root,
+            "--env-file",
+            env_file,
+            "--output-dir",
+            output_dir,
+            "--output-prefix",
+            "custom-prefix",
+            "--emit-handoff",
+            "--status-json-out",
+            status_json,
+            "--handoff-json-out",
+            handoff_json,
+            "--handoff-markdown-out",
+            handoff_markdown,
+            "--handoff-validation-json-out",
+            handoff_validation_json,
+            "--handoff-consumer-json-out",
+            handoff_consumer_json,
+            "--handoff-ready-gate-json-out",
+            ready_gate_json,
+        ]
     )
     assert evidence["outputs"]["status_json"] == "custom-status/guarded-status.json"
     assert evidence["outputs"]["launch_report_json"] == "launch-artifacts/custom-prefix-launch-report.json"
@@ -312,13 +393,15 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert "# AgriGuard Launch Operator Packet" in markdown
     assert "SECRET_KEY=<redacted>" in markdown
     assert "super-secret-value" not in markdown
-    assert "validate_launch_env_template.py --env-file var/agriguard-launch-operator.env.template" in markdown
-    assert (
-        "run_guarded_launch.py --env-file var/agriguard-launch-operator.env.template "
-        "--emit-handoff --status-json-out var/agriguard-guarded-launch-status.json"
-    ) in markdown
-    assert "launch_env_preflight.py --check-docker" in markdown
-    assert "launch_compose.py --run-browser-smoke" in markdown
+    assert "validate_launch_env_template.py" in markdown
+    assert str(_default_operator_env(WORKSPACE_ROOT)) in markdown
+    assert "run_guarded_launch.py" in markdown
+    assert "--output-dir" in markdown
+    assert str(WORKSPACE_ROOT / "var" / "agriguard-guarded-launch-status.json") in markdown
+    assert "launch_env_preflight.py" in markdown
+    assert "--check-docker" in markdown
+    assert "launch_compose.py" in markdown
+    assert "--run-browser-smoke" in markdown
     assert "## Guarded Launch Evidence Outputs" in markdown
     assert "`artifact_index_json` | `var/agriguard-guarded-launch-artifact-index.json`" in markdown
     assert "`handoff_markdown` | `var/agriguard-guarded-launch-handoff.md`" in markdown
@@ -455,7 +538,8 @@ def test_operator_packet_reports_missing_artifact_index_hint(tmp_path: Path) -> 
     assert summary["missing_index_command"] == packet["guarded_launch_evidence"]["wrapper_command"]
     assert "Recovery command note: `Artifact index recovery status is resolved" in markdown
     assert "Missing index action: `Run the guarded launch wrapper command" in markdown
-    assert "Missing index command: `python apps/AgriGuard/scripts/run_guarded_launch.py" in markdown
+    assert "Missing index command: `" in markdown
+    assert "run_guarded_launch.py" in markdown
 
 
 def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp_path: Path) -> None:
@@ -514,9 +598,8 @@ def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_
     packet = json.loads(json_out.read_text(encoding="utf-8"))
     assert packet["blocking_action_count"] == 1
     assert packet["guarded_launch_evidence"]["markdown_table_validation"]["status"] == "pass"
-    assert packet["safe_rerun_commands"][0].startswith(
-        "python apps/AgriGuard/scripts/validate_launch_env_template.py"
-    )
+    assert "validate_launch_env_template.py" in packet["safe_rerun_commands"][0]
+    assert str(APP_ROOT) in packet["safe_rerun_commands"][0]
     assert "run_guarded_launch.py" in packet["safe_rerun_commands"][1]
     assert "`set_secret_key`" in markdown_out.read_text(encoding="utf-8")
     assert "AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>" in env_template_out.read_text(encoding="utf-8")

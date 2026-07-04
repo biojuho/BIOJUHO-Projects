@@ -178,35 +178,46 @@ def _format_command(parts: list[str]) -> str:
     return " ".join(_quote_cli_arg(part) for part in parts)
 
 
+def _script_path(app_root: Path, script_name: str) -> str:
+    return str((app_root / "scripts" / script_name).resolve())
+
+
+def _default_operator_env_file(workspace_root: Path) -> Path:
+    return (workspace_root / "var" / "agriguard-launch-operator.env.template").resolve()
+
+
 def _env_file_refs(env_files: list[Path], workspace_root: Path) -> list[str]:
     return [_rel(env_file, workspace_root) for env_file in env_files]
 
 
-def _env_file_args(env_files: list[Path], workspace_root: Path) -> list[str]:
+def _env_file_args(env_files: list[Path]) -> list[str]:
     args: list[str] = []
-    for env_file in _env_file_refs(env_files, workspace_root):
-        args.extend(["--env-file", env_file])
+    for env_file in env_files:
+        args.extend(["--env-file", str(env_file.resolve())])
     return args
 
 
-def _operator_env_template_validation_command(env_files: list[Path], workspace_root: Path) -> str:
-    env_file = _env_file_refs(env_files, workspace_root)[0] if len(env_files) == 1 else "var/agriguard-launch-operator.env.template"
+def _operator_env_template_validation_command(env_files: list[Path], app_root: Path, workspace_root: Path) -> str:
+    env_file = env_files[0].resolve() if len(env_files) == 1 else _default_operator_env_file(workspace_root)
     return _format_command(
         [
-            "python",
-            "apps/AgriGuard/scripts/validate_launch_env_template.py",
+            sys.executable,
+            _script_path(app_root, "validate_launch_env_template.py"),
+            "--app-root",
+            str(app_root.resolve()),
             "--env-file",
-            env_file,
+            str(env_file),
             "--json-out",
-            "var/agriguard-launch-env-template-validation.json",
+            str((workspace_root / "var" / "agriguard-launch-env-template-validation.json").resolve()),
             "--markdown-out",
-            "var/agriguard-launch-env-template-validation.md",
+            str((workspace_root / "var" / "agriguard-launch-env-template-validation.md").resolve()),
         ]
     )
 
 
 def _guarded_launch_command(
     env_files: list[Path],
+    app_root: Path,
     workspace_root: Path,
     *,
     output_dir: Path | None = None,
@@ -218,36 +229,38 @@ def _guarded_launch_command(
     handoff_consumer_json: Path | None = None,
     ready_gate_json: Path | None = None,
 ) -> str:
-    env_file = _env_file_refs(env_files, workspace_root)[0] if len(env_files) == 1 else "var/agriguard-launch-operator.env.template"
+    env_file = env_files[0].resolve() if len(env_files) == 1 else _default_operator_env_file(workspace_root)
     output_dir = (output_dir or (workspace_root / "var")).resolve()
     status_json = (status_json or _default_status_json(output_dir, output_prefix)).resolve()
     command = [
-        "python",
-        "apps/AgriGuard/scripts/run_guarded_launch.py",
+        sys.executable,
+        _script_path(app_root, "run_guarded_launch.py"),
+        "--app-root",
+        str(app_root.resolve()),
         "--env-file",
-        env_file,
+        str(env_file),
+        "--output-dir",
+        str(output_dir),
+        "--output-prefix",
+        output_prefix,
     ]
-    if output_dir != (workspace_root / "var").resolve():
-        command.extend(["--output-dir", _rel(output_dir, workspace_root)])
-    if output_prefix != run_guarded_launch.DEFAULT_OUTPUT_PREFIX:
-        command.extend(["--output-prefix", output_prefix])
     command.extend(
         [
             "--emit-handoff",
             "--status-json-out",
-            _rel(status_json, workspace_root),
+            str(status_json),
         ]
     )
     if handoff_json is not None:
-        command.extend(["--handoff-json-out", _rel(handoff_json.resolve(), workspace_root)])
+        command.extend(["--handoff-json-out", str(handoff_json.resolve())])
     if handoff_markdown is not None:
-        command.extend(["--handoff-markdown-out", _rel(handoff_markdown.resolve(), workspace_root)])
+        command.extend(["--handoff-markdown-out", str(handoff_markdown.resolve())])
     if handoff_validation_json is not None:
-        command.extend(["--handoff-validation-json-out", _rel(handoff_validation_json.resolve(), workspace_root)])
+        command.extend(["--handoff-validation-json-out", str(handoff_validation_json.resolve())])
     if handoff_consumer_json is not None:
-        command.extend(["--handoff-consumer-json-out", _rel(handoff_consumer_json.resolve(), workspace_root)])
+        command.extend(["--handoff-consumer-json-out", str(handoff_consumer_json.resolve())])
     if ready_gate_json is not None:
-        command.extend(["--handoff-ready-gate-json-out", _rel(ready_gate_json.resolve(), workspace_root)])
+        command.extend(["--handoff-ready-gate-json-out", str(ready_gate_json.resolve())])
     return _format_command(command)
 
 
@@ -542,7 +555,6 @@ def build_operator_packet(
     workspace_root = _workspace_root(app_root)
     env_files = [env_file.resolve() for env_file in (env_files or [])]
     env_file_refs = _env_file_refs(env_files, workspace_root)
-    env_file_args = _env_file_args(env_files, workspace_root)
     payload = _read_json(preflight_json)
     env_payload = _read_json(env_validation_json) if env_validation_json is not None else None
 
@@ -573,25 +585,27 @@ def build_operator_packet(
         actions = _build_actions(errors)
 
     blocked = status != "pass" or bool(actions)
-    validate_env_template = _operator_env_template_validation_command(env_files, workspace_root)
+    validate_env_template = _operator_env_template_validation_command(env_files, app_root, workspace_root)
     rerun_preflight = _format_command(
         [
-            "python",
-            "apps/AgriGuard/scripts/launch_env_preflight.py",
+            sys.executable,
+            _script_path(app_root, "launch_env_preflight.py"),
             "--check-docker",
             "--json-out",
-            "var/agriguard-launch-env-preflight-compose-launch.json",
-            *env_file_args,
+            str((workspace_root / "var" / "agriguard-launch-env-preflight-compose-launch.json").resolve()),
+            *_env_file_args(env_files),
         ]
     )
     rerun_launch = _format_command(
         [
-            "python",
-            "apps/AgriGuard/scripts/launch_compose.py",
-            *env_file_args,
+            sys.executable,
+            _script_path(app_root, "launch_compose.py"),
+            "--app-root",
+            str(app_root.resolve()),
+            *_env_file_args(env_files),
             "--run-browser-smoke",
             "--launch-report-json",
-            "var/agriguard-compose-launch-report.json",
+            str((workspace_root / "var" / "agriguard-compose-launch-report.json").resolve()),
         ]
     )
     guarded_output_dir = (guarded_output_dir or (workspace_root / "var")).resolve()
@@ -603,6 +617,7 @@ def build_operator_packet(
     )
     guarded_launch = _guarded_launch_command(
         env_files,
+        app_root,
         workspace_root,
         output_dir=guarded_output_dir,
         output_prefix=guarded_output_prefix,
