@@ -103,6 +103,41 @@ def _write_operator_packet(
     )
 
 
+def _write_artifact_index(output_dir: Path, prefix: str) -> None:
+    path = RUN_WRAPPER._default_artifact_index_json(output_dir.resolve(), prefix)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "missing_required_roles": [],
+                "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
+                "recovery_command_status": "not_required",
+                "recovery_summary": {
+                    "required": False,
+                    "action": None,
+                    "status": "not_required",
+                    "note": None,
+                    "command": None,
+                },
+                "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "consumer_readiness_next_commands": [
+                    {
+                        "name": "validate_env_template",
+                        "command": "& python validate_launch_env_template.py",
+                        "shell": "powershell",
+                    }
+                ],
+                "consumer_readiness_env_validation_ready_for_preflight": False,
+                "consumer_readiness_env_validation_placeholder_count": 6,
+                "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_handoff_and_validation(tmp_path: Path, prefix: str) -> tuple[Path, Path]:
     output_dir = tmp_path / "launch-artifacts"
     handoff_json = tmp_path / f"{prefix}-handoff.json"
@@ -197,11 +232,13 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
                 "operator_packet": {
                     "preflight_status": "env_shape_blocked",
                     "operator_action_ids": ["set_firebase_service_account_file"],
+                    "consumer_command_metadata_status": "pass",
                 },
             },
         },
     )
     _write_operator_packet(output_dir, "blocked")
+    _write_artifact_index(output_dir, "blocked")
     handoff_json, validation_json = _write_handoff_and_validation(tmp_path, "blocked")
 
     view = consume_guarded_launch_handoff.build_consumer_view(
@@ -219,6 +256,10 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["packet_artifact_index_recovery_command_shell"] is None
     assert view["packet_artifact_index_recovery_command_text"] is None
     assert view["packet_artifact_index_recovery_summary"]["required"] is False
+    assert view["artifact_index_status"] == "pass"
+    assert view["consumer_packet_validation_status"] == "pass"
+    assert view["consumer_command_metadata_status"] == "pass"
+    assert view["artifact_index_recovery_command_status"] == "not_required"
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["readiness_next_commands"] == [
         {
@@ -230,6 +271,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["readiness_env_validation_ready_for_preflight"] is False
     assert view["readiness_env_validation_placeholder_count"] == 6
     assert view["readiness_operator_packet_preflight_status"] == "env_shape_blocked"
+    assert view["readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert view["validation_matches_handoff"] is True
 
 

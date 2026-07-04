@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import subprocess
 import sys
@@ -54,6 +55,16 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _load_peer_module(module_name: str) -> Any:
+    script_path = Path(__file__).resolve().with_name(f"{module_name}.py")
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _result_names(payload: dict[str, Any] | None) -> list[str]:
@@ -278,6 +289,16 @@ def _build_status_view(
             "env_validation_ready_for_preflight": summary_env_validation.get("ready_for_preflight"),
             "env_validation_placeholder_count": summary_env_validation.get("placeholder_count"),
             "operator_packet_preflight_status": summary_operator_packet.get("preflight_status"),
+            "operator_packet_artifact_index_status": summary_operator_packet.get("artifact_index_status"),
+            "operator_packet_consumer_packet_validation_status": summary_operator_packet.get(
+                "consumer_packet_validation_status"
+            ),
+            "operator_packet_consumer_command_metadata_status": summary_operator_packet.get(
+                "consumer_command_metadata_status"
+            ),
+            "operator_packet_artifact_index_recovery_command_status": summary_operator_packet.get(
+                "artifact_index_recovery_command_status"
+            ),
         },
         "operator_packet": {
             "found": packet is not None,
@@ -379,6 +400,35 @@ def _refresh_launch_report_operator_packet_fields(
         return False
     operator_packet.update(fields)
     write_json(launch_report_json, launch_report)
+    return True
+
+
+def _refresh_readiness_summary_operator_packet_fields(
+    *,
+    readiness_summary_json: Path,
+    readiness_summary_markdown: Path | None = None,
+    operator_packet_json: Path,
+) -> bool:
+    readiness_summary = _read_json(readiness_summary_json)
+    packet = _read_json(operator_packet_json)
+    fields = _operator_packet_artifact_index_fields(packet)
+    if readiness_summary is None or not fields:
+        return False
+    reports = readiness_summary.get("reports")
+    if not isinstance(reports, dict):
+        return False
+    operator_packet = reports.get("operator_packet")
+    if not isinstance(operator_packet, dict):
+        return False
+    operator_packet.update(fields)
+    write_json(readiness_summary_json, readiness_summary)
+    if readiness_summary_markdown is not None:
+        summarize_launch_readiness = _load_peer_module("summarize_launch_readiness")
+        readiness_summary_markdown.parent.mkdir(parents=True, exist_ok=True)
+        readiness_summary_markdown.write_text(
+            summarize_launch_readiness.render_markdown(readiness_summary) + "\n",
+            encoding="utf-8",
+        )
     return True
 
 
@@ -1070,6 +1120,11 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             post_launch_returncode = operator_packet_refresh_result.returncode
         _refresh_launch_report_operator_packet_fields(
             launch_report_json=artifact_paths["launch_report_json"],
+            operator_packet_json=artifact_paths["operator_packet_json"],
+        )
+        _refresh_readiness_summary_operator_packet_fields(
+            readiness_summary_json=artifact_paths["readiness_summary_json"],
+            readiness_summary_markdown=artifact_paths["readiness_summary_markdown"],
             operator_packet_json=artifact_paths["operator_packet_json"],
         )
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)

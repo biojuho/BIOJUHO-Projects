@@ -220,6 +220,11 @@ def build_consumer_view(
         if isinstance(status_view.get("readiness_summary"), dict)
         else {}
     )
+    artifact_index = (
+        status_view.get("artifact_index")
+        if isinstance(status_view.get("artifact_index"), dict)
+        else {}
+    )
     readiness_action_ids = (
         readiness_summary.get("operator_action_ids")
         if isinstance(readiness_summary.get("operator_action_ids"), list)
@@ -286,11 +291,18 @@ def build_consumer_view(
         ),
         "packet_artifact_index_recovery_command_text": packet_validation.get("artifact_index_recovery_command_text"),
         "packet_artifact_index_recovery_summary": packet_recovery_summary,
+        "artifact_index_status": artifact_index.get("status"),
+        "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status"),
+        "consumer_command_metadata_status": artifact_index.get("consumer_command_metadata_status"),
+        "artifact_index_recovery_command_status": artifact_index.get("recovery_command_status"),
         "readiness_operator_action_ids": readiness_action_ids,
         "readiness_next_commands": readiness_next_commands,
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),
         "readiness_operator_packet_preflight_status": readiness_summary.get("operator_packet_preflight_status"),
+        "readiness_operator_packet_consumer_command_metadata_status": readiness_summary.get(
+            "operator_packet_consumer_command_metadata_status"
+        ),
         "blocker_class": status_view.get("blocker_class"),
         "status_view_operator_action_ids": _string_list(status_view.get("operator_action_ids")),
         "operator_action_ids": external_action_ids,

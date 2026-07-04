@@ -561,6 +561,26 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
             encoding="utf-8",
         )
 
+    def write_initial_readiness_summary() -> None:
+        artifacts["readiness_summary_json"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["readiness_summary_json"].write_text(
+            json.dumps(
+                {
+                    "status": "blocked",
+                    "blocker_class": "preflight_blocked",
+                    "reports": {
+                        "operator_packet": {
+                            "preflight_status": "fail",
+                            "operator_action_ids": ["set_firebase_service_account_file"],
+                            "consumer_command_metadata_status": None,
+                        }
+                    },
+                    "next_commands": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+
     def write_refreshed_operator_packet() -> None:
         artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
         artifacts["operator_packet_json"].write_text(
@@ -590,6 +610,7 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
         calls.append(script_name)
         if script_name == "launch_compose.py":
             write_initial_launch_report()
+            write_initial_readiness_summary()
         if script_name == "index_guarded_launch_artifacts.py":
             write_artifact_index(Path(_arg_after(command, "--json-out")))
         if script_name == "render_launch_operator_packet.py":
@@ -640,6 +661,14 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
     assert operator_packet["consumer_packet_validation_status"] == "pass"
     assert operator_packet["consumer_command_metadata_status"] == "pass"
     assert operator_packet["artifact_index_recovery_command_status"] == "not_required"
+    readiness_summary = json.loads(artifacts["readiness_summary_json"].read_text(encoding="utf-8"))
+    readiness_operator_packet = readiness_summary["reports"]["operator_packet"]
+    assert readiness_operator_packet["artifact_index_status"] == "pass"
+    assert readiness_operator_packet["consumer_packet_validation_status"] == "pass"
+    assert readiness_operator_packet["consumer_command_metadata_status"] == "pass"
+    assert readiness_operator_packet["artifact_index_recovery_command_status"] == "not_required"
+    readiness_markdown = artifacts["readiness_summary_markdown"].read_text(encoding="utf-8")
+    assert "- Consumer command metadata: `pass`" in readiness_markdown
 
 
 def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_path: Path) -> None:

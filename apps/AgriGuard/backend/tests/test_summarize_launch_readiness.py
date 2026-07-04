@@ -144,6 +144,14 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                     "& python launch_env_preflight.py",
                     "& python launch_compose.py",
                 ],
+                "guarded_launch_evidence": {
+                    "artifact_index_readiness_summary": {
+                        "status": "pass",
+                        "consumer_packet_validation_status": "pass",
+                        "consumer_command_metadata_status": "pass",
+                        "recovery_command_status": "not_required",
+                    }
+                },
                 "secrets_redacted": True,
             }
         ),
@@ -161,6 +169,10 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["blocker_class"] == "preflight_blocked"
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert summary["reports"]["operator_packet"]["artifact_index_status"] == "pass"
+    assert summary["reports"]["operator_packet"]["consumer_packet_validation_status"] == "pass"
+    assert summary["reports"]["operator_packet"]["consumer_command_metadata_status"] == "pass"
+    assert summary["reports"]["operator_packet"]["artifact_index_recovery_command_status"] == "not_required"
     assert summary["next_commands"] == [
         {
             "name": "validate_env_template",
@@ -171,6 +183,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
         {"name": "strict_preflight", "command": "& python launch_env_preflight.py", "shell": "powershell"},
         {"name": "compose_launch", "command": "& python launch_compose.py", "shell": "powershell"},
     ]
+    assert "- Consumer command metadata: `pass`" in summarize_launch_readiness.render_markdown(summary)
 
 
 def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> None:

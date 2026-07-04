@@ -721,6 +721,30 @@
                 "null"
               ]
             },
+            "operator_packet_artifact_index_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operator_packet_consumer_packet_validation_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operator_packet_consumer_command_metadata_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operator_packet_artifact_index_recovery_command_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "path": {
               "type": "string"
             },
@@ -740,7 +764,11 @@
             "operator_action_ids",
             "env_validation_ready_for_preflight",
             "env_validation_placeholder_count",
-            "operator_packet_preflight_status"
+            "operator_packet_preflight_status",
+            "operator_packet_artifact_index_status",
+            "operator_packet_consumer_packet_validation_status",
+            "operator_packet_consumer_command_metadata_status",
+            "operator_packet_artifact_index_recovery_command_status"
           ],
           "type": "object"
         },

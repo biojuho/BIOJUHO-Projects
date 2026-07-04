@@ -104,7 +104,7 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
         for item in actions
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     ]
-    return {
+    summary = {
         "found": True,
         "path": _rel(path, workspace_root),
         "status": payload.get("status"),
@@ -118,6 +118,32 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
         ],
         "secrets_redacted": payload.get("secrets_redacted"),
     }
+    guarded_evidence = (
+        payload.get("guarded_launch_evidence")
+        if isinstance(payload.get("guarded_launch_evidence"), dict)
+        else {}
+    )
+    artifact_index_summary = (
+        guarded_evidence.get("artifact_index_readiness_summary")
+        if isinstance(guarded_evidence.get("artifact_index_readiness_summary"), dict)
+        else {}
+    )
+    if artifact_index_summary:
+        summary.update(
+            {
+                "artifact_index_status": artifact_index_summary.get("status"),
+                "consumer_packet_validation_status": artifact_index_summary.get(
+                    "consumer_packet_validation_status"
+                ),
+                "consumer_command_metadata_status": artifact_index_summary.get(
+                    "consumer_command_metadata_status"
+                ),
+                "artifact_index_recovery_command_status": artifact_index_summary.get(
+                    "recovery_command_status"
+                ),
+            }
+        )
+    return summary
 
 
 def _classify(
@@ -250,8 +276,9 @@ def render_markdown(summary: dict[str, object]) -> str:
         f"- Env validation ready for preflight: `{env_validation.get('ready_for_preflight')}`",
         f"- Env validation placeholder count: `{env_validation.get('placeholder_count')}`",
         f"- Operator packet preflight status: `{operator_packet.get('preflight_status')}`",
+        f"- Consumer command metadata: `{operator_packet.get('consumer_command_metadata_status')}`",
         f"- Operator action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
-        f"- Secrets redacted: `{str(summary['secrets_redacted']).lower()}`",
+        f"- Secrets redacted: `{str(summary.get('secrets_redacted')).lower()}`",
         "",
         "## Reports",
         "",
