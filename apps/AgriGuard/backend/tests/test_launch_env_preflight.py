@@ -1039,6 +1039,36 @@ def test_launch_report_docker_check_passes_when_daemon_and_compose_config_pass(t
     assert report["checks"]["docker"]["compose_config"]["ok"] is True
 
 
+def test_launch_report_docker_check_passes_effective_env_to_compose_config(tmp_path: Path) -> None:
+    app_root = tmp_path
+    credentials_path = _write_external_firebase_credentials_file(tmp_path)
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    env = _healthy_env() | {
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path),
+        "AGRIGUARD_TEST_COMPOSE_ENV_MARKER": "from-effective-env",
+    }
+    report = launch_env_preflight.build_launch_report(
+        env,
+        check_docker=True,
+        app_root=app_root,
+        command_runner=runner,
+    )
+
+    assert report["status"] == "pass"
+    assert calls[0][0] == ["docker", "info", "--format", "{{.ServerVersion}}"]
+    assert "env" not in calls[0][1]
+    assert calls[1][0] == ["docker", "compose", "-f", str(app_root / "docker-compose.yml"), "config", "--quiet"]
+    compose_env = calls[1][1]["env"]
+    assert isinstance(compose_env, dict)
+    assert compose_env["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE"] == str(credentials_path)
+    assert compose_env["AGRIGUARD_TEST_COMPOSE_ENV_MARKER"] == "from-effective-env"
+
+
 def test_launch_report_docker_check_fails_when_daemon_unreachable(tmp_path: Path) -> None:
     app_root = tmp_path
     _write_firebase_credentials_file(app_root)

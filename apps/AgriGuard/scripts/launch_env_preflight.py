@@ -584,9 +584,18 @@ def _run_preflight_command(
     *,
     cwd: Path,
     command_runner: CommandRunner,
+    env: dict[str, str] | None = None,
 ) -> dict[str, object]:
     try:
-        result = command_runner(command, cwd=str(cwd), capture_output=True, text=True, timeout=30)
+        kwargs: dict[str, object] = {
+            "cwd": str(cwd),
+            "capture_output": True,
+            "text": True,
+            "timeout": 30,
+        }
+        if env is not None:
+            kwargs["env"] = env
+        result = command_runner(command, **kwargs)
     except FileNotFoundError as exc:
         return {
             "command": command,
@@ -617,6 +626,7 @@ def check_docker_readiness(
     *,
     app_root: Path,
     command_runner: CommandRunner = subprocess.run,
+    env: dict[str, str] | None = None,
 ) -> dict[str, object]:
     docker_info = _run_preflight_command(
         ["docker", "info", "--format", "{{.ServerVersion}}"],
@@ -627,6 +637,7 @@ def check_docker_readiness(
         ["docker", "compose", "-f", str(app_root / "docker-compose.yml"), "config", "--quiet"],
         cwd=app_root,
         command_runner=command_runner,
+        env=env,
     )
 
     errors: list[str] = []
@@ -702,6 +713,7 @@ def build_launch_report(
         docker_report = check_docker_readiness(
             app_root=app_root or Path(__file__).resolve().parents[1],
             command_runner=command_runner,
+            env=env,
         )
         checks["docker"] = docker_report["checks"]
         errors = report["errors"]
