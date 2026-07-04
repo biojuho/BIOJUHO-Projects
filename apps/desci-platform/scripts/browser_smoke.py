@@ -7220,19 +7220,22 @@ def _launch_env_handoff_report(next_actions: list[Any]) -> dict[str, Any] | None
 
     required_env: list[str] = []
     optional_env: list[str] = []
-    action_ids: list[str] = []
+    required_action_ids: list[str] = []
+    optional_action_ids: list[str] = []
     for action in next_actions:
         if not isinstance(action, dict):
             continue
         action_id = action.get("id")
-        if isinstance(action_id, str) and action_id:
-            action_ids.append(action_id)
         env_values = action.get("required_env")
         if not isinstance(env_values, list):
             continue
         if action.get("required") is True:
+            if isinstance(action_id, str) and action_id:
+                required_action_ids.append(action_id)
             required_env.extend(item for item in env_values if isinstance(item, str) and item)
         else:
+            if isinstance(action_id, str) and action_id:
+                optional_action_ids.append(action_id)
             optional_env.extend(item for item in env_values if isinstance(item, str) and item)
 
     required_env = _unique_strings(required_env)
@@ -7245,7 +7248,9 @@ def _launch_env_handoff_report(next_actions: list[Any]) -> dict[str, Any] | None
         "status": _launch_env_handoff_status(required_env, optional_env),
         "secret_policy": "placeholder_only_no_secret_values",
         "source": "dashboard-readiness-refresh-browser-click",
-        "action_ids": _unique_strings(action_ids),
+        "action_ids": _unique_strings([*required_action_ids, *optional_action_ids]),
+        "required_action_ids": _unique_strings(required_action_ids),
+        "optional_action_ids": _unique_strings(optional_action_ids),
         "required_env": required_env,
         "optional_env": optional_env,
         "operator_copy_lines": operator_copy_lines,

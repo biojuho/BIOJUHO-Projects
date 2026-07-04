@@ -866,23 +866,27 @@ def _product_smoke_launch_env_handoff_failures(raw_path: str, payload: dict[str,
     if not isinstance(handoff, dict):
         return [f"JSON evidence artifact launch_env_handoff must be an object: {raw_path}"]
 
+    return _launch_env_handoff_failures(raw_path, handoff, "launch_env_handoff")
+
+
+def _launch_env_handoff_failures(raw_path: str, handoff: dict[str, Any], field_path: str) -> list[str]:
     failures: list[str] = []
     if handoff.get("schema_version") != 1:
-        failures.append(f"JSON evidence artifact launch_env_handoff.schema_version must be 1: {raw_path}")
+        failures.append(f"JSON evidence artifact {field_path}.schema_version must be 1: {raw_path}")
 
     status = handoff.get("status")
     if status not in {"blocked", "watch", "clear"}:
-        failures.append(f"JSON evidence artifact launch_env_handoff.status is invalid: {raw_path}")
+        failures.append(f"JSON evidence artifact {field_path}.status is invalid: {raw_path}")
     if handoff.get("secret_policy") != "placeholder_only_no_secret_values":
         failures.append(
-            f"JSON evidence artifact launch_env_handoff.secret_policy must be placeholder_only_no_secret_values: {raw_path}"
+            f"JSON evidence artifact {field_path}.secret_policy must be placeholder_only_no_secret_values: {raw_path}"
         )
 
     string_lists: dict[str, list[str]] = {}
     for field in LAUNCH_ENV_HANDOFF_ARRAY_FIELDS:
         values = handoff.get(field)
         if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
-            failures.append(f"JSON evidence artifact launch_env_handoff.{field} must be a list of strings: {raw_path}")
+            failures.append(f"JSON evidence artifact {field_path}.{field} must be a list of strings: {raw_path}")
         else:
             string_lists[field] = values
 
@@ -893,29 +897,34 @@ def _product_smoke_launch_env_handoff_failures(raw_path: str, payload: dict[str,
 
     if any(_contains_secret_shaped_value(value) or not _looks_like_env_key(value) for value in all_env):
         failures.append(
-            f"JSON evidence artifact launch_env_handoff env keys must be placeholder key names only: {raw_path}"
+            f"JSON evidence artifact {field_path} env keys must be placeholder key names only: {raw_path}"
         )
     if set(required_env).intersection(optional_env):
-        failures.append(f"JSON evidence artifact launch_env_handoff required_env and optional_env must not overlap: {raw_path}")
+        failures.append(f"JSON evidence artifact {field_path} required_env and optional_env must not overlap: {raw_path}")
     if isinstance(status, str):
         expected_status = "blocked" if required_env else "watch" if optional_env else "clear"
         if status != expected_status:
-            failures.append(f"JSON evidence artifact launch_env_handoff.status must match env blockers: {raw_path}")
+            failures.append(f"JSON evidence artifact {field_path}.status must match env blockers: {raw_path}")
 
     if operator_copy_lines:
-        failures.extend(_launch_env_operator_copy_line_failures(raw_path, operator_copy_lines, all_env))
+        failures.extend(_launch_env_operator_copy_line_failures(raw_path, operator_copy_lines, all_env, field_path))
     elif "operator_copy_lines" in string_lists:
-        failures.append(f"JSON evidence artifact launch_env_handoff.operator_copy_lines must not be empty: {raw_path}")
+        failures.append(f"JSON evidence artifact {field_path}.operator_copy_lines must not be empty: {raw_path}")
     return failures
 
 
-def _launch_env_operator_copy_line_failures(raw_path: str, lines: list[str], env_keys: list[str]) -> list[str]:
+def _launch_env_operator_copy_line_failures(
+    raw_path: str,
+    lines: list[str],
+    env_keys: list[str],
+    field_path: str = "launch_env_handoff",
+) -> list[str]:
     failures: list[str] = []
     env_key_set = set(env_keys)
     for line in lines:
         if _contains_secret_shaped_value(line):
             failures.append(
-                f"JSON evidence artifact launch_env_handoff.operator_copy_lines must not contain raw URLs, "
+                f"JSON evidence artifact {field_path}.operator_copy_lines must not contain raw URLs, "
                 f"addresses, or secret-shaped values: {raw_path}"
             )
             break
@@ -924,13 +933,13 @@ def _launch_env_operator_copy_line_failures(raw_path: str, lines: list[str], env
         key, value = line.split("=", 1)
         if key not in env_key_set or value != "<set-secure-value>":
             failures.append(
-                f"JSON evidence artifact launch_env_handoff.operator_copy_lines must use placeholder assignments only: {raw_path}"
+                f"JSON evidence artifact {field_path}.operator_copy_lines must use placeholder assignments only: {raw_path}"
             )
             break
     for env_key in env_keys:
         if f"{env_key}=<set-secure-value>" not in lines:
             failures.append(
-                f"JSON evidence artifact launch_env_handoff.operator_copy_lines missing placeholder for {env_key}: {raw_path}"
+                f"JSON evidence artifact {field_path}.operator_copy_lines missing placeholder for {env_key}: {raw_path}"
             )
     return failures
 
@@ -1109,6 +1118,14 @@ def _browser_smoke_launch_control_failures(raw_path: str, payload: dict[str, Any
     control_failures = launch_control.get("failures")
     if not isinstance(control_failures, list) or not all(isinstance(failure, str) for failure in control_failures):
         failures.append(f"JSON evidence artifact launch_control.failures must be a list of strings: {raw_path}")
+    launch_env_handoff = launch_control.get("launch_env_handoff")
+    if launch_env_handoff is not None:
+        if not isinstance(launch_env_handoff, dict):
+            failures.append(f"JSON evidence artifact launch_control.launch_env_handoff must be an object: {raw_path}")
+        else:
+            failures.extend(
+                _launch_env_handoff_failures(raw_path, launch_env_handoff, "launch_control.launch_env_handoff")
+            )
     return failures
 
 
@@ -1557,7 +1574,8 @@ def launch_env_handoff_summary(reports: list[dict[str, Any]]) -> dict[str, Any] 
     path = report.get("path")
     if isinstance(path, str) and path:
         summary["artifact_path"] = path
-    summary["evidence_source"] = "product-smoke-live-api"
+    evidence_source = report.get("json_launch_env_source")
+    summary["evidence_source"] = evidence_source if isinstance(evidence_source, str) else "product-smoke-live-api"
 
     for source_key, output_key in (
         ("json_launch_env_status", "status"),
@@ -2090,11 +2108,14 @@ def _artifact_json_launch_handoff_report(payload: dict[str, Any]) -> dict[str, A
 
 
 def _artifact_json_launch_env_handoff_report(payload: dict[str, Any]) -> dict[str, Any]:
-    handoff = payload.get("launch_env_handoff")
+    handoff = _artifact_json_launch_env_handoff_payload(payload)
     if not isinstance(handoff, dict):
         return {}
 
     report: dict[str, Any] = {}
+    source = handoff.get("source")
+    if isinstance(source, str) and source:
+        report["json_launch_env_source"] = source
     status = handoff.get("status")
     if isinstance(status, str):
         report["json_launch_env_status"] = status
@@ -2115,6 +2136,18 @@ def _artifact_json_launch_env_handoff_report(payload: dict[str, Any]) -> dict[st
     if isinstance(operator_copy_lines, list):
         report["json_launch_env_operator_copy_line_count"] = len(operator_copy_lines)
     return report
+
+
+def _artifact_json_launch_env_handoff_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    handoff = payload.get("launch_env_handoff")
+    if isinstance(handoff, dict):
+        return handoff
+
+    launch_control = payload.get("launch_control")
+    if not isinstance(launch_control, dict):
+        return None
+    nested_handoff = launch_control.get("launch_env_handoff")
+    return nested_handoff if isinstance(nested_handoff, dict) else None
 
 
 def _launch_action_coverage(next_actions: list[Any]) -> tuple[list[str], list[str]]:

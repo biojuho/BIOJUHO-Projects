@@ -3871,3 +3871,96 @@ def test_release_gate_json_report_exposes_child_failed_check_names(tmp_path: Pat
     assert artifact_report["json_check_passed"] == 1
     assert artifact_report["json_check_failed"] == 1
     assert artifact_report["json_failed_checks"] == ["ready"]
+
+
+def test_release_gate_summarizes_browser_smoke_nested_launch_env_handoff(tmp_path: Path) -> None:
+    browser_artifact = tmp_path / "browser-smoke.json"
+    operator_copy_lines = [
+        "# DSCI launch env handoff",
+        "# Replace placeholders in the target secret manager or runtime environment.",
+        "",
+        "# Required before release",
+        "STRIPE_SECRET_KEY=<set-secure-value>",
+        "ALLOWED_ORIGINS=<set-secure-value>",
+        "",
+        "# Optional launch hardening",
+        "PINATA_JWT=<set-secure-value>",
+    ]
+    browser_artifact.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-07-04T00:00:00+00:00",
+                "ok": True,
+                "frontend": "http://frontend",
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "failures": [],
+                "launch_control": {
+                    "check_name": "dashboard-readiness-refresh",
+                    "ok": True,
+                    "evidence_source": "browser-smoke-dashboard-fixture",
+                    "api_mocked": True,
+                    "mocked_endpoints": ["/ready", "/launch"],
+                    "release_decision": "no-go",
+                    "operator_phase": "blocked",
+                    "readiness_status": "blocked",
+                    "summary": {"ready_count": 7, "total": 13, "required_ready_count": 4, "required_total": 7},
+                    "score": {"overall_percent": 54, "required_percent": 57},
+                    "launch_blockers": ["stripe", "cors"],
+                    "next_action_count": 2,
+                    "next_action_ids": ["stripe", "cors"],
+                    "next_action_required_env": ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS", "PINATA_JWT"],
+                    "launch_env_handoff": {
+                        "schema_version": 1,
+                        "status": "blocked",
+                        "secret_policy": "placeholder_only_no_secret_values",
+                        "source": "dashboard-readiness-refresh-browser-click",
+                        "required_action_ids": ["stripe", "cors"],
+                        "optional_action_ids": ["ipfs"],
+                        "required_env": ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS"],
+                        "optional_env": ["PINATA_JWT"],
+                        "operator_copy_lines": operator_copy_lines,
+                    },
+                    "failures": [],
+                },
+                "checks": [
+                    {"name": "dashboard-readiness-refresh", "path": "/dashboard", "ok": True, "failures": []}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    validation_failures = release_gate.artifact_validation_failures(
+        [str(browser_artifact)],
+        tmp_path,
+        step_name="browser-smoke",
+    )
+    report = {
+        "path": str(browser_artifact),
+        "validation_ok": validation_failures is None,
+        **release_gate._artifact_json_report(browser_artifact, tmp_path),  # pylint: disable=protected-access
+    }
+
+    assert validation_failures is None
+    assert report["json_launch_env_source"] == "dashboard-readiness-refresh-browser-click"
+    assert report["json_launch_env_status"] == "blocked"
+    assert report["json_launch_env_required_action_ids"] == ["stripe", "cors"]
+    assert report["json_launch_env_optional_action_ids"] == ["ipfs"]
+    assert report["json_launch_env_required_env"] == ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS"]
+    assert report["json_launch_env_optional_env"] == ["PINATA_JWT"]
+    assert report["json_launch_env_operator_copy_line_count"] == len(operator_copy_lines)
+    assert release_gate.launch_env_handoff_summary([report]) == {
+        "artifact_path": str(browser_artifact),
+        "evidence_source": "dashboard-readiness-refresh-browser-click",
+        "status": "blocked",
+        "secret_policy": "placeholder_only_no_secret_values",
+        "required_action_ids": ["stripe", "cors"],
+        "optional_action_ids": ["ipfs"],
+        "required_env": ["STRIPE_SECRET_KEY", "ALLOWED_ORIGINS"],
+        "optional_env": ["PINATA_JWT"],
+        "operator_copy_lines": operator_copy_lines,
+        "required_env_count": 2,
+        "optional_env_count": 1,
+        "operator_copy_line_count": len(operator_copy_lines),
+    }

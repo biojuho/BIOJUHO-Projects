@@ -434,6 +434,8 @@ def test_browser_smoke_json_evidence_exposes_launch_control(tmp_path) -> None:
             "secret_policy": "placeholder_only_no_secret_values",
             "source": "dashboard-readiness-refresh-browser-click",
             "action_ids": expected_action_ids,
+            "required_action_ids": ["auth", "stripe", "cors"],
+            "optional_action_ids": ["rabbitmq", "ipfs", "grobid"],
             "required_env": expected_handoff_required_env,
             "optional_env": expected_handoff_optional_env,
             "operator_copy_lines": expected_operator_copy_lines,
