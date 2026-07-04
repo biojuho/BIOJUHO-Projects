@@ -214,6 +214,29 @@ def _summarize_operator_packet_json(
     }
 
 
+def _summarize_readiness_next_commands(payload: dict[str, object]) -> list[dict[str, str]]:
+    raw_commands = payload.get("next_commands")
+    if not isinstance(raw_commands, list):
+        return []
+
+    commands: list[dict[str, str]] = []
+    for item in raw_commands:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        command = item.get("command")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if not isinstance(command, str) or not command.strip():
+            continue
+        summary = {"name": name, "command": command}
+        shell = item.get("shell")
+        if isinstance(shell, str) and shell.strip():
+            summary["shell"] = shell
+        commands.append(summary)
+    return commands
+
+
 def _summarize_readiness_summary_json(path: Path) -> dict[str, object]:
     payload = _read_json_file(path)
     if payload is None:
@@ -225,6 +248,7 @@ def _summarize_readiness_summary_json(path: Path) -> dict[str, object]:
         "blocker_class": payload.get("blocker_class"),
         "secrets_redacted": payload.get("secrets_redacted"),
         "next_actions": payload.get("next_actions") if isinstance(payload.get("next_actions"), list) else [],
+        "next_commands": _summarize_readiness_next_commands(payload),
     }
 
 

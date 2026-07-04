@@ -484,6 +484,18 @@ def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: P
                         "blocker_class": "preflight_blocked",
                         "secrets_redacted": True,
                         "next_actions": ["Open the operator packet."],
+                        "next_commands": [
+                            {
+                                "name": "validate_env_template",
+                                "command": "& python validate_launch_env_template.py",
+                                "shell": "powershell",
+                            },
+                            {
+                                "name": "strict_preflight",
+                                "command": "& python launch_env_preflight.py",
+                                "shell": "powershell",
+                            },
+                        ],
                     }
                 ),
                 encoding="utf-8",
@@ -531,6 +543,18 @@ def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: P
         "blocker_class": "preflight_blocked",
         "secrets_redacted": True,
         "next_actions": ["Open the operator packet."],
+        "next_commands": [
+            {
+                "name": "validate_env_template",
+                "command": "& python validate_launch_env_template.py",
+                "shell": "powershell",
+            },
+            {
+                "name": "strict_preflight",
+                "command": "& python launch_env_preflight.py",
+                "shell": "powershell",
+            },
+        ],
     }
 
 
