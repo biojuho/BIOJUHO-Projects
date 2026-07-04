@@ -45,8 +45,14 @@ This README captures the audience assumptions currently used for AgriGuard produ
 
 ```bash
 cd apps/AgriGuard
-docker compose up -d postgres mosquitto backend frontend
+python scripts/launch_compose.py --run-browser-smoke
 ```
+
+The launcher runs the strict environment preflight, starts compose with
+`--build --wait`, runs the aggregate browser smoke suite, and writes the default
+aggregate report to `var/agriguard-compose-launch-report.json` under the
+workspace root. Use raw `docker compose up` only for local diagnostics after a
+passing preflight.
 
 ### Launch preflight
 
@@ -60,8 +66,9 @@ python apps/AgriGuard/scripts/launch_env_preflight.py --check-docker --json-out 
 Compose launch requires strong, non-placeholder `AGRIGUARD_SECRET_KEY` and
 `AGRIGUARD_QR_TOKEN_PEPPER` values, explicit `AGRIGUARD_ALLOWED_ORIGINS`, an
 HTTPS `AGRIGUARD_PUBLIC_VERIFY_BASE_URL`, a strong `AGRIGUARD_DB_PASSWORD` or
-PostgreSQL `AGRIGUARD_DATABASE_URL`, disabled dev/test auth toggles, and a
-reachable Docker daemon. Direct backend launches use `SECRET_KEY`,
+PostgreSQL `AGRIGUARD_DATABASE_URL`, `AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE`
+pointing to a Firebase service account JSON, disabled dev/test auth toggles,
+and a reachable Docker daemon. Direct backend launches use `SECRET_KEY`,
 `QR_TOKEN_PEPPER`, `ALLOWED_ORIGINS`, `PUBLIC_VERIFY_BASE_URL`, and
 `DATABASE_URL` instead.
 

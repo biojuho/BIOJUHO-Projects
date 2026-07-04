@@ -122,9 +122,18 @@ def test_agriguard_compose_env_example_includes_launch_scoped_keys() -> None:
         "AGRIGUARD_SECRET_KEY=",
         "AGRIGUARD_QR_TOKEN_PEPPER=",
         "AGRIGUARD_PUBLIC_VERIFY_BASE_URL=",
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=",
         "AGRIGUARD_ALLOWED_ORIGINS=",
     ]:
         assert key in env_example
+
+
+def test_agriguard_readme_uses_fail_closed_compose_launcher() -> None:
+    readme = (WORKSPACE_ROOT / "apps/AgriGuard/README.md").read_text(encoding="utf-8")
+
+    assert "python scripts/launch_compose.py --run-browser-smoke" in readme
+    assert "docker compose up -d postgres mosquitto backend frontend" not in readme
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE" in readme
 
 
 def test_agriguard_compose_postgres_healthcheck_uses_configured_database_identity() -> None:
