@@ -52,6 +52,9 @@ DEFAULT_PREFLIGHT_STEP_TIMEOUT_SECONDS = 600.0
 DEFAULT_RUNTIME_SMOKE_TIMEOUT_SECONDS = 600.0
 CONTRACT_STEP_PREFIX = "contracts-"
 CONTRACT_LOCALAPPDATA_DIR = PROJECT_ROOT / ".release-gate-localappdata"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PNG_IHDR_CHUNK = b"IHDR"
+PNG_IEND_CHUNK = b"IEND"
 AUTO_PYTHON_COMMAND = "auto"
 SYSTEM_PYTHON_COMMAND = "system"
 SECRET_SHAPED_PATTERNS = (
@@ -1199,6 +1202,13 @@ def _browser_smoke_screenshot_artifact_failures(raw_path: str, payload: dict[str
                 failures.append(
                     f"JSON evidence artifact screenshot_artifacts path does not exist: {screenshot_path} ({raw_path})"
                 )
+            else:
+                png_metadata = _png_artifact_metadata(resolved_path)
+                if not png_metadata["valid"]:
+                    failures.append(
+                        "JSON evidence artifact screenshot_artifacts path is not a valid PNG: "
+                        f"{screenshot_path} ({raw_path}): {png_metadata['error']}"
+                    )
 
     checks = payload.get("checks")
     if isinstance(checks, list):
@@ -1212,6 +1222,57 @@ def _browser_smoke_screenshot_artifact_failures(raw_path: str, payload: dict[str
         if invalid_check_screenshot_paths:
             failures.append(f"JSON evidence artifact checks screenshot_path values must be non-empty strings: {raw_path}")
     return failures
+
+
+def _png_artifact_metadata(path: Path) -> dict[str, Any]:
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        return {"valid": False, "error": f"cannot read file: {exc}"}
+
+    if len(data) < 33:
+        return {"valid": False, "error": "file is too small to contain PNG structure"}
+    if not data.startswith(PNG_SIGNATURE):
+        return {"valid": False, "error": "missing PNG signature"}
+
+    offset = len(PNG_SIGNATURE)
+    width: int | None = None
+    height: int | None = None
+    seen_ihdr = False
+    seen_iend = False
+    first_chunk = True
+    while offset + 8 <= len(data):
+        length = int.from_bytes(data[offset : offset + 4], "big")
+        chunk_type = data[offset + 4 : offset + 8]
+        chunk_start = offset + 8
+        chunk_end = chunk_start + length
+        crc_end = chunk_end + 4
+        if crc_end > len(data):
+            return {"valid": False, "error": "truncated PNG chunk"}
+        chunk_data = data[chunk_start:chunk_end]
+        if first_chunk and chunk_type != PNG_IHDR_CHUNK:
+            return {"valid": False, "error": "first PNG chunk is not IHDR"}
+        if chunk_type == PNG_IHDR_CHUNK:
+            if seen_ihdr:
+                return {"valid": False, "error": "duplicate IHDR chunk"}
+            if length != 13:
+                return {"valid": False, "error": "IHDR chunk length is invalid"}
+            width = int.from_bytes(chunk_data[0:4], "big")
+            height = int.from_bytes(chunk_data[4:8], "big")
+            if width <= 0 or height <= 0:
+                return {"valid": False, "error": "PNG width and height must be positive"}
+            seen_ihdr = True
+        if chunk_type == PNG_IEND_CHUNK:
+            seen_iend = True
+            break
+        first_chunk = False
+        offset = crc_end
+
+    if not seen_ihdr:
+        return {"valid": False, "error": "missing IHDR chunk"}
+    if not seen_iend:
+        return {"valid": False, "error": "missing IEND chunk"}
+    return {"valid": True, "width": width, "height": height}
 
 
 def _is_non_negative_int(value: Any) -> bool:
@@ -1580,6 +1641,27 @@ def artifact_report_summary(reports: list[dict[str, Any]]) -> dict[str, Any]:
     )
     if screenshot_artifact_missing_paths:
         summary["json_screenshot_artifact_missing_paths"] = screenshot_artifact_missing_paths
+    screenshot_artifact_valid_png_counts = [
+        report.get("json_screenshot_artifact_valid_png_count") for report in reports
+    ]
+    if any(isinstance(count, int) for count in screenshot_artifact_valid_png_counts):
+        summary["json_screenshot_artifact_valid_png_count"] = sum(
+            count for count in screenshot_artifact_valid_png_counts if isinstance(count, int)
+        )
+    screenshot_artifact_invalid_png_counts = [
+        report.get("json_screenshot_artifact_invalid_png_count") for report in reports
+    ]
+    if any(isinstance(count, int) for count in screenshot_artifact_invalid_png_counts):
+        screenshot_artifact_invalid_png_count = sum(
+            count for count in screenshot_artifact_invalid_png_counts if isinstance(count, int)
+        )
+        summary["json_screenshot_artifact_invalid_png_count"] = screenshot_artifact_invalid_png_count
+        summary["has_invalid_screenshot_artifacts"] = screenshot_artifact_invalid_png_count > 0
+    screenshot_artifact_invalid_png_paths = _aggregate_artifact_check_names(
+        reports, "json_screenshot_artifact_invalid_png_paths"
+    )
+    if screenshot_artifact_invalid_png_paths:
+        summary["json_screenshot_artifact_invalid_png_paths"] = screenshot_artifact_invalid_png_paths
     if failed_checks or warning_checks:
         summary["artifact_paths"] = [
             report["path"] for report in reports if isinstance(report.get("path"), str) and report.get("path")
@@ -2043,12 +2125,25 @@ def browser_screenshot_artifact_summary(reports: list[dict[str, Any]]) -> dict[s
         for report in screenshot_reports
         if isinstance((count := report.get("json_screenshot_artifact_missing_count")), int)
     )
+    valid_png_count = sum(
+        count
+        for report in screenshot_reports
+        if isinstance((count := report.get("json_screenshot_artifact_valid_png_count")), int)
+    )
+    invalid_png_count = sum(
+        count
+        for report in screenshot_reports
+        if isinstance((count := report.get("json_screenshot_artifact_invalid_png_count")), int)
+    )
     summary: dict[str, Any] = {
         "artifact_paths": _artifact_paths(screenshot_reports),
         "screenshot_artifact_count": screenshot_artifact_count,
         "existing_count": existing_count,
         "missing_count": missing_count,
         "has_missing_screenshot_artifacts": missing_count > 0,
+        "valid_png_count": valid_png_count,
+        "invalid_png_count": invalid_png_count,
+        "has_invalid_screenshot_artifacts": invalid_png_count > 0,
     }
 
     screenshot_artifact_paths = _aggregate_artifact_check_names(screenshot_reports, "json_screenshot_artifact_paths")
@@ -2060,6 +2155,11 @@ def browser_screenshot_artifact_summary(reports: list[dict[str, Any]]) -> dict[s
     missing_paths = _aggregate_artifact_check_names(screenshot_reports, "json_screenshot_artifact_missing_paths")
     if missing_paths:
         summary["missing_paths"] = missing_paths
+    invalid_png_paths = _aggregate_artifact_check_names(
+        screenshot_reports, "json_screenshot_artifact_invalid_png_paths"
+    )
+    if invalid_png_paths:
+        summary["invalid_png_paths"] = invalid_png_paths
     checks = _aggregate_artifact_check_names(screenshot_reports, "json_screenshot_artifact_checks")
     if checks:
         summary["checks"] = checks
@@ -2163,6 +2263,8 @@ def _artifact_json_screenshot_report(payload: dict[str, Any], cwd: str | Path) -
     paths: list[str] = []
     resolved_paths: list[str] = []
     missing_paths: list[str] = []
+    invalid_png_paths: list[str] = []
+    png_dimensions: list[dict[str, Any]] = []
     checks: list[str] = []
     for screenshot_artifact in screenshot_artifacts:
         if not isinstance(screenshot_artifact, dict):
@@ -2176,6 +2278,18 @@ def _artifact_json_screenshot_report(payload: dict[str, Any], cwd: str | Path) -
             resolved_paths.append(resolved_path_text)
             if not resolved_path.exists():
                 missing_paths.append(resolved_path_text)
+            else:
+                png_metadata = _png_artifact_metadata(resolved_path)
+                if png_metadata["valid"]:
+                    png_dimensions.append(
+                        {
+                            "path": resolved_path_text,
+                            "width": png_metadata["width"],
+                            "height": png_metadata["height"],
+                        }
+                    )
+                else:
+                    invalid_png_paths.append(resolved_path_text)
         if isinstance(check_name, str) and check_name:
             checks.append(check_name)
     existing_count = len(resolved_paths) - len(missing_paths)
@@ -2186,6 +2300,10 @@ def _artifact_json_screenshot_report(payload: dict[str, Any], cwd: str | Path) -
         "json_screenshot_artifact_existing_count": existing_count,
         "json_screenshot_artifact_missing_count": len(missing_paths),
         "json_screenshot_artifact_missing_paths": missing_paths,
+        "json_screenshot_artifact_valid_png_count": len(png_dimensions),
+        "json_screenshot_artifact_invalid_png_count": len(invalid_png_paths),
+        "json_screenshot_artifact_invalid_png_paths": invalid_png_paths,
+        "json_screenshot_artifact_png_dimensions": png_dimensions,
         "json_screenshot_artifact_checks": checks,
     }
 
@@ -2718,6 +2836,9 @@ def json_report_schema() -> dict[str, Any]:
                     "existing_count",
                     "missing_count",
                     "has_missing_screenshot_artifacts",
+                    "valid_png_count",
+                    "invalid_png_count",
+                    "has_invalid_screenshot_artifacts",
                 ],
                 "properties": {
                     "artifact_paths": _string_array_schema(),
@@ -2725,9 +2846,13 @@ def json_report_schema() -> dict[str, Any]:
                     "existing_count": {"type": "integer"},
                     "missing_count": {"type": "integer"},
                     "has_missing_screenshot_artifacts": {"type": "boolean"},
+                    "valid_png_count": {"type": "integer"},
+                    "invalid_png_count": {"type": "integer"},
+                    "has_invalid_screenshot_artifacts": {"type": "boolean"},
                     "screenshot_artifact_paths": _string_array_schema(),
                     "resolved_paths": _string_array_schema(),
                     "missing_paths": _string_array_schema(),
+                    "invalid_png_paths": _string_array_schema(),
                     "checks": _string_array_schema(),
                 },
             },

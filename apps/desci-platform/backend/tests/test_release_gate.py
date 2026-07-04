@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import sys
@@ -11,6 +12,10 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import release_gate  # noqa: E402
+
+VALID_PNG_1X1 = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+)
 
 
 def _args(**overrides):
@@ -50,6 +55,10 @@ def _args(**overrides):
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
+
+
+def _write_valid_png(path: Path) -> None:
+    path.write_bytes(VALID_PNG_1X1)
 
 
 def _valid_launch_handoff():
@@ -2726,6 +2735,9 @@ def test_release_gate_report_schema_documents_parent_contract() -> None:
         "existing_count",
         "missing_count",
         "has_missing_screenshot_artifacts",
+        "valid_png_count",
+        "invalid_png_count",
+        "has_invalid_screenshot_artifacts",
     ]
     assert browser_screenshot_schema["properties"]["screenshot_artifact_paths"] == {
         "type": "array",
@@ -3496,7 +3508,7 @@ def test_release_gate_json_report_exposes_browser_screenshot_artifacts(tmp_path:
     browser_artifact = tmp_path / "desci-browser-smoke-release-gate.json"
     screenshot_path = tmp_path / "browser-screenshots" / "dashboard-readiness-refresh.png"
     screenshot_path.parent.mkdir()
-    screenshot_path.write_bytes(b"png")
+    _write_valid_png(screenshot_path)
     browser_artifact.write_text(
         json.dumps(
             {
@@ -3546,6 +3558,12 @@ def test_release_gate_json_report_exposes_browser_screenshot_artifacts(tmp_path:
     assert artifact_report["json_screenshot_artifact_existing_count"] == 1
     assert artifact_report["json_screenshot_artifact_missing_count"] == 0
     assert artifact_report["json_screenshot_artifact_missing_paths"] == []
+    assert artifact_report["json_screenshot_artifact_valid_png_count"] == 1
+    assert artifact_report["json_screenshot_artifact_invalid_png_count"] == 0
+    assert artifact_report["json_screenshot_artifact_invalid_png_paths"] == []
+    assert artifact_report["json_screenshot_artifact_png_dimensions"] == [
+        {"path": str(screenshot_path.resolve()), "width": 1, "height": 1}
+    ]
     assert artifact_report["json_screenshot_artifact_checks"] == ["dashboard-readiness-refresh"]
     assert payload["artifact_summary"]["json_screenshot_artifact_count"] == 1
     assert payload["artifact_summary"]["has_screenshot_artifacts"] is True
@@ -3554,12 +3572,18 @@ def test_release_gate_json_report_exposes_browser_screenshot_artifacts(tmp_path:
     assert payload["artifact_summary"]["json_screenshot_artifact_existing_count"] == 1
     assert payload["artifact_summary"]["json_screenshot_artifact_missing_count"] == 0
     assert payload["artifact_summary"]["has_missing_screenshot_artifacts"] is False
+    assert payload["artifact_summary"]["json_screenshot_artifact_valid_png_count"] == 1
+    assert payload["artifact_summary"]["json_screenshot_artifact_invalid_png_count"] == 0
+    assert payload["artifact_summary"]["has_invalid_screenshot_artifacts"] is False
     assert payload["browser_screenshot_artifact_summary"] == {
         "artifact_paths": [str(browser_artifact)],
         "screenshot_artifact_count": 1,
         "existing_count": 1,
         "missing_count": 0,
         "has_missing_screenshot_artifacts": False,
+        "valid_png_count": 1,
+        "invalid_png_count": 0,
+        "has_invalid_screenshot_artifacts": False,
         "screenshot_artifact_paths": [str(screenshot_path)],
         "resolved_paths": [str(screenshot_path.resolve())],
         "checks": ["dashboard-readiness-refresh"],
@@ -3617,18 +3641,104 @@ def test_release_gate_reports_missing_browser_screenshot_artifact(tmp_path: Path
     assert artifact_report["json_screenshot_artifact_existing_count"] == 0
     assert artifact_report["json_screenshot_artifact_missing_count"] == 1
     assert artifact_report["json_screenshot_artifact_missing_paths"] == [str(screenshot_path.resolve())]
+    assert artifact_report["json_screenshot_artifact_valid_png_count"] == 0
+    assert artifact_report["json_screenshot_artifact_invalid_png_count"] == 0
+    assert artifact_report["json_screenshot_artifact_invalid_png_paths"] == []
     assert payload["artifact_summary"]["json_screenshot_artifact_missing_count"] == 1
     assert payload["artifact_summary"]["has_missing_screenshot_artifacts"] is True
     assert payload["artifact_summary"]["json_screenshot_artifact_missing_paths"] == [str(screenshot_path.resolve())]
+    assert payload["artifact_summary"]["json_screenshot_artifact_valid_png_count"] == 0
+    assert payload["artifact_summary"]["json_screenshot_artifact_invalid_png_count"] == 0
+    assert payload["artifact_summary"]["has_invalid_screenshot_artifacts"] is False
     assert payload["browser_screenshot_artifact_summary"] == {
         "artifact_paths": [str(browser_artifact)],
         "screenshot_artifact_count": 1,
         "existing_count": 0,
         "missing_count": 1,
         "has_missing_screenshot_artifacts": True,
+        "valid_png_count": 0,
+        "invalid_png_count": 0,
+        "has_invalid_screenshot_artifacts": False,
         "screenshot_artifact_paths": [str(screenshot_path)],
         "resolved_paths": [str(screenshot_path.resolve())],
         "missing_paths": [str(screenshot_path.resolve())],
+        "checks": ["home"],
+    }
+
+
+def test_release_gate_reports_invalid_browser_screenshot_png(tmp_path: Path) -> None:
+    report_path = tmp_path / "release-gate-runtime.json"
+    browser_artifact = tmp_path / "desci-browser-smoke-release-gate.json"
+    screenshot_path = tmp_path / "browser-screenshots" / "invalid.png"
+    screenshot_path.parent.mkdir()
+    screenshot_path.write_bytes(b"png")
+    browser_artifact.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "schema_version": 1,
+                "generated_at": "2026-07-04T00:00:00+00:00",
+                "frontend": "http://frontend",
+                "timeout_seconds": 1.0,
+                "skip_protected": True,
+                "skip_login_validation": True,
+                "playwright_available": True,
+                "summary": {"total": 1, "passed": 1, "failed": 0},
+                "screenshot_artifacts": [{"check_name": "home", "path": str(screenshot_path)}],
+                "failures": [],
+                "checks": [
+                    {
+                        "name": "home",
+                        "path": "/",
+                        "ok": True,
+                        "failures": [],
+                        "screenshot_path": str(screenshot_path),
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = release_gate.GateResult(
+        name="browser-smoke",
+        command=f"python scripts/browser_smoke.py --json-out {browser_artifact}",
+        cwd=str(release_gate.PROJECT_ROOT),
+        returncode=0,
+        elapsed_ms=12.5,
+        artifacts=[str(browser_artifact)],
+    )
+
+    release_gate.write_json_report(report_path, [result])
+
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    artifact_report = payload["results"][0]["artifact_reports"][0]
+    assert any(
+        failure.startswith(
+            f"JSON evidence artifact screenshot_artifacts path is not a valid PNG: {screenshot_path} ({browser_artifact})"
+        )
+        for failure in artifact_report["validation_failures"]
+    )
+    assert artifact_report["json_screenshot_artifact_existing_count"] == 1
+    assert artifact_report["json_screenshot_artifact_valid_png_count"] == 0
+    assert artifact_report["json_screenshot_artifact_invalid_png_count"] == 1
+    assert artifact_report["json_screenshot_artifact_invalid_png_paths"] == [str(screenshot_path.resolve())]
+    assert artifact_report["json_screenshot_artifact_png_dimensions"] == []
+    assert payload["artifact_summary"]["json_screenshot_artifact_valid_png_count"] == 0
+    assert payload["artifact_summary"]["json_screenshot_artifact_invalid_png_count"] == 1
+    assert payload["artifact_summary"]["has_invalid_screenshot_artifacts"] is True
+    assert payload["artifact_summary"]["json_screenshot_artifact_invalid_png_paths"] == [str(screenshot_path.resolve())]
+    assert payload["browser_screenshot_artifact_summary"] == {
+        "artifact_paths": [str(browser_artifact)],
+        "screenshot_artifact_count": 1,
+        "existing_count": 1,
+        "missing_count": 0,
+        "has_missing_screenshot_artifacts": False,
+        "valid_png_count": 0,
+        "invalid_png_count": 1,
+        "has_invalid_screenshot_artifacts": True,
+        "screenshot_artifact_paths": [str(screenshot_path)],
+        "resolved_paths": [str(screenshot_path.resolve())],
+        "invalid_png_paths": [str(screenshot_path.resolve())],
         "checks": ["home"],
     }
 
