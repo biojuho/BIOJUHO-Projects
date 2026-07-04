@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Scale, Vote } from 'lucide-react';
+import { Plus, Scale, Vote, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
@@ -36,9 +36,11 @@ export default function Governance() {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [lastActionReceipt, setLastActionReceipt] = useState(null);
   const { walletAddress } = useAuth();
   const { showToast } = useToast();
   const { t } = useLocale();
+  const walletReady = Boolean(walletAddress);
 
   const stateLabels = useMemo(() => ({
     '0': { text: t('governance.statePending'), variant: 'warning' },
@@ -65,17 +67,25 @@ export default function Governance() {
   }
 
   const handleCreate = async () => {
-    if (!newTitle.trim() || !newDesc.trim()) {
+    if (!walletReady) {
+      showToast(t('governance.walletRequired'), 'warning');
+      return;
+    }
+
+    const title = newTitle.trim();
+    const description = newDesc.trim();
+    if (!title || !description) {
       showToast(t('governance.validation'), 'warning');
       return;
     }
 
     try {
       await api.post('/governance/proposals', {
-        title: newTitle,
-        description: newDesc,
+        title,
+        description,
         proposer: walletAddress,
       });
+      setLastActionReceipt({ type: 'proposal', title, walletAddress });
       showToast(t('governance.createSuccess'), 'success');
       setNewTitle('');
       setNewDesc('');
@@ -86,9 +96,15 @@ export default function Governance() {
     }
   };
 
-  const handleVote = async (proposalId, support) => {
+  const handleVote = async (proposal, support) => {
+    if (!walletReady) {
+      showToast(t('governance.walletRequired'), 'warning');
+      return;
+    }
+
     try {
-      await api.post(`/governance/proposals/${proposalId}/vote`, { voter: walletAddress, support });
+      await api.post(`/governance/proposals/${proposal.id}/vote`, { voter: walletAddress, support });
+      setLastActionReceipt({ type: 'vote', title: proposal.title, support, walletAddress });
       showToast(t(support ? 'governance.voteSuccessFor' : 'governance.voteSuccessAgainst'), 'success');
       loadProposals();
     } catch (err) {
@@ -122,6 +138,50 @@ export default function Governance() {
         </div>
       </GlassCard>
 
+      {!walletReady && (
+        <div role="status" aria-atomic="true" data-testid="governance-wallet-required">
+          <GlassCard className="border border-warning/25 bg-warning/10 p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white text-warning-dark shadow-clay-soft">
+                  <Wallet className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-ink">{t('governance.walletRequiredTitle')}</p>
+                  <p className="mt-1 text-sm leading-6 text-ink-muted">{t('governance.walletRequired')}</p>
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {lastActionReceipt && (
+        <div role="status" aria-atomic="true" data-testid="governance-action-receipt">
+          <GlassCard className="border border-success/20 bg-success/10 p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-ink">{t('governance.receiptTitle')}</p>
+                <p className="mt-1 text-sm leading-6 text-ink-muted" data-testid="governance-action-receipt-summary">
+                  {lastActionReceipt.type === 'proposal'
+                    ? t('governance.receiptProposalBody', { title: lastActionReceipt.title })
+                    : t('governance.receiptVoteBody', {
+                        support: t(lastActionReceipt.support ? 'governance.voteFor' : 'governance.voteAgainst'),
+                        title: lastActionReceipt.title,
+                      })}
+                </p>
+                <p className="mt-2 break-all font-mono text-xs font-semibold text-ink-soft" data-testid="governance-action-receipt-wallet">
+                  {t('governance.receiptWallet', { wallet: lastActionReceipt.walletAddress })}
+                </p>
+              </div>
+              <Badge variant="success">
+                {lastActionReceipt.type === 'proposal' ? t('governance.receiptProposal') : t('governance.receiptVote')}
+              </Badge>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
       <AnimatePresence>
         {showCreate && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
@@ -132,7 +192,7 @@ export default function Governance() {
                 <textarea value={newDesc} onChange={(event) => setNewDesc(event.target.value)} placeholder={t('governance.proposalDescription')} rows={5} className="clay-input resize-none" />
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <p className="text-sm text-ink-muted">{t('governance.requiresTokens')}</p>
-                  <Button onClick={handleCreate} className="justify-center text-white">{t('governance.submitProposal')}</Button>
+                  <Button onClick={handleCreate} disabled={!walletReady} className="justify-center text-white">{t('governance.submitProposal')}</Button>
                 </div>
               </div>
             </GlassCard>
@@ -188,8 +248,8 @@ export default function Governance() {
                     <span className="text-sm text-ink-muted">{t('governance.endDate')}: {new Date(proposal.end_time).toLocaleDateString()}</span>
                     {proposalState === '1' && (
                       <div className="flex gap-2">
-                        <Button variant="success" size="sm" onClick={() => handleVote(proposal.id, true)}>{t('governance.voteFor')}</Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleVote(proposal.id, false)}>{t('governance.voteAgainst')}</Button>
+                        <Button variant="success" size="sm" disabled={!walletReady} onClick={() => handleVote(proposal, true)}>{t('governance.voteFor')}</Button>
+                        <Button variant="destructive" size="sm" disabled={!walletReady} onClick={() => handleVote(proposal, false)}>{t('governance.voteAgainst')}</Button>
                       </div>
                     )}
                   </div>

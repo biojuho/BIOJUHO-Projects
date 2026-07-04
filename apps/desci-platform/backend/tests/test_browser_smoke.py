@@ -737,6 +737,27 @@ def test_browser_smoke_launch_click_suite_includes_research_conversion_paths() -
         assert name in names
 
 
+def test_browser_smoke_launch_click_suite_includes_wallet_governance_paths() -> None:
+    names = list(browser_smoke.LAUNCH_CLICK_SUITE_CHECKS)
+
+    for name in [
+        "protected-mobile-layout-inset",
+        "upload-submit-wallet-receipt",
+        "ai-lab-readiness",
+        "ai-lab-agent-error-visible",
+        "ai-lab-result-copy-failure",
+        "peer-review-readiness",
+        "peer-review-submit-receipt",
+        "mylab-mint-wallet-required",
+        "mylab-mint-success",
+        "vc-portal-select",
+        "governance-wallet-required",
+        "governance-connected-create-vote",
+        "wallet-restore-direct-governance",
+    ]:
+        assert name in names
+
+
 def test_browser_smoke_launch_click_suite_requires_dev_auth() -> None:
     args = browser_smoke.parse_args([
         "--frontend",

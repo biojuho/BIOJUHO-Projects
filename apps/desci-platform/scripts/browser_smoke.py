@@ -6093,6 +6093,14 @@ def _run_governance_wallet_required_check(page, base_url: str, timeout_ms: int) 
     page.on("request", collect_request)
 
     try:
+        page.add_init_script(
+            """
+            (() => {
+              window.localStorage.setItem('dsci.locale', 'en-US');
+              window.localStorage.setItem('dsci.outputLanguage', 'en');
+            })();
+            """
+        )
         response = _goto_app_route(page, base_url, "/governance", timeout_ms)
         status = response.status if response is not None else 0
         if status >= 400:
@@ -6107,6 +6115,16 @@ def _run_governance_wallet_required_check(page, base_url: str, timeout_ms: int) 
             timeout_ms=timeout_ms,
         ):
             failures.append(f"{route_name}: missing wallet-required governance guidance")
+
+        wallet_required = page.get_by_test_id("governance-wallet-required")
+        wallet_required.wait_for(state="visible", timeout=timeout_ms)
+        wallet_required_text = wallet_required.inner_text(timeout=timeout_ms)
+        for expected in (
+            "Wallet required",
+            "Governance actions require a connected wallet before creating proposals or voting.",
+        ):
+            if expected not in wallet_required_text:
+                failures.append(f"{route_name}: wallet guidance missing {expected!r}")
 
         page.locator("main").get_by_role(
             "button",
@@ -7109,7 +7127,9 @@ LAUNCH_CLICK_SUITE_CHECKS = (
     "pricing-billing-portal",
     "pricing-billing-portal-error-visible",
     "upload-form-readiness",
+    "protected-mobile-layout-inset",
     "upload-submit-receipt",
+    "upload-submit-wallet-receipt",
     "asset-upload-readiness",
     "biolinker-rfp-readiness",
     "biolinker-paper-context-handoff",
@@ -7120,6 +7140,17 @@ LAUNCH_CLICK_SUITE_CHECKS = (
     "notices-discovery-biolinker-handoff",
     "notices-source-link-fallback",
     "notices-biolinker-bridge",
+    "ai-lab-readiness",
+    "ai-lab-agent-error-visible",
+    "ai-lab-result-copy-failure",
+    "peer-review-readiness",
+    "peer-review-submit-receipt",
+    "mylab-mint-wallet-required",
+    "mylab-mint-success",
+    "vc-portal-select",
+    "governance-wallet-required",
+    "governance-connected-create-vote",
+    "wallet-restore-direct-governance",
 )
 
 
