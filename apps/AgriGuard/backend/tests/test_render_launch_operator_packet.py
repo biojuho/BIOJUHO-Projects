@@ -258,6 +258,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         "status": "pass",
         "consumer_packet_validation_status": "pass",
         "recovery_command_status": "not_required",
+        "recovery_command_note": None,
         "operator_action_ids": ["fix_env_shape_validation"],
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
@@ -281,10 +282,14 @@ def test_operator_packet_reports_missing_artifact_index_hint(tmp_path: Path) -> 
 
     assert summary["found"] is False
     assert summary["recovery_command_status"] is None
+    assert summary["recovery_command_note"] == (
+        "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index."
+    )
     assert summary["missing_index_action"] == (
         "Run the guarded launch wrapper command to generate the artifact index evidence."
     )
     assert summary["missing_index_command"] == packet["guarded_launch_evidence"]["wrapper_command"]
+    assert "Recovery command note: `Artifact index recovery status is resolved" in markdown
     assert "Missing index action: `Run the guarded launch wrapper command" in markdown
     assert "Missing index command: `python apps/AgriGuard/scripts/run_guarded_launch.py" in markdown
 
