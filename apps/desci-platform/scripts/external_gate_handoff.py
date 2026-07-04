@@ -892,6 +892,84 @@ def _post_apply_completion_evidence(template_dir: str, providers: list[dict[str,
     }
 
 
+def _operator_command_summary(
+    plan_verification: dict[str, Any],
+    results_verification: dict[str, Any],
+    workflow_verification: dict[str, Any],
+    post_apply_completion: dict[str, Any],
+) -> list[dict[str, Any]]:
+    summary: list[dict[str, Any]] = []
+
+    def add(command_id: str, label: str, command: Any, *, json_out: Any = "", success_condition: Any = "") -> None:
+        command_text = str(command or "").strip()
+        if not command_text:
+            return
+        summary.append(
+            {
+                "id": command_id,
+                "label": label,
+                "command": command_text,
+                "json_out": str(json_out or ""),
+                "success_condition": str(success_condition or ""),
+            }
+        )
+
+    add(
+        "verify_apply_plan",
+        "Verify provider apply plan",
+        plan_verification.get("verify_command"),
+        json_out=plan_verification.get("verify_json_out"),
+        success_condition=plan_verification.get("success_condition"),
+    )
+    add(
+        "require_ready_apply_plan",
+        "Require provider apply plan ready",
+        plan_verification.get("require_ready_command"),
+        json_out=plan_verification.get("require_ready_json_out"),
+        success_condition=plan_verification.get("ready_success_condition"),
+    )
+    add(
+        "record_apply_results",
+        "Record provider apply results",
+        results_verification.get("execute_command"),
+        json_out=results_verification.get("provider_apply_results_json"),
+    )
+    add(
+        "verify_apply_results",
+        "Verify provider apply results",
+        results_verification.get("verify_command"),
+        json_out=results_verification.get("verify_json_out"),
+        success_condition=results_verification.get("success_condition"),
+    )
+    add(
+        "verify_apply_workflow",
+        "Verify provider apply workflow",
+        workflow_verification.get("require_go_command"),
+        json_out=workflow_verification.get("verify_json_out"),
+        success_condition=workflow_verification.get("success_condition"),
+    )
+    add(
+        "write_workflow_github_output",
+        "Write provider apply workflow GitHub output",
+        workflow_verification.get("github_output_powershell_command"),
+        json_out=workflow_verification.get("github_output_path"),
+    )
+    add(
+        "verify_workflow_github_output",
+        "Verify provider apply workflow GitHub output",
+        workflow_verification.get("github_output_verify_command"),
+        json_out=workflow_verification.get("github_output_verify_json_out"),
+    )
+    add(
+        "post_apply_promotion",
+        "Run post-apply evidence promotion",
+        post_apply_completion.get("promotion_gate_command"),
+        json_out=post_apply_completion.get("promotion_gate_json_out"),
+        success_condition=post_apply_completion.get("success_condition"),
+    )
+    return summary
+
+
 def provider_apply_plan_payload(
     payload: dict[str, Any],
     provider_paths: dict[str, Path],
@@ -955,6 +1033,16 @@ def provider_apply_plan_payload(
             }
         )
     operator_status = _provider_apply_operator_status(index, providers)
+    plan_verification = _provider_apply_plan_verification(plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON)
+    results_verification = _provider_apply_results_verification(plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON)
+    workflow_verification = _provider_apply_workflow_verification(plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON)
+    post_apply_completion = _post_apply_completion_evidence(template_dir, providers)
+    command_summary = _operator_command_summary(
+        plan_verification,
+        results_verification,
+        workflow_verification,
+        post_apply_completion,
+    )
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -967,16 +1055,11 @@ def provider_apply_plan_payload(
             "populated_key_count": index.get("populated_key_count"),
         },
         "operator_status": operator_status,
-        "provider_apply_plan_verification": _provider_apply_plan_verification(
-            plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
-        ),
-        "provider_apply_results_verification": _provider_apply_results_verification(
-            plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
-        ),
-        "provider_apply_workflow_verification": _provider_apply_workflow_verification(
-            plan_path or DEFAULT_PROVIDER_APPLY_PLAN_JSON
-        ),
-        "post_apply_completion_evidence": _post_apply_completion_evidence(template_dir, providers),
+        "operator_command_summary": command_summary,
+        "provider_apply_plan_verification": plan_verification,
+        "provider_apply_results_verification": results_verification,
+        "provider_apply_workflow_verification": workflow_verification,
+        "post_apply_completion_evidence": post_apply_completion,
         "ready_provider_count": operator_status["ready_provider_count"],
         "provider_count": len(providers),
         "providers": providers,
@@ -1906,6 +1989,14 @@ def render_provider_apply_plan_markdown(payload: dict[str, Any]) -> str:
         )
     else:
         lines.extend(["- Unknown.", ""])
+    command_summary = [item for item in _as_list(payload.get("operator_command_summary")) if isinstance(item, dict)]
+    if command_summary:
+        lines.append("## Operator Command Summary")
+        for item in command_summary:
+            lines.append(
+                f"- `{_markdown_scalar(item.get('id'))}`: `{_markdown_scalar(item.get('command'))}`"
+            )
+        lines.append("")
     plan_verification = _as_dict(payload.get("provider_apply_plan_verification"))
     if plan_verification:
         lines.extend(

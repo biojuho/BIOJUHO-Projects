@@ -299,6 +299,20 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
             "--preserve-provider-templates."
         ),
     }
+    assert [item["id"] for item in plan["operator_command_summary"]] == [
+        "verify_apply_plan",
+        "require_ready_apply_plan",
+        "record_apply_results",
+        "verify_apply_results",
+        "verify_apply_workflow",
+        "write_workflow_github_output",
+        "verify_workflow_github_output",
+        "post_apply_promotion",
+    ]
+    assert any(
+        "--verify-provider-apply-workflow-github-output" in item["command"]
+        for item in plan["operator_command_summary"]
+    )
     provider = plan["providers"][0]
     assert provider["provider"] == "railway"
     assert provider["ready_to_apply"] is False
@@ -526,6 +540,8 @@ def test_external_gate_handoff_writes_redacted_provider_apply_plan(tmp_path: Pat
     assert "Stage: `fill_provider_templates`" in markdown
     assert "Completion marker: `external_release_gate.ok=true`" in markdown
     assert "Provider Apply Plan Verification" in markdown
+    assert "Operator Command Summary" in markdown
+    assert "`verify_workflow_github_output`" in markdown
     assert "apply-plan-verify.json" in markdown
     assert "apply-plan-require-ready.json" in markdown
     assert "--verify-provider-apply-plan" in markdown
