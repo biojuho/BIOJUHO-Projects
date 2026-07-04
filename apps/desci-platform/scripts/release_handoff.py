@@ -269,6 +269,7 @@ def provider_preflight_report(provider_preflight_payload: dict[str, Any] | None)
                 "id": check.get("id"),
                 "command": check.get("command"),
                 "failure_reason": check.get("failure_reason"),
+                "remediation": check.get("remediation") if isinstance(check.get("remediation"), str) else "",
                 "docs_url": check.get("docs_url") if isinstance(check.get("docs_url"), str) else provider_docs_url,
             }
             for check in checks
@@ -292,6 +293,7 @@ def provider_preflight_report(provider_preflight_payload: dict[str, Any] | None)
             "id": check.get("id"),
             "command": check.get("command"),
             "failure_reason": check.get("failure_reason"),
+            "remediation": check.get("remediation") if isinstance(check.get("remediation"), str) else "",
             "docs_url": check.get("docs_url")
             if isinstance(check.get("docs_url"), str)
             else docs_by_provider.get(str(check.get("provider") or "").strip().lower(), ""),
@@ -670,6 +672,9 @@ def render_markdown_report(payload: dict[str, Any]) -> str:
                 docs_url = check.get("docs_url") if isinstance(check.get("docs_url"), str) else ""
                 if docs_url:
                     line = f"{line}, docs={docs_url}"
+                remediation = check.get("remediation") if isinstance(check.get("remediation"), str) else ""
+                if remediation:
+                    line = f"{line}, next={remediation}"
                 lines.append(line)
 
     lines.extend(["", "## Provider Apply Guidance"])

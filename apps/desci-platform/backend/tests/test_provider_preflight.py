@@ -83,7 +83,9 @@ def test_provider_preflight_marks_missing_cli_and_redacts_preview() -> None:
     assert payload["ok"] is False
     assert payload["summary"]["missing_cli_count"] == len(checks)
     assert payload["failed_checks"][0]["failure_reason"] == "missing_cli"
+    assert payload["failed_checks"][0]["remediation"].startswith("Install the gh CLI")
     assert all(check["failure_reason"] == "missing_cli" for check in checks)
+    assert all(check["remediation"].startswith("Install the gh CLI") for check in checks)
     assert all("github_pat_" not in check.get("error", "") for check in checks)
     assert all("whsec_" not in check.get("stdout_preview", "") for check in checks)
     assert all("ghp_" not in check.get("stderr_preview", "") for check in checks)
@@ -108,7 +110,9 @@ def test_provider_preflight_marks_missing_auth_context() -> None:
     assert payload["ok"] is False
     assert payload["summary"]["auth_context_missing_count"] == len(checks)
     assert payload["failed_checks"][0]["failure_reason"] == "auth_context_missing"
+    assert "VERCEL_TOKEN" in payload["failed_checks"][0]["remediation"]
     assert all(check["failure_reason"] == "auth_context_missing" for check in checks)
+    assert all("VERCEL_TOKEN" in check["remediation"] for check in checks)
 
 
 def test_provider_preflight_classifies_unauthorized_output_as_missing_auth_context() -> None:
@@ -129,6 +133,7 @@ def test_provider_preflight_classifies_unauthorized_output_as_missing_auth_conte
     assert payload["summary"]["missing_cli_count"] == 0
     assert payload["failed_checks"][0]["failure_reason"] == "auth_context_missing"
     assert payload["failed_checks"][0]["docs_url"] == "https://docs.railway.com/variables"
+    assert "railway login" in payload["failed_checks"][0]["remediation"]
     assert all(
         check["failure_reason"] == "auth_context_missing"
         for check in payload["providers"][0]["checks"]
@@ -171,6 +176,7 @@ def test_provider_preflight_console_prints_failed_check_docs(monkeypatch, capsys
                             "command": "vercel whoami",
                             "ok": False,
                             "failure_reason": "auth_context_missing",
+                            "remediation": "Set `VERCEL_TOKEN` or run `vercel login`.",
                             "docs_url": "https://vercel.com/docs/cli/env",
                         }
                     ],
@@ -185,3 +191,4 @@ def test_provider_preflight_console_prints_failed_check_docs(monkeypatch, capsys
     output = capsys.readouterr().out
     assert code == 1
     assert "vercel whoami: FAIL auth_context_missing docs=https://vercel.com/docs/cli/env" in output
+    assert "next=Set `VERCEL_TOKEN` or run `vercel login`." in output

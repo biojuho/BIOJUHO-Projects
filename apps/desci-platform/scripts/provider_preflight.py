@@ -107,6 +107,40 @@ def _looks_like_auth_context_missing(execution: CommandExecution) -> bool:
     return any(pattern.search(combined_output) for pattern in AUTH_CONTEXT_PATTERNS)
 
 
+def _failure_remediation(spec: CommandSpec, failure_reason: str) -> str:
+    executable = spec.command[0] if spec.command else spec.provider
+    provider = spec.provider
+    command_text = _command_text(spec.command)
+
+    if failure_reason == "missing_cli":
+        return f"Install the {executable} CLI, confirm it is on PATH, then rerun `{command_text}`."
+    if failure_reason == "auth_context_missing":
+        if provider == "railway":
+            return (
+                "Run `railway login`, link the intended backend project if needed, then rerun provider preflight "
+                "before applying Railway variables."
+            )
+        if provider == "vercel":
+            return (
+                "Set `VERCEL_TOKEN` or run `vercel login`, confirm the intended Vercel project is linked, then "
+                "rerun provider preflight before applying production env values."
+            )
+        if provider == "github":
+            return (
+                "Run `gh auth login` with repository secret access, then rerun provider preflight before setting "
+                "GitHub Actions secrets."
+            )
+        return f"Authenticate the {provider} CLI context, then rerun `{command_text}`."
+    if failure_reason == "timeout":
+        return f"Run `{command_text}` manually to resolve the timeout, then rerun provider preflight."
+    if failure_reason == "nonzero_exit":
+        return (
+            f"Resolve the provider CLI error for `{command_text}`. If the command requires a selected project or "
+            "workspace, relink the local checkout before rerunning provider preflight."
+        )
+    return f"Resolve `{command_text}` and rerun provider preflight."
+
+
 def _resolve_executable(executable: str) -> str | None:
     resolved = shutil.which(executable)
     if resolved is None:
@@ -237,6 +271,9 @@ def check_payload(
         payload["failure_reason"] = "timeout"
     elif execution.exit_code != 0:
         payload["failure_reason"] = "nonzero_exit"
+    failure_reason = payload.get("failure_reason")
+    if isinstance(failure_reason, str) and failure_reason:
+        payload["remediation"] = _failure_remediation(spec, failure_reason)
     if execution.error:
         payload["error"] = _sanitize_output(execution.error)
     if include_output_preview:
@@ -300,6 +337,7 @@ def run_preflight(
                 "id": check["id"],
                 "command": check["command"],
                 "failure_reason": check.get("failure_reason", "unknown"),
+                "remediation": check.get("remediation", "") if isinstance(check.get("remediation"), str) else "",
                 "docs_url": check.get("docs_url", "") if isinstance(check.get("docs_url"), str) else "",
             }
             for check in failed_checks
@@ -345,7 +383,9 @@ def main(argv: list[str] | None = None) -> int:
             reason = f" {check.get('failure_reason')}" if not check["ok"] else ""
             docs_url = check.get("docs_url") if isinstance(check.get("docs_url"), str) else ""
             docs = f" docs={docs_url}" if not check["ok"] and docs_url else ""
-            print(f"  - {check['command']}: {check_status}{reason}{docs}")
+            remediation = check.get("remediation") if isinstance(check.get("remediation"), str) else ""
+            next_action = f" next={remediation}" if not check["ok"] and remediation else ""
+            print(f"  - {check['command']}: {check_status}{reason}{docs}{next_action}")
     if args.json_out:
         write_json_report(args.json_out, payload)
         print(f"[provider-preflight] json written: {args.json_out}")

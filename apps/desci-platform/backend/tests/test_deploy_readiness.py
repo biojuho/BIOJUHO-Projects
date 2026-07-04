@@ -646,6 +646,7 @@ def test_release_handoff_includes_provider_preflight_in_packet(tmp_path: Path) -
                         "command": "railway whoami",
                         "ok": False,
                         "failure_reason": "nonzero_exit",
+                        "remediation": "Run `railway login`, link the backend project, then rerun provider preflight.",
                         "stderr_preview": "Unauthorized. Please login with `railway login`",
                     }
                 ],
@@ -661,6 +662,7 @@ def test_release_handoff_includes_provider_preflight_in_packet(tmp_path: Path) -
                         "command": "vercel whoami",
                         "ok": False,
                         "failure_reason": "auth_context_missing",
+                        "remediation": "Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight.",
                         "error": "vercel auth context is not configured",
                     }
                 ],
@@ -681,12 +683,14 @@ def test_release_handoff_includes_provider_preflight_in_packet(tmp_path: Path) -
                 "id": "railway_preflight_1",
                 "command": "railway whoami",
                 "failure_reason": "nonzero_exit",
+                "remediation": "Run `railway login`, link the backend project, then rerun provider preflight.",
             },
             {
                 "provider": "vercel",
                 "id": "vercel_preflight_1",
                 "command": "vercel whoami",
                 "failure_reason": "auth_context_missing",
+                "remediation": "Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight.",
             },
         ],
     }
@@ -714,15 +718,23 @@ def test_release_handoff_includes_provider_preflight_in_packet(tmp_path: Path) -
             "id": "railway_preflight_1",
             "command": "railway whoami",
             "failure_reason": "nonzero_exit",
+            "remediation": "Run `railway login`, link the backend project, then rerun provider preflight.",
             "docs_url": "https://docs.railway.com/variables",
         }
     ]
     assert payload["provider_preflight"]["failed_checks"][0]["docs_url"] == "https://docs.railway.com/variables"
+    assert "railway login" in payload["provider_preflight"]["failed_checks"][0]["remediation"]
     text = output_path.read_text(encoding="utf-8")
     assert "## Provider CLI Preflight" in text
     assert "Overall preflight ok: `false`" in text
-    assert "`railway whoami`: `nonzero_exit`, docs=https://docs.railway.com/variables" in text
-    assert "`vercel whoami`: `auth_context_missing`, docs=https://vercel.com/docs/cli/env" in text
+    assert (
+        "`railway whoami`: `nonzero_exit`, docs=https://docs.railway.com/variables, "
+        "next=Run `railway login`, link the backend project, then rerun provider preflight."
+    ) in text
+    assert (
+        "`vercel whoami`: `auth_context_missing`, docs=https://vercel.com/docs/cli/env, "
+        "next=Set `VERCEL_TOKEN` or run `vercel login`, then rerun provider preflight."
+    ) in text
     assert "Unauthorized" not in text
 
 
