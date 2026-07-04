@@ -90,7 +90,78 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     assert env["AGRIGUARD_DB_PASSWORD"] not in encoded_report
     assert env["AGRIGUARD_SECRET_KEY"] not in encoded_report
     assert env["AGRIGUARD_QR_TOKEN_PEPPER"] not in encoded_report
+    assert report["guarded_output_prefix"] == prepare_launch_env.run_guarded_launch.DEFAULT_OUTPUT_PREFIX
+    assert all(command.startswith("& ") for command in report["safe_next_commands"])
     assert "Ready for preflight: `true`" in markdown_out.read_text(encoding="utf-8")
+
+
+def test_prepare_launch_env_safe_next_commands_can_target_guarded_bundle(tmp_path: Path, capsys) -> None:
+    env_file = tmp_path / "operator.env"
+    json_out = tmp_path / "prepared.json"
+    output_dir = tmp_path / "launch-artifacts"
+    status_json = tmp_path / "status" / "launch-ready-status.json"
+
+    result = prepare_launch_env.main(
+        [
+            "--app-root",
+            str(APP_ROOT),
+            "--out",
+            str(env_file),
+            "--allowed-origins",
+            "https://app.agriguard.io",
+            "--public-verify-base-url",
+            "https://verify.agriguard.io",
+            "--firebase-service-account-file",
+            str(tmp_path / "missing-firebase-service-account.json"),
+            "--allow-missing-firebase-file",
+            "--guarded-output-dir",
+            str(output_dir),
+            "--guarded-output-prefix",
+            "launch-ready",
+            "--guarded-status-json",
+            str(status_json),
+            "--json-out",
+            str(json_out),
+        ]
+    )
+
+    report = json.loads(json_out.read_text(encoding="utf-8"))
+    capsys.readouterr()
+    assert result == 0, report
+    assert report["guarded_output_dir"] == output_dir.resolve().relative_to(APP_ROOT.parents[1]).as_posix()
+    assert report["guarded_output_prefix"] == "launch-ready"
+    assert report["guarded_status_json"] == status_json.resolve().relative_to(APP_ROOT.parents[1]).as_posix()
+    assert report["safe_next_commands"][0] == prepare_launch_env._format_powershell_command(
+        [
+            prepare_launch_env.sys.executable,
+            str(APP_ROOT / "scripts" / "validate_launch_env_template.py"),
+            "--app-root",
+            str(APP_ROOT),
+            "--env-file",
+            str(env_file.resolve()),
+            "--json-out",
+            str(output_dir.resolve() / "launch-ready-env-validation.json"),
+            "--markdown-out",
+            str(output_dir.resolve() / "launch-ready-env-validation.md"),
+        ]
+    )
+    assert report["safe_next_commands"][1] == prepare_launch_env._format_powershell_command(
+        [
+            prepare_launch_env.sys.executable,
+            str(APP_ROOT / "scripts" / "run_guarded_launch.py"),
+            "--app-root",
+            str(APP_ROOT),
+            "--env-file",
+            str(env_file.resolve()),
+            "--output-dir",
+            str(output_dir.resolve()),
+            "--output-prefix",
+            "launch-ready",
+            "--emit-handoff",
+            "--status-json-out",
+            str(status_json.resolve()),
+        ]
+    )
 
 
 def test_prepare_launch_env_refuses_overwrite_without_force(tmp_path: Path, capsys) -> None:

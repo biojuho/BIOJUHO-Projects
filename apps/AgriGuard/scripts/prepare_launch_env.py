@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 GENERATED_FIELDS = (
     "AGRIGUARD_DB_PASSWORD",
     "AGRIGUARD_SECRET_KEY",
@@ -28,6 +27,7 @@ def _load_peer_module(module_name: str) -> Any:
 
 validate_launch_env_template = _load_peer_module("validate_launch_env_template")
 launch_env_preflight = validate_launch_env_template.launch_env_preflight
+run_guarded_launch = _load_peer_module("run_guarded_launch")
 
 
 def _default_app_root() -> Path:
@@ -49,6 +49,16 @@ def _rel(path: Path, root: Path) -> str:
 
 def _generated_secret(num_bytes: int = 32) -> str:
     return secrets.token_urlsafe(num_bytes)
+
+
+def _quote_powershell_arg(value: str) -> str:
+    if value and not any(char.isspace() for char in value) and "'" not in value:
+        return value
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _format_powershell_command(command: list[str]) -> str:
+    return "& " + " ".join(_quote_powershell_arg(str(part)) for part in command)
 
 
 def _env_lines(env: dict[str, str]) -> list[str]:
@@ -153,8 +163,18 @@ def build_report(
     app_root: Path,
     env: dict[str, str],
     allow_missing_firebase_file: bool = False,
+    guarded_output_dir: Path | None = None,
+    guarded_output_prefix: str = run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+    guarded_status_json: Path | None = None,
 ) -> dict[str, object]:
     workspace_root = _workspace_root(app_root)
+    guarded_output_dir = (guarded_output_dir or (workspace_root / "var")).resolve()
+    guarded_status_json = (
+        guarded_status_json.resolve()
+        if guarded_status_json is not None
+        else (guarded_output_dir / f"{guarded_output_prefix}-status.json").resolve()
+    )
+    artifact_paths = run_guarded_launch._artifact_paths(guarded_output_dir, guarded_output_prefix)  # noqa: SLF001
     validation = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=app_root)
     firebase_checks = _firebase_file_checks(
         env,
@@ -193,18 +213,40 @@ def build_report(
             "firebase_service_account_file_valid": firebase_checks["valid"],
             "firebase_service_account_file_path": "<redacted>",
         },
+        "guarded_output_dir": _rel(guarded_output_dir, workspace_root),
+        "guarded_output_prefix": guarded_output_prefix,
+        "guarded_status_json": _rel(guarded_status_json, workspace_root),
         "safe_next_commands": [
-            (
-                "python apps/AgriGuard/scripts/validate_launch_env_template.py "
-                f"--env-file {_rel(env_file, workspace_root)} "
-                "--json-out var/agriguard-launch-env-template-validation.json "
-                "--markdown-out var/agriguard-launch-env-template-validation.md"
+            _format_powershell_command(
+                [
+                    sys.executable,
+                    str(app_root / "scripts" / "validate_launch_env_template.py"),
+                    "--app-root",
+                    str(app_root),
+                    "--env-file",
+                    str(env_file),
+                    "--json-out",
+                    str(artifact_paths["env_validation_json"]),
+                    "--markdown-out",
+                    str(artifact_paths["env_validation_markdown"]),
+                ]
             ),
-            (
-                "python apps/AgriGuard/scripts/run_guarded_launch.py "
-                f"--env-file {_rel(env_file, workspace_root)} "
-                "--emit-handoff "
-                "--status-json-out var/agriguard-guarded-launch-status.json"
+            _format_powershell_command(
+                [
+                    sys.executable,
+                    str(app_root / "scripts" / "run_guarded_launch.py"),
+                    "--app-root",
+                    str(app_root),
+                    "--env-file",
+                    str(env_file),
+                    "--output-dir",
+                    str(guarded_output_dir),
+                    "--output-prefix",
+                    guarded_output_prefix,
+                    "--emit-handoff",
+                    "--status-json-out",
+                    str(guarded_status_json),
+                ]
             ),
         ],
     }
@@ -270,6 +312,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--markdown-out", type=Path, default=None)
+    parser.add_argument(
+        "--guarded-output-dir",
+        type=Path,
+        default=None,
+        help="Guarded-launch output directory to embed in safe next commands. Defaults to workspace var/.",
+    )
+    parser.add_argument(
+        "--guarded-output-prefix",
+        default=run_guarded_launch.DEFAULT_OUTPUT_PREFIX,
+        help="Guarded-launch output prefix to embed in safe next commands.",
+    )
+    parser.add_argument(
+        "--guarded-status-json",
+        type=Path,
+        default=None,
+        help="Guarded-launch status JSON path to embed in safe next commands.",
+    )
     return parser.parse_args(argv)
 
 
@@ -298,6 +357,9 @@ def main(argv: list[str] | None = None) -> int:
         app_root=app_root,
         env=env,
         allow_missing_firebase_file=args.allow_missing_firebase_file,
+        guarded_output_dir=args.guarded_output_dir.resolve() if args.guarded_output_dir else None,
+        guarded_output_prefix=args.guarded_output_prefix,
+        guarded_status_json=args.guarded_status_json.resolve() if args.guarded_status_json else None,
     )
     if args.json_out is not None:
         write_json(args.json_out.resolve(), report)
