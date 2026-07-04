@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
@@ -38,6 +38,114 @@ def _artifact_paths(output_dir: Path, output_prefix: str) -> dict[str, Path]:
         "operator_env_template": prefix.with_name(f"{prefix.name}.env.template"),
         "readiness_summary_json": prefix.with_name(f"{prefix.name}-readiness-summary.json"),
         "readiness_summary_markdown": prefix.with_name(f"{prefix.name}-readiness-summary.md"),
+    }
+
+
+def write_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _read_json(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _result_names(payload: dict[str, Any] | None) -> list[str]:
+    if payload is None:
+        return []
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return []
+    return [
+        str(item.get("name"))
+        for item in results
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    ]
+
+
+def _operator_action_ids_from_packet(payload: dict[str, Any] | None) -> list[str]:
+    if payload is None:
+        return []
+    actions = payload.get("operator_actions")
+    if not isinstance(actions, list):
+        return []
+    return [
+        str(action.get("id"))
+        for action in actions
+        if isinstance(action, dict) and isinstance(action.get("id"), str)
+    ]
+
+
+def _operator_action_ids_from_summary(payload: dict[str, Any] | None) -> list[str]:
+    if payload is None:
+        return []
+    reports = payload.get("reports")
+    if not isinstance(reports, dict):
+        return []
+    operator_packet = reports.get("operator_packet")
+    if not isinstance(operator_packet, dict):
+        return []
+    action_ids = operator_packet.get("operator_action_ids")
+    if not isinstance(action_ids, list):
+        return []
+    return [str(action_id) for action_id in action_ids if isinstance(action_id, str)]
+
+
+def _build_status_view(
+    *,
+    output_dir: Path,
+    output_prefix: str,
+    artifact_paths: dict[str, Path],
+) -> dict[str, object]:
+    launch = _read_json(artifact_paths["launch_report_json"])
+    summary = _read_json(artifact_paths["readiness_summary_json"])
+    packet = _read_json(artifact_paths["operator_packet_json"])
+    action_ids = _operator_action_ids_from_summary(summary) or _operator_action_ids_from_packet(packet)
+    status = "missing_artifacts"
+    if summary is not None:
+        status = str(summary.get("status") or "unknown")
+    elif launch is not None:
+        status = str(launch.get("status") or "unknown")
+    elif packet is not None:
+        status = str(packet.get("status") or "unknown")
+
+    return {
+        "schema_version": 1,
+        "status": status,
+        "blocker_class": summary.get("blocker_class") if summary is not None else None,
+        "operator_action_ids": action_ids,
+        "output_dir": str(output_dir),
+        "output_prefix": output_prefix,
+        "secrets_redacted": True,
+        "artifacts": {key: str(value) for key, value in artifact_paths.items()},
+        "launch": {
+            "found": launch is not None,
+            "path": str(artifact_paths["launch_report_json"]),
+            "status": launch.get("status") if launch is not None else None,
+            "stage": launch.get("stage") if launch is not None else None,
+            "stop_reason": launch.get("stop_reason") if launch is not None else None,
+            "result_names": _result_names(launch),
+        },
+        "readiness_summary": {
+            "found": summary is not None,
+            "path": str(artifact_paths["readiness_summary_json"]),
+            "status": summary.get("status") if summary is not None else None,
+            "blocker_class": summary.get("blocker_class") if summary is not None else None,
+            "next_actions": summary.get("next_actions") if summary is not None and isinstance(summary.get("next_actions"), list) else [],
+        },
+        "operator_packet": {
+            "found": packet is not None,
+            "path": str(artifact_paths["operator_packet_json"]),
+            "status": packet.get("status") if packet is not None else None,
+            "operator_action_ids": _operator_action_ids_from_packet(packet),
+            "secrets_redacted": packet.get("secrets_redacted") if packet is not None else None,
+        },
     }
 
 
@@ -128,6 +236,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Skip the post-compose aggregate browser smoke suite.",
     )
+    parser.add_argument(
+        "--status-only",
+        action="store_true",
+        help="Print a compact status view for the selected output prefix without running launch.",
+    )
+    parser.add_argument(
+        "--status-json-out",
+        type=Path,
+        default=None,
+        help="Optional path for the compact status view JSON.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the delegated launch_compose.py command plan.")
     return parser.parse_args(argv)
 
@@ -148,6 +267,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         run_browser_smoke=not args.no_browser_smoke,
     )
 
+    if args.status_only:
+        status_view = _build_status_view(
+            output_dir=output_dir,
+            output_prefix=args.output_prefix,
+            artifact_paths=artifact_paths,
+        )
+        if args.status_json_out:
+            write_json(args.status_json_out.resolve(), status_view)
+        print(json.dumps(status_view, indent=2, sort_keys=True))
+        return 0
+
     if args.dry_run:
         print(
             json.dumps(
@@ -167,6 +297,13 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         return 0
 
     completed = command_runner(command, cwd=app_root, text=True)
+    if args.status_json_out:
+        status_view = _build_status_view(
+            output_dir=output_dir,
+            output_prefix=args.output_prefix,
+            artifact_paths=artifact_paths,
+        )
+        write_json(args.status_json_out.resolve(), status_view)
     return completed.returncode
 
 

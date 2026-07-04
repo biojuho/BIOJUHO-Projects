@@ -113,3 +113,137 @@ def test_guarded_launch_can_skip_browser_smoke_and_pass_compose_options(tmp_path
     assert "--run-browser-smoke" not in command
     assert _arg_after(command, "--compose-file") == str(compose_file.resolve())
     assert _arg_after(command, "--service") == "backend"
+
+
+def test_guarded_launch_status_only_reports_missing_artifacts(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "missing",
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["status"] == "missing_artifacts"
+    assert payload["launch"]["found"] is False
+    assert payload["readiness_summary"]["found"] is False
+    assert payload["operator_packet"]["found"] is False
+    assert payload["operator_action_ids"] == []
+
+
+def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["launch_report_json"].write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "stage": "preflight",
+                "stop_reason": "preflight_failed",
+                "results": [{"name": "env_validation"}, {"name": "preflight"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifacts["readiness_summary_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "blocker_class": "preflight_blocked",
+                "secrets_redacted": True,
+                "next_actions": ["Open the operator packet."],
+                "reports": {
+                    "operator_packet": {
+                        "operator_action_ids": ["set_firebase_service_account_file"],
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifacts["operator_packet_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "operator_actions": [{"id": "fallback_action"}],
+                "secrets_redacted": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["status"] == "blocked"
+    assert payload["blocker_class"] == "preflight_blocked"
+    assert payload["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert payload["launch"]["stage"] == "preflight"
+    assert payload["launch"]["result_names"] == ["env_validation", "preflight"]
+    assert payload["operator_packet"]["operator_action_ids"] == ["fallback_action"]
+
+
+def test_guarded_launch_can_write_status_json_after_run(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    env_file = tmp_path / "operator.env"
+    status_json = tmp_path / "status.json"
+
+    def runner(command, **kwargs):
+        artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "after-run")
+        artifacts["readiness_summary_json"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["readiness_summary_json"].write_text(
+            json.dumps(
+                {
+                    "status": "blocked",
+                    "blocker_class": "env_shape_blocked",
+                    "secrets_redacted": True,
+                    "reports": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=command, returncode=9, stdout="", stderr="")
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "after-run",
+            "--status-json-out",
+            str(status_json),
+        ],
+        command_runner=runner,
+    )
+
+    payload = json.loads(status_json.read_text(encoding="utf-8"))
+    assert result == 9
+    assert payload["status"] == "blocked"
+    assert payload["blocker_class"] == "env_shape_blocked"
