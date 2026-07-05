@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -17,6 +18,10 @@ DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 LEGACY_FIXTURE_MANUAL_TOKEN = "mock-0"
 DEFAULT_INVALID_MANUAL_VALUE = "not a valid AgriGuard QR"
 DEFAULT_INVALID_TOKEN = "not-a-real-token"
+PUBLIC_QR_TOKEN_REDACTION = "<redacted-public-qr-token>"
+PUBLIC_VERIFY_ROUTE_RE = re.compile(
+    r"((?:agri://verify|/verify|/api/(?:api/)?qr)/)[^/?#\s]+((?:/verify)?(?:[?#]\S*)?)"
+)
 FIRST_VIEWPORT_MAX_WIDTH = 500
 PUBLIC_VERIFY_SUMMARY_TARGETS = [
     {
@@ -149,6 +154,27 @@ def extract_verify_token(qr_code: str) -> str:
         path = path.removeprefix("verify/")
     if path:
         return parse.unquote(path)
+    return value
+
+
+def redact_public_qr_route_tokens(text: str) -> str:
+    return PUBLIC_VERIFY_ROUTE_RE.sub(
+        lambda match: f"{match.group(1)}{PUBLIC_QR_TOKEN_REDACTION}{match.group(2)}",
+        text,
+    )
+
+
+def redact_report_public_tokens(value: object, tokens: set[str]) -> object:
+    if isinstance(value, dict):
+        return {key: redact_report_public_tokens(item, tokens) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_report_public_tokens(item, tokens) for item in value]
+    if isinstance(value, str):
+        redacted = value
+        for token in tokens:
+            if token:
+                redacted = redacted.replace(token, PUBLIC_QR_TOKEN_REDACTION)
+        return redact_public_qr_route_tokens(redacted)
     return value
 
 
@@ -507,7 +533,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     checks.append(check("no_page_errors", len(page_errors) == 0, str(len(page_errors))))
 
     passed = sum(1 for item in checks if item["ok"])
-    return {
+    report = {
         "schema_version": 1,
         "baseUrl": args.base_url,
         "apiUrl": seed_api_url,
@@ -525,6 +551,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "pageErrors": page_errors,
         "screenshotDir": str(screenshot_dir),
     }
+    return dict(redact_report_public_tokens(report, {manual_token}))
 
 
 def main() -> int:
@@ -550,6 +577,7 @@ def main() -> int:
             "pageErrors": [],
             "screenshotDir": args.screenshot_dir,
         }
+        report = dict(redact_report_public_tokens(report, {args.manual_token.strip() if args.manual_token else ""}))
     write_json(args.json_out, report)
     print(f"agriguard qr path browser smoke: {report['passed']}/{report['total']} PASS")
     print(f"json written: {args.json_out}")

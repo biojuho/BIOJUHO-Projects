@@ -799,6 +799,46 @@ def test_qr_path_browser_smoke_extracts_public_verify_tokens():
     assert script.extract_verify_token("raw-token") == "raw-token"
 
 
+def test_qr_path_browser_smoke_redacts_public_tokens_from_report():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_report_redaction_under_test",
+    )
+
+    token = "public-secret-token"
+    report = {
+        "manualToken": token,
+        "observations": {
+            "seededManualToken": {
+                "token": token,
+                "qr_code_prefix": f"agri://verify/{token}",
+            },
+            "publicVerifyResponses": [
+                {
+                    "url": f"http://127.0.0.1:8003/api/qr/{token}/verify?session_id=s1",
+                    "cacheControl": "no-store",
+                }
+            ],
+        },
+        "checks": [
+            {
+                "name": "manual_verify_url_opened",
+                "ok": True,
+                "detail": f"http://127.0.0.1:5174/verify/{token}?scan_source=qr_reader",
+            }
+        ],
+    }
+
+    redacted = script.redact_report_public_tokens(report, {token})
+    payload = json.dumps(redacted)
+
+    assert token not in payload
+    assert script.PUBLIC_QR_TOKEN_REDACTION in payload
+    assert "/api/qr/" in payload
+    assert "/verify" in payload
+    assert "no-store" in payload
+
+
 def test_qr_path_browser_smoke_tracks_public_summary_first_viewport_targets():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
