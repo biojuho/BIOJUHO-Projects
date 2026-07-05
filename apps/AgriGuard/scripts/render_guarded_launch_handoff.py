@@ -290,6 +290,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
     readiness_commands = (
         readiness_summary.get("next_commands") if isinstance(readiness_summary.get("next_commands"), list) else []
     )
+    artifact_index = status_view.get("artifact_index") if isinstance(status_view.get("artifact_index"), dict) else {}
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
     validation = handoff.get("validation") if isinstance(handoff.get("validation"), dict) else {}
     packet_validation = handoff.get("packet_validation") if isinstance(handoff.get("packet_validation"), dict) else {}
@@ -320,6 +321,12 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Operator packet JSON: `{packet_validation.get('operator_packet_json')}`",
         f"- Evidence outputs: `{packet_validation.get('evidence_outputs_status')}`",
         f"- Markdown table: `{packet_validation.get('markdown_table_status')}`",
+        f"- Artifact index status: `{artifact_index.get('status')}`",
+        f"- Artifact index path: `{artifact_index.get('path') or '-'}`",
+        f"- Artifact index consumer packet validation: `{artifact_index.get('consumer_packet_validation_status')}`",
+        f"- Artifact index consumer command metadata: `{artifact_index.get('consumer_command_metadata_status')}`",
+        "- Artifact index readiness command metadata: "
+        f"`{artifact_index.get('consumer_readiness_operator_packet_consumer_command_metadata_status')}`",
         f"- Expected evidence keys: `{packet_validation.get('expected_output_key_count')}`",
         f"- Missing output keys: `{', '.join(packet_validation.get('missing_output_keys', [])) or '-'}`",
         f"- Empty output keys: `{', '.join(packet_validation.get('empty_output_keys', [])) or '-'}`",

@@ -103,6 +103,27 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     _write_operator_packet(artifacts["operator_packet_json"])
+    artifact_index_json = RUN_WRAPPER._default_artifact_index_json(output_dir.resolve(), "blocked")
+    artifact_index_json.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "missing_required_roles": [],
+                "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
+                "recovery_command_status": "not_required",
+                "recovery_summary": {
+                    "required": False,
+                    "action": None,
+                    "status": "not_required",
+                    "note": None,
+                    "command": None,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     handoff = render_guarded_launch_handoff.build_handoff(
         app_root=APP_ROOT,
@@ -127,6 +148,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["status"] == "pass"
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
     assert handoff["packet_validation"]["markdown_table_status"] == "pass"
+    assert handoff["status_view"]["artifact_index"]["status"] == "pass"
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
     assert handoff["packet_validation"]["artifact_index_recovery_command_status"] == "not_required"
     assert handoff["packet_validation"]["artifact_index_recovery_command_note"] is None
@@ -164,6 +186,11 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["operator_commands"][1]["command_shell"] == "powershell"
     assert handoff["operator_commands"][1]["command_text"] == handoff["ready_gate"]["command_text"]
     assert handoff["secrets_redacted"] is True
+    assert "Artifact index status: `pass`" in markdown
+    assert f"Artifact index path: `{artifact_index_json.resolve()}`" in markdown
+    assert "Artifact index consumer packet validation: `pass`" in markdown
+    assert "Artifact index consumer command metadata: `pass`" in markdown
+    assert "Artifact index readiness command metadata: `pass`" in markdown
     assert "Readiness next command count: `1`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 
