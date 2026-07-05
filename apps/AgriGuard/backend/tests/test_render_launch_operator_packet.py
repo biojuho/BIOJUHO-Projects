@@ -635,6 +635,18 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     assert markdown.index("run_guarded_launch.py") < markdown.index("launch_env_preflight.py")
 
 
+def test_operator_packet_redacts_database_url_assignments() -> None:
+    redacted = render_launch_operator_packet._redact_text(
+        "AGRIGUARD_DATABASE_URL=postgresql://agriguard:db-secret-value@postgres:5432/agriguard "
+        "PUBLIC_VERIFY_BASE_URL=https://verify.agriguard.example"
+    )
+
+    assert "db-secret-value" not in redacted
+    assert "postgresql://agriguard" not in redacted
+    assert "AGRIGUARD_DATABASE_URL=<redacted>" in redacted
+    assert "PUBLIC_VERIFY_BASE_URL=https://verify.agriguard.example" in redacted
+
+
 def test_operator_packet_markdown_evidence_table_matches_json_outputs(tmp_path: Path) -> None:
     packet = render_launch_operator_packet.build_operator_packet(
         preflight_json=tmp_path / "missing.json",

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 SENSITIVE_ASSIGNMENT_RE = re.compile(
-    r"(?i)\b([A-Z0-9_]*(?:SECRET|PASSWORD|PEPPER|PRIVATE_KEY|TOKEN|CREDENTIAL|SERVICE_ACCOUNT)[A-Z0-9_]*)\s*([:=])\s*([^,\s]+)"
+    r"(?i)\b([A-Z0-9_]*(?:SECRET|PASSWORD|PEPPER|PRIVATE_KEY|TOKEN|CREDENTIAL|SERVICE_ACCOUNT|DATABASE_URL|DATABASE_DSN|DB_URL)[A-Z0-9_]*)\s*([:=])\s*([^,\s]+)"
 )
 
 
