@@ -1006,7 +1006,10 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                 "status": "blocked",
                 "blocker_class": "preflight_blocked",
                 "secrets_redacted": True,
-                "next_actions": ["Open the operator packet."],
+                "next_actions": [
+                    "Open the operator packet.",
+                    {"action": "not status-safe"},
+                ],
                 "next_commands": [
                     {
                         "name": "validate_env_template",
@@ -1091,6 +1094,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
     assert payload["readiness_summary"]["operator_packet_consumer_command_metadata_status"] == "fail"
     assert payload["readiness_summary"]["operator_packet_consumer_readiness_command_metadata_status"] == "pass"
+    assert payload["readiness_summary"]["next_actions"] == ["Open the operator packet."]
     assert payload["readiness_summary"]["next_commands"] == [
         {
             "name": "validate_env_template",

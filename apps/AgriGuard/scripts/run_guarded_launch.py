@@ -484,7 +484,7 @@ def _build_status_view(
             "path": str(artifact_paths["readiness_summary_json"]),
             "status": summary.get("status") if summary is not None else None,
             "blocker_class": summary.get("blocker_class") if summary is not None else None,
-            "next_actions": summary.get("next_actions") if summary is not None and isinstance(summary.get("next_actions"), list) else [],
+            "next_actions": _string_list(summary.get("next_actions")) if summary is not None else [],
             "next_commands": _next_commands_from_summary(summary),
             "operator_action_ids": action_ids,
             "env_validation_blocker_class": _env_validation_view_blocker_class(summary_env_validation),
