@@ -38,6 +38,12 @@ def _list(value: object) -> list[object]:
     return value if isinstance(value, list) else []
 
 
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
 def _env_validation_summary(path: Path, workspace_root: Path) -> dict[str, object]:
     payload = _read_json(path)
     if payload is None:
@@ -344,7 +350,7 @@ def render_markdown(summary: dict[str, object]) -> str:
         lines.append(f"- `{name}`: found=`{str(report.get('found')).lower()}`, status=`{report.get('status')}`")
 
     lines.extend(["", "## Next Actions", ""])
-    next_actions = summary.get("next_actions") if isinstance(summary.get("next_actions"), list) else []
+    next_actions = _string_list(summary.get("next_actions"))
     lines.extend(f"- {action}" for action in next_actions)
     next_commands = summary.get("next_commands") if isinstance(summary.get("next_commands"), list) else []
     lines.extend(["", "## Next Commands", ""])

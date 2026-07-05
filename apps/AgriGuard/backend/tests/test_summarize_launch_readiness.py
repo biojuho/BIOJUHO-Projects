@@ -109,6 +109,26 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
     assert "`guarded_launch` (powershell): `& python run_guarded_launch.py`" in markdown
 
 
+def test_launch_readiness_markdown_filters_malformed_next_actions() -> None:
+    markdown = summarize_launch_readiness.render_markdown(
+        {
+            "status": "blocked",
+            "blocker_class": "preflight_blocked",
+            "secrets_redacted": True,
+            "reports": {},
+            "next_actions": [
+                "Open the operator packet.",
+                {"action": "not markdown-safe"},
+            ],
+            "next_commands": [],
+        }
+    )
+
+    assert "- Open the operator packet." in markdown
+    assert "not markdown-safe" not in markdown
+    assert "{'action':" not in markdown
+
+
 def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -> None:
     validation = tmp_path / "validation.json"
     launch = tmp_path / "launch.json"
