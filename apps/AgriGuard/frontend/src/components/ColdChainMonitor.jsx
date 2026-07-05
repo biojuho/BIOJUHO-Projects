@@ -175,7 +175,7 @@ export default function ColdChainMonitor() {
           </Badge>
           <Badge variant={connected ? 'success' : 'destructive'} className="gap-1.5">
             {connected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-            {connected ? 'Live' : 'Disconnected'}
+            {connected ? 'Stream live' : 'Stream disconnected'}
           </Badge>
         </div>
       </div>

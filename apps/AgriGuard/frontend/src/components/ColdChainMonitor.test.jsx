@@ -262,6 +262,8 @@ describe('ColdChainMonitor', () => {
     render(<ColdChainMonitor />);
 
     expect((await screen.findAllByText('Sensor offline')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Stream live')).toBeInTheDocument();
+    expect(screen.queryByText('Live')).not.toBeInTheDocument();
     expect(screen.getByText('1 offline and 1 stale across 3 devices')).toBeInTheDocument();
     expect(screen.getByText('Sensor Health')).toBeInTheDocument();
     expect(screen.getAllByText('1 offline / 1 stale').length).toBeGreaterThan(0);
