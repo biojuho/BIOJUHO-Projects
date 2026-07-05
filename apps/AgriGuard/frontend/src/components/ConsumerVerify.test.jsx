@@ -107,6 +107,7 @@ describe('ConsumerVerify', () => {
     renderVerify();
 
     expect(await screen.findByText('Verified batch')).toBeInTheDocument();
+    expect(screen.getByTestId('consumer-trust-badge')).toHaveTextContent('Safe');
     expect(screen.getByTestId('consumer-trust-heading')).toHaveClass('text-xl');
     expect(screen.getByTestId('consumer-trust-heading')).toHaveClass('sm:text-2xl');
     expect(screen.getByText('Hallabong')).toBeInTheDocument();
@@ -148,8 +149,9 @@ describe('ConsumerVerify', () => {
     renderVerify('/verify/fake-token');
 
     expect(await screen.findByText('QR not verified')).toBeInTheDocument();
+    expect(screen.getByTestId('consumer-trust-badge')).toHaveTextContent('Not verified');
     expect(screen.getByText('Unverified AgriGuard QR')).toBeInTheDocument();
-    expect(screen.getByText('Not verified')).toBeInTheDocument();
+    expect(screen.getAllByText('Not verified')).toHaveLength(2);
 
     await waitFor(() => {
       expect(qrVerifyApi.verify).toHaveBeenCalledWith('fake-token', {
@@ -158,5 +160,25 @@ describe('ConsumerVerify', () => {
         source: 'consumer_verify_page',
       });
     });
+  });
+
+  it('labels registered QR codes with incomplete public evidence as pending', async () => {
+    qrVerifyApi.verify.mockResolvedValue({
+      data: {
+        ...safePayload(),
+        status: 'success',
+        is_valid: true,
+        trust_badge: {
+          status: 'Unknown',
+          label: 'Needs more evidence',
+          reason: 'The QR is registered, but public evidence is incomplete or delayed.',
+        },
+      },
+    });
+
+    renderVerify('/verify/pending-token');
+
+    expect(await screen.findByText('Needs more evidence')).toBeInTheDocument();
+    expect(screen.getByTestId('consumer-trust-badge')).toHaveTextContent('Evidence pending');
   });
 });

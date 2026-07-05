@@ -63,6 +63,14 @@ function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
 }
 
+function formatTrustBadgeLabel(verification, trust) {
+  if (trust?.status !== 'Unknown') {
+    return trust?.status || 'Unknown';
+  }
+
+  return verification?.is_valid ? 'Evidence pending' : 'Not verified';
+}
+
 function MetaNoIndex() {
   useEffect(() => {
     const previousTitle = document.title;
@@ -208,6 +216,7 @@ export default function ConsumerVerify() {
 
   const trust = verification?.trust_badge;
   const trustStyle = useMemo(() => TRUST_STYLE[trust?.status] || TRUST_STYLE.Unknown, [trust?.status]);
+  const trustBadgeLabel = formatTrustBadgeLabel(verification, trust);
   const TrustIcon = trustStyle.icon;
 
   if (state.loading) {
@@ -256,8 +265,8 @@ export default function ConsumerVerify() {
               <TrustIcon className={cn('h-8 w-8', trustStyle.accent)} aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className={cn('inline-flex rounded-md px-2 py-1 text-xs font-bold', trustStyle.badge)}>
-                {trust.status}
+              <span data-testid="consumer-trust-badge" className={cn('inline-flex rounded-md px-2 py-1 text-xs font-bold', trustStyle.badge)}>
+                {trustBadgeLabel}
               </span>
               <h1 data-testid="consumer-trust-heading" className="mt-3 text-xl font-bold leading-tight sm:text-2xl">{trust.label}</h1>
               <p className="mt-2 text-sm leading-6">{trust.reason}</p>
