@@ -12,13 +12,14 @@ Consumer-facing trust badges should use plain public status copy instead of expo
 - Variant focused screenshots: `var/agriguard-qr-path-consumer-badge-mobile-2026-07-06/manual-verify.png`, `var/agriguard-qr-path-consumer-badge-mobile-2026-07-06/invalid-verify.png`
 - Aggregate variant screenshots: `var/agriguard-browser-smoke-suite-2026-07-06-consumer-badge-mobile/qr-path-screens/manual-verify.png`, `var/agriguard-browser-smoke-suite-2026-07-06-consumer-badge-mobile/qr-path-screens/invalid-verify.png`
 
-Result: registered QR codes with delayed public evidence now show `Evidence pending`, while invalid or fake QR codes show `Not verified`. API status semantics remain unchanged.
+Result: registered QR codes with delayed public evidence now show `Evidence pending`, while invalid or fake QR codes show `Not verified`. API status semantics remain unchanged. A follow-up route-transition check also removed the stale `Invalid AgriGuard code` scanner toast from the valid pending-evidence page.
 
 ## Changes
 
 - `apps/AgriGuard/frontend/src/components/ConsumerVerify.jsx`
   - Added public trust-badge label mapping for `Unknown` trust states.
   - Added a test id for the rendered trust badge to support stable UI assertions.
+  - Moved public-page toast cleanup to a layout effect so scanner toasts are cleared before first paint on verification routes.
 - `apps/AgriGuard/frontend/src/components/ConsumerVerify.test.jsx`
   - Covered safe, invalid, and registered-but-pending public badge copy.
 
@@ -30,6 +31,10 @@ Result: registered QR codes with delayed public evidence now show `Evidence pend
 - `python apps/AgriGuard/scripts/run_browser_smoke_suite.py --base-url http://127.0.0.1:5204 --api-url http://127.0.0.1:8022 --include-unavailable-check --json-out var/agriguard-browser-smoke-suite-2026-07-06-consumer-badge-desktop.json --output-dir var/agriguard-browser-smoke-suite-2026-07-06-consumer-badge-desktop --timeout-ms 120000`: passed, 7/7 steps, 167/167 checks, 19/19 screenshot artifacts.
 - `python apps/AgriGuard/scripts/run_browser_smoke_suite.py --base-url http://127.0.0.1:5204 --api-url http://127.0.0.1:8022 --include-unavailable-check --mobile --json-out var/agriguard-browser-smoke-suite-2026-07-06-consumer-badge-mobile.json --output-dir var/agriguard-browser-smoke-suite-2026-07-06-consumer-badge-mobile --timeout-ms 120000`: passed, 7/7 steps, 181/181 checks, 19/19 screenshot artifacts.
 - `python ops/scripts/run_workspace_smoke.py --scope agriguard --json-out var/workspace-smoke-agriguard-2026-07-06-consumer-badge.json`: passed, 5/5 checks.
+- `python apps/AgriGuard/scripts/qr_path_browser_smoke.py --base-url http://127.0.0.1:5205 --api-url http://127.0.0.1:8023 --json-out var/agriguard-qr-path-toast-cleanup-mobile-2026-07-06.json --screenshot-dir var/agriguard-qr-path-toast-cleanup-mobile-2026-07-06 --timeout-ms 120000`: passed, 27/27 checks.
+- `python apps/AgriGuard/scripts/run_browser_smoke_suite.py --base-url http://127.0.0.1:5206 --api-url http://127.0.0.1:8024 --include-unavailable-check --json-out var/agriguard-browser-smoke-suite-2026-07-06-consumer-cleanup-desktop.json --output-dir var/agriguard-browser-smoke-suite-2026-07-06-consumer-cleanup-desktop --timeout-ms 120000`: passed, 7/7 steps, 167/167 checks, 19/19 screenshot artifacts.
+- `python apps/AgriGuard/scripts/run_browser_smoke_suite.py --base-url http://127.0.0.1:5206 --api-url http://127.0.0.1:8024 --include-unavailable-check --mobile --json-out var/agriguard-browser-smoke-suite-2026-07-06-consumer-cleanup-mobile.json --output-dir var/agriguard-browser-smoke-suite-2026-07-06-consumer-cleanup-mobile --timeout-ms 120000`: passed, 7/7 steps, 181/181 checks, 19/19 screenshot artifacts.
+- `python ops/scripts/run_workspace_smoke.py --scope agriguard --json-out var/workspace-smoke-agriguard-2026-07-06-consumer-cleanup.json`: passed, 5/5 checks.
 
 ## Remaining External Blocker
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -173,7 +173,7 @@ export default function ConsumerVerify() {
   const scanVariant = searchParams.get('scan_variant') || 'qr_consumer_v1';
   const { hideToast } = useToast();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     hideToast();
   }, [hideToast]);
 
