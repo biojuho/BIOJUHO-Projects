@@ -379,6 +379,11 @@ def render_markdown(handoff: dict[str, object]) -> str:
     readiness_commands = (
         readiness_summary.get("next_commands") if isinstance(readiness_summary.get("next_commands"), list) else []
     )
+    readiness_actions = (
+        [item for item in readiness_summary.get("next_actions", []) if isinstance(item, str)]
+        if isinstance(readiness_summary.get("next_actions"), list)
+        else []
+    )
     artifact_index = status_view.get("artifact_index") if isinstance(status_view.get("artifact_index"), dict) else {}
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
     validation = handoff.get("validation") if isinstance(handoff.get("validation"), dict) else {}
@@ -434,6 +439,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Artifact index recovery required: `{str((packet_validation.get('artifact_index_recovery_summary') or {}).get('required')).lower()}`",
         f"- Artifact index recovery blocker class: `{(packet_validation.get('artifact_index_recovery_summary') or {}).get('blocker_class') or '-'}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
+        f"- Readiness next action count: `{len(readiness_actions)}`",
         f"- Readiness next command count: `{len(readiness_commands)}`",
         f"- Env validation blocker class: `{readiness_summary.get('env_validation_blocker_class') or '-'}`",
         "- Env validation ready for preflight: "
@@ -442,6 +448,10 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Operator packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
         "",
     ]
+    if readiness_actions:
+        lines.extend(["## Readiness Next Actions", ""])
+        lines.extend(f"- {action}" for action in readiness_actions)
+        lines.append("")
     if readiness_commands:
         lines.extend(["## Readiness Next Commands", ""])
         for item in readiness_commands:

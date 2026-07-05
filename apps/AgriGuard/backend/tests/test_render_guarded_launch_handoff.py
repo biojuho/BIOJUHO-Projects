@@ -86,6 +86,10 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
                 "status": "blocked",
                 "blocker_class": "preflight_blocked",
                 "secrets_redacted": True,
+                "next_actions": [
+                    "Open the operator packet for exact variables and validation commands.",
+                    "Provide a real Firebase Admin service-account .json outside the repo.",
+                ],
                 "next_commands": [
                     {
                         "name": "validate_env_template",
@@ -152,6 +156,10 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
             "shell": "powershell",
         }
     ]
+    assert handoff["status_view"]["readiness_summary"]["next_actions"] == [
+        "Open the operator packet for exact variables and validation commands.",
+        "Provide a real Firebase Admin service-account .json outside the repo.",
+    ]
     assert handoff["packet_validation"]["status"] == "pass"
     assert handoff["packet_validation"]["blocker_class"] == "ready"
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
@@ -204,7 +212,11 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "Artifact index consumer packet validation: `pass`" in markdown
     assert "Artifact index consumer command metadata: `pass`" in markdown
     assert "Artifact index readiness command metadata: `pass`" in markdown
+    assert "Readiness next action count: `2`" in markdown
     assert "Readiness next command count: `1`" in markdown
+    assert "## Readiness Next Actions" in markdown
+    assert "- Open the operator packet for exact variables and validation commands." in markdown
+    assert "- Provide a real Firebase Admin service-account .json outside the repo." in markdown
     assert "Blocker class: `preflight_blocked`" in markdown
     assert "Ready gate blocker class: `preflight_blocked`" in markdown
     assert "Packet validation blocker class: `ready`" in markdown
@@ -299,6 +311,10 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
                 "status": "blocked",
                 "blocker_class": "env_shape_blocked",
                 "secrets_redacted": True,
+                "next_actions": [
+                    "Replace launch env placeholders with real operator values.",
+                    "Rerun strict preflight after env validation passes.",
+                ],
                 "reports": {
                     "env_validation": {
                         "ready_for_preflight": False,
@@ -375,6 +391,10 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert "Artifact index recovery command status: `not_required`" in markdown
     assert "Artifact index recovery command shell: `-`" in markdown
     assert "Readiness action IDs: `fix_env_shape_validation`" in markdown
+    assert "Readiness next action count: `2`" in markdown
+    assert "## Readiness Next Actions" in markdown
+    assert "- Replace launch env placeholders with real operator values." in markdown
+    assert "- Rerun strict preflight after env validation passes." in markdown
     assert "Env validation ready for preflight: `false`" in markdown
     assert "Operator packet preflight status: `env_shape_blocked`" in markdown
     assert "`inspect_status` (powershell): `& " in markdown
