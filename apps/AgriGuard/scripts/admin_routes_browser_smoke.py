@@ -14,6 +14,8 @@ from playwright.sync_api import Page, sync_playwright
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = "http://127.0.0.1:8002"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
+DEFAULT_DESKTOP_VIEWPORT = "1440x960"
+DEFAULT_MOBILE_VIEWPORT = "390x844"
 MISSING_AUTH_DETAIL = "Authorization header missing"
 
 
@@ -28,6 +30,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-out", default="var/agriguard-admin-routes-browser-smoke.json")
     parser.add_argument("--screenshot-dir", default="var/agriguard-admin-routes-browser-smoke-screens")
     parser.add_argument("--timeout-ms", type=int, default=20_000)
+    parser.add_argument(
+        "--viewport",
+        default=None,
+        help=(
+            "Viewport size as WIDTHxHEIGHT. Defaults to "
+            f"{DEFAULT_DESKTOP_VIEWPORT}, or {DEFAULT_MOBILE_VIEWPORT} with --mobile."
+        ),
+    )
+    parser.add_argument("--mobile", action="store_true", help="Use mobile browser emulation with touch enabled.")
     return parser.parse_args()
 
 
@@ -43,6 +54,24 @@ def write_json(path: str | Path, payload: dict[str, object]) -> None:
 
 def route_url(base_url: str, path: str) -> str:
     return base_url.rstrip("/") + path
+
+
+def parse_viewport(value: str) -> dict[str, int]:
+    try:
+        width_text, height_text = value.lower().split("x", 1)
+        width = int(width_text)
+        height = int(height_text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("Viewport must use WIDTHxHEIGHT, for example 390x844.") from exc
+    if width <= 0 or height <= 0:
+        raise argparse.ArgumentTypeError("Viewport width and height must be positive integers.")
+    return {"width": width, "height": height}
+
+
+def resolve_viewport(*, mobile: bool, viewport: str | None) -> dict[str, int]:
+    if viewport:
+        return parse_viewport(viewport)
+    return parse_viewport(DEFAULT_MOBILE_VIEWPORT if mobile else DEFAULT_DESKTOP_VIEWPORT)
 
 
 def api_request(
@@ -91,6 +120,29 @@ def body_text(page: Page) -> str:
     return page.locator("body").inner_text(timeout=5_000)
 
 
+def read_metrics(page: Page) -> dict[str, object]:
+    return page.evaluate(
+        """() => {
+            const doc = document.documentElement;
+            const body = document.body;
+            return {
+              viewportWidth: window.innerWidth,
+              viewportHeight: window.innerHeight,
+              scrollWidth: Math.max(doc.scrollWidth, body.scrollWidth),
+              clientWidth: doc.clientWidth,
+              scrollHeight: Math.max(doc.scrollHeight, body.scrollHeight),
+              bodyTextLength: (body.textContent || '').trim().length,
+              bodyTextSample: (body.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 800),
+            };
+        }"""
+    )
+
+
+def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
+    allowed_width = max(int(metrics["clientWidth"]), int(metrics["viewportWidth"]))
+    return int(metrics["scrollWidth"]) <= allowed_width + 1
+
+
 def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     checks: list[dict[str, object]] = []
     observations: dict[str, object] = {}
@@ -99,6 +151,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     page_errors: list[dict[str, str]] = []
     screenshot_dir = Path(args.screenshot_dir)
     screenshot_dir.mkdir(parents=True, exist_ok=True)
+    viewport = resolve_viewport(mobile=args.mobile, viewport=args.viewport)
 
     product = seed_product(args.api_url, args.operator_token)
     product_id = str(product.get("id") or "")
@@ -115,7 +168,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
 
-        anonymous_page = browser.new_page(viewport={"width": 1440, "height": 960})
+        anonymous_page = browser.new_page(viewport=viewport, is_mobile=args.mobile, has_touch=args.mobile)
         anonymous_page.add_init_script("window.localStorage.removeItem('agriguard-operator-token');")
         anonymous_page.goto(route_url(args.base_url, "/qr-tokens"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         anonymous_page.get_by_text("QR Token Management").wait_for(timeout=args.timeout_ms)
@@ -127,8 +180,14 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         ):
             anonymous_page.get_by_role("button", name=re.compile("load tokens", re.I)).click(timeout=args.timeout_ms)
         anonymous_page.get_by_text(MISSING_AUTH_DETAIL).first.wait_for(timeout=args.timeout_ms)
+        anonymous_qr_metrics = read_metrics(anonymous_page)
+        observations["qr_tokens_missing_token"] = {
+            "metrics": anonymous_qr_metrics,
+            "screenshot": str(screenshot_dir / "qr-tokens-missing-token.png"),
+        }
         checks.append(check("qr_tokens_missing_token_notice_visible", True))
         checks.append(check("qr_tokens_missing_token_blocked", True, MISSING_AUTH_DETAIL))
+        checks.append(check("qr_tokens_missing_token_no_horizontal_overflow", has_no_horizontal_overflow(anonymous_qr_metrics), str(anonymous_qr_metrics)))
         anonymous_page.screenshot(path=str(screenshot_dir / "qr-tokens-missing-token.png"), full_page=True)
 
         anonymous_page.goto(route_url(args.base_url, "/sensor-devices"), wait_until="domcontentloaded", timeout=args.timeout_ms)
@@ -146,12 +205,18 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         ):
             anonymous_page.get_by_role("button", name=re.compile("register sensor", re.I)).click(timeout=args.timeout_ms)
         anonymous_page.get_by_text(MISSING_AUTH_DETAIL).first.wait_for(timeout=args.timeout_ms)
+        anonymous_sensor_metrics = read_metrics(anonymous_page)
+        observations["sensor_devices_missing_token"] = {
+            "metrics": anonymous_sensor_metrics,
+            "screenshot": str(screenshot_dir / "sensor-devices-missing-token.png"),
+        }
         checks.append(check("sensor_devices_missing_token_notice_visible", True))
         checks.append(check("sensor_devices_missing_token_blocked", True, MISSING_AUTH_DETAIL))
+        checks.append(check("sensor_devices_missing_token_no_horizontal_overflow", has_no_horizontal_overflow(anonymous_sensor_metrics), str(anonymous_sensor_metrics)))
         anonymous_page.screenshot(path=str(screenshot_dir / "sensor-devices-missing-token.png"), full_page=True)
         anonymous_page.close()
 
-        page = browser.new_page(viewport={"width": 1440, "height": 960})
+        page = browser.new_page(viewport=viewport, is_mobile=args.mobile, has_touch=args.mobile)
         page.add_init_script(
             "window.localStorage.setItem('agriguard-operator-token', "
             f"{json.dumps(args.operator_token)});",
@@ -181,7 +246,14 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         page.get_by_text("New label URL ready").wait_for(timeout=args.timeout_ms)
         qr_text = body_text(page)
         qr_reissued = "QR token reissued" in qr_text and "/verify/" in qr_text
+        qr_tokens_metrics = read_metrics(page)
+        observations["qr_tokens"] = {
+            "metrics": qr_tokens_metrics,
+            "reissued": qr_reissued,
+            "screenshot": str(screenshot_dir / "qr-tokens.png"),
+        }
         checks.append(check("qr_token_reissued", qr_reissued, "one-time public verify label URL rendered"))
+        checks.append(check("qr_tokens_no_horizontal_overflow", has_no_horizontal_overflow(qr_tokens_metrics), str(qr_tokens_metrics)))
         page.screenshot(path=str(screenshot_dir / "qr-tokens.png"), full_page=True)
 
         page.goto(route_url(args.base_url, "/sensor-devices"), wait_until="domcontentloaded", timeout=args.timeout_ms)
@@ -206,7 +278,14 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
             and f"topic write agriguard/sensors/{sensor_id}" in provisioning_text
             and f"mosquitto_passwd /etc/mosquitto/passwd {sensor_id}" in provisioning_text
         )
+        sensor_devices_metrics = read_metrics(page)
+        observations["sensor_devices"] = {
+            "metrics": sensor_devices_metrics,
+            "registered": sensor_id in provisioning_text,
+            "screenshot": str(screenshot_dir / "sensor-devices.png"),
+        }
         checks.append(check("mqtt_broker_provisioning_rendered", provisioning_ok, sensor_id))
+        checks.append(check("sensor_devices_no_horizontal_overflow", has_no_horizontal_overflow(sensor_devices_metrics), str(sensor_devices_metrics)))
         page.screenshot(path=str(screenshot_dir / "sensor-devices.png"), full_page=True)
         browser.close()
 
@@ -227,6 +306,8 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     return {
         "status": "pass" if ok else "fail",
         "checks": checks,
+        "viewport": viewport,
+        "mobile": bool(args.mobile),
         "observations": observations,
         "screenshotDir": str(screenshot_dir),
     }
@@ -240,6 +321,8 @@ def main() -> int:
         result = {
             "status": "fail",
             "checks": [check("unhandled_exception", False, str(exc))],
+            "viewport": resolve_viewport(mobile=args.mobile, viewport=args.viewport),
+            "mobile": bool(args.mobile),
             "observations": {},
             "screenshotDir": args.screenshot_dir,
         }

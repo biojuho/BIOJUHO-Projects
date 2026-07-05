@@ -380,6 +380,7 @@ def test_browser_smoke_suite_builds_live_backend_steps_and_redacts_operator_toke
     assert "--click-nav" in steps[1].command
     assert "--mobile" in steps[1].command
     assert "--mobile" in steps[2].command
+    assert "--mobile" in steps[4].command
     assert "--mobile" in steps[5].command
     redacted = script.redact_command(steps[0].command, operator_token=args.operator_token)
     assert "secret-operator-token" not in redacted
@@ -842,6 +843,19 @@ def test_admin_routes_browser_smoke_uses_operator_token_env(monkeypatch):
     args = script.parse_args()
 
     assert args.operator_token == "staging-admin-token"
+
+
+def test_admin_routes_browser_smoke_uses_phone_viewport_for_mobile_default():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_viewport_under_test",
+    )
+
+    assert script.resolve_viewport(mobile=False, viewport=None) == {"width": 1440, "height": 960}
+    assert script.resolve_viewport(mobile=True, viewport=None) == {"width": 390, "height": 844}
+    assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
+    assert script.has_no_horizontal_overflow({"clientWidth": 390, "viewportWidth": 390, "scrollWidth": 390}) is True
+    assert script.has_no_horizontal_overflow({"clientWidth": 390, "viewportWidth": 390, "scrollWidth": 430}) is False
 
 
 def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
