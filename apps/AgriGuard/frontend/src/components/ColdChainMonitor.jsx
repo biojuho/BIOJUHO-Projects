@@ -194,7 +194,7 @@ export default function ColdChainMonitor() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+      <div data-testid="cold-chain-stat-grid" className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           icon={Thermometer}
           label="Temperature"
@@ -224,6 +224,7 @@ export default function ColdChainMonitor() {
           label="Sensor Health"
           value={`${offlineSensors} offline / ${staleSensors} stale`}
           color={offlineSensors > 0 ? 'red' : staleSensors > 0 ? 'amber' : 'green'}
+          className="col-span-2 lg:col-span-1"
         />
       </div>
 
@@ -345,7 +346,11 @@ export default function ColdChainMonitor() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }) {
+function getStatId(label) {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+function StatCard({ icon: Icon, label, value, color, className }) {
   const colorMap = {
     blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
     red: 'text-red-400 bg-red-500/10 border-red-500/20',
@@ -357,14 +362,14 @@ function StatCard({ icon: Icon, label, value, color }) {
   const cls = colorMap[color] || colorMap.blue;
 
   return (
-    <Card className={cn('backdrop-blur-lg', cls)}>
+    <Card data-testid={`cold-chain-stat-card-${getStatId(label)}`} className={cn('backdrop-blur-lg', cls, className)}>
       <CardContent className="p-4">
         <div className="mb-2 flex items-center gap-2">
           <Icon className="h-4 w-4" />
           <span className="text-xs text-muted-foreground">{label}</span>
         </div>
         <p
-          data-testid={`cold-chain-stat-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          data-testid={`cold-chain-stat-${getStatId(label)}`}
           className="min-h-12 text-wrap break-words text-xl font-bold leading-tight"
         >
           {value}

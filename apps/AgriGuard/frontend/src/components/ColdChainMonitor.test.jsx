@@ -276,10 +276,14 @@ describe('ColdChainMonitor', () => {
     render(<ColdChainMonitor />);
 
     const sensorHealthValue = await screen.findByTestId('cold-chain-stat-sensor-health');
+    const sensorHealthCard = screen.getByTestId('cold-chain-stat-card-sensor-health');
 
     expect(sensorHealthValue).toHaveTextContent('79 offline / 0 stale');
     expect(sensorHealthValue).toHaveClass('text-wrap');
     expect(sensorHealthValue).not.toHaveClass('truncate');
+    expect(screen.getByTestId('cold-chain-stat-grid')).toHaveClass('grid-cols-2');
+    expect(sensorHealthCard).toHaveClass('col-span-2');
+    expect(sensorHealthCard).toHaveClass('lg:col-span-1');
   });
 
   it('keeps registered silent zones visible when aggregate temperatures are empty', async () => {
