@@ -329,6 +329,9 @@
             "artifact_index_json": {
               "type": "string"
             },
+            "artifact_index_markdown": {
+              "type": "string"
+            },
             "handoff_consumer_json": {
               "type": "string"
             },

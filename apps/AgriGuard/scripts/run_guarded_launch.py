@@ -221,6 +221,7 @@ def _build_status_view(
     output_prefix: str,
     artifact_paths: dict[str, Path],
     artifact_index_json: Path | None = None,
+    artifact_index_markdown: Path | None = None,
 ) -> dict[str, object]:
     launch = _read_json(artifact_paths["launch_report_json"])
     summary = _read_json(artifact_paths["readiness_summary_json"])
@@ -232,6 +233,8 @@ def _build_status_view(
     artifacts = {key: str(value) for key, value in artifact_paths.items()}
     if artifact_index_json is not None:
         artifacts["artifact_index_json"] = str(artifact_index_json)
+    if artifact_index_markdown is not None:
+        artifacts["artifact_index_markdown"] = str(artifact_index_markdown)
     if artifact_index is not None and isinstance(artifact_index.get("artifacts"), list):
         for item in artifact_index["artifacts"]:
             if not isinstance(item, dict):
@@ -1059,6 +1062,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
+            artifact_index_markdown=artifact_index_markdown,
         )
         if args.status_json_out:
             write_json(args.status_json_out.resolve(), status_view)
@@ -1108,6 +1112,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
+            artifact_index_markdown=artifact_index_markdown,
         )
         write_json(effective_status_json_out, status_view)
     post_launch_returncode = 0
@@ -1136,6 +1141,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                 output_prefix=args.output_prefix,
                 artifact_paths=artifact_paths,
                 artifact_index_json=artifact_index_json,
+                artifact_index_markdown=artifact_index_markdown,
             )
         if effective_status_json_out is not None and status_view is not None:
             write_json(effective_status_json_out, status_view)
@@ -1167,6 +1173,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     output_prefix=args.output_prefix,
                     artifact_paths=artifact_paths,
                     artifact_index_json=artifact_index_json,
+                    artifact_index_markdown=artifact_index_markdown,
                 )
             if effective_status_json_out is not None and status_view is not None:
                 write_json(effective_status_json_out, status_view)
@@ -1186,6 +1193,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                         output_prefix=args.output_prefix,
                         artifact_paths=artifact_paths,
                         artifact_index_json=artifact_index_json,
+                        artifact_index_markdown=artifact_index_markdown,
                     )
                 if effective_status_json_out is not None and status_view is not None:
                     write_json(effective_status_json_out, status_view)
@@ -1216,6 +1224,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             output_prefix=args.output_prefix,
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
+            artifact_index_markdown=artifact_index_markdown,
         )
     if effective_status_json_out is not None and status_view is not None:
         write_json(effective_status_json_out, status_view)

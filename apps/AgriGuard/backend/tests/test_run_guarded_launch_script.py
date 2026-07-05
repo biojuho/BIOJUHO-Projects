@@ -1176,6 +1176,9 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "recovery_command_status": "not_required",
     }
     assert payload["artifacts"]["artifact_index_json"] == str(custom_index.resolve())
+    assert payload["artifacts"]["artifact_index_markdown"] == str(
+        output_dir.resolve() / "blocked-artifact-index.md"
+    )
     assert payload["artifacts"]["handoff_json"] == str(custom_handoff.resolve())
     assert payload["artifacts"]["handoff_consumer_json"] == str(custom_handoff_consumer.resolve())
     assert payload["artifacts"]["ready_gate_json"] == str(custom_ready_gate.resolve())
