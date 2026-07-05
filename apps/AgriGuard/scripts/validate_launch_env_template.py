@@ -186,6 +186,10 @@ def _env_validation_blocker_class(status: object) -> str:
     return "ready" if status == "pass" else "env_shape_blocked"
 
 
+def _launch_validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "env_shape_blocked"
+
+
 def build_validation_report(*, env_file: Path, app_root: Path | None = None) -> dict[str, object]:
     app_root = (app_root or _default_app_root()).resolve()
     workspace_root = _workspace_root(app_root)
@@ -230,6 +234,7 @@ def build_validation_report(*, env_file: Path, app_root: Path | None = None) -> 
         "variables": _redacted_variables(env),
         "launch_validation": {
             "status": launch_validation.get("status"),
+            "blocker_class": _launch_validation_blocker_class(launch_validation.get("status")),
             "errors": launch_errors,
             "warnings": launch_warnings,
             "checks": _selected_launch_checks(launch_validation.get("checks")),
@@ -248,6 +253,7 @@ def render_markdown(report: dict[str, object]) -> str:
         f"- Env file: `{report['env_file']}`",
         f"- Env file found: `{str(report['env_file_found']).lower()}`",
         f"- Placeholder count: `{report['placeholder_count']}`",
+        f"- Launch validation blocker class: `{(report.get('launch_validation') or {}).get('blocker_class') or '-'}`",
         f"- Secrets redacted: `{str(report['secrets_redacted']).lower()}`",
         "",
         "## Blocking Findings",
