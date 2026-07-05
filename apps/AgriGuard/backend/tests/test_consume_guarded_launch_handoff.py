@@ -178,6 +178,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
 
     assert view["status"] == "pass"
     assert view["handoff_status"] == "ready"
+    assert view["handoff_blocker_class"] == "ready"
     assert view["ready_gate_status"] == "pass"
     assert view["packet_validation_status"] == "pass"
     assert view["packet_evidence_outputs_status"] == "pass"
@@ -250,6 +251,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
 
     assert view["status"] == "fail"
     assert view["handoff_status"] == "blocked"
+    assert view["handoff_blocker_class"] == "preflight_blocked"
     assert view["blocker_class"] == "preflight_blocked"
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["packet_validation_status"] == "pass"
@@ -412,6 +414,7 @@ def test_consume_guarded_launch_handoff_fails_semantic_blocker_drift(tmp_path: P
     payload["external_blocker"]["status"] = "resolved"
     payload["external_blocker"]["operator_action_ids"] = ["wrong_action"]
     payload["ready_gate"]["status"] = "pass"
+    payload["blocker_class"] = "operator_values_required"
     handoff_json.write_text(json.dumps(payload), encoding="utf-8")
     assert validate_guarded_launch_handoff.main([str(handoff_json), "--json-out", str(validation_json)]) == 0
 
@@ -423,7 +426,12 @@ def test_consume_guarded_launch_handoff_fails_semantic_blocker_drift(tmp_path: P
     assert view["status"] == "fail"
     assert view["validation_matches_handoff"] is True
     assert view["external_blocker_status"] == "resolved"
+    assert view["handoff_blocker_class"] == "operator_values_required"
     assert view["operator_action_ids"] == ["wrong_action"]
+    assert (
+        "handoff blocker_class 'operator_values_required' does not match "
+        "status_view blocker_class 'preflight_blocked'"
+    ) in view["errors"]
     assert "blocked handoff has external_blocker status 'resolved'" in view["errors"]
     assert "blocked handoff has ready_gate status 'pass'" in view["errors"]
     assert any("external_blocker operator_action_ids" in error for error in view["errors"])

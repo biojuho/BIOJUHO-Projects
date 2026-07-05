@@ -134,6 +134,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     markdown = render_guarded_launch_handoff.render_markdown(handoff)
 
     assert handoff["status"] == "blocked"
+    assert handoff["blocker_class"] == "preflight_blocked"
     assert handoff["ready_gate"]["status"] == "fail"
     assert handoff["ready_gate"]["exit_code"] == 1
     assert handoff["external_blocker"]["blocker_class"] == "preflight_blocked"
@@ -192,6 +193,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "Artifact index consumer command metadata: `pass`" in markdown
     assert "Artifact index readiness command metadata: `pass`" in markdown
     assert "Readiness next command count: `1`" in markdown
+    assert "Blocker class: `preflight_blocked`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 
 
@@ -252,6 +254,7 @@ def test_guarded_launch_handoff_accepts_ready_prefix(tmp_path: Path) -> None:
     )
 
     assert handoff["status"] == "ready"
+    assert handoff["blocker_class"] == "ready"
     assert handoff["ready_gate"]["status"] == "pass"
     assert handoff["ready_gate"]["exit_code"] == 0
     assert handoff["external_blocker"] == {
@@ -313,6 +316,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 1
     assert payload["status"] == "blocked"
+    assert payload["blocker_class"] == "env_shape_blocked"
     assert payload["ready_gate"]["status"] == "fail"
     assert payload["validation"]["validation_json"] == str(validation_json.resolve())
     assert payload["validation"]["command"][1] == str(APP_ROOT / "scripts" / "validate_guarded_launch_handoff.py")

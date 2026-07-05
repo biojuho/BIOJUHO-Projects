@@ -32,6 +32,12 @@
       ],
       "type": "object"
     },
+    "blocker_class": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "operator_commands": {
       "items": {
         "additionalProperties": false,
@@ -901,6 +907,7 @@
   "required": [
     "schema_version",
     "status",
+    "blocker_class",
     "secrets_redacted",
     "output_prefix",
     "output_dir",

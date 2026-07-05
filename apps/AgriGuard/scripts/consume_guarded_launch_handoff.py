@@ -139,6 +139,7 @@ def _append_semantic_consistency_errors(
     errors: list[str],
     *,
     handoff_status: object,
+    handoff_blocker_class: object,
     ready_gate_status: object,
     status_view: dict[str, Any],
     external_blocker: dict[str, Any],
@@ -153,6 +154,11 @@ def _append_semantic_consistency_errors(
     if handoff_status in {"ready", "blocked"} and status_view_status != handoff_status:
         errors.append(
             f"status_view status {status_view_status!r} does not match handoff status {handoff_status!r}"
+        )
+    if handoff_blocker_class != status_view_blocker_class:
+        errors.append(
+            f"handoff blocker_class {handoff_blocker_class!r} does not match "
+            f"status_view blocker_class {status_view_blocker_class!r}"
         )
     if external_blocker_class != status_view_blocker_class:
         errors.append(
@@ -208,6 +214,7 @@ def build_consumer_view(
         errors.append("validation report handoff_sha256 does not match current handoff")
 
     handoff_status = handoff.get("status") if handoff is not None else None
+    handoff_blocker_class = handoff.get("blocker_class") if handoff is not None else None
     ready_gate = handoff.get("ready_gate") if handoff is not None and isinstance(handoff.get("ready_gate"), dict) else {}
     validation_block = (
         handoff.get("validation")
@@ -241,6 +248,7 @@ def build_consumer_view(
         _append_semantic_consistency_errors(
             errors,
             handoff_status=handoff_status,
+            handoff_blocker_class=handoff_blocker_class,
             ready_gate_status=ready_gate_status,
             status_view=status_view,
             external_blocker=external_blocker,
@@ -269,6 +277,7 @@ def build_consumer_view(
         "validation_status": validation_status,
         "validation_matches_handoff": validation_matches_handoff,
         "handoff_status": handoff_status,
+        "handoff_blocker_class": handoff_blocker_class,
         "ready_gate_status": ready_gate_status,
         "ready_gate_command_shell": _string_value(ready_gate.get("command_shell")),
         "ready_gate_command_text": _string_value(ready_gate.get("command_text")),

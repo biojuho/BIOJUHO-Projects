@@ -200,6 +200,10 @@ def _external_blocker(status_view: dict[str, object], ready: bool) -> dict[str, 
     }
 
 
+def _handoff_blocker_class(status_view: dict[str, object], ready: bool) -> object:
+    return "ready" if ready else status_view.get("blocker_class")
+
+
 def build_handoff(
     *,
     app_root: Path,
@@ -220,6 +224,7 @@ def build_handoff(
     )
     packet_validation = _packet_validation_summary(status_view)
     ready = run_guarded_launch._status_view_ready(status_view)
+    blocker_class = _handoff_blocker_class(status_view, ready)
     ready_gate = {
         "status": "pass" if ready else "fail",
         "required_status": "ready",
@@ -239,6 +244,7 @@ def build_handoff(
     handoff: dict[str, object] = {
         "schema_version": 1,
         "status": "ready" if ready else "blocked",
+        "blocker_class": blocker_class,
         "secrets_redacted": True,
         "output_prefix": output_prefix,
         "output_dir": str(output_dir),
@@ -304,7 +310,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Status: `{handoff.get('status')}`",
         f"- Output prefix: `{handoff.get('output_prefix')}`",
         f"- Launch stage: `{launch.get('stage')}`",
-        f"- Blocker class: `{status_view.get('blocker_class')}`",
+        f"- Blocker class: `{handoff.get('blocker_class')}`",
         f"- Ready gate: `{ready_gate.get('status')}`",
         f"- Packet validation: `{packet_validation.get('status')}`",
         f"- Secrets redacted: `{str(handoff.get('secrets_redacted')).lower()}`",
