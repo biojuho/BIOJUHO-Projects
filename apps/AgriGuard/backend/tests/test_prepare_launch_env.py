@@ -14,6 +14,14 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(prepare_launch_env)
 
 
+def _outside_repo_secret_root(tmp_path: Path) -> Path:
+    firebase_root = Path(tempfile.gettempdir()) / "agriguard-pytest-secrets" / tmp_path.name
+    repo_root = prepare_launch_env.launch_env_preflight._find_repository_root(APP_ROOT)  # noqa: SLF001
+    if repo_root and prepare_launch_env.launch_env_preflight._is_relative_to(firebase_root, repo_root):  # noqa: SLF001
+        firebase_root = repo_root.parent / "agriguard-pytest-secrets" / tmp_path.name
+    return firebase_root
+
+
 def _firebase_credentials_json() -> str:
     begin = "-----BEGIN " + "PRIVATE KEY-----"
     end = "-----END " + "PRIVATE KEY-----"
@@ -35,11 +43,7 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     env_file = tmp_path / "operator.env"
     json_out = tmp_path / "prepared.json"
     markdown_out = tmp_path / "prepared.md"
-    firebase_root = Path(tempfile.gettempdir()) / "agriguard-pytest-secrets" / tmp_path.name
-    repo_root = prepare_launch_env.launch_env_preflight._find_repository_root(APP_ROOT)  # noqa: SLF001
-    if repo_root and prepare_launch_env.launch_env_preflight._is_relative_to(firebase_root, repo_root):  # noqa: SLF001
-        firebase_root = repo_root.parent / "agriguard-pytest-secrets" / tmp_path.name
-    firebase_file = firebase_root / "firebase-service-account.json"
+    firebase_file = _outside_repo_secret_root(tmp_path) / "firebase-service-account.json"
     firebase_file.parent.mkdir(parents=True, exist_ok=True)
     firebase_file.write_text(_firebase_credentials_json(), encoding="utf-8")
 
@@ -100,6 +104,7 @@ def test_prepare_launch_env_safe_next_commands_can_target_guarded_bundle(tmp_pat
     json_out = tmp_path / "prepared.json"
     output_dir = tmp_path / "launch-artifacts"
     status_json = tmp_path / "status" / "launch-ready-status.json"
+    missing_firebase_file = _outside_repo_secret_root(tmp_path) / "missing-firebase-service-account.json"
 
     result = prepare_launch_env.main(
         [
@@ -112,7 +117,7 @@ def test_prepare_launch_env_safe_next_commands_can_target_guarded_bundle(tmp_pat
             "--public-verify-base-url",
             "https://verify.agriguard.io",
             "--firebase-service-account-file",
-            str(tmp_path / "missing-firebase-service-account.json"),
+            str(missing_firebase_file),
             "--allow-missing-firebase-file",
             "--guarded-output-dir",
             str(output_dir),
@@ -268,6 +273,7 @@ def test_prepare_launch_env_fails_closed_on_missing_firebase_file(tmp_path: Path
 def test_prepare_launch_env_can_allow_missing_firebase_file_for_planning(tmp_path: Path, capsys) -> None:
     env_file = tmp_path / "operator.env"
     json_out = tmp_path / "prepared.json"
+    missing_firebase_file = _outside_repo_secret_root(tmp_path) / "missing-firebase-service-account.json"
 
     result = prepare_launch_env.main(
         [
@@ -280,7 +286,7 @@ def test_prepare_launch_env_can_allow_missing_firebase_file_for_planning(tmp_pat
             "--public-verify-base-url",
             "https://verify.agriguard.io",
             "--firebase-service-account-file",
-            str(tmp_path / "missing-firebase-service-account.json"),
+            str(missing_firebase_file),
             "--allow-missing-firebase-file",
             "--json-out",
             str(json_out),
