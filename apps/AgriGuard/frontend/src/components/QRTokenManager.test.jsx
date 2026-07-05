@@ -131,8 +131,11 @@ describe('QRTokenManager', () => {
   it('keeps the mobile QR token controls compact above the token workspace', () => {
     render(<QRTokenManager />);
 
-    const tokenControls = screen.getByLabelText('Operator bearer token').parentElement;
+    const operatorTokenInput = screen.getByLabelText('Operator bearer token');
+    const tokenControls = operatorTokenInput.parentElement;
     expect(screen.getByTestId('qr-token-operator-token-card')).toHaveClass('w-full');
+    expect(operatorTokenInput).toHaveAttribute('autocomplete', 'off');
+    expect(operatorTokenInput).toHaveAttribute('spellcheck', 'false');
     expect(tokenControls).toHaveClass('grid');
     expect(tokenControls).toHaveClass('grid-cols-[minmax(0,1fr)_5rem]');
 

@@ -222,6 +222,8 @@ export default function QRTokenManager() {
                 value={operatorTokenInput}
                 onChange={(event) => setOperatorTokenInput(event.target.value)}
                 placeholder="Paste Firebase/operator token"
+                autoComplete="off"
+                spellCheck={false}
                 className="min-h-10 sm:min-h-11"
               />
               <Button type="button" onClick={saveOperatorToken} className="min-h-10 px-3 sm:min-h-11">

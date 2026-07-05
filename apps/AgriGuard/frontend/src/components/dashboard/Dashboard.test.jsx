@@ -238,6 +238,8 @@ describe('Dashboard', () => {
     render(<Dashboard />);
 
     const tokenInput = await screen.findByLabelText('Operator bearer token');
+    expect(tokenInput).toHaveAttribute('autocomplete', 'off');
+    expect(tokenInput).toHaveAttribute('spellcheck', 'false');
     fireEvent.change(tokenInput, { target: { value: 'operator-token' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save and retry' }));
 

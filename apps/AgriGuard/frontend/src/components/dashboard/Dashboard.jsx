@@ -179,6 +179,8 @@ export default function Dashboard() {
                   value={operatorTokenInput}
                   onChange={(event) => setOperatorTokenInput(event.target.value)}
                   placeholder="Paste Firebase/operator token"
+                  autoComplete="off"
+                  spellCheck={false}
                   className="min-h-11"
                 />
                 <Button type="submit" className="min-h-11">

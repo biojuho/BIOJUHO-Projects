@@ -765,6 +765,8 @@ export default function SensorDeviceManager() {
                 value={operatorTokenInput}
                 onChange={(event) => setOperatorTokenInput(event.target.value)}
                 placeholder="Paste Firebase/operator token"
+                autoComplete="off"
+                spellCheck={false}
                 className="min-h-10 sm:min-h-11"
               />
               <Button type="button" onClick={saveOperatorToken} className="min-h-10 px-3 sm:min-h-11">
@@ -1039,6 +1041,8 @@ export default function SensorDeviceManager() {
                 id="provisioning-password-file"
                 value={provisioningDraft.passwordFilePath}
                 onChange={(event) => setProvisioningDraft((current) => ({ ...current, passwordFilePath: event.target.value }))}
+                autoComplete="off"
+                spellCheck={false}
                 className="mt-2 min-h-11 font-mono"
               />
             </div>
@@ -1162,6 +1166,8 @@ export default function SensorDeviceManager() {
                       value={evidenceDraft.rotationNote}
                       onChange={(event) => setEvidenceDraft((current) => ({ ...current, rotationNote: event.target.value }))}
                       placeholder="e.g. Applied by ops runbook, passwords rotated in broker"
+                      autoComplete="off"
+                      spellCheck={false}
                       className="mt-2 min-h-10"
                     />
                   </div>

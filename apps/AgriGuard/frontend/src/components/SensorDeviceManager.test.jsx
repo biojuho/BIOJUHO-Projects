@@ -330,8 +330,11 @@ describe('SensorDeviceManager', () => {
 
     await screen.findByText('sensor-cold-1');
 
-    const tokenControls = screen.getByLabelText('Operator bearer token').parentElement;
+    const operatorTokenInput = screen.getByLabelText('Operator bearer token');
+    const tokenControls = operatorTokenInput.parentElement;
     expect(screen.getByTestId('sensor-operator-token-card')).toHaveClass('w-full');
+    expect(operatorTokenInput).toHaveAttribute('autocomplete', 'off');
+    expect(operatorTokenInput).toHaveAttribute('spellcheck', 'false');
     expect(tokenControls).toHaveClass('grid');
     expect(tokenControls).toHaveClass('grid-cols-[minmax(0,1fr)_5rem]');
 
@@ -551,7 +554,10 @@ describe('SensorDeviceManager', () => {
     expect(screen.getByText(/mosquitto_passwd \/etc\/mosquitto\/passwd sensor-cold-1/)).toBeInTheDocument();
     expect(screen.getByText(/mosquitto_ctrl <connection options> dynsec createClient sensor-cold-1/)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Password file path'), {
+    const passwordFilePathInput = screen.getByLabelText('Password file path');
+    expect(passwordFilePathInput).toHaveAttribute('autocomplete', 'off');
+    expect(passwordFilePathInput).toHaveAttribute('spellcheck', 'false');
+    fireEvent.change(passwordFilePathInput, {
       target: { value: '/var/lib/mosquitto/passwd' },
     });
     fireEvent.change(screen.getByLabelText('Dynamic role'), {
@@ -583,7 +589,10 @@ describe('SensorDeviceManager', () => {
     fireEvent.change(screen.getByLabelText('Runbook or change reference'), {
       target: { value: 'CHG-2026-0610' },
     });
-    fireEvent.change(screen.getByLabelText('Evidence note, no secrets'), {
+    const evidenceNoteInput = screen.getByLabelText('Evidence note, no secrets');
+    expect(evidenceNoteInput).toHaveAttribute('autocomplete', 'off');
+    expect(evidenceNoteInput).toHaveAttribute('spellcheck', 'false');
+    fireEvent.change(evidenceNoteInput, {
       target: { value: 'Applied with broker credential rotation.' },
     });
     fireEvent.click(screen.getByRole('button', { name: /record applied evidence/i }));

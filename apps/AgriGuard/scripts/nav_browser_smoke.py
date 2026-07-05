@@ -205,6 +205,27 @@ def read_metrics(page: Page) -> dict[str, object]:
               .filter(isVisible);
             const fieldSelector = 'input:not([type="hidden"]),select,textarea,[role="combobox"],[role="textbox"]';
             const visibleFields = Array.from(document.querySelectorAll(fieldSelector)).filter(isVisible);
+            const credentialFieldSelector = [
+              'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])',
+              'textarea',
+            ].join(',');
+            const isCredentialLikeField = element => {
+              const labels = Array.from(element.labels || []).map(label => label.textContent || '').join(' ');
+              const text = normalize([
+                element.id,
+                element.getAttribute('name'),
+                element.getAttribute('placeholder'),
+                element.getAttribute('aria-label'),
+                labels,
+              ].join(' ')).toLowerCase();
+              return element.getAttribute('type') === 'password'
+                || /token|secret|password|bearer|credential/.test(text);
+            };
+            const credentialAutocompleteGaps = Array.from(document.querySelectorAll(credentialFieldSelector))
+              .filter(isVisible)
+              .filter(isCredentialLikeField)
+              .filter(element => !normalize(element.getAttribute('autocomplete')))
+              .map(describeElement);
             const ids = Array.from(document.querySelectorAll('[id]'))
               .map(element => element.id)
               .filter(Boolean);
@@ -228,6 +249,7 @@ def read_metrics(page: Page) -> dict[str, object]:
               unlabeledFields: visibleFields
                 .filter(element => !accessibleName(element))
                 .map(describeElement),
+              credentialAutocompleteGaps,
               menuButton: document.querySelector('button[aria-label="Open menu"],button[aria-label="Close menu"]')
                 ?.getAttribute('aria-label') || null,
             };
@@ -272,6 +294,7 @@ def route_semantics_detail(metrics: dict[str, object]) -> dict[str, object]:
         "duplicateIds": metrics.get("duplicateIds") or [],
         "unnamedInteractive": metrics.get("unnamedInteractive") or [],
         "unlabeledFields": metrics.get("unlabeledFields") or [],
+        "credentialAutocompleteGaps": metrics.get("credentialAutocompleteGaps") or [],
     }
 
 
@@ -284,6 +307,7 @@ def route_semantics_ok(metrics: dict[str, object]) -> bool:
         and not detail["duplicateIds"]
         and not detail["unnamedInteractive"]
         and not detail["unlabeledFields"]
+        and not detail["credentialAutocompleteGaps"]
     )
 
 

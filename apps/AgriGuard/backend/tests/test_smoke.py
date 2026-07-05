@@ -356,6 +356,7 @@ def test_nav_browser_smoke_requires_semantic_route_accessibility():
         "duplicateIds": [],
         "unnamedInteractive": [],
         "unlabeledFields": [],
+        "credentialAutocompleteGaps": [],
     }
 
     assert script.route_semantics_ok(valid_metrics) is True
@@ -368,6 +369,7 @@ def test_nav_browser_smoke_requires_semantic_route_accessibility():
         ("duplicateIds", ["search"]),
         ("unnamedInteractive", [{"tag": "button"}]),
         ("unlabeledFields", [{"tag": "input"}]),
+        ("credentialAutocompleteGaps", [{"tag": "input", "id": "operator-token"}]),
     ]:
         failing_metrics = dict(valid_metrics)
         failing_metrics[field] = value
