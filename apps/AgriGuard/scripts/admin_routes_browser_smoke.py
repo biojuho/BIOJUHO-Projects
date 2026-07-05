@@ -145,7 +145,9 @@ def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
 
 
 def capture_screenshot(page: Page, path: Path, *, mobile: bool) -> None:
-    page.screenshot(path=str(path), full_page=not mobile)
+    # Viewport captures keep fixed navigation from being burned into the middle
+    # of desktop full-page evidence after action-driven scroll positioning.
+    page.screenshot(path=str(path), full_page=False)
 
 
 def attach_page_diagnostics(
