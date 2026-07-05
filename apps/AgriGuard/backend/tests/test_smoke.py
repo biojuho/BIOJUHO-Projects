@@ -1127,6 +1127,35 @@ def test_product_detail_browser_smoke_uses_operator_token_env(monkeypatch):
     assert args.operator_token == "staging-detail-token"
 
 
+def test_product_detail_browser_smoke_redacts_public_qr_tokens_from_report():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",
+        "product_detail_browser_smoke_redaction_under_test",
+    )
+
+    token = "detail-public-secret-token"
+    report = {
+        "checks": [{"name": "manual_verify", "ok": True, "detail": f"/verify/{token}"}],
+        "observations": {
+            "seed_product": {"qr_code_prefix": f"agri://verify/{token}"},
+            "initial": {
+                "url": f"http://127.0.0.1:5174/product/product-1",
+                "metrics": {"bodyTextSample": f"QR label agri://verify/{token}"},
+            },
+        },
+        "requestFailures": [{"url": f"http://127.0.0.1:5174/api/qr/{token}/verify", "failure": "failed"}],
+    }
+    tokens = script.extract_public_qr_route_tokens(report)
+    redacted = script.redact_report_public_tokens(report, tokens)
+    payload = json.dumps(redacted)
+
+    assert token in tokens
+    assert token not in payload
+    assert script.PUBLIC_QR_TOKEN_REDACTION in payload
+    assert "agri://verify/" in payload
+    assert "/api/qr/" in payload
+
+
 def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "consumer_verify_unavailable_browser_smoke.py",
