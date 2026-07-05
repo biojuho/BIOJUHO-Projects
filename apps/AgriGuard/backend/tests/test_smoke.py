@@ -858,6 +858,24 @@ def test_admin_routes_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.has_no_horizontal_overflow({"clientWidth": 390, "viewportWidth": 390, "scrollWidth": 430}) is False
 
 
+def test_admin_routes_browser_smoke_uses_viewport_screenshots_on_mobile(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_screenshot_under_test",
+    )
+    calls = []
+
+    class FakePage:
+        def screenshot(self, **kwargs):
+            calls.append(kwargs)
+
+    script.capture_screenshot(FakePage(), tmp_path / "mobile.png", mobile=True)
+    script.capture_screenshot(FakePage(), tmp_path / "desktop.png", mobile=False)
+
+    assert calls[0]["full_page"] is False
+    assert calls[1]["full_page"] is True
+
+
 def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",

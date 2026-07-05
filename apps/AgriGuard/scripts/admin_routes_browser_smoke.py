@@ -143,6 +143,10 @@ def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
     return int(metrics["scrollWidth"]) <= allowed_width + 1
 
 
+def capture_screenshot(page: Page, path: Path, *, mobile: bool) -> None:
+    page.screenshot(path=str(path), full_page=not mobile)
+
+
 def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     checks: list[dict[str, object]] = []
     observations: dict[str, object] = {}
@@ -188,7 +192,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("qr_tokens_missing_token_notice_visible", True))
         checks.append(check("qr_tokens_missing_token_blocked", True, MISSING_AUTH_DETAIL))
         checks.append(check("qr_tokens_missing_token_no_horizontal_overflow", has_no_horizontal_overflow(anonymous_qr_metrics), str(anonymous_qr_metrics)))
-        anonymous_page.screenshot(path=str(screenshot_dir / "qr-tokens-missing-token.png"), full_page=True)
+        capture_screenshot(anonymous_page, screenshot_dir / "qr-tokens-missing-token.png", mobile=args.mobile)
 
         anonymous_page.goto(route_url(args.base_url, "/sensor-devices"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         anonymous_page.get_by_text("Sensor Device Registry").wait_for(timeout=args.timeout_ms)
@@ -213,7 +217,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("sensor_devices_missing_token_notice_visible", True))
         checks.append(check("sensor_devices_missing_token_blocked", True, MISSING_AUTH_DETAIL))
         checks.append(check("sensor_devices_missing_token_no_horizontal_overflow", has_no_horizontal_overflow(anonymous_sensor_metrics), str(anonymous_sensor_metrics)))
-        anonymous_page.screenshot(path=str(screenshot_dir / "sensor-devices-missing-token.png"), full_page=True)
+        capture_screenshot(anonymous_page, screenshot_dir / "sensor-devices-missing-token.png", mobile=args.mobile)
         anonymous_page.close()
 
         page = browser.new_page(viewport=viewport, is_mobile=args.mobile, has_touch=args.mobile)
@@ -254,7 +258,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         }
         checks.append(check("qr_token_reissued", qr_reissued, "one-time public verify label URL rendered"))
         checks.append(check("qr_tokens_no_horizontal_overflow", has_no_horizontal_overflow(qr_tokens_metrics), str(qr_tokens_metrics)))
-        page.screenshot(path=str(screenshot_dir / "qr-tokens.png"), full_page=True)
+        capture_screenshot(page, screenshot_dir / "qr-tokens.png", mobile=args.mobile)
 
         page.goto(route_url(args.base_url, "/sensor-devices"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         page.get_by_text("Sensor Device Registry").wait_for(timeout=args.timeout_ms)
@@ -286,7 +290,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         }
         checks.append(check("mqtt_broker_provisioning_rendered", provisioning_ok, sensor_id))
         checks.append(check("sensor_devices_no_horizontal_overflow", has_no_horizontal_overflow(sensor_devices_metrics), str(sensor_devices_metrics)))
-        page.screenshot(path=str(screenshot_dir / "sensor-devices.png"), full_page=True)
+        capture_screenshot(page, screenshot_dir / "sensor-devices.png", mobile=args.mobile)
         browser.close()
 
     observations["sensor_id"] = sensor_id
