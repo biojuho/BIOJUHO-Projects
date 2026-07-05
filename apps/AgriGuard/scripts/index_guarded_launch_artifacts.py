@@ -378,7 +378,13 @@ def build_index(
         "consumer_packet_evidence_outputs_status": consumer.get("packet_evidence_outputs_status")
         if isinstance(consumer, dict)
         else None,
+        "consumer_packet_evidence_outputs_blocker_class": consumer.get("packet_evidence_outputs_blocker_class")
+        if isinstance(consumer, dict)
+        else None,
         "consumer_packet_markdown_table_status": consumer.get("packet_markdown_table_status")
+        if isinstance(consumer, dict)
+        else None,
+        "consumer_packet_markdown_table_blocker_class": consumer.get("packet_markdown_table_blocker_class")
         if isinstance(consumer, dict)
         else None,
         "consumer_packet_path_mismatch_count": consumer.get("packet_path_mismatch_count")
@@ -464,7 +470,9 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Validation status: `{index.get('validation_status')}`",
         f"- Consumer validation matches handoff: `{str(index.get('consumer_validation_matches_handoff')).lower()}`",
         f"- Consumer packet validation: `{index.get('consumer_packet_validation_status')}`",
+        f"- Consumer packet evidence outputs blocker class: `{index.get('consumer_packet_evidence_outputs_blocker_class') or '-'}`",
         f"- Consumer packet Markdown table: `{index.get('consumer_packet_markdown_table_status')}`",
+        f"- Consumer packet Markdown table blocker class: `{index.get('consumer_packet_markdown_table_blocker_class') or '-'}`",
         f"- Consumer packet path mismatch count: `{index.get('consumer_packet_path_mismatch_count')}`",
         f"- Consumer readiness action IDs: `{', '.join(str(action_id) for action_id in readiness_action_ids) if readiness_action_ids else '-'}`",
         f"- Consumer readiness next command count: `{len(readiness_next_commands)}`",

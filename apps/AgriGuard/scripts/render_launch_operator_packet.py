@@ -318,11 +318,21 @@ def _guarded_launch_evidence_outputs(
     return {key: _rel(path, workspace_root) for key, path in paths.items()}
 
 
+def _guarded_launch_evidence_validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "guarded_launch_evidence_blocked"
+
+
+def _markdown_table_validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "guarded_launch_markdown_table_blocked"
+
+
 def _guarded_launch_evidence_validation(outputs: dict[str, str]) -> dict[str, object]:
     missing = [key for key in REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS if key not in outputs]
     empty = [key for key in REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS if not outputs.get(key)]
+    status = "pass" if not missing and not empty else "fail"
     return {
-        "status": "pass" if not missing and not empty else "fail",
+        "status": status,
+        "blocker_class": _guarded_launch_evidence_validation_blocker_class(status),
         "required_output_keys": list(REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS),
         "missing_output_keys": missing,
         "empty_output_keys": empty,
@@ -370,8 +380,10 @@ def validate_markdown_evidence_table(packet: dict[str, object], markdown: str) -
         for key in expected
         if key in actual and actual[key] != expected[key]
     ]
+    status = "pass" if not missing and not extra and not mismatches else "fail"
     return {
-        "status": "pass" if not missing and not extra and not mismatches else "fail",
+        "status": status,
+        "blocker_class": _markdown_table_validation_blocker_class(status),
         "expected_output_keys": list(expected),
         "missing_rows": missing,
         "extra_rows": extra,

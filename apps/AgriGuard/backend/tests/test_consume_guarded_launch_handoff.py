@@ -186,7 +186,9 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["packet_validation_status"] == "pass"
     assert view["packet_validation_blocker_class"] == "ready"
     assert view["packet_evidence_outputs_status"] == "pass"
+    assert view["packet_evidence_outputs_blocker_class"] == "ready"
     assert view["packet_markdown_table_status"] == "pass"
+    assert view["packet_markdown_table_blocker_class"] == "ready"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["packet_artifact_index_recovery_command_note"] is None
     assert view["packet_artifact_index_recovery_command_shell"] is None

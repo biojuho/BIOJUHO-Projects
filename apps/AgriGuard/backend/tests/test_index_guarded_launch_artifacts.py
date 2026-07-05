@@ -52,7 +52,9 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "validation_status": "pass",
             "packet_validation_status": "pass",
             "packet_evidence_outputs_status": "pass",
+            "packet_evidence_outputs_blocker_class": "ready",
             "packet_markdown_table_status": "pass",
+            "packet_markdown_table_blocker_class": "ready",
             "packet_path_mismatch_count": 0,
             "ready_gate_command_shell": "powershell",
             "ready_gate_command_text": "& python run_guarded_launch.py --require-ready",
@@ -110,7 +112,10 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_blocker_class"] == "preflight_blocked"
     assert index["validation_status"] == "pass"
     assert index["consumer_packet_validation_status"] == "pass"
+    assert index["consumer_packet_evidence_outputs_status"] == "pass"
+    assert index["consumer_packet_evidence_outputs_blocker_class"] == "ready"
     assert index["consumer_packet_markdown_table_status"] == "pass"
+    assert index["consumer_packet_markdown_table_blocker_class"] == "ready"
     assert index["consumer_readiness_operator_action_ids"] == ["fix_env_shape_validation"]
     assert index["consumer_readiness_next_commands"] == [
         {
@@ -148,6 +153,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     }
     assert "Blocker class: `ready`" in markdown
     assert "Consumer readiness next command count: `1`" in markdown
+    assert "Consumer packet evidence outputs blocker class: `ready`" in markdown
+    assert "Consumer packet Markdown table blocker class: `ready`" in markdown
     assert "Consumer command metadata: `pass`" in markdown
     assert "Consumer readiness command metadata: `pass`" in markdown
     assert "Consumer ready gate command shell: `powershell`" in markdown

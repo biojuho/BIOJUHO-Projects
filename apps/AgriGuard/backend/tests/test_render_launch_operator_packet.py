@@ -119,6 +119,7 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     assert set(packet["guarded_launch_evidence"]["validation"]["required_output_keys"]) == required_from_artifact_index
     assert packet["guarded_launch_evidence"]["validation"] == {
         "status": "pass",
+        "blocker_class": "ready",
         "required_output_keys": list(render_launch_operator_packet.REQUIRED_GUARDED_LAUNCH_EVIDENCE_OUTPUT_KEYS),
         "missing_output_keys": [],
         "empty_output_keys": [],
@@ -613,6 +614,7 @@ def test_operator_packet_markdown_evidence_table_matches_json_outputs(tmp_path: 
 
     assert validation == {
         "status": "pass",
+        "blocker_class": "ready",
         "expected_output_keys": list(packet["guarded_launch_evidence"]["outputs"]),
         "missing_rows": [],
         "extra_rows": [],
@@ -633,6 +635,7 @@ def test_operator_packet_markdown_evidence_table_reports_path_drift(tmp_path: Pa
     validation = render_launch_operator_packet.validate_markdown_evidence_table(packet, markdown)
 
     assert validation["status"] == "fail"
+    assert validation["blocker_class"] == "guarded_launch_markdown_table_blocked"
     assert validation["missing_rows"] == []
     assert validation["extra_rows"] == []
     assert validation["path_mismatches"] == [
@@ -825,6 +828,7 @@ def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_
     assert packet["blocking_action_count"] == 1
     assert packet["blocker_class"] == "operator_values_required"
     assert packet["guarded_launch_evidence"]["markdown_table_validation"]["status"] == "pass"
+    assert packet["guarded_launch_evidence"]["markdown_table_validation"]["blocker_class"] == "ready"
     assert "validate_launch_env_template.py" in packet["safe_rerun_commands"][0]
     assert str(APP_ROOT) in packet["safe_rerun_commands"][0]
     assert "run_guarded_launch.py" in packet["safe_rerun_commands"][1]

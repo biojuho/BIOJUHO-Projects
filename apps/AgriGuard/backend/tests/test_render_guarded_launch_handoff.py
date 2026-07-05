@@ -151,7 +151,9 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["status"] == "pass"
     assert handoff["packet_validation"]["blocker_class"] == "ready"
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
+    assert handoff["packet_validation"]["evidence_outputs_blocker_class"] == "ready"
     assert handoff["packet_validation"]["markdown_table_status"] == "pass"
+    assert handoff["packet_validation"]["markdown_table_blocker_class"] == "ready"
     assert handoff["status_view"]["artifact_index"]["status"] == "pass"
     assert handoff["status_view"]["artifact_index"]["blocker_class"] == "ready"
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
@@ -240,6 +242,8 @@ def test_guarded_launch_handoff_notes_deferred_artifact_index_recovery_status(tm
     assert "Artifact index recovery command shell: `powershell`" in markdown
     assert "Artifact index recovery command: `& python apps/AgriGuard/scripts/run_guarded_launch.py" in markdown
     assert "Artifact index recovery required: `true`" in markdown
+    assert "Evidence outputs blocker class: `ready`" in markdown
+    assert "Markdown table blocker class: `ready`" in markdown
 
 
 def test_guarded_launch_handoff_accepts_ready_prefix(tmp_path: Path) -> None:

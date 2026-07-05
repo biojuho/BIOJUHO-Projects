@@ -101,6 +101,27 @@ def _packet_validation_blocker_class(status: object) -> str:
     return "ready" if status == "pass" else "packet_validation_blocked"
 
 
+def _guarded_launch_evidence_validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "guarded_launch_evidence_blocked"
+
+
+def _markdown_table_validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "guarded_launch_markdown_table_blocked"
+
+
+def _blocker_class_from_validation(
+    validation: dict[str, object],
+    status: object,
+    fallback: str,
+) -> object:
+    blocker_class = validation.get("blocker_class")
+    if isinstance(blocker_class, str):
+        return blocker_class
+    if fallback == "markdown":
+        return _markdown_table_validation_blocker_class(status)
+    return _guarded_launch_evidence_validation_blocker_class(status)
+
+
 def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, object]:
     operator_packet = status_view.get("operator_packet")
     packet_path_value = operator_packet.get("path") if isinstance(operator_packet, dict) else None
@@ -141,7 +162,17 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
         "found": packet is not None,
         "operator_packet_json": str(packet_path) if packet_path is not None else None,
         "evidence_outputs_status": evidence_status if isinstance(evidence_status, str) else None,
+        "evidence_outputs_blocker_class": _blocker_class_from_validation(
+            evidence_validation,
+            evidence_status,
+            "evidence",
+        ),
         "markdown_table_status": markdown_status if isinstance(markdown_status, str) else None,
+        "markdown_table_blocker_class": _blocker_class_from_validation(
+            markdown_validation,
+            markdown_status,
+            "markdown",
+        ),
         "missing_output_keys": _string_list(evidence_validation.get("missing_output_keys")),
         "empty_output_keys": _string_list(evidence_validation.get("empty_output_keys")),
         "expected_output_key_count": len(expected_output_keys),
@@ -347,7 +378,9 @@ def render_markdown(handoff: dict[str, object]) -> str:
         "",
         f"- Operator packet JSON: `{packet_validation.get('operator_packet_json')}`",
         f"- Evidence outputs: `{packet_validation.get('evidence_outputs_status')}`",
+        f"- Evidence outputs blocker class: `{packet_validation.get('evidence_outputs_blocker_class') or '-'}`",
         f"- Markdown table: `{packet_validation.get('markdown_table_status')}`",
+        f"- Markdown table blocker class: `{packet_validation.get('markdown_table_blocker_class') or '-'}`",
         f"- Artifact index status: `{artifact_index.get('status')}`",
         f"- Artifact index path: `{artifact_index.get('path') or '-'}`",
         f"- Artifact index blocker class: `{artifact_index.get('blocker_class') or '-'}`",

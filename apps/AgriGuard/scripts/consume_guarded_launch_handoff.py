@@ -291,7 +291,9 @@ def build_consumer_view(
         "packet_validation_status": packet_validation_status,
         "packet_validation_blocker_class": packet_validation.get("blocker_class"),
         "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),
+        "packet_evidence_outputs_blocker_class": packet_validation.get("evidence_outputs_blocker_class"),
         "packet_markdown_table_status": packet_validation.get("markdown_table_status"),
+        "packet_markdown_table_blocker_class": packet_validation.get("markdown_table_blocker_class"),
         "packet_path_mismatch_count": packet_validation.get("path_mismatch_count"),
         "packet_artifact_index_recovery_command_status": packet_validation.get(
             "artifact_index_recovery_command_status"

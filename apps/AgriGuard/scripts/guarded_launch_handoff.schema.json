@@ -179,6 +179,12 @@
             "null"
           ]
         },
+        "evidence_outputs_blocker_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "expected_output_key_count": {
           "minimum": 0,
           "type": "integer"
@@ -193,6 +199,12 @@
           "type": "boolean"
         },
         "markdown_table_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "markdown_table_blocker_class": {
           "type": [
             "string",
             "null"
@@ -230,7 +242,9 @@
         "found",
         "operator_packet_json",
         "evidence_outputs_status",
+        "evidence_outputs_blocker_class",
         "markdown_table_status",
+        "markdown_table_blocker_class",
         "missing_output_keys",
         "empty_output_keys",
         "expected_output_key_count",
