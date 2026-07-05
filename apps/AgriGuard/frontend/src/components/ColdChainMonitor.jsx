@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Thermometer, Droplets, AlertTriangle, Activity, Wifi, WifiOff } from 'lucide-react';
+import { Thermometer, Droplets, AlertTriangle, Activity, Wifi, WifiOff, Clock, ServerCrash } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useToast } from '../contexts/ToastContext';
 import { cn } from '../lib/utils';
@@ -7,14 +7,77 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { useThrottledWebSocket } from '../hooks/useThrottledWebSocket';
 
-const ZONE_COLORS = {
-  'Cold Storage A': '#3b82f6',
-  'Cold Storage B': '#8b5cf6',
-  'Transport Unit 1': '#f59e0b',
-  'Transport Unit 2': '#10b981',
+const STATUS_POLL_INTERVAL_MS = 15000;
+
+const CONNECTIVITY_LABELS = {
+  online: 'Sensors online',
+  stale: 'Sensor delay',
+  offline: 'Sensor offline',
+  no_data: 'No sensor data',
 };
 
-const STATUS_POLL_INTERVAL_MS = 15000;
+const CONNECTIVITY_VARIANTS = {
+  online: 'success',
+  stale: 'warning',
+  offline: 'destructive',
+  no_data: 'secondary',
+};
+
+const formatTemperature = (value) => (
+  typeof value === 'number' ? `${value} C` : '--'
+);
+
+const formatHumidity = (value) => (
+  typeof value === 'number' ? `${value}%` : '--'
+);
+
+const formatLastSeen = (value) => {
+  if (!value) {
+    return 'No readings';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown';
+  }
+
+  return date.toLocaleString('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+function getSensorStatusMessage({ connectivityStatus, offlineSensors, staleSensors, deviceCount, watchHours }) {
+  if (connectivityStatus === 'offline') {
+    return `${offlineSensors} offline and ${staleSensors} stale across ${deviceCount} devices`;
+  }
+  if (connectivityStatus === 'stale') {
+    return `${staleSensors} stale across ${deviceCount} devices`;
+  }
+  if (connectivityStatus === 'no_data') {
+    return `No device check-ins in the ${watchHours} hour watch window`;
+  }
+  return `${deviceCount} devices reporting inside the expected window`;
+}
+
+function getAttentionClass(connectivityStatus) {
+  if (connectivityStatus === 'offline') {
+    return 'border-destructive/30 bg-destructive/10 text-destructive';
+  }
+  return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
+}
+
+function getZoneClass(zone) {
+  if (zone.connectivity_status === 'offline' || zone.alert_count > 0) {
+    return 'border-destructive/30 bg-destructive/5';
+  }
+  if (zone.connectivity_status === 'stale') {
+    return 'border-amber-500/30 bg-amber-500/5';
+  }
+  return 'border-border bg-white/5';
+}
 
 export default function ColdChainMonitor() {
   const [status, setStatus] = useState(null);
@@ -22,8 +85,8 @@ export default function ColdChainMonitor() {
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/ws/iot`;
   const { data: readings, connected } = useThrottledWebSocket(wsUrl, {
-    throttleMs: 150,   // Flush at most ~7 times/sec (vs 10,000/sec unthrottled)
-    maxItems: 200,     // Keep latest 200 readings for chart
+    throttleMs: 150,
+    maxItems: 200,
     onAlert: (alert) => showToast(alert, 'error'),
   });
   const prevConnectedRef = useRef(connected);
@@ -74,6 +137,22 @@ export default function ColdChainMonitor() {
   }));
 
   const latestReading = readings[readings.length - 1];
+  const zones = status?.zones ?? [];
+  const alertCount = zones.reduce((sum, zone) => sum + (zone.alert_count || 0), 0);
+  const staleSensors = status?.stale_sensor_count ?? zones.reduce((sum, zone) => sum + (zone.stale_count || 0), 0);
+  const offlineSensors = status?.offline_sensor_count ?? zones.reduce((sum, zone) => sum + (zone.offline_count || 0), 0);
+  const deviceCount = status?.device_count ?? zones.reduce((sum, zone) => sum + (zone.device_count || 0), 0);
+  const connectivityStatus = status?.connectivity_status || (connected ? 'online' : 'offline');
+  const connectivityLabel = CONNECTIVITY_LABELS[connectivityStatus] ?? connectivityStatus;
+  const connectivityVariant = CONNECTIVITY_VARIANTS[connectivityStatus] ?? 'secondary';
+  const hasSensorAttention = ['offline', 'stale', 'no_data'].includes(connectivityStatus);
+  const sensorStatusMessage = getSensorStatusMessage({
+    connectivityStatus,
+    offlineSensors,
+    staleSensors,
+    deviceCount,
+    watchHours: status?.device_watch_hours ?? 24,
+  });
 
   const chartTooltipStyle = {
     backgroundColor: 'hsl(215 28% 11%)',
@@ -84,30 +163,48 @@ export default function ColdChainMonitor() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Cold-Chain Monitor</h1>
-          <p className="text-sm text-muted-foreground mt-1">실시간 온도·습도 IoT 모니터링</p>
+          <p className="mt-1 text-sm text-muted-foreground">Real-time IoT temperature, humidity, and sensor health</p>
         </div>
-        <Badge variant={connected ? 'success' : 'destructive'} className="gap-1.5">
-          {connected ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-          {connected ? 'Live' : 'Disconnected'}
-        </Badge>
+        <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
+          <Badge variant={connectivityVariant} className="gap-1.5">
+            {connectivityStatus === 'offline' ? <ServerCrash className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+            {connectivityLabel}
+          </Badge>
+          <Badge variant={connected ? 'success' : 'destructive'} className="gap-1.5">
+            {connected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+            {connected ? 'Live' : 'Disconnected'}
+          </Badge>
+        </div>
       </div>
 
-      {/* Live Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {hasSensorAttention && (
+        <div
+          role="status"
+          aria-atomic="true"
+          className={cn('flex items-start gap-3 rounded-lg border p-4', getAttentionClass(connectivityStatus))}
+        >
+          {connectivityStatus === 'offline' ? <ServerCrash className="mt-0.5 h-5 w-5 shrink-0" /> : <Clock className="mt-0.5 h-5 w-5 shrink-0" />}
+          <div>
+            <p className="font-semibold">{connectivityLabel}</p>
+            <p className="text-sm text-muted-foreground">{sensorStatusMessage}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           icon={Thermometer}
           label="Temperature"
-          value={latestReading ? `${latestReading.temperature}°C` : '--'}
+          value={formatTemperature(latestReading?.temperature)}
           color={latestReading?.temperature > 8 || latestReading?.temperature < -25 ? 'red' : 'blue'}
         />
         <StatCard
           icon={Droplets}
           label="Humidity"
-          value={latestReading ? `${latestReading.humidity}%` : '--'}
+          value={formatHumidity(latestReading?.humidity)}
           color="cyan"
         />
         <StatCard
@@ -119,12 +216,17 @@ export default function ColdChainMonitor() {
         <StatCard
           icon={AlertTriangle}
           label="Alerts"
-          value={status?.zones?.reduce((sum, z) => sum + z.alert_count, 0) || 0}
+          value={alertCount}
           color={status?.overall_status === 'alert' ? 'red' : 'green'}
+        />
+        <StatCard
+          icon={Clock}
+          label="Sensor Health"
+          value={`${offlineSensors} offline / ${staleSensors} stale`}
+          color={offlineSensors > 0 ? 'red' : staleSensors > 0 ? 'amber' : 'green'}
         />
       </div>
 
-      {/* Temperature Chart */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Temperature Timeline</CardTitle>
@@ -136,15 +238,14 @@ export default function ColdChainMonitor() {
               <XAxis dataKey="time" stroke="#6b7280" fontSize={11} />
               <YAxis stroke="#6b7280" fontSize={11} domain={[-30, 15]} />
               <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: '#9ca3af' }} />
-              <ReferenceLine y={8} stroke="#ef4444" strokeDasharray="5 5" label={{ value: "Max 8°C", fill: "#ef4444", fontSize: 10 }} />
-              <ReferenceLine y={-25} stroke="#3b82f6" strokeDasharray="5 5" label={{ value: "Min -25°C", fill: "#3b82f6", fontSize: 10 }} />
+              <ReferenceLine y={8} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'Max 8 C', fill: '#ef4444', fontSize: 10 }} />
+              <ReferenceLine y={-25} stroke="#3b82f6" strokeDasharray="5 5" label={{ value: 'Min -25 C', fill: '#3b82f6', fontSize: 10 }} />
               <Line type="monotone" dataKey="temp" stroke="#60a5fa" strokeWidth={2} dot={false} name="Temperature" />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Humidity Chart */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Humidity Timeline</CardTitle>
@@ -162,41 +263,78 @@ export default function ColdChainMonitor() {
         </CardContent>
       </Card>
 
-      {/* Zone Status */}
-      {status?.zones && status.zones.length > 0 && (
+      {status && zones.length === 0 && (
+        <Card>
+          <CardContent className="p-6">
+            <div role="status" aria-atomic="true" className="flex items-center gap-3 text-muted-foreground">
+              <ServerCrash className="h-5 w-5" />
+              <span>No cold-chain zones have reported inside the current watch window.</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {zones.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Zone Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {status.zones.map((zone) => (
-                <div key={zone.zone} className={cn(
-                  'p-4 rounded-xl border',
-                  zone.alert_count > 0
-                    ? 'border-destructive/30 bg-destructive/5'
-                    : 'border-border bg-white/5'
-                )}>
-                  <div className="flex items-center justify-between mb-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {zones.map((zone) => (
+                <div key={zone.zone} className={cn('rounded-xl border p-4', getZoneClass(zone))}>
+                  <div className="mb-2 flex items-center justify-between gap-3">
                     <span className="font-medium text-foreground">{zone.zone}</span>
-                    {zone.alert_count > 0 && (
-                      <Badge variant="destructive">{zone.alert_count} alerts</Badge>
-                    )}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Badge variant={CONNECTIVITY_VARIANTS[zone.connectivity_status] ?? 'secondary'}>
+                        {CONNECTIVITY_LABELS[zone.connectivity_status] ?? zone.connectivity_status}
+                      </Badge>
+                      {zone.alert_count > 0 && (
+                        <Badge variant="destructive">{zone.alert_count} alerts</Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">Avg</span>
-                      <p className="text-blue-400 font-mono">{zone.avg_temp}°C</p>
+                      <p className="font-mono text-blue-400">{formatTemperature(zone.avg_temp)}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Min</span>
-                      <p className="text-cyan-400 font-mono">{zone.min_temp}°C</p>
+                      <p className="font-mono text-cyan-400">{formatTemperature(zone.min_temp)}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Max</span>
-                      <p className="text-orange-400 font-mono">{zone.max_temp}°C</p>
+                      <p className="font-mono text-orange-400">{formatTemperature(zone.max_temp)}</p>
                     </div>
                   </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Sensors</span>
+                      <p className="font-mono text-foreground">{zone.device_count || 0} total</p>
+                      <p className="text-xs text-muted-foreground">
+                        {zone.offline_count || 0} offline / {zone.stale_count || 0} stale
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Last seen</span>
+                      <p className="font-mono text-foreground">{formatLastSeen(zone.latest_seen_at)}</p>
+                      <p className="text-xs text-muted-foreground">{zone.readings_count || 0} readings</p>
+                    </div>
+                  </div>
+                  {zone.sensors?.length > 0 && (
+                    <ul className="mt-4 space-y-2">
+                      {zone.sensors.slice(0, 3).map((sensor) => (
+                        <li key={sensor.sensor_id} className="flex items-center justify-between gap-3 rounded-md bg-black/10 px-3 py-2 text-sm">
+                          <span className="truncate font-mono text-foreground">{sensor.sensor_id}</span>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Badge variant={CONNECTIVITY_VARIANTS[sensor.status] ?? 'secondary'}>{sensor.status}</Badge>
+                            <span className="font-mono text-xs text-muted-foreground">{sensor.age_minutes}m</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>
@@ -212,6 +350,7 @@ function StatCard({ icon: Icon, label, value, color }) {
     blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
     red: 'text-red-400 bg-red-500/10 border-red-500/20',
     green: 'text-primary bg-primary/10 border-primary/20',
+    amber: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     cyan: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
     purple: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
   };
@@ -220,11 +359,16 @@ function StatCard({ icon: Icon, label, value, color }) {
   return (
     <Card className={cn('backdrop-blur-lg', cls)}>
       <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Icon className="w-4 h-4" />
+        <div className="mb-2 flex items-center gap-2">
+          <Icon className="h-4 w-4" />
           <span className="text-xs text-muted-foreground">{label}</span>
         </div>
-        <p className="text-xl font-bold truncate">{value}</p>
+        <p
+          data-testid={`cold-chain-stat-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          className="min-h-12 text-wrap break-words text-xl font-bold leading-tight"
+        >
+          {value}
+        </p>
       </CardContent>
     </Card>
   );

@@ -75,10 +75,21 @@ describe('ColdChainMonitor', () => {
             max_temp: -17,
             alert_count: 0,
             readings_count: 1,
+            connectivity_status: 'online',
+            device_count: 1,
+            online_count: 1,
+            stale_count: 0,
+            offline_count: 0,
+            latest_seen_at: '2026-04-09T01:05:00Z',
+            sensors: [],
           },
         ],
         overall_status: 'normal',
+        connectivity_status: 'online',
         total_readings: 1,
+        device_count: 1,
+        stale_sensor_count: 0,
+        offline_sensor_count: 0,
       }),
     });
 
@@ -102,10 +113,21 @@ describe('ColdChainMonitor', () => {
             max_temp: -17,
             alert_count: 0,
             readings_count: 1,
+            connectivity_status: 'online',
+            device_count: 1,
+            online_count: 1,
+            stale_count: 0,
+            offline_count: 0,
+            latest_seen_at: '2026-04-09T01:05:00Z',
+            sensors: [],
           },
         ],
         overall_status: 'normal',
+        connectivity_status: 'online',
         total_readings: 1,
+        device_count: 1,
+        stale_sensor_count: 0,
+        offline_sensor_count: 0,
       },
       {
         zones: [
@@ -117,10 +139,21 @@ describe('ColdChainMonitor', () => {
             max_temp: 12,
             alert_count: 1,
             readings_count: 4,
+            connectivity_status: 'online',
+            device_count: 1,
+            online_count: 1,
+            stale_count: 0,
+            offline_count: 0,
+            latest_seen_at: '2026-04-09T01:05:00Z',
+            sensors: [],
           },
         ],
         overall_status: 'alert',
+        connectivity_status: 'online',
         total_readings: 4,
+        device_count: 1,
+        stale_sensor_count: 0,
+        offline_sensor_count: 0,
       },
     ];
     let fetchCount = 0;
@@ -149,5 +182,153 @@ describe('ColdChainMonitor', () => {
 
     expect(globalThis.fetch.mock.calls.length).toBeGreaterThan(initialFetchCount);
     expect(screen.getByText('1 alerts')).toBeInTheDocument();
+  });
+
+  it('surfaces stale and offline sensor state from backend status', async () => {
+    globalThis.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        zones: [
+          {
+            zone: 'Cold Storage A',
+            avg_temp: -18,
+            avg_humidity: 50,
+            min_temp: -18.5,
+            max_temp: -17.5,
+            alert_count: 0,
+            readings_count: 2,
+            connectivity_status: 'stale',
+            device_count: 2,
+            online_count: 1,
+            stale_count: 1,
+            offline_count: 0,
+            latest_seen_at: '2026-04-09T01:05:00Z',
+            sensors: [
+              {
+                sensor_id: 'stale-sensor',
+                status: 'stale',
+                age_minutes: 12,
+                last_seen_at: '2026-04-09T00:53:00Z',
+              },
+            ],
+          },
+          {
+            zone: 'Transport Unit 1',
+            avg_temp: -17,
+            avg_humidity: 49,
+            min_temp: -17,
+            max_temp: -17,
+            alert_count: 0,
+            readings_count: 1,
+            connectivity_status: 'offline',
+            device_count: 1,
+            online_count: 0,
+            stale_count: 0,
+            offline_count: 1,
+            latest_seen_at: '2026-04-09T00:25:00Z',
+            sensors: [
+              {
+                sensor_id: 'offline-sensor',
+                status: 'offline',
+                age_minutes: 40,
+                last_seen_at: '2026-04-09T00:25:00Z',
+              },
+            ],
+          },
+        ],
+        overall_status: 'alert',
+        connectivity_status: 'offline',
+        total_readings: 3,
+        device_count: 3,
+        online_sensor_count: 1,
+        stale_sensor_count: 1,
+        offline_sensor_count: 1,
+        device_watch_hours: 24,
+      }),
+    });
+
+    render(<ColdChainMonitor />);
+
+    expect((await screen.findAllByText('Sensor offline')).length).toBeGreaterThan(0);
+    expect(screen.getByText('1 offline and 1 stale across 3 devices')).toBeInTheDocument();
+    expect(screen.getByText('Sensor Health')).toBeInTheDocument();
+    expect(screen.getAllByText('1 offline / 1 stale').length).toBeGreaterThan(0);
+    expect(screen.getByText('stale-sensor')).toBeInTheDocument();
+    expect(screen.getByText('offline-sensor')).toBeInTheDocument();
+  });
+
+  it('allows long sensor health values to wrap instead of truncating on mobile cards', async () => {
+    globalThis.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        zones: [],
+        overall_status: 'alert',
+        connectivity_status: 'offline',
+        total_readings: 0,
+        device_count: 79,
+        online_sensor_count: 0,
+        stale_sensor_count: 0,
+        offline_sensor_count: 79,
+        device_watch_hours: 24,
+      }),
+    });
+
+    render(<ColdChainMonitor />);
+
+    const sensorHealthValue = await screen.findByTestId('cold-chain-stat-sensor-health');
+
+    expect(sensorHealthValue).toHaveTextContent('79 offline / 0 stale');
+    expect(sensorHealthValue).toHaveClass('text-wrap');
+    expect(sensorHealthValue).not.toHaveClass('truncate');
+  });
+
+  it('keeps registered silent zones visible when aggregate temperatures are empty', async () => {
+    socketState.data = [];
+    globalThis.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        zones: [
+          {
+            zone: 'Cold Storage B',
+            avg_temp: null,
+            avg_humidity: null,
+            min_temp: null,
+            max_temp: null,
+            alert_count: 0,
+            readings_count: 0,
+            connectivity_status: 'offline',
+            device_count: 1,
+            online_count: 0,
+            stale_count: 0,
+            offline_count: 1,
+            latest_seen_at: '2026-04-07T00:00:00Z',
+            sensors: [
+              {
+                sensor_id: 'registered-silent-sensor',
+                status: 'offline',
+                age_minutes: 2880,
+                registered: true,
+                last_seen_at: '2026-04-07T00:00:00Z',
+              },
+            ],
+          },
+        ],
+        overall_status: 'alert',
+        connectivity_status: 'offline',
+        total_readings: 0,
+        device_count: 1,
+        online_sensor_count: 0,
+        stale_sensor_count: 0,
+        offline_sensor_count: 1,
+        device_watch_hours: 24,
+      }),
+    });
+
+    render(<ColdChainMonitor />);
+
+    expect(await screen.findByText('Cold Storage B')).toBeInTheDocument();
+    expect(screen.getByText('registered-silent-sensor')).toBeInTheDocument();
+    expect(screen.getByText('0 readings')).toBeInTheDocument();
+    expect(screen.getAllByText('--').length).toBeGreaterThan(0);
   });
 });
