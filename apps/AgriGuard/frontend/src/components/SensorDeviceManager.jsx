@@ -40,6 +40,7 @@ const REJECTION_REASON_OPTIONS = ['all', 'unregistered_sensor', 'disabled_sensor
 const SENSOR_ID_PATTERN = '[A-Za-z0-9_.:\\-]+';
 const SENSOR_ID_PATTERN_RE = /^[A-Za-z0-9_.:-]+$/;
 const SENSOR_ID_PATTERN_MESSAGE = 'Sensor ID may contain letters, numbers, dot, underscore, colon, and hyphen.';
+const PROTECTED_AUTO_LOAD_MESSAGE = 'Save an operator bearer token to load protected sensor data.';
 const DEFAULT_PROVISIONING_CONFIG = {
   passwordFilePath: '/etc/mosquitto/passwd',
   dynamicSecurityRole: 'agriguard-sensor',
@@ -367,40 +368,46 @@ export default function SensorDeviceManager() {
   }, [rejectionFilter, rejectionPage]);
 
   useEffect(() => {
+    if (!hasSavedOperatorToken) return;
     // Initial and filter/page-driven registry load mirrors the existing operator QR flow.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDevices();
-  }, [fetchDevices]);
+  }, [fetchDevices, hasSavedOperatorToken]);
 
   useEffect(() => {
+    if (!hasSavedOperatorToken) return;
     // Unsupported identity cleanup is intentionally separate from the paged registry list.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUnsupportedIdentities();
-  }, [fetchUnsupportedIdentities]);
+  }, [fetchUnsupportedIdentities, hasSavedOperatorToken]);
 
   useEffect(() => {
+    if (!hasSavedOperatorToken) return;
     // Broker provisioning output is generated from current registry state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBrokerProvisioning();
-  }, [fetchBrokerProvisioning]);
+  }, [fetchBrokerProvisioning, hasSavedOperatorToken]);
 
   useEffect(() => {
+    if (!hasSavedOperatorToken) return;
     // Last-applied evidence is stored as operator audit metadata.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBrokerProvisioningEvidence();
-  }, [fetchBrokerProvisioningEvidence]);
+  }, [fetchBrokerProvisioningEvidence, hasSavedOperatorToken]);
 
   useEffect(() => {
+    if (!hasSavedOperatorToken) return;
     // Evidence history is paged separately from the latest evidence summary.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBrokerProvisioningEvidenceHistory();
-  }, [fetchBrokerProvisioningEvidenceHistory]);
+  }, [fetchBrokerProvisioningEvidenceHistory, hasSavedOperatorToken]);
 
   useEffect(() => {
+    if (!hasSavedOperatorToken) return;
     // Initial and filter/page-driven audit load mirrors the registry list flow.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRejections();
-  }, [fetchRejections]);
+  }, [fetchRejections, hasSavedOperatorToken]);
 
   const handleFilterSubmit = useCallback((event) => {
     event.preventDefault();
@@ -806,6 +813,12 @@ export default function SensorDeviceManager() {
       </Card>
 
       <div aria-live="polite" role="status" className="min-h-0 text-sm empty:hidden">
+        {!hasSavedOperatorToken && (
+          <span className="inline-flex items-center gap-2 text-amber-300">
+            <AlertTriangle className="h-4 w-4" />
+            {PROTECTED_AUTO_LOAD_MESSAGE}
+          </span>
+        )}
         {deviceState.loading && <span className="text-muted-foreground">Loading sensor registry...</span>}
         {unsupportedState.loading && <span className="text-muted-foreground">Loading unsupported sensor IDs...</span>}
         {provisioningState.loading && <span className="text-muted-foreground">Generating broker provisioning artifacts...</span>}

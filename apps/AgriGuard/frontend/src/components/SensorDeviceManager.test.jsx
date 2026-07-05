@@ -342,6 +342,20 @@ describe('SensorDeviceManager', () => {
     expect(screen.getByTestId('sensor-stat-grid')).toHaveClass('grid-cols-3');
   });
 
+  it('does not auto-load protected sensor data without an operator token', async () => {
+    getOperatorToken.mockReturnValue('');
+
+    render(<SensorDeviceManager />);
+
+    expect(await screen.findByText('Save an operator bearer token to load protected sensor data.')).toBeInTheDocument();
+    expect(sensorDeviceAdminApi.list).not.toHaveBeenCalled();
+    expect(sensorDeviceAdminApi.listUnsupportedIdentities).not.toHaveBeenCalled();
+    expect(sensorDeviceAdminApi.getBrokerProvisioning).not.toHaveBeenCalled();
+    expect(sensorDeviceAdminApi.getBrokerProvisioningEvidence).not.toHaveBeenCalled();
+    expect(sensorDeviceAdminApi.getBrokerProvisioningEvidenceHistory).not.toHaveBeenCalled();
+    expect(sensorDeviceAdminApi.listMqttRejections).not.toHaveBeenCalled();
+  });
+
   it('renders registered sensor rows as mobile-first action cards', async () => {
     render(<SensorDeviceManager />);
 
