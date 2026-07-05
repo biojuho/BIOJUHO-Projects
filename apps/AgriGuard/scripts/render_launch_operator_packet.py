@@ -461,6 +461,11 @@ def _artifact_index_readiness_summary(
         "status": index.get("status") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
         "consumer_command_metadata_status": index.get("consumer_command_metadata_status") if index is not None else None,
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": index.get(
+            "consumer_readiness_operator_packet_consumer_command_metadata_status"
+        )
+        if index is not None
+        else None,
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
@@ -904,6 +909,8 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Artifact index status: `{readiness_summary.get('status')}`",
             f"- Consumer packet validation: `{readiness_summary.get('consumer_packet_validation_status')}`",
             f"- Consumer command metadata: `{readiness_summary.get('consumer_command_metadata_status')}`",
+            "- Consumer readiness command metadata: "
+            f"`{readiness_summary.get('consumer_readiness_operator_packet_consumer_command_metadata_status')}`",
             f"- Recovery command status: `{readiness_summary.get('recovery_command_status')}`",
             f"- Recovery command note: `{readiness_summary.get('recovery_command_note') or '-'}`",
             f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",

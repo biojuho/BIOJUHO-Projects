@@ -149,6 +149,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                         "status": "pass",
                         "consumer_packet_validation_status": "pass",
                         "consumer_command_metadata_status": "pass",
+                        "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                         "recovery_command_status": "not_required",
                     }
                 },
@@ -172,6 +173,10 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["reports"]["operator_packet"]["artifact_index_status"] == "pass"
     assert summary["reports"]["operator_packet"]["consumer_packet_validation_status"] == "pass"
     assert summary["reports"]["operator_packet"]["consumer_command_metadata_status"] == "pass"
+    assert (
+        summary["reports"]["operator_packet"]["consumer_readiness_operator_packet_consumer_command_metadata_status"]
+        == "pass"
+    )
     assert summary["reports"]["operator_packet"]["artifact_index_recovery_command_status"] == "not_required"
     assert summary["next_commands"] == [
         {
@@ -187,6 +192,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert "- Artifact index status: `pass`" in markdown
     assert "- Artifact index consumer packet validation: `pass`" in markdown
     assert "- Consumer command metadata: `pass`" in markdown
+    assert "- Consumer readiness command metadata: `pass`" in markdown
     assert "- Artifact index recovery command status: `not_required`" in markdown
 
 

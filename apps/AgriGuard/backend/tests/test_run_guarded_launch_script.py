@@ -440,7 +440,7 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     )
 
     assert result == 1
-    assert len(calls) == 11
+    assert len(calls) == 15
     assert calls[0][1] == str(app_root.resolve() / "scripts" / "launch_compose.py")
     assert _arg_after(calls[0], "--app-root") == str(app_root.resolve())
     assert calls[1][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
@@ -453,6 +453,10 @@ def test_guarded_launch_can_emit_handoff_after_launch_and_preserve_launch_exit(t
     assert calls[8][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
     assert calls[9][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
     assert calls[10][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
+    assert calls[11][1] == str(app_root.resolve() / "scripts" / "render_launch_operator_packet.py")
+    assert calls[12][1] == str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py")
+    assert calls[13][1] == str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py")
+    assert calls[14][1] == str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py")
     assert "--exit-zero-on-blocked" in calls[1]
     assert "--exit-zero-on-blocked" in calls[2]
     assert _arg_after(calls[3], "--markdown-out").endswith("-artifact-index.md")
@@ -497,22 +501,29 @@ def test_guarded_launch_emit_handoff_writes_default_status_json(tmp_path: Path) 
     assert payload["artifacts"]["artifact_index_json"] == str(
         output_dir.resolve() / "release-check-artifact-index.json"
     )
-    assert len(index_commands) == 3
+    assert len(index_commands) == 4
     assert _arg_after(index_commands[0], "--status-json") == str(status_json)
-    assert len(refresh_commands) == 1
+    assert len(refresh_commands) == 2
     assert _arg_after(refresh_commands[0], "--guarded-status-json") == str(status_json)
+    assert _arg_after(refresh_commands[1], "--guarded-status-json") == str(status_json)
 
 
-def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp_path: Path) -> None:
+def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp_path: Path) -> None:
     app_root = tmp_path / "AgriGuard"
     env_file = tmp_path / "operator.env"
     output_dir = tmp_path / "launch-artifacts"
     artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "release-check")
     calls: list[str] = []
+    artifact_index_write_count = 0
     packet_refresh_saw_index: list[bool] = []
+    packet_refresh_readiness_command_metadata: list[object] = []
     second_handoff_action_ids: list[list[str]] = []
+    final_handoff_readiness_command_metadata: list[object] = []
 
     def write_artifact_index(path: Path) -> None:
+        nonlocal artifact_index_write_count
+        artifact_index_write_count += 1
+        readiness_command_metadata_status = "pass" if artifact_index_write_count >= 3 else None
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             json.dumps(
@@ -521,7 +532,9 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
                     "consumer_command_metadata_status": "pass",
-                    "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
+                    "consumer_readiness_operator_packet_consumer_command_metadata_status": (
+                        readiness_command_metadata_status
+                    ),
                     "recovery_command_status": "not_required",
                     "recovery_summary": {
                         "required": False,
@@ -588,6 +601,12 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
         )
 
     def write_refreshed_operator_packet() -> None:
+        artifact_index = json.loads(
+            (output_dir.resolve() / "release-check-artifact-index.json").read_text(encoding="utf-8")
+        )
+        packet_refresh_readiness_command_metadata.append(
+            artifact_index.get("consumer_readiness_operator_packet_consumer_command_metadata_status")
+        )
         artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
         artifacts["operator_packet_json"].write_text(
             json.dumps(
@@ -599,6 +618,9 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
                             "status": "pass",
                             "consumer_packet_validation_status": "pass",
                             "consumer_command_metadata_status": "pass",
+                            "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index.get(
+                                "consumer_readiness_operator_packet_consumer_command_metadata_status"
+                            ),
                             "recovery_command_status": "not_required",
                             "operator_action_ids": ["set_firebase_service_account_file"],
                             "env_validation_ready_for_preflight": True,
@@ -631,6 +653,15 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
             action_ids = summary.get("operator_action_ids")
             assert isinstance(action_ids, list)
             second_handoff_action_ids.append([str(action_id) for action_id in action_ids])
+        if script_name == "render_guarded_launch_handoff.py" and calls.count("render_guarded_launch_handoff.py") == 4:
+            packet = json.loads(artifacts["operator_packet_json"].read_text(encoding="utf-8"))
+            evidence = packet.get("guarded_launch_evidence")
+            assert isinstance(evidence, dict)
+            summary = evidence.get("artifact_index_readiness_summary")
+            assert isinstance(summary, dict)
+            final_handoff_readiness_command_metadata.append(
+                summary.get("consumer_readiness_operator_packet_consumer_command_metadata_status")
+            )
         return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
 
     result = run_guarded_launch.main(
@@ -661,23 +692,35 @@ def test_guarded_launch_refreshes_operator_packet_after_first_artifact_index(tmp
         "render_guarded_launch_handoff.py",
         "consume_guarded_launch_handoff.py",
         "index_guarded_launch_artifacts.py",
+        "render_launch_operator_packet.py",
+        "render_guarded_launch_handoff.py",
+        "consume_guarded_launch_handoff.py",
+        "index_guarded_launch_artifacts.py",
     ]
-    assert packet_refresh_saw_index == [True]
+    assert packet_refresh_saw_index == [True, True]
+    assert packet_refresh_readiness_command_metadata == [None, "pass"]
     assert second_handoff_action_ids == [["set_firebase_service_account_file"]]
+    assert final_handoff_readiness_command_metadata == ["pass"]
     launch_report = json.loads(artifacts["launch_report_json"].read_text(encoding="utf-8"))
     operator_packet = launch_report["child_reports"]["operator_packet"]
     assert operator_packet["artifact_index_status"] == "pass"
     assert operator_packet["consumer_packet_validation_status"] == "pass"
     assert operator_packet["consumer_command_metadata_status"] == "pass"
+    assert operator_packet["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert operator_packet["artifact_index_recovery_command_status"] == "not_required"
     readiness_summary = json.loads(artifacts["readiness_summary_json"].read_text(encoding="utf-8"))
     readiness_operator_packet = readiness_summary["reports"]["operator_packet"]
     assert readiness_operator_packet["artifact_index_status"] == "pass"
     assert readiness_operator_packet["consumer_packet_validation_status"] == "pass"
     assert readiness_operator_packet["consumer_command_metadata_status"] == "pass"
+    assert (
+        readiness_operator_packet["consumer_readiness_operator_packet_consumer_command_metadata_status"]
+        == "pass"
+    )
     assert readiness_operator_packet["artifact_index_recovery_command_status"] == "not_required"
     readiness_markdown = artifacts["readiness_summary_markdown"].read_text(encoding="utf-8")
     assert "- Consumer command metadata: `pass`" in readiness_markdown
+    assert "- Consumer readiness command metadata: `pass`" in readiness_markdown
 
 
 def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_path: Path) -> None:
@@ -739,7 +782,7 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
 
     final_status = json.loads(status_json.read_text(encoding="utf-8"))
     assert result == 0
-    assert status_seen_by_index == [False, True, True]
+    assert status_seen_by_index == [False, True, True, True]
     assert final_status["artifact_index"]["found"] is True
     assert (
         final_status["artifact_index"]["consumer_readiness_operator_packet_consumer_command_metadata_status"]

@@ -138,6 +138,9 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
                 "consumer_command_metadata_status": artifact_index_summary.get(
                     "consumer_command_metadata_status"
                 ),
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index_summary.get(
+                    "consumer_readiness_operator_packet_consumer_command_metadata_status"
+                ),
                 "artifact_index_recovery_command_status": artifact_index_summary.get(
                     "recovery_command_status"
                 ),
@@ -279,6 +282,8 @@ def render_markdown(summary: dict[str, object]) -> str:
         f"- Artifact index status: `{operator_packet.get('artifact_index_status')}`",
         f"- Artifact index consumer packet validation: `{operator_packet.get('consumer_packet_validation_status')}`",
         f"- Consumer command metadata: `{operator_packet.get('consumer_command_metadata_status')}`",
+        "- Consumer readiness command metadata: "
+        f"`{operator_packet.get('consumer_readiness_operator_packet_consumer_command_metadata_status')}`",
         f"- Artifact index recovery command status: `{operator_packet.get('artifact_index_recovery_command_status')}`",
         f"- Operator action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
         f"- Secrets redacted: `{str(summary.get('secrets_redacted')).lower()}`",

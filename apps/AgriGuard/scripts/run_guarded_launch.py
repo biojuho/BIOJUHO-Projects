@@ -381,6 +381,9 @@ def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dic
         "consumer_command_metadata_status": artifact_index_summary.get(
             "consumer_command_metadata_status"
         ),
+        "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index_summary.get(
+            "consumer_readiness_operator_packet_consumer_command_metadata_status"
+        ),
         "artifact_index_recovery_command_status": artifact_index_summary.get(
             "recovery_command_status"
         ),
@@ -1165,6 +1168,37 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
             if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
                 post_launch_returncode = artifact_index_result.returncode
+            if post_launch_returncode == 0:
+                if effective_status_json_out is not None or args.require_ready:
+                    status_view = _build_status_view(
+                        output_dir=output_dir,
+                        output_prefix=args.output_prefix,
+                        artifact_paths=artifact_paths,
+                        artifact_index_json=artifact_index_json,
+                    )
+                if effective_status_json_out is not None and status_view is not None:
+                    write_json(effective_status_json_out, status_view)
+                operator_packet_refresh_result = command_runner(operator_packet_refresh_command, cwd=app_root, text=True)
+                if operator_packet_refresh_result.returncode != 0 and post_launch_returncode == 0:
+                    post_launch_returncode = operator_packet_refresh_result.returncode
+                _refresh_launch_report_operator_packet_fields(
+                    launch_report_json=artifact_paths["launch_report_json"],
+                    operator_packet_json=artifact_paths["operator_packet_json"],
+                )
+                _refresh_readiness_summary_operator_packet_fields(
+                    readiness_summary_json=artifact_paths["readiness_summary_json"],
+                    readiness_summary_markdown=artifact_paths["readiness_summary_markdown"],
+                    operator_packet_json=artifact_paths["operator_packet_json"],
+                )
+                handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
+                if handoff_result.returncode != 0 and post_launch_returncode == 0:
+                    post_launch_returncode = handoff_result.returncode
+                consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
+                if consumer_result.returncode != 0 and post_launch_returncode == 0:
+                    post_launch_returncode = consumer_result.returncode
+                artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+                if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
+                    post_launch_returncode = artifact_index_result.returncode
     if effective_status_json_out is not None or args.require_ready:
         status_view = _build_status_view(
             output_dir=output_dir,
