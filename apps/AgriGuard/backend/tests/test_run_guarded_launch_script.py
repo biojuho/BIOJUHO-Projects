@@ -1086,6 +1086,130 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["artifact_index_recovery_command_text"] is None
 
 
+def test_guarded_launch_status_only_derives_missing_child_blocker_classes(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    artifact_index = output_dir.resolve() / "blocked-artifact-index.json"
+    artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["launch_report_json"].write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "stage": "preflight",
+                "stop_reason": "preflight_failed",
+                "results": [{"name": "env_validation"}, {"name": "preflight"}, {"name": "operator_packet"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifacts["readiness_summary_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "blocker_class": "preflight_blocked",
+                "reports": {
+                    "env_validation": {
+                        "status": "pass",
+                        "ready_for_preflight": True,
+                        "placeholder_count": 0,
+                    },
+                    "operator_packet": {
+                        "status": "blocked",
+                        "preflight_status": "fail",
+                        "operator_action_ids": ["set_firebase_service_account_file"],
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifacts["operator_packet_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "env_validation_status": "pass",
+                "preflight_status": "fail",
+                "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                "secrets_redacted": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifact_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "missing_required_roles": [],
+                "consumer_packet_validation_status": "pass",
+                "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "recovery_command_status": "not_required",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json",
+            str(artifact_index),
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["blocker_class"] == "preflight_blocked"
+    assert payload["launch"]["blocker_class"] == "preflight_blocked"
+    assert payload["readiness_summary"]["env_validation_blocker_class"] == "ready"
+    assert payload["readiness_summary"]["operator_packet_blocker_class"] == "operator_values_required"
+    assert payload["operator_packet"]["blocker_class"] == "operator_values_required"
+    assert payload["operator_packet"]["env_validation_blocker_class"] == "ready"
+    assert payload["artifact_index"]["blocker_class"] == "ready"
+
+
+def test_guarded_launch_status_only_derives_top_blocker_without_summary(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["launch_report_json"].write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "stage": "preflight",
+                "stop_reason": "preflight_failed",
+                "results": [{"name": "env_validation"}, {"name": "preflight"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["status"] == "fail"
+    assert payload["blocker_class"] == "preflight_blocked"
+    assert payload["launch"]["blocker_class"] == "preflight_blocked"
+
+
 def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     output_dir = tmp_path / "launch-artifacts"

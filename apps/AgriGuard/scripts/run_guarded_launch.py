@@ -152,6 +152,92 @@ def _summary_report(payload: dict[str, Any] | None, report_name: str) -> dict[st
     return report if isinstance(report, dict) else {}
 
 
+def _existing_blocker_class(payload: dict[str, Any] | None) -> str | None:
+    if payload is None:
+        return None
+    blocker_class = payload.get("blocker_class")
+    if isinstance(blocker_class, str) and blocker_class.strip():
+        return blocker_class
+    return None
+
+
+def _launch_view_blocker_class(payload: dict[str, Any] | None) -> str | None:
+    existing = _existing_blocker_class(payload)
+    if existing is not None:
+        return existing
+    if payload is None:
+        return None
+    if payload.get("status") == "pass":
+        return "ready"
+    stop_reason = payload.get("stop_reason")
+    if stop_reason in {"env_shape_validation_failed", "env_shape_validation_requires_single_env_file"}:
+        return "env_shape_blocked"
+    if stop_reason == "preflight_failed":
+        return "preflight_blocked"
+    if payload.get("status") == "fail":
+        return f"{payload.get('stage') or 'launch'}_blocked"
+    return None
+
+
+def _env_validation_view_blocker_class(payload: dict[str, Any]) -> str | None:
+    existing = _existing_blocker_class(payload)
+    if existing is not None:
+        return existing
+    if payload.get("status") == "pass" or payload.get("ready_for_preflight") is True:
+        return "ready"
+    if payload.get("status") == "fail" or payload.get("ready_for_preflight") is False:
+        return "env_shape_blocked"
+    return None
+
+
+def _operator_packet_view_blocker_class(payload: dict[str, Any] | None) -> str | None:
+    existing = _existing_blocker_class(payload)
+    if existing is not None:
+        return existing
+    if payload is None:
+        return None
+    if payload.get("status") == "pass":
+        return "ready"
+    if payload.get("preflight_status") == "env_shape_blocked":
+        return "env_shape_blocked"
+    if payload.get("status") == "blocked":
+        return "operator_values_required"
+    if payload.get("status") == "fail":
+        return "operator_packet_blocked"
+    return None
+
+
+def _packet_env_validation_view_blocker_class(payload: dict[str, Any] | None) -> str | None:
+    existing = _existing_blocker_class(
+        {"blocker_class": payload.get("env_validation_blocker_class")} if payload is not None else None
+    )
+    if existing is not None:
+        return existing
+    if payload is None:
+        return None
+    if payload.get("env_validation_status") == "pass":
+        return "ready"
+    if payload.get("env_validation_status") == "fail":
+        return "env_shape_blocked"
+    return None
+
+
+def _artifact_index_view_blocker_class(payload: dict[str, Any] | None) -> str | None:
+    existing = _existing_blocker_class(payload)
+    if existing is not None:
+        return existing
+    if payload is None:
+        return None
+    if payload.get("status") == "pass":
+        return "ready"
+    if payload.get("status") == "fail":
+        return "artifact_index_blocked"
+    missing_roles = payload.get("missing_required_roles")
+    if isinstance(missing_roles, list) and missing_roles:
+        return "artifact_index_blocked"
+    return None
+
+
 MISSING_STATUS_RECOVERY_ACTION = (
     "Generate the guarded launch operator packet so artifact-index recovery status can be read."
 )
@@ -291,6 +377,8 @@ def _build_status_view(
     elif packet is not None:
         status = str(packet.get("status") or "unknown")
     blocker_class = summary.get("blocker_class") if summary is not None else None
+    if blocker_class is None:
+        blocker_class = _launch_view_blocker_class(launch) or _operator_packet_view_blocker_class(packet)
     if status == "ready" and blocker_class is None:
         blocker_class = "ready"
 
@@ -312,7 +400,7 @@ def _build_status_view(
             "exists": ready_gate_artifact.get("exists"),
             "sha256": ready_gate_artifact.get("sha256"),
             "status": ready_gate_payload.get("status") if ready_gate_payload is not None else None,
-            "blocker_class": ready_gate_payload.get("blocker_class") if ready_gate_payload is not None else None,
+            "blocker_class": _artifact_index_view_blocker_class(ready_gate_payload),
             "command_shell": artifact_index.get("consumer_ready_gate_command_shell")
             if artifact_index is not None
             else None,
@@ -324,7 +412,7 @@ def _build_status_view(
             "found": launch is not None,
             "path": str(artifact_paths["launch_report_json"]),
             "status": launch.get("status") if launch is not None else None,
-            "blocker_class": launch.get("blocker_class") if launch is not None else None,
+            "blocker_class": _launch_view_blocker_class(launch),
             "stage": launch.get("stage") if launch is not None else None,
             "stop_reason": launch.get("stop_reason") if launch is not None else None,
             "result_names": _result_names(launch),
@@ -337,10 +425,10 @@ def _build_status_view(
             "next_actions": summary.get("next_actions") if summary is not None and isinstance(summary.get("next_actions"), list) else [],
             "next_commands": _next_commands_from_summary(summary),
             "operator_action_ids": action_ids,
-            "env_validation_blocker_class": summary_env_validation.get("blocker_class"),
+            "env_validation_blocker_class": _env_validation_view_blocker_class(summary_env_validation),
             "env_validation_ready_for_preflight": summary_env_validation.get("ready_for_preflight"),
             "env_validation_placeholder_count": summary_env_validation.get("placeholder_count"),
-            "operator_packet_blocker_class": summary_operator_packet.get("blocker_class"),
+            "operator_packet_blocker_class": _operator_packet_view_blocker_class(summary_operator_packet),
             "operator_packet_preflight_status": summary_operator_packet.get("preflight_status"),
             "operator_packet_artifact_index_status": summary_operator_packet.get("artifact_index_status"),
             "operator_packet_artifact_index_blocker_class": summary_operator_packet.get("artifact_index_blocker_class"),
@@ -361,9 +449,9 @@ def _build_status_view(
             "found": packet is not None,
             "path": str(artifact_paths["operator_packet_json"]),
             "status": packet.get("status") if packet is not None else None,
-            "blocker_class": packet.get("blocker_class") if packet is not None else None,
+            "blocker_class": _operator_packet_view_blocker_class(packet),
             "env_validation_status": packet.get("env_validation_status") if packet is not None else None,
-            "env_validation_blocker_class": packet.get("env_validation_blocker_class") if packet is not None else None,
+            "env_validation_blocker_class": _packet_env_validation_view_blocker_class(packet),
             "operator_action_ids": _operator_action_ids_from_packet(packet),
             "blocking_action_count": packet.get("blocking_action_count")
             if packet is not None and isinstance(packet.get("blocking_action_count"), int)
@@ -376,7 +464,7 @@ def _build_status_view(
             "found": artifact_index is not None,
             "path": str(artifact_index_json) if artifact_index_json is not None else None,
             "status": artifact_index.get("status") if artifact_index is not None else None,
-            "blocker_class": artifact_index.get("blocker_class") if artifact_index is not None else None,
+            "blocker_class": _artifact_index_view_blocker_class(artifact_index),
             "missing_required_roles": [
                 str(role) for role in missing_required_roles if isinstance(role, str)
             ],
