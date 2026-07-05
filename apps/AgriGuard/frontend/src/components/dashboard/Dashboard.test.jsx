@@ -114,6 +114,9 @@ describe('Dashboard', () => {
 
     expect(await screen.findByText('Consumer QR KPIs')).toBeInTheDocument();
     expect(screen.getByText('AgriGuard 공급망 현황')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-hero-header')).toHaveClass('flex-col');
+    expect(screen.getByTestId('dashboard-hero-header')).toHaveClass('sm:flex-row');
+    expect(screen.getByText('실시간 데이터')).toHaveClass('whitespace-nowrap');
     expect(screen.getByText('전체 제품')).toBeInTheDocument();
     expect(screen.getByText('인증 제품')).toBeInTheDocument();
     expect(screen.getByText('콜드체인 제품')).toBeInTheDocument();

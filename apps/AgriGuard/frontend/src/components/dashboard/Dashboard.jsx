@@ -186,11 +186,11 @@ export default function Dashboard() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-emerald-600 bg-clip-text text-transparent">
+      <div data-testid="dashboard-hero-header" className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="max-w-full text-2xl font-bold leading-tight bg-gradient-to-r from-primary to-emerald-600 bg-clip-text text-transparent sm:text-3xl">
           AgriGuard 공급망 현황
         </h1>
-        <Badge variant="success" className="gap-1.5">
+        <Badge variant="success" className="gap-1.5 whitespace-nowrap">
           <CheckCircle2 className="h-3.5 w-3.5" />
           실시간 데이터
         </Badge>
