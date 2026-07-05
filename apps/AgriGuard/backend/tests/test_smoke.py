@@ -1045,6 +1045,43 @@ def test_admin_routes_browser_smoke_classifies_expected_missing_auth_console():
     assert not script.is_expected_missing_auth_console({"type": "warning", "text": "401 (Unauthorized)"})
 
 
+def test_admin_routes_browser_smoke_redacts_public_qr_tokens_from_report():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_redaction_under_test",
+    )
+
+    token = "admin-public-secret-token"
+    table_token = "table-public-token-12345678"
+    report = {
+        "checks": [
+            {"name": "qr_token_reissued", "ok": True, "detail": f"/verify/{token}"},
+            {"name": "api_response", "ok": True, "detail": f"/api/qr/{token}/verify"},
+        ],
+        "observations": {
+            "seed_product": {"qr_code_prefix": f"agri://verify/{token}"},
+            "qr_tokens": {
+                "metrics": {
+                    "bodyTextSample": (
+                        f"New label URL ready http://127.0.0.1:5174/verify/{token}?scan_source=admin "
+                        f"Token{table_token}Stateactive"
+                    )
+                }
+            },
+        },
+    }
+    tokens = script.extract_public_qr_route_tokens(report)
+    redacted = script.redact_report_public_tokens(report, tokens)
+    payload = json.dumps(redacted)
+
+    assert token in tokens
+    assert token not in payload
+    assert table_token not in payload
+    assert script.PUBLIC_QR_TOKEN_REDACTION in payload
+    assert "agri://verify/" in payload
+    assert "/api/qr/" in payload
+
+
 def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",

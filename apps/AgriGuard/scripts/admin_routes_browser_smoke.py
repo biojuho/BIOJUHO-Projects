@@ -18,6 +18,11 @@ DEFAULT_DESKTOP_VIEWPORT = "1440x960"
 DEFAULT_MOBILE_VIEWPORT = "390x844"
 MISSING_AUTH_DETAIL = "Authorization header missing"
 EXPECTED_AUTH_CONSOLE_FRAGMENT = "401 (Unauthorized)"
+PUBLIC_QR_TOKEN_REDACTION = "<redacted-public-qr-token>"
+PUBLIC_VERIFY_ROUTE_RE = re.compile(
+    r"((?:agri://verify|/verify|/api/(?:api/)?qr)/)([^/?#\s]+)((?:/verify)?(?:[?#]\S*)?)"
+)
+PUBLIC_QR_TOKEN_TABLE_RE = re.compile(r"(?<=Token)[A-Za-z0-9_-]{16,}(?=State)")
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,6 +56,44 @@ def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def redact_public_qr_route_tokens(text: str) -> str:
+    redacted = PUBLIC_VERIFY_ROUTE_RE.sub(
+        lambda match: f"{match.group(1)}{PUBLIC_QR_TOKEN_REDACTION}{match.group(3)}",
+        text,
+    )
+    return PUBLIC_QR_TOKEN_TABLE_RE.sub(PUBLIC_QR_TOKEN_REDACTION, redacted)
+
+
+def extract_public_qr_route_tokens(value: object) -> set[str]:
+    if isinstance(value, dict):
+        tokens: set[str] = set()
+        for item in value.values():
+            tokens.update(extract_public_qr_route_tokens(item))
+        return tokens
+    if isinstance(value, list):
+        tokens = set()
+        for item in value:
+            tokens.update(extract_public_qr_route_tokens(item))
+        return tokens
+    if isinstance(value, str):
+        return {match.group(2) for match in PUBLIC_VERIFY_ROUTE_RE.finditer(value) if match.group(2)}
+    return set()
+
+
+def redact_report_public_tokens(value: object, tokens: set[str]) -> object:
+    if isinstance(value, dict):
+        return {key: redact_report_public_tokens(item, tokens) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_report_public_tokens(item, tokens) for item in value]
+    if isinstance(value, str):
+        redacted = value
+        for token in tokens:
+            if token:
+                redacted = redacted.replace(token, PUBLIC_QR_TOKEN_REDACTION)
+        return redact_public_qr_route_tokens(redacted)
+    return value
 
 
 def route_url(base_url: str, path: str) -> str:
@@ -347,7 +390,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     checks.append(check("no_console_errors", not critical_logs, json.dumps(critical_logs[:3])))
 
     ok = all(item["ok"] for item in checks)
-    return {
+    report = {
         "status": "pass" if ok else "fail",
         "checks": checks,
         "viewport": viewport,
@@ -355,6 +398,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         "observations": observations,
         "screenshotDir": str(screenshot_dir),
     }
+    return dict(redact_report_public_tokens(report, extract_public_qr_route_tokens(report)))
 
 
 def main() -> int:
@@ -370,9 +414,10 @@ def main() -> int:
             "observations": {},
             "screenshotDir": args.screenshot_dir,
         }
-    write_json(args.json_out, result)
-    print(f"admin routes browser smoke {result['status']}: {args.json_out}")
-    return 0 if result["status"] == "pass" else 1
+    redacted_result = dict(redact_report_public_tokens(result, extract_public_qr_route_tokens(result)))
+    write_json(args.json_out, redacted_result)
+    print(f"admin routes browser smoke {redacted_result['status']}: {args.json_out}")
+    return 0 if redacted_result["status"] == "pass" else 1
 
 
 if __name__ == "__main__":
