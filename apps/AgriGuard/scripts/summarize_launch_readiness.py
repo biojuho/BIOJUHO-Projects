@@ -184,7 +184,41 @@ def _classify(
     return "unknown", "incomplete_launch_evidence"
 
 
-def _next_actions(blocker_class: str) -> list[str]:
+ACTION_NEXT_ACTIONS = {
+    "set_firebase_service_account_file": (
+        "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo for "
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE."
+    ),
+    "set_secret_key": "Set a production-strength AGRIGUARD_SECRET_KEY.",
+    "set_qr_token_pepper": "Set a stable production QR token pepper.",
+    "set_public_verify_base_url": "Set the public HTTPS verification URL.",
+    "set_allowed_origins": "Set explicit production browser origins.",
+    "set_database_password": "Set launch-safe database credentials.",
+    "disable_forbidden_auth_flags": "Disable dev/test authentication bypass flags.",
+    "fix_docker_readiness": "Start Docker Desktop and verify compose config can render.",
+    "run_launch_preflight": "Generate a readable strict launch preflight report.",
+}
+
+
+def _operator_action_ids(operator_packet: dict[str, object]) -> list[str]:
+    return [
+        str(action_id)
+        for action_id in _list(operator_packet.get("operator_action_ids"))
+        if isinstance(action_id, str)
+    ]
+
+
+def _action_next_actions(operator_packet: dict[str, object]) -> list[str]:
+    action_ids = _operator_action_ids(operator_packet)
+    actions = [ACTION_NEXT_ACTIONS[action_id] for action_id in action_ids if action_id in ACTION_NEXT_ACTIONS]
+    if actions:
+        return actions
+    if action_ids:
+        return [f"Resolve operator action IDs: {', '.join(action_ids)}."]
+    return ["Satisfy the listed operator action IDs."]
+
+
+def _next_actions(blocker_class: str, operator_packet: dict[str, object]) -> list[str]:
     if blocker_class == "env_shape_blocked":
         return [
             "Replace env template placeholders and sample domains.",
@@ -193,13 +227,14 @@ def _next_actions(blocker_class: str) -> list[str]:
         ]
     if blocker_class == "preflight_blocked":
         return [
-            "Open the operator packet and satisfy the listed action IDs.",
-            "Provide real external launch credentials and paths outside the repo.",
+            "Open the operator packet for exact variables and validation commands.",
+            *_action_next_actions(operator_packet),
             "Rerun strict preflight before compose.",
         ]
     if blocker_class == "operator_values_required":
         return [
-            "Follow operator_action_ids from the packet.",
+            "Open the operator packet for exact variables and validation commands.",
+            *_action_next_actions(operator_packet),
             "Rerun shape validation and strict preflight after values are supplied.",
         ]
     if blocker_class == "ready":
@@ -265,7 +300,7 @@ def build_summary(
             "env_validation": env_validation,
             "operator_packet": operator_packet,
         },
-        "next_actions": _next_actions(blocker_class),
+        "next_actions": _next_actions(blocker_class, operator_packet),
         "next_commands": _next_commands(blocker_class, operator_packet),
     }
 

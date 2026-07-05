@@ -203,6 +203,14 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
         == "pass"
     )
     assert summary["reports"]["operator_packet"]["artifact_index_recovery_command_status"] == "not_required"
+    assert summary["next_actions"] == [
+        "Open the operator packet for exact variables and validation commands.",
+        (
+            "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo for "
+            "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE."
+        ),
+        "Rerun strict preflight before compose.",
+    ]
     assert summary["next_commands"] == [
         {
             "name": "validate_env_template",
@@ -222,6 +230,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert "- Consumer command metadata: `pass`" in markdown
     assert "- Consumer readiness command metadata: `pass`" in markdown
     assert "- Artifact index recovery command status: `not_required`" in markdown
+    assert "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo" in markdown
 
 
 def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> None:
