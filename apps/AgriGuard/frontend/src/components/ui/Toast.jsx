@@ -68,10 +68,10 @@ export default function Toast({ message, type = 'info', onClose, duration = 4000
                     role="alert"
                     aria-live={type === 'error' ? 'assertive' : 'polite'}
                     className={`
-                        fixed top-6 right-6 z-50
+                        fixed inset-x-4 bottom-4 z-[60] sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-6
                         flex items-start gap-3 px-5 py-3.5
                         rounded-xl border shadow-lg
-                        min-w-[280px] max-w-md
+                        min-w-0 max-w-[calc(100vw-2rem)] sm:min-w-[280px] sm:max-w-md
                         ${style.container}
                     `}
                     variants={toastVariants}
