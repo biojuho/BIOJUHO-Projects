@@ -114,6 +114,9 @@ describe('Dashboard', () => {
 
     expect(await screen.findByText('Consumer QR KPIs')).toBeInTheDocument();
     expect(screen.getByText('AgriGuard 공급망 현황')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-page')).toHaveClass('px-4');
+    expect(screen.getByTestId('dashboard-page')).toHaveClass('sm:p-8');
+    expect(screen.getByTestId('dashboard-page')).toHaveClass('space-y-5');
     expect(screen.getByTestId('dashboard-hero-header')).toHaveClass('flex-col');
     expect(screen.getByTestId('dashboard-hero-header')).toHaveClass('sm:flex-row');
     expect(screen.getByTestId('qr-kpi-scan-success-summary')).toHaveClass('flex-col');

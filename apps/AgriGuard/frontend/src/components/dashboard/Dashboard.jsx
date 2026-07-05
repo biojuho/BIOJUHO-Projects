@@ -184,7 +184,7 @@ export default function Dashboard() {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#f43f5e'];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div data-testid="dashboard-page" className="mx-auto max-w-7xl space-y-5 px-4 py-5 animate-in fade-in duration-500 sm:space-y-8 sm:p-8">
       {/* Header */}
       <div data-testid="dashboard-hero-header" className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="max-w-full text-2xl font-bold leading-tight bg-gradient-to-r from-primary to-emerald-600 bg-clip-text text-transparent sm:text-3xl">
@@ -206,7 +206,7 @@ export default function Dashboard() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         <StatCard
           title="전체 제품"
           value={data?.total_products ?? 0}
@@ -382,7 +382,7 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
 
   return (
     <Card className="border-sky-500/20 bg-sky-500/[0.04]">
-      <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+      <CardHeader className="gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 sm:p-6">
         <CardTitle className="text-base flex items-center gap-2">
           <Activity className="h-4 w-4 text-sky-300" />
           Consumer QR KPIs
@@ -404,48 +404,48 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
           </select>
         </label>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
         {error && (
           <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
             QR KPI service unavailable: {error}
           </div>
         )}
         {qrKpis ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className={`rounded-lg border p-4 ${successTone.border} ${successTone.bg}`}>
-              <div data-testid="qr-kpi-scan-success-summary" className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="grid gap-3 md:grid-cols-2 md:gap-4">
+            <div className={`rounded-lg border p-3 sm:p-4 ${successTone.border} ${successTone.bg}`}>
+              <div data-testid="qr-kpi-scan-success-summary" className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">QR scan success</p>
-                  <p className="mt-2 text-3xl font-bold text-foreground">{formatPercent(qrKpis.scan_success_rate)}</p>
+                  <p className="mt-1 text-2xl font-bold text-foreground sm:mt-2 sm:text-3xl">{formatPercent(qrKpis.scan_success_rate)}</p>
                 </div>
                 <Badge data-testid="qr-kpi-scan-success-status" variant={successTone.badge} className="gap-1.5 whitespace-nowrap shrink-0">
                   {successTone.icon}
                   {formatKpiStatus(qrKpis.scan_success_status)}
                 </Badge>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground sm:mt-3">
                 {qrKpis.scan_success_sessions} of {qrKpis.scan_start_sessions} scan sessions reached verification.
                 Target {formatPercent(qrKpis.target_scan_success_rate)}.
               </p>
             </div>
-            <div className={`rounded-lg border p-4 ${dailyTone.border} ${dailyTone.bg}`}>
-              <div data-testid="qr-kpi-daily-scan-summary" className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className={`rounded-lg border p-3 sm:p-4 ${dailyTone.border} ${dailyTone.bg}`}>
+              <div data-testid="qr-kpi-daily-scan-summary" className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Consumer scans today</p>
-                  <p className="mt-2 text-3xl font-bold text-foreground">{qrKpis.consumer_scan_sessions}</p>
+                  <p className="mt-1 text-2xl font-bold text-foreground sm:mt-2 sm:text-3xl">{qrKpis.consumer_scan_sessions}</p>
                 </div>
                 <Badge data-testid="qr-kpi-daily-scan-status" variant={dailyTone.badge} className="gap-1.5 whitespace-nowrap shrink-0">
                   {dailyTone.icon}
                   {formatKpiStatus(qrKpis.daily_scan_status)}
                 </Badge>
               </div>
-              <div className="mt-3 h-2 rounded-full bg-black/20">
+              <div className="mt-2 h-2 rounded-full bg-black/20 sm:mt-3">
                 <div
                   className="h-full rounded-full bg-sky-400"
                   style={{ width: `${Math.round((qrKpis.daily_scan_progress || 0) * 100)}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground sm:mt-3">
                 Target {qrKpis.target_daily_scans.toLocaleString()} scans in {qrKpis.hours} hours.
               </p>
             </div>
@@ -456,7 +456,7 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
           </p>
         )}
         {trendItems.length > 0 && (
-          <div className="mt-5 border-t border-border pt-4">
+          <div className="mt-4 border-t border-border pt-3 sm:mt-5 sm:pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium text-foreground">7-day QR trend</p>
               <span className="text-xs text-muted-foreground">
