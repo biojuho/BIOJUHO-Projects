@@ -234,9 +234,9 @@ export default function ProductDetail() {
         <Link to="/"><ArrowLeft className="w-4 h-4 mr-1" /> Back</Link>
       </Button>
 
-      <Card className="glass">
-        <CardContent className="p-8">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+      <Card data-testid="product-detail-card" className="glass">
+        <CardContent data-testid="product-detail-card-content" className="p-4 sm:p-8">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start md:gap-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <Badge variant="default">{product.category}</Badge>
@@ -255,8 +255,8 @@ export default function ProductDetail() {
               </p>
             </div>
 
-            <Card className="min-w-[200px]">
-              <CardContent className="p-4">
+            <Card data-testid="product-detail-qr-card" className="min-w-[200px]">
+              <CardContent data-testid="product-detail-qr-card-content" className="p-3 sm:p-4">
                 <div className="flex justify-center mb-2">
                   <QRTracker value={qrCodeValue} ariaLabel="Product verification QR" />
                 </div>
@@ -265,15 +265,15 @@ export default function ProductDetail() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 pt-8 border-t border-border">
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5">
+          <div data-testid="product-detail-evidence-grid" className="mt-5 grid grid-cols-1 gap-3 border-t border-border pt-5 md:mt-8 md:grid-cols-3 md:gap-6 md:pt-8">
+            <div className="flex items-start gap-3 rounded-xl bg-white/5 p-3 sm:gap-4 sm:p-4">
               <MapPin className="text-blue-400 w-6 h-6 mt-1" />
               <div>
                 <p className="text-sm text-muted-foreground font-medium">Origin</p>
                 <p className="text-foreground font-semibold">{product.origin}</p>
               </div>
             </div>
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5">
+            <div className="flex items-start gap-3 rounded-xl bg-white/5 p-3 sm:gap-4 sm:p-4">
               <Calendar className="text-orange-400 w-6 h-6 mt-1" />
               <div>
                 <p className="text-sm text-muted-foreground font-medium">Harvest Date</p>
@@ -282,7 +282,7 @@ export default function ProductDetail() {
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5">
+            <div className="flex items-start gap-3 rounded-xl bg-white/5 p-3 sm:gap-4 sm:p-4">
               <ThermometerSnowflake className={cn('w-6 h-6 mt-1', product.requires_cold_chain ? 'text-cyan-400' : 'text-muted-foreground')} />
               <div>
                 <p className="text-sm text-muted-foreground font-medium">Cold Chain</p>
@@ -294,7 +294,7 @@ export default function ProductDetail() {
           </div>
 
           {product.description && (
-             <div className="mt-8">
+             <div className="mt-5 md:mt-8">
                 <h3 className="text-lg font-semibold text-foreground mb-2">Description</h3>
                 <div className="p-4 rounded-xl bg-white/5 border border-border text-muted-foreground leading-relaxed">
                    {product.description}

@@ -68,6 +68,12 @@ describe('ProductDetail', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Organic Apples')).toBeInTheDocument();
+      expect(screen.getByTestId('product-detail-card-content')).toHaveClass('p-4');
+      expect(screen.getByTestId('product-detail-card-content')).toHaveClass('sm:p-8');
+      expect(screen.getByTestId('product-detail-qr-card-content')).toHaveClass('p-3');
+      expect(screen.getByTestId('product-detail-qr-card-content')).toHaveClass('sm:p-4');
+      expect(screen.getByTestId('product-detail-evidence-grid')).toHaveClass('mt-5');
+      expect(screen.getByTestId('product-detail-evidence-grid')).toHaveClass('md:mt-8');
       expect(screen.getByTestId('product-detail-heading')).toHaveClass('text-2xl');
       expect(screen.getByTestId('product-detail-heading')).toHaveClass('sm:text-3xl');
       expect(screen.getByTestId('product-detail-actions')).toHaveClass('grid');
