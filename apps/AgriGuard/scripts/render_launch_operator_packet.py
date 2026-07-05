@@ -22,8 +22,14 @@ ACTION_RULES: tuple[dict[str, object], ...] = (
         "id": "set_firebase_service_account_file",
         "matches": ("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE", "Firebase service account"),
         "variables": ("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",),
-        "operator_action": "Set this to a Firebase Admin service account JSON file path that exists on the host and is outside the repo.",
-        "validation": "Preflight must report firebase_credentials_file_exists=true and firebase_credentials_file_valid=true.",
+        "operator_action": (
+            "Set this to an absolute host path for a Firebase Admin service account .json file that exists "
+            "outside the repo."
+        ),
+        "validation": (
+            "Env template validation must accept the absolute .json outside-repo path, then strict preflight "
+            "must report firebase_credentials_file_exists=true and firebase_credentials_file_valid=true."
+        ),
     },
     {
         "id": "set_secret_key",
@@ -120,7 +126,7 @@ ENV_TEMPLATE_ENTRIES: tuple[dict[str, str], ...] = (
     {
         "key": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
         "value": "<absolute-path-outside-repo-to-firebase-service-account.json>",
-        "comment": "Host path to a Firebase Admin service account JSON file outside the repo.",
+        "comment": "Absolute host path to a Firebase Admin service account .json file outside the repo.",
     },
     {
         "key": "ALLOW_TEST_BYPASS",

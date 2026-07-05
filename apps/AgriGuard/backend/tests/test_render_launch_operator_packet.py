@@ -71,6 +71,17 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     }
     assert "password123" not in json.dumps(packet)
     assert packet["preflight_checks"]["runtime"] == "compose"
+    firebase_action = next(
+        action for action in packet["operator_actions"] if action["id"] == "set_firebase_service_account_file"
+    )
+    assert firebase_action["operator_action"] == (
+        "Set this to an absolute host path for a Firebase Admin service account .json file that exists "
+        "outside the repo."
+    )
+    assert firebase_action["validation"] == (
+        "Env template validation must accept the absolute .json outside-repo path, then strict preflight "
+        "must report firebase_credentials_file_exists=true and firebase_credentials_file_valid=true."
+    )
     assert packet["safe_rerun_commands"][0] == _command(
         [
             render_launch_operator_packet.sys.executable,
@@ -852,6 +863,7 @@ def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp
     assert "AGRIGUARD_SECRET_KEY=<set-strong-secret-32-plus-chars>" in template
     assert "AGRIGUARD_QR_TOKEN_PEPPER=<set-stable-qr-token-pepper-32-plus-chars>" in template
     assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=<absolute-path-outside-repo-to-firebase-service-account.json>" in template
+    assert "# Absolute host path to a Firebase Admin service account .json file outside the repo." in template
     assert "ALLOW_TEST_BYPASS=false" in template
     assert "ALLOW_DEV_AUTH_FALLBACK=false" in template
     assert "super-secret-value" not in template
