@@ -252,6 +252,7 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
         json.dumps(
             {
                 "status": "pass",
+                "blocker_class": "ready",
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -331,6 +332,7 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
     assert evidence["outputs"]["handoff_consumer_json"] == "custom-handoff/current.handoff.consumer.json"
     assert evidence["outputs"]["artifact_index_json"] == "launch-artifacts/custom-prefix-artifact-index.json"
     assert summary["path"] == "launch-artifacts/custom-prefix-artifact-index.json"
+    assert summary["blocker_class"] == "ready"
     assert summary["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert summary["next_commands"] == [
         {
@@ -650,6 +652,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         json.dumps(
             {
                 "status": "pass",
+                "blocker_class": "ready",
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -689,6 +692,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         "found": True,
         "path": "var/agriguard-guarded-launch-artifact-index.json",
         "status": "pass",
+        "blocker_class": "ready",
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -722,6 +726,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery summary required: `false`" in markdown
+    assert "Artifact index blocker class: `ready`" in markdown
     assert "Env validation blocker class: `env_shape_blocked`" in markdown
     assert "Consumer command metadata: `pass`" in markdown
     assert "Consumer readiness command metadata: `pass`" in markdown

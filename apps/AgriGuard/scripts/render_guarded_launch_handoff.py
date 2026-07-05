@@ -329,6 +329,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Markdown table: `{packet_validation.get('markdown_table_status')}`",
         f"- Artifact index status: `{artifact_index.get('status')}`",
         f"- Artifact index path: `{artifact_index.get('path') or '-'}`",
+        f"- Artifact index blocker class: `{artifact_index.get('blocker_class') or '-'}`",
         f"- Artifact index consumer packet validation: `{artifact_index.get('consumer_packet_validation_status')}`",
         f"- Artifact index consumer command metadata: `{artifact_index.get('consumer_command_metadata_status')}`",
         "- Artifact index readiness command metadata: "

@@ -459,6 +459,7 @@ def _artifact_index_readiness_summary(
         "found": index is not None,
         "path": _rel(index_json, workspace_root),
         "status": index.get("status") if index is not None else None,
+        "blocker_class": index.get("blocker_class") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
         "consumer_command_metadata_status": index.get("consumer_command_metadata_status") if index is not None else None,
         "consumer_readiness_operator_packet_consumer_command_metadata_status": index.get(
@@ -922,6 +923,7 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Artifact index found: `{str(readiness_summary.get('found')).lower()}`",
             f"- Artifact index path: `{readiness_summary.get('path')}`",
             f"- Artifact index status: `{readiness_summary.get('status')}`",
+            f"- Artifact index blocker class: `{readiness_summary.get('blocker_class') or '-'}`",
             f"- Consumer packet validation: `{readiness_summary.get('consumer_packet_validation_status')}`",
             f"- Consumer command metadata: `{readiness_summary.get('consumer_command_metadata_status')}`",
             "- Consumer readiness command metadata: "

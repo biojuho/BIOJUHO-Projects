@@ -33,6 +33,7 @@ def _write_operator_packet_outputs(command: list[str]) -> None:
                 "guarded_launch_evidence": {
                     "artifact_index_readiness_summary": {
                         "status": "pass",
+                        "blocker_class": "ready",
                         "consumer_packet_validation_status": "pass",
                         "consumer_command_metadata_status": "pass",
                         "recovery_command_status": "not_required",
@@ -473,6 +474,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
                         "guarded_launch_evidence": {
                             "artifact_index_readiness_summary": {
                                 "status": "pass",
+                                "blocker_class": "ready",
                                 "consumer_packet_validation_status": "pass",
                                 "consumer_command_metadata_status": "pass",
                                 "recovery_command_status": "not_required",
@@ -535,6 +537,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "operator_action_ids": ["set_secret_key"],
         "env_template_variables": ["AGRIGUARD_SECRET_KEY"],
         "artifact_index_status": "pass",
+        "artifact_index_blocker_class": "ready",
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
         "artifact_index_recovery_command_status": "not_required",

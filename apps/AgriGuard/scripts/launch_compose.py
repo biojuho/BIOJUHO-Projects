@@ -231,6 +231,7 @@ def _summarize_operator_packet_json(
         summary.update(
             {
                 "artifact_index_status": artifact_index_summary.get("status"),
+                "artifact_index_blocker_class": artifact_index_summary.get("blocker_class"),
                 "consumer_packet_validation_status": artifact_index_summary.get(
                     "consumer_packet_validation_status"
                 ),

@@ -110,6 +110,7 @@ def _write_artifact_index(output_dir: Path, prefix: str) -> None:
         json.dumps(
             {
                 "status": "pass",
+                "blocker_class": "ready",
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
@@ -263,6 +264,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["packet_artifact_index_recovery_command_text"] is None
     assert view["packet_artifact_index_recovery_summary"]["required"] is False
     assert view["artifact_index_status"] == "pass"
+    assert view["artifact_index_blocker_class"] == "ready"
     assert view["consumer_packet_validation_status"] == "pass"
     assert view["consumer_command_metadata_status"] == "pass"
     assert view["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"

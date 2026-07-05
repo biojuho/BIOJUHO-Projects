@@ -328,6 +328,7 @@ def _build_status_view(
             "operator_packet_blocker_class": summary_operator_packet.get("blocker_class"),
             "operator_packet_preflight_status": summary_operator_packet.get("preflight_status"),
             "operator_packet_artifact_index_status": summary_operator_packet.get("artifact_index_status"),
+            "operator_packet_artifact_index_blocker_class": summary_operator_packet.get("artifact_index_blocker_class"),
             "operator_packet_consumer_packet_validation_status": summary_operator_packet.get(
                 "consumer_packet_validation_status"
             ),
@@ -360,6 +361,7 @@ def _build_status_view(
             "found": artifact_index is not None,
             "path": str(artifact_index_json) if artifact_index_json is not None else None,
             "status": artifact_index.get("status") if artifact_index is not None else None,
+            "blocker_class": artifact_index.get("blocker_class") if artifact_index is not None else None,
             "missing_required_roles": [
                 str(role) for role in missing_required_roles if isinstance(role, str)
             ],
@@ -424,6 +426,7 @@ def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dic
         return {}
     return {
         "artifact_index_status": artifact_index_summary.get("status"),
+        "artifact_index_blocker_class": artifact_index_summary.get("blocker_class"),
         "consumer_packet_validation_status": artifact_index_summary.get(
             "consumer_packet_validation_status"
         ),
@@ -645,6 +648,7 @@ def _artifact_index_readiness_summary(
         "found": index is not None,
         "path": str(index_json),
         "status": index.get("status") if index is not None else None,
+        "blocker_class": index.get("blocker_class") if index is not None else None,
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
         "consumer_command_metadata_status": index.get("consumer_command_metadata_status") if index is not None else None,
         "consumer_readiness_operator_packet_consumer_command_metadata_status": index.get(

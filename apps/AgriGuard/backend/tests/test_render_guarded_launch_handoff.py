@@ -108,6 +108,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         json.dumps(
             {
                 "status": "pass",
+                "blocker_class": "ready",
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
@@ -150,6 +151,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
     assert handoff["packet_validation"]["markdown_table_status"] == "pass"
     assert handoff["status_view"]["artifact_index"]["status"] == "pass"
+    assert handoff["status_view"]["artifact_index"]["blocker_class"] == "ready"
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
     assert handoff["packet_validation"]["artifact_index_recovery_command_status"] == "not_required"
     assert handoff["packet_validation"]["artifact_index_recovery_command_note"] is None
@@ -189,6 +191,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["secrets_redacted"] is True
     assert "Artifact index status: `pass`" in markdown
     assert f"Artifact index path: `{artifact_index_json.resolve()}`" in markdown
+    assert "Artifact index blocker class: `ready`" in markdown
     assert "Artifact index consumer packet validation: `pass`" in markdown
     assert "Artifact index consumer command metadata: `pass`" in markdown
     assert "Artifact index readiness command metadata: `pass`" in markdown

@@ -65,6 +65,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         json.dumps(
             {
                 "status": "pass",
+                "blocker_class": "ready",
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -122,6 +123,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         "found": True,
         "path": str(output_dir.resolve() / "release-check-artifact-index.json"),
         "status": "pass",
+        "blocker_class": "ready",
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -531,6 +533,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
             json.dumps(
                 {
                     "status": "pass",
+                    "blocker_class": "ready",
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
                     "consumer_command_metadata_status": "pass",
@@ -619,6 +622,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
                     "guarded_launch_evidence": {
                         "artifact_index_readiness_summary": {
                             "status": "pass",
+                            "blocker_class": "ready",
                             "consumer_packet_validation_status": "pass",
                             "consumer_command_metadata_status": "pass",
                             "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index.get(
@@ -708,6 +712,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     launch_report = json.loads(artifacts["launch_report_json"].read_text(encoding="utf-8"))
     operator_packet = launch_report["child_reports"]["operator_packet"]
     assert operator_packet["artifact_index_status"] == "pass"
+    assert operator_packet["artifact_index_blocker_class"] == "ready"
     assert operator_packet["consumer_packet_validation_status"] == "pass"
     assert operator_packet["consumer_command_metadata_status"] == "pass"
     assert operator_packet["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
@@ -715,6 +720,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     readiness_summary = json.loads(artifacts["readiness_summary_json"].read_text(encoding="utf-8"))
     readiness_operator_packet = readiness_summary["reports"]["operator_packet"]
     assert readiness_operator_packet["artifact_index_status"] == "pass"
+    assert readiness_operator_packet["artifact_index_blocker_class"] == "ready"
     assert readiness_operator_packet["consumer_packet_validation_status"] == "pass"
     assert readiness_operator_packet["consumer_command_metadata_status"] == "pass"
     assert (
@@ -740,6 +746,7 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
             json.dumps(
                 {
                     "status": "pass",
+                    "blocker_class": "ready",
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
                     "consumer_command_metadata_status": "pass",
@@ -788,6 +795,7 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
     assert result == 0
     assert status_seen_by_index == [False, True, True, True]
     assert final_status["artifact_index"]["found"] is True
+    assert final_status["artifact_index"]["blocker_class"] == "ready"
     assert (
         final_status["artifact_index"]["consumer_readiness_operator_packet_consumer_command_metadata_status"]
         == "pass"
@@ -1107,6 +1115,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         json.dumps(
             {
                 "status": "pass",
+                "blocker_class": "ready",
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
@@ -1173,6 +1182,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "found": True,
         "path": str(custom_index.resolve()),
         "status": "pass",
+        "blocker_class": "ready",
         "missing_required_roles": [],
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
@@ -1231,6 +1241,7 @@ def test_guarded_launch_status_only_exposes_recovery_command_text(tmp_path: Path
         json.dumps(
             {
                 "status": "fail",
+                "blocker_class": "artifact_index_blocked",
                 "missing_required_roles": ["handoff_consumer_json"],
                 "consumer_packet_validation_status": "fail",
                 "consumer_command_metadata_status": "fail",

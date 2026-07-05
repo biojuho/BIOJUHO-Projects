@@ -139,6 +139,10 @@ def _operator_commands(value: object) -> list[dict[str, str]]:
     return commands
 
 
+def _artifact_index_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "artifact_index_blocked"
+
+
 def _artifact_paths(
     output_dir: Path,
     output_prefix: str,
@@ -357,6 +361,7 @@ def build_index(
     return {
         "schema_version": 1,
         "status": index_status,
+        "blocker_class": _artifact_index_blocker_class(index_status),
         "output_prefix": output_prefix,
         "output_dir": str(output_dir),
         "artifacts": artifacts,
@@ -448,6 +453,7 @@ def render_markdown(index: dict[str, object]) -> str:
         "# AgriGuard Guarded Launch Artifact Index",
         "",
         f"- Status: `{index.get('status')}`",
+        f"- Blocker class: `{index.get('blocker_class') or '-'}`",
         f"- Output prefix: `{index.get('output_prefix')}`",
         f"- Launch status: `{index.get('launch_status')}`",
         f"- Validation status: `{index.get('validation_status')}`",

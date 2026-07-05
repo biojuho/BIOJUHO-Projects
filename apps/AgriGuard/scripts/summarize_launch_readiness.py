@@ -138,6 +138,7 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
         summary.update(
             {
                 "artifact_index_status": artifact_index_summary.get("status"),
+                "artifact_index_blocker_class": artifact_index_summary.get("blocker_class"),
                 "consumer_packet_validation_status": artifact_index_summary.get(
                     "consumer_packet_validation_status"
                 ),
@@ -291,6 +292,7 @@ def render_markdown(summary: dict[str, object]) -> str:
         f"- Operator packet preflight status: `{operator_packet.get('preflight_status')}`",
         f"- Operator packet blocker class: `{operator_packet.get('blocker_class') or '-'}`",
         f"- Artifact index status: `{operator_packet.get('artifact_index_status')}`",
+        f"- Artifact index blocker class: `{operator_packet.get('artifact_index_blocker_class') or '-'}`",
         f"- Artifact index consumer packet validation: `{operator_packet.get('consumer_packet_validation_status')}`",
         f"- Consumer command metadata: `{operator_packet.get('consumer_command_metadata_status')}`",
         "- Consumer readiness command metadata: "

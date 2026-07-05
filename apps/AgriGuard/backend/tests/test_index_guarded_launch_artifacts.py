@@ -105,6 +105,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     markdown = index_guarded_launch_artifacts.render_markdown(index)
 
     assert index["status"] == "pass"
+    assert index["blocker_class"] == "ready"
     assert index["consumer_status"] == "fail"
     assert index["consumer_blocker_class"] == "preflight_blocked"
     assert index["validation_status"] == "pass"
@@ -144,6 +145,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         "note": None,
         "command": None,
     }
+    assert "Blocker class: `ready`" in markdown
     assert "Consumer readiness next command count: `1`" in markdown
     assert "Consumer command metadata: `pass`" in markdown
     assert "Consumer readiness command metadata: `pass`" in markdown
@@ -242,6 +244,7 @@ def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: P
         if isinstance(artifact, dict)
     }
     assert index["status"] == "pass"
+    assert index["blocker_class"] == "ready"
     assert index["missing_required_roles"] == []
     assert artifacts_by_role["handoff_json"]["path"] == str(custom_paths["handoff_json"].resolve())
     assert artifacts_by_role["handoff_consumer_json"]["path"] == str(custom_paths["handoff_consumer_json"].resolve())
@@ -270,6 +273,7 @@ def test_index_guarded_launch_artifacts_fails_stale_consumer_command_metadata(tm
     )
 
     assert index["status"] == "fail"
+    assert index["blocker_class"] == "artifact_index_blocked"
     assert index["consumer_command_metadata_status"] == "fail"
     assert index["recovery_command_status"] == "pass"
 
@@ -289,6 +293,7 @@ def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: 
     )
 
     assert index["status"] == "fail"
+    assert index["blocker_class"] == "artifact_index_blocked"
     assert index["consumer_packet_validation_status"] == "fail"
     assert index["consumer_packet_markdown_table_status"] == "fail"
     assert index["recovery_action"] == (
@@ -321,6 +326,7 @@ def test_index_guarded_launch_artifacts_markdown_exposes_consumer_errors(tmp_pat
     markdown = index_guarded_launch_artifacts.render_markdown(index)
 
     assert index["status"] == "fail"
+    assert index["blocker_class"] == "artifact_index_blocked"
     assert index["consumer_errors"] == ["blocked handoff has ready_gate status 'pass'"]
     assert "Consumer errors: `blocked handoff has ready_gate status 'pass'`" in markdown
     assert "Recovery command status: `pass`" in markdown
@@ -338,6 +344,7 @@ def test_index_guarded_launch_artifacts_fails_missing_consumer(tmp_path: Path) -
     )
 
     assert index["status"] == "fail"
+    assert index["blocker_class"] == "artifact_index_blocked"
     assert index["missing_required_roles"] == ["handoff_consumer_json"]
     assert index["recovery_command_status"] == "pass"
     assert index["recovery_command_note"] == (
@@ -404,8 +411,10 @@ def test_index_guarded_launch_artifacts_can_require_status_json(tmp_path: Path) 
     )
 
     assert missing_index["status"] == "fail"
+    assert missing_index["blocker_class"] == "artifact_index_blocked"
     assert "status_json" in missing_index["missing_required_roles"]
     assert present_index["status"] == "pass"
+    assert present_index["blocker_class"] == "ready"
 
 
 def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> None:
@@ -433,6 +442,7 @@ def test_index_guarded_launch_artifacts_main_writes_output(tmp_path: Path) -> No
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
     assert payload["status"] == "pass"
+    assert payload["blocker_class"] == "ready"
     assert "Consumer packet validation: `pass`" in markdown
     assert "Consumer readiness action IDs: `fix_env_shape_validation`" in markdown
     assert "Consumer errors: `-`" in markdown
