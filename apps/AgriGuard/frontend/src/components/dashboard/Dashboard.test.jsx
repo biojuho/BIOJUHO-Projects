@@ -116,6 +116,13 @@ describe('Dashboard', () => {
     expect(screen.getByText('AgriGuard 공급망 현황')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-hero-header')).toHaveClass('flex-col');
     expect(screen.getByTestId('dashboard-hero-header')).toHaveClass('sm:flex-row');
+    expect(screen.getByTestId('qr-kpi-scan-success-summary')).toHaveClass('flex-col');
+    expect(screen.getByTestId('qr-kpi-scan-success-summary')).toHaveClass('sm:flex-row');
+    expect(screen.getByTestId('qr-kpi-daily-scan-summary')).toHaveClass('flex-col');
+    expect(screen.getByTestId('qr-kpi-scan-success-status')).toHaveClass('whitespace-nowrap');
+    expect(screen.getByTestId('qr-kpi-scan-success-status')).toHaveClass('shrink-0');
+    expect(screen.getByTestId('qr-kpi-daily-scan-status')).toHaveClass('whitespace-nowrap');
+    expect(screen.getByTestId('qr-kpi-daily-scan-status')).toHaveClass('shrink-0');
     expect(screen.getByText('실시간 데이터')).toHaveClass('whitespace-nowrap');
     expect(screen.getByText('전체 제품')).toBeInTheDocument();
     expect(screen.getByText('인증 제품')).toBeInTheDocument();

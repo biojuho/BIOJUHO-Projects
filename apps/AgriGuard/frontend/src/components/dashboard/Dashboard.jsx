@@ -413,12 +413,12 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
         {qrKpis ? (
           <div className="grid gap-4 md:grid-cols-2">
             <div className={`rounded-lg border p-4 ${successTone.border} ${successTone.bg}`}>
-              <div className="flex items-center justify-between gap-3">
+              <div data-testid="qr-kpi-scan-success-summary" className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">QR scan success</p>
                   <p className="mt-2 text-3xl font-bold text-foreground">{formatPercent(qrKpis.scan_success_rate)}</p>
                 </div>
-                <Badge variant={successTone.badge} className="gap-1.5">
+                <Badge data-testid="qr-kpi-scan-success-status" variant={successTone.badge} className="gap-1.5 whitespace-nowrap shrink-0">
                   {successTone.icon}
                   {formatKpiStatus(qrKpis.scan_success_status)}
                 </Badge>
@@ -429,12 +429,12 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
               </p>
             </div>
             <div className={`rounded-lg border p-4 ${dailyTone.border} ${dailyTone.bg}`}>
-              <div className="flex items-center justify-between gap-3">
+              <div data-testid="qr-kpi-daily-scan-summary" className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Consumer scans today</p>
                   <p className="mt-2 text-3xl font-bold text-foreground">{qrKpis.consumer_scan_sessions}</p>
                 </div>
-                <Badge variant={dailyTone.badge} className="gap-1.5">
+                <Badge data-testid="qr-kpi-daily-scan-status" variant={dailyTone.badge} className="gap-1.5 whitespace-nowrap shrink-0">
                   {dailyTone.icon}
                   {formatKpiStatus(qrKpis.daily_scan_status)}
                 </Badge>
