@@ -8,8 +8,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-SENSITIVE_ASSIGNMENT_RE = re.compile(
-    r"(?i)\b([A-Z0-9_]*(?:SECRET|PASSWORD|PEPPER|PRIVATE_KEY|TOKEN|CREDENTIAL|SERVICE_ACCOUNT|DATABASE_URL|DATABASE_DSN|DB_URL)[A-Z0-9_]*)\s*([:=])\s*([^,\s]+)"
+SENSITIVE_KEY_PATTERN = (
+    r"[A-Z0-9_]*(?:SECRET|PASSWORD|PEPPER|PRIVATE_KEY|TOKEN|CREDENTIAL|SERVICE_ACCOUNT|DATABASE_URL|DATABASE_DSN|DB_URL)[A-Z0-9_]*"
+)
+SENSITIVE_ASSIGNMENT_RE = re.compile(rf"(?i)\b({SENSITIVE_KEY_PATTERN})\s*([:=])\s*([^,\s]+)")
+SENSITIVE_JSON_FIELD_RE = re.compile(
+    rf"(?i)([\"']\s*{SENSITIVE_KEY_PATTERN}\s*[\"']\s*:\s*[\"'])(.*?)([\"'])"
 )
 
 
@@ -396,6 +400,7 @@ def validate_markdown_evidence_table(packet: dict[str, object], markdown: str) -
 
 def _redact_text(value: object) -> str:
     text = str(value)
+    text = SENSITIVE_JSON_FIELD_RE.sub(lambda match: f"{match.group(1)}<redacted>{match.group(3)}", text)
     return SENSITIVE_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}<redacted>", text)
 
 
