@@ -1234,6 +1234,18 @@ def test_guarded_launch_status_only_blocks_stale_pass_artifact_index_metadata(tm
         ),
         encoding="utf-8",
     )
+    wrapper_command = "& python run_guarded_launch.py --output-prefix blocked --emit-handoff"
+    artifacts["operator_packet_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "guarded_launch_evidence": {
+                    "wrapper_command": wrapper_command,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     result = run_guarded_launch.main(
         [
@@ -1254,6 +1266,16 @@ def test_guarded_launch_status_only_blocks_stale_pass_artifact_index_metadata(tm
     assert payload["artifact_index"]["status"] == "pass"
     assert payload["artifact_index"]["consumer_metadata_status"] == "fail"
     assert payload["artifact_index"]["blocker_class"] == "artifact_index_blocked"
+    assert payload["artifact_index_recovery_summary"] == {
+        "required": True,
+        "action": run_guarded_launch.STALE_ARTIFACT_INDEX_METADATA_RECOVERY_ACTION,
+        "status": "fail",
+        "blocker_class": "artifact_index_recovery_blocked",
+        "note": run_guarded_launch.STALE_ARTIFACT_INDEX_METADATA_RECOVERY_NOTE,
+        "command": wrapper_command,
+    }
+    assert payload["artifact_index_recovery_command_shell"] == "powershell"
+    assert payload["artifact_index_recovery_command_text"] == wrapper_command
 
 
 def test_guarded_launch_status_only_derives_top_blocker_without_summary(tmp_path: Path, capsys) -> None:

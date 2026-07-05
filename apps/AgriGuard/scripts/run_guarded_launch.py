@@ -262,6 +262,12 @@ MISSING_STATUS_RECOVERY_ACTION = (
     "Generate the guarded launch operator packet so artifact-index recovery status can be read."
 )
 MISSING_STATUS_RECOVERY_NOTE = "Artifact index recovery status is unavailable because the operator packet is missing."
+STALE_ARTIFACT_INDEX_METADATA_RECOVERY_ACTION = (
+    "Regenerate the guarded launch wrapper artifacts so artifact-index consumer command metadata is current."
+)
+STALE_ARTIFACT_INDEX_METADATA_RECOVERY_NOTE = (
+    "Artifact index reports pass but required consumer command metadata is missing or stale."
+)
 
 
 def _quote_powershell_arg(value: str) -> str:
@@ -287,6 +293,21 @@ def _recovery_command_shell_text(recovery_summary: dict[str, object]) -> tuple[s
             command_text = f"& {command_text}"
         return "powershell", command_text
     return None, None
+
+
+def _packet_guarded_wrapper_command(packet: dict[str, Any] | None) -> object:
+    if packet is None:
+        return None
+    evidence = packet.get("guarded_launch_evidence") if isinstance(packet.get("guarded_launch_evidence"), dict) else {}
+    wrapper_command = evidence.get("wrapper_command")
+    if isinstance(wrapper_command, (str, list)) and wrapper_command:
+        return wrapper_command
+    commands = packet.get("safe_rerun_commands")
+    if isinstance(commands, list) and len(commands) > 1:
+        guarded_command = commands[1]
+        if isinstance(guarded_command, (str, list)) and guarded_command:
+            return guarded_command
+    return None
 
 
 def _artifact_index_recovery_blocker_class(status: object) -> str:
@@ -380,7 +401,7 @@ def _build_status_view(
         else []
     )
     artifact_index_recovery_summary = (
-        _artifact_index_recovery_summary(artifact_index, None)
+        _artifact_index_recovery_summary(artifact_index, _packet_guarded_wrapper_command(packet))
         if artifact_index is not None
         else _packet_artifact_index_recovery_summary(packet)
     )
@@ -730,9 +751,24 @@ MISSING_ARTIFACT_INDEX_RECOVERY_NOTE = (
 
 def _artifact_index_recovery_summary(
     index: dict[str, object] | None,
-    missing_index_command: list[str] | None,
+    missing_index_command: object,
 ) -> dict[str, object]:
     if index is not None:
+        if index.get("status") == "pass" and _artifact_index_consumer_metadata_status(index) == "fail":
+            recovery_summary = (
+                index.get("recovery_summary") if isinstance(index.get("recovery_summary"), dict) else {}
+            )
+            return _recovery_summary_with_blocker_class(
+                {
+                    "required": True,
+                    "action": STALE_ARTIFACT_INDEX_METADATA_RECOVERY_ACTION,
+                    "status": "fail",
+                    "note": STALE_ARTIFACT_INDEX_METADATA_RECOVERY_NOTE,
+                    "command": recovery_summary.get("command")
+                    or index.get("recovery_command")
+                    or missing_index_command,
+                }
+            )
         recovery_summary = index.get("recovery_summary")
         if isinstance(recovery_summary, dict):
             return _recovery_summary_with_blocker_class(recovery_summary)
