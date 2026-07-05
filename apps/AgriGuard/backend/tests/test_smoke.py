@@ -709,6 +709,26 @@ def test_qr_path_browser_smoke_extracts_public_verify_tokens():
     assert script.extract_verify_token("raw-token") == "raw-token"
 
 
+def test_qr_path_browser_smoke_tracks_public_summary_first_viewport_targets():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_first_viewport_under_test",
+    )
+
+    target_names = {target["name"] for target in script.PUBLIC_VERIFY_SUMMARY_TARGETS}
+
+    assert target_names == {
+        "manual_verify_origin_card_first_viewport",
+        "manual_verify_batch_card_first_viewport",
+        "manual_verify_temperature_card_first_viewport",
+        "manual_verify_last_verified_card_first_viewport",
+    }
+    assert script.should_check_first_viewport_targets({"viewportWidth": 390}) is True
+    assert script.should_check_first_viewport_targets({"viewportWidth": 1440}) is False
+    assert script.PUBLIC_VERIFY_SUMMARY_TARGETS[-1]["text"] == "Last verified"
+    assert script.PUBLIC_VERIFY_SUMMARY_TARGETS[-1]["min_visible_ratio"] == 0.98
+
+
 def test_qr_path_browser_smoke_matches_spa_verify_routes():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",

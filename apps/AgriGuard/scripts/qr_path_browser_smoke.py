@@ -17,6 +17,33 @@ DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 LEGACY_FIXTURE_MANUAL_TOKEN = "mock-0"
 DEFAULT_INVALID_MANUAL_VALUE = "not a valid AgriGuard QR"
 DEFAULT_INVALID_TOKEN = "not-a-real-token"
+FIRST_VIEWPORT_MAX_WIDTH = 500
+PUBLIC_VERIFY_SUMMARY_TARGETS = [
+    {
+        "name": "manual_verify_origin_card_first_viewport",
+        "text": "Origin",
+        "closest_selector": ".rounded-md.border",
+        "min_visible_ratio": 0.98,
+    },
+    {
+        "name": "manual_verify_batch_card_first_viewport",
+        "text": "Batch",
+        "closest_selector": ".rounded-md.border",
+        "min_visible_ratio": 0.98,
+    },
+    {
+        "name": "manual_verify_temperature_card_first_viewport",
+        "text": "Temperature",
+        "closest_selector": ".rounded-md.border",
+        "min_visible_ratio": 0.98,
+    },
+    {
+        "name": "manual_verify_last_verified_card_first_viewport",
+        "text": "Last verified",
+        "closest_selector": ".rounded-md.border",
+        "min_visible_ratio": 0.98,
+    },
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -175,6 +202,77 @@ def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
     return int(metrics["scrollWidth"]) <= allowed_width + 1
 
 
+def should_check_first_viewport_targets(metrics: dict[str, object]) -> bool:
+    return int(metrics["viewportWidth"]) <= FIRST_VIEWPORT_MAX_WIDTH
+
+
+def measure_first_viewport_target(page: Page, spec: dict[str, object]) -> dict[str, object]:
+    measurement = page.evaluate(
+        """spec => {
+            const normalize = value => (value || '').replace(/\\s+/g, ' ').trim();
+            const targetText = normalize(spec.text).toLowerCase();
+            const selector = spec.selector || 'button,a,h1,h2,h3,label,p,span,div';
+            const candidates = Array.from(document.querySelectorAll(selector))
+              .filter(element => normalize(element.textContent).toLowerCase().includes(targetText));
+            const textMatch = candidates.find(
+              element => normalize(element.textContent).toLowerCase() === targetText
+            ) || candidates[0] || null;
+
+            if (!textMatch) {
+              return {
+                name: spec.name,
+                text: spec.text,
+                selector,
+                found: false,
+                ok: false,
+                detail: 'matching element not found',
+                viewportHeight: window.innerHeight,
+                viewportWidth: window.innerWidth,
+              };
+            }
+
+            const measuredElement = spec.closest_selector
+              ? (textMatch.closest(spec.closest_selector) || textMatch)
+              : textMatch;
+            const rect = measuredElement.getBoundingClientRect();
+            const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+            const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+            const totalArea = Math.max(0, rect.width) * Math.max(0, rect.height);
+            const visibleArea = visibleWidth * visibleHeight;
+            const visibleRatio = totalArea > 0 ? visibleArea / totalArea : 0;
+            const minVisibleHeight = Number(spec.min_visible_height || 1);
+            const minVisibleRatio = Number(spec.min_visible_ratio || 0.01);
+            const ok = visibleHeight >= minVisibleHeight && visibleRatio >= minVisibleRatio;
+
+            return {
+              name: spec.name,
+              text: spec.text,
+              selector,
+              closestSelector: spec.closest_selector || null,
+              found: true,
+              ok,
+              rect: {
+                top: Math.round(rect.top),
+                bottom: Math.round(rect.bottom),
+                left: Math.round(rect.left),
+                right: Math.round(rect.right),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+              },
+              visibleWidth: Math.round(visibleWidth),
+              visibleHeight: Math.round(visibleHeight),
+              visibleRatio: Math.round(visibleRatio * 1000) / 1000,
+              minVisibleHeight,
+              minVisibleRatio,
+              viewportHeight: window.innerHeight,
+              viewportWidth: window.innerWidth,
+            };
+        }""",
+        spec,
+    )
+    return dict(measurement)
+
+
 def wait_for_public_verify(page: Page, timeout_ms: int) -> None:
     page.wait_for_function(
         """() => {
@@ -302,6 +400,12 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         wait_for_public_verify(page, args.timeout_ms)
         valid_text = page_text(page)
         valid_metrics = read_metrics(page)
+        manual_verify_affordances = []
+        if should_check_first_viewport_targets(valid_metrics):
+            manual_verify_affordances = [
+                measure_first_viewport_target(page, spec)
+                for spec in PUBLIC_VERIFY_SUMMARY_TARGETS
+            ]
         observations["manualVerify"] = {
             "url": page.url,
             "publicViewVisible": "Public view" in valid_text,
@@ -309,6 +413,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
             "batchEvidenceVisible": "Batch and origin" in valid_text,
             "notUnavailable": "Verification unavailable" not in valid_text,
             "metrics": valid_metrics,
+            "firstViewportTargets": manual_verify_affordances,
             "screenshot": capture(page, screenshot_dir, "manual-verify"),
         }
         checks.append(check("manual_verify_url_opened", f"/verify/{manual_token}" in page.url, page.url))
@@ -317,6 +422,8 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("manual_verify_batch_evidence_visible", bool(observations["manualVerify"]["batchEvidenceVisible"])))
         checks.append(check("manual_verify_not_unavailable", bool(observations["manualVerify"]["notUnavailable"])))
         checks.append(check("manual_verify_no_horizontal_overflow", has_no_horizontal_overflow(valid_metrics), str(valid_metrics)))
+        for item in manual_verify_affordances:
+            checks.append(check(str(item["name"]), bool(item["ok"]), json.dumps(item, sort_keys=True)))
 
         page.goto(route_url(args.base_url, f"/verify/{args.invalid_token}"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         wait_for_public_verify(page, args.timeout_ms)
