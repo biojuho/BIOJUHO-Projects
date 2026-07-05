@@ -305,6 +305,12 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     )
     assert validation["status"] == "pass"
     assert "Ready gate: `fail`" in markdown
+    assert "## Handoff Validation" in markdown
+    assert f"Schema JSON: `{APP_ROOT / 'scripts' / 'guarded_launch_handoff.schema.json'}`" in markdown
+    assert f"Validation JSON: `{validation_json.resolve()}`" in markdown
+    assert "Command shell: `powershell`" in markdown
+    assert "Command: `& " in markdown
+    assert "validate_guarded_launch_handoff.py" in markdown
     assert "Packet validation: `pass`" in markdown
     assert "Markdown table: `pass`" in markdown
     assert "Artifact index recovery command status: `not_required`" in markdown

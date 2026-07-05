@@ -291,6 +291,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         readiness_summary.get("next_commands") if isinstance(readiness_summary.get("next_commands"), list) else []
     )
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
+    validation = handoff.get("validation") if isinstance(handoff.get("validation"), dict) else {}
     packet_validation = handoff.get("packet_validation") if isinstance(handoff.get("packet_validation"), dict) else {}
     external_blocker = handoff.get("external_blocker") if isinstance(handoff.get("external_blocker"), dict) else {}
     commands = handoff.get("operator_commands") if isinstance(handoff.get("operator_commands"), list) else []
@@ -306,6 +307,13 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Ready gate: `{ready_gate.get('status')}`",
         f"- Packet validation: `{packet_validation.get('status')}`",
         f"- Secrets redacted: `{str(handoff.get('secrets_redacted')).lower()}`",
+        "",
+        "## Handoff Validation",
+        "",
+        f"- Schema JSON: `{validation.get('schema_json') or '-'}`",
+        f"- Validation JSON: `{validation.get('validation_json') or '-'}`",
+        f"- Command shell: `{validation.get('command_shell') or '-'}`",
+        f"- Command: `{validation.get('command_text') or '-'}`",
         "",
         "## Packet Validation",
         "",
