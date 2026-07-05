@@ -289,6 +289,7 @@ def build_consumer_view(
         "handoff_validation_command_text": _string_value(validation_block.get("command_text")),
         "status_view_status": status_view.get("status"),
         "packet_validation_status": packet_validation_status,
+        "packet_validation_blocker_class": packet_validation.get("blocker_class"),
         "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),
         "packet_markdown_table_status": packet_validation.get("markdown_table_status"),
         "packet_path_mismatch_count": packet_validation.get("path_mismatch_count"),

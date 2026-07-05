@@ -184,6 +184,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["ready_gate_status"] == "pass"
     assert view["ready_gate_blocker_class"] == "ready"
     assert view["packet_validation_status"] == "pass"
+    assert view["packet_validation_blocker_class"] == "ready"
     assert view["packet_evidence_outputs_status"] == "pass"
     assert view["packet_markdown_table_status"] == "pass"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
@@ -260,6 +261,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["ready_gate_blocker_class"] == "preflight_blocked"
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["packet_validation_status"] == "pass"
+    assert view["packet_validation_blocker_class"] == "ready"
     assert view["packet_artifact_index_recovery_command_status"] == "not_required"
     assert view["packet_artifact_index_recovery_command_note"] is None
     assert view["packet_artifact_index_recovery_command_shell"] is None
@@ -367,6 +369,7 @@ def test_consume_guarded_launch_handoff_fails_packet_validation_drift(tmp_path: 
 
     assert view["status"] == "fail"
     assert view["packet_validation_status"] == "fail"
+    assert view["packet_validation_blocker_class"] == "packet_validation_blocked"
     assert view["packet_markdown_table_status"] == "fail"
     assert "packet_validation status is not pass" in view["errors"]
 

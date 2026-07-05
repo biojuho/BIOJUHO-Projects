@@ -84,6 +84,10 @@ def _artifact_index_recovery_summary(artifact_index_summary: dict[str, object]) 
     }
 
 
+def _packet_validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "packet_validation_blocked"
+
+
 def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, object]:
     operator_packet = status_view.get("operator_packet")
     packet_path_value = operator_packet.get("path") if isinstance(operator_packet, dict) else None
@@ -120,6 +124,7 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
     status = "pass" if packet is not None and evidence_status == "pass" and markdown_status == "pass" else "fail"
     return {
         "status": status,
+        "blocker_class": _packet_validation_blocker_class(status),
         "found": packet is not None,
         "operator_packet_json": str(packet_path) if packet_path is not None else None,
         "evidence_outputs_status": evidence_status if isinstance(evidence_status, str) else None,
@@ -315,6 +320,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Ready gate: `{ready_gate.get('status')}`",
         f"- Ready gate blocker class: `{ready_gate.get('blocker_class') or '-'}`",
         f"- Packet validation: `{packet_validation.get('status')}`",
+        f"- Packet validation blocker class: `{packet_validation.get('blocker_class') or '-'}`",
         f"- Secrets redacted: `{str(handoff.get('secrets_redacted')).lower()}`",
         "",
         "## Handoff Validation",

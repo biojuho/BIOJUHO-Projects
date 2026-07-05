@@ -163,6 +163,12 @@
           ],
           "type": "object"
         },
+        "blocker_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "evidence_outputs_status": {
           "type": [
             "string",
@@ -216,6 +222,7 @@
       },
       "required": [
         "status",
+        "blocker_class",
         "found",
         "operator_packet_json",
         "evidence_outputs_status",

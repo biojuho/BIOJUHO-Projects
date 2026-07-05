@@ -149,6 +149,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         }
     ]
     assert handoff["packet_validation"]["status"] == "pass"
+    assert handoff["packet_validation"]["blocker_class"] == "ready"
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
     assert handoff["packet_validation"]["markdown_table_status"] == "pass"
     assert handoff["status_view"]["artifact_index"]["status"] == "pass"
@@ -199,6 +200,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "Readiness next command count: `1`" in markdown
     assert "Blocker class: `preflight_blocked`" in markdown
     assert "Ready gate blocker class: `preflight_blocked`" in markdown
+    assert "Packet validation blocker class: `ready`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 
 
@@ -325,6 +327,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert payload["blocker_class"] == "env_shape_blocked"
     assert payload["ready_gate"]["status"] == "fail"
     assert payload["ready_gate"]["blocker_class"] == "env_shape_blocked"
+    assert payload["packet_validation"]["blocker_class"] == "ready"
     assert payload["validation"]["validation_json"] == str(validation_json.resolve())
     assert payload["validation"]["command"][1] == str(APP_ROOT / "scripts" / "validate_guarded_launch_handoff.py")
     assert payload["validation"]["command"][2] == str(json_out.resolve())
