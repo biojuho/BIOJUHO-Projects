@@ -401,6 +401,7 @@ def _build_operator_packet_command(
     guarded_handoff_validation_json: Path | None,
     guarded_handoff_consumer_json: Path | None,
     guarded_ready_gate_json: Path | None,
+    run_browser_smoke: bool,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -441,6 +442,8 @@ def _build_operator_packet_command(
         command.extend(["--guarded-output-prefix", guarded_output_prefix])
     for env_file in env_files:
         command.extend(["--env-file", str(env_file)])
+    if not run_browser_smoke:
+        command.append("--no-browser-smoke")
     command.append("--exit-zero-on-blocked")
     return command
 
@@ -768,6 +771,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         guarded_handoff_validation_json=guarded_handoff_validation_json,
         guarded_handoff_consumer_json=guarded_handoff_consumer_json,
         guarded_ready_gate_json=guarded_ready_gate_json,
+        run_browser_smoke=args.run_browser_smoke,
     )
     readiness_summary_command = (
         _build_readiness_summary_command(

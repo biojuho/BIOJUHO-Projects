@@ -223,6 +223,38 @@ def test_operator_packet_preserves_env_file_in_safe_rerun_commands(tmp_path: Pat
     assert packet["guarded_launch_evidence"]["wrapper_command"] == packet["safe_rerun_commands"][1]
 
 
+def test_operator_packet_can_omit_browser_smoke_from_launch_safe_rerun(tmp_path: Path) -> None:
+    app_root = tmp_path / "apps" / "AgriGuard"
+    env_file = tmp_path / "var" / "operator.env"
+    preflight = tmp_path / "var" / "preflight.json"
+    preflight.parent.mkdir(parents=True)
+    preflight.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "errors": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."],
+                "warnings": [],
+                "checks": {"runtime": "compose", "docker_checked": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=preflight,
+        env_files=[env_file],
+        app_root=app_root,
+        run_browser_smoke=False,
+    )
+
+    guarded_command = packet["safe_rerun_commands"][1]
+    launch_command = packet["safe_rerun_commands"][3]
+    assert "--no-browser-smoke" in guarded_command
+    assert "--run-browser-smoke" not in guarded_command
+    assert "--run-browser-smoke" not in launch_command
+    assert "--launch-report-json" in launch_command
+
+
 def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Path) -> None:
     app_root = tmp_path / "apps" / "AgriGuard"
     env_file = tmp_path / "var" / "operator.env"

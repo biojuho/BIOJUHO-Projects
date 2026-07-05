@@ -961,6 +961,7 @@ def _build_operator_packet_refresh_command(
     guarded_handoff_validation_json: Path,
     guarded_handoff_consumer_json: Path,
     guarded_ready_gate_json: Path,
+    run_browser_smoke: bool,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -1005,6 +1006,8 @@ def _build_operator_packet_refresh_command(
     ]
     if guarded_status_json is not None:
         command.extend(["--guarded-status-json", str(guarded_status_json)])
+    if not run_browser_smoke:
+        command.append("--no-browser-smoke")
     return command
 
 
@@ -1201,6 +1204,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             guarded_handoff_validation_json=handoff_validation_json,
             guarded_handoff_consumer_json=handoff_consumer_json,
             guarded_ready_gate_json=handoff_ready_gate_json,
+            run_browser_smoke=not args.no_browser_smoke,
         )
         if handoff_requested
         else None

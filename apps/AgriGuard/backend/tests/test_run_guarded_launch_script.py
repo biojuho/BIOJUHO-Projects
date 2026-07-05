@@ -913,6 +913,35 @@ def test_guarded_launch_can_skip_browser_smoke_and_pass_compose_options(tmp_path
     assert _arg_after(command, "--service") == "backend"
 
 
+def test_guarded_launch_packet_refresh_preserves_no_browser_smoke(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    env_file = tmp_path / "operator.env"
+    output_dir = tmp_path / "launch-artifacts"
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--env-file",
+            str(env_file),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "release-check",
+            "--emit-handoff",
+            "--no-browser-smoke",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    delegated_launch_command = payload["command"]
+    refresh_command = payload["operator_packet_refresh_command"]
+    assert result == 0
+    assert "--run-browser-smoke" not in delegated_launch_command
+    assert "--no-browser-smoke" in refresh_command
+
+
 def test_guarded_launch_status_only_reports_missing_artifacts(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     output_dir = tmp_path / "launch-artifacts"

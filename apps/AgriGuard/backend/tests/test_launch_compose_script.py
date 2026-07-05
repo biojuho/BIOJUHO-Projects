@@ -112,6 +112,7 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
         str(launch_compose._default_env_validation_markdown_out(app_root.resolve())),
         "--compose-launch-report-json",
         str(launch_compose._default_launch_report_json_out(app_root.resolve())),
+        "--no-browser-smoke",
         "--exit-zero-on-blocked",
     ]
     assert payload["will_run_browser_smoke_after_compose"] is False

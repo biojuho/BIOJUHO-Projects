@@ -244,6 +244,7 @@ def _guarded_launch_command(
     handoff_validation_json: Path | None = None,
     handoff_consumer_json: Path | None = None,
     ready_gate_json: Path | None = None,
+    run_browser_smoke: bool = True,
 ) -> str:
     env_file = env_files[0].resolve() if len(env_files) == 1 else _default_operator_env_file(workspace_root)
     output_dir = (output_dir or (workspace_root / "var")).resolve()
@@ -267,6 +268,8 @@ def _guarded_launch_command(
             str(status_json),
         ]
     )
+    if not run_browser_smoke:
+        command.append("--no-browser-smoke")
     if handoff_json is not None:
         command.extend(["--handoff-json-out", str(handoff_json.resolve())])
     if handoff_markdown is not None:
@@ -641,6 +644,7 @@ def build_operator_packet(
     guarded_handoff_validation_json: Path | None = None,
     guarded_handoff_consumer_json: Path | None = None,
     guarded_ready_gate_json: Path | None = None,
+    run_browser_smoke: bool = True,
 ) -> dict[str, object]:
     app_root = (app_root or _default_app_root()).resolve()
     workspace_root = _workspace_root(app_root)
@@ -755,7 +759,12 @@ def build_operator_packet(
         [
             "--json-out",
             str(preflight_json_out),
-            "--run-browser-smoke",
+        ]
+    )
+    if run_browser_smoke:
+        rerun_launch_parts.append("--run-browser-smoke")
+    rerun_launch_parts.extend(
+        [
             "--launch-report-json",
             str(compose_launch_report_json_out),
             "--operator-packet-json",
@@ -803,6 +812,7 @@ def build_operator_packet(
         handoff_validation_json=guarded_handoff_validation_json,
         handoff_consumer_json=guarded_handoff_consumer_json,
         ready_gate_json=guarded_ready_gate_json,
+        run_browser_smoke=run_browser_smoke,
     )
     guarded_launch_outputs = _guarded_launch_evidence_outputs(
         app_root=app_root,
@@ -1103,6 +1113,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--guarded-handoff-consumer-json", type=Path, default=None)
     parser.add_argument("--guarded-ready-gate-json", type=Path, default=None)
     parser.add_argument(
+        "--no-browser-smoke",
+        action="store_true",
+        help="Do not include --run-browser-smoke in generated launch_compose.py safe rerun commands.",
+    )
+    parser.add_argument(
         "--exit-zero-on-blocked",
         action="store_true",
         help="Write the packet but return 0 even when launch remains blocked.",
@@ -1142,6 +1157,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.guarded_handoff_consumer_json
         else None,
         guarded_ready_gate_json=args.guarded_ready_gate_json.resolve() if args.guarded_ready_gate_json else None,
+        run_browser_smoke=not args.no_browser_smoke,
     )
     markdown = render_markdown(packet)
     evidence = packet.get("guarded_launch_evidence")
