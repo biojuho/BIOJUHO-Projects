@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -55,6 +56,17 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _sha256_file(path: Path) -> str | None:
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except FileNotFoundError:
+        return None
 
 
 def _load_peer_module(module_name: str) -> Any:
@@ -394,7 +406,16 @@ def _build_status_view(
                 ready_gate_artifact = item
                 break
     ready_gate_path = artifacts.get("ready_gate_json")
-    ready_gate_payload = _read_json(Path(ready_gate_path)) if isinstance(ready_gate_path, str) else None
+    ready_gate_path_obj = Path(ready_gate_path) if isinstance(ready_gate_path, str) else None
+    ready_gate_payload = _read_json(ready_gate_path_obj) if ready_gate_path_obj is not None else None
+    ready_gate_exists = (
+        ready_gate_path_obj.exists() if ready_gate_path_obj is not None else ready_gate_artifact.get("exists")
+    )
+    ready_gate_sha256 = (
+        _sha256_file(ready_gate_path_obj)
+        if ready_gate_path_obj is not None and ready_gate_path_obj.is_file()
+        else ready_gate_artifact.get("sha256")
+    )
     missing_required_roles = (
         artifact_index.get("missing_required_roles")
         if artifact_index is not None and isinstance(artifact_index.get("missing_required_roles"), list)
@@ -438,8 +459,8 @@ def _build_status_view(
         "ready_gate": {
             "found": ready_gate_payload is not None,
             "path": ready_gate_path,
-            "exists": ready_gate_artifact.get("exists"),
-            "sha256": ready_gate_artifact.get("sha256"),
+            "exists": ready_gate_exists,
+            "sha256": ready_gate_sha256,
             "status": ready_gate_payload.get("status") if ready_gate_payload is not None else None,
             "blocker_class": _artifact_index_view_blocker_class(ready_gate_payload),
             "command_shell": artifact_index.get("consumer_ready_gate_command_shell")

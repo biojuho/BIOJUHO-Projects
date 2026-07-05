@@ -1447,10 +1447,73 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
     assert payload["ready_gate"] == {
         "found": False,
         "path": str(custom_ready_gate.resolve()),
-        "exists": None,
+        "exists": False,
         "sha256": None,
         "status": None,
         "blocker_class": None,
+        "command_shell": "powershell",
+        "command_text": "& python run_guarded_launch.py --status-only --require-ready",
+    }
+
+
+def test_guarded_launch_status_only_prefers_live_ready_gate_file_state(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    custom_index = tmp_path / "handoff" / "current.artifact-index.json"
+    custom_ready_gate = tmp_path / "handoff" / "current.ready-gate.json"
+    custom_index.parent.mkdir(parents=True, exist_ok=True)
+    custom_ready_gate.write_text(
+        json.dumps({"status": "blocked", "blocker_class": "preflight_blocked"}),
+        encoding="utf-8",
+    )
+    custom_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "blocker_class": "ready",
+                "missing_required_roles": [],
+                "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
+                "consumer_ready_gate_command_shell": "powershell",
+                "consumer_ready_gate_command_text": "& python run_guarded_launch.py --status-only --require-ready",
+                "recovery_command_status": "not_required",
+                "artifacts": [
+                    {
+                        "role": "ready_gate_json",
+                        "path": str(custom_ready_gate.resolve()),
+                        "exists": False,
+                        "sha256": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json-out",
+            str(custom_index),
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["ready_gate"] == {
+        "found": True,
+        "path": str(custom_ready_gate.resolve()),
+        "exists": True,
+        "sha256": run_guarded_launch._sha256_file(custom_ready_gate),
+        "status": "blocked",
+        "blocker_class": "preflight_blocked",
         "command_shell": "powershell",
         "command_text": "& python run_guarded_launch.py --status-only --require-ready",
     }
