@@ -974,6 +974,8 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                     "operator_packet": {
                         "preflight_status": "env_shape_blocked",
                         "operator_action_ids": ["set_firebase_service_account_file"],
+                        "consumer_command_metadata_status": "fail",
+                        "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                     },
                 },
             }
@@ -1028,6 +1030,8 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["readiness_summary"]["env_validation_ready_for_preflight"] is False
     assert payload["readiness_summary"]["env_validation_placeholder_count"] == 6
     assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
+    assert payload["readiness_summary"]["operator_packet_consumer_command_metadata_status"] == "fail"
+    assert payload["readiness_summary"]["operator_packet_consumer_readiness_command_metadata_status"] == "pass"
     assert payload["readiness_summary"]["next_commands"] == [
         {
             "name": "validate_env_template",

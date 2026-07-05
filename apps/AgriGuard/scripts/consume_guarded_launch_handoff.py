@@ -303,8 +303,9 @@ def build_consumer_view(
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),
         "readiness_operator_packet_preflight_status": readiness_summary.get("operator_packet_preflight_status"),
-        "readiness_operator_packet_consumer_command_metadata_status": readiness_summary.get(
-            "operator_packet_consumer_command_metadata_status"
+        "readiness_operator_packet_consumer_command_metadata_status": (
+            readiness_summary.get("operator_packet_consumer_readiness_command_metadata_status")
+            or readiness_summary.get("operator_packet_consumer_command_metadata_status")
         ),
         "blocker_class": status_view.get("blocker_class"),
         "status_view_operator_action_ids": _string_list(status_view.get("operator_action_ids")),

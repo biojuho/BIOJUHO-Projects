@@ -233,7 +233,8 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
                 "operator_packet": {
                     "preflight_status": "env_shape_blocked",
                     "operator_action_ids": ["set_firebase_service_account_file"],
-                    "consumer_command_metadata_status": "pass",
+                    "consumer_command_metadata_status": "fail",
+                    "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 },
             },
         },

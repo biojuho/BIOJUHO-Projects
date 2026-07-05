@@ -296,6 +296,9 @@ def _build_status_view(
             "operator_packet_consumer_command_metadata_status": summary_operator_packet.get(
                 "consumer_command_metadata_status"
             ),
+            "operator_packet_consumer_readiness_command_metadata_status": summary_operator_packet.get(
+                "consumer_readiness_operator_packet_consumer_command_metadata_status"
+            ),
             "operator_packet_artifact_index_recovery_command_status": summary_operator_packet.get(
                 "artifact_index_recovery_command_status"
             ),
