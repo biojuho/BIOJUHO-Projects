@@ -835,6 +835,27 @@ def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
 
 
+def test_product_detail_browser_smoke_tracks_mobile_first_viewport_targets():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",
+        "product_detail_browser_smoke_affordances_under_test",
+    )
+
+    target_names = {target["name"] for target in script.MOBILE_FIRST_VIEWPORT_TARGETS}
+
+    assert target_names == {
+        "product_qr_first_viewport",
+        "operator_tracking_action_first_viewport",
+        "operator_certification_action_first_viewport",
+    }
+    assert script.should_check_mobile_affordances({"viewportWidth": 390}, mobile=False) is True
+    assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=True) is True
+    assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=False) is False
+    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[0]["aria_label"] == "Product verification QR"
+    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[1]["text"] == "Add Tracking Event"
+    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[2]["text"] == "Add Certification"
+
+
 def test_product_detail_browser_smoke_uses_operator_token_env(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",

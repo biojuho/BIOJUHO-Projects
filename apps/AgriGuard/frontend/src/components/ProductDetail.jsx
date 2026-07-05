@@ -228,8 +228,42 @@ export default function ProductDetail() {
   const qrCodeValue = String(product.qr_code || product.id);
   const formInputClass = "w-full bg-white/5 border border-input rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
 
+  const actionControls = (
+    <div data-testid="product-detail-actions" className="mt-4 grid gap-2 border-t border-border pt-4 sm:flex sm:flex-wrap sm:items-center md:mt-6 md:gap-3 md:pt-6">
+      {operatorNotice && (
+        <Badge variant={operatorTokenAvailable ? 'info' : 'outline'} className="justify-center border-amber-500/30 text-amber-300 sm:justify-start">
+          {operatorNotice}
+        </Badge>
+      )}
+      <Button
+        variant="outline"
+        disabled={!operatorTokenAvailable}
+        title={operatorTokenAvailable ? undefined : OPERATOR_AUTH_REQUIRED_MESSAGE}
+        onClick={() => {
+          setOperatorNotice('');
+          setTrackingState(prev => ({ ...prev, showForm: !prev.showForm }));
+        }}
+        className="w-full border-orange-500/30 text-orange-400 hover:bg-orange-500/10 sm:w-auto"
+      >
+        <Truck className="w-4 h-4" /> Add Tracking Event
+      </Button>
+      <Button
+        variant="outline"
+        disabled={!operatorTokenAvailable}
+        title={operatorTokenAvailable ? undefined : OPERATOR_AUTH_REQUIRED_MESSAGE}
+        onClick={() => {
+          setOperatorNotice('');
+          setCertState(prev => ({ ...prev, showForm: !prev.showForm }));
+        }}
+        className="w-full border-secondary/30 text-secondary hover:bg-secondary/10 sm:w-auto"
+      >
+        <ShieldCheck className="w-4 h-4" /> Add Certification
+      </Button>
+    </div>
+  );
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
       <Button variant="ghost" asChild size="sm">
         <Link to="/"><ArrowLeft className="w-4 h-4 mr-1" /> Back</Link>
       </Button>
@@ -265,36 +299,38 @@ export default function ProductDetail() {
             </Card>
           </div>
 
-          <div data-testid="product-detail-evidence-grid" className="mt-5 grid grid-cols-1 gap-3 border-t border-border pt-5 md:mt-8 md:grid-cols-3 md:gap-6 md:pt-8">
-            <div className="flex items-start gap-3 rounded-xl bg-white/5 p-3 sm:gap-4 sm:p-4">
-              <MapPin className="text-blue-400 w-6 h-6 mt-1" />
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Origin</p>
-                <p className="text-foreground font-semibold">{product.origin}</p>
+          <div data-testid="product-detail-evidence-grid" className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-4 md:mt-8 md:gap-6 md:pt-8">
+            <div className="flex min-w-0 flex-col gap-2 rounded-xl bg-white/5 p-2 sm:flex-row sm:items-start sm:gap-4 sm:p-4">
+              <MapPin className="h-5 w-5 shrink-0 text-blue-400 sm:mt-1 sm:h-6 sm:w-6" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium leading-tight text-muted-foreground sm:text-sm">Origin</p>
+                <p className="break-words text-xs font-semibold leading-tight text-foreground sm:text-base">{product.origin}</p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-xl bg-white/5 p-3 sm:gap-4 sm:p-4">
-              <Calendar className="text-orange-400 w-6 h-6 mt-1" />
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Harvest Date</p>
-                <p className="text-foreground font-semibold">
+            <div className="flex min-w-0 flex-col gap-2 rounded-xl bg-white/5 p-2 sm:flex-row sm:items-start sm:gap-4 sm:p-4">
+              <Calendar className="h-5 w-5 shrink-0 text-orange-400 sm:mt-1 sm:h-6 sm:w-6" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium leading-tight text-muted-foreground sm:text-sm">Harvest Date</p>
+                <p className="break-words text-xs font-semibold leading-tight text-foreground sm:text-base">
                   {product.harvest_date ? new Date(product.harvest_date).toLocaleDateString() : 'Pending'}
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-xl bg-white/5 p-3 sm:gap-4 sm:p-4">
-              <ThermometerSnowflake className={cn('w-6 h-6 mt-1', product.requires_cold_chain ? 'text-cyan-400' : 'text-muted-foreground')} />
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Cold Chain</p>
-                <p className="text-foreground font-semibold">
+            <div className="flex min-w-0 flex-col gap-2 rounded-xl bg-white/5 p-2 sm:flex-row sm:items-start sm:gap-4 sm:p-4">
+              <ThermometerSnowflake className={cn('h-5 w-5 shrink-0 sm:mt-1 sm:h-6 sm:w-6', product.requires_cold_chain ? 'text-cyan-400' : 'text-muted-foreground')} />
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium leading-tight text-muted-foreground sm:text-sm">Cold Chain</p>
+                <p className="break-words text-xs font-semibold leading-tight text-foreground sm:text-base">
                   {product.requires_cold_chain ? 'Required (Strict)' : 'Not Required'}
                 </p>
               </div>
             </div>
           </div>
 
+          {actionControls}
+
           {product.description && (
-             <div className="mt-5 md:mt-8">
+             <div className="mt-4 md:mt-8">
                 <h3 className="text-lg font-semibold text-foreground mb-2">Description</h3>
                 <div className="p-4 rounded-xl bg-white/5 border border-border text-muted-foreground leading-relaxed">
                    {product.description}
@@ -303,39 +339,6 @@ export default function ProductDetail() {
           )}
         </CardContent>
       </Card>
-
-      {/* Action Buttons */}
-      <div data-testid="product-detail-actions" className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
-        {operatorNotice && (
-          <Badge variant={operatorTokenAvailable ? 'info' : 'outline'} className="justify-center border-amber-500/30 text-amber-300 sm:justify-start">
-            {operatorNotice}
-          </Badge>
-        )}
-        <Button
-          variant="outline"
-          disabled={!operatorTokenAvailable}
-          title={operatorTokenAvailable ? undefined : OPERATOR_AUTH_REQUIRED_MESSAGE}
-          onClick={() => {
-            setOperatorNotice('');
-            setTrackingState(prev => ({ ...prev, showForm: !prev.showForm }));
-          }}
-          className="w-full border-orange-500/30 text-orange-400 hover:bg-orange-500/10 sm:w-auto"
-        >
-          <Truck className="w-4 h-4" /> Add Tracking Event
-        </Button>
-        <Button
-          variant="outline"
-          disabled={!operatorTokenAvailable}
-          title={operatorTokenAvailable ? undefined : OPERATOR_AUTH_REQUIRED_MESSAGE}
-          onClick={() => {
-            setOperatorNotice('');
-            setCertState(prev => ({ ...prev, showForm: !prev.showForm }));
-          }}
-          className="w-full border-secondary/30 text-secondary hover:bg-secondary/10 sm:w-auto"
-        >
-          <ShieldCheck className="w-4 h-4" /> Add Certification
-        </Button>
-      </div>
 
       {/* Tracking Form */}
       {operatorTokenAvailable && trackingState.showForm && (

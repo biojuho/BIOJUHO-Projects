@@ -72,12 +72,16 @@ describe('ProductDetail', () => {
       expect(screen.getByTestId('product-detail-card-content')).toHaveClass('sm:p-8');
       expect(screen.getByTestId('product-detail-qr-card-content')).toHaveClass('p-3');
       expect(screen.getByTestId('product-detail-qr-card-content')).toHaveClass('sm:p-4');
-      expect(screen.getByTestId('product-detail-evidence-grid')).toHaveClass('mt-5');
+      expect(screen.getByTestId('product-detail-evidence-grid')).toHaveClass('mt-4');
+      expect(screen.getByTestId('product-detail-evidence-grid')).toHaveClass('grid-cols-3');
       expect(screen.getByTestId('product-detail-evidence-grid')).toHaveClass('md:mt-8');
       expect(screen.getByTestId('product-detail-heading')).toHaveClass('text-2xl');
       expect(screen.getByTestId('product-detail-heading')).toHaveClass('sm:text-3xl');
       expect(screen.getByTestId('product-detail-actions')).toHaveClass('grid');
+      expect(screen.getByTestId('product-detail-actions')).toHaveClass('mt-4');
+      expect(screen.getByTestId('product-detail-actions')).toHaveClass('gap-2');
       expect(screen.getByTestId('product-detail-actions')).toHaveClass('sm:flex');
+      expect(screen.getByTestId('product-detail-card-content')).toContainElement(screen.getByTestId('product-detail-actions'));
       expect(screen.getByText('Seoul Farm')).toBeInTheDocument();
       expect(screen.getByRole('img', { name: 'Product verification QR' })).toBeInTheDocument();
       expect(screen.getByText('QR-12345')).toBeInTheDocument();
@@ -89,6 +93,10 @@ describe('ProductDetail', () => {
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toHaveClass('sm:w-auto');
       expect(screen.getByRole('button', { name: /Add Certification/i })).toHaveClass('w-full');
       expect(screen.getByText('Operator updates locked')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('product-detail-actions').compareDocumentPosition(screen.getByText('Fresh organic apples'))
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveTextContent('HANDLER-VERY-LONG-1234567890');
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveClass('break-all');
       expect(screen.getByTestId('timeline-data-value-handler_id')).not.toHaveClass('truncate');

@@ -17,6 +17,26 @@ DEFAULT_API_URL = "http://127.0.0.1:8002"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 DEFAULT_DESKTOP_VIEWPORT = "1440x960"
 DEFAULT_MOBILE_VIEWPORT = "390x844"
+MOBILE_VIEWPORT_MAX_WIDTH = 500
+MOBILE_FIRST_VIEWPORT_TARGETS = [
+    {
+        "name": "product_qr_first_viewport",
+        "aria_label": "Product verification QR",
+        "min_visible_ratio": 0.98,
+    },
+    {
+        "name": "operator_tracking_action_first_viewport",
+        "text": "Add Tracking Event",
+        "selector": "button",
+        "min_visible_ratio": 0.98,
+    },
+    {
+        "name": "operator_certification_action_first_viewport",
+        "text": "Add Certification",
+        "selector": "button",
+        "min_visible_ratio": 0.98,
+    },
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -142,6 +162,80 @@ def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
     return int(metrics["scrollWidth"]) <= allowed_width + 1
 
 
+def should_check_mobile_affordances(metrics: dict[str, object], *, mobile: bool) -> bool:
+    return bool(mobile) or int(metrics["viewportWidth"]) <= MOBILE_VIEWPORT_MAX_WIDTH
+
+
+def measure_first_viewport_target(page: Page, spec: dict[str, object]) -> dict[str, object]:
+    measurement = page.evaluate(
+        """spec => {
+            const normalize = value => (value || '').replace(/\\s+/g, ' ').trim();
+            let target = null;
+            if (spec.aria_label) {
+              target = Array.from(document.querySelectorAll('[aria-label]'))
+                .find(element => element.getAttribute('aria-label') === spec.aria_label) || null;
+            } else {
+              const targetText = normalize(spec.text).toLowerCase();
+              const selector = spec.selector || 'button,a,h1,h2,h3,label,p,span,div';
+              const candidates = Array.from(document.querySelectorAll(selector))
+                .filter(element => normalize(element.textContent).toLowerCase().includes(targetText));
+              target = candidates.find(
+                element => normalize(element.textContent).toLowerCase() === targetText
+              ) || candidates[0] || null;
+            }
+
+            if (!target) {
+              return {
+                name: spec.name,
+                text: spec.text || null,
+                ariaLabel: spec.aria_label || null,
+                found: false,
+                ok: false,
+                detail: 'matching element not found',
+                viewportHeight: window.innerHeight,
+                viewportWidth: window.innerWidth,
+              };
+            }
+
+            const rect = target.getBoundingClientRect();
+            const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+            const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+            const totalArea = Math.max(0, rect.width) * Math.max(0, rect.height);
+            const visibleArea = visibleWidth * visibleHeight;
+            const visibleRatio = totalArea > 0 ? visibleArea / totalArea : 0;
+            const minVisibleHeight = Number(spec.min_visible_height || 1);
+            const minVisibleRatio = Number(spec.min_visible_ratio || 0.01);
+            const ok = visibleHeight >= minVisibleHeight && visibleRatio >= minVisibleRatio;
+
+            return {
+              name: spec.name,
+              text: spec.text || null,
+              ariaLabel: spec.aria_label || null,
+              selector: spec.selector || null,
+              found: true,
+              ok,
+              rect: {
+                top: Math.round(rect.top),
+                bottom: Math.round(rect.bottom),
+                left: Math.round(rect.left),
+                right: Math.round(rect.right),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+              },
+              visibleWidth: Math.round(visibleWidth),
+              visibleHeight: Math.round(visibleHeight),
+              visibleRatio: Math.round(visibleRatio * 1000) / 1000,
+              minVisibleHeight,
+              minVisibleRatio,
+              viewportHeight: window.innerHeight,
+              viewportWidth: window.innerWidth,
+            };
+        }""",
+        spec,
+    )
+    return dict(measurement)
+
+
 def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     checks: list[dict[str, object]] = []
     observations: dict[str, object] = {}
@@ -193,9 +287,16 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         page.get_by_role("img", name="Product verification QR").wait_for(timeout=args.timeout_ms)
         initial_text = body_text(page)
         initial_metrics = read_metrics(page)
+        initial_mobile_affordances = []
+        if should_check_mobile_affordances(initial_metrics, mobile=args.mobile):
+            initial_mobile_affordances = [
+                measure_first_viewport_target(page, spec)
+                for spec in MOBILE_FIRST_VIEWPORT_TARGETS
+            ]
         observations["initial"] = {
             "url": page.url,
             "metrics": initial_metrics,
+            "mobileAffordances": initial_mobile_affordances,
             "screenshot": str(screenshot_dir / "product-detail-initial.png"),
         }
         checks.append(check("product_detail_loaded", product_name in initial_text, product_name))
@@ -204,6 +305,8 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("cold_chain_visible", "Required (Strict)" in initial_text))
         checks.append(check("local_qr_code_visible", page.get_by_role("img", name="Product verification QR").is_visible()))
         checks.append(check("initial_no_horizontal_overflow", has_no_horizontal_overflow(initial_metrics), str(initial_metrics)))
+        for item in initial_mobile_affordances:
+            checks.append(check(str(item["name"]), bool(item["ok"]), json.dumps(item, sort_keys=True)))
         page.screenshot(path=str(screenshot_dir / "product-detail-initial.png"), full_page=False)
 
         add_tracking = page.get_by_role("button", name=re.compile("add tracking event", re.I))
