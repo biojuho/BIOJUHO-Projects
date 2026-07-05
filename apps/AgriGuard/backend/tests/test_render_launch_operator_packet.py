@@ -807,7 +807,10 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     }
     assert "## Guarded Launch Readiness Summary" in markdown
     assert "Action IDs: `fix_env_shape_validation`" in markdown
+    assert "Next action count: `1`" in markdown
     assert "Next command count: `1`" in markdown
+    assert "## Guarded Launch Readiness Actions" in markdown
+    assert "- Replace env template placeholders and sample domains." in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery summary required: `false`" in markdown

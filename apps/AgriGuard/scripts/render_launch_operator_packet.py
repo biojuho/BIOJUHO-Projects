@@ -961,6 +961,11 @@ def render_markdown(packet: dict[str, object]) -> str:
         if isinstance(readiness_summary.get("operator_action_ids"), list)
         else []
     )
+    next_actions = (
+        [item for item in readiness_summary.get("next_actions", []) if isinstance(item, str)]
+        if isinstance(readiness_summary.get("next_actions"), list)
+        else []
+    )
     next_commands = (
         readiness_summary.get("next_commands") if isinstance(readiness_summary.get("next_commands"), list) else []
     )
@@ -987,6 +992,7 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
             f"- Recovery summary blocker class: `{recovery_summary.get('blocker_class') or '-'}`",
             f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
+            f"- Next action count: `{len(next_actions)}`",
             f"- Next command count: `{len(next_commands)}`",
             f"- Env validation blocker class: `{readiness_summary.get('env_validation_blocker_class') or '-'}`",
             f"- Env validation ready: `{str(readiness_summary.get('env_validation_ready_for_preflight')).lower()}`",
@@ -996,6 +1002,9 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Missing index command: `{readiness_summary.get('missing_index_command') or '-'}`",
         ]
     )
+    if next_actions:
+        lines.extend(["", "## Guarded Launch Readiness Actions", ""])
+        lines.extend(f"- {action}" for action in next_actions)
     if next_commands:
         lines.extend(["", "## Guarded Launch Readiness Commands", ""])
         for item in next_commands:
