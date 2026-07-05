@@ -127,6 +127,81 @@ def read_metrics(page: Page) -> dict[str, object]:
         """() => {
             const doc = document.documentElement;
             const body = document.body;
+            const normalize = value => (value || '').replace(/\\s+/g, ' ').trim();
+            const isVisible = element => {
+              const style = window.getComputedStyle(element);
+              const rect = element.getBoundingClientRect();
+              return style.visibility !== 'hidden'
+                && style.display !== 'none'
+                && rect.width > 0
+                && rect.height > 0;
+            };
+            const describeElement = element => ({
+              tag: element.tagName.toLowerCase(),
+              id: element.id || null,
+              role: element.getAttribute('role'),
+              type: element.getAttribute('type'),
+              ariaLabel: element.getAttribute('aria-label'),
+              placeholder: element.getAttribute('placeholder'),
+              text: normalize(element.textContent).slice(0, 120),
+            });
+            const accessibleName = element => {
+              const labelledBy = normalize(
+                (element.getAttribute('aria-labelledby') || '')
+                  .split(/\\s+/)
+                  .map(id => document.getElementById(id)?.textContent || '')
+                  .join(' ')
+              );
+              if (labelledBy) return labelledBy;
+              const ariaLabel = normalize(element.getAttribute('aria-label'));
+              if (ariaLabel) return ariaLabel;
+              if (element.id) {
+                const explicitLabel = Array.from(document.querySelectorAll('label'))
+                  .find(label => label.htmlFor === element.id);
+                const explicitLabelText = normalize(explicitLabel?.textContent);
+                if (explicitLabelText) return explicitLabelText;
+              }
+              const wrappedLabelText = normalize(element.closest('label')?.textContent);
+              if (wrappedLabelText) return wrappedLabelText;
+              const title = normalize(element.getAttribute('title'));
+              if (title) return title;
+              if (element.tagName.toLowerCase() === 'img') {
+                const alt = normalize(element.getAttribute('alt'));
+                if (alt) return alt;
+              }
+              if (element.tagName.toLowerCase() === 'input') {
+                const type = (element.getAttribute('type') || '').toLowerCase();
+                if (['button', 'submit', 'reset'].includes(type)) {
+                  return normalize(element.value);
+                }
+              }
+              const imageAlt = normalize(Array.from(element.querySelectorAll('img'))
+                .map(image => image.getAttribute('alt') || '')
+                .join(' '));
+              if (imageAlt) return imageAlt;
+              return normalize(element.textContent);
+            };
+            const interactiveSelector = [
+              'button',
+              'a[href]',
+              'input:not([type="hidden"])',
+              'select',
+              'textarea',
+              '[role="button"]',
+              '[role="link"]',
+              '[role="checkbox"]',
+              '[role="combobox"]',
+              '[role="switch"]',
+              '[role="textbox"]',
+            ].join(',');
+            const visibleInteractive = Array.from(document.querySelectorAll(interactiveSelector))
+              .filter(isVisible);
+            const fieldSelector = 'input:not([type="hidden"]),select,textarea,[role="combobox"],[role="textbox"]';
+            const visibleFields = Array.from(document.querySelectorAll(fieldSelector)).filter(isVisible);
+            const ids = Array.from(document.querySelectorAll('[id]'))
+              .map(element => element.id)
+              .filter(Boolean);
+            const duplicateIds = Array.from(new Set(ids.filter((id, index) => ids.indexOf(id) !== index))).sort();
             return {
               viewportWidth: window.innerWidth,
               viewportHeight: window.innerHeight,
@@ -136,6 +211,16 @@ def read_metrics(page: Page) -> dict[str, object]:
               bodyTextLength: (body.textContent || '').trim().length,
               bodyTextSample: (body.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 800),
               navWidth: Math.round(document.querySelector('nav')?.getBoundingClientRect().width || 0),
+              hasMain: Boolean(document.querySelector('main')),
+              hasNav: Boolean(document.querySelector('nav')),
+              h1Count: document.querySelectorAll('h1').length,
+              duplicateIds,
+              unnamedInteractive: visibleInteractive
+                .filter(element => !accessibleName(element))
+                .map(describeElement),
+              unlabeledFields: visibleFields
+                .filter(element => !accessibleName(element))
+                .map(describeElement),
               menuButton: document.querySelector('button[aria-label="Open menu"],button[aria-label="Close menu"]')
                 ?.getAttribute('aria-label') || null,
             };
@@ -163,6 +248,36 @@ def route_expected_is_visible(page: Page, expected: list[str]) -> bool:
 def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
     allowed_width = max(int(metrics["clientWidth"]), int(metrics["viewportWidth"]))
     return int(metrics["scrollWidth"]) <= allowed_width + 1
+
+
+def _metric_int(metrics: dict[str, object], name: str) -> int:
+    try:
+        return int(metrics.get(name, 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def route_semantics_detail(metrics: dict[str, object]) -> dict[str, object]:
+    return {
+        "hasMain": bool(metrics.get("hasMain")),
+        "hasNav": bool(metrics.get("hasNav")),
+        "h1Count": _metric_int(metrics, "h1Count"),
+        "duplicateIds": metrics.get("duplicateIds") or [],
+        "unnamedInteractive": metrics.get("unnamedInteractive") or [],
+        "unlabeledFields": metrics.get("unlabeledFields") or [],
+    }
+
+
+def route_semantics_ok(metrics: dict[str, object]) -> bool:
+    detail = route_semantics_detail(metrics)
+    return (
+        bool(detail["hasMain"])
+        and bool(detail["hasNav"])
+        and int(detail["h1Count"]) >= 1
+        and not detail["duplicateIds"]
+        and not detail["unnamedInteractive"]
+        and not detail["unlabeledFields"]
+    )
 
 
 def should_check_mobile_affordances(metrics: dict[str, object], *, mobile: bool) -> bool:
@@ -308,6 +423,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                 headings = page.locator("h1,h2,h3").all_inner_texts()
                 visible_expected = route_expected_is_visible(page, expected)
                 no_horizontal_overflow = has_no_horizontal_overflow(metrics)
+                semantic_accessibility = route_semantics_ok(metrics)
                 menu_closed_after_click = not args.click_nav or not args.mobile or metrics["menuButton"] == "Open menu"
                 mobile_affordances = []
                 if should_check_mobile_affordances(metrics, mobile=args.mobile):
@@ -327,11 +443,13 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                     "ok": visible_expected
                     and int(metrics["bodyTextLength"]) > 0
                     and no_horizontal_overflow
+                    and semantic_accessibility
                     and menu_closed_after_click
                     and mobile_affordances_ok
                     and len(page_errors) == route_errors_before,
                     "headings": headings,
                     "metrics": metrics,
+                    "semanticAccessibility": route_semantics_detail(metrics),
                     "mobileAffordances": mobile_affordances,
                     "menuClosedAfterClick": menu_closed_after_click,
                     "pageErrorsDuringRoute": page_errors[route_errors_before:],
@@ -340,6 +458,13 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                 checks.append(check(f"{name}_expected_text_visible", visible_expected, ", ".join(expected)))
                 checks.append(check(f"{name}_body_not_blank", int(metrics["bodyTextLength"]) > 0, str(metrics)))
                 checks.append(check(f"{name}_no_horizontal_overflow", no_horizontal_overflow, str(metrics)))
+                checks.append(
+                    check(
+                        f"{name}_semantic_accessibility",
+                        semantic_accessibility,
+                        json.dumps(route_semantics_detail(metrics), sort_keys=True),
+                    )
+                )
                 checks.append(check(f"{name}_nav_state_valid", menu_closed_after_click, str(metrics)))
                 checks.append(check(f"{name}_screenshot_written", screenshot.exists(), str(screenshot)))
                 checks.append(

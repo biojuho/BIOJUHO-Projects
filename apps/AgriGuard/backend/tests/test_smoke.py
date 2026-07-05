@@ -343,6 +343,37 @@ def test_nav_browser_smoke_tracks_mobile_first_viewport_affordances():
     assert script.MOBILE_ROUTE_AFFORDANCES["qr_tokens"][0]["min_visible_height"] == 220
 
 
+def test_nav_browser_smoke_requires_semantic_route_accessibility():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
+        "nav_browser_smoke_semantics_under_test",
+    )
+
+    valid_metrics = {
+        "hasMain": True,
+        "hasNav": True,
+        "h1Count": 1,
+        "duplicateIds": [],
+        "unnamedInteractive": [],
+        "unlabeledFields": [],
+    }
+
+    assert script.route_semantics_ok(valid_metrics) is True
+    assert script.route_semantics_detail(valid_metrics)["h1Count"] == 1
+
+    for field, value in [
+        ("hasMain", False),
+        ("hasNav", False),
+        ("h1Count", 0),
+        ("duplicateIds", ["search"]),
+        ("unnamedInteractive", [{"tag": "button"}]),
+        ("unlabeledFields", [{"tag": "input"}]),
+    ]:
+        failing_metrics = dict(valid_metrics)
+        failing_metrics[field] = value
+        assert script.route_semantics_ok(failing_metrics) is False
+
+
 def test_browser_smoke_suite_builds_live_backend_steps_and_redacts_operator_token(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",

@@ -177,7 +177,11 @@ export default function SupplyChain() {
         </div>
 
         <div className="relative w-full md:w-64">
+          <label htmlFor="supply-chain-search" className="sr-only">
+            Search products or locations
+          </label>
           <Input
+            id="supply-chain-search"
             type="text"
             placeholder="Search products or locations..."
             value={searchTerm}

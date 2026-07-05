@@ -102,6 +102,12 @@ describe('QRReader', () => {
     cleanup();
   });
 
+  it('exposes the scanner page title as the primary heading', () => {
+    renderReader();
+
+    expect(screen.getByRole('heading', { level: 1, name: /Scan Product QR/i })).toBeInTheDocument();
+  });
+
   it('tracks scan failure and recovery', async () => {
     renderReader();
 

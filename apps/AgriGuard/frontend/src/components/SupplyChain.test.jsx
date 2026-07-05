@@ -61,6 +61,7 @@ describe('SupplyChain', () => {
 
     expect(screen.getByTestId('supply-chain-heading')).toHaveClass('text-2xl');
     expect(screen.getByTestId('supply-chain-heading')).toHaveClass('sm:text-3xl');
+    expect(screen.getByLabelText(/Search products or locations/i)).toHaveAttribute('type', 'text');
     expect(screen.getByText('Product 1')).toBeInTheDocument();
     expect(screen.getByText('Product 20')).toBeInTheDocument();
     expect(screen.queryByText('Product 21')).not.toBeInTheDocument();
@@ -91,7 +92,7 @@ describe('SupplyChain', () => {
       expect(screen.getByText('Showing 21-25 of 25 products')).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByPlaceholderText('Search products or locations...'), {
+    fireEvent.change(screen.getByLabelText(/Search products or locations/i), {
       target: { value: 'product-01' },
     });
 

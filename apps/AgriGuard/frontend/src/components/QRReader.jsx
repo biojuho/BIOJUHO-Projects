@@ -255,7 +255,7 @@ export default function QRReader() {
           <div className="mx-auto bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mb-4">
             <ScanLine className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-white">Scan Product QR</h2>
+          <h1 className="text-2xl font-bold text-white">Scan Product QR</h1>
           <p className="text-white/80 mt-2 text-sm">
             Point the camera at an AgriGuard verification QR to open the product journey.
           </p>
