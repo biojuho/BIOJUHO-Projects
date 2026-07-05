@@ -19,7 +19,11 @@ vi.mock('../hooks/useThrottledWebSocket', () => ({
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }) => <div>{children}</div>,
-  LineChart: ({ children }) => <div>{children}</div>,
+  LineChart: ({ children, title, desc }) => (
+    <div role="application" aria-label={title} data-description={desc}>
+      {children}
+    </div>
+  ),
   Line: () => <div />,
   XAxis: () => <div />,
   YAxis: () => <div />,
@@ -96,6 +100,14 @@ describe('ColdChainMonitor', () => {
     render(<ColdChainMonitor />);
 
     expect(await screen.findByText('Zone Overview')).toBeInTheDocument();
+    expect(screen.getByRole('application', { name: 'Temperature timeline chart' })).toHaveAttribute(
+      'data-description',
+      'Keyboard-navigable line chart of recent cold-chain temperature readings with max and min threshold markers.',
+    );
+    expect(screen.getByRole('application', { name: 'Humidity timeline chart' })).toHaveAttribute(
+      'data-description',
+      'Keyboard-navigable line chart of recent cold-chain humidity readings.',
+    );
     expect(screen.getAllByText('Cold Storage A').length).toBeGreaterThan(0);
     expect(screen.queryByText('1 alerts')).not.toBeInTheDocument();
   });

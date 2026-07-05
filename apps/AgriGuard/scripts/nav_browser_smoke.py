@@ -169,6 +169,12 @@ def read_metrics(page: Page) -> dict[str, object]:
                 const alt = normalize(element.getAttribute('alt'));
                 if (alt) return alt;
               }
+              if (element.tagName.toLowerCase() === 'svg') {
+                const svgTitle = normalize(element.querySelector('title')?.textContent);
+                if (svgTitle) return svgTitle;
+                const svgDesc = normalize(element.querySelector('desc')?.textContent);
+                if (svgDesc) return svgDesc;
+              }
               if (element.tagName.toLowerCase() === 'input') {
                 const type = (element.getAttribute('type') || '').toLowerCase();
                 if (['button', 'submit', 'reset'].includes(type)) {
@@ -193,6 +199,7 @@ def read_metrics(page: Page) -> dict[str, object]:
               '[role="combobox"]',
               '[role="switch"]',
               '[role="textbox"]',
+              'svg[tabindex]',
             ].join(',');
             const visibleInteractive = Array.from(document.querySelectorAll(interactiveSelector))
               .filter(isVisible);

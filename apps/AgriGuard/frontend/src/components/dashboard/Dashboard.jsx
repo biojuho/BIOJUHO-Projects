@@ -283,7 +283,13 @@ export default function Dashboard() {
             ) : (
               <div className="h-64 min-w-0">
                 <ResponsiveContainer width="100%" height={256} minWidth={320}>
-                  <BarChart data={statusChartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                  <BarChart
+                    data={statusChartData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                    title="Tracking status distribution chart"
+                    desc="Keyboard-navigable vertical bar chart showing product tracking status counts."
+                  >
                     <XAxis type="number" hide />
                     <YAxis dataKey="label" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 13 }} width={80} />
                     <Tooltip
@@ -324,7 +330,10 @@ export default function Dashboard() {
             ) : (
               <div className="h-64 min-w-0">
                 <ResponsiveContainer width="100%" height={256} minWidth={320}>
-                  <PieChart>
+                  <PieChart
+                    title="Product origin distribution chart"
+                    desc="Keyboard-navigable pie chart showing product counts by origin."
+                  >
                     <Pie
                       data={originChartData}
                       cx="50%"

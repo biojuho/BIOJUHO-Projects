@@ -234,7 +234,11 @@ export default function ColdChainMonitor() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={chartData}>
+            <LineChart
+              data={chartData}
+              title="Temperature timeline chart"
+              desc="Keyboard-navigable line chart of recent cold-chain temperature readings with max and min threshold markers."
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="time" stroke="#6b7280" fontSize={11} />
               <YAxis stroke="#6b7280" fontSize={11} domain={[-30, 15]} />
@@ -253,7 +257,11 @@ export default function ColdChainMonitor() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData}>
+            <LineChart
+              data={chartData}
+              title="Humidity timeline chart"
+              desc="Keyboard-navigable line chart of recent cold-chain humidity readings."
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="time" stroke="#6b7280" fontSize={11} />
               <YAxis stroke="#6b7280" fontSize={11} domain={[0, 100]} />
