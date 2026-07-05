@@ -404,6 +404,14 @@ def _allowed_origin_errors(
     return errors
 
 
+def _preflight_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "preflight_blocked"
+
+
+def _refresh_preflight_blocker_class(report: dict[str, object]) -> None:
+    report["blocker_class"] = _preflight_blocker_class(report.get("status"))
+
+
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -537,6 +545,7 @@ def validate_launch_env_with_options(
 
     return {
         "status": "fail" if errors else "pass",
+        "blocker_class": _preflight_blocker_class("fail" if errors else "pass"),
         "errors": errors,
         "warnings": warnings,
         "checks": {
@@ -710,6 +719,7 @@ def build_launch_report(
             assert isinstance(errors, list)
             errors.extend(firebase_credential_errors)
             report["status"] = "fail"
+            _refresh_preflight_blocker_class(report)
         checks["firebase_credentials_file_checked"] = True
         checks["firebase_credentials_file_exists"] = firebase_credentials_file_exists
         checks["firebase_credentials_file_valid"] = not firebase_credential_errors
@@ -727,6 +737,7 @@ def build_launch_report(
         assert isinstance(errors, list)
         errors.extend(docker_report["errors"])
         report["status"] = "fail" if errors else "pass"
+        _refresh_preflight_blocker_class(report)
 
     return report
 

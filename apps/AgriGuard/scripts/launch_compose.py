@@ -128,6 +128,7 @@ def _summarize_preflight_json(path: Path) -> dict[str, object]:
         "found": True,
         "path": str(path),
         "status": payload.get("status"),
+        "blocker_class": payload.get("blocker_class"),
         "errors": payload.get("errors") if isinstance(payload.get("errors"), list) else [],
         "warnings": payload.get("warnings") if isinstance(payload.get("warnings"), list) else [],
     }

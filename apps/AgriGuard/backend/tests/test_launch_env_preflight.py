@@ -820,6 +820,7 @@ def test_launch_env_preflight_passes_with_strong_secret_and_scoped_origins() -> 
     report = launch_env_preflight.validate_launch_env(_healthy_env())
 
     assert report["status"] == "pass"
+    assert report["blocker_class"] == "ready"
     assert report["errors"] == []
 
 
@@ -879,6 +880,7 @@ def test_launch_report_skips_docker_checks_by_default(tmp_path: Path) -> None:
     )
 
     assert report["status"] == "pass"
+    assert report["blocker_class"] == "ready"
     assert report["checks"]["docker_checked"] is False
     assert "docker" not in report["checks"]
 
@@ -932,6 +934,7 @@ def test_launch_report_rejects_missing_compose_firebase_credentials_file(tmp_pat
     report = launch_env_preflight.build_launch_report(_healthy_env(), app_root=tmp_path)
 
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "preflight_blocked"
     assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist." in report["errors"]
     assert report["checks"]["firebase_credentials_file_checked"] is True
     assert report["checks"]["firebase_credentials_file_exists"] is False

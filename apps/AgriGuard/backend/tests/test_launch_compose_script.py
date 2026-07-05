@@ -1029,6 +1029,7 @@ def test_launch_compose_embeds_preflight_child_report_summary(tmp_path: Path) ->
             json.dumps(
                 {
                     "status": "fail",
+                    "blocker_class": "preflight_blocked",
                     "errors": ["missing AGRIGUARD_SECRET_KEY"],
                     "warnings": ["diagnostic warning"],
                 }
@@ -1055,6 +1056,7 @@ def test_launch_compose_embeds_preflight_child_report_summary(tmp_path: Path) ->
         "found": True,
         "path": str(json_out.resolve()),
         "status": "fail",
+        "blocker_class": "preflight_blocked",
         "errors": ["missing AGRIGUARD_SECRET_KEY"],
         "warnings": ["diagnostic warning"],
     }
