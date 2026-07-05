@@ -32,6 +32,7 @@ def test_launch_readiness_summary_classifies_env_shape_blocker(tmp_path: Path) -
         json.dumps(
             {
                 "status": "fail",
+                "blocker_class": "env_shape_blocked",
                 "ready_for_preflight": False,
                 "placeholder_count": 6,
                 "missing_required_keys": ["AGRIGUARD_SECRET_KEY"],
@@ -50,6 +51,7 @@ def test_launch_readiness_summary_classifies_env_shape_blocker(tmp_path: Path) -
 
     assert summary["status"] == "blocked"
     assert summary["blocker_class"] == "env_shape_blocked"
+    assert summary["reports"]["env_validation"]["blocker_class"] == "env_shape_blocked"
     assert summary["reports"]["env_validation"]["placeholder_count"] == 6
     assert "AGRIGUARD_SECRET_KEY" in summary["reports"]["env_validation"]["missing_required_keys"]
 
@@ -61,6 +63,7 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
         json.dumps(
             {
                 "status": "fail",
+                "blocker_class": "env_shape_blocked",
                 "ready_for_preflight": False,
                 "placeholder_count": 6,
                 "missing_required_keys": ["AGRIGUARD_SECRET_KEY"],
@@ -96,6 +99,7 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
     markdown = summarize_launch_readiness.render_markdown(summary)
 
     assert "- Env validation ready for preflight: `false`" in markdown
+    assert "- Env validation blocker class: `env_shape_blocked`" in markdown
     assert "- Env validation placeholder count: `6`" in markdown
     assert "- Operator packet blocker class: `env_shape_blocked`" in markdown
     assert "- Operator packet preflight status: `env_shape_blocked`" in markdown
@@ -110,7 +114,14 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     launch = tmp_path / "launch.json"
     packet = tmp_path / "packet.json"
     validation.write_text(
-        json.dumps({"status": "pass", "ready_for_preflight": True, "placeholder_count": 0}),
+        json.dumps(
+            {
+                "status": "pass",
+                "blocker_class": "ready",
+                "ready_for_preflight": True,
+                "placeholder_count": 0,
+            }
+        ),
         encoding="utf-8",
     )
     launch.write_text(
@@ -123,7 +134,11 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                 "run_browser_smoke": True,
                 "results": [{"name": "env_validation"}, {"name": "preflight"}, {"name": "operator_packet"}],
                 "child_reports": {
-                    "env_validation": {"status": "pass", "ready_for_preflight": True},
+                    "env_validation": {
+                        "status": "pass",
+                        "blocker_class": "ready",
+                        "ready_for_preflight": True,
+                    },
                     "preflight": {"status": "fail"},
                     "operator_packet": {
                         "status": "blocked",
@@ -173,6 +188,8 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["status"] == "blocked"
     assert summary["blocker_class"] == "preflight_blocked"
     assert summary["reports"]["launch"]["blocker_class"] == "preflight_blocked"
+    assert summary["reports"]["env_validation"]["blocker_class"] == "ready"
+    assert summary["reports"]["launch"]["env_validation_blocker_class"] == "ready"
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
     assert summary["reports"]["operator_packet"]["blocker_class"] == "operator_values_required"
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
@@ -220,7 +237,14 @@ def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     validation.write_text(
-        json.dumps({"status": "pass", "ready_for_preflight": True, "placeholder_count": 0}),
+        json.dumps(
+            {
+                "status": "pass",
+                "blocker_class": "ready",
+                "ready_for_preflight": True,
+                "placeholder_count": 0,
+            }
+        ),
         encoding="utf-8",
     )
 

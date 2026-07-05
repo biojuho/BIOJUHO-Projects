@@ -46,6 +46,7 @@ def _env_validation_summary(path: Path, workspace_root: Path) -> dict[str, objec
         "found": True,
         "path": _rel(path, workspace_root),
         "status": payload.get("status"),
+        "blocker_class": payload.get("blocker_class"),
         "ready_for_preflight": payload.get("ready_for_preflight"),
         "placeholder_count": payload.get("placeholder_count"),
         "missing_required_keys": _list(payload.get("missing_required_keys")),
@@ -86,6 +87,7 @@ def _launch_report_summary(path: Path, workspace_root: Path) -> dict[str, object
         "stop_reason": payload.get("stop_reason"),
         "run_browser_smoke": payload.get("run_browser_smoke"),
         "result_names": result_names,
+        "env_validation_blocker_class": env_validation.get("blocker_class"),
         "env_validation_ready_for_preflight": env_validation.get("ready_for_preflight"),
         "env_validation_status": env_validation.get("status"),
         "preflight_status": preflight.get("status"),
@@ -110,6 +112,8 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
         "path": _rel(path, workspace_root),
         "status": payload.get("status"),
         "blocker_class": payload.get("blocker_class"),
+        "env_validation_status": payload.get("env_validation_status"),
+        "env_validation_blocker_class": payload.get("env_validation_blocker_class"),
         "preflight_status": payload.get("preflight_status"),
         "blocking_action_count": payload.get("blocking_action_count"),
         "operator_action_ids": action_ids,
@@ -158,7 +162,8 @@ def _classify(
     operator_packet: dict[str, object],
 ) -> tuple[str, str]:
     if env_validation.get("found") and env_validation.get("status") == "fail":
-        return "blocked", "env_shape_blocked"
+        blocker_class = env_validation.get("blocker_class")
+        return "blocked", str(blocker_class or "env_shape_blocked")
     if launch.get("found") and launch.get("stop_reason") in {
         "env_shape_validation_failed",
         "env_shape_validation_requires_single_env_file",
@@ -280,6 +285,7 @@ def render_markdown(summary: dict[str, object]) -> str:
         f"- Status: `{summary['status']}`",
         f"- Blocker class: `{summary['blocker_class']}`",
         f"- Launch report blocker class: `{launch.get('blocker_class') or '-'}`",
+        f"- Env validation blocker class: `{env_validation.get('blocker_class') or '-'}`",
         f"- Env validation ready for preflight: `{str(env_validation.get('ready_for_preflight')).lower()}`",
         f"- Env validation placeholder count: `{env_validation.get('placeholder_count')}`",
         f"- Operator packet preflight status: `{operator_packet.get('preflight_status')}`",

@@ -471,6 +471,9 @@ def _artifact_index_readiness_summary(
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
         "next_commands": next_commands,
+        "env_validation_blocker_class": index.get("consumer_readiness_env_validation_blocker_class")
+        if index is not None
+        else None,
         "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
         if index is not None
         else None,
@@ -794,6 +797,7 @@ def build_operator_packet(
         "preflight_json": preflight_rel,
         "env_validation_json": env_validation_rel,
         "env_validation_status": env_payload.get("status") if isinstance(env_payload, dict) else None,
+        "env_validation_blocker_class": env_payload.get("blocker_class") if isinstance(env_payload, dict) else None,
         "operator_env_files": env_file_refs,
         "secrets_redacted": True,
         "blocking_action_count": len(actions),
@@ -837,6 +841,7 @@ def render_markdown(packet: dict[str, object]) -> str:
         f"- Status: `{packet['status']}`",
         f"- Blocker class: `{packet['blocker_class']}`",
         f"- Preflight status: `{packet['preflight_status']}`",
+        f"- Env validation blocker class: `{packet.get('env_validation_blocker_class') or '-'}`",
         f"- Preflight JSON: `{packet['preflight_json']}`",
         f"- Secrets redacted: `{str(packet['secrets_redacted']).lower()}`",
         f"- Blocking action count: `{packet['blocking_action_count']}`",
@@ -926,6 +931,7 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
             f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
             f"- Next command count: `{len(next_commands)}`",
+            f"- Env validation blocker class: `{readiness_summary.get('env_validation_blocker_class') or '-'}`",
             f"- Env validation ready: `{str(readiness_summary.get('env_validation_ready_for_preflight')).lower()}`",
             f"- Env placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
             f"- Packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",

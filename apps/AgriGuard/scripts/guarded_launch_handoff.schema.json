@@ -425,6 +425,12 @@
                 "null"
               ]
             },
+            "consumer_readiness_env_validation_blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "consumer_readiness_env_validation_ready_for_preflight": {
               "type": [
                 "boolean",
@@ -505,6 +511,7 @@
             "consumer_command_metadata_status",
             "consumer_readiness_operator_packet_consumer_command_metadata_status",
             "consumer_readiness_operator_action_ids",
+            "consumer_readiness_env_validation_blocker_class",
             "consumer_readiness_env_validation_ready_for_preflight",
             "consumer_readiness_env_validation_placeholder_count",
             "consumer_readiness_operator_packet_preflight_status",
@@ -646,6 +653,18 @@
                 "null"
               ]
             },
+            "env_validation_blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "env_validation_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "found": {
               "type": "boolean"
             },
@@ -688,6 +707,8 @@
             "path",
             "status",
             "blocker_class",
+            "env_validation_status",
+            "env_validation_blocker_class",
             "operator_action_ids",
             "blocking_action_count",
             "preflight_status",
@@ -757,6 +778,12 @@
                 "null"
               ]
             },
+            "env_validation_blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "env_validation_placeholder_count": {
               "type": [
                 "integer",
@@ -822,6 +849,7 @@
             "blocker_class",
             "next_actions",
             "operator_action_ids",
+            "env_validation_blocker_class",
             "env_validation_ready_for_preflight",
             "env_validation_placeholder_count",
             "operator_packet_blocker_class",

@@ -322,6 +322,7 @@ def _build_status_view(
             "next_actions": summary.get("next_actions") if summary is not None and isinstance(summary.get("next_actions"), list) else [],
             "next_commands": _next_commands_from_summary(summary),
             "operator_action_ids": action_ids,
+            "env_validation_blocker_class": summary_env_validation.get("blocker_class"),
             "env_validation_ready_for_preflight": summary_env_validation.get("ready_for_preflight"),
             "env_validation_placeholder_count": summary_env_validation.get("placeholder_count"),
             "operator_packet_blocker_class": summary_operator_packet.get("blocker_class"),
@@ -345,6 +346,8 @@ def _build_status_view(
             "path": str(artifact_paths["operator_packet_json"]),
             "status": packet.get("status") if packet is not None else None,
             "blocker_class": packet.get("blocker_class") if packet is not None else None,
+            "env_validation_status": packet.get("env_validation_status") if packet is not None else None,
+            "env_validation_blocker_class": packet.get("env_validation_blocker_class") if packet is not None else None,
             "operator_action_ids": _operator_action_ids_from_packet(packet),
             "blocking_action_count": packet.get("blocking_action_count")
             if packet is not None and isinstance(packet.get("blocking_action_count"), int)
@@ -383,6 +386,11 @@ def _build_status_view(
             ),
             "consumer_readiness_env_validation_ready_for_preflight": artifact_index.get(
                 "consumer_readiness_env_validation_ready_for_preflight"
+            )
+            if artifact_index is not None
+            else None,
+            "consumer_readiness_env_validation_blocker_class": artifact_index.get(
+                "consumer_readiness_env_validation_blocker_class"
             )
             if artifact_index is not None
             else None,
@@ -649,6 +657,9 @@ def _artifact_index_readiness_summary(
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
         "next_commands": next_commands,
+        "env_validation_blocker_class": index.get("consumer_readiness_env_validation_blocker_class")
+        if index is not None
+        else None,
         "env_validation_ready_for_preflight": index.get("consumer_readiness_env_validation_ready_for_preflight")
         if index is not None
         else None,

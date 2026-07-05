@@ -82,6 +82,7 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
                     "shell": "powershell",
                 }
             ],
+            "readiness_env_validation_blocker_class": "env_shape_blocked",
             "readiness_env_validation_ready_for_preflight": False,
             "readiness_env_validation_placeholder_count": 6,
             "readiness_operator_packet_preflight_status": "env_shape_blocked",
@@ -118,6 +119,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         }
     ]
     assert index["consumer_command_metadata_status"] == "pass"
+    assert index["consumer_readiness_env_validation_blocker_class"] == "env_shape_blocked"
     assert index["consumer_ready_gate_command_shell"] == "powershell"
     assert index["consumer_ready_gate_command_text"] == "& python run_guarded_launch.py --require-ready"
     assert index["consumer_operator_command_count"] == 2

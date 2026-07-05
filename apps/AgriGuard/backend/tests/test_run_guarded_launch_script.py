@@ -77,6 +77,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
                         "shell": "powershell",
                     }
                 ],
+                "consumer_readiness_env_validation_blocker_class": "env_shape_blocked",
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
@@ -141,6 +142,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
                 "shell": "powershell",
             }
         ],
+        "env_validation_blocker_class": "env_shape_blocked",
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
         "operator_packet_preflight_status": "env_shape_blocked",
@@ -551,6 +553,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
                             "shell": "powershell",
                         }
                     ],
+                    "consumer_readiness_env_validation_blocker_class": "ready",
                     "consumer_readiness_env_validation_ready_for_preflight": True,
                     "consumer_readiness_env_validation_placeholder_count": 0,
                     "consumer_readiness_operator_packet_preflight_status": "fail",
@@ -623,6 +626,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
                             ),
                             "recovery_command_status": "not_required",
                             "operator_action_ids": ["set_firebase_service_account_file"],
+                            "env_validation_blocker_class": "ready",
                             "env_validation_ready_for_preflight": True,
                             "env_validation_placeholder_count": 0,
                             "operator_packet_preflight_status": "fail",
@@ -969,6 +973,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                 ],
                 "reports": {
                     "env_validation": {
+                        "blocker_class": "env_shape_blocked",
                         "ready_for_preflight": False,
                         "placeholder_count": 6,
                     },
@@ -1031,6 +1036,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["launch"]["blocker_class"] == "preflight_blocked"
     assert payload["launch"]["result_names"] == ["env_validation", "preflight"]
     assert payload["readiness_summary"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert payload["readiness_summary"]["env_validation_blocker_class"] == "env_shape_blocked"
     assert payload["readiness_summary"]["env_validation_ready_for_preflight"] is False
     assert payload["readiness_summary"]["env_validation_placeholder_count"] == 6
     assert payload["readiness_summary"]["operator_packet_blocker_class"] == "env_shape_blocked"
@@ -1113,6 +1119,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                         "shell": "powershell",
                     }
                 ],
+                "consumer_readiness_env_validation_blocker_class": "ready",
                 "consumer_readiness_env_validation_ready_for_preflight": True,
                 "consumer_readiness_env_validation_placeholder_count": 0,
                 "consumer_readiness_operator_packet_preflight_status": "fail",
@@ -1178,6 +1185,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                 "shell": "powershell",
             }
         ],
+        "consumer_readiness_env_validation_blocker_class": "ready",
         "consumer_readiness_env_validation_ready_for_preflight": True,
         "consumer_readiness_env_validation_placeholder_count": 0,
         "consumer_readiness_operator_packet_preflight_status": "fail",

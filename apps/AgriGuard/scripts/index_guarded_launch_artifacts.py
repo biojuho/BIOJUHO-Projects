@@ -384,6 +384,9 @@ def build_index(
         "consumer_operator_commands": consumer_operator_commands,
         "consumer_handoff_validation_command_shell": consumer_handoff_validation_command_shell,
         "consumer_handoff_validation_command_text": consumer_handoff_validation_command_text,
+        "consumer_readiness_env_validation_blocker_class": consumer.get("readiness_env_validation_blocker_class")
+        if isinstance(consumer, dict)
+        else None,
         "consumer_readiness_env_validation_ready_for_preflight": consumer.get("readiness_env_validation_ready_for_preflight")
         if isinstance(consumer, dict)
         else None,
@@ -461,6 +464,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer operator command text count: `{operator_command_text_count if isinstance(operator_command_text_count, int) else '-'}`",
         f"- Consumer handoff validation command shell: `{index.get('consumer_handoff_validation_command_shell') or '-'}`",
         f"- Consumer handoff validation command: `{index.get('consumer_handoff_validation_command_text') or '-'}`",
+        f"- Consumer readiness env validation blocker class: `{index.get('consumer_readiness_env_validation_blocker_class') or '-'}`",
         "- Consumer readiness env validation ready: "
         f"`{str(index.get('consumer_readiness_env_validation_ready_for_preflight')).lower()}`",
         f"- Consumer readiness placeholder count: `{index.get('consumer_readiness_env_validation_placeholder_count')}`",

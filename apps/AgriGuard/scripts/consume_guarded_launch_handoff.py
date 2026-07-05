@@ -309,6 +309,7 @@ def build_consumer_view(
         "artifact_index_recovery_command_status": artifact_index.get("recovery_command_status"),
         "readiness_operator_action_ids": readiness_action_ids,
         "readiness_next_commands": readiness_next_commands,
+        "readiness_env_validation_blocker_class": readiness_summary.get("env_validation_blocker_class"),
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),
         "readiness_env_validation_placeholder_count": readiness_summary.get("env_validation_placeholder_count"),
         "readiness_operator_packet_preflight_status": readiness_summary.get("operator_packet_preflight_status"),

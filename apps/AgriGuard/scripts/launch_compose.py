@@ -155,6 +155,7 @@ def _summarize_env_validation_json(path: Path) -> dict[str, object]:
         "found": True,
         "path": str(path),
         "status": payload.get("status"),
+        "blocker_class": payload.get("blocker_class"),
         "ready_for_preflight": payload.get("ready_for_preflight"),
         "placeholder_count": payload.get("placeholder_count"),
         "missing_required_keys": (
@@ -208,6 +209,8 @@ def _summarize_operator_packet_json(
         "env_template_found": env_template_path.exists(),
         "status": payload.get("status"),
         "blocker_class": payload.get("blocker_class"),
+        "env_validation_status": payload.get("env_validation_status"),
+        "env_validation_blocker_class": payload.get("env_validation_blocker_class"),
         "preflight_status": payload.get("preflight_status"),
         "blocking_action_count": payload.get("blocking_action_count"),
         "operator_action_ids": action_ids,
@@ -880,6 +883,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             child_reports["env_validation"] = {
                 "found": False,
                 "path": str(env_validation_json_out),
+                "blocker_class": "env_shape_blocked",
                 "error": "Provide exactly one --env-file with --validate-env-file-shape.",
             }
             _write_failed_launch_report(

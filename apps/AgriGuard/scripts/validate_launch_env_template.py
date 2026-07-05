@@ -182,6 +182,10 @@ def _dedupe(items: list[str]) -> list[str]:
     return deduped
 
 
+def _env_validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "env_shape_blocked"
+
+
 def build_validation_report(*, env_file: Path, app_root: Path | None = None) -> dict[str, object]:
     app_root = (app_root or _default_app_root()).resolve()
     workspace_root = _workspace_root(app_root)
@@ -206,10 +210,12 @@ def build_validation_report(*, env_file: Path, app_root: Path | None = None) -> 
     blocking_findings.extend(_firebase_path_shape_errors(env))
     blocking_findings.extend(f"Launch shape validation: {error}" for error in launch_errors)
     blocking_findings = _dedupe(blocking_findings)
+    status = "fail" if blocking_findings else "pass"
 
     return {
         "schema_version": 1,
-        "status": "fail" if blocking_findings else "pass",
+        "status": status,
+        "blocker_class": _env_validation_blocker_class(status),
         "ready_for_preflight": not blocking_findings,
         "env_file": _rel(env_file, workspace_root),
         "env_file_found": env_file_found,
@@ -237,6 +243,7 @@ def render_markdown(report: dict[str, object]) -> str:
         "# AgriGuard Launch Env Template Validation",
         "",
         f"- Status: `{report['status']}`",
+        f"- Blocker class: `{report['blocker_class']}`",
         f"- Ready for preflight: `{str(report['ready_for_preflight']).lower()}`",
         f"- Env file: `{report['env_file']}`",
         f"- Env file found: `{str(report['env_file_found']).lower()}`",

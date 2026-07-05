@@ -52,6 +52,7 @@ def test_validate_launch_env_template_rejects_generated_placeholder_template(tmp
 
     placeholder_keys = {item["key"] for item in report["placeholder_variables"]}
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "env_shape_blocked"
     assert report["ready_for_preflight"] is False
     assert report["placeholder_count"] == 6
     assert {
@@ -84,6 +85,7 @@ def test_validate_launch_env_template_accepts_shape_safe_env(tmp_path: Path) -> 
     report = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=APP_ROOT)
 
     assert report["status"] == "pass"
+    assert report["blocker_class"] == "ready"
     assert report["ready_for_preflight"] is True
     assert report["placeholder_count"] == 0
     assert report["missing_required_keys"] == []
@@ -100,6 +102,7 @@ def test_validate_launch_env_template_rejects_forbidden_launch_flags(tmp_path: P
     report = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=APP_ROOT)
 
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "env_shape_blocked"
     assert report["ready_for_preflight"] is False
     assert report["forbidden_flags_enabled"] == ["ALLOW_TEST_BYPASS"]
     assert "ALLOW_TEST_BYPASS must be false for launch." in report["blocking_findings"]
@@ -142,8 +145,11 @@ def test_validate_launch_env_template_main_writes_json_and_markdown(tmp_path: Pa
     )
 
     assert result == 0
-    assert json.loads(json_out.read_text(encoding="utf-8"))["ready_for_preflight"] is True
+    payload = json.loads(json_out.read_text(encoding="utf-8"))
+    assert payload["blocker_class"] == "ready"
+    assert payload["ready_for_preflight"] is True
     markdown = markdown_out.read_text(encoding="utf-8")
+    assert "Blocker class: `ready`" in markdown
     assert "Ready for preflight: `true`" in markdown
     assert "ssssssssssssssssssssssssssssssss" not in markdown
     assert "dbpassword1234567890" not in markdown

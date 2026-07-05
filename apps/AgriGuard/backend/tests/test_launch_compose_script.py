@@ -279,6 +279,7 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
                 json.dumps(
                     {
                         "status": "fail",
+                        "blocker_class": "env_shape_blocked",
                         "ready_for_preflight": False,
                         "placeholder_count": 6,
                         "missing_required_keys": [],
@@ -327,6 +328,7 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
         "found": True,
         "path": str(validation_json.resolve()),
         "status": "fail",
+        "blocker_class": "env_shape_blocked",
         "ready_for_preflight": False,
         "placeholder_count": 6,
         "missing_required_keys": [],
@@ -356,6 +358,7 @@ def test_launch_compose_runs_preflight_after_env_shape_validation_passes(tmp_pat
                 json.dumps(
                     {
                         "status": "pass",
+                        "blocker_class": "ready",
                         "ready_for_preflight": True,
                         "placeholder_count": 0,
                         "missing_required_keys": [],
@@ -401,6 +404,7 @@ def test_launch_compose_runs_preflight_after_env_shape_validation_passes(tmp_pat
     assert report["blocker_class"] == "ready"
     assert report["stage"] == "compose"
     assert [item["name"] for item in report["results"]] == ["env_validation", "preflight", "compose"]
+    assert report["child_reports"]["env_validation"]["blocker_class"] == "ready"
     assert report["child_reports"]["env_validation"]["ready_for_preflight"] is True
 
 
@@ -524,6 +528,8 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "env_template_found": True,
         "status": "blocked",
         "blocker_class": "operator_values_required",
+        "env_validation_status": None,
+        "env_validation_blocker_class": None,
         "preflight_status": "fail",
         "blocking_action_count": 1,
         "operator_action_ids": ["set_secret_key"],

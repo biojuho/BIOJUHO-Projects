@@ -271,6 +271,7 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
                         "shell": "powershell",
                     }
                 ],
+                "consumer_readiness_env_validation_blocker_class": "ready",
                 "consumer_readiness_env_validation_ready_for_preflight": True,
                 "consumer_readiness_env_validation_placeholder_count": 0,
                 "consumer_readiness_operator_packet_preflight_status": "fail",
@@ -338,6 +339,7 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
             "shell": "powershell",
         }
     ]
+    assert summary["env_validation_blocker_class"] == "ready"
     assert summary["env_validation_ready_for_preflight"] is True
     assert summary["env_validation_placeholder_count"] == 0
 
@@ -511,6 +513,7 @@ def test_operator_packet_maps_env_validation_failure_when_preflight_missing(tmp_
         json.dumps(
             {
                 "status": "fail",
+                "blocker_class": "env_shape_blocked",
                 "ready_for_preflight": False,
                 "missing_required_keys": ["AGRIGUARD_SECRET_KEY"],
                 "placeholder_variables": [{"key": "AGRIGUARD_PUBLIC_VERIFY_BASE_URL", "reason": "sample_domain"}],
@@ -535,6 +538,7 @@ def test_operator_packet_maps_env_validation_failure_when_preflight_missing(tmp_
     assert packet["blocker_class"] == "env_shape_blocked"
     assert packet["preflight_status"] == "env_shape_blocked"
     assert packet["env_validation_status"] == "fail"
+    assert packet["env_validation_blocker_class"] == "env_shape_blocked"
     assert packet["operator_actions"] == [
         {
             "id": "fix_env_shape_validation",
@@ -665,6 +669,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
                         "shell": "powershell",
                     }
                 ],
+                "consumer_readiness_env_validation_blocker_class": "env_shape_blocked",
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
@@ -704,6 +709,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
                 "shell": "powershell",
             }
         ],
+        "env_validation_blocker_class": "env_shape_blocked",
         "env_validation_ready_for_preflight": False,
         "env_validation_placeholder_count": 6,
         "operator_packet_preflight_status": "env_shape_blocked",
@@ -716,6 +722,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery summary required: `false`" in markdown
+    assert "Env validation blocker class: `env_shape_blocked`" in markdown
     assert "Consumer command metadata: `pass`" in markdown
     assert "Consumer readiness command metadata: `pass`" in markdown
     assert "Packet preflight status: `env_shape_blocked`" in markdown

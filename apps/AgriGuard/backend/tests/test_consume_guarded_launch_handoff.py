@@ -130,6 +130,7 @@ def _write_artifact_index(output_dir: Path, prefix: str) -> None:
                         "shell": "powershell",
                     }
                 ],
+                "consumer_readiness_env_validation_blocker_class": "env_shape_blocked",
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
@@ -228,6 +229,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
             ],
             "reports": {
                 "env_validation": {
+                    "blocker_class": "env_shape_blocked",
                     "ready_for_preflight": False,
                     "placeholder_count": 6,
                 },
@@ -273,6 +275,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
             "shell": "powershell",
         }
     ]
+    assert view["readiness_env_validation_blocker_class"] == "env_shape_blocked"
     assert view["readiness_env_validation_ready_for_preflight"] is False
     assert view["readiness_env_validation_placeholder_count"] == 6
     assert view["readiness_operator_packet_preflight_status"] == "env_shape_blocked"
