@@ -794,6 +794,8 @@ def test_qr_path_browser_smoke_extracts_public_verify_tokens():
 
     assert script.extract_verify_token("agri://verify/public-token-1") == "public-token-1"
     assert script.extract_verify_token("https://verify.agriguard.test/verify/public-token-2") == "public-token-2"
+    assert script.extract_verify_token("https://verify.agriguard.test/verify/verify/public-token-3") == "public-token-3"
+    assert script.extract_verify_token("verify/public-token-4") == "public-token-4"
     assert script.extract_verify_token("raw-token") == "raw-token"
 
 
@@ -1065,6 +1067,31 @@ def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
     assert script.verify_api_route_patterns("token with space") == (
         "**/api/api/qr/token%20with%20space/verify**",
         "**/api/qr/token%20with%20space/verify**",
+    )
+
+
+def test_qr_path_browser_smoke_tracks_public_verify_cache_headers():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_public_verify_cache_under_test",
+    )
+
+    assert script.is_public_verify_api_response("http://127.0.0.1:5174/api/qr/token-1/verify?session_id=s1")
+    assert script.is_public_verify_api_response("http://127.0.0.1:5174/api/api/qr/token-1/verify")
+    assert not script.is_public_verify_api_response("http://127.0.0.1:5174/api/qr/token-1")
+    assert script.public_verify_response_cache_ok(
+        {
+            "cacheControl": "no-store",
+            "pragma": "no-cache",
+            "expires": "0",
+        }
+    )
+    assert not script.public_verify_response_cache_ok(
+        {
+            "cacheControl": "max-age=60",
+            "pragma": "no-cache",
+            "expires": "0",
+        }
     )
 
 

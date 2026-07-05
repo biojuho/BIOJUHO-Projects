@@ -143,8 +143,12 @@ def extract_verify_token(qr_code: str) -> str:
     parsed = parse.urlparse(value)
     if parsed.scheme == "agri" and parsed.netloc == "verify":
         return parse.unquote(parsed.path.lstrip("/"))
-    if parsed.path.startswith("/verify/"):
-        return parse.unquote(parsed.path.removeprefix("/verify/"))
+    path = parsed.path if parsed.scheme or parsed.netloc else value
+    path = path.lstrip("/")
+    while path.startswith("verify/"):
+        path = path.removeprefix("verify/")
+    if path:
+        return parse.unquote(path)
     return value
 
 
@@ -289,6 +293,21 @@ def verify_route_matches(url: str, token: str) -> bool:
     return current_path == expected_path or parse.unquote(current_path) == expected_path
 
 
+def is_public_verify_api_response(url: str) -> bool:
+    parts = [part for part in parse.urlparse(url).path.split("/") if part]
+    return len(parts) >= 4 and parts[0] == "api" and parts[-3] == "qr" and parts[-1] == "verify"
+
+
+def public_verify_response_cache_ok(response: dict[str, object]) -> bool:
+    cache_control = str(response.get("cacheControl") or "").lower()
+    directives = {part.strip() for part in cache_control.split(",")}
+    return (
+        "no-store" in directives
+        and str(response.get("pragma") or "").lower() == "no-cache"
+        and str(response.get("expires") or "") == "0"
+    )
+
+
 def wait_for_verify_route(page: Page, token: str, timeout_ms: int) -> None:
     expected_path = f"/verify/{token}"
     deadline = time.monotonic() + max(timeout_ms, 1) / 1000
@@ -320,6 +339,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     console_messages: list[dict[str, str]] = []
     request_failures: list[dict[str, str]] = []
     page_errors: list[dict[str, str]] = []
+    public_verify_responses: list[dict[str, object]] = []
     screenshot_dir = Path(args.screenshot_dir)
     viewport = parse_viewport(args.viewport)
     manual_token = args.manual_token.strip() if args.manual_token else None
@@ -355,6 +375,22 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                 },
             ),
         )
+
+        def track_public_verify_response(response) -> None:
+            if not is_public_verify_api_response(response.url):
+                return
+            headers = response.headers
+            public_verify_responses.append(
+                {
+                    "url": response.url,
+                    "status": response.status,
+                    "cacheControl": headers.get("cache-control", ""),
+                    "pragma": headers.get("pragma", ""),
+                    "expires": headers.get("expires", ""),
+                }
+            )
+
+        page.on("response", track_public_verify_response)
 
         page.goto(route_url(args.base_url, "/scan"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         manual_input = page.get_by_label("Manual verification code")
@@ -443,6 +479,19 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("invalid_verify_no_horizontal_overflow", has_no_horizontal_overflow(invalid_metrics), str(invalid_metrics)))
 
         browser.close()
+
+    public_verify_cache_ok = (
+        len(public_verify_responses) >= 2
+        and all(public_verify_response_cache_ok(response) for response in public_verify_responses)
+    )
+    observations["publicVerifyResponses"] = public_verify_responses
+    checks.append(
+        check(
+            "public_verify_api_responses_no_store",
+            public_verify_cache_ok,
+            json.dumps(public_verify_responses, sort_keys=True),
+        )
+    )
 
     actionable_request_failures = [
         failure for failure in request_failures if "ERR_ABORTED" not in failure.get("failure", "")
