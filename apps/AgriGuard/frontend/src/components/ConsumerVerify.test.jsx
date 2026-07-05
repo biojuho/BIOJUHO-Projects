@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ConsumerVerify from './ConsumerVerify';
 import { qrVerifyApi } from '../services/api';
 
+const toastMocks = vi.hoisted(() => ({
+  hideToast: vi.fn(),
+}));
+
 vi.mock('../services/api', () => ({
   qrVerifyApi: {
     verify: vi.fn(),
@@ -12,6 +16,10 @@ vi.mock('../services/api', () => ({
 
 vi.mock('../services/qrAnalytics', () => ({
   createQrSessionId: () => 'generated-session-1',
+}));
+
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => toastMocks,
 }));
 
 function renderVerify(route = '/verify/product-1?scan_session=session-1&scan_variant=qr_consumer_c') {
@@ -86,6 +94,7 @@ function safePayload() {
 describe('ConsumerVerify', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    toastMocks.hideToast.mockClear();
   });
 
   afterEach(() => {
@@ -103,6 +112,7 @@ describe('ConsumerVerify', () => {
     expect(screen.getByText('AG-1234567890')).toBeInTheDocument();
     expect(screen.getByText('Evidence hash: hash-123')).toBeInTheDocument();
     expect(document.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
+    expect(toastMocks.hideToast).toHaveBeenCalled();
 
     expect(qrVerifyApi.verify).toHaveBeenCalledWith('product-1', {
       sessionId: 'session-1',

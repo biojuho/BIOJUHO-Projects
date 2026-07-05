@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { qrVerifyApi } from '../services/api';
 import { createQrSessionId } from '../services/qrAnalytics';
+import { useToast } from '../contexts/ToastContext';
 import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
 
@@ -162,6 +163,11 @@ export default function ConsumerVerify() {
   const [reloadAttempt, setReloadAttempt] = useState(0);
   const scanSource = searchParams.get('scan_source') || 'consumer_verify_page';
   const scanVariant = searchParams.get('scan_variant') || 'qr_consumer_v1';
+  const { hideToast } = useToast();
+
+  useEffect(() => {
+    hideToast();
+  }, [hideToast]);
 
   const handleRetry = useCallback(() => {
     setVerification(null);
