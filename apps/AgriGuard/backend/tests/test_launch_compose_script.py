@@ -589,7 +589,10 @@ def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: P
                         "status": "blocked",
                         "blocker_class": "preflight_blocked",
                         "secrets_redacted": True,
-                        "next_actions": ["Open the operator packet."],
+                        "next_actions": [
+                            "Open the operator packet.",
+                            {"action": "not report-safe"},
+                        ],
                         "next_commands": [
                             {
                                 "name": "validate_env_template",

@@ -120,6 +120,12 @@ def _read_json_file(path: Path) -> dict[str, object] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
 def _summarize_preflight_json(path: Path) -> dict[str, object]:
     payload = _read_json_file(path)
     if payload is None:
@@ -279,7 +285,7 @@ def _summarize_readiness_summary_json(path: Path) -> dict[str, object]:
         "status": payload.get("status"),
         "blocker_class": payload.get("blocker_class"),
         "secrets_redacted": payload.get("secrets_redacted"),
-        "next_actions": payload.get("next_actions") if isinstance(payload.get("next_actions"), list) else [],
+        "next_actions": _string_list(payload.get("next_actions")),
         "next_commands": _summarize_readiness_next_commands(payload),
     }
 
