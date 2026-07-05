@@ -23,6 +23,24 @@ PUBLIC_VERIFY_ROUTE_RE = re.compile(
     r"((?:agri://verify|/verify|/api/(?:api/)?qr)/)([^/?#\s]+)((?:/verify)?(?:[?#]\S*)?)"
 )
 PUBLIC_QR_TOKEN_TABLE_RE = re.compile(r"(?<=Token)[A-Za-z0-9_-]{16,}(?=State)")
+PUBLIC_QR_SCREENSHOT_MASK_SCRIPT = r"""() => {
+    const marker = '<redacted-public-qr-token>';
+    const routePattern = /((?:agri:\/\/verify|\/verify|\/api\/(?:api\/)?qr)\/)[^/?#\s]+((?:\/verify)?(?:[?#]\S*)?)/g;
+    const walker = document.createTreeWalker(document.body, window.NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) {
+      textNodes.push(walker.currentNode);
+    }
+    for (const node of textNodes) {
+      node.nodeValue = (node.nodeValue || '').replace(routePattern, `$1${marker}$2`);
+    }
+    document.querySelectorAll('[data-testid="qr-token-row"] td:first-child div.font-mono').forEach(element => {
+      const value = (element.textContent || '').trim();
+      if (value.length >= 8) {
+        element.textContent = marker;
+      }
+    });
+}"""
 
 
 def parse_args() -> argparse.Namespace:
@@ -94,6 +112,10 @@ def redact_report_public_tokens(value: object, tokens: set[str]) -> object:
                 redacted = redacted.replace(token, PUBLIC_QR_TOKEN_REDACTION)
         return redact_public_qr_route_tokens(redacted)
     return value
+
+
+def mask_public_qr_artifacts_for_screenshot(page: Page) -> None:
+    page.evaluate(PUBLIC_QR_SCREENSHOT_MASK_SCRIPT)
 
 
 def route_url(base_url: str, path: str) -> str:
@@ -190,6 +212,7 @@ def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
 def capture_screenshot(page: Page, path: Path, *, mobile: bool) -> None:
     # Viewport captures keep fixed navigation from being burned into the middle
     # of desktop full-page evidence after action-driven scroll positioning.
+    mask_public_qr_artifacts_for_screenshot(page)
     page.screenshot(path=str(path), full_page=False)
 
 

@@ -22,6 +22,22 @@ PUBLIC_QR_TOKEN_REDACTION = "<redacted-public-qr-token>"
 PUBLIC_VERIFY_ROUTE_RE = re.compile(
     r"((?:agri://verify|/verify|/api/(?:api/)?qr)/)([^/?#\s]+)((?:/verify)?(?:[?#]\S*)?)"
 )
+PUBLIC_QR_SCREENSHOT_MASK_SCRIPT = r"""() => {
+    const marker = '<redacted-public-qr-token>';
+    const routePattern = /((?:agri:\/\/verify|\/verify|\/api\/(?:api\/)?qr)\/)[^/?#\s]+((?:\/verify)?(?:[?#]\S*)?)/g;
+    const walker = document.createTreeWalker(document.body, window.NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) {
+      textNodes.push(walker.currentNode);
+    }
+    for (const node of textNodes) {
+      node.nodeValue = (node.nodeValue || '').replace(routePattern, `$1${marker}$2`);
+    }
+    document.querySelectorAll('[aria-label="Product verification QR"]').forEach(element => {
+      element.style.filter = 'blur(14px)';
+      element.style.opacity = '0.35';
+    });
+}"""
 MOBILE_FIRST_VIEWPORT_TARGETS = [
     {
         "name": "product_qr_first_viewport",
@@ -129,6 +145,15 @@ def redact_report_public_tokens(value: object, tokens: set[str]) -> object:
                 redacted = redacted.replace(token, PUBLIC_QR_TOKEN_REDACTION)
         return redact_public_qr_route_tokens(redacted)
     return value
+
+
+def mask_public_qr_artifacts_for_screenshot(page: Page) -> None:
+    page.evaluate(PUBLIC_QR_SCREENSHOT_MASK_SCRIPT)
+
+
+def capture_screenshot(page: Page, path: Path) -> None:
+    mask_public_qr_artifacts_for_screenshot(page)
+    page.screenshot(path=str(path), full_page=False)
 
 
 def route_url(base_url: str, path: str) -> str:
@@ -348,7 +373,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("initial_no_horizontal_overflow", has_no_horizontal_overflow(initial_metrics), str(initial_metrics)))
         for item in initial_mobile_affordances:
             checks.append(check(str(item["name"]), bool(item["ok"]), json.dumps(item, sort_keys=True)))
-        page.screenshot(path=str(screenshot_dir / "product-detail-initial.png"), full_page=False)
+        capture_screenshot(page, screenshot_dir / "product-detail-initial.png")
 
         add_tracking = page.get_by_role("button", name=re.compile("add tracking event", re.I))
         add_certification = page.get_by_role("button", name=re.compile("add certification", re.I))
@@ -388,7 +413,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("certified_badge_visible", "Certified" in final_text))
         checks.append(check("tracking_event_action_label_visible", "UNKNOWN EVENT" not in final_text and "IN TRANSIT" in final_text))
         checks.append(check("final_no_horizontal_overflow", has_no_horizontal_overflow(final_metrics), str(final_metrics)))
-        page.screenshot(path=str(screenshot_dir / "product-detail-final.png"), full_page=False)
+        capture_screenshot(page, screenshot_dir / "product-detail-final.png")
         browser.close()
 
     critical_logs = [

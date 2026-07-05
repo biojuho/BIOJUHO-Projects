@@ -995,6 +995,9 @@ def test_admin_routes_browser_smoke_uses_viewport_screenshots_for_fixed_nav(tmp_
     calls = []
 
     class FakePage:
+        def evaluate(self, script):
+            pass
+
         def screenshot(self, **kwargs):
             calls.append(kwargs)
 
@@ -1003,6 +1006,29 @@ def test_admin_routes_browser_smoke_uses_viewport_screenshots_for_fixed_nav(tmp_
 
     assert calls[0]["full_page"] is False
     assert calls[1]["full_page"] is False
+
+
+def test_admin_routes_browser_smoke_masks_public_qr_screenshot_artifacts(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_screenshot_mask_under_test",
+    )
+    scripts = []
+    screenshots = []
+
+    class FakePage:
+        def evaluate(self, script_text):
+            scripts.append(script_text)
+
+        def screenshot(self, **kwargs):
+            screenshots.append(kwargs)
+
+    script.capture_screenshot(FakePage(), tmp_path / "qr-tokens.png", mobile=False)
+
+    assert screenshots[0]["full_page"] is False
+    assert "qr-token-row" in scripts[0]
+    assert "agri:\\/\\/verify" in scripts[0]
+    assert script.PUBLIC_QR_TOKEN_REDACTION in scripts[0]
 
 
 def test_admin_routes_browser_smoke_attaches_page_diagnostics():
@@ -1154,6 +1180,29 @@ def test_product_detail_browser_smoke_redacts_public_qr_tokens_from_report():
     assert script.PUBLIC_QR_TOKEN_REDACTION in payload
     assert "agri://verify/" in payload
     assert "/api/qr/" in payload
+
+
+def test_product_detail_browser_smoke_masks_public_qr_screenshot_artifacts(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",
+        "product_detail_browser_smoke_screenshot_mask_under_test",
+    )
+    scripts = []
+    screenshots = []
+
+    class FakePage:
+        def evaluate(self, script_text):
+            scripts.append(script_text)
+
+        def screenshot(self, **kwargs):
+            screenshots.append(kwargs)
+
+    script.capture_screenshot(FakePage(), tmp_path / "product-detail.png")
+
+    assert screenshots[0]["full_page"] is False
+    assert "Product verification QR" in scripts[0]
+    assert "agri:\\/\\/verify" in scripts[0]
+    assert script.PUBLIC_QR_TOKEN_REDACTION in scripts[0]
 
 
 def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
