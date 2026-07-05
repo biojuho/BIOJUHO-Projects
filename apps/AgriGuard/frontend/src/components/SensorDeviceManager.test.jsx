@@ -288,6 +288,8 @@ describe('SensorDeviceManager', () => {
   it('loads registered sensors and renders state summaries', async () => {
     render(<SensorDeviceManager />);
 
+    expect(screen.getByTestId('sensor-device-heading')).toHaveClass('text-2xl');
+    expect(screen.getByTestId('sensor-device-heading')).toHaveClass('sm:text-3xl');
     expect(await screen.findByText('sensor-cold-1')).toBeInTheDocument();
     expect(sensorDeviceAdminApi.list).toHaveBeenCalledWith({
       sensorStatus: 'all',

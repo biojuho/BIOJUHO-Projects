@@ -198,7 +198,7 @@ export default function QRTokenManager() {
             <KeyRound className="h-4 w-4" />
             Operator QR Controls
           </div>
-          <h1 className="text-3xl font-bold text-foreground">QR Token Management</h1>
+          <h1 data-testid="qr-token-heading" className="max-w-full text-2xl font-bold leading-tight text-foreground sm:text-3xl">QR Token Management</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
             Review label token state, revoke compromised QR codes, and reissue a new label token without exposing stored token hashes.
           </p>

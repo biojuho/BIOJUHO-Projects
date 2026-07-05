@@ -737,7 +737,7 @@ export default function SensorDeviceManager() {
             <RadioTower className="h-4 w-4" />
             Operator Sensors
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Sensor Device Registry</h1>
+          <h1 data-testid="sensor-device-heading" className="max-w-full text-2xl font-bold leading-tight text-foreground sm:text-3xl">Sensor Device Registry</h1>
         </div>
 
         <Card className="w-full lg:w-[28rem] border-primary/20 bg-primary/5">

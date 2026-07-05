@@ -87,6 +87,9 @@ describe('QRTokenManager', () => {
   it('loads product QR tokens and renders redacted state summaries', async () => {
     render(<QRTokenManager />);
 
+    expect(screen.getByTestId('qr-token-heading')).toHaveClass('text-2xl');
+    expect(screen.getByTestId('qr-token-heading')).toHaveClass('sm:text-3xl');
+
     fireEvent.change(screen.getByLabelText('Product ID'), { target: { value: 'product-qr-1' } });
     fireEvent.click(screen.getByRole('button', { name: /load tokens/i }));
 
