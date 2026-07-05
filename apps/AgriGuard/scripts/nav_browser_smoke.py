@@ -22,6 +22,41 @@ DEFAULT_ROUTES = [
     {"name": "cold_chain", "label": "Cold-Chain", "path": "/cold-chain", "expected": ["Cold-Chain Monitor"]},
     {"name": "scanner", "label": "Scanner", "path": "/scan", "expected": ["Scan Product QR"]},
 ]
+MOBILE_VIEWPORT_MAX_WIDTH = 500
+MOBILE_ROUTE_AFFORDANCES = {
+    "registry": [
+        {
+            "name": "register_harvest_cta_first_viewport",
+            "text": "Register Harvest",
+            "selector": "button",
+            "min_visible_ratio": 0.98,
+        },
+    ],
+    "qr_tokens": [
+        {
+            "name": "product_qr_tokens_card_first_viewport",
+            "text": "Product QR tokens",
+            "closest_selector": ".rounded-lg.border",
+            "min_visible_height": 220,
+        },
+    ],
+    "cold_chain": [
+        {
+            "name": "temperature_timeline_card_first_viewport",
+            "text": "Temperature Timeline",
+            "closest_selector": ".rounded-lg.border",
+            "min_visible_height": 220,
+        },
+    ],
+    "scanner": [
+        {
+            "name": "verify_code_cta_first_viewport",
+            "text": "Verify code",
+            "selector": "button",
+            "min_visible_ratio": 0.98,
+        },
+    ],
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -130,6 +165,77 @@ def has_no_horizontal_overflow(metrics: dict[str, object]) -> bool:
     return int(metrics["scrollWidth"]) <= allowed_width + 1
 
 
+def should_check_mobile_affordances(metrics: dict[str, object], *, mobile: bool) -> bool:
+    return bool(mobile) or int(metrics["viewportWidth"]) <= MOBILE_VIEWPORT_MAX_WIDTH
+
+
+def measure_mobile_affordance(page: Page, spec: dict[str, object]) -> dict[str, object]:
+    measurement = page.evaluate(
+        """spec => {
+            const normalize = value => (value || '').replace(/\\s+/g, ' ').trim();
+            const targetText = normalize(spec.text).toLowerCase();
+            const selector = spec.selector || 'button,a,h1,h2,h3,label,p,span,div';
+            const candidates = Array.from(document.querySelectorAll(selector))
+              .filter(element => normalize(element.textContent).toLowerCase().includes(targetText));
+            const textMatch = candidates.find(
+              element => normalize(element.textContent).toLowerCase() === targetText
+            ) || candidates[0] || null;
+
+            if (!textMatch) {
+              return {
+                name: spec.name,
+                text: spec.text,
+                selector,
+                found: false,
+                ok: false,
+                detail: 'matching element not found',
+                viewportHeight: window.innerHeight,
+                viewportWidth: window.innerWidth,
+              };
+            }
+
+            const measuredElement = spec.closest_selector
+              ? (textMatch.closest(spec.closest_selector) || textMatch)
+              : textMatch;
+            const rect = measuredElement.getBoundingClientRect();
+            const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+            const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+            const totalArea = Math.max(0, rect.width) * Math.max(0, rect.height);
+            const visibleArea = visibleWidth * visibleHeight;
+            const visibleRatio = totalArea > 0 ? visibleArea / totalArea : 0;
+            const minVisibleHeight = Number(spec.min_visible_height || 1);
+            const minVisibleRatio = Number(spec.min_visible_ratio || 0.01);
+            const ok = visibleHeight >= minVisibleHeight && visibleRatio >= minVisibleRatio;
+
+            return {
+              name: spec.name,
+              text: spec.text,
+              selector,
+              closestSelector: spec.closest_selector || null,
+              found: true,
+              ok,
+              rect: {
+                top: Math.round(rect.top),
+                bottom: Math.round(rect.bottom),
+                left: Math.round(rect.left),
+                right: Math.round(rect.right),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+              },
+              visibleWidth: Math.round(visibleWidth),
+              visibleHeight: Math.round(visibleHeight),
+              visibleRatio: Math.round(visibleRatio * 1000) / 1000,
+              minVisibleHeight,
+              minVisibleRatio,
+              viewportHeight: window.innerHeight,
+              viewportWidth: window.innerWidth,
+            };
+        }""",
+        spec,
+    )
+    return dict(measurement)
+
+
 def open_route(page: Page, args: argparse.Namespace, route: dict[str, object]) -> None:
     path = str(route["path"])
     if not args.click_nav:
@@ -203,6 +309,13 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                 visible_expected = route_expected_is_visible(page, expected)
                 no_horizontal_overflow = has_no_horizontal_overflow(metrics)
                 menu_closed_after_click = not args.click_nav or not args.mobile or metrics["menuButton"] == "Open menu"
+                mobile_affordances = []
+                if should_check_mobile_affordances(metrics, mobile=args.mobile):
+                    mobile_affordances = [
+                        measure_mobile_affordance(page, spec)
+                        for spec in MOBILE_ROUTE_AFFORDANCES.get(name, [])
+                    ]
+                mobile_affordances_ok = all(item["ok"] for item in mobile_affordances)
                 screenshot.parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=str(screenshot), full_page=False)
                 route_report = {
@@ -215,9 +328,11 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                     and int(metrics["bodyTextLength"]) > 0
                     and no_horizontal_overflow
                     and menu_closed_after_click
+                    and mobile_affordances_ok
                     and len(page_errors) == route_errors_before,
                     "headings": headings,
                     "metrics": metrics,
+                    "mobileAffordances": mobile_affordances,
                     "menuClosedAfterClick": menu_closed_after_click,
                     "pageErrorsDuringRoute": page_errors[route_errors_before:],
                     "screenshot": str(screenshot),
@@ -234,6 +349,14 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                         str(len(page_errors) - route_errors_before),
                     )
                 )
+                for item in mobile_affordances:
+                    checks.append(
+                        check(
+                            f"{name}_{item['name']}",
+                            bool(item["ok"]),
+                            json.dumps(item, sort_keys=True),
+                        )
+                    )
             except Exception as exc:
                 route_report = {
                     "name": name,

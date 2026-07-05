@@ -325,6 +325,24 @@ def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
 
 
+def test_nav_browser_smoke_tracks_mobile_first_viewport_affordances():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
+        "nav_browser_smoke_affordances_under_test",
+    )
+
+    route_names = {route["name"] for route in script.DEFAULT_ROUTES}
+
+    assert set(script.MOBILE_ROUTE_AFFORDANCES).issubset(route_names)
+    assert script.should_check_mobile_affordances({"viewportWidth": 390}, mobile=False) is True
+    assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=True) is True
+    assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=False) is False
+    assert script.MOBILE_ROUTE_AFFORDANCES["registry"][0]["text"] == "Register Harvest"
+    assert script.MOBILE_ROUTE_AFFORDANCES["scanner"][0]["min_visible_ratio"] == 0.98
+    assert script.MOBILE_ROUTE_AFFORDANCES["cold_chain"][0]["min_visible_height"] == 220
+    assert script.MOBILE_ROUTE_AFFORDANCES["qr_tokens"][0]["min_visible_height"] == 220
+
+
 def test_browser_smoke_suite_builds_live_backend_steps_and_redacts_operator_token(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
