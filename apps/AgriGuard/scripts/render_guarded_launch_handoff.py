@@ -227,6 +227,7 @@ def build_handoff(
     blocker_class = _handoff_blocker_class(status_view, ready)
     ready_gate = {
         "status": "pass" if ready else "fail",
+        "blocker_class": blocker_class,
         "required_status": "ready",
         "required_blocker_class": "ready",
         "exit_code": 0 if ready else 1,
@@ -312,6 +313,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Launch stage: `{launch.get('stage')}`",
         f"- Blocker class: `{handoff.get('blocker_class')}`",
         f"- Ready gate: `{ready_gate.get('status')}`",
+        f"- Ready gate blocker class: `{ready_gate.get('blocker_class') or '-'}`",
         f"- Packet validation: `{packet_validation.get('status')}`",
         f"- Secrets redacted: `{str(handoff.get('secrets_redacted')).lower()}`",
         "",

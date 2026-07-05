@@ -242,6 +242,12 @@
           "minItems": 1,
           "type": "array"
         },
+        "blocker_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "command_shell": {
           "const": "powershell",
           "type": "string"
@@ -270,6 +276,7 @@
       },
       "required": [
         "status",
+        "blocker_class",
         "required_status",
         "required_blocker_class",
         "exit_code",

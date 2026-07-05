@@ -279,6 +279,7 @@ def build_consumer_view(
         "handoff_status": handoff_status,
         "handoff_blocker_class": handoff_blocker_class,
         "ready_gate_status": ready_gate_status,
+        "ready_gate_blocker_class": ready_gate.get("blocker_class"),
         "ready_gate_command_shell": _string_value(ready_gate.get("command_shell")),
         "ready_gate_command_text": _string_value(ready_gate.get("command_text")),
         "operator_command_count": len(operator_commands),
