@@ -27,6 +27,10 @@ function loadServiceWorkerPolicy() {
   return context.__policy;
 }
 
+function readText(path) {
+  return readFileSync(new URL(path, import.meta.url), 'utf8');
+}
+
 describe('service worker cache policy', () => {
   it('serves the app shell through the network-first branch', () => {
     const policy = loadServiceWorkerPolicy();
@@ -45,5 +49,19 @@ describe('service worker cache policy', () => {
     expect(policy.isCacheableStaticRequest(new URL('https://agriguard.example/assets/Dashboard.js'))).toBe(true);
     expect(policy.isCacheableStaticRequest(new URL('https://agriguard.example/icons/icon-192.png'))).toBe(true);
     expect(policy.isCacheableStaticRequest(new URL('https://agriguard.example/manifest.json'))).toBe(true);
+  });
+
+  it('registers service worker updates without consulting the HTTP cache', () => {
+    const html = readText('../index.html');
+
+    expect(html).toContain('navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })');
+  });
+
+  it('serves the service worker script with revalidation headers', () => {
+    const nginx = readText('../nginx.conf');
+
+    expect(nginx).toContain('location = /sw.js');
+    expect(nginx).toContain('try_files /sw.js =404;');
+    expect(nginx).toContain('add_header Cache-Control "no-cache" always;');
   });
 });
