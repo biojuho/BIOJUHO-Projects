@@ -55,8 +55,8 @@ def parse_args() -> argparse.Namespace:
         "--include-unavailable-check",
         action="store_true",
         help=(
-            "Also run the consumer verify unavailable smoke. Use only when the frontend is up and "
-            "the backend/proxy target is intentionally unavailable."
+            "Also run the consumer verify unavailable smoke. The suite simulates the verify API failure "
+            "in-browser so the normal backend/proxy target can stay online."
         ),
     )
     parser.add_argument("--dry-run", action="store_true", help="Write the aggregate command plan without executing it.")
@@ -233,6 +233,7 @@ def build_steps(args: argparse.Namespace) -> list[BrowserSmokeStep]:
                     str(output_dir / "consumer-verify-unavailable.png"),
                     "--timeout-ms",
                     str(args.timeout_ms),
+                    "--intercept-api-failure",
                 ],
             )
         )

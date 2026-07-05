@@ -400,6 +400,7 @@ def test_browser_smoke_suite_unavailable_check_is_explicit_opt_in(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["run_browser_smoke_suite.py", "--include-unavailable-check"])
     opted_in_steps = script.build_steps(script.parse_args())
     assert opted_in_steps[-1].name == "consumer_verify_unavailable"
+    assert "--intercept-api-failure" in opted_in_steps[-1].command
 
 
 def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
@@ -1009,6 +1010,14 @@ def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
     assert script.route_url("http://127.0.0.1:5174/", "offline-token").startswith(
         "http://127.0.0.1:5174/verify/offline-token?scan_source=unavailable_smoke"
     )
+    assert script.verify_api_route_patterns("offline-token") == (
+        "**/api/api/qr/offline-token/verify**",
+        "**/api/qr/offline-token/verify**",
+    )
+    assert script.verify_api_route_patterns("token with space") == (
+        "**/api/api/qr/token%20with%20space/verify**",
+        "**/api/qr/token%20with%20space/verify**",
+    )
 
 
 def test_consumer_verify_unavailable_browser_smoke_classifies_expected_api_failures():
@@ -1019,6 +1028,12 @@ def test_consumer_verify_unavailable_browser_smoke_classifies_expected_api_failu
 
     assert script.is_expected_unavailable_console(
         {"type": "error", "text": "Failed to load resource: the server responded with a status of 502 (Bad Gateway)"}
+    )
+    assert script.is_expected_unavailable_console(
+        {"type": "error", "text": "Failed to verify QR token AxiosError: Request failed with status code 503"}
+    )
+    assert script.is_expected_unavailable_console(
+        {"type": "warning", "text": "Service Worker registration blocked by Playwright"}
     )
     assert not script.is_expected_unavailable_console({"type": "error", "text": "Uncaught TypeError"})
     assert script.has_unavailable_api_failure([{"url": "/api/api/qr/token/verify", "status": 502}], [])

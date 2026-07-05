@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 from playwright.sync_api import Page, sync_playwright
 
@@ -23,6 +24,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--screenshot", default="var/agriguard-consumer-verify-unavailable-browser-smoke.png")
     parser.add_argument("--timeout-ms", type=int, default=20_000)
     parser.add_argument("--viewport", default=DEFAULT_VIEWPORT, help="Viewport size as WIDTHxHEIGHT. Defaults to 390x844.")
+    parser.add_argument(
+        "--intercept-api-failure",
+        action="store_true",
+        help="Fulfill the public verify API request with a synthetic 503 so the normal backend can stay online.",
+    )
     return parser.parse_args()
 
 
@@ -40,6 +46,14 @@ def route_url(base_url: str, token: str) -> str:
     return (
         f"{base_url.rstrip('/')}/verify/{token}"
         "?scan_source=unavailable_smoke&scan_session=unavailable-smoke&scan_variant=qr_unavailable_smoke"
+    )
+
+
+def verify_api_route_patterns(token: str) -> tuple[str, str]:
+    encoded_token = quote(token, safe="")
+    return (
+        f"**/api/api/qr/{encoded_token}/verify**",
+        f"**/api/qr/{encoded_token}/verify**",
     )
 
 
@@ -88,8 +102,14 @@ def api_attempt_count(api_responses: list[dict[str, object]], api_request_failur
 
 def is_expected_unavailable_console(message: dict[str, str]) -> bool:
     text = message.get("text", "")
-    return message.get("type") == "error" and "Failed to load resource" in text and any(
-        value in text for value in ["500", "502", "503", "504"]
+    if message.get("type") == "warning" and text == "Service Worker registration blocked by Playwright":
+        return True
+    if message.get("type") != "error":
+        return False
+    if "Failed to load resource" in text and any(value in text for value in ["500", "502", "503", "504"]):
+        return True
+    return text.startswith("Failed to verify QR token") and any(
+        value in text for value in ["500", "502", "503", "504", "Network Error", "ERR_FAILED"]
     )
 
 
@@ -108,13 +128,20 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     request_failures: list[dict[str, str]] = []
     api_request_failures: list[dict[str, str]] = []
     api_responses: list[dict[str, object]] = []
+    intercepted_api_failures: list[dict[str, object]] = []
     page_errors: list[dict[str, str]] = []
     viewport = parse_viewport(args.viewport)
     screenshot = Path(args.screenshot)
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(viewport=viewport, is_mobile=True, has_touch=True)
+        context = browser.new_context(
+            viewport=viewport,
+            is_mobile=True,
+            has_touch=True,
+            service_workers="block",
+        )
+        page = context.new_page()
         page.on(
             "console",
             lambda message: console_messages.append({"type": message.type, "text": message.text})
@@ -137,6 +164,18 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
             else None,
         )
         page.on("pageerror", lambda error: page_errors.append({"message": str(error)}))
+
+        if args.intercept_api_failure:
+            def fulfill_unavailable(route) -> None:  # type: ignore[no-untyped-def]
+                intercepted_api_failures.append({"url": route.request.url, "status": 503})
+                route.fulfill(
+                    status=503,
+                    content_type="application/json",
+                    body=json.dumps({"detail": "Simulated verification service unavailable"}),
+                )
+
+            for route_pattern in verify_api_route_patterns(args.token):
+                page.route(route_pattern, fulfill_unavailable)
 
         page.goto(route_url(args.base_url, args.token), wait_until="domcontentloaded", timeout=args.timeout_ms)
         page.get_by_role("heading", name="Verification unavailable").wait_for(timeout=args.timeout_ms)
@@ -166,10 +205,19 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
             )
         )
         checks.append(check("retry_no_horizontal_overflow", has_no_horizontal_overflow(retry_metrics), str(retry_metrics)))
+        if args.intercept_api_failure:
+            checks.append(
+                check(
+                    "intercepted_api_failure_observed",
+                    len(intercepted_api_failures) >= 2,
+                    f"count={len(intercepted_api_failures)}",
+                )
+            )
 
         screenshot.parent.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(screenshot), full_page=False)
         checks.append(check("screenshot_written", screenshot.exists(), str(screenshot)))
+        context.close()
         browser.close()
 
     unexpected_console_messages = [
@@ -200,6 +248,9 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "requestFailures": request_failures,
         "apiRequestFailures": api_request_failures,
         "apiResponses": api_responses,
+        "interceptApiFailure": args.intercept_api_failure,
+        "interceptedApiFailures": intercepted_api_failures,
+        "serviceWorkers": "block",
         "pageErrors": page_errors,
         "screenshot": str(screenshot),
     }
