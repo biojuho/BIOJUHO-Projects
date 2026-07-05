@@ -28,6 +28,12 @@ describe('ProductRegistry', () => {
   it('shows the issued public verify label after registration', async () => {
     render(<ProductRegistry />);
 
+    expect(screen.getByTestId('registry-product-origin-grid')).toHaveClass('grid-cols-1');
+    expect(screen.getByTestId('registry-product-origin-grid')).toHaveClass('sm:grid-cols-2');
+    expect(screen.getByTestId('registry-harvest-chain-grid')).toHaveClass('grid-cols-1');
+    expect(screen.getByTestId('registry-cold-chain-control')).toHaveClass('sm:mt-8');
+    expect(screen.getByText('Requires Cold Chain')).toHaveClass('whitespace-nowrap');
+
     fireEvent.change(screen.getByLabelText('Crop Name'), {
       target: { value: 'Organic Tomatoes' },
     });

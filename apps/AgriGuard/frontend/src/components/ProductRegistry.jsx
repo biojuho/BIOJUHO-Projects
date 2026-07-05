@@ -102,7 +102,7 @@ export default function ProductRegistry() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div data-testid="registry-product-origin-grid" className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.category}>Category</label>
                 <select
@@ -129,7 +129,7 @@ export default function ProductRegistry() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div data-testid="registry-harvest-chain-grid" className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.harvest_date}>Harvest Date</label>
                 <Input
@@ -140,7 +140,7 @@ export default function ProductRegistry() {
                   className={inputClass}
                 />
               </div>
-              <div className="space-y-2 flex items-center mt-8">
+              <div data-testid="registry-cold-chain-control" className="space-y-2 flex items-center sm:mt-8">
                 <label className="flex items-center space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -148,7 +148,7 @@ export default function ProductRegistry() {
                     onChange={(e) => handleChange('requires_cold_chain', e.target.checked)}
                     className="w-5 h-5 rounded border-border text-primary focus:ring-ring bg-white/5"
                   />
-                  <span className="text-sm font-medium text-muted-foreground">Requires Cold Chain</span>
+                  <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Requires Cold Chain</span>
                 </label>
               </div>
             </div>
