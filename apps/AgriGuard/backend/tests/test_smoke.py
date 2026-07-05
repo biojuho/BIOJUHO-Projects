@@ -508,6 +508,7 @@ def test_browser_smoke_suite_launch_gate_requires_screenshot_artifact(tmp_path: 
     assert script.screenshot_artifact_gate(summary) == {
         "screenshot_artifacts_required": True,
         "screenshot_artifacts_missing": True,
+        "screenshot_artifact_dimension_failures": [],
         "screenshot_artifacts_gate_ok": False,
     }
     assert not script.child_report_passes_launch_gate(0, summary)
@@ -537,6 +538,43 @@ def test_browser_smoke_suite_launch_gate_accepts_valid_screenshot_artifact(tmp_p
 
     assert script.screenshot_artifact_gate(summary)["screenshot_artifacts_gate_ok"] is True
     assert script.child_report_passes_launch_gate(0, summary)
+
+
+def test_browser_smoke_suite_mobile_launch_gate_requires_viewport_screenshot_dimensions(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_mobile_screenshot_dimensions_under_test",
+    )
+    screenshot = tmp_path / "screen.png"
+    png_header = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR"
+        b"\x00\x00\x00\x02"
+        b"\x00\x00\x00\x03"
+        b"\x08\x02\x00\x00\x00"
+    )
+    screenshot.write_bytes(png_header + (b"\x00" * script.MIN_SCREENSHOT_BYTES))
+    report_path = tmp_path / "child.json"
+    report_path.write_text(
+        json.dumps({"checks": [{"name": "rendered", "ok": True}], "screenshot": str(screenshot)}),
+        encoding="utf-8",
+    )
+
+    summary = script.summarize_child_report(report_path)
+    artifact_gate = script.screenshot_artifact_gate(
+        summary,
+        expected_dimensions=script.MOBILE_SCREENSHOT_DIMENSIONS,
+    )
+
+    assert artifact_gate["screenshot_artifacts_gate_ok"] is False
+    assert artifact_gate["screenshot_artifact_dimension_failures"] == [
+        f"{screenshot}: expected 390x844, got 2x3"
+    ]
+    assert not script.child_report_passes_launch_gate(
+        0,
+        summary,
+        expected_screenshot_dimensions=script.MOBILE_SCREENSHOT_DIMENSIONS,
+    )
 
 
 def test_browser_smoke_suite_timeout_writes_failed_step(monkeypatch, tmp_path: Path):

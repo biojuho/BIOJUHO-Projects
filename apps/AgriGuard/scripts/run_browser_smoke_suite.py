@@ -23,6 +23,7 @@ REQUIRED_BACKEND_OPENAPI_PATHS = (
 )
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 MIN_SCREENSHOT_BYTES = 512
+MOBILE_SCREENSHOT_DIMENSIONS = (390, 844)
 
 
 class BrowserSmokeStep:
@@ -617,19 +618,54 @@ def summarize_child_report(path: Path) -> dict[str, object]:
     }
 
 
-def screenshot_artifact_gate(child_summary: dict[str, object]) -> dict[str, object]:
+def screenshot_dimension_failures(
+    child_summary: dict[str, object],
+    expected_dimensions: tuple[int, int] | None,
+) -> list[str]:
+    if expected_dimensions is None:
+        return []
+
+    expected_width, expected_height = expected_dimensions
+    failures: list[str] = []
+    artifacts = child_summary.get("screenshot_artifacts", [])
+    if not isinstance(artifacts, list):
+        return failures
+
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or artifact.get("ok") is not True:
+            continue
+        if artifact.get("width") != expected_width or artifact.get("height") != expected_height:
+            failures.append(
+                f"{artifact.get('path')}: expected {expected_width}x{expected_height}, "
+                f"got {artifact.get('width')}x{artifact.get('height')}"
+            )
+    return failures
+
+
+def screenshot_artifact_gate(
+    child_summary: dict[str, object],
+    *,
+    expected_dimensions: tuple[int, int] | None = None,
+) -> dict[str, object]:
     artifact_total = int(child_summary.get("screenshot_artifacts_total", 0) or 0)
     artifact_failed = int(child_summary.get("screenshot_artifacts_failed", 0) or 0)
     artifact_missing = artifact_total <= 0
+    dimension_failures = screenshot_dimension_failures(child_summary, expected_dimensions)
     return {
         "screenshot_artifacts_required": True,
         "screenshot_artifacts_missing": artifact_missing,
-        "screenshot_artifacts_gate_ok": not artifact_missing and artifact_failed == 0,
+        "screenshot_artifact_dimension_failures": dimension_failures,
+        "screenshot_artifacts_gate_ok": not artifact_missing and artifact_failed == 0 and not dimension_failures,
     }
 
 
-def child_report_passes_launch_gate(returncode: int, child_summary: dict[str, object]) -> bool:
-    artifact_gate = screenshot_artifact_gate(child_summary)
+def child_report_passes_launch_gate(
+    returncode: int,
+    child_summary: dict[str, object],
+    *,
+    expected_screenshot_dimensions: tuple[int, int] | None = None,
+) -> bool:
+    artifact_gate = screenshot_artifact_gate(child_summary, expected_dimensions=expected_screenshot_dimensions)
     return (
         returncode == 0
         and child_summary.get("checks_failed") == 0
@@ -641,7 +677,14 @@ def child_process_timeout_seconds(timeout_ms: int) -> int:
     return max(120, int(timeout_ms / 1000) * 3)
 
 
-def run_step(step: BrowserSmokeStep, *, operator_token: str, timeout_ms: int, dry_run: bool) -> dict[str, object]:
+def run_step(
+    step: BrowserSmokeStep,
+    *,
+    operator_token: str,
+    timeout_ms: int,
+    dry_run: bool,
+    expected_screenshot_dimensions: tuple[int, int] | None = None,
+) -> dict[str, object]:
     if dry_run:
         return {
             "name": step.name,
@@ -661,7 +704,7 @@ def run_step(step: BrowserSmokeStep, *, operator_token: str, timeout_ms: int, dr
         )
     except subprocess.TimeoutExpired as exc:
         child_summary = summarize_child_report(step.json_out)
-        artifact_gate = screenshot_artifact_gate(child_summary)
+        artifact_gate = screenshot_artifact_gate(child_summary, expected_dimensions=expected_screenshot_dimensions)
         return {
             "name": step.name,
             "ok": False,
@@ -677,10 +720,14 @@ def run_step(step: BrowserSmokeStep, *, operator_token: str, timeout_ms: int, dr
             **artifact_gate,
         }
     child_summary = summarize_child_report(step.json_out)
-    artifact_gate = screenshot_artifact_gate(child_summary)
+    artifact_gate = screenshot_artifact_gate(child_summary, expected_dimensions=expected_screenshot_dimensions)
     return {
         "name": step.name,
-        "ok": child_report_passes_launch_gate(completed.returncode, child_summary),
+        "ok": child_report_passes_launch_gate(
+            completed.returncode,
+            child_summary,
+            expected_screenshot_dimensions=expected_screenshot_dimensions,
+        ),
         "dry_run": False,
         "command": redact_command(step.command, operator_token=operator_token),
         "json_out": str(step.json_out),
@@ -761,8 +808,15 @@ def main() -> int:
             print(json.dumps(report["summary"], indent=2, sort_keys=True))
             return 1
 
+    expected_screenshot_dimensions = MOBILE_SCREENSHOT_DIMENSIONS if args.mobile else None
     results = [
-        run_step(step, operator_token=args.operator_token, timeout_ms=args.timeout_ms, dry_run=args.dry_run)
+        run_step(
+            step,
+            operator_token=args.operator_token,
+            timeout_ms=args.timeout_ms,
+            dry_run=args.dry_run,
+            expected_screenshot_dimensions=expected_screenshot_dimensions,
+        )
         for step in steps
     ]
     passed = sum(1 for result in results if result.get("ok") is True)
@@ -781,6 +835,12 @@ def main() -> int:
         for result in results
         for artifact in result.get("failed_screenshot_artifacts", [])
         if isinstance(artifact, str)
+    ]
+    screenshot_artifact_dimension_failures = [
+        f"{result.get('name')}:{failure}"
+        for result in results
+        for failure in result.get("screenshot_artifact_dimension_failures", [])
+        if isinstance(failure, str)
     ]
     screenshot_artifacts_missing_steps = [
         str(result.get("name"))
@@ -819,6 +879,7 @@ def main() -> int:
                 int(result.get("screenshot_artifacts_failed", 0)) for result in results
             ),
             "failed_screenshot_artifacts": failed_screenshot_artifacts,
+            "screenshot_artifact_dimension_failures": screenshot_artifact_dimension_failures,
             "screenshot_artifacts_missing_steps": screenshot_artifacts_missing_steps,
             "prechecks_total": len(prechecks),
             "prechecks_passed": prechecks_passed,
