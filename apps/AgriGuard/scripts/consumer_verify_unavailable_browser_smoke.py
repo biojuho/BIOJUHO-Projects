@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from urllib.parse import quote
@@ -12,6 +13,10 @@ from playwright.sync_api import Page, sync_playwright
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_VIEWPORT = "390x844"
 DEFAULT_TOKEN = "unavailable-smoke-token"
+PUBLIC_QR_TOKEN_REDACTION = "<redacted-public-qr-token>"
+PUBLIC_VERIFY_ROUTE_RE = re.compile(
+    r"((?:/verify|/api/(?:api/)?qr)/)[^/?#\s]+((?:/verify)?(?:[?#]\S*)?)"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +45,27 @@ def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def redact_public_qr_route_tokens(text: str) -> str:
+    return PUBLIC_VERIFY_ROUTE_RE.sub(
+        lambda match: f"{match.group(1)}{PUBLIC_QR_TOKEN_REDACTION}{match.group(2)}",
+        text,
+    )
+
+
+def redact_report_public_tokens(value: object, tokens: set[str]) -> object:
+    if isinstance(value, dict):
+        return {key: redact_report_public_tokens(item, tokens) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_report_public_tokens(item, tokens) for item in value]
+    if isinstance(value, str):
+        redacted = value
+        for token in tokens:
+            if token:
+                redacted = redacted.replace(token, PUBLIC_QR_TOKEN_REDACTION)
+        return redact_public_qr_route_tokens(redacted)
+    return value
 
 
 def route_url(base_url: str, token: str) -> str:
@@ -234,7 +260,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     checks.append(check("no_page_errors", len(page_errors) == 0, str(page_errors[:3])))
 
     passed = sum(1 for item in checks if item["ok"])
-    return {
+    report = {
         "schema_version": 1,
         "baseUrl": args.base_url,
         "url": route_url(args.base_url, args.token),
@@ -254,6 +280,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "pageErrors": page_errors,
         "screenshot": str(screenshot),
     }
+    return dict(redact_report_public_tokens(report, {args.token}))
 
 
 def main() -> int:

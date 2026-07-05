@@ -1110,6 +1110,27 @@ def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
     )
 
 
+def test_consumer_verify_unavailable_browser_smoke_redacts_report_token():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "consumer_verify_unavailable_browser_smoke.py",
+        "consumer_verify_unavailable_browser_smoke_redaction_under_test",
+    )
+
+    token = "unavailable-secret-token"
+    report = {
+        "url": f"http://127.0.0.1:5174/verify/{token}?scan_source=unavailable_smoke",
+        "apiResponses": [{"url": f"http://127.0.0.1:5174/api/qr/{token}/verify", "status": 503}],
+        "checks": [{"name": "failure", "ok": True, "detail": f"/api/qr/{token}/verify"}],
+    }
+    redacted = script.redact_report_public_tokens(report, {token})
+    payload = json.dumps(redacted)
+
+    assert token not in payload
+    assert script.PUBLIC_QR_TOKEN_REDACTION in payload
+    assert "/api/qr/" in payload
+    assert "/verify" in payload
+
+
 def test_qr_path_browser_smoke_tracks_public_verify_cache_headers():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
