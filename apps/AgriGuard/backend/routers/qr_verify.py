@@ -25,6 +25,7 @@ _TEMP_MIN_C = -25.0
 _TEMP_MAX_C = 8.0
 _TEMP_WINDOW_HOURS = 24
 _STALE_AFTER_MINUTES = 10
+_ANALYTICS_LABEL_RE = re.compile(r"^[A-Za-z0-9._:-]+$")
 PUBLIC_VERIFY_CACHE_HEADERS = {
     "Cache-Control": "no-store",
     "Pragma": "no-cache",
@@ -35,6 +36,22 @@ PUBLIC_VERIFY_CACHE_HEADERS = {
 def set_public_verify_cache_headers(response: Response) -> None:
     for header, value in PUBLIC_VERIFY_CACHE_HEADERS.items():
         response.headers[header] = value
+
+
+def _safe_analytics_label(value: str | None, *, default: str, max_length: int) -> str:
+    normalized = (value or "").strip()
+    if not normalized or len(normalized) > max_length or not _ANALYTICS_LABEL_RE.fullmatch(normalized):
+        return default
+    return normalized
+
+
+def _safe_session_id(value: str | None) -> str | None:
+    normalized = (value or "").strip()
+    if not normalized:
+        return None
+    if len(normalized) > 120 or not _ANALYTICS_LABEL_RE.fullmatch(normalized):
+        return None
+    return normalized
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -327,13 +344,16 @@ def verify_qr_token(
     now = datetime.now(UTC)
     set_public_verify_cache_headers(response)
     token = _normalize_qr_token(qr_token)
+    safe_session_id = _safe_session_id(session_id)
+    safe_variant_id = _safe_analytics_label(variant_id, default="qr_consumer_v1", max_length=80)
+    safe_source = _safe_analytics_label(source, default="consumer_verify_page", max_length=80)
 
     if not _is_public_token_shape(token):
         _store_public_verify_event(
             db,
-            session_id=session_id,
-            variant_id=variant_id,
-            source=source,
+            session_id=safe_session_id,
+            variant_id=safe_variant_id,
+            source=safe_source,
             token=token,
             product_id=None,
             event_type="scan_failure",
@@ -346,9 +366,9 @@ def verify_qr_token(
     if qr_token is not None and qr_token.revoked_at is not None:
         _store_public_verify_event(
             db,
-            session_id=session_id,
-            variant_id=variant_id,
-            source=source,
+            session_id=safe_session_id,
+            variant_id=safe_variant_id,
+            source=safe_source,
             token=token,
             product_id=qr_token.product_id,
             event_type="scan_failure",
@@ -360,9 +380,9 @@ def verify_qr_token(
     if qr_token is not None and is_token_expired(qr_token, now=now):
         _store_public_verify_event(
             db,
-            session_id=session_id,
-            variant_id=variant_id,
-            source=source,
+            session_id=safe_session_id,
+            variant_id=safe_variant_id,
+            source=safe_source,
             token=token,
             product_id=qr_token.product_id,
             event_type="scan_failure",
@@ -375,9 +395,9 @@ def verify_qr_token(
     if product is None:
         _store_public_verify_event(
             db,
-            session_id=session_id,
-            variant_id=variant_id,
-            source=source,
+            session_id=safe_session_id,
+            variant_id=safe_variant_id,
+            source=safe_source,
             token=token,
             product_id=None,
             event_type="scan_failure",
@@ -404,9 +424,9 @@ def verify_qr_token(
 
     _store_public_verify_event(
         db,
-        session_id=session_id,
-        variant_id=variant_id,
-        source=source,
+        session_id=safe_session_id,
+        variant_id=safe_variant_id,
+        source=safe_source,
         token=token,
         product_id=product.id,
         event_type="verification_complete",
