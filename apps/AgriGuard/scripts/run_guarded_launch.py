@@ -323,6 +323,7 @@ def _build_status_view(
             "operator_action_ids": action_ids,
             "env_validation_ready_for_preflight": summary_env_validation.get("ready_for_preflight"),
             "env_validation_placeholder_count": summary_env_validation.get("placeholder_count"),
+            "operator_packet_blocker_class": summary_operator_packet.get("blocker_class"),
             "operator_packet_preflight_status": summary_operator_packet.get("preflight_status"),
             "operator_packet_artifact_index_status": summary_operator_packet.get("artifact_index_status"),
             "operator_packet_consumer_packet_validation_status": summary_operator_packet.get(
@@ -342,6 +343,7 @@ def _build_status_view(
             "found": packet is not None,
             "path": str(artifact_paths["operator_packet_json"]),
             "status": packet.get("status") if packet is not None else None,
+            "blocker_class": packet.get("blocker_class") if packet is not None else None,
             "operator_action_ids": _operator_action_ids_from_packet(packet),
             "blocking_action_count": packet.get("blocking_action_count")
             if packet is not None and isinstance(packet.get("blocking_action_count"), int)

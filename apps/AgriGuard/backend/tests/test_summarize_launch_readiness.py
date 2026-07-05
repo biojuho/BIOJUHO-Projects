@@ -73,6 +73,7 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
         json.dumps(
             {
                 "status": "blocked",
+                "blocker_class": "env_shape_blocked",
                 "preflight_status": "env_shape_blocked",
                 "blocking_action_count": 1,
                 "operator_actions": [{"id": "fix_env_shape_validation"}],
@@ -96,6 +97,7 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
 
     assert "- Env validation ready for preflight: `false`" in markdown
     assert "- Env validation placeholder count: `6`" in markdown
+    assert "- Operator packet blocker class: `env_shape_blocked`" in markdown
     assert "- Operator packet preflight status: `env_shape_blocked`" in markdown
     assert "- Operator action IDs: `fix_env_shape_validation`" in markdown
     assert "## Next Commands" in markdown
@@ -135,6 +137,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
         json.dumps(
             {
                 "status": "blocked",
+                "blocker_class": "operator_values_required",
                 "preflight_status": "fail",
                 "blocking_action_count": 1,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
@@ -169,6 +172,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["status"] == "blocked"
     assert summary["blocker_class"] == "preflight_blocked"
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
+    assert summary["reports"]["operator_packet"]["blocker_class"] == "operator_values_required"
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert summary["reports"]["operator_packet"]["artifact_index_status"] == "pass"
     assert summary["reports"]["operator_packet"]["consumer_packet_validation_status"] == "pass"
@@ -190,6 +194,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     ]
     markdown = summarize_launch_readiness.render_markdown(summary)
     assert "- Artifact index status: `pass`" in markdown
+    assert "- Operator packet blocker class: `operator_values_required`" in markdown
     assert "- Artifact index consumer packet validation: `pass`" in markdown
     assert "- Consumer command metadata: `pass`" in markdown
     assert "- Consumer readiness command metadata: `pass`" in markdown

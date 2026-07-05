@@ -633,6 +633,12 @@
                 "null"
               ]
             },
+            "blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "found": {
               "type": "boolean"
             },
@@ -674,6 +680,7 @@
             "found",
             "path",
             "status",
+            "blocker_class",
             "operator_action_ids",
             "blocking_action_count",
             "preflight_status",
@@ -755,6 +762,12 @@
                 "null"
               ]
             },
+            "operator_packet_blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "operator_packet_artifact_index_status": {
               "type": [
                 "string",
@@ -804,6 +817,7 @@
             "operator_action_ids",
             "env_validation_ready_for_preflight",
             "env_validation_placeholder_count",
+            "operator_packet_blocker_class",
             "operator_packet_preflight_status",
             "operator_packet_artifact_index_status",
             "operator_packet_consumer_packet_validation_status",

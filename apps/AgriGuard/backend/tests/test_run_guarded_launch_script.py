@@ -972,6 +972,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                         "placeholder_count": 6,
                     },
                     "operator_packet": {
+                        "blocker_class": "env_shape_blocked",
                         "preflight_status": "env_shape_blocked",
                         "operator_action_ids": ["set_firebase_service_account_file"],
                         "consumer_command_metadata_status": "fail",
@@ -986,6 +987,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
         json.dumps(
             {
                 "status": "blocked",
+                "blocker_class": "operator_values_required",
                 "blocking_action_count": 1,
                 "preflight_status": "fail",
                 "preflight_errors": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."],
@@ -1029,6 +1031,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["readiness_summary"]["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert payload["readiness_summary"]["env_validation_ready_for_preflight"] is False
     assert payload["readiness_summary"]["env_validation_placeholder_count"] == 6
+    assert payload["readiness_summary"]["operator_packet_blocker_class"] == "env_shape_blocked"
     assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
     assert payload["readiness_summary"]["operator_packet_consumer_command_metadata_status"] == "fail"
     assert payload["readiness_summary"]["operator_packet_consumer_readiness_command_metadata_status"] == "pass"
@@ -1046,6 +1049,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     ]
     assert payload["operator_packet"]["operator_action_ids"] == ["fallback_action"]
     assert payload["operator_packet"]["blocking_action_count"] == 1
+    assert payload["operator_packet"]["blocker_class"] == "operator_values_required"
     assert payload["operator_packet"]["preflight_status"] == "fail"
     assert payload["operator_packet"]["preflight_errors"] == [
         "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."

@@ -59,6 +59,7 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
 
     action_ids = {action["id"] for action in packet["operator_actions"]}
     assert packet["status"] == "blocked"
+    assert packet["blocker_class"] == "operator_values_required"
     assert packet["secrets_redacted"] is True
     assert action_ids == {
         "set_firebase_service_account_file",
@@ -476,7 +477,32 @@ def test_operator_packet_handles_missing_preflight_json(tmp_path: Path) -> None:
 
     assert packet["status"] == "blocked"
     assert packet["preflight_status"] == "missing_preflight"
+    assert packet["blocker_class"] == "operator_values_required"
     assert packet["operator_actions"][0]["id"] == "run_launch_preflight"
+
+
+def test_operator_packet_classifies_clean_preflight_as_ready(tmp_path: Path) -> None:
+    preflight = tmp_path / "preflight.json"
+    preflight.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "errors": [],
+                "warnings": [],
+                "checks": {"runtime": "compose", "docker_checked": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet = render_launch_operator_packet.build_operator_packet(
+        preflight_json=preflight,
+        app_root=Path(__file__).resolve().parents[2],
+    )
+
+    assert packet["status"] == "ready"
+    assert packet["blocker_class"] == "ready"
+    assert packet["blocking_action_count"] == 0
 
 
 def test_operator_packet_maps_env_validation_failure_when_preflight_missing(tmp_path: Path) -> None:
@@ -506,6 +532,7 @@ def test_operator_packet_maps_env_validation_failure_when_preflight_missing(tmp_
     )
 
     assert packet["status"] == "blocked"
+    assert packet["blocker_class"] == "env_shape_blocked"
     assert packet["preflight_status"] == "env_shape_blocked"
     assert packet["env_validation_status"] == "fail"
     assert packet["operator_actions"] == [
@@ -548,6 +575,7 @@ def test_operator_packet_markdown_contains_actions_and_safe_commands(tmp_path: P
     markdown = render_launch_operator_packet.render_markdown(packet)
 
     assert "# AgriGuard Launch Operator Packet" in markdown
+    assert "Blocker class: `operator_values_required`" in markdown
     assert "SECRET_KEY=<redacted>" in markdown
     assert "super-secret-value" not in markdown
     assert "validate_launch_env_template.py" in markdown
@@ -781,6 +809,7 @@ def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_
     assert result == 1
     packet = json.loads(json_out.read_text(encoding="utf-8"))
     assert packet["blocking_action_count"] == 1
+    assert packet["blocker_class"] == "operator_values_required"
     assert packet["guarded_launch_evidence"]["markdown_table_validation"]["status"] == "pass"
     assert "validate_launch_env_template.py" in packet["safe_rerun_commands"][0]
     assert str(APP_ROOT) in packet["safe_rerun_commands"][0]

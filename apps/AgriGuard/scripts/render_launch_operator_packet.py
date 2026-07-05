@@ -581,6 +581,14 @@ def _build_actions(errors: list[str]) -> list[dict[str, object]]:
     return actions
 
 
+def _packet_blocker_class(*, preflight_status: str, blocked: bool) -> str:
+    if not blocked:
+        return "ready"
+    if preflight_status == "env_shape_blocked":
+        return "env_shape_blocked"
+    return "operator_values_required"
+
+
 def build_operator_packet(
     *,
     preflight_json: Path,
@@ -781,6 +789,7 @@ def build_operator_packet(
     return {
         "schema_version": 1,
         "status": "blocked" if blocked else "ready",
+        "blocker_class": _packet_blocker_class(preflight_status=status, blocked=blocked),
         "preflight_status": status,
         "preflight_json": preflight_rel,
         "env_validation_json": env_validation_rel,
@@ -826,6 +835,7 @@ def render_markdown(packet: dict[str, object]) -> str:
         "# AgriGuard Launch Operator Packet",
         "",
         f"- Status: `{packet['status']}`",
+        f"- Blocker class: `{packet['blocker_class']}`",
         f"- Preflight status: `{packet['preflight_status']}`",
         f"- Preflight JSON: `{packet['preflight_json']}`",
         f"- Secrets redacted: `{str(packet['secrets_redacted']).lower()}`",
