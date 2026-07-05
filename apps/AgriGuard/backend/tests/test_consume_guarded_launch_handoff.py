@@ -227,6 +227,10 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
             "status": "blocked",
             "blocker_class": "preflight_blocked",
             "secrets_redacted": True,
+            "next_actions": [
+                "Open the operator packet for exact variables and validation commands.",
+                "Provide a real Firebase Admin service-account .json outside the repo.",
+            ],
             "next_commands": [
                 {
                     "name": "validate_env_template",
@@ -279,6 +283,10 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert view["artifact_index_recovery_command_status"] == "not_required"
     assert view["readiness_operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert view["readiness_next_actions"] == [
+        "Open the operator packet for exact variables and validation commands.",
+        "Provide a real Firebase Admin service-account .json outside the repo.",
+    ]
     assert view["readiness_next_commands"] == [
         {
             "name": "validate_env_template",

@@ -111,6 +111,12 @@ def _string_value(value: object) -> str | None:
     return None
 
 
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str)]
+
+
 def _int_value(value: object) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool):
         return value
@@ -276,6 +282,9 @@ def build_index(
         if isinstance(consumer, dict) and isinstance(consumer.get("readiness_operator_action_ids"), list)
         else []
     )
+    consumer_readiness_next_actions = (
+        _string_list(consumer.get("readiness_next_actions")) if isinstance(consumer, dict) else []
+    )
     consumer_readiness_next_commands = (
         _next_commands(consumer.get("readiness_next_commands")) if isinstance(consumer, dict) else []
     )
@@ -392,6 +401,7 @@ def build_index(
         if isinstance(consumer, dict)
         else None,
         "consumer_readiness_operator_action_ids": consumer_readiness_action_ids,
+        "consumer_readiness_next_actions": consumer_readiness_next_actions,
         "consumer_readiness_next_commands": consumer_readiness_next_commands,
         "consumer_command_metadata_status": consumer_command_metadata_status,
         "consumer_ready_gate_command_shell": consumer_ready_gate_command_shell,
@@ -452,6 +462,11 @@ def render_markdown(index: dict[str, object]) -> str:
         if isinstance(index.get("consumer_readiness_next_commands"), list)
         else []
     )
+    readiness_next_actions = (
+        index.get("consumer_readiness_next_actions")
+        if isinstance(index.get("consumer_readiness_next_actions"), list)
+        else []
+    )
     operator_commands = (
         index.get("consumer_operator_commands")
         if isinstance(index.get("consumer_operator_commands"), list)
@@ -478,6 +493,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer packet Markdown table blocker class: `{index.get('consumer_packet_markdown_table_blocker_class') or '-'}`",
         f"- Consumer packet path mismatch count: `{index.get('consumer_packet_path_mismatch_count')}`",
         f"- Consumer readiness action IDs: `{', '.join(str(action_id) for action_id in readiness_action_ids) if readiness_action_ids else '-'}`",
+        f"- Consumer readiness next action count: `{len(readiness_next_actions)}`",
         f"- Consumer readiness next command count: `{len(readiness_next_commands)}`",
         f"- Consumer command metadata: `{index.get('consumer_command_metadata_status')}`",
         f"- Consumer ready gate command shell: `{index.get('consumer_ready_gate_command_shell') or '-'}`",
@@ -503,6 +519,12 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Recovery command: `{recovery_command_text if isinstance(recovery_command_text, str) else '-'}`",
         "",
     ]
+    if readiness_next_actions:
+        lines.extend(["## Consumer Readiness Next Actions", ""])
+        for action in readiness_next_actions:
+            if isinstance(action, str):
+                lines.append(f"- {action}")
+        lines.append("")
     if readiness_next_commands:
         lines.extend(["## Consumer Readiness Next Commands", ""])
         for item in readiness_next_commands:

@@ -309,6 +309,9 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
                     "command": None,
                 },
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "consumer_readiness_next_actions": [
+                    "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo.",
+                ],
                 "consumer_readiness_next_commands": [
                     {
                         "name": "validate_env_template",
@@ -378,6 +381,9 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
     assert summary["path"] == "launch-artifacts/custom-prefix-artifact-index.json"
     assert summary["blocker_class"] == "ready"
     assert summary["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert summary["next_actions"] == [
+        "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo.",
+    ]
     assert summary["next_commands"] == [
         {
             "name": "validate_env_template",
@@ -737,6 +743,9 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
                     "command": None,
                 },
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
+                "consumer_readiness_next_actions": [
+                    "Replace env template placeholders and sample domains.",
+                ],
                 "consumer_readiness_next_commands": [
                     {
                         "name": "validate_env_template",
@@ -779,6 +788,9 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
             "command": None,
         },
         "operator_action_ids": ["fix_env_shape_validation"],
+        "next_actions": [
+            "Replace env template placeholders and sample domains.",
+        ],
         "next_commands": [
             {
                 "name": "validate_env_template",

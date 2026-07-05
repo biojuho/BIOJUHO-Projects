@@ -238,6 +238,7 @@ def build_consumer_view(
         if isinstance(readiness_summary.get("operator_action_ids"), list)
         else []
     )
+    readiness_next_actions = _string_list(readiness_summary.get("next_actions"))
     external_blocker = (
         handoff.get("external_blocker")
         if handoff is not None and isinstance(handoff.get("external_blocker"), dict)
@@ -315,6 +316,7 @@ def build_consumer_view(
         ),
         "artifact_index_recovery_command_status": artifact_index.get("recovery_command_status"),
         "readiness_operator_action_ids": readiness_action_ids,
+        "readiness_next_actions": readiness_next_actions,
         "readiness_next_commands": readiness_next_commands,
         "readiness_env_validation_blocker_class": readiness_summary.get("env_validation_blocker_class"),
         "readiness_env_validation_ready_for_preflight": readiness_summary.get("env_validation_ready_for_preflight"),

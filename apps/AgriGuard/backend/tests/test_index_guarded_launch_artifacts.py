@@ -78,6 +78,10 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "handoff_validation_command_shell": "powershell",
             "handoff_validation_command_text": "& python validate_guarded_launch_handoff.py handoff.json",
             "readiness_operator_action_ids": ["fix_env_shape_validation"],
+            "readiness_next_actions": [
+                "Replace env template placeholders and sample domains.",
+                "Rerun validate_launch_env_template.py on the filled env file.",
+            ],
             "readiness_next_commands": [
                 {
                     "name": "validate_env_template",
@@ -119,6 +123,10 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_packet_markdown_table_status"] == "pass"
     assert index["consumer_packet_markdown_table_blocker_class"] == "ready"
     assert index["consumer_readiness_operator_action_ids"] == ["fix_env_shape_validation"]
+    assert index["consumer_readiness_next_actions"] == [
+        "Replace env template placeholders and sample domains.",
+        "Rerun validate_launch_env_template.py on the filled env file.",
+    ]
     assert index["consumer_readiness_next_commands"] == [
         {
             "name": "validate_env_template",
@@ -154,6 +162,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         "command": None,
     }
     assert "Blocker class: `ready`" in markdown
+    assert "Consumer readiness next action count: `2`" in markdown
     assert "Consumer readiness next command count: `1`" in markdown
     assert "Validation blocker class: `ready`" in markdown
     assert "Consumer packet evidence outputs blocker class: `ready`" in markdown
@@ -164,6 +173,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert "Consumer operator command text count: `2`" in markdown
     assert "Consumer handoff validation command: `& python validate_guarded_launch_handoff.py handoff.json`" in markdown
     assert "## Consumer Operator Commands" in markdown
+    assert "## Consumer Readiness Next Actions" in markdown
+    assert "- Replace env template placeholders and sample domains." in markdown
     assert "`inspect_status` (powershell): `& python run_guarded_launch.py --status-only`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
 

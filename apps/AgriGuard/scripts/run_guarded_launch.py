@@ -552,6 +552,9 @@ def _build_status_view(
             "consumer_readiness_next_commands": _next_commands_from_value(
                 artifact_index.get("consumer_readiness_next_commands") if artifact_index is not None else None
             ),
+            "consumer_readiness_next_actions": _string_list(
+                artifact_index.get("consumer_readiness_next_actions") if artifact_index is not None else None
+            ),
             "consumer_readiness_env_validation_ready_for_preflight": artifact_index.get(
                 "consumer_readiness_env_validation_ready_for_preflight"
             )
@@ -830,6 +833,11 @@ def _artifact_index_readiness_summary(
         if isinstance(index, dict)
         else []
     )
+    next_actions = (
+        _string_list(index.get("consumer_readiness_next_actions"))
+        if isinstance(index, dict)
+        else []
+    )
     return {
         "found": index is not None,
         "path": str(index_json),
@@ -846,6 +854,7 @@ def _artifact_index_readiness_summary(
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
+        "next_actions": next_actions,
         "next_commands": next_commands,
         "env_validation_blocker_class": index.get("consumer_readiness_env_validation_blocker_class")
         if index is not None

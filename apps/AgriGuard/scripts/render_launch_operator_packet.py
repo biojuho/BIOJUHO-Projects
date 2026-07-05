@@ -496,6 +496,11 @@ def _artifact_index_readiness_summary(
         else []
     )
     next_commands = _next_commands(index.get("consumer_readiness_next_commands")) if isinstance(index, dict) else []
+    next_actions = (
+        [str(action) for action in index.get("consumer_readiness_next_actions", []) if isinstance(action, str)]
+        if isinstance(index, dict)
+        else []
+    )
     return {
         "found": index is not None,
         "path": _rel(index_json, workspace_root),
@@ -512,6 +517,7 @@ def _artifact_index_readiness_summary(
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
+        "next_actions": next_actions,
         "next_commands": next_commands,
         "env_validation_blocker_class": index.get("consumer_readiness_env_validation_blocker_class")
         if index is not None

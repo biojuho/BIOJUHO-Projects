@@ -487,6 +487,12 @@
               },
               "type": "array"
             },
+            "consumer_readiness_next_actions": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
             "consumer_readiness_next_commands": {
               "items": {
                 "additionalProperties": false,
@@ -557,6 +563,7 @@
             "consumer_command_metadata_status",
             "consumer_readiness_operator_packet_consumer_command_metadata_status",
             "consumer_readiness_operator_action_ids",
+            "consumer_readiness_next_actions",
             "consumer_readiness_env_validation_blocker_class",
             "consumer_readiness_env_validation_ready_for_preflight",
             "consumer_readiness_env_validation_placeholder_count",

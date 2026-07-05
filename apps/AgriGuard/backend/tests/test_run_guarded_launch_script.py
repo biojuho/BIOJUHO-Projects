@@ -71,6 +71,9 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 "recovery_command_status": "not_required",
                 "consumer_readiness_operator_action_ids": ["fix_env_shape_validation"],
+                "consumer_readiness_next_actions": [
+                    "Replace env template placeholders and sample domains.",
+                ],
                 "consumer_readiness_next_commands": [
                     {
                         "name": "validate_env_template",
@@ -138,6 +141,9 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
             "command": None,
         },
         "operator_action_ids": ["fix_env_shape_validation"],
+        "next_actions": [
+            "Replace env template placeholders and sample domains.",
+        ],
         "next_commands": [
             {
                 "name": "validate_env_template",
@@ -1354,6 +1360,9 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "consumer_readiness_next_actions": [
+                    "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo.",
+                ],
                 "consumer_readiness_next_commands": [
                     {
                         "name": "validate_env_template",
@@ -1423,6 +1432,9 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+        "consumer_readiness_next_actions": [
+            "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo.",
+        ],
         "consumer_readiness_next_commands": [
             {
                 "name": "validate_env_template",
