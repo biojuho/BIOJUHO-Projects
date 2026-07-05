@@ -315,6 +315,7 @@ def build_index(
         else None
     )
     validation_status = validation.get("status") if isinstance(validation, dict) else None
+    validation_blocker_class = validation.get("blocker_class") if isinstance(validation, dict) else None
     index_status = (
         "pass"
         if not missing_required
@@ -417,6 +418,7 @@ def build_index(
         ),
         "consumer_errors": consumer_errors,
         "validation_status": validation_status,
+        "validation_blocker_class": validation_blocker_class,
         "launch_status": launch.get("status") if isinstance(launch, dict) else None,
         "launch_stage": launch.get("stage") if isinstance(launch, dict) else None,
         "recovery_action": recovery_action,
@@ -468,6 +470,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Output prefix: `{index.get('output_prefix')}`",
         f"- Launch status: `{index.get('launch_status')}`",
         f"- Validation status: `{index.get('validation_status')}`",
+        f"- Validation blocker class: `{index.get('validation_blocker_class') or '-'}`",
         f"- Consumer validation matches handoff: `{str(index.get('consumer_validation_matches_handoff')).lower()}`",
         f"- Consumer packet validation: `{index.get('consumer_packet_validation_status')}`",
         f"- Consumer packet evidence outputs blocker class: `{index.get('consumer_packet_evidence_outputs_blocker_class') or '-'}`",

@@ -202,6 +202,7 @@ def build_consumer_view(
     errors.extend(current_schema_errors)
     current_handoff_sha256 = sha256_file(handoff_json)
     validation_status = validation.get("status") if validation is not None else None
+    validation_blocker_class = validation.get("blocker_class") if validation is not None else None
     validation_handoff_sha256 = validation.get("handoff_sha256") if validation is not None else None
     validation_matches_handoff = bool(
         current_handoff_sha256
@@ -275,6 +276,7 @@ def build_consumer_view(
         "handoff_sha256": current_handoff_sha256,
         "validation_json": str(effective_validation_json) if effective_validation_json is not None else None,
         "validation_status": validation_status,
+        "validation_blocker_class": validation_blocker_class,
         "validation_matches_handoff": validation_matches_handoff,
         "handoff_status": handoff_status,
         "handoff_blocker_class": handoff_blocker_class,

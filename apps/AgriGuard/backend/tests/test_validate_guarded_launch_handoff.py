@@ -101,6 +101,7 @@ def test_validate_guarded_launch_handoff_main_writes_pass_report(tmp_path: Path)
     report = json.loads(validation_json.read_text(encoding="utf-8"))
     assert result == 0
     assert report["status"] == "pass"
+    assert report["blocker_class"] == "ready"
     assert report["errors"] == []
     assert report["handoff_sha256"]
     assert report["schema_sha256"]
@@ -122,4 +123,5 @@ def test_validate_guarded_launch_handoff_main_fails_on_invalid_report(tmp_path: 
     report = json.loads(validation_json.read_text(encoding="utf-8"))
     assert result == validate_guarded_launch_handoff.VALIDATION_FAILURE_EXIT_CODE
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "guarded_launch_handoff_validation_blocked"
     assert any("missing required property" in error for error in report["errors"])

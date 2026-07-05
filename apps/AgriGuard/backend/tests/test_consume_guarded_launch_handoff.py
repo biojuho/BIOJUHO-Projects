@@ -179,6 +179,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     )
 
     assert view["status"] == "pass"
+    assert view["validation_blocker_class"] == "ready"
     assert view["handoff_status"] == "ready"
     assert view["handoff_blocker_class"] == "ready"
     assert view["ready_gate_status"] == "pass"
@@ -316,6 +317,7 @@ def test_consume_guarded_launch_handoff_infers_workspace_relative_validation_pat
 
     assert Path(view["validation_json"]).resolve() == validation_json.resolve()
     assert view["validation_matches_handoff"] is True
+    assert view["validation_blocker_class"] == "ready"
     assert "validation JSON path missing" not in view["errors"]
     assert view["errors"] == []
 

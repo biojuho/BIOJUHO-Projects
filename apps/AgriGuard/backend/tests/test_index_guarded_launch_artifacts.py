@@ -38,6 +38,7 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
         paths["handoff_validation_json"],
         {
             "status": "pass",
+            "blocker_class": "ready",
             "errors": [],
             "handoff_sha256": "abc",
             "schema_sha256": "def",
@@ -111,6 +112,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_status"] == "fail"
     assert index["consumer_blocker_class"] == "preflight_blocked"
     assert index["validation_status"] == "pass"
+    assert index["validation_blocker_class"] == "ready"
     assert index["consumer_packet_validation_status"] == "pass"
     assert index["consumer_packet_evidence_outputs_status"] == "pass"
     assert index["consumer_packet_evidence_outputs_blocker_class"] == "ready"
@@ -153,6 +155,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     }
     assert "Blocker class: `ready`" in markdown
     assert "Consumer readiness next command count: `1`" in markdown
+    assert "Validation blocker class: `ready`" in markdown
     assert "Consumer packet evidence outputs blocker class: `ready`" in markdown
     assert "Consumer packet Markdown table blocker class: `ready`" in markdown
     assert "Consumer command metadata: `pass`" in markdown

@@ -129,6 +129,10 @@ def write_validation_result(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def validation_blocker_class(status: object) -> str:
+    return "ready" if status == "pass" else "guarded_launch_handoff_validation_blocked"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate an AgriGuard guarded-launch handoff JSON artifact.")
     parser.add_argument("handoff_json", type=Path)
@@ -145,13 +149,15 @@ def main(argv: list[str] | None = None) -> int:
     if schema is not None and handoff is not None:
         errors.extend(validate_handoff(handoff, schema))
 
+    status = "fail" if errors else "pass"
     result = {
         "validation_report_schema_version": VALIDATION_REPORT_SCHEMA_VERSION,
         "handoff_json": str(args.handoff_json),
         "handoff_sha256": sha256_file(args.handoff_json),
         "schema_json": str(args.schema_json),
         "schema_sha256": sha256_file(args.schema_json),
-        "status": "fail" if errors else "pass",
+        "status": status,
+        "blocker_class": validation_blocker_class(status),
         "errors": errors,
     }
     if args.json_out is not None:
