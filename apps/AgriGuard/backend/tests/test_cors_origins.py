@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import main
+from fastapi.testclient import TestClient
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
 AGRIGUARD_ORIGINS = {
@@ -307,6 +308,7 @@ def test_nginx_configs_set_baseline_security_headers() -> None:
         'add_header X-Content-Type-Options "nosniff" always;',
         'add_header X-Frame-Options "DENY" always;',
         'add_header Referrer-Policy "strict-origin-when-cross-origin" always;',
+        'add_header Permissions-Policy "camera=(self), geolocation=(), microphone=()" always;',
     ]
 
     frontend = (WORKSPACE_ROOT / "apps/AgriGuard/frontend/nginx.conf").read_text(encoding="utf-8")
@@ -340,3 +342,13 @@ def test_frontend_nginx_does_not_cache_spa_shell() -> None:
     assert 'add_header X-Content-Type-Options "nosniff" always;' in block
     assert 'add_header X-Frame-Options "DENY" always;' in block
     assert 'add_header Referrer-Policy "strict-origin-when-cross-origin" always;' in block
+    assert 'add_header Permissions-Policy "camera=(self), geolocation=(), microphone=()" always;' in block
+
+
+def test_backend_sets_baseline_security_headers_on_api_responses() -> None:
+    response = TestClient(main.app).get("/")
+
+    assert response.status_code == 200
+    for header, expected in main.BASELINE_SECURITY_HEADERS.items():
+        assert response.headers[header] == expected
+    assert response.headers["X-RateLimit-Limit"] == "100"

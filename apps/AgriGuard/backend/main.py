@@ -250,6 +250,19 @@ except ImportError:
 _RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "100"))
 _RATE_LIMIT_WINDOW = 60
 
+BASELINE_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(self), geolocation=(), microphone=()",
+}
+
+
+def apply_baseline_security_headers(response):
+    for header, value in BASELINE_SECURITY_HEADERS.items():
+        if header not in response.headers:
+            response.headers[header] = value
+
 
 @app.middleware("http")
 async def rate_limit_middleware(request, call_next):
@@ -273,6 +286,13 @@ async def rate_limit_middleware(request, call_next):
     response = await call_next(request)
     response.headers["X-RateLimit-Limit"] = str(_RATE_LIMIT_MAX)
     response.headers["X-RateLimit-Remaining"] = str(max(0, _RATE_LIMIT_MAX - count))
+    return response
+
+
+@app.middleware("http")
+async def security_headers_middleware(request, call_next):
+    response = await call_next(request)
+    apply_baseline_security_headers(response)
     return response
 
 
