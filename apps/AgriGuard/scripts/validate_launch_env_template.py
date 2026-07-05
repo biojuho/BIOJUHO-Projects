@@ -125,12 +125,27 @@ def _forbidden_flags_enabled(env: dict[str, str]) -> list[str]:
     return [key for key in FORBIDDEN_TRUE_FLAGS if _env_flag_enabled(env.get(key))]
 
 
-def _firebase_path_shape_errors(env: dict[str, str]) -> list[str]:
+def _path_inside_root(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _firebase_path_shape_errors(env: dict[str, str], *, workspace_root: Path) -> list[str]:
     value = (env.get("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE") or "").strip()
     if not value or _placeholder_reason(value):
         return []
+    path = Path(value)
+    if not path.is_absolute():
+        return [
+            "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must be an absolute .json file path outside the repo before launch preflight."
+        ]
     if Path(value).suffix.lower() != ".json":
         return ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must point to a .json file before launch preflight."]
+    if _path_inside_root(path, workspace_root):
+        return ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must point outside the repository before launch preflight."]
     return []
 
 
@@ -211,7 +226,7 @@ def build_validation_report(*, env_file: Path, app_root: Path | None = None) -> 
     blocking_findings.extend(f"Missing required launch env key: {key}" for key in missing_keys)
     blocking_findings.extend(_placeholder_finding(item) for item in placeholder_variables)
     blocking_findings.extend(f"{flag} must be false for launch." for flag in forbidden_flags)
-    blocking_findings.extend(_firebase_path_shape_errors(env))
+    blocking_findings.extend(_firebase_path_shape_errors(env, workspace_root=workspace_root))
     blocking_findings.extend(f"Launch shape validation: {error}" for error in launch_errors)
     blocking_findings = _dedupe(blocking_findings)
     status = "fail" if blocking_findings else "pass"

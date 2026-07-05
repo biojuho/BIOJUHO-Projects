@@ -95,6 +95,53 @@ def test_validate_launch_env_template_accepts_shape_safe_env(tmp_path: Path) -> 
     assert report["launch_validation"]["blocker_class"] == "ready"
 
 
+def test_validate_launch_env_template_rejects_relative_firebase_service_account_path(tmp_path: Path) -> None:
+    env_file = tmp_path / "launch.env"
+    _write_shape_safe_env(env_file)
+    lines = [
+        line
+        for line in env_file.read_text(encoding="utf-8").splitlines()
+        if not line.startswith("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=")
+    ]
+    lines.append("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=firebase-service-account.json")
+    env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    report = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=APP_ROOT)
+
+    assert report["status"] == "fail"
+    assert report["blocker_class"] == "env_shape_blocked"
+    assert report["ready_for_preflight"] is False
+    assert (
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must be an absolute .json file path outside the repo before launch preflight."
+        in report["blocking_findings"]
+    )
+
+
+def test_validate_launch_env_template_rejects_repo_local_firebase_service_account_path(tmp_path: Path) -> None:
+    env_file = tmp_path / "launch.env"
+    _write_shape_safe_env(env_file)
+    repo_local_path = APP_ROOT / "firebase-service-account.json"
+    lines = [
+        line
+        for line in env_file.read_text(encoding="utf-8").splitlines()
+        if not line.startswith("AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=")
+    ]
+    lines.append(f"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE={repo_local_path}")
+    env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    report = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=APP_ROOT)
+    encoded = json.dumps(report)
+
+    assert report["status"] == "fail"
+    assert report["blocker_class"] == "env_shape_blocked"
+    assert report["ready_for_preflight"] is False
+    assert (
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must point outside the repository before launch preflight."
+        in report["blocking_findings"]
+    )
+    assert str(repo_local_path) not in encoded
+
+
 def test_validate_launch_env_template_rejects_forbidden_launch_flags(tmp_path: Path) -> None:
     env_file = tmp_path / "launch.env"
     _write_shape_safe_env(env_file)
