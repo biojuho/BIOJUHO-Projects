@@ -27,7 +27,18 @@
 - `python ops\scripts\run_workspace_smoke.py --scope workspace`
   - Result: `passed=9, failed=0, total=9`, elapsed `2m52s`
 
+## Post-Recovery Operational Check
+
+- Ran the emitted recovery path:
+  - `python apps\AgriGuard\scripts\run_guarded_launch.py --env-file var\agriguard-launch-operator.missing-firebase.env --emit-handoff --status-json-out var\agriguard-guarded-launch-status.json`
+  - Result: exit `1`, expected fail-closed preflight stop at missing Firebase service-account file.
+- Rechecked default status:
+  - `python apps\AgriGuard\scripts\run_guarded_launch.py --app-root apps\AgriGuard --output-dir var --output-prefix agriguard-guarded-launch --status-only --status-json-out var\agriguard-guarded-launch-current-status-post-recovery.json`
+  - Result: `status=blocked`, `blocker_class=preflight_blocked`
+  - Artifact index view after recovery: `status=pass`, `blocker_class=ready`, `consumer_metadata_status=pass`, `consumer_command_metadata_status=pass`
+  - Recovery summary after recovery: `required=false`, `status=not_required`, `blocker_class=ready`
+
 ## Remaining Blocker
 
-- The status artifact recovery contract is fixed locally.
+- The status artifact recovery contract is fixed locally, and the default prefix has been refreshed out of stale-index state.
 - The default launch prefix still stops at the expected external preflight blocker: `AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist.`
