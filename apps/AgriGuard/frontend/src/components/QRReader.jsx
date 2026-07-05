@@ -262,7 +262,7 @@ export default function QRReader() {
         </div>
 
         <CardContent className="p-6">
-          <div className="relative aspect-square w-full rounded-xl overflow-hidden border-2 border-border bg-muted flex items-center justify-center">
+          <div data-testid="scanner-frame" className="relative mx-auto aspect-square w-full max-w-[248px] rounded-xl overflow-hidden border-2 border-border bg-muted flex items-center justify-center sm:max-w-none">
             {isScanning ? (
               <Scanner
                 onScan={handleScan}

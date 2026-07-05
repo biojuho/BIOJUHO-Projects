@@ -131,6 +131,8 @@ describe('QRReader', () => {
   it('keeps the scan frame free of the built-in camera toggle control', () => {
     renderReader();
 
+    expect(screen.getByTestId('scanner-frame')).toHaveClass('max-w-[248px]');
+    expect(screen.getByTestId('scanner-frame')).toHaveClass('sm:max-w-none');
     expect(scannerApi.components).toEqual(expect.objectContaining({
       audio: false,
       finder: true,
