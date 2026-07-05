@@ -170,7 +170,7 @@ export default function SupplyChain() {
     <div className="p-8 max-w-7xl mx-auto text-foreground">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-600 mb-2">
+          <h1 data-testid="supply-chain-heading" className="max-w-full text-2xl font-bold leading-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-600 mb-2 sm:text-3xl">
             Supply Chain Overview
           </h1>
           <p className="text-muted-foreground">Monitor all agricultural products across the network.</p>

@@ -59,6 +59,8 @@ describe('SupplyChain', () => {
       expect(screen.getByText('Showing 1-20 of 25 products')).toBeInTheDocument();
     });
 
+    expect(screen.getByTestId('supply-chain-heading')).toHaveClass('text-2xl');
+    expect(screen.getByTestId('supply-chain-heading')).toHaveClass('sm:text-3xl');
     expect(screen.getByText('Product 1')).toBeInTheDocument();
     expect(screen.getByText('Product 20')).toBeInTheDocument();
     expect(screen.queryByText('Product 21')).not.toBeInTheDocument();
