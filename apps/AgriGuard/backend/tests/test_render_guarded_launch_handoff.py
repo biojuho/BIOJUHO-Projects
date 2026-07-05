@@ -141,6 +141,10 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["ready_gate"]["exit_code"] == 1
     assert handoff["external_blocker"]["blocker_class"] == "preflight_blocked"
     assert handoff["external_blocker"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert handoff["external_blocker"]["summary"] == (
+        "Real compose/browser launch remains externally blocked until the operator "
+        "provides a real Firebase Admin service-account .json at an absolute host path outside the repo."
+    )
     assert handoff["status_view"]["readiness_summary"]["next_commands"] == [
         {
             "name": "validate_env_template",
@@ -334,6 +338,10 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert result == 1
     assert payload["status"] == "blocked"
     assert payload["blocker_class"] == "env_shape_blocked"
+    assert payload["external_blocker"]["summary"] == (
+        "Real compose/browser launch remains externally blocked until the operator "
+        "fixes launch env template findings before strict preflight."
+    )
     assert payload["ready_gate"]["status"] == "fail"
     assert payload["ready_gate"]["blocker_class"] == "env_shape_blocked"
     assert payload["packet_validation"]["blocker_class"] == "ready"

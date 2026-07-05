@@ -22,10 +22,23 @@ run_guarded_launch = _load_peer_module("run_guarded_launch")
 validate_guarded_launch_handoff = _load_peer_module("validate_guarded_launch_handoff")
 
 
-EXTERNAL_BLOCKER_SUMMARY = (
-    "Real compose/browser launch remains externally blocked until the operator supplies a real Firebase Admin "
-    "service-account JSON outside the repo plus production-strength secret, pepper, public verify URL, allowed "
-    "origins, and database credentials."
+ACTION_BLOCKER_REQUIREMENTS = {
+    "set_firebase_service_account_file": (
+        "provides a real Firebase Admin service-account .json at an absolute host path outside the repo"
+    ),
+    "set_secret_key": "sets a production-strength AGRIGUARD_SECRET_KEY",
+    "set_qr_token_pepper": "sets a stable production QR token pepper",
+    "set_public_verify_base_url": "sets a public HTTPS verification URL",
+    "set_allowed_origins": "sets explicit production browser origins",
+    "set_database_password": "sets launch-safe database credentials",
+    "disable_forbidden_auth_flags": "disables dev/test authentication bypass flags",
+    "fix_docker_readiness": "starts a launch-ready Docker Desktop/compose environment",
+    "fix_env_shape_validation": "fixes launch env template findings before strict preflight",
+    "run_launch_preflight": "generates a readable strict launch preflight report",
+}
+
+EXTERNAL_BLOCKER_SUMMARY_FALLBACK = (
+    "Real compose/browser launch remains externally blocked until the listed operator action IDs are resolved."
 )
 
 
@@ -239,14 +252,34 @@ def _external_blocker(status_view: dict[str, object], ready: bool) -> dict[str, 
             "operator_action_ids": [],
             "summary": "Selected guarded-launch prefix is ready.",
         }
+    action_ids = (
+        status_view.get("operator_action_ids")
+        if isinstance(status_view.get("operator_action_ids"), list)
+        else []
+    )
     return {
         "status": "blocked",
         "blocker_class": status_view.get("blocker_class"),
-        "operator_action_ids": status_view.get("operator_action_ids")
-        if isinstance(status_view.get("operator_action_ids"), list)
-        else [],
-        "summary": EXTERNAL_BLOCKER_SUMMARY,
+        "operator_action_ids": action_ids,
+        "summary": _external_blocker_summary(action_ids),
     }
+
+
+def _external_blocker_summary(action_ids: list[object]) -> str:
+    requirements = [
+        ACTION_BLOCKER_REQUIREMENTS[action_id]
+        for action_id in action_ids
+        if isinstance(action_id, str) and action_id in ACTION_BLOCKER_REQUIREMENTS
+    ]
+    if not requirements:
+        return EXTERNAL_BLOCKER_SUMMARY_FALLBACK
+    if len(requirements) == 1:
+        return f"Real compose/browser launch remains externally blocked until the operator {requirements[0]}."
+    return (
+        "Real compose/browser launch remains externally blocked until the operator completes these requirements: "
+        + "; ".join(requirements)
+        + "."
+    )
 
 
 def _handoff_blocker_class(status_view: dict[str, object], ready: bool) -> object:
