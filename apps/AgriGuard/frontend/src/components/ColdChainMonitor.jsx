@@ -79,6 +79,22 @@ function getZoneClass(zone) {
   return 'border-border bg-white/5';
 }
 
+function EmptyTimelineState({ title, message, heightClass }) {
+  return (
+    <div
+      role="status"
+      aria-atomic="true"
+      className={cn(
+        'flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background/40 px-4 text-center',
+        heightClass,
+      )}
+    >
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-1 max-w-xs text-sm leading-6 text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
 export default function ColdChainMonitor() {
   const [status, setStatus] = useState(null);
   const { showToast } = useToast();
@@ -135,6 +151,7 @@ export default function ColdChainMonitor() {
     humidity: r.humidity,
     zone: r.zone,
   }));
+  const hasTimelineReadings = chartData.length > 0;
 
   const latestReading = readings[readings.length - 1];
   const zones = status?.zones ?? [];
@@ -233,21 +250,29 @@ export default function ColdChainMonitor() {
           <CardTitle className="text-lg">Temperature Timeline</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart
-              data={chartData}
-              title="Temperature timeline chart"
-              desc="Keyboard-navigable line chart of recent cold-chain temperature readings with max and min threshold markers."
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="time" stroke="#6b7280" fontSize={11} />
-              <YAxis stroke="#6b7280" fontSize={11} domain={[-30, 15]} />
-              <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: '#9ca3af' }} />
-              <ReferenceLine y={8} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'Max 8 C', fill: '#ef4444', fontSize: 10 }} />
-              <ReferenceLine y={-25} stroke="#3b82f6" strokeDasharray="5 5" label={{ value: 'Min -25 C', fill: '#3b82f6', fontSize: 10 }} />
-              <Line type="monotone" dataKey="temp" stroke="#60a5fa" strokeWidth={2} dot={false} name="Temperature" />
-            </LineChart>
-          </ResponsiveContainer>
+          {hasTimelineReadings ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart
+                data={chartData}
+                title="Temperature timeline chart"
+                desc="Keyboard-navigable line chart of recent cold-chain temperature readings with max and min threshold markers."
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="time" stroke="#6b7280" fontSize={11} />
+                <YAxis stroke="#6b7280" fontSize={11} domain={[-30, 15]} />
+                <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: '#9ca3af' }} />
+                <ReferenceLine y={8} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'Max 8 C', fill: '#ef4444', fontSize: 10 }} />
+                <ReferenceLine y={-25} stroke="#3b82f6" strokeDasharray="5 5" label={{ value: 'Min -25 C', fill: '#3b82f6', fontSize: 10 }} />
+                <Line type="monotone" dataKey="temp" stroke="#60a5fa" strokeWidth={2} dot={false} name="Temperature" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyTimelineState
+              title="No temperature readings yet"
+              message="Waiting for live sensor readings from registered cold-chain devices."
+              heightClass="h-[280px]"
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -256,19 +281,27 @@ export default function ColdChainMonitor() {
           <CardTitle className="text-lg">Humidity Timeline</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart
-              data={chartData}
-              title="Humidity timeline chart"
-              desc="Keyboard-navigable line chart of recent cold-chain humidity readings."
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="time" stroke="#6b7280" fontSize={11} />
-              <YAxis stroke="#6b7280" fontSize={11} domain={[0, 100]} />
-              <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: '#9ca3af' }} />
-              <Line type="monotone" dataKey="humidity" stroke="#06b6d4" strokeWidth={2} dot={false} name="Humidity" />
-            </LineChart>
-          </ResponsiveContainer>
+          {hasTimelineReadings ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart
+                data={chartData}
+                title="Humidity timeline chart"
+                desc="Keyboard-navigable line chart of recent cold-chain humidity readings."
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="time" stroke="#6b7280" fontSize={11} />
+                <YAxis stroke="#6b7280" fontSize={11} domain={[0, 100]} />
+                <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: '#9ca3af' }} />
+                <Line type="monotone" dataKey="humidity" stroke="#06b6d4" strokeWidth={2} dot={false} name="Humidity" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyTimelineState
+              title="No humidity readings yet"
+              message="Waiting for live humidity readings from registered cold-chain devices."
+              heightClass="h-[200px]"
+            />
+          )}
         </CardContent>
       </Card>
 

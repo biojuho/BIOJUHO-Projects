@@ -354,5 +354,8 @@ describe('ColdChainMonitor', () => {
     expect(screen.getByText('registered-silent-sensor')).toBeInTheDocument();
     expect(screen.getByText('0 readings')).toBeInTheDocument();
     expect(screen.getAllByText('--').length).toBeGreaterThan(0);
+    expect(screen.getByText('No temperature readings yet')).toBeInTheDocument();
+    expect(screen.getByText('No humidity readings yet')).toBeInTheDocument();
+    expect(screen.getAllByRole('status').length).toBeGreaterThanOrEqual(2);
   });
 });
