@@ -1,6 +1,6 @@
 /* global describe, it, expect, vi, beforeEach, afterEach */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import Dashboard from './Dashboard';
+import Dashboard, { formatDashboardStatusLabel } from './Dashboard';
 import api from '../../services/api';
 
 const serviceMocks = vi.hoisted(() => ({
@@ -145,6 +145,13 @@ describe('Dashboard', () => {
     expect(screen.getByText('7-day QR trend')).toBeInTheDocument();
     expect(screen.getByText(`All variants / ${browserTimezone}`)).toBeInTheDocument();
     expect(screen.getByText('1,240 scans')).toBeInTheDocument();
+  });
+
+  it('formats dashboard status labels for compact mobile chart ticks', () => {
+    expect(formatDashboardStatusLabel('QualityCheckPassed')).toBe('QC');
+    expect(formatDashboardStatusLabel('DeliveredtoWarehouse')).toBe('Warehouse');
+    expect(formatDashboardStatusLabel('IN_TRANSIT')).toBe('In Transit');
+    expect(formatDashboardStatusLabel('custom_status')).toBe('custom status');
   });
 
   it('refetches QR KPI trend when the reporting timezone changes', async () => {

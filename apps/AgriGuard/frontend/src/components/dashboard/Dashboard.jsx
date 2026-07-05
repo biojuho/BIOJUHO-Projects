@@ -49,6 +49,27 @@ function getReportingTimezoneOptions(selectedTimezone) {
   return Array.from(new Set([getBrowserTimezone(), ...DEFAULT_REPORTING_TIMEZONES, selectedTimezone].filter(Boolean)));
 }
 
+export function formatDashboardStatusLabel(value) {
+  const raw = String(value || '').trim();
+  const compact = raw.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const aliases = {
+    delivered: 'Delivered',
+    deliveredtowarehouse: 'Warehouse',
+    harvested: 'Harvested',
+    intransit: 'In Transit',
+    planted: 'Planted',
+    qualitycheckpassed: 'QC',
+    shipped: 'Shipped',
+  };
+  if (aliases[compact]) return aliases[compact];
+
+  return raw
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [qrKpis, setQrKpis] = useState(null);
@@ -178,7 +199,11 @@ export default function Dashboard() {
   const originDist = data?.origin_distribution || {};
   const statusEntries = Object.entries(statusDist).sort((a, b) => b[1] - a[1]);
   const originEntries = Object.entries(originDist).sort((a, b) => b[1] - a[1]);
-  const statusChartData = statusEntries.map(([name, value]) => ({ name, value }));
+  const statusChartData = statusEntries.map(([name, value]) => ({
+    name,
+    label: formatDashboardStatusLabel(name),
+    value,
+  }));
   const originChartData = originEntries.map(([name, value]) => ({ name, value }));
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#f43f5e'];
@@ -260,7 +285,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={256} minWidth={320}>
                   <BarChart data={statusChartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                     <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 13 }} width={80} />
+                    <YAxis dataKey="label" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 13 }} width={80} />
                     <Tooltip
                       cursor={{fill: 'rgba(255,255,255,0.03)'}}
                       contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: '#1e293b', color: '#e2e8f0' }}
