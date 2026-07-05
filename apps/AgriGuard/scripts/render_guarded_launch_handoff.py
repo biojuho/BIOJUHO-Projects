@@ -340,7 +340,8 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Artifact index recovery required: `{str((packet_validation.get('artifact_index_recovery_summary') or {}).get('required')).lower()}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
         f"- Readiness next command count: `{len(readiness_commands)}`",
-        f"- Env validation ready for preflight: `{readiness_summary.get('env_validation_ready_for_preflight')}`",
+        "- Env validation ready for preflight: "
+        f"`{str(readiness_summary.get('env_validation_ready_for_preflight')).lower()}`",
         f"- Env validation placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
         f"- Operator packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
         "",

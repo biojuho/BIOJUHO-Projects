@@ -273,7 +273,7 @@ def render_markdown(summary: dict[str, object]) -> str:
         "",
         f"- Status: `{summary['status']}`",
         f"- Blocker class: `{summary['blocker_class']}`",
-        f"- Env validation ready for preflight: `{env_validation.get('ready_for_preflight')}`",
+        f"- Env validation ready for preflight: `{str(env_validation.get('ready_for_preflight')).lower()}`",
         f"- Env validation placeholder count: `{env_validation.get('placeholder_count')}`",
         f"- Operator packet preflight status: `{operator_packet.get('preflight_status')}`",
         f"- Artifact index status: `{operator_packet.get('artifact_index_status')}`",

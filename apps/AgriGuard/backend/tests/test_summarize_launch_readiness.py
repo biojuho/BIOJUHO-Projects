@@ -94,7 +94,7 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
 
     markdown = summarize_launch_readiness.render_markdown(summary)
 
-    assert "- Env validation ready for preflight: `False`" in markdown
+    assert "- Env validation ready for preflight: `false`" in markdown
     assert "- Env validation placeholder count: `6`" in markdown
     assert "- Operator packet preflight status: `env_shape_blocked`" in markdown
     assert "- Operator action IDs: `fix_env_shape_validation`" in markdown

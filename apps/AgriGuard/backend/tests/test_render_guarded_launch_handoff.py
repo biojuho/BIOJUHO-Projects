@@ -343,7 +343,7 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     assert "Artifact index recovery command status: `not_required`" in markdown
     assert "Artifact index recovery command shell: `-`" in markdown
     assert "Readiness action IDs: `fix_env_shape_validation`" in markdown
-    assert "Env validation ready for preflight: `False`" in markdown
+    assert "Env validation ready for preflight: `false`" in markdown
     assert "Operator packet preflight status: `env_shape_blocked`" in markdown
     assert "`inspect_status` (powershell): `& " in markdown
     assert "`require_ready` (powershell): `& " in markdown

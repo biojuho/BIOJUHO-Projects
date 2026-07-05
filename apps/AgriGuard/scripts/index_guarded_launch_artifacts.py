@@ -461,7 +461,8 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer operator command text count: `{operator_command_text_count if isinstance(operator_command_text_count, int) else '-'}`",
         f"- Consumer handoff validation command shell: `{index.get('consumer_handoff_validation_command_shell') or '-'}`",
         f"- Consumer handoff validation command: `{index.get('consumer_handoff_validation_command_text') or '-'}`",
-        f"- Consumer readiness env validation ready: `{index.get('consumer_readiness_env_validation_ready_for_preflight')}`",
+        "- Consumer readiness env validation ready: "
+        f"`{str(index.get('consumer_readiness_env_validation_ready_for_preflight')).lower()}`",
         f"- Consumer readiness placeholder count: `{index.get('consumer_readiness_env_validation_placeholder_count')}`",
         f"- Consumer readiness packet preflight status: `{index.get('consumer_readiness_operator_packet_preflight_status')}`",
         f"- Consumer readiness command metadata: `{index.get('consumer_readiness_operator_packet_consumer_command_metadata_status')}`",
