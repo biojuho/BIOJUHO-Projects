@@ -2,7 +2,9 @@
   "name": "AgriGuard",
   "short_name": "AgriGuard",
   "description": "Agricultural Guardian — IoT Farm Monitoring & Blockchain Traceability",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0b1120",
   "theme_color": "#4ade80",
@@ -21,5 +23,33 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["agriculture", "business", "productivity"]
+  "categories": ["agriculture", "business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Scan AgriGuard QR",
+      "short_name": "Scan QR",
+      "description": "Open the AgriGuard QR scanner.",
+      "url": "/scan",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Supply Chain",
+      "short_name": "Chain",
+      "description": "Review tracked harvest batches.",
+      "url": "/supply-chain",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }
