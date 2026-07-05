@@ -11,7 +11,7 @@ from urllib.parse import unquote, urlparse
 import models
 import schemas
 from dependencies import get_db
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from services.chain_simulator import get_chain
 from services.qr_tokens import is_token_expired, lookup_qr_token, public_batch_code
 from sqlalchemy import or_
@@ -25,6 +25,16 @@ _TEMP_MIN_C = -25.0
 _TEMP_MAX_C = 8.0
 _TEMP_WINDOW_HOURS = 24
 _STALE_AFTER_MINUTES = 10
+PUBLIC_VERIFY_CACHE_HEADERS = {
+    "Cache-Control": "no-store",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+def set_public_verify_cache_headers(response: Response) -> None:
+    for header, value in PUBLIC_VERIFY_CACHE_HEADERS.items():
+        response.headers[header] = value
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -308,12 +318,14 @@ def _lookup_legacy_product_by_token(db: Session, token: str) -> models.Product |
 @router.get("/api/qr/{qr_token}/verify", response_model=schemas.QRVerifyResponse)
 def verify_qr_token(
     qr_token: str,
+    response: Response,
     session_id: str | None = Query(default=None, max_length=120),
     variant_id: str = Query(default="qr_consumer_v1", max_length=80),
     source: str = Query(default="consumer_verify_page", max_length=80),
     db: Session = Depends(get_db),
 ) -> schemas.QRVerifyResponse:
     now = datetime.now(UTC)
+    set_public_verify_cache_headers(response)
     token = _normalize_qr_token(qr_token)
 
     if not _is_public_token_shape(token):
