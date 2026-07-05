@@ -309,6 +309,7 @@ def _build_status_view(
             "found": launch is not None,
             "path": str(artifact_paths["launch_report_json"]),
             "status": launch.get("status") if launch is not None else None,
+            "blocker_class": launch.get("blocker_class") if launch is not None else None,
             "stage": launch.get("stage") if launch is not None else None,
             "stop_reason": launch.get("stop_reason") if launch is not None else None,
             "result_names": _result_names(launch),

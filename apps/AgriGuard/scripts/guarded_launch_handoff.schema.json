@@ -536,6 +536,12 @@
             "found": {
               "type": "boolean"
             },
+            "blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "path": {
               "type": "string"
             },
@@ -568,6 +574,7 @@
             "found",
             "path",
             "status",
+            "blocker_class",
             "stage",
             "stop_reason",
             "result_names"

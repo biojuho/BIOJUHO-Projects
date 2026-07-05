@@ -117,6 +117,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
         json.dumps(
             {
                 "status": "fail",
+                "blocker_class": "preflight_blocked",
                 "stage": "preflight",
                 "stop_reason": "preflight_failed",
                 "run_browser_smoke": True,
@@ -171,6 +172,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
 
     assert summary["status"] == "blocked"
     assert summary["blocker_class"] == "preflight_blocked"
+    assert summary["reports"]["launch"]["blocker_class"] == "preflight_blocked"
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
     assert summary["reports"]["operator_packet"]["blocker_class"] == "operator_values_required"
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
@@ -194,6 +196,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     ]
     markdown = summarize_launch_readiness.render_markdown(summary)
     assert "- Artifact index status: `pass`" in markdown
+    assert "- Launch report blocker class: `preflight_blocked`" in markdown
     assert "- Operator packet blocker class: `operator_values_required`" in markdown
     assert "- Artifact index consumer packet validation: `pass`" in markdown
     assert "- Consumer command metadata: `pass`" in markdown
@@ -205,7 +208,15 @@ def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> Non
     launch = tmp_path / "launch.json"
     validation = tmp_path / "validation.json"
     launch.write_text(
-        json.dumps({"status": "pass", "stage": "browser_smoke", "stop_reason": None, "results": []}),
+        json.dumps(
+            {
+                "status": "pass",
+                "blocker_class": "ready",
+                "stage": "browser_smoke",
+                "stop_reason": None,
+                "results": [],
+            }
+        ),
         encoding="utf-8",
     )
     validation.write_text(

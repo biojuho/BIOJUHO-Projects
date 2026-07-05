@@ -81,6 +81,7 @@ def _launch_report_summary(path: Path, workspace_root: Path) -> dict[str, object
         "found": True,
         "path": _rel(path, workspace_root),
         "status": payload.get("status"),
+        "blocker_class": payload.get("blocker_class"),
         "stage": payload.get("stage"),
         "stop_reason": payload.get("stop_reason"),
         "run_browser_smoke": payload.get("run_browser_smoke"),
@@ -265,6 +266,7 @@ def build_summary(
 
 def render_markdown(summary: dict[str, object]) -> str:
     reports = summary.get("reports") if isinstance(summary.get("reports"), dict) else {}
+    launch = reports.get("launch") if isinstance(reports.get("launch"), dict) else {}
     env_validation = reports.get("env_validation") if isinstance(reports.get("env_validation"), dict) else {}
     operator_packet = reports.get("operator_packet") if isinstance(reports.get("operator_packet"), dict) else {}
     action_ids = (
@@ -277,6 +279,7 @@ def render_markdown(summary: dict[str, object]) -> str:
         "",
         f"- Status: `{summary['status']}`",
         f"- Blocker class: `{summary['blocker_class']}`",
+        f"- Launch report blocker class: `{launch.get('blocker_class') or '-'}`",
         f"- Env validation ready for preflight: `{str(env_validation.get('ready_for_preflight')).lower()}`",
         f"- Env validation placeholder count: `{env_validation.get('placeholder_count')}`",
         f"- Operator packet preflight status: `{operator_packet.get('preflight_status')}`",

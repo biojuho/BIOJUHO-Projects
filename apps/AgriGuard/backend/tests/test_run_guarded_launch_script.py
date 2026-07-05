@@ -940,6 +940,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
         json.dumps(
             {
                 "status": "fail",
+                "blocker_class": "preflight_blocked",
                 "stage": "preflight",
                 "stop_reason": "preflight_failed",
                 "results": [{"name": "env_validation"}, {"name": "preflight"}],
@@ -1027,6 +1028,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["blocker_class"] == "preflight_blocked"
     assert payload["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert payload["launch"]["stage"] == "preflight"
+    assert payload["launch"]["blocker_class"] == "preflight_blocked"
     assert payload["launch"]["result_names"] == ["env_validation", "preflight"]
     assert payload["readiness_summary"]["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert payload["readiness_summary"]["env_validation_ready_for_preflight"] is False

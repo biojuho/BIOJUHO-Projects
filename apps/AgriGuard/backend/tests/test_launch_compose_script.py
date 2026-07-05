@@ -23,6 +23,7 @@ def _write_operator_packet_outputs(command: list[str]) -> None:
         json.dumps(
             {
                 "status": "blocked",
+                "blocker_class": "env_shape_blocked",
                 "preflight_status": "env_shape_blocked",
                 "blocking_action_count": 1,
                 "operator_actions": [{"id": "fix_env_shape_validation"}],
@@ -318,6 +319,7 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     assert "strict preflight was not run" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "env_shape_blocked"
     assert report["stage"] == "env_shape_validation"
     assert report["stop_reason"] == "env_shape_validation_failed"
     assert [item["name"] for item in report["results"]] == ["env_validation", "operator_packet"]
@@ -332,6 +334,7 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     }
     assert report["child_reports"]["preflight"] == {"found": False, "path": str(launch_compose._default_json_out(app_root.resolve()))}
     assert report["child_reports"]["operator_packet"]["found"] is True
+    assert report["child_reports"]["operator_packet"]["blocker_class"] == "env_shape_blocked"
     assert report["child_reports"]["operator_packet"]["preflight_status"] == "env_shape_blocked"
     assert report["child_reports"]["operator_packet"]["operator_action_ids"] == ["fix_env_shape_validation"]
     assert report["child_reports"]["operator_packet"]["consumer_command_metadata_status"] == "pass"
@@ -395,6 +398,7 @@ def test_launch_compose_runs_preflight_after_env_shape_validation_passes(tmp_pat
     ]
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "pass"
+    assert report["blocker_class"] == "ready"
     assert report["stage"] == "compose"
     assert [item["name"] for item in report["results"]] == ["env_validation", "preflight", "compose"]
     assert report["child_reports"]["env_validation"]["ready_for_preflight"] is True
@@ -431,10 +435,12 @@ def test_launch_compose_env_shape_validation_requires_single_env_file(tmp_path: 
     assert "requires exactly one --env-file" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "env_shape_blocked"
     assert report["stage"] == "env_shape_validation"
     assert report["stop_reason"] == "env_shape_validation_requires_single_env_file"
     assert [item["name"] for item in report["results"]] == ["operator_packet"]
     assert report["child_reports"]["operator_packet"]["found"] is True
+    assert report["child_reports"]["operator_packet"]["blocker_class"] == "env_shape_blocked"
 
 
 def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> None:
@@ -453,6 +459,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
                 json.dumps(
                     {
                         "status": "blocked",
+                        "blocker_class": "operator_values_required",
                         "preflight_status": "fail",
                         "blocking_action_count": 1,
                         "operator_actions": [{"id": "set_secret_key"}],
@@ -503,6 +510,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
     assert "docker compose up was not run" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "preflight_blocked"
     assert report["stage"] == "preflight"
     assert report["stop_reason"] == "preflight_failed"
     assert [item["name"] for item in report["results"]] == ["preflight", "operator_packet"]
@@ -515,6 +523,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "env_template_path": str(operator_env_template.resolve()),
         "env_template_found": True,
         "status": "blocked",
+        "blocker_class": "operator_values_required",
         "preflight_status": "fail",
         "blocking_action_count": 1,
         "operator_action_ids": ["set_secret_key"],
@@ -545,6 +554,7 @@ def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: P
                 json.dumps(
                     {
                         "status": "blocked",
+                        "blocker_class": "operator_values_required",
                         "preflight_status": "fail",
                         "blocking_action_count": 1,
                         "operator_actions": [{"id": "set_firebase_service_account_file"}],
@@ -617,6 +627,7 @@ def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: P
     assert calls[2][1] == str(app_root.resolve() / "scripts" / "summarize_launch_readiness.py")
     assert "--exit-zero-on-blocked" in calls[2]
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["blocker_class"] == "preflight_blocked"
     assert [item["name"] for item in report["results"]] == [
         "preflight",
         "operator_packet",
@@ -671,6 +682,7 @@ def test_launch_compose_readiness_summary_failure_does_not_reuse_stale_json(tmp_
                 json.dumps(
                     {
                         "status": "blocked",
+                        "blocker_class": "operator_values_required",
                         "preflight_status": "fail",
                         "blocking_action_count": 1,
                         "operator_actions": [{"id": "set_firebase_service_account_file"}],
@@ -712,6 +724,7 @@ def test_launch_compose_readiness_summary_failure_does_not_reuse_stale_json(tmp_
     assert result == 1
     assert len(calls) == 3
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
+    assert report["blocker_class"] == "preflight_blocked"
     assert report["results"][-1]["name"] == "readiness_summary"
     assert report["results"][-1]["returncode"] == 2
     assert report["child_reports"]["readiness_summary"] == {
@@ -769,6 +782,7 @@ def test_launch_compose_runs_compose_after_preflight_passes(tmp_path: Path) -> N
     ]
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "pass"
+    assert report["blocker_class"] == "ready"
     assert report["stage"] == "compose"
     assert report["stop_reason"] is None
     assert [item["name"] for item in report["results"]] == ["preflight", "compose"]
@@ -932,6 +946,7 @@ def test_launch_compose_runs_browser_smoke_after_compose_passes(tmp_path: Path) 
     ]
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "pass"
+    assert report["blocker_class"] == "ready"
     assert report["stage"] == "browser_smoke"
     assert report["stop_reason"] is None
     assert [item["name"] for item in report["results"]] == ["preflight", "compose", "browser_smoke"]
@@ -965,6 +980,7 @@ def test_launch_compose_skips_browser_smoke_when_compose_fails(tmp_path: Path) -
     assert calls[1][:5] == ["docker", "compose", "-f", str(app_root.resolve() / "docker-compose.yml"), "up"]
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "compose_blocked"
     assert report["stage"] == "compose"
     assert report["stop_reason"] == "compose_failed"
     assert [item["name"] for item in report["results"]] == ["preflight", "compose"]
@@ -997,6 +1013,7 @@ def test_launch_compose_reports_browser_smoke_failure(tmp_path: Path) -> None:
     assert len(calls) == 3
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["blocker_class"] == "browser_smoke_blocked"
     assert report["stage"] == "browser_smoke"
     assert report["stop_reason"] == "browser_smoke_failed"
     assert report["results"][-1]["stderr_tail"] == "browser failed"

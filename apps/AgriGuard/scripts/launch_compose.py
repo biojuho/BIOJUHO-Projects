@@ -206,6 +206,7 @@ def _summarize_operator_packet_json(
         "env_template_path": str(env_template_path),
         "env_template_found": env_template_path.exists(),
         "status": payload.get("status"),
+        "blocker_class": payload.get("blocker_class"),
         "preflight_status": payload.get("preflight_status"),
         "blocking_action_count": payload.get("blocking_action_count"),
         "operator_action_ids": action_ids,
@@ -468,6 +469,26 @@ def _build_readiness_summary_command(
     return command
 
 
+def _launch_blocker_class(launch_report: dict[str, object]) -> str | None:
+    status = launch_report.get("status")
+    if status == "pass":
+        return "ready"
+    stop_reason = launch_report.get("stop_reason")
+    if stop_reason in {"env_shape_validation_failed", "env_shape_validation_requires_single_env_file"}:
+        return "env_shape_blocked"
+    if stop_reason == "preflight_failed":
+        return "preflight_blocked"
+    if stop_reason == "compose_failed":
+        return "compose_blocked"
+    if stop_reason == "browser_smoke_failed":
+        return "browser_smoke_blocked"
+    return None
+
+
+def _refresh_launch_blocker_class(launch_report: dict[str, object]) -> None:
+    launch_report["blocker_class"] = _launch_blocker_class(launch_report)
+
+
 def _write_failed_launch_report(
     *,
     app_root: Path,
@@ -477,6 +498,7 @@ def _write_failed_launch_report(
     readiness_summary_json: Path | None,
     command_runner: CommandRunner,
 ) -> None:
+    _refresh_launch_blocker_class(launch_report)
     write_json(launch_report_json, launch_report)
     if readiness_summary_command is None or readiness_summary_json is None:
         return
@@ -496,6 +518,7 @@ def _write_failed_launch_report(
         )
     )
     child_reports["readiness_summary"] = _summarize_readiness_summary_json(readiness_summary_json)
+    _refresh_launch_blocker_class(launch_report)
     write_json(launch_report_json, launch_report)
 
 
@@ -783,6 +806,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     launch_report: dict[str, object] = {
         "schema_version": 1,
         "status": "running",
+        "blocker_class": None,
         "stage": "preflight",
         "app_root": str(app_root),
         "preflight_json": str(json_out),
@@ -967,6 +991,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         launch_report["status"] = "pass"
         launch_report["stage"] = "compose"
         launch_report["stop_reason"] = None
+        _refresh_launch_blocker_class(launch_report)
         write_json(launch_report_json, launch_report)
         return compose_result.returncode
 
@@ -979,6 +1004,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     launch_report["stage"] = "browser_smoke"
     launch_report["stop_reason"] = None if browser_smoke_result.returncode == 0 else "browser_smoke_failed"
     if browser_smoke_result.returncode == 0:
+        _refresh_launch_blocker_class(launch_report)
         write_json(launch_report_json, launch_report)
     else:
         _write_failed_launch_report(
