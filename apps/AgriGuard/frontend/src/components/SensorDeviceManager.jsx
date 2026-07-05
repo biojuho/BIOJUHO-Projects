@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Battery,
@@ -182,6 +182,7 @@ function SensorStat({ label, value }) {
 }
 
 export default function SensorDeviceManager() {
+  const actionStatusRef = useRef(null);
   const [operatorTokenInput, setOperatorTokenInput] = useState(() => getOperatorToken());
   const [hasSavedOperatorToken, setHasSavedOperatorToken] = useState(() => Boolean(getOperatorToken()));
   const [draftStatus, setDraftStatus] = useState('all');
@@ -408,6 +409,11 @@ export default function SensorDeviceManager() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRejections();
   }, [fetchRejections, hasSavedOperatorToken]);
+
+  useEffect(() => {
+    if (actionState.loading || (!actionState.error && !actionState.success)) return;
+    actionStatusRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }, [actionState.error, actionState.loading, actionState.success]);
 
   const handleFilterSubmit = useCallback((event) => {
     event.preventDefault();
@@ -812,7 +818,7 @@ export default function SensorDeviceManager() {
         </CardContent>
       </Card>
 
-      <div aria-live="polite" role="status" className="min-h-0 text-sm empty:hidden">
+      <div ref={actionStatusRef} data-testid="sensor-action-status" aria-live="polite" role="status" className="scroll-mt-24 min-h-0 text-sm empty:hidden">
         {!hasSavedOperatorToken && (
           <span className="inline-flex items-center gap-2 text-amber-300">
             <AlertTriangle className="h-4 w-4" />

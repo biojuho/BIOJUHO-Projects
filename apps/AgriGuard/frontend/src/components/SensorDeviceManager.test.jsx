@@ -204,6 +204,7 @@ const filteredBrokerProvisioningEvidenceHistoryResponse = {
 
 describe('SensorDeviceManager', () => {
   beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
     Object.defineProperty(globalThis, 'crypto', {
       value: {
         subtle: {
@@ -449,6 +450,24 @@ describe('SensorDeviceManager', () => {
     });
     expect(screen.getByRole('status')).toHaveTextContent('Sensor packhouse-probe-01 saved.');
     expect(sensorDeviceAdminApi.list).toHaveBeenCalledTimes(2);
+  });
+
+  it('reveals protected sensor action errors under the fixed mobile nav', async () => {
+    sensorDeviceAdminApi.upsert.mockRejectedValueOnce({
+      response: { data: { detail: 'Authorization header missing' } },
+    });
+    render(<SensorDeviceManager />);
+
+    await screen.findByText('sensor-cold-1');
+    fireEvent.change(screen.getByLabelText('Sensor ID'), { target: { value: 'packhouse-probe-02' } });
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Packhouse probe 02' } });
+    fireEvent.click(screen.getByRole('button', { name: /register sensor/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Authorization header missing');
+    expect(screen.getByTestId('sensor-action-status')).toHaveClass('scroll-mt-24');
+    await waitFor(() => {
+      expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+    });
   });
 
   it('blocks broker-unsafe sensor IDs before saving', async () => {
