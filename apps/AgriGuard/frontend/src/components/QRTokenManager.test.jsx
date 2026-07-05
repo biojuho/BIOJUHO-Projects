@@ -127,6 +127,21 @@ describe('QRTokenManager', () => {
     expect(within(rows[0]).getByRole('button', { name: /revoke/i })).toBeInTheDocument();
   });
 
+  it('keeps the mobile QR token controls compact above the token workspace', () => {
+    render(<QRTokenManager />);
+
+    const tokenControls = screen.getByLabelText('Operator bearer token').parentElement;
+    expect(screen.getByTestId('qr-token-operator-token-card')).toHaveClass('w-full');
+    expect(tokenControls).toHaveClass('grid');
+    expect(tokenControls).toHaveClass('grid-cols-[minmax(0,1fr)_5rem]');
+
+    const filterForm = screen.getByTestId('qr-token-filter-panel').querySelector('form');
+    expect(filterForm).toHaveClass('grid-cols-2');
+    expect(screen.getByLabelText('Product ID').parentElement).toHaveClass('col-span-2');
+    expect(screen.getByLabelText('Product ID').parentElement).toHaveClass('lg:col-span-1');
+    expect(screen.getByRole('button', { name: /load tokens/i })).toHaveClass('min-h-10');
+  });
+
   it('saves an operator token for API calls', () => {
     getOperatorToken.mockReturnValue('');
 

@@ -191,34 +191,34 @@ export default function QRTokenManager() {
   ], [tokenState.data]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 text-foreground">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 text-foreground sm:space-y-8 sm:p-8">
+      <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-300">
             <KeyRound className="h-4 w-4" />
             Operator QR Controls
           </div>
           <h1 data-testid="qr-token-heading" className="max-w-full text-2xl font-bold leading-tight text-foreground sm:text-3xl">QR Token Management</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+          <p className="mt-2 max-w-3xl text-sm leading-snug text-muted-foreground">
             Review label token state, revoke compromised QR codes, and reissue a new label token without exposing stored token hashes.
           </p>
         </div>
 
-        <Card className="w-full lg:w-[28rem] border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
+        <Card data-testid="qr-token-operator-token-card" className="w-full border-primary/20 bg-primary/5 lg:w-[28rem]">
+          <CardContent className="p-3 sm:p-4">
             <label htmlFor="operator-token" className="text-sm font-medium text-foreground">
               Operator bearer token
             </label>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5rem] gap-2">
               <Input
                 id="operator-token"
                 type="password"
                 value={operatorTokenInput}
                 onChange={(event) => setOperatorTokenInput(event.target.value)}
                 placeholder="Paste Firebase/operator token"
-                className="min-h-11"
+                className="min-h-10 sm:min-h-11"
               />
-              <Button type="button" onClick={saveOperatorToken} className="min-h-11">
+              <Button type="button" onClick={saveOperatorToken} className="min-h-10 px-3 sm:min-h-11">
                 Save
               </Button>
             </div>
@@ -229,10 +229,10 @@ export default function QRTokenManager() {
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="p-6">
-          <form onSubmit={handleSearch} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem_auto] lg:items-end">
-            <div>
+      <Card data-testid="qr-token-filter-panel">
+        <CardContent className="p-4 sm:p-6">
+          <form onSubmit={handleSearch} className="grid grid-cols-2 gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_auto] lg:items-end">
+            <div className="col-span-2 min-w-0 lg:col-span-1">
               <label htmlFor="product-id" className="text-sm font-medium text-muted-foreground">
                 Product ID
               </label>
@@ -241,10 +241,10 @@ export default function QRTokenManager() {
                 value={productId}
                 onChange={(event) => setProductId(event.target.value)}
                 placeholder="e.g. product-reissue-1"
-                className="mt-2 min-h-11 font-mono"
+                className="mt-2 min-h-10 font-mono sm:min-h-11"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label htmlFor="token-status" className="text-sm font-medium text-muted-foreground">
                 Token state
               </label>
@@ -255,7 +255,7 @@ export default function QRTokenManager() {
                   setTokenStatus(event.target.value);
                   setPage(1);
                 }}
-                className="mt-2 flex min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-2 flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-11"
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -264,7 +264,7 @@ export default function QRTokenManager() {
                 ))}
               </select>
             </div>
-            <Button type="submit" className="min-h-11" disabled={tokenState.loading}>
+            <Button type="submit" className="min-h-10 sm:min-h-11" disabled={tokenState.loading}>
               {tokenState.loading ? <Loader2 className="animate-spin" /> : <Search />}
               Load tokens
             </Button>
@@ -272,7 +272,7 @@ export default function QRTokenManager() {
         </CardContent>
       </Card>
 
-      <div aria-live="polite" role="status" className="min-h-6 text-sm">
+      <div aria-live="polite" role="status" className="min-h-0 text-sm empty:hidden">
         {tokenState.loading && <span className="text-muted-foreground">Loading QR token state...</span>}
         {tokenState.error && (
           <span className="inline-flex items-center gap-2 text-destructive">
