@@ -107,6 +107,8 @@ describe('ConsumerVerify', () => {
     renderVerify();
 
     expect(await screen.findByText('Verified batch')).toBeInTheDocument();
+    expect(screen.getByTestId('consumer-trust-heading')).toHaveClass('text-xl');
+    expect(screen.getByTestId('consumer-trust-heading')).toHaveClass('sm:text-2xl');
     expect(screen.getByText('Hallabong')).toBeInTheDocument();
     expect(screen.getByText('Jeju')).toBeInTheDocument();
     expect(screen.getByText('AG-1234567890')).toBeInTheDocument();

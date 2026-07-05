@@ -259,7 +259,7 @@ export default function ConsumerVerify() {
               <span className={cn('inline-flex rounded-md px-2 py-1 text-xs font-bold', trustStyle.badge)}>
                 {trust.status}
               </span>
-              <h1 className="mt-3 text-2xl font-bold leading-tight">{trust.label}</h1>
+              <h1 data-testid="consumer-trust-heading" className="mt-3 text-xl font-bold leading-tight sm:text-2xl">{trust.label}</h1>
               <p className="mt-2 text-sm leading-6">{trust.reason}</p>
             </div>
           </div>
