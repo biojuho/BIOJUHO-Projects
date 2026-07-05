@@ -329,6 +329,18 @@
             "artifact_index_json": {
               "type": "string"
             },
+            "handoff_consumer_json": {
+              "type": "string"
+            },
+            "handoff_json": {
+              "type": "string"
+            },
+            "handoff_markdown": {
+              "type": "string"
+            },
+            "handoff_validation_json": {
+              "type": "string"
+            },
             "env_validation_json": {
               "type": "string"
             },
@@ -350,10 +362,16 @@
             "preflight_json": {
               "type": "string"
             },
+            "ready_gate_json": {
+              "type": "string"
+            },
             "readiness_summary_json": {
               "type": "string"
             },
             "readiness_summary_markdown": {
+              "type": "string"
+            },
+            "status_json": {
               "type": "string"
             }
           },

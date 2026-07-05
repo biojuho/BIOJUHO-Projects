@@ -1066,6 +1066,10 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
     output_dir = tmp_path / "launch-artifacts"
     artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
     custom_index = tmp_path / "handoff" / "current.artifact-index.json"
+    custom_handoff = tmp_path / "handoff" / "current.handoff.json"
+    custom_handoff_consumer = tmp_path / "handoff" / "current.handoff.consumer.json"
+    custom_ready_gate = tmp_path / "handoff" / "current.ready-gate.json"
+    custom_status = tmp_path / "handoff" / "current.status.json"
     artifacts["operator_packet_json"].parent.mkdir(parents=True, exist_ok=True)
     custom_index.parent.mkdir(parents=True, exist_ok=True)
     artifacts["operator_packet_json"].write_text(
@@ -1114,6 +1118,12 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                     "note": None,
                     "command": None,
                 },
+                "artifacts": [
+                    {"role": "handoff_json", "path": str(custom_handoff.resolve())},
+                    {"role": "handoff_consumer_json", "path": str(custom_handoff_consumer.resolve())},
+                    {"role": "ready_gate_json", "path": str(custom_ready_gate.resolve())},
+                    {"role": "status_json", "path": str(custom_status.resolve())},
+                ],
             }
         ),
         encoding="utf-8",
@@ -1166,6 +1176,10 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "recovery_command_status": "not_required",
     }
     assert payload["artifacts"]["artifact_index_json"] == str(custom_index.resolve())
+    assert payload["artifacts"]["handoff_json"] == str(custom_handoff.resolve())
+    assert payload["artifacts"]["handoff_consumer_json"] == str(custom_handoff_consumer.resolve())
+    assert payload["artifacts"]["ready_gate_json"] == str(custom_ready_gate.resolve())
+    assert payload["artifacts"]["status_json"] == str(custom_status.resolve())
 
 
 def test_guarded_launch_status_only_exposes_recovery_command_text(tmp_path: Path, capsys) -> None:

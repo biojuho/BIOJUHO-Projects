@@ -232,6 +232,14 @@ def _build_status_view(
     artifacts = {key: str(value) for key, value in artifact_paths.items()}
     if artifact_index_json is not None:
         artifacts["artifact_index_json"] = str(artifact_index_json)
+    if artifact_index is not None and isinstance(artifact_index.get("artifacts"), list):
+        for item in artifact_index["artifacts"]:
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            path = item.get("path")
+            if isinstance(role, str) and role and isinstance(path, str) and path:
+                artifacts.setdefault(role, path)
     missing_required_roles = (
         artifact_index.get("missing_required_roles")
         if artifact_index is not None and isinstance(artifact_index.get("missing_required_roles"), list)
