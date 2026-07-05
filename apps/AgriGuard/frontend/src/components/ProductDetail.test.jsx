@@ -68,6 +68,10 @@ describe('ProductDetail', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Organic Apples')).toBeInTheDocument();
+      expect(screen.getByTestId('product-detail-heading')).toHaveClass('text-2xl');
+      expect(screen.getByTestId('product-detail-heading')).toHaveClass('sm:text-3xl');
+      expect(screen.getByTestId('product-detail-actions')).toHaveClass('grid');
+      expect(screen.getByTestId('product-detail-actions')).toHaveClass('sm:flex');
       expect(screen.getByText('Seoul Farm')).toBeInTheDocument();
       expect(screen.getByRole('img', { name: 'Product verification QR' })).toBeInTheDocument();
       expect(screen.getByText('QR-12345')).toBeInTheDocument();
@@ -75,6 +79,9 @@ describe('ProductDetail', () => {
       expect(document.querySelector('img[src*="api.qrserver.com"]')).toBeNull();
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toBeDisabled();
       expect(screen.getByRole('button', { name: /Add Certification/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toHaveClass('w-full');
+      expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toHaveClass('sm:w-auto');
+      expect(screen.getByRole('button', { name: /Add Certification/i })).toHaveClass('w-full');
       expect(screen.getByText('Operator updates locked')).toBeInTheDocument();
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveTextContent('HANDLER-VERY-LONG-1234567890');
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveClass('break-all');

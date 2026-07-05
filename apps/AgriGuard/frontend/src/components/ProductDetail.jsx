@@ -246,9 +246,9 @@ export default function ProductDetail() {
                   </Badge>
                 )}
               </div>
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3 mb-2">
-                <Sprout className="text-primary w-8 h-8" />
-                {product.name}
+              <h1 data-testid="product-detail-heading" className="flex items-start gap-3 mb-2 text-2xl font-bold leading-tight text-foreground sm:text-3xl">
+                <Sprout className="mt-0.5 h-7 w-7 shrink-0 text-primary sm:h-8 sm:w-8" />
+                <span className="min-w-0 break-words">{product.name}</span>
               </h1>
               <p className="text-muted-foreground text-lg">
                 ID: <Badge variant="outline" className="font-mono text-sm">{product.id}</Badge>
@@ -305,9 +305,9 @@ export default function ProductDetail() {
       </Card>
 
       {/* Action Buttons */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div data-testid="product-detail-actions" className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
         {operatorNotice && (
-          <Badge variant={operatorTokenAvailable ? 'info' : 'outline'} className="border-amber-500/30 text-amber-300">
+          <Badge variant={operatorTokenAvailable ? 'info' : 'outline'} className="justify-center border-amber-500/30 text-amber-300 sm:justify-start">
             {operatorNotice}
           </Badge>
         )}
@@ -319,7 +319,7 @@ export default function ProductDetail() {
             setOperatorNotice('');
             setTrackingState(prev => ({ ...prev, showForm: !prev.showForm }));
           }}
-          className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+          className="w-full border-orange-500/30 text-orange-400 hover:bg-orange-500/10 sm:w-auto"
         >
           <Truck className="w-4 h-4" /> Add Tracking Event
         </Button>
@@ -331,7 +331,7 @@ export default function ProductDetail() {
             setOperatorNotice('');
             setCertState(prev => ({ ...prev, showForm: !prev.showForm }));
           }}
-          className="border-secondary/30 text-secondary hover:bg-secondary/10"
+          className="w-full border-secondary/30 text-secondary hover:bg-secondary/10 sm:w-auto"
         >
           <ShieldCheck className="w-4 h-4" /> Add Certification
         </Button>
