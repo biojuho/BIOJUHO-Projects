@@ -488,15 +488,16 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
                 {trendScope} / {trend?.timezone || 'UTC'}
               </span>
             </div>
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-3">
               <div
-                className="grid min-w-[680px] overflow-hidden rounded-md border border-border/70"
-                style={{ gridTemplateColumns: `repeat(${trendItems.length}, minmax(88px, 1fr))` }}
+                data-testid="qr-kpi-trend-grid"
+                className="grid w-full gap-px overflow-hidden rounded-md border border-border/70 bg-border/70"
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))' }}
               >
                 {trendItems.map((item) => {
                   const tone = kpiTone(item.scan_success_status);
                   return (
-                    <div key={item.date} className="min-w-0 border-l border-border/70 px-3 py-2 first:border-l-0">
+                    <div key={item.date} className="min-w-0 bg-background/40 px-3 py-2">
                       <p className="truncate text-xs font-medium text-muted-foreground">{formatTrendDate(item.date)}</p>
                       <p className={`mt-1 text-sm font-semibold ${tone.text}`}>
                         {formatPercent(item.scan_success_rate)}

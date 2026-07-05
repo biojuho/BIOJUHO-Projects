@@ -144,6 +144,10 @@ describe('Dashboard', () => {
     expect(screen.getByText(/Target 1,000 scans in 24 hours/)).toBeInTheDocument();
     expect(screen.getByText('7-day QR trend')).toBeInTheDocument();
     expect(screen.getByText(`All variants / ${browserTimezone}`)).toBeInTheDocument();
+    const trendGrid = screen.getByTestId('qr-kpi-trend-grid');
+    expect(trendGrid).toHaveClass('w-full');
+    expect(trendGrid).not.toHaveClass('min-w-[680px]');
+    expect(trendGrid.style.gridTemplateColumns).toBe('repeat(auto-fit, minmax(92px, 1fr))');
     expect(screen.getByText('1,240 scans')).toBeInTheDocument();
   });
 
