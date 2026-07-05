@@ -430,7 +430,7 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
             id="qr-kpi-reporting-timezone"
             value={selectedTimezone}
             onChange={(event) => onTimezoneChange(event.target.value)}
-            className="h-8 max-w-[220px] rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-11 max-w-[220px] rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {timezoneOptions.map((timezone) => (
               <option key={timezone} value={timezone}>

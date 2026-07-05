@@ -83,8 +83,8 @@ export default function Toast({ message, type = 'info', onClose, duration = 4000
                     <p className={`flex-1 font-medium text-sm ${style.text}`}>{message}</p>
                     <button
                         onClick={handleClose}
-                        className="p-1 -mr-1 hover:bg-black/5 rounded-lg transition-colors"
-                        aria-label="닫기"
+                        className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+                        aria-label="Close notification"
                     >
                         <X className="w-4 h-4 text-slate-400" />
                     </button>

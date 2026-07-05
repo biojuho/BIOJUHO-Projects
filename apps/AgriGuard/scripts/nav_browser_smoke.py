@@ -205,6 +205,31 @@ def read_metrics(page: Page) -> dict[str, object]:
               .filter(isVisible);
             const fieldSelector = 'input:not([type="hidden"]),select,textarea,[role="combobox"],[role="textbox"]';
             const visibleFields = Array.from(document.querySelectorAll(fieldSelector)).filter(isVisible);
+            const touchTargetSelector = [
+              'button',
+              'a[href]',
+              'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])',
+              'select',
+              'textarea',
+              '[role="button"]',
+              '[role="link"]',
+            ].join(',');
+            const visibleTouchTargets = Array.from(document.querySelectorAll(touchTargetSelector))
+              .filter(element => {
+                if (!isVisible(element)) return false;
+                const rect = element.getBoundingClientRect();
+                return rect.bottom > 0 && rect.top < window.innerHeight;
+              });
+            const undersizedTouchTargets = visibleTouchTargets
+              .map(element => {
+                const rect = element.getBoundingClientRect();
+                return {
+                  ...describeElement(element),
+                  width: Math.round(rect.width),
+                  height: Math.round(rect.height),
+                };
+              })
+              .filter(item => item.width < 44 || item.height < 44);
             const credentialFieldSelector = [
               'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])',
               'textarea',
@@ -249,6 +274,7 @@ def read_metrics(page: Page) -> dict[str, object]:
               unlabeledFields: visibleFields
                 .filter(element => !accessibleName(element))
                 .map(describeElement),
+              undersizedTouchTargets,
               credentialAutocompleteGaps,
               menuButton: document.querySelector('button[aria-label="Open menu"],button[aria-label="Close menu"]')
                 ?.getAttribute('aria-label') || null,
@@ -313,6 +339,17 @@ def route_semantics_ok(metrics: dict[str, object]) -> bool:
 
 def should_check_mobile_affordances(metrics: dict[str, object], *, mobile: bool) -> bool:
     return bool(mobile) or int(metrics["viewportWidth"]) <= MOBILE_VIEWPORT_MAX_WIDTH
+
+
+def mobile_touch_targets_detail(metrics: dict[str, object]) -> dict[str, object]:
+    return {
+        "viewportWidth": _metric_int(metrics, "viewportWidth"),
+        "undersizedTouchTargets": metrics.get("undersizedTouchTargets") or [],
+    }
+
+
+def mobile_touch_targets_ok(metrics: dict[str, object]) -> bool:
+    return not mobile_touch_targets_detail(metrics)["undersizedTouchTargets"]
 
 
 def measure_mobile_affordance(page: Page, spec: dict[str, object]) -> dict[str, object]:
@@ -457,12 +494,14 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                 semantic_accessibility = route_semantics_ok(metrics)
                 menu_closed_after_click = not args.click_nav or not args.mobile or metrics["menuButton"] == "Open menu"
                 mobile_affordances = []
+                check_mobile_targets = should_check_mobile_affordances(metrics, mobile=args.mobile)
                 if should_check_mobile_affordances(metrics, mobile=args.mobile):
                     mobile_affordances = [
                         measure_mobile_affordance(page, spec)
                         for spec in MOBILE_ROUTE_AFFORDANCES.get(name, [])
                     ]
                 mobile_affordances_ok = all(item["ok"] for item in mobile_affordances)
+                mobile_touch_targets_pass = not check_mobile_targets or mobile_touch_targets_ok(metrics)
                 screenshot.parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=str(screenshot), full_page=False)
                 route_report = {
@@ -477,11 +516,13 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                     and semantic_accessibility
                     and menu_closed_after_click
                     and mobile_affordances_ok
+                    and mobile_touch_targets_pass
                     and len(page_errors) == route_errors_before,
                     "headings": headings,
                     "metrics": metrics,
                     "semanticAccessibility": route_semantics_detail(metrics),
                     "mobileAffordances": mobile_affordances,
+                    "mobileTouchTargets": mobile_touch_targets_detail(metrics),
                     "menuClosedAfterClick": menu_closed_after_click,
                     "pageErrorsDuringRoute": page_errors[route_errors_before:],
                     "screenshot": str(screenshot),
@@ -497,6 +538,14 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                     )
                 )
                 checks.append(check(f"{name}_nav_state_valid", menu_closed_after_click, str(metrics)))
+                if check_mobile_targets:
+                    checks.append(
+                        check(
+                            f"{name}_mobile_touch_targets",
+                            mobile_touch_targets_pass,
+                            json.dumps(mobile_touch_targets_detail(metrics), sort_keys=True),
+                        )
+                    )
                 checks.append(check(f"{name}_screenshot_written", screenshot.exists(), str(screenshot)))
                 checks.append(
                     check(

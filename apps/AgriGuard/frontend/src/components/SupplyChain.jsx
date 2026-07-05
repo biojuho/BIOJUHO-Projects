@@ -189,7 +189,7 @@ export default function SupplyChain() {
               setSearchTerm(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-white/5 border border-input rounded-lg pl-10 pr-4 py-2 text-foreground focus:outline-none focus:border-primary transition-colors"
+            className="min-h-11 w-full bg-white/5 border border-input rounded-lg pl-10 pr-4 py-2 text-foreground focus:outline-none focus:border-primary transition-colors"
           />
           <Search className="w-5 h-5 text-muted-foreground absolute left-3 top-2.5" />
         </div>

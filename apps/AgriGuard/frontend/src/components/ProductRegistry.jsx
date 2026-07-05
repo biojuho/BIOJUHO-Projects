@@ -64,18 +64,18 @@ export default function ProductRegistry() {
     }
   }, [formData]);
 
-  const inputClass = "w-full bg-white/5 border border-input rounded-lg px-4 py-2.5 text-foreground focus:ring-2 focus:ring-ring outline-none transition-all placeholder:text-muted-foreground sm:py-3";
+  const inputClass = "min-h-11 w-full bg-white/5 border border-input rounded-lg px-4 py-2.5 text-foreground focus:ring-2 focus:ring-ring outline-none transition-all placeholder:text-muted-foreground sm:py-3";
 
   return (
-    <div data-testid="registry-page" className="mx-auto max-w-2xl space-y-5 sm:space-y-8">
+    <div data-testid="registry-page" className="mx-auto max-w-2xl space-y-4 sm:space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Crop Registry</h1>
         <p className="text-muted-foreground mt-2">Register new harvest batches on the AgriGuard chain.</p>
       </div>
 
       <Card className="glass">
-        <CardContent data-testid="registry-card-content" className="p-4 sm:p-8">
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+        <CardContent data-testid="registry-card-content" className="p-3 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.name}>Crop Name</label>
               <Input
@@ -141,12 +141,12 @@ export default function ProductRegistry() {
                 />
               </div>
               <div data-testid="registry-cold-chain-control" className="space-y-2 flex items-center sm:mt-8">
-                <label className="flex items-center space-x-3 cursor-pointer">
+                <label className="flex min-h-11 items-center space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.requires_cold_chain}
                     onChange={(e) => handleChange('requires_cold_chain', e.target.checked)}
-                    className="w-5 h-5 rounded border-border text-primary focus:ring-ring bg-white/5"
+                    className="h-6 w-6 rounded border-border bg-white/5 text-primary focus:ring-ring"
                   />
                   <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Requires Cold Chain</span>
                 </label>
@@ -159,7 +159,7 @@ export default function ProductRegistry() {
                 id={FIELD_IDS.description}
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                className={`${inputClass} h-24 resize-none sm:h-32`}
+                className={`${inputClass} h-20 resize-none sm:h-32`}
                 placeholder="Batch details..."
               />
             </div>

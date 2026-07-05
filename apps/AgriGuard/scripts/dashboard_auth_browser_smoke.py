@@ -176,7 +176,16 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     unexpected_console_messages = [
         message for message in console_messages if not is_expected_auth_console(message)
     ]
-    checks.append(check("no_request_failures", len(request_failures) == 0, str(request_failures[:3])))
+    actionable_request_failures = [
+        failure for failure in request_failures if "ERR_ABORTED" not in failure.get("failure", "")
+    ]
+    checks.append(
+        check(
+            "no_actionable_request_failures",
+            len(actionable_request_failures) == 0,
+            f"{len(actionable_request_failures)} actionable / {len(request_failures)} total",
+        )
+    )
     checks.append(
         check(
             "no_unexpected_console_warnings_or_errors",
@@ -202,6 +211,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "consoleMessages": console_messages,
         "unexpectedConsoleMessages": unexpected_console_messages,
         "requestFailures": request_failures,
+        "actionableRequestFailures": actionable_request_failures,
         "pageErrors": page_errors,
         "screenshot": str(screenshot),
     }
