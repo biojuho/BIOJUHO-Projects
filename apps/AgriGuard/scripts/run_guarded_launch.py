@@ -243,6 +243,16 @@ def _build_status_view(
             path = item.get("path")
             if isinstance(role, str) and role and isinstance(path, str) and path:
                 artifacts.setdefault(role, path)
+    ready_gate_artifact: dict[str, Any] = {}
+    if artifact_index is not None and isinstance(artifact_index.get("artifacts"), list):
+        for item in artifact_index["artifacts"]:
+            if not isinstance(item, dict):
+                continue
+            if item.get("role") == "ready_gate_json":
+                ready_gate_artifact = item
+                break
+    ready_gate_path = artifacts.get("ready_gate_json")
+    ready_gate_payload = _read_json(Path(ready_gate_path)) if isinstance(ready_gate_path, str) else None
     missing_required_roles = (
         artifact_index.get("missing_required_roles")
         if artifact_index is not None and isinstance(artifact_index.get("missing_required_roles"), list)
@@ -281,6 +291,20 @@ def _build_status_view(
         "artifact_index_recovery_command_shell": artifact_index_recovery_command_shell,
         "artifact_index_recovery_command_text": artifact_index_recovery_command_text,
         "artifacts": artifacts,
+        "ready_gate": {
+            "found": ready_gate_payload is not None,
+            "path": ready_gate_path,
+            "exists": ready_gate_artifact.get("exists"),
+            "sha256": ready_gate_artifact.get("sha256"),
+            "status": ready_gate_payload.get("status") if ready_gate_payload is not None else None,
+            "blocker_class": ready_gate_payload.get("blocker_class") if ready_gate_payload is not None else None,
+            "command_shell": artifact_index.get("consumer_ready_gate_command_shell")
+            if artifact_index is not None
+            else None,
+            "command_text": artifact_index.get("consumer_ready_gate_command_text")
+            if artifact_index is not None
+            else None,
+        },
         "launch": {
             "found": launch is not None,
             "path": str(artifact_paths["launch_report_json"]),

@@ -807,6 +807,67 @@
           ],
           "type": "object"
         },
+        "ready_gate": {
+          "additionalProperties": false,
+          "properties": {
+            "blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "command_shell": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "command_text": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "exists": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "found": {
+              "type": "boolean"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sha256": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "found",
+            "path",
+            "exists",
+            "sha256",
+            "status",
+            "blocker_class",
+            "command_shell",
+            "command_text"
+          ],
+          "type": "object"
+        },
         "schema_version": {
           "const": 1,
           "type": "integer"
@@ -825,6 +886,7 @@
         "operator_action_ids",
         "artifact_index_recovery_summary",
         "artifact_index",
+        "ready_gate",
         "output_dir",
         "output_prefix",
         "secrets_redacted",

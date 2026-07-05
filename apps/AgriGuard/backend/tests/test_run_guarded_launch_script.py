@@ -1110,6 +1110,8 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
                 "consumer_readiness_env_validation_ready_for_preflight": True,
                 "consumer_readiness_env_validation_placeholder_count": 0,
                 "consumer_readiness_operator_packet_preflight_status": "fail",
+                "consumer_ready_gate_command_shell": "powershell",
+                "consumer_ready_gate_command_text": "& python run_guarded_launch.py --status-only --require-ready",
                 "recovery_command_status": "not_required",
                 "recovery_summary": {
                     "required": False,
@@ -1183,6 +1185,16 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
     assert payload["artifacts"]["handoff_consumer_json"] == str(custom_handoff_consumer.resolve())
     assert payload["artifacts"]["ready_gate_json"] == str(custom_ready_gate.resolve())
     assert payload["artifacts"]["status_json"] == str(custom_status.resolve())
+    assert payload["ready_gate"] == {
+        "found": False,
+        "path": str(custom_ready_gate.resolve()),
+        "exists": None,
+        "sha256": None,
+        "status": None,
+        "blocker_class": None,
+        "command_shell": "powershell",
+        "command_text": "& python run_guarded_launch.py --status-only --require-ready",
+    }
 
 
 def test_guarded_launch_status_only_exposes_recovery_command_text(tmp_path: Path, capsys) -> None:
