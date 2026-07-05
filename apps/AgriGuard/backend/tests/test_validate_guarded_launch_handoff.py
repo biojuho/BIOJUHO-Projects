@@ -84,6 +84,18 @@ def test_validate_guarded_launch_handoff_rejects_shape_drift(tmp_path: Path) -> 
     assert "$: unexpected properties: unexpected" in errors
 
 
+def test_validate_guarded_launch_handoff_rejects_malformed_readiness_next_actions(tmp_path: Path) -> None:
+    handoff = _write_blocked_handoff(tmp_path)
+    handoff["status_view"]["readiness_summary"]["next_actions"] = [
+        "Open the operator packet for exact variables and validation commands.",
+        {"action": "not a string"},
+    ]
+
+    errors = validate_guarded_launch_handoff.validate_handoff(handoff)
+
+    assert "$.status_view.readiness_summary.next_actions[1]: expected type string, got dict" in errors
+
+
 def test_validate_guarded_launch_handoff_main_writes_pass_report(tmp_path: Path) -> None:
     handoff = _write_blocked_handoff(tmp_path)
     handoff_json = tmp_path / "handoff.json"
