@@ -64,18 +64,18 @@ export default function ProductRegistry() {
     }
   }, [formData]);
 
-  const inputClass = "w-full bg-white/5 border border-input rounded-lg px-4 py-3 text-foreground focus:ring-2 focus:ring-ring outline-none transition-all placeholder:text-muted-foreground";
+  const inputClass = "w-full bg-white/5 border border-input rounded-lg px-4 py-2.5 text-foreground focus:ring-2 focus:ring-ring outline-none transition-all placeholder:text-muted-foreground sm:py-3";
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div data-testid="registry-page" className="mx-auto max-w-2xl space-y-5 sm:space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Crop Registry</h1>
         <p className="text-muted-foreground mt-2">Register new harvest batches on the AgriGuard chain.</p>
       </div>
 
       <Card className="glass">
-        <CardContent className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <CardContent data-testid="registry-card-content" className="p-4 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.name}>Crop Name</label>
               <Input
@@ -102,7 +102,7 @@ export default function ProductRegistry() {
               />
             </div>
 
-            <div data-testid="registry-product-origin-grid" className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div data-testid="registry-product-origin-grid" className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.category}>Category</label>
                 <select
@@ -129,7 +129,7 @@ export default function ProductRegistry() {
               </div>
             </div>
 
-            <div data-testid="registry-harvest-chain-grid" className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div data-testid="registry-harvest-chain-grid" className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground" htmlFor={FIELD_IDS.harvest_date}>Harvest Date</label>
                 <Input
@@ -159,7 +159,7 @@ export default function ProductRegistry() {
                 id={FIELD_IDS.description}
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                className={`${inputClass} h-32 resize-none`}
+                className={`${inputClass} h-24 resize-none sm:h-32`}
                 placeholder="Batch details..."
               />
             </div>
