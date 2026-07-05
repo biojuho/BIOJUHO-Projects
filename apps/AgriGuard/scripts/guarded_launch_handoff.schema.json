@@ -138,6 +138,9 @@
                 "null"
               ]
             },
+            "blocker_class": {
+              "type": "string"
+            },
             "note": {
               "type": [
                 "string",
@@ -158,6 +161,7 @@
             "required",
             "action",
             "status",
+            "blocker_class",
             "note",
             "command"
           ],
@@ -634,6 +638,9 @@
                 "null"
               ]
             },
+            "blocker_class": {
+              "type": "string"
+            },
             "note": {
               "type": [
                 "string",
@@ -654,6 +661,7 @@
             "required",
             "action",
             "status",
+            "blocker_class",
             "note",
             "command"
           ],

@@ -133,6 +133,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
             "required": False,
             "action": None,
             "status": "not_required",
+            "blocker_class": "ready",
             "note": None,
             "command": None,
         },
@@ -382,6 +383,7 @@ def test_guarded_launch_dry_run_reports_missing_artifact_index_hint(tmp_path: Pa
         "required": True,
         "action": "Run the guarded launch wrapper without --dry-run to generate the artifact index evidence.",
         "status": None,
+        "blocker_class": "artifact_index_recovery_blocked",
         "note": "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
         "command": missing_command,
     }
@@ -801,6 +803,7 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
         == "pass"
     )
     assert final_status["artifact_index_recovery_summary"]["required"] is False
+    assert final_status["artifact_index_recovery_summary"]["blocker_class"] == "ready"
 
 
 def test_guarded_launch_returns_handoff_validation_failure(tmp_path: Path) -> None:
@@ -935,6 +938,7 @@ def test_guarded_launch_status_only_reports_missing_artifacts(tmp_path: Path, ca
         "required": True,
         "action": "Generate the guarded launch operator packet so artifact-index recovery status can be read.",
         "status": None,
+        "blocker_class": "artifact_index_recovery_blocked",
         "note": "Artifact index recovery status is unavailable because the operator packet is missing.",
         "command": None,
     }
@@ -1074,6 +1078,7 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
         "required": False,
         "action": None,
         "status": "not_required",
+        "blocker_class": "ready",
         "note": None,
         "command": None,
     }
@@ -1173,6 +1178,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "required": False,
         "action": None,
         "status": "not_required",
+        "blocker_class": "ready",
         "note": None,
         "command": None,
     }
@@ -1278,6 +1284,7 @@ def test_guarded_launch_status_only_exposes_recovery_command_text(tmp_path: Path
     assert payload["artifact_index_recovery_command_text"].startswith("& ")
     assert f"'{output_dir.resolve()}'" in payload["artifact_index_recovery_command_text"]
     assert payload["artifact_index_recovery_summary"]["command"] == recovery_command
+    assert payload["artifact_index_recovery_summary"]["blocker_class"] == "ready"
 
 
 def test_guarded_launch_status_require_ready_fails_for_blocked_prefix(tmp_path: Path, capsys) -> None:

@@ -400,26 +400,41 @@ MISSING_ARTIFACT_INDEX_RECOVERY_NOTE = (
 )
 
 
+def _artifact_index_recovery_blocker_class(status: object) -> str:
+    return "ready" if status in {"pass", "not_required"} else "artifact_index_recovery_blocked"
+
+
+def _recovery_summary_with_blocker_class(summary: dict[str, object]) -> dict[str, object]:
+    normalized = dict(summary)
+    normalized.setdefault("blocker_class", _artifact_index_recovery_blocker_class(normalized.get("status")))
+    return normalized
+
+
 def _artifact_index_recovery_summary(index: dict[str, Any] | None, missing_index_command: str) -> dict[str, object]:
     if index is not None:
         recovery_summary = index.get("recovery_summary")
         if isinstance(recovery_summary, dict):
-            return dict(recovery_summary)
+            return _recovery_summary_with_blocker_class(recovery_summary)
         recovery_command = index.get("recovery_command")
-        return {
-            "required": recovery_command is not None,
-            "action": index.get("recovery_action"),
-            "status": index.get("recovery_command_status"),
-            "note": index.get("recovery_command_note"),
-            "command": recovery_command,
+        status = index.get("recovery_command_status")
+        return _recovery_summary_with_blocker_class(
+            {
+                "required": recovery_command is not None,
+                "action": index.get("recovery_action"),
+                "status": status,
+                "note": index.get("recovery_command_note"),
+                "command": recovery_command,
+            }
+        )
+    return _recovery_summary_with_blocker_class(
+        {
+            "required": True,
+            "action": MISSING_ARTIFACT_INDEX_RECOVERY_ACTION,
+            "status": None,
+            "note": MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
+            "command": missing_index_command,
         }
-    return {
-        "required": True,
-        "action": MISSING_ARTIFACT_INDEX_RECOVERY_ACTION,
-        "status": None,
-        "note": MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
-        "command": missing_index_command,
-    }
+    )
 
 
 def _next_commands(value: Any) -> list[dict[str, str]]:
@@ -931,6 +946,7 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Recovery command status: `{readiness_summary.get('recovery_command_status')}`",
             f"- Recovery command note: `{readiness_summary.get('recovery_command_note') or '-'}`",
             f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
+            f"- Recovery summary blocker class: `{recovery_summary.get('blocker_class') or '-'}`",
             f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
             f"- Next command count: `{len(next_commands)}`",
             f"- Env validation blocker class: `{readiness_summary.get('env_validation_blocker_class') or '-'}`",

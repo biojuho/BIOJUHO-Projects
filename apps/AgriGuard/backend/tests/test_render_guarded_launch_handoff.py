@@ -163,6 +163,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         "required": False,
         "action": None,
         "status": "not_required",
+        "blocker_class": "ready",
         "note": None,
         "command": None,
     }
@@ -231,6 +232,10 @@ def test_guarded_launch_handoff_notes_deferred_artifact_index_recovery_status(tm
         "& python apps/AgriGuard/scripts/run_guarded_launch.py --emit-handoff"
     )
     assert handoff["packet_validation"]["artifact_index_recovery_summary"]["required"] is True
+    assert (
+        handoff["packet_validation"]["artifact_index_recovery_summary"]["blocker_class"]
+        == "artifact_index_recovery_blocked"
+    )
     assert "Artifact index recovery command note: `Artifact index recovery status is resolved" in markdown
     assert "Artifact index recovery command shell: `powershell`" in markdown
     assert "Artifact index recovery command: `& python apps/AgriGuard/scripts/run_guarded_launch.py" in markdown

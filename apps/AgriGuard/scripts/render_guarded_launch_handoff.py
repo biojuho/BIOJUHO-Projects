@@ -65,23 +65,36 @@ def _string_list(value: object) -> list[str]:
     return [str(item) for item in value if isinstance(item, str)]
 
 
+def _artifact_index_recovery_blocker_class(status: object) -> str:
+    return "ready" if status in {"pass", "not_required"} else "artifact_index_recovery_blocked"
+
+
+def _recovery_summary_with_blocker_class(summary: dict[str, object]) -> dict[str, object]:
+    normalized = dict(summary)
+    normalized.setdefault("blocker_class", _artifact_index_recovery_blocker_class(normalized.get("status")))
+    return normalized
+
+
 def _artifact_index_recovery_summary(artifact_index_summary: dict[str, object]) -> dict[str, object]:
     recovery_summary = artifact_index_summary.get("recovery_summary")
     if isinstance(recovery_summary, dict):
-        return dict(recovery_summary)
+        return _recovery_summary_with_blocker_class(recovery_summary)
     recovery_command_status = artifact_index_summary.get("recovery_command_status")
     recovery_command_note = (
         None
         if isinstance(recovery_command_status, str)
         else "Artifact index recovery status is resolved after the wrapper emits the artifact index."
     )
-    return {
-        "required": not isinstance(recovery_command_status, str),
-        "action": artifact_index_summary.get("missing_index_action"),
-        "status": recovery_command_status if isinstance(recovery_command_status, str) else None,
-        "note": recovery_command_note,
-        "command": artifact_index_summary.get("missing_index_command"),
-    }
+    status = recovery_command_status if isinstance(recovery_command_status, str) else None
+    return _recovery_summary_with_blocker_class(
+        {
+            "required": not isinstance(recovery_command_status, str),
+            "action": artifact_index_summary.get("missing_index_action"),
+            "status": status,
+            "note": recovery_command_note,
+            "command": artifact_index_summary.get("missing_index_command"),
+        }
+    )
 
 
 def _packet_validation_blocker_class(status: object) -> str:
@@ -108,7 +121,7 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
     markdown_status = markdown_validation.get("status")
     status_recovery_summary = status_view.get("artifact_index_recovery_summary")
     recovery_summary = (
-        dict(status_recovery_summary)
+        _recovery_summary_with_blocker_class(status_recovery_summary)
         if isinstance(status_recovery_summary, dict)
         else _artifact_index_recovery_summary(artifact_index_summary)
     )
@@ -353,6 +366,7 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Artifact index recovery command shell: `{packet_validation.get('artifact_index_recovery_command_shell') or '-'}`",
         f"- Artifact index recovery command: `{packet_validation.get('artifact_index_recovery_command_text') or '-'}`",
         f"- Artifact index recovery required: `{str((packet_validation.get('artifact_index_recovery_summary') or {}).get('required')).lower()}`",
+        f"- Artifact index recovery blocker class: `{(packet_validation.get('artifact_index_recovery_summary') or {}).get('blocker_class') or '-'}`",
         f"- Readiness action IDs: `{', '.join(readiness_summary.get('operator_action_ids', [])) or '-'}`",
         f"- Readiness next command count: `{len(readiness_commands)}`",
         f"- Env validation blocker class: `{readiness_summary.get('env_validation_blocker_class') or '-'}`",

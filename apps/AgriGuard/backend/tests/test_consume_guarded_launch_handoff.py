@@ -195,6 +195,7 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
         "required": False,
         "action": None,
         "status": "not_required",
+        "blocker_class": "ready",
         "note": None,
         "command": None,
     }
@@ -267,6 +268,7 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["packet_artifact_index_recovery_command_shell"] is None
     assert view["packet_artifact_index_recovery_command_text"] is None
     assert view["packet_artifact_index_recovery_summary"]["required"] is False
+    assert view["packet_artifact_index_recovery_summary"]["blocker_class"] == "ready"
     assert view["artifact_index_status"] == "pass"
     assert view["artifact_index_blocker_class"] == "ready"
     assert view["consumer_packet_validation_status"] == "pass"
@@ -345,6 +347,10 @@ def test_consume_guarded_launch_handoff_exposes_deferred_recovery_status_note(tm
         "& python apps/AgriGuard/scripts/run_guarded_launch.py --emit-handoff"
     )
     assert view["packet_artifact_index_recovery_summary"]["required"] is True
+    assert (
+        view["packet_artifact_index_recovery_summary"]["blocker_class"]
+        == "artifact_index_recovery_blocked"
+    )
 
 
 def test_consume_guarded_launch_handoff_fails_packet_validation_drift(tmp_path: Path) -> None:

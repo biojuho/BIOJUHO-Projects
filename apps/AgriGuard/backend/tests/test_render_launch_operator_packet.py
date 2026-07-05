@@ -702,6 +702,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
             "required": False,
             "action": None,
             "status": "not_required",
+            "blocker_class": "ready",
             "note": None,
             "command": None,
         },
@@ -753,6 +754,7 @@ def test_operator_packet_reports_missing_artifact_index_hint(tmp_path: Path) -> 
         "required": True,
         "action": "Run the guarded launch wrapper command to generate the artifact index evidence.",
         "status": None,
+        "blocker_class": "artifact_index_recovery_blocked",
         "note": "Artifact index recovery status is resolved after the guarded wrapper emits the artifact index.",
         "command": packet["guarded_launch_evidence"]["wrapper_command"],
     }

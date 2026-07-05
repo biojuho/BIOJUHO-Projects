@@ -142,6 +142,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         "required": False,
         "action": None,
         "status": "not_required",
+        "blocker_class": "ready",
         "note": None,
         "command": None,
     }
@@ -306,6 +307,7 @@ def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: 
     assert index["recovery_summary"]["required"] is True
     assert index["recovery_summary"]["action"] == index["recovery_action"]
     assert index["recovery_summary"]["status"] == "pass"
+    assert index["recovery_summary"]["blocker_class"] == "ready"
     assert index["recovery_summary"]["note"] == index["recovery_command_note"]
     assert index["recovery_summary"]["command"] == index["recovery_command"]
     assert "--emit-handoff" in index["recovery_command"]

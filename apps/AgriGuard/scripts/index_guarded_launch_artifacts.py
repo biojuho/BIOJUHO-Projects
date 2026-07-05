@@ -143,6 +143,10 @@ def _artifact_index_blocker_class(status: object) -> str:
     return "ready" if status == "pass" else "artifact_index_blocked"
 
 
+def _artifact_index_recovery_blocker_class(status: object) -> str:
+    return "ready" if status in {"pass", "not_required"} else "artifact_index_recovery_blocked"
+
+
 def _artifact_paths(
     output_dir: Path,
     output_prefix: str,
@@ -355,6 +359,7 @@ def build_index(
         "required": recovery_command is not None,
         "action": recovery_action,
         "status": recovery_command_status,
+        "blocker_class": _artifact_index_recovery_blocker_class(recovery_command_status),
         "note": recovery_command_note,
         "command": recovery_command,
     }
@@ -479,6 +484,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer errors: `{consumer_error_text}`",
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
         f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
+        f"- Recovery summary blocker class: `{recovery_summary.get('blocker_class') or '-'}`",
         f"- Recovery action: `{index.get('recovery_action') or '-'}`",
         f"- Recovery command status: `{index.get('recovery_command_status')}`",
         f"- Recovery command note: `{index.get('recovery_command_note') or '-'}`",
