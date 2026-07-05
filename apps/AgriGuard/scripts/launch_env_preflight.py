@@ -356,6 +356,19 @@ def _firebase_credentials_file_check(value: str, *, source: str, app_root: Path)
     return errors, True
 
 
+def _firebase_credential_errors_for_report(
+    errors: list[str],
+    *,
+    source: str,
+    allow_missing_firebase_credentials: bool,
+    firebase_credentials_file_exists: bool,
+) -> list[str]:
+    if not allow_missing_firebase_credentials or firebase_credentials_file_exists:
+        return errors
+    missing_file_error = f"{source} file does not exist."
+    return [error for error in errors if error != missing_file_error]
+
+
 def _public_verify_base_url_errors(
     value: str,
     *,
@@ -714,10 +727,16 @@ def build_launch_report(
             source=str(firebase_credentials_source),
             app_root=app_root or Path(__file__).resolve().parents[1],
         )
-        if firebase_credential_errors and not (allow_missing_firebase_credentials and not firebase_credentials_file_exists):
+        reportable_firebase_credential_errors = _firebase_credential_errors_for_report(
+            firebase_credential_errors,
+            source=str(firebase_credentials_source),
+            allow_missing_firebase_credentials=allow_missing_firebase_credentials,
+            firebase_credentials_file_exists=firebase_credentials_file_exists,
+        )
+        if reportable_firebase_credential_errors:
             errors = report["errors"]
             assert isinstance(errors, list)
-            errors.extend(firebase_credential_errors)
+            errors.extend(reportable_firebase_credential_errors)
             report["status"] = "fail"
             _refresh_preflight_blocker_class(report)
         checks["firebase_credentials_file_checked"] = True

@@ -941,6 +941,43 @@ def test_launch_report_rejects_missing_compose_firebase_credentials_file(tmp_pat
     assert report["checks"]["firebase_credentials_file_valid"] is False
 
 
+def test_launch_report_allow_missing_firebase_credentials_still_rejects_repo_local_path(tmp_path: Path) -> None:
+    repo_root, app_root = _fake_repo_app_root(tmp_path)
+    credentials_path = repo_root / "firebase-service-account.json"
+
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env() | {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path)},
+        allow_missing_firebase_credentials=True,
+        app_root=app_root,
+    )
+
+    assert report["status"] == "fail"
+    assert (
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must point to a Firebase service account file outside the repository."
+        in report["errors"]
+    )
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist." not in report["errors"]
+    assert report["checks"]["firebase_credentials_file_exists"] is False
+    assert report["checks"]["firebase_credentials_file_valid"] is False
+
+
+def test_launch_report_allow_missing_firebase_credentials_still_rejects_wrong_suffix(tmp_path: Path) -> None:
+    _, app_root = _fake_repo_app_root(tmp_path)
+    credentials_path = tmp_path / "secrets" / "firebase-service-account.txt"
+
+    report = launch_env_preflight.build_launch_report(
+        _healthy_env() | {"AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE": str(credentials_path)},
+        allow_missing_firebase_credentials=True,
+        app_root=app_root,
+    )
+
+    assert report["status"] == "fail"
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE must point to a JSON Firebase service account file." in report["errors"]
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist." not in report["errors"]
+    assert report["checks"]["firebase_credentials_file_exists"] is False
+    assert report["checks"]["firebase_credentials_file_valid"] is False
+
+
 def test_launch_report_rejects_malformed_firebase_credentials_json(tmp_path: Path) -> None:
     credentials_path = tmp_path / "firebase-service-account.json"
     credentials_path.write_text("{not json", encoding="utf-8")
