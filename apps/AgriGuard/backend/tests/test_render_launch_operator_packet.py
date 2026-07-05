@@ -691,6 +691,9 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     assert "Consumer command metadata: `pass`" in markdown
     assert "Consumer readiness command metadata: `pass`" in markdown
     assert "Packet preflight status: `env_shape_blocked`" in markdown
+    assert "Missing index action: `-`" in markdown
+    assert "Missing index command: `-`" in markdown
+    assert "`None`" not in markdown
 
 
 def test_operator_packet_reports_missing_artifact_index_hint(tmp_path: Path) -> None:

@@ -919,8 +919,8 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Env validation ready: `{str(readiness_summary.get('env_validation_ready_for_preflight')).lower()}`",
             f"- Env placeholder count: `{readiness_summary.get('env_validation_placeholder_count')}`",
             f"- Packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
-            f"- Missing index action: `{readiness_summary.get('missing_index_action')}`",
-            f"- Missing index command: `{readiness_summary.get('missing_index_command')}`",
+            f"- Missing index action: `{readiness_summary.get('missing_index_action') or '-'}`",
+            f"- Missing index command: `{readiness_summary.get('missing_index_command') or '-'}`",
         ]
     )
     if next_commands:
