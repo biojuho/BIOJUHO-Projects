@@ -23,7 +23,9 @@ REQUIRED_BACKEND_OPENAPI_PATHS = (
 )
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 MIN_SCREENSHOT_BYTES = 512
+DESKTOP_SCREENSHOT_DIMENSIONS = (1440, 960)
 MOBILE_SCREENSHOT_DIMENSIONS = (390, 844)
+MOBILE_ONLY_SCREENSHOT_STEPS = {"qr_path", "consumer_verify_unavailable"}
 
 
 class BrowserSmokeStep:
@@ -660,6 +662,12 @@ def screenshot_artifact_gate(
     }
 
 
+def expected_screenshot_dimensions_for_step(step_name: str, *, mobile: bool) -> tuple[int, int]:
+    if mobile or step_name in MOBILE_ONLY_SCREENSHOT_STEPS:
+        return MOBILE_SCREENSHOT_DIMENSIONS
+    return DESKTOP_SCREENSHOT_DIMENSIONS
+
+
 def child_report_passes_launch_gate(
     returncode: int,
     child_summary: dict[str, object],
@@ -809,14 +817,13 @@ def main() -> int:
             print(json.dumps(report["summary"], indent=2, sort_keys=True))
             return 1
 
-    expected_screenshot_dimensions = MOBILE_SCREENSHOT_DIMENSIONS if args.mobile else None
     results = [
         run_step(
             step,
             operator_token=args.operator_token,
             timeout_ms=args.timeout_ms,
             dry_run=args.dry_run,
-            expected_screenshot_dimensions=expected_screenshot_dimensions,
+            expected_screenshot_dimensions=expected_screenshot_dimensions_for_step(step.name, mobile=args.mobile),
         )
         for step in steps
     ]

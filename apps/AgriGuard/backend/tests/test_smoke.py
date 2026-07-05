@@ -578,6 +578,19 @@ def test_browser_smoke_suite_mobile_launch_gate_requires_viewport_screenshot_dim
     )
 
 
+def test_browser_smoke_suite_expected_screenshot_dimensions_are_step_specific():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_step_dimensions_under_test",
+    )
+
+    assert script.expected_screenshot_dimensions_for_step("admin_routes", mobile=False) == script.DESKTOP_SCREENSHOT_DIMENSIONS
+    assert script.expected_screenshot_dimensions_for_step("nav", mobile=False) == script.DESKTOP_SCREENSHOT_DIMENSIONS
+    assert script.expected_screenshot_dimensions_for_step("qr_path", mobile=False) == script.MOBILE_SCREENSHOT_DIMENSIONS
+    assert script.expected_screenshot_dimensions_for_step("consumer_verify_unavailable", mobile=False) == script.MOBILE_SCREENSHOT_DIMENSIONS
+    assert script.expected_screenshot_dimensions_for_step("admin_routes", mobile=True) == script.MOBILE_SCREENSHOT_DIMENSIONS
+
+
 def test_browser_smoke_suite_timeout_writes_failed_step(monkeypatch, tmp_path: Path):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
