@@ -12,6 +12,7 @@ from urllib import error, parse, request
 DEFAULT_BASE_URL = "http://127.0.0.1:5174"
 DEFAULT_API_URL = "http://127.0.0.1:8002"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
+FRONTEND_OPERATOR_TOKEN_ENV = "VITE_AGRIGUARD_OPERATOR_TOKEN"
 REQUIRED_BACKEND_OPENAPI_PATHS = (
     "/products/",
     "/products/page",
@@ -440,6 +441,25 @@ def check_backend_contract(api_url: str, *, timeout_ms: int) -> dict[str, object
     return summary
 
 
+def check_frontend_operator_token_env() -> dict[str, object]:
+    configured = bool(os.getenv(FRONTEND_OPERATOR_TOKEN_ENV, "").strip())
+    return {
+        "name": "frontend_operator_token_env",
+        "ok": not configured,
+        "env_var": FRONTEND_OPERATOR_TOKEN_ENV,
+        "configured": configured,
+        "detail": (
+            f"{FRONTEND_OPERATOR_TOKEN_ENV} is not set; browser smoke can exercise token recovery safely"
+            if not configured
+            else (
+                f"Unset {FRONTEND_OPERATOR_TOKEN_ENV} before running launch browser smoke. "
+                "Use AGRIGUARD_BROWSER_OPERATOR_TOKEN for the smoke runner instead; embedding an operator token "
+                "in the frontend bypasses auth-recovery checks and can expose bearer credentials."
+            )
+        ),
+    }
+
+
 def api_request(
     *,
     api_url: str,
@@ -794,6 +814,15 @@ def main() -> int:
     args = parse_args()
     steps = build_steps(args)
     prechecks: list[dict[str, object]] = []
+
+    if not args.dry_run:
+        frontend_operator_token_env = check_frontend_operator_token_env()
+        prechecks.append(frontend_operator_token_env)
+        if frontend_operator_token_env.get("ok") is not True:
+            report = build_precheck_failure_report(args, prechecks)
+            write_json(args.json_out, report)
+            print(json.dumps(report["summary"], indent=2, sort_keys=True))
+            return 1
 
     if not args.dry_run and not args.skip_backend_contract_check:
         backend_contract = check_backend_contract(args.api_url, timeout_ms=args.timeout_ms)

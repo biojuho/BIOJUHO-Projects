@@ -438,6 +438,36 @@ def test_browser_smoke_suite_unavailable_check_is_explicit_opt_in(monkeypatch):
     assert "--intercept-api-failure" in opted_in_steps[-1].command
 
 
+def test_browser_smoke_suite_rejects_frontend_operator_token_env(monkeypatch, tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_frontend_token_env_under_test",
+    )
+    json_out = tmp_path / "browser-smoke.json"
+    monkeypatch.setenv(script.FRONTEND_OPERATOR_TOKEN_ENV, "secret-frontend-token")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_browser_smoke_suite.py",
+            "--json-out",
+            str(json_out),
+            "--skip-backend-contract-check",
+        ],
+    )
+
+    assert script.check_frontend_operator_token_env()["ok"] is False
+    assert script.main() == 1
+
+    payload = json.loads(json_out.read_text(encoding="utf-8"))
+    encoded_payload = json.dumps(payload)
+    assert payload["summary"]["failed_precheck_names"] == ["frontend_operator_token_env"]
+    assert payload["prechecks"][0]["configured"] is True
+    assert "AGRIGUARD_BROWSER_OPERATOR_TOKEN" in payload["prechecks"][0]["detail"]
+    assert "secret-frontend-token" not in encoded_payload
+    assert payload["results"] == []
+
+
 def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
