@@ -339,8 +339,9 @@ describe('SensorDeviceManager', () => {
     expect(tokenControls).toHaveClass('grid-cols-[minmax(0,1fr)_5rem]');
 
     const filterForm = screen.getByTestId('sensor-filter-panel').querySelector('form');
-    expect(filterForm).toHaveClass('grid-cols-2');
-    expect(screen.getByRole('button', { name: /apply filters/i })).toHaveClass('col-span-2');
+    expect(filterForm).toHaveClass('grid-cols-1');
+    expect(filterForm).toHaveClass('sm:grid-cols-2');
+    expect(screen.getByRole('button', { name: /apply filters/i })).toHaveClass('sm:col-span-2');
     expect(screen.getByRole('button', { name: /apply filters/i })).toHaveClass('lg:col-span-1');
 
     expect(screen.getByTestId('sensor-stat-grid')).toHaveClass('grid-cols-3');

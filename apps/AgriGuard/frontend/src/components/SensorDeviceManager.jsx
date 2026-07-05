@@ -782,7 +782,7 @@ export default function SensorDeviceManager() {
 
       <Card data-testid="sensor-filter-panel">
         <CardContent className="p-4 sm:p-6">
-          <form onSubmit={handleFilterSubmit} className="grid grid-cols-2 gap-3 lg:grid-cols-[12rem_minmax(0,1fr)_auto] lg:items-end">
+          <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[12rem_minmax(0,1fr)_auto] lg:items-end">
             <div className="min-w-0">
               <label htmlFor="sensor-status" className="text-sm font-medium text-muted-foreground">
                 Sensor state
@@ -812,7 +812,7 @@ export default function SensorDeviceManager() {
                 className="mt-2 min-h-10 sm:min-h-11"
               />
             </div>
-            <Button type="submit" className="col-span-2 min-h-10 sm:min-h-11 lg:col-span-1" disabled={deviceState.loading}>
+            <Button type="submit" className="min-h-10 sm:col-span-2 sm:min-h-11 lg:col-span-1" disabled={deviceState.loading}>
               {deviceState.loading ? <Loader2 className="animate-spin" /> : <Search />}
               Apply filters
             </Button>
