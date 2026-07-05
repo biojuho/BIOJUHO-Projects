@@ -173,9 +173,9 @@ function RegistryGateBadge({ isRequired }) {
 
 function SensorStat({ label, value }) {
   return (
-    <div className="rounded-lg border border-border bg-white/[0.03] px-4 py-3">
+    <div className="rounded-lg border border-border bg-white/[0.03] px-3 py-2.5 sm:px-4 sm:py-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
+      <p className="mt-1 text-xl font-semibold text-foreground sm:text-2xl">{value}</p>
     </div>
   );
 }
@@ -730,8 +730,8 @@ export default function SensorDeviceManager() {
   ), [provisioning]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 text-foreground">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 text-foreground sm:space-y-8 sm:p-8">
+      <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-sm text-sky-300">
             <RadioTower className="h-4 w-4" />
@@ -740,21 +740,21 @@ export default function SensorDeviceManager() {
           <h1 data-testid="sensor-device-heading" className="max-w-full text-2xl font-bold leading-tight text-foreground sm:text-3xl">Sensor Device Registry</h1>
         </div>
 
-        <Card className="w-full lg:w-[28rem] border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
+        <Card data-testid="sensor-operator-token-card" className="w-full border-primary/20 bg-primary/5 lg:w-[28rem]">
+          <CardContent className="p-3 sm:p-4">
             <label htmlFor="sensor-operator-token" className="text-sm font-medium text-foreground">
               Operator bearer token
             </label>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5rem] gap-2">
               <Input
                 id="sensor-operator-token"
                 type="password"
                 value={operatorTokenInput}
                 onChange={(event) => setOperatorTokenInput(event.target.value)}
                 placeholder="Paste Firebase/operator token"
-                className="min-h-11"
+                className="min-h-10 sm:min-h-11"
               />
-              <Button type="button" onClick={saveOperatorToken} className="min-h-11">
+              <Button type="button" onClick={saveOperatorToken} className="min-h-10 px-3 sm:min-h-11">
                 Save
               </Button>
             </div>
@@ -765,10 +765,10 @@ export default function SensorDeviceManager() {
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="p-6">
-          <form onSubmit={handleFilterSubmit} className="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)_auto] lg:items-end">
-            <div>
+      <Card data-testid="sensor-filter-panel">
+        <CardContent className="p-4 sm:p-6">
+          <form onSubmit={handleFilterSubmit} className="grid grid-cols-2 gap-3 lg:grid-cols-[12rem_minmax(0,1fr)_auto] lg:items-end">
+            <div className="min-w-0">
               <label htmlFor="sensor-status" className="text-sm font-medium text-muted-foreground">
                 Sensor state
               </label>
@@ -776,7 +776,7 @@ export default function SensorDeviceManager() {
                 id="sensor-status"
                 value={draftStatus}
                 onChange={(event) => setDraftStatus(event.target.value)}
-                className="mt-2 flex min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-2 flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-11"
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -785,7 +785,7 @@ export default function SensorDeviceManager() {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label htmlFor="sensor-zone-filter" className="text-sm font-medium text-muted-foreground">
                 Zone filter
               </label>
@@ -794,10 +794,10 @@ export default function SensorDeviceManager() {
                 value={draftZone}
                 onChange={(event) => setDraftZone(event.target.value)}
                 placeholder="e.g. Packhouse"
-                className="mt-2 min-h-11"
+                className="mt-2 min-h-10 sm:min-h-11"
               />
             </div>
-            <Button type="submit" className="min-h-11" disabled={deviceState.loading}>
+            <Button type="submit" className="col-span-2 min-h-10 sm:min-h-11 lg:col-span-1" disabled={deviceState.loading}>
               {deviceState.loading ? <Loader2 className="animate-spin" /> : <Search />}
               Apply filters
             </Button>
@@ -805,7 +805,7 @@ export default function SensorDeviceManager() {
         </CardContent>
       </Card>
 
-      <div aria-live="polite" role="status" className="min-h-6 text-sm">
+      <div aria-live="polite" role="status" className="min-h-0 text-sm empty:hidden">
         {deviceState.loading && <span className="text-muted-foreground">Loading sensor registry...</span>}
         {unsupportedState.loading && <span className="text-muted-foreground">Loading unsupported sensor IDs...</span>}
         {provisioningState.loading && <span className="text-muted-foreground">Generating broker provisioning artifacts...</span>}
@@ -856,7 +856,7 @@ export default function SensorDeviceManager() {
       </div>
 
       {hasLoaded && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div data-testid="sensor-stat-grid" className="grid grid-cols-3 gap-2 sm:gap-3">
           {statRows.map(([label, value]) => (
             <SensorStat key={label} label={label} value={value} />
           ))}

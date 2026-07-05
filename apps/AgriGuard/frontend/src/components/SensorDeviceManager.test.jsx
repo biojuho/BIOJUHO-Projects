@@ -324,6 +324,24 @@ describe('SensorDeviceManager', () => {
     expect(screen.getByText('1 rejected attempts in the last 24 hours')).toBeInTheDocument();
   });
 
+  it('keeps the mobile sensor controls compact above the registry summary', async () => {
+    render(<SensorDeviceManager />);
+
+    await screen.findByText('sensor-cold-1');
+
+    const tokenControls = screen.getByLabelText('Operator bearer token').parentElement;
+    expect(screen.getByTestId('sensor-operator-token-card')).toHaveClass('w-full');
+    expect(tokenControls).toHaveClass('grid');
+    expect(tokenControls).toHaveClass('grid-cols-[minmax(0,1fr)_5rem]');
+
+    const filterForm = screen.getByTestId('sensor-filter-panel').querySelector('form');
+    expect(filterForm).toHaveClass('grid-cols-2');
+    expect(screen.getByRole('button', { name: /apply filters/i })).toHaveClass('col-span-2');
+    expect(screen.getByRole('button', { name: /apply filters/i })).toHaveClass('lg:col-span-1');
+
+    expect(screen.getByTestId('sensor-stat-grid')).toHaveClass('grid-cols-3');
+  });
+
   it('renders registered sensor rows as mobile-first action cards', async () => {
     render(<SensorDeviceManager />);
 
