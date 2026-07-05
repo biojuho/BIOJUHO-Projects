@@ -59,6 +59,7 @@ const tokenListResponse = {
 
 describe('QRTokenManager', () => {
   beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
     getOperatorToken.mockReturnValue('operator-token');
     qrTokenAdminApi.listByProduct.mockResolvedValue({ data: tokenListResponse });
     qrTokenAdminApi.reissue.mockResolvedValue({
@@ -190,6 +191,10 @@ describe('QRTokenManager', () => {
     });
     expect(screen.getByText('New label URL ready')).toBeInTheDocument();
     expect(screen.getByText('https://verify.agriguard.test/verify/new-public-token')).toBeInTheDocument();
+    expect(screen.getByTestId('qr-token-reissue-result')).toHaveClass('scroll-mt-24');
+    await waitFor(() => {
+      expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+    });
   });
 
   it('announces load errors through the status region', async () => {

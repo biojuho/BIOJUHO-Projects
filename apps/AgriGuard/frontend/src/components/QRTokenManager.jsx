@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -64,6 +64,7 @@ function TokenStat({ label, value }) {
 }
 
 export default function QRTokenManager() {
+  const labelResultRef = useRef(null);
   const [productId, setProductId] = useState('');
   const [loadedProductId, setLoadedProductId] = useState('');
   const [tokenStatus, setTokenStatus] = useState('all');
@@ -119,6 +120,11 @@ export default function QRTokenManager() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadTokens({ nextProductId: loadedProductId, nextStatus: tokenStatus, nextPage: page });
   }, [loadedProductId, loadTokens, page, tokenStatus]);
+
+  useEffect(() => {
+    if (!actionState.success?.qrCode) return;
+    labelResultRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }, [actionState.success?.qrCode]);
 
   const handleSearch = useCallback((event) => {
     event.preventDefault();
@@ -295,7 +301,7 @@ export default function QRTokenManager() {
       </div>
 
       {actionState.success?.qrCode && (
-        <Card className="border-emerald-500/30 bg-emerald-500/10">
+        <Card ref={labelResultRef} data-testid="qr-token-reissue-result" className="scroll-mt-24 border-emerald-500/30 bg-emerald-500/10">
           <CardContent className="p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
