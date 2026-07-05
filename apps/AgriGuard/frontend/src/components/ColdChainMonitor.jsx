@@ -162,7 +162,7 @@ export default function ColdChainMonitor() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Cold-Chain Monitor</h1>
@@ -184,7 +184,7 @@ export default function ColdChainMonitor() {
         <div
           role="status"
           aria-atomic="true"
-          className={cn('flex items-start gap-3 rounded-lg border p-4', getAttentionClass(connectivityStatus))}
+          className={cn('flex items-start gap-3 rounded-lg border p-3 sm:p-4', getAttentionClass(connectivityStatus))}
         >
           {connectivityStatus === 'offline' ? <ServerCrash className="mt-0.5 h-5 w-5 shrink-0" /> : <Clock className="mt-0.5 h-5 w-5 shrink-0" />}
           <div>
@@ -194,7 +194,7 @@ export default function ColdChainMonitor() {
         </div>
       )}
 
-      <div data-testid="cold-chain-stat-grid" className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+      <div data-testid="cold-chain-stat-grid" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           icon={Thermometer}
           label="Temperature"
@@ -363,14 +363,14 @@ function StatCard({ icon: Icon, label, value, color, className }) {
 
   return (
     <Card data-testid={`cold-chain-stat-card-${getStatId(label)}`} className={cn('backdrop-blur-lg', cls, className)}>
-      <CardContent className="p-4">
-        <div className="mb-2 flex items-center gap-2">
+      <CardContent className="p-3 sm:p-4">
+        <div className="mb-1.5 flex items-center gap-2 sm:mb-2">
           <Icon className="h-4 w-4" />
           <span className="text-xs text-muted-foreground">{label}</span>
         </div>
         <p
           data-testid={`cold-chain-stat-${getStatId(label)}`}
-          className="min-h-12 text-wrap break-words text-xl font-bold leading-tight"
+          className="min-h-8 text-wrap break-words text-lg font-bold leading-tight sm:min-h-12 sm:text-xl"
         >
           {value}
         </p>

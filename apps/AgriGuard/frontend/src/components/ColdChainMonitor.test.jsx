@@ -280,8 +280,14 @@ describe('ColdChainMonitor', () => {
 
     expect(sensorHealthValue).toHaveTextContent('79 offline / 0 stale');
     expect(sensorHealthValue).toHaveClass('text-wrap');
+    expect(sensorHealthValue).toHaveClass('min-h-8');
+    expect(sensorHealthValue).toHaveClass('sm:min-h-12');
+    expect(sensorHealthValue).toHaveClass('text-lg');
+    expect(sensorHealthValue).toHaveClass('sm:text-xl');
     expect(sensorHealthValue).not.toHaveClass('truncate');
     expect(screen.getByTestId('cold-chain-stat-grid')).toHaveClass('grid-cols-2');
+    expect(screen.getByTestId('cold-chain-stat-grid')).toHaveClass('gap-3');
+    expect(screen.getByTestId('cold-chain-stat-grid')).toHaveClass('sm:gap-4');
     expect(sensorHealthCard).toHaveClass('col-span-2');
     expect(sensorHealthCard).toHaveClass('lg:col-span-1');
   });
