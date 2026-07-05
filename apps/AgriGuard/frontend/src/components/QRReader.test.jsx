@@ -18,8 +18,9 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('@yudiel/react-qr-scanner', () => ({
-  Scanner: ({ onScan, onError }) => {
+  Scanner: ({ onScan, onError, components }) => {
     scannerApi = {
+      components,
       triggerSuccess: () => onScan([{ rawValue: 'https://agriguard.test/product/prod-1' }]),
       triggerAgriVerify: () => onScan([{ rawValue: 'agri://verify/prod-2' }]),
       triggerPublicVerifyUrl: () => onScan([{ rawValue: 'https://verify.agriguard.test/verify/prod-3?utm=label' }]),
@@ -125,6 +126,18 @@ describe('QRReader', () => {
         expect.objectContaining({ event_type: 'scan_recovery', recovery_method: 'retry_button' }),
       );
     });
+  });
+
+  it('keeps the scan frame free of the built-in camera toggle control', () => {
+    renderReader();
+
+    expect(scannerApi.components).toEqual(expect.objectContaining({
+      audio: false,
+      finder: true,
+      onOff: false,
+      torch: true,
+      zoom: true,
+    }));
   });
 
   it('tracks one scan start per attempt under StrictMode effect replay', async () => {

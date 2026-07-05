@@ -274,7 +274,7 @@ export default function QRReader() {
                 }}
                 components={{
                   audio: false,
-                  onOff: true,
+                  onOff: false,
                   torch: true,
                   zoom: true,
                   finder: true,
