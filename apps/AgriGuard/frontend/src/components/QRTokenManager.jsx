@@ -380,9 +380,12 @@ export default function QRTokenManager() {
           )}
 
           {tokens.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+            <div className="overflow-visible md:overflow-x-auto">
+              <table
+                data-testid="qr-token-table"
+                className="w-full border-separate border-spacing-0 text-left text-sm md:min-w-[760px] md:border-collapse"
+              >
+                <thead className="hidden border-b border-border text-xs uppercase tracking-wide text-muted-foreground md:table-header-group">
                   <tr>
                     <th scope="col" className="py-3 pr-4">Token</th>
                     <th scope="col" className="py-3 pr-4">State</th>
@@ -393,28 +396,61 @@ export default function QRTokenManager() {
                     <th scope="col" className="py-3 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="block space-y-3 md:table-row-group md:divide-y md:divide-border md:space-y-0">
                   {tokens.map((token) => (
-                    <tr key={token.id} className="align-top">
-                      <td className="py-4 pr-4">
-                        <div className="font-mono text-foreground">{token.token_prefix}</div>
-                        <div className="mt-1 max-w-52 truncate text-xs text-muted-foreground">{token.id}</div>
+                    <tr
+                      key={token.id}
+                      data-testid="qr-token-row"
+                      className="block rounded-lg border border-border bg-background/40 p-4 align-top md:table-row md:border-0 md:bg-transparent md:p-0"
+                    >
+                      <td className="block border-b border-border/60 pb-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Token
+                        </span>
+                        <div className="break-all font-mono text-foreground">{token.token_prefix}</div>
+                        <div className="mt-1 max-w-full break-all text-xs text-muted-foreground md:max-w-52 md:truncate">{token.id}</div>
                       </td>
-                      <td className="py-4 pr-4">
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          State
+                        </span>
                         <TokenStatusBadge status={token.status} />
                       </td>
-                      <td className="py-4 pr-4 font-mono text-xs text-muted-foreground">{token.batch_code}</td>
-                      <td className="py-4 pr-4">{token.scan_count}</td>
-                      <td className="py-4 pr-4 text-muted-foreground">{formatDateTime(token.last_verified_at)}</td>
-                      <td className="py-4 pr-4 text-muted-foreground">{formatDateTime(token.expires_at)}</td>
-                      <td className="py-4 text-right">
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Batch
+                        </span>
+                        <span className="break-all text-right font-mono text-xs text-muted-foreground md:text-left">{token.batch_code}</span>
+                      </td>
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Scans
+                        </span>
+                        <span>{token.scan_count}</span>
+                      </td>
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 text-muted-foreground md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Last verified
+                        </span>
+                        <span className="text-right md:text-left">{formatDateTime(token.last_verified_at)}</span>
+                      </td>
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 text-muted-foreground md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Expires
+                        </span>
+                        <span className="text-right md:text-left">{formatDateTime(token.expires_at)}</span>
+                      </td>
+                      <td className="block pt-4 md:table-cell md:py-4 md:text-right">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Action
+                        </span>
                         <Button
                           type="button"
                           variant="destructive"
                           size="sm"
                           onClick={() => setPendingAction({ type: 'revoke', token })}
                           disabled={token.status !== 'active' || actionState.loading}
-                          className={cn('min-h-10', token.status !== 'active' && 'opacity-40')}
+                          className={cn('min-h-10 w-full justify-center md:w-auto', token.status !== 'active' && 'opacity-40')}
                         >
                           Revoke
                         </Button>

@@ -1,5 +1,5 @@
 /* global describe, it, expect, vi, beforeEach, afterEach */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import QRTokenManager from './QRTokenManager';
 import {
   qrTokenAdminApi,
@@ -103,6 +103,25 @@ describe('QRTokenManager', () => {
     expect(screen.getAllByText('Revoked').length).toBeGreaterThan(0);
     expect(screen.getByText('Showing 2 of 2 matching tokens for product-qr-1')).toBeInTheDocument();
     expect(screen.queryByText('new-public-token')).not.toBeInTheDocument();
+  });
+
+  it('renders QR token rows as mobile-first action cards', async () => {
+    render(<QRTokenManager />);
+
+    fireEvent.change(screen.getByLabelText('Product ID'), { target: { value: 'product-qr-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /load tokens/i }));
+
+    await screen.findByText('tok_active');
+
+    const table = screen.getByTestId('qr-token-table');
+    expect(table).not.toHaveClass('min-w-[760px]');
+    expect(table).toHaveClass('md:min-w-[760px]');
+
+    const rows = screen.getAllByTestId('qr-token-row');
+    expect(rows[0]).toHaveClass('block');
+    expect(rows[0]).toHaveClass('md:table-row');
+    expect(within(rows[0]).getByText('Action')).toBeInTheDocument();
+    expect(within(rows[0]).getByRole('button', { name: /revoke/i })).toBeInTheDocument();
   });
 
   it('saves an operator token for API calls', () => {
