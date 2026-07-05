@@ -41,7 +41,7 @@ const mockProduct = {
 const mockHistory = [
   {
     block: 1,
-    data: { action: 'REGISTERED', location: 'Farm' },
+    data: { action: 'REGISTERED', location: 'Farm', handler_id: 'HANDLER-VERY-LONG-1234567890' },
     timestamp: new Date().toISOString(),
     tx_hash: '0x1234567890',
   },
@@ -76,7 +76,34 @@ describe('ProductDetail', () => {
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toBeDisabled();
       expect(screen.getByRole('button', { name: /Add Certification/i })).toBeDisabled();
       expect(screen.getByText('Operator updates locked')).toBeInTheDocument();
+      expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveTextContent('HANDLER-VERY-LONG-1234567890');
+      expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveClass('break-all');
+      expect(screen.getByTestId('timeline-data-value-handler_id')).not.toHaveClass('truncate');
+      expect(screen.getByTestId('timeline-tx-hash')).toHaveTextContent('TX: 0x1234567890');
+      expect(screen.getByTestId('timeline-tx-hash')).toHaveClass('break-all');
+      expect(screen.getByTestId('timeline-tx-hash')).not.toHaveClass('truncate');
+      expect(screen.getByTestId('timeline-tx-status')).toHaveTextContent('TX recorded');
+      expect(screen.queryByText('Verify Link')).not.toBeInTheDocument();
     });
+  });
+
+  it('renders a real explorer link when history includes one', async () => {
+    productApi.getById.mockResolvedValueOnce({ data: mockProduct });
+    productApi.getHistory.mockResolvedValueOnce({
+      data: {
+        history: [{
+          ...mockHistory[0],
+          explorer_url: 'https://sepolia.etherscan.io/tx/0x1234567890',
+        }],
+      },
+    });
+
+    renderWithRouter(<ProductDetail />);
+
+    const explorerLink = await screen.findByRole('link', { name: /Verify link/i });
+
+    expect(explorerLink).toHaveAttribute('href', 'https://sepolia.etherscan.io/tx/0x1234567890');
+    expect(screen.queryByTestId('timeline-tx-status')).not.toBeInTheDocument();
   });
 
   it('shows the tracking form when an operator token is available', async () => {

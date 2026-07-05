@@ -5,28 +5,32 @@ import { Package, Truck, CheckCircle, Award } from 'lucide-react';
 const EventIcon = ({ action }) => {
   switch (action) {
     case 'REGISTER':
-      return <Package className="w-5 h-5 text-blue-400" />;
+      return <Package className="w-4 h-4 text-blue-400" />;
     case 'CERTIFICATION_ISSUED':
-      return <Award className="w-5 h-5 text-yellow-400" />;
+      return <Award className="w-4 h-4 text-amber-400" />;
     case 'IN_TRANSIT':
-      return <Truck className="w-5 h-5 text-orange-400" />;
+      return <Truck className="w-4 h-4 text-cyan-400" />;
     case 'DELIVERED':
     case 'VERIFIED':
-      return <CheckCircle className="w-5 h-5 text-green-400" />;
+      return <CheckCircle className="w-4 h-4 text-emerald-400" />;
     default:
-      return <Package className="w-5 h-5 text-gray-400" />;
+      return <Package className="w-4 h-4 text-slate-400" />;
   }
 };
 
 export default function ProductTimeline({ history = [] }) {
   if (!history || history.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400 bg-white/5 rounded-2xl border border-white/10">
+      <div className="p-8 text-center text-slate-400 bg-slate-950/40 rounded-2xl border border-white/5 backdrop-blur-sm">
         No tracking history available yet.
       </div>
     );
   }
 
+  // 역순 정렬하여 최신 이벤트가 위에 나타나게 하거나
+  // 원본 순서(일반적으로 과거->현재 순)대로 그릴지 결정
+  // 블록번호 기준으로 오름차순(과거->최신)으로 그린다고 가정하고
+  // 마지막 요소가 최신(idx === history.length - 1)
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -38,7 +42,7 @@ export default function ProductTimeline({ history = [] }) {
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, x: -25, y: 10 },
+    hidden: { opacity: 0, x: -20, y: 10 },
     show: {
       opacity: 1,
       x: 0,
@@ -49,54 +53,100 @@ export default function ProductTimeline({ history = [] }) {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-bold text-white mb-6">Blockchain Tracking History</h3>
+      <h3 className="text-xl font-bold text-white mb-6 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+        Blockchain Tracking History
+      </h3>
+
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="relative border-l border-white/20 ml-4 space-y-8"
+        className="relative ml-4 pl-1 space-y-8"
       >
+        {/* Beautiful Gradient Timeline Path */}
+        <div className="absolute left-[3px] top-4 bottom-4 w-[2px] bg-gradient-to-b from-indigo-500 via-purple-500 to-emerald-500 opacity-60 rounded-full" />
+
         {history.map((block, idx) => {
           const isLatest = idx === history.length - 1;
           const { data, timestamp, tx_hash } = block;
-          const dateStr = new Date(timestamp).toLocaleString();
+          const dateStr = new Date(timestamp).toLocaleString('ko-KR');
+          const explorerUrl = block.explorer_url || data?.explorer_url || '';
 
           return (
-            <motion.div key={tx_hash} variants={itemVariants} className="relative pl-8">
+            <motion.div key={tx_hash} variants={itemVariants} className="relative pl-8 group">
+
               {/* Timeline dot */}
-              <div className={`absolute -left-[18px] top-1 rounded-full p-1.5 border-4 border-gray-900 ${isLatest ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-white/20'}`}>
-                 <EventIcon action={data?.action} />
+              <div className="absolute -left-[15px] top-[14px] z-10 flex items-center justify-center">
+                {isLatest ? (
+                  <div className="relative flex items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-emerald-500/30 opacity-75"></span>
+                    <div className="relative rounded-full p-2 bg-slate-900 border border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-transform duration-300 group-hover:scale-110">
+                      <EventIcon action={data?.action} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-full p-2 bg-slate-900 border border-slate-700 group-hover:border-indigo-400 transition-all duration-300 group-hover:scale-110 shadow-lg">
+                    <EventIcon action={data?.action} />
+                  </div>
+                )}
               </div>
 
-              <div className="bg-white/5 border border-white/10 p-5 rounded-2xl hover:bg-white/10 transition-colors">
+              {/* Card Container */}
+              <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl hover:bg-slate-900/60 hover:border-white/10 hover:shadow-[0_8px_30px_rgb(0,0,0,0.15)] transition-all duration-300">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
-                    <span className={`px-2.5 py-1 rounded text-xs font-bold ${isLatest ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-gray-300'}`}>
-                      Block #{block.block}
+                    <span className={`px-2.5 py-0.5 rounded text-xs font-bold font-mono tracking-wider ${isLatest ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-300 border border-slate-700/50'}`}>
+                      BLOCK #{block.block}
                     </span>
-                    <h4 className="text-lg font-semibold text-white">
-                      {data?.action || 'UNKNOWN EVENT'}
+                    <h4 className="text-base font-bold text-slate-100 group-hover:text-white transition-colors capitalize">
+                      {data?.action ? data.action.replace(/_/g, ' ') : 'UNKNOWN EVENT'}
                     </h4>
                   </div>
-                  <span className="text-sm font-mono text-gray-400">{dateStr}</span>
+                  <span className="text-xs font-mono text-slate-400 bg-slate-950/40 px-2 py-1 rounded border border-white/5">{dateStr}</span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 mt-3 bg-slate-950/20 p-3.5 rounded-xl border border-white/5">
                   {Object.entries(data).map(([key, value]) => {
-                    if (key === 'action') return null;
+                    if (key === 'action' || key === 'explorer_url') return null;
                     return (
-                      <div key={key} className="flex gap-2 text-sm text-gray-300">
-                        <span className="font-semibold text-gray-400 min-w-[100px] capitalize">{key.replace('_', ' ')}:</span>
-                        <span className="text-white">{value}</span>
+                      <div key={key} className="flex flex-col gap-1 text-xs sm:flex-row sm:gap-2">
+                        <span className="font-semibold text-slate-400 capitalize sm:min-w-[100px]">{key.replace(/_/g, ' ')}:</span>
+                        <span
+                          data-testid={`timeline-data-value-${key}`}
+                          className="min-w-0 break-all font-mono text-slate-200 select-all"
+                        >
+                          {value}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-white/10">
-                  <p className="text-xs font-mono text-gray-500 truncate group cursor-pointer hover:text-gray-300 transition-colors">
+                <div className="mt-4 flex flex-col gap-2 border-t border-white/5 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p
+                    data-testid="timeline-tx-hash"
+                    className="min-w-0 break-all text-[10px] font-mono text-slate-500 select-all group-hover:text-slate-400 transition-colors"
+                  >
                     TX: {tx_hash}
                   </p>
+                  {explorerUrl ? (
+                    <a
+                      href={explorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 text-[10px] font-medium text-indigo-400/80 hover:underline"
+                    >
+                      Verify link
+                    </a>
+                  ) : (
+                    <span
+                      data-testid="timeline-tx-status"
+                      className="inline-flex shrink-0 text-[10px] font-medium text-slate-400"
+                    >
+                      TX recorded
+                    </span>
+                  )}
                 </div>
               </div>
             </motion.div>
