@@ -21,7 +21,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 glass border-b border-border" role="navigation" aria-label="Main navigation">
+      <nav className="fixed top-0 w-full z-50 border-b border-border bg-background shadow-lg shadow-black/20" role="navigation" aria-label="Main navigation">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
@@ -75,7 +75,7 @@ export default function Layout() {
 
         {/* Mobile Nav */}
         {isMenuOpen && (
-          <div className="md:hidden glass border-t border-border">
+          <div data-testid="mobile-nav-menu" className="md:hidden border-t border-border bg-background shadow-lg shadow-black/20">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               {navItems.map((item) => {
                 const Icon = item.icon;
