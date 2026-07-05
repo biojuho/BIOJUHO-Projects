@@ -1,5 +1,5 @@
 /* global describe, it, expect, vi, beforeEach, afterEach */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SensorDeviceManager from './SensorDeviceManager';
 import {
   sensorDeviceAdminApi,
@@ -320,6 +320,23 @@ describe('SensorDeviceManager', () => {
     expect(screen.getByText('No broker provisioning evidence history found.')).toBeInTheDocument();
     expect(await screen.findByText('unknown-mqtt-1')).toBeInTheDocument();
     expect(screen.getByText('1 rejected attempts in the last 24 hours')).toBeInTheDocument();
+  });
+
+  it('renders registered sensor rows as mobile-first action cards', async () => {
+    render(<SensorDeviceManager />);
+
+    expect(await screen.findByText('sensor-cold-1')).toBeInTheDocument();
+
+    const table = screen.getByTestId('registered-sensors-table');
+    expect(table).not.toHaveClass('min-w-[940px]');
+    expect(table).toHaveClass('md:min-w-[940px]');
+
+    const rows = screen.getAllByTestId('registered-sensor-row');
+    expect(rows[0]).toHaveClass('block');
+    expect(rows[0]).toHaveClass('md:table-row');
+    expect(within(rows[0]).getByText('Actions')).toBeInTheDocument();
+    expect(within(rows[0]).getByRole('button', { name: /edit/i })).toBeInTheDocument();
+    expect(within(rows[0]).getByRole('button', { name: /disable/i })).toBeInTheDocument();
   });
 
   it('saves an operator token for protected sensor API calls', () => {

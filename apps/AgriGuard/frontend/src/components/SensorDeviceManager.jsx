@@ -1497,9 +1497,12 @@ export default function SensorDeviceManager() {
             )}
 
             {devices.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[940px] border-collapse text-left text-sm">
-                  <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+              <div className="overflow-visible md:overflow-x-auto">
+                <table
+                  data-testid="registered-sensors-table"
+                  className="w-full border-separate border-spacing-0 text-left text-sm md:min-w-[940px] md:border-collapse"
+                >
+                  <thead className="hidden border-b border-border text-xs uppercase tracking-wide text-muted-foreground md:table-header-group">
                     <tr>
                       <th scope="col" className="py-3 pr-4">Sensor</th>
                       <th scope="col" className="py-3 pr-4">State</th>
@@ -1511,14 +1514,21 @@ export default function SensorDeviceManager() {
                       <th scope="col" className="py-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="block space-y-3 md:table-row-group md:divide-y md:divide-border md:space-y-0">
                     {devices.map((sensor) => {
                       const isSafe = isBrokerSafeSensorId(sensor.sensor_id);
                       const canToggle = isSafe || sensor.is_active;
                       return (
-                        <tr key={sensor.sensor_id} className="align-top">
-                          <td className="py-4 pr-4">
-                            <div className="font-mono text-foreground">{sensor.sensor_id}</div>
+                        <tr
+                          key={sensor.sensor_id}
+                          data-testid="registered-sensor-row"
+                          className="block rounded-lg border border-border bg-background/40 p-4 align-top md:table-row md:border-0 md:bg-transparent md:p-0"
+                        >
+                          <td className="block border-b border-border/60 pb-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Sensor
+                            </span>
+                            <div className="break-all font-mono text-foreground">{sensor.sensor_id}</div>
                             <div className="mt-1 max-w-56 truncate text-xs text-muted-foreground">{sensor.label || 'Unlabeled'}</div>
                             {!isSafe && (
                               <Badge variant="warning" className="mt-2">
@@ -1527,33 +1537,56 @@ export default function SensorDeviceManager() {
                               </Badge>
                             )}
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              State
+                            </span>
                             <SensorStateBadge isActive={sensor.is_active} />
                           </td>
-                          <td className="py-4 pr-4">
-                            <span className="font-mono text-xs text-muted-foreground">
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Owner
+                            </span>
+                            <span className="max-w-[12rem] break-all text-right font-mono text-xs text-muted-foreground md:max-w-none md:text-left">
                               {sensor.owner_id || 'Unowned'}
                             </span>
                           </td>
-                          <td className="py-4 pr-4">
-                            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {sensor.zone || 'Unassigned'}
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Zone
+                            </span>
+                            <span className="inline-flex min-w-0 items-center gap-1.5 text-right text-muted-foreground md:text-left">
+                              <MapPin className="h-3.5 w-3.5 flex-none" />
+                              <span className="break-words">{sensor.zone || 'Unassigned'}</span>
                             </span>
                           </td>
-                          <td className="py-4 pr-4 text-muted-foreground">
-                            {sensor.expected_interval_minutes ? `${sensor.expected_interval_minutes} min` : 'Not set'}
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 text-muted-foreground md:table-cell md:border-0 md:py-4 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Interval
+                            </span>
+                            <span>{sensor.expected_interval_minutes ? `${sensor.expected_interval_minutes} min` : 'Not set'}</span>
                           </td>
-                          <td className="py-4 pr-4 text-muted-foreground">{formatDateTime(sensor.last_seen_at)}</td>
-                          <td className="py-4 pr-4">
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 text-muted-foreground md:table-cell md:border-0 md:py-4 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Last seen
+                            </span>
+                            <span className="text-right md:text-left">{formatDateTime(sensor.last_seen_at)}</span>
+                          </td>
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Battery
+                            </span>
                             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                              <Battery className="h-3.5 w-3.5" />
-                              {formatBattery(sensor.last_battery)}
+                              <Battery className="h-3.5 w-3.5 flex-none" />
+                              <span>{formatBattery(sensor.last_battery)}</span>
                             </span>
                           </td>
-                          <td className="py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button type="button" variant="outline" size="sm" onClick={() => editSensor(sensor)} className="min-h-10">
+                          <td className="block pt-4 md:table-cell md:py-4 md:text-right">
+                            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Actions
+                            </span>
+                            <div className="flex flex-col gap-2 sm:flex-row md:justify-end">
+                              <Button type="button" variant="outline" size="sm" onClick={() => editSensor(sensor)} className="min-h-10 w-full justify-center md:w-auto">
                                 <Pencil />
                                 Edit
                               </Button>
@@ -1563,7 +1596,7 @@ export default function SensorDeviceManager() {
                                 size="sm"
                                 onClick={() => updateSensorActiveState(sensor)}
                                 disabled={actionState.loading || !canToggle}
-                                className={cn('min-h-10', actionState.loading && 'opacity-60')}
+                                className={cn('min-h-10 w-full justify-center md:w-auto', actionState.loading && 'opacity-60')}
                                 title={!canToggle ? 'Reissue a broker-safe sensor ID before reactivation.' : undefined}
                               >
                                 <Power />
