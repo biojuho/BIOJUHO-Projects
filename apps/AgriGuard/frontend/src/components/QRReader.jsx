@@ -106,6 +106,7 @@ export default function QRReader() {
   const scanHandledRef = useRef(false);
   const navigate = useNavigate();
   const { showToast, hideToast } = useToast();
+  const manualValueReady = hasManualValue(manualQrValue);
 
   useEffect(() => () => {
     clearNavigationTimer(navigationTimerRef);
@@ -367,8 +368,12 @@ export default function QRReader() {
                 Use this when the camera is unavailable or the QR surface is damaged.
               </p>
               <Button
-                className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700"
-                disabled={!hasManualValue(manualQrValue)}
+                className={`mt-3 w-full ${
+                  manualValueReady
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-muted text-muted-foreground hover:bg-muted'
+                }`}
+                disabled={!manualValueReady}
                 type="submit"
               >
                 Verify code

@@ -220,6 +220,22 @@ describe('QRReader', () => {
     );
   });
 
+  it('keeps the manual verification button visually neutral until a code is entered', () => {
+    renderReader();
+
+    const input = screen.getByLabelText(/Manual verification code/i);
+    const verifyButton = screen.getByRole('button', { name: /Verify code/i });
+
+    expect(verifyButton).toBeDisabled();
+    expect(verifyButton).toHaveClass('bg-muted');
+    expect(verifyButton).not.toHaveClass('bg-emerald-600');
+
+    fireEvent.change(input, { target: { value: 'manual-token' } });
+
+    expect(verifyButton).not.toBeDisabled();
+    expect(verifyButton).toHaveClass('bg-emerald-600');
+  });
+
   it('ignores late camera errors after manual recovery starts', async () => {
     renderReader();
 
