@@ -212,6 +212,30 @@ describe('QRReader', () => {
     );
   });
 
+  it('ignores late camera errors after manual recovery starts', async () => {
+    renderReader();
+
+    fireEvent.change(screen.getByLabelText(/Manual verification code/i), {
+      target: { value: ' late-error-token ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify code/i }));
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith(
+        '/verify/late-error-token?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
+      );
+    });
+
+    act(() => {
+      scannerApi.triggerError();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Camera access failed')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Camera error:/i)).not.toBeInTheDocument();
+    });
+  });
+
   it('navigates with URL-safe manual tokens that start with a dash', async () => {
     renderReader();
 

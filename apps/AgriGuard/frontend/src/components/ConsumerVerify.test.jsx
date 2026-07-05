@@ -76,11 +76,11 @@ function safePayload() {
       status: 'anchored',
       message: 'Audit evidence is anchored in the AgriGuard chain.',
       record_count: 1,
-      latest_tx_hash: '0x1234...abcd',
+      latest_tx_hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
       evidence_hash: 'hash-123',
       records: [
         {
-          tx_hash: '0x1234...abcd',
+          tx_hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
           block: '12',
           timestamp: '2026-06-09T03:01:00Z',
           event_type: 'REGISTER',
@@ -111,6 +111,10 @@ describe('ConsumerVerify', () => {
     expect(screen.getByText('Jeju')).toBeInTheDocument();
     expect(screen.getByText('AG-1234567890')).toBeInTheDocument();
     expect(screen.getByText('Evidence hash: hash-123')).toBeInTheDocument();
+    expect(screen.getByTestId('consumer-proof-tx')).toHaveTextContent(
+      'TX 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+    );
+    expect(screen.getByTestId('consumer-proof-tx')).toHaveClass('break-all');
     expect(document.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
     expect(toastMocks.hideToast).toHaveBeenCalled();
 

@@ -351,7 +351,7 @@ export default function ConsumerVerify() {
               {proof.records.map((record) => (
                 <li key={`${record.tx_hash}-${record.block}-${record.event_type}`} className="rounded-md border border-slate-200 p-3 text-sm">
                   <p className="font-semibold text-slate-950">{record.event_type}</p>
-                  <p className="mt-1 font-mono text-xs text-slate-600">TX {record.tx_hash}</p>
+                  <p data-testid="consumer-proof-tx" className="mt-1 break-all font-mono text-xs text-slate-600">TX {record.tx_hash}</p>
                   <p className="mt-1 text-xs text-slate-500">Block {record.block} - {formatDateTime(record.timestamp)}</p>
                 </li>
               ))}

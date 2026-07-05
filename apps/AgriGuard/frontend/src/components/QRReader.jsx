@@ -105,7 +105,7 @@ export default function QRReader() {
   const scanStartTrackedAttemptRef = useRef(null);
   const scanHandledRef = useRef(false);
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const { showToast, hideToast } = useToast();
 
   useEffect(() => () => {
     clearNavigationTimer(navigationTimerRef);
@@ -193,6 +193,7 @@ export default function QRReader() {
       }
 
       setScanSuccess(true);
+      hideToast();
       showToast('Verification in progress', 'success');
       navigationTimerRef.current = window.setTimeout(() => {
         navigate(createVerificationPath(qrToken, sessionId));
@@ -242,6 +243,7 @@ export default function QRReader() {
       },
     });
 
+    hideToast();
     showToast('Verification in progress', 'success');
     navigate(createVerificationPath(qrToken, sessionId));
   };
@@ -265,6 +267,9 @@ export default function QRReader() {
               <Scanner
                 onScan={handleScan}
                 onError={(scannerError) => {
+                  if (scanHandledRef.current || !isScanning) {
+                    return;
+                  }
                   const normalized = normalizeScannerError(scannerError);
                   void handleFailure({
                     message: `Camera error: ${normalized.error_message}`,
