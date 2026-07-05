@@ -183,7 +183,11 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
         {"name": "strict_preflight", "command": "& python launch_env_preflight.py", "shell": "powershell"},
         {"name": "compose_launch", "command": "& python launch_compose.py", "shell": "powershell"},
     ]
-    assert "- Consumer command metadata: `pass`" in summarize_launch_readiness.render_markdown(summary)
+    markdown = summarize_launch_readiness.render_markdown(summary)
+    assert "- Artifact index status: `pass`" in markdown
+    assert "- Artifact index consumer packet validation: `pass`" in markdown
+    assert "- Consumer command metadata: `pass`" in markdown
+    assert "- Artifact index recovery command status: `not_required`" in markdown
 
 
 def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> None:
