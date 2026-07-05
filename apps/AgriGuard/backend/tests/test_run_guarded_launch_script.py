@@ -751,6 +751,7 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
                     "blocker_class": "ready",
                     "missing_required_roles": [],
                     "consumer_packet_validation_status": "pass",
+                    "consumer_metadata_status": "pass",
                     "consumer_command_metadata_status": "pass",
                     "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                     "recovery_command_status": "not_required",
@@ -1142,6 +1143,8 @@ def test_guarded_launch_status_only_derives_missing_child_blocker_classes(tmp_pa
                 "status": "pass",
                 "missing_required_roles": [],
                 "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
                 "recovery_command_status": "not_required",
             }
@@ -1172,6 +1175,56 @@ def test_guarded_launch_status_only_derives_missing_child_blocker_classes(tmp_pa
     assert payload["operator_packet"]["blocker_class"] == "operator_values_required"
     assert payload["operator_packet"]["env_validation_blocker_class"] == "ready"
     assert payload["artifact_index"]["blocker_class"] == "ready"
+    assert payload["artifact_index"]["consumer_metadata_status"] == "pass"
+
+
+def test_guarded_launch_status_only_blocks_stale_pass_artifact_index_metadata(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    artifact_index = output_dir.resolve() / "blocked-artifact-index.json"
+    artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["launch_report_json"].write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "stage": "preflight",
+                "stop_reason": "preflight_failed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifact_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "consumer_packet_validation_status": "pass",
+                "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "recovery_command_status": "not_required",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json",
+            str(artifact_index),
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["artifact_index"]["status"] == "pass"
+    assert payload["artifact_index"]["consumer_metadata_status"] == "fail"
+    assert payload["artifact_index"]["blocker_class"] == "artifact_index_blocked"
 
 
 def test_guarded_launch_status_only_derives_top_blocker_without_summary(tmp_path: Path, capsys) -> None:
@@ -1315,6 +1368,7 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "blocker_class": "ready",
         "missing_required_roles": [],
         "consumer_packet_validation_status": "pass",
+        "consumer_metadata_status": "pass",
         "consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],

@@ -222,7 +222,27 @@ def _packet_env_validation_view_blocker_class(payload: dict[str, Any] | None) ->
     return None
 
 
+def _artifact_index_consumer_metadata_status(payload: dict[str, Any] | None) -> str | None:
+    if payload is None:
+        return None
+    recovery_summary = payload.get("recovery_summary") if isinstance(payload.get("recovery_summary"), dict) else {}
+    recovery_status = payload.get("recovery_command_status") or recovery_summary.get("status")
+    checks = (
+        payload.get("consumer_packet_validation_status") == "pass",
+        payload.get("consumer_command_metadata_status") == "pass",
+        payload.get("consumer_readiness_operator_packet_consumer_command_metadata_status") == "pass",
+        recovery_status in {"pass", "not_required"},
+    )
+    return "pass" if all(checks) else "fail"
+
+
 def _artifact_index_view_blocker_class(payload: dict[str, Any] | None) -> str | None:
+    if (
+        payload is not None
+        and payload.get("status") == "pass"
+        and _artifact_index_consumer_metadata_status(payload) == "fail"
+    ):
+        return "artifact_index_blocked"
     existing = _existing_blocker_class(payload)
     if existing is not None:
         return existing
@@ -471,6 +491,7 @@ def _build_status_view(
             "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status")
             if artifact_index is not None
             else None,
+            "consumer_metadata_status": _artifact_index_consumer_metadata_status(artifact_index),
             "consumer_command_metadata_status": artifact_index.get("consumer_command_metadata_status")
             if artifact_index is not None
             else None,
