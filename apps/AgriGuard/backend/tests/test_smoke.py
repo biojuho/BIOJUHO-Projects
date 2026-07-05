@@ -914,6 +914,46 @@ def test_admin_routes_browser_smoke_uses_viewport_screenshots_on_mobile(tmp_path
     assert calls[1]["full_page"] is True
 
 
+def test_admin_routes_browser_smoke_attaches_page_diagnostics():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_diagnostics_under_test",
+    )
+    handlers = {}
+
+    class FakePage:
+        def on(self, event, callback):
+            handlers[event] = callback
+
+    console_messages = []
+    request_failures = []
+    page_errors = []
+
+    script.attach_page_diagnostics(
+        FakePage(),
+        console_messages=console_messages,
+        request_failures=request_failures,
+        page_errors=page_errors,
+    )
+
+    assert set(handlers) == {"console", "requestfailed", "pageerror"}
+
+
+def test_admin_routes_browser_smoke_classifies_expected_missing_auth_console():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_expected_auth_console_under_test",
+    )
+
+    assert script.is_expected_missing_auth_console(
+        {"type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+    )
+    assert not script.is_expected_missing_auth_console(
+        {"type": "error", "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"}
+    )
+    assert not script.is_expected_missing_auth_console({"type": "warning", "text": "401 (Unauthorized)"})
+
+
 def test_product_detail_browser_smoke_uses_phone_viewport_for_mobile_default():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",

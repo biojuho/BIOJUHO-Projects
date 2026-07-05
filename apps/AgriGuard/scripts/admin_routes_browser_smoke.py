@@ -17,6 +17,7 @@ DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 DEFAULT_DESKTOP_VIEWPORT = "1440x960"
 DEFAULT_MOBILE_VIEWPORT = "390x844"
 MISSING_AUTH_DETAIL = "Authorization header missing"
+EXPECTED_AUTH_CONSOLE_FRAGMENT = "401 (Unauthorized)"
 
 
 def parse_args() -> argparse.Namespace:
@@ -147,6 +148,31 @@ def capture_screenshot(page: Page, path: Path, *, mobile: bool) -> None:
     page.screenshot(path=str(path), full_page=not mobile)
 
 
+def attach_page_diagnostics(
+    page: Page,
+    *,
+    console_messages: list[dict[str, str]],
+    request_failures: list[dict[str, str]],
+    page_errors: list[dict[str, str]],
+) -> None:
+    page.on(
+        "console",
+        lambda message: console_messages.append({"type": message.type, "text": message.text})
+        if message.type in {"error", "warning"}
+        else None,
+    )
+    page.on(
+        "requestfailed",
+        lambda req: request_failures.append({"url": req.url, "failure": req.failure or "unknown"}),
+    )
+    page.on("pageerror", lambda exc: page_errors.append({"message": str(exc)}))
+
+
+def is_expected_missing_auth_console(message: dict[str, str]) -> bool:
+    text = message.get("text", "")
+    return message.get("type") == "error" and EXPECTED_AUTH_CONSOLE_FRAGMENT in text
+
+
 def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     checks: list[dict[str, object]] = []
     observations: dict[str, object] = {}
@@ -173,6 +199,12 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         browser = playwright.chromium.launch(headless=True)
 
         anonymous_page = browser.new_page(viewport=viewport, is_mobile=args.mobile, has_touch=args.mobile)
+        attach_page_diagnostics(
+            anonymous_page,
+            console_messages=console_messages,
+            request_failures=request_failures,
+            page_errors=page_errors,
+        )
         anonymous_page.add_init_script("window.localStorage.removeItem('agriguard-operator-token');")
         anonymous_page.goto(route_url(args.base_url, "/qr-tokens"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         anonymous_page.get_by_text("QR Token Management").wait_for(timeout=args.timeout_ms)
@@ -225,17 +257,12 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
             "window.localStorage.setItem('agriguard-operator-token', "
             f"{json.dumps(args.operator_token)});",
         )
-        page.on(
-            "console",
-            lambda message: console_messages.append({"type": message.type, "text": message.text})
-            if message.type in {"error", "warning"}
-            else None,
+        attach_page_diagnostics(
+            page,
+            console_messages=console_messages,
+            request_failures=request_failures,
+            page_errors=page_errors,
         )
-        page.on(
-            "requestfailed",
-            lambda req: request_failures.append({"url": req.url, "failure": req.failure or "unknown"}),
-        )
-        page.on("pageerror", lambda exc: page_errors.append({"message": str(exc)}))
 
         page.goto(route_url(args.base_url, "/qr-tokens"), wait_until="domcontentloaded", timeout=args.timeout_ms)
         page.get_by_text("QR Token Management").wait_for(timeout=args.timeout_ms)
@@ -299,11 +326,22 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     observations["request_failures"] = request_failures
     observations["page_errors"] = page_errors
 
+    expected_auth_console_messages = [
+        item for item in console_messages if is_expected_missing_auth_console(item)
+    ]
     critical_logs = [
         item for item in console_messages if item["type"] == "error" and "favicon" not in item["text"].lower()
+        and not is_expected_missing_auth_console(item)
     ]
     checks.append(check("no_page_errors", not page_errors, json.dumps(page_errors[:3])))
     checks.append(check("no_request_failures", not request_failures, json.dumps(request_failures[:3])))
+    checks.append(
+        check(
+            "expected_missing_auth_console_errors",
+            len(expected_auth_console_messages) == 2,
+            json.dumps(expected_auth_console_messages[:3]),
+        )
+    )
     checks.append(check("no_console_errors", not critical_logs, json.dumps(critical_logs[:3])))
 
     ok = all(item["ok"] for item in checks)
