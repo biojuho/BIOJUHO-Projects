@@ -391,6 +391,31 @@ def validate_screenshot_artifacts(payload: object) -> dict[str, object]:
     }
 
 
+def child_contract_metadata(payload: object) -> dict[str, object]:
+    if not isinstance(payload, dict):
+        return {
+            "child_status": "",
+            "child_ok": None,
+            "child_passed": None,
+            "child_failed": None,
+            "child_total": None,
+            "child_summary_present": False,
+        }
+
+    def int_value(key: str) -> int | None:
+        value = payload.get(key)
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+    return {
+        "child_status": payload.get("status") if isinstance(payload.get("status"), str) else "",
+        "child_ok": payload.get("ok") if isinstance(payload.get("ok"), bool) else None,
+        "child_passed": int_value("passed"),
+        "child_failed": int_value("failed"),
+        "child_total": int_value("total"),
+        "child_summary_present": isinstance(payload.get("summary"), dict),
+    }
+
+
 def _openapi_url(api_url: str) -> str:
     return api_url.rstrip("/") + "/openapi.json"
 
@@ -934,6 +959,7 @@ def summarize_child_report(path: Path) -> dict[str, object]:
             "child_schema_version": None,
             "child_generated_at": "",
             "child_generated_at_valid": False,
+            **child_contract_metadata({}),
             "checks_total": 0,
             "checks_passed": 0,
             "checks_failed": 0,
@@ -945,6 +971,7 @@ def summarize_child_report(path: Path) -> dict[str, object]:
         "child_schema_version": payload.get("schema_version"),
         "child_generated_at": payload.get("generated_at") if isinstance(payload.get("generated_at"), str) else "",
         "child_generated_at_valid": _is_ascii_utc_timestamp(payload.get("generated_at")),
+        **child_contract_metadata(payload),
     }
     artifact_summary = validate_screenshot_artifacts(payload)
     checks = payload.get("checks")
