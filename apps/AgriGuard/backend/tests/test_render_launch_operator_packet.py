@@ -73,6 +73,9 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     assert "password123" not in json.dumps(packet)
     assert packet["preflight_checks"]["runtime"] == "compose"
     assert packet["preflight_checks"]["firebase_credentials_resolved_path"] == "C:/secure/missing-firebase.json"
+    markdown = render_launch_operator_packet.render_markdown(packet)
+    assert "## Preflight Checks" in markdown
+    assert "| `firebase_credentials_resolved_path` | `C:/secure/missing-firebase.json` |" in markdown
     firebase_action = next(
         action for action in packet["operator_actions"] if action["id"] == "set_firebase_service_account_file"
     )

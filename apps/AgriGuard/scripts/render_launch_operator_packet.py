@@ -890,6 +890,16 @@ def build_operator_packet(
     }
 
 
+def _markdown_check_value(value: object) -> str:
+    if value is None or value == "":
+        return "-"
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) or "-"
+    return str(value).replace("|", "\\|")
+
+
 def render_markdown(packet: dict[str, object]) -> str:
     lines = [
         "# AgriGuard Launch Operator Packet",
@@ -928,6 +938,31 @@ def render_markdown(packet: dict[str, object]) -> str:
             )
     else:
         lines.append("No blocking operator actions remain in the selected preflight report.")
+
+    preflight_checks = packet.get("preflight_checks") if isinstance(packet.get("preflight_checks"), dict) else {}
+    check_rows = [
+        (key, _markdown_check_value(preflight_checks.get(key)))
+        for key in (
+            "runtime",
+            "docker_checked",
+            "firebase_credentials_source",
+            "firebase_credentials_resolved_path",
+            "forbidden_launch_flags_enabled",
+            "allowed_origins_source",
+            "public_verify_base_url_source",
+            "database_password_source",
+            "database_url_source",
+        )
+        if key in preflight_checks and _markdown_check_value(preflight_checks.get(key)) != "-"
+    ]
+    lines.extend(["", "## Preflight Checks", ""])
+    if check_rows:
+        lines.append("| Check | Value |")
+        lines.append("| --- | --- |")
+        for key, value in check_rows:
+            lines.append(f"| `{key}` | `{value}` |")
+    else:
+        lines.append("No preflight checks recorded.")
 
     lines.extend(["", "## Preflight Errors", ""])
     errors = packet.get("preflight_errors")
