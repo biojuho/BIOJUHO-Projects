@@ -15,7 +15,12 @@ SPEC.loader.exec_module(render_guarded_launch_handoff)
 RUN_WRAPPER = render_guarded_launch_handoff.run_guarded_launch
 
 
-def _write_operator_packet(path: Path, *, recovery_command_status: str | None = "not_required") -> None:
+def _write_operator_packet(
+    path: Path,
+    *,
+    recovery_command_status: str | None = "not_required",
+    preflight_checks: dict[str, object] | None = None,
+) -> None:
     recovery_summary = (
         {
             "required": False,
@@ -44,6 +49,7 @@ def _write_operator_packet(path: Path, *, recovery_command_status: str | None = 
                 "status": "blocked",
                 "secrets_redacted": True,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                "preflight_checks": preflight_checks or {},
                 "guarded_launch_evidence": {
                     "artifact_index_readiness_summary": artifact_summary,
                     "validation": {
@@ -106,7 +112,15 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         ),
         encoding="utf-8",
     )
-    _write_operator_packet(artifacts["operator_packet_json"])
+    _write_operator_packet(
+        artifacts["operator_packet_json"],
+        preflight_checks={
+            "runtime": "compose",
+            "docker_checked": True,
+            "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+            "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
+        },
+    )
     artifact_index_json = RUN_WRAPPER._default_artifact_index_json(output_dir.resolve(), "blocked")
     artifact_index_json.write_text(
         json.dumps(
@@ -168,6 +182,9 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["packet_validation"]["markdown_table_blocker_class"] == "ready"
     assert handoff["status_view"]["artifact_index"]["status"] == "pass"
     assert handoff["status_view"]["artifact_index"]["blocker_class"] == "ready"
+    assert handoff["status_view"]["operator_packet"]["preflight_checks"]["firebase_credentials_resolved_path"] == (
+        "C:/secure/missing-firebase.json"
+    )
     assert handoff["packet_validation"]["expected_output_key_count"] == 2
     assert handoff["packet_validation"]["artifact_index_recovery_command_status"] == "not_required"
     assert handoff["packet_validation"]["artifact_index_recovery_command_note"] is None
@@ -214,6 +231,8 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "Artifact index readiness command metadata: `pass`" in markdown
     assert "Readiness next action count: `2`" in markdown
     assert "Readiness next command count: `1`" in markdown
+    assert "## Status Preflight Checks" in markdown
+    assert "| `firebase_credentials_resolved_path` | `C:/secure/missing-firebase.json` |" in markdown
     assert "## Readiness Next Actions" in markdown
     assert "- Open the operator packet for exact variables and validation commands." in markdown
     assert "- Provide a real Firebase Admin service-account .json outside the repo." in markdown

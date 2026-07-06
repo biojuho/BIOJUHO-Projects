@@ -234,6 +234,16 @@ def _format_operator_command(command: list[object]) -> str:
     return run_guarded_launch._format_powershell_command([str(part) for part in command]) or ""
 
 
+def _markdown_check_value(value: object) -> str:
+    if value is None or value == "":
+        return "-"
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) or "-"
+    return str(value).replace("|", "\\|")
+
+
 def _operator_command_entry(*, command_id: str, description: str, command: list[str]) -> dict[str, object]:
     return {
         "id": command_id,
@@ -384,6 +394,29 @@ def render_markdown(handoff: dict[str, object]) -> str:
         if isinstance(readiness_summary.get("next_actions"), list)
         else []
     )
+    operator_packet = (
+        status_view.get("operator_packet") if isinstance(status_view.get("operator_packet"), dict) else {}
+    )
+    preflight_checks = (
+        operator_packet.get("preflight_checks")
+        if isinstance(operator_packet.get("preflight_checks"), dict)
+        else {}
+    )
+    preflight_check_rows = [
+        (key, _markdown_check_value(preflight_checks.get(key)))
+        for key in (
+            "runtime",
+            "docker_checked",
+            "firebase_credentials_source",
+            "firebase_credentials_resolved_path",
+            "forbidden_launch_flags_enabled",
+            "allowed_origins_source",
+            "public_verify_base_url_source",
+            "database_password_source",
+            "database_url_source",
+        )
+        if key in preflight_checks and _markdown_check_value(preflight_checks.get(key)) != "-"
+    ]
     artifact_index = status_view.get("artifact_index") if isinstance(status_view.get("artifact_index"), dict) else {}
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
     validation = handoff.get("validation") if isinstance(handoff.get("validation"), dict) else {}
@@ -448,6 +481,13 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Operator packet preflight status: `{readiness_summary.get('operator_packet_preflight_status')}`",
         "",
     ]
+    if preflight_check_rows:
+        lines.extend(["## Status Preflight Checks", ""])
+        lines.append("| Check | Value |")
+        lines.append("| --- | --- |")
+        for key, value in preflight_check_rows:
+            lines.append(f"| `{key}` | `{value}` |")
+        lines.append("")
     if readiness_actions:
         lines.extend(["## Readiness Next Actions", ""])
         lines.extend(f"- {action}" for action in readiness_actions)
