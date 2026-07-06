@@ -22,6 +22,9 @@ def test_launch_readiness_summary_classifies_missing_evidence(tmp_path: Path) ->
     )
 
     assert summary["status"] == "unknown"
+    assert summary["generated_at"].endswith("Z")
+    summary["generated_at"].encode("ascii")
+    assert " " not in summary["generated_at"]
     assert summary["blocker_class"] == "no_launch_evidence"
     assert summary["secrets_redacted"] is True
 
@@ -98,6 +101,7 @@ def test_launch_readiness_markdown_summarizes_env_shape_action_ids(tmp_path: Pat
 
     markdown = summarize_launch_readiness.render_markdown(summary)
 
+    assert f"- Generated: `{summary['generated_at']}`" in markdown
     assert "- Env validation ready for preflight: `false`" in markdown
     assert "- Env validation blocker class: `env_shape_blocked`" in markdown
     assert "- Env validation placeholder count: `6`" in markdown

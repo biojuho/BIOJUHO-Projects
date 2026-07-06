@@ -589,6 +589,7 @@ def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: P
                 json.dumps(
                     {
                         "status": "blocked",
+                        "generated_at": "2026-07-06T12:30:00Z",
                         "blocker_class": "preflight_blocked",
                         "secrets_redacted": True,
                         "next_actions": [
@@ -651,6 +652,7 @@ def test_launch_compose_preflight_failure_can_emit_readiness_summary(tmp_path: P
     assert report["child_reports"]["readiness_summary"] == {
         "found": True,
         "path": str(readiness_summary_json.resolve()),
+        "generated_at": "2026-07-06T12:30:00Z",
         "status": "blocked",
         "blocker_class": "preflight_blocked",
         "secrets_redacted": True,

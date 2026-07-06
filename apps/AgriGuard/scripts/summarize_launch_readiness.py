@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,10 @@ def _workspace_root(app_root: Path) -> Path:
     if app_root.parent.name == "apps":
         return app_root.parents[1]
     return app_root.parent
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _rel(path: Path, root: Path) -> str:
@@ -363,6 +368,7 @@ def build_summary(
     )
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": status,
         "blocker_class": blocker_class,
         "secrets_redacted": True,
@@ -420,6 +426,7 @@ def render_markdown(summary: dict[str, object]) -> str:
     lines = [
         "# AgriGuard Launch Readiness Summary",
         "",
+        f"- Generated: `{summary.get('generated_at') or '-'}`",
         f"- Status: `{summary['status']}`",
         f"- Blocker class: `{summary['blocker_class']}`",
         f"- Launch report blocker class: `{launch.get('blocker_class') or '-'}`",

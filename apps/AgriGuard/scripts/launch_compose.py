@@ -291,6 +291,7 @@ def _summarize_readiness_summary_json(path: Path) -> dict[str, object]:
     return {
         "found": True,
         "path": str(path),
+        "generated_at": payload.get("generated_at"),
         "status": payload.get("status"),
         "blocker_class": payload.get("blocker_class"),
         "secrets_redacted": payload.get("secrets_redacted"),

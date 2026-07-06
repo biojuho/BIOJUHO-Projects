@@ -609,7 +609,14 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
                             "generated_at": "initial-packet",
                             "preflight_status": "fail",
                             "consumer_command_metadata_status": None,
-                        }
+                        },
+                        "readiness_summary": {
+                            "found": True,
+                            "path": str(artifacts["readiness_summary_json"]),
+                            "generated_at": "initial-readiness",
+                            "status": "blocked",
+                            "blocker_class": "preflight_blocked",
+                        },
                     },
                     "results": [],
                 }
@@ -624,6 +631,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
                 {
                     "status": "blocked",
                     "blocker_class": "preflight_blocked",
+                    "generated_at": "initial-readiness",
                     "reports": {
                         "operator_packet": {
                             "generated_at": "initial-packet",
@@ -745,6 +753,8 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     launch_report = json.loads(artifacts["launch_report_json"].read_text(encoding="utf-8"))
     operator_packet = launch_report["child_reports"]["operator_packet"]
     assert operator_packet["generated_at"] == "refresh-3"
+    launch_readiness_summary = launch_report["child_reports"]["readiness_summary"]
+    assert launch_readiness_summary["generated_at"] == "refresh-3"
     assert operator_packet["artifact_index_status"] == "pass"
     assert operator_packet["artifact_index_blocker_class"] == "ready"
     assert operator_packet["consumer_packet_validation_status"] == "pass"
@@ -752,6 +762,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     assert operator_packet["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert operator_packet["artifact_index_recovery_command_status"] == "not_required"
     readiness_summary = json.loads(artifacts["readiness_summary_json"].read_text(encoding="utf-8"))
+    assert readiness_summary["generated_at"] == "refresh-3"
     readiness_operator_packet = readiness_summary["reports"]["operator_packet"]
     assert readiness_operator_packet["generated_at"] == "refresh-3"
     assert readiness_operator_packet["artifact_index_status"] == "pass"
@@ -764,6 +775,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     )
     assert readiness_operator_packet["artifact_index_recovery_command_status"] == "not_required"
     readiness_markdown = artifacts["readiness_summary_markdown"].read_text(encoding="utf-8")
+    assert "- Generated: `refresh-3`" in readiness_markdown
     assert "- Operator packet generated at: `refresh-3`" in readiness_markdown
     assert "- Consumer command metadata: `pass`" in readiness_markdown
     assert "- Consumer readiness command metadata: `pass`" in readiness_markdown

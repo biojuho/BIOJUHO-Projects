@@ -729,6 +729,7 @@ def _refresh_readiness_summary_operator_packet_fields(
     if not isinstance(operator_packet, dict):
         return False
     operator_packet.update(fields)
+    readiness_summary["generated_at"] = fields.get("generated_at") or _generated_timestamp_utc()
     write_json(readiness_summary_json, readiness_summary)
     if readiness_summary_markdown is not None:
         summarize_launch_readiness = _load_peer_module("summarize_launch_readiness")
@@ -737,6 +738,37 @@ def _refresh_readiness_summary_operator_packet_fields(
             summarize_launch_readiness.render_markdown(readiness_summary) + "\n",
             encoding="utf-8",
         )
+    return True
+
+
+def _refresh_launch_report_readiness_summary_fields(
+    *,
+    launch_report_json: Path,
+    readiness_summary_json: Path,
+) -> bool:
+    launch_report = _read_json(launch_report_json)
+    readiness_summary = _read_json(readiness_summary_json)
+    if launch_report is None or readiness_summary is None:
+        return False
+    child_reports = launch_report.get("child_reports")
+    if not isinstance(child_reports, dict):
+        return False
+    child_summary = child_reports.get("readiness_summary")
+    if not isinstance(child_summary, dict):
+        return False
+    child_summary.update(
+        {
+            "found": True,
+            "path": str(readiness_summary_json),
+            "generated_at": readiness_summary.get("generated_at"),
+            "status": readiness_summary.get("status"),
+            "blocker_class": readiness_summary.get("blocker_class"),
+            "secrets_redacted": readiness_summary.get("secrets_redacted"),
+            "next_actions": _string_list(readiness_summary.get("next_actions")),
+            "next_commands": _next_commands_from_summary(readiness_summary),
+        }
+    )
+    write_json(launch_report_json, launch_report)
     return True
 
 
@@ -1477,6 +1509,10 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             readiness_summary_markdown=artifact_paths["readiness_summary_markdown"],
             operator_packet_json=artifact_paths["operator_packet_json"],
         )
+        _refresh_launch_report_readiness_summary_fields(
+            launch_report_json=artifact_paths["launch_report_json"],
+            readiness_summary_json=artifact_paths["readiness_summary_json"],
+        )
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
         if handoff_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = handoff_result.returncode
@@ -1528,6 +1564,10 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     readiness_summary_json=artifact_paths["readiness_summary_json"],
                     readiness_summary_markdown=artifact_paths["readiness_summary_markdown"],
                     operator_packet_json=artifact_paths["operator_packet_json"],
+                )
+                _refresh_launch_report_readiness_summary_fields(
+                    launch_report_json=artifact_paths["launch_report_json"],
+                    readiness_summary_json=artifact_paths["readiness_summary_json"],
                 )
                 handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
                 if handoff_result.returncode != 0 and post_launch_returncode == 0:
