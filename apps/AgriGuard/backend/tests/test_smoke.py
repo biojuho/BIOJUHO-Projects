@@ -1700,6 +1700,35 @@ def test_admin_routes_browser_smoke_filters_aborted_request_failures():
     assert script.actionable_request_failures(failures) == [failures[1]]
 
 
+def test_admin_routes_browser_smoke_enriches_launch_evidence_contract():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_contract_under_test",
+    )
+
+    report = script.enrich_launch_evidence_contract(
+        {
+            "baseUrl": "http://127.0.0.1:5174",
+            "apiUrl": "http://127.0.0.1:8002",
+            "screenshotDir": "var/admin-routes",
+            "checks": [
+                script.check("seed_product_created", True),
+                script.check("sensor_registered", False, "missing sensor"),
+            ],
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert report["base_url"] == "http://127.0.0.1:5174"
+    assert report["api_url"] == "http://127.0.0.1:8002"
+    assert report["passed"] == 1
+    assert report["failed"] == 1
+    assert report["total"] == 2
+    assert report["ok"] is False
+    assert report["summary"]["failed_check_names"] == ["sensor_registered"]
+    assert report["summary"]["screenshot_dir"] == "var/admin-routes"
+
+
 def test_admin_routes_browser_smoke_redacts_public_qr_tokens_from_report():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
@@ -1798,6 +1827,35 @@ def test_product_detail_browser_smoke_filters_aborted_request_failures():
     ]
 
     assert script.actionable_request_failures(failures) == [failures[1]]
+
+
+def test_product_detail_browser_smoke_enriches_launch_evidence_contract():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",
+        "product_detail_browser_smoke_contract_under_test",
+    )
+
+    report = script.enrich_launch_evidence_contract(
+        {
+            "baseUrl": "http://127.0.0.1:5174",
+            "apiUrl": "http://127.0.0.1:8002",
+            "screenshotDir": "var/product-detail",
+            "checks": [
+                script.check("product_detail_loaded", True),
+                script.check("tracking_event_saved", False, "missing saved toast"),
+            ],
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert report["base_url"] == "http://127.0.0.1:5174"
+    assert report["api_url"] == "http://127.0.0.1:8002"
+    assert report["passed"] == 1
+    assert report["failed"] == 1
+    assert report["total"] == 2
+    assert report["ok"] is False
+    assert report["summary"]["failed_check_names"] == ["tracking_event_saved"]
+    assert report["summary"]["screenshot_dir"] == "var/product-detail"
 
 
 def test_product_detail_browser_smoke_redacts_public_qr_tokens_from_report():

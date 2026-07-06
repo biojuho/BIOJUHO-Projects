@@ -75,6 +75,47 @@ def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
     return {"name": name, "ok": bool(ok), "detail": detail}
 
 
+def summarize_checks(checks: list[dict[str, object]]) -> dict[str, object]:
+    passed = sum(1 for item in checks if item.get("ok") is True)
+    failed_check_names = [
+        str(item.get("name") or f"check_{index}")
+        for index, item in enumerate(checks, start=1)
+        if item.get("ok") is not True
+    ]
+    return {
+        "passed": passed,
+        "failed": len(checks) - passed,
+        "total": len(checks),
+        "failed_check_names": failed_check_names,
+    }
+
+
+def enrich_launch_evidence_contract(report: dict[str, object]) -> dict[str, object]:
+    raw_checks = report.get("checks", [])
+    checks = [item for item in raw_checks if isinstance(item, dict)] if isinstance(raw_checks, list) else []
+    summary = summarize_checks(checks)
+    status = "pass" if summary["failed"] == 0 else "fail"
+    report.update(
+        {
+            "status": status,
+            "base_url": report.get("baseUrl", ""),
+            "api_url": report.get("apiUrl", ""),
+            "passed": summary["passed"],
+            "failed": summary["failed"],
+            "total": summary["total"],
+            "ok": status == "pass",
+            "summary": {
+                **summary,
+                "base_url": report.get("baseUrl", ""),
+                "api_url": report.get("apiUrl", ""),
+                "screenshot_dir": report.get("screenshotDir", ""),
+            },
+            "screenshot_dir": report.get("screenshotDir", ""),
+        }
+    )
+    return report
+
+
 def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -437,13 +478,15 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         "schema_version": 1,
         "generated_at": _generated_timestamp_utc(),
         "status": "pass" if ok else "fail",
+        "baseUrl": args.base_url,
+        "apiUrl": args.api_url,
         "checks": checks,
         "viewport": viewport,
         "mobile": bool(args.mobile),
         "observations": observations,
         "screenshotDir": str(screenshot_dir),
     }
-    return dict(redact_report_public_tokens(report, extract_public_qr_route_tokens(report)))
+    return dict(redact_report_public_tokens(enrich_launch_evidence_contract(report), extract_public_qr_route_tokens(report)))
 
 
 def main() -> int:
@@ -455,15 +498,22 @@ def main() -> int:
             "schema_version": 1,
             "generated_at": _generated_timestamp_utc(),
             "status": "fail",
+            "baseUrl": args.base_url,
+            "apiUrl": args.api_url,
             "checks": [check("unhandled_exception", False, str(exc))],
             "viewport": resolve_viewport(mobile=args.mobile, viewport=args.viewport),
             "mobile": bool(args.mobile),
             "observations": {},
             "screenshotDir": args.screenshot_dir,
         }
+        result = enrich_launch_evidence_contract(result)
     redacted_result = dict(redact_report_public_tokens(result, extract_public_qr_route_tokens(result)))
     write_json(args.json_out, redacted_result)
-    print(f"admin routes browser smoke {redacted_result['status']}: {args.json_out}")
+    print(
+        f"admin routes browser smoke {redacted_result['status']}: "
+        f"{redacted_result['passed']}/{redacted_result['total']} checks passed"
+    )
+    print(f"json written: {args.json_out}")
     return 0 if redacted_result["status"] == "pass" else 1
 
 
