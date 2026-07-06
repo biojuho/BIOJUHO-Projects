@@ -449,7 +449,13 @@ export default function QRTokenManager() {
                         <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
                           Token
                         </span>
-                        <div className="break-all font-mono text-foreground">{token.token_prefix}</div>
+                        <div
+                          data-testid="qr-token-prefix"
+                          title={token.token_prefix}
+                          className="block max-w-full truncate font-mono text-foreground md:max-w-52"
+                        >
+                          {token.token_prefix}
+                        </div>
                         <div
                           data-testid="qr-token-id"
                           title={token.id}

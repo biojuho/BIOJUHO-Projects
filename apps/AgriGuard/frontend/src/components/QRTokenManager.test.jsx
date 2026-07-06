@@ -141,6 +141,10 @@ describe('QRTokenManager', () => {
     const rows = screen.getAllByTestId('qr-token-row');
     expect(rows[0]).toHaveClass('block');
     expect(rows[0]).toHaveClass('md:table-row');
+    const tokenPrefixes = screen.getAllByTestId('qr-token-prefix');
+    expect(tokenPrefixes[0]).toHaveAttribute('title', 'tok_active');
+    expect(tokenPrefixes[0]).toHaveClass('truncate');
+    expect(tokenPrefixes[0]).not.toHaveClass('break-all');
     const tokenIds = screen.getAllByTestId('qr-token-id');
     expect(tokenIds[0]).toHaveTextContent('token-active-1');
     expect(tokenIds[0]).toHaveAttribute('title', 'token-active-1');
