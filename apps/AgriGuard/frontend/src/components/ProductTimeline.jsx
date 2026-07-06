@@ -175,14 +175,28 @@ export default function ProductTimeline({ history = [] }) {
               <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl hover:bg-slate-900/60 hover:border-white/10 hover:shadow-[0_8px_30px_rgb(0,0,0,0.15)] transition-all duration-300">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
-                    <span className={`px-2.5 py-0.5 rounded text-xs font-bold font-mono tracking-wider ${isLatest ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-300 border border-slate-700/50'}`}>
+                    <span
+                      data-testid="timeline-block-number"
+                      title={`Block ${block.block}`}
+                      className={`px-2.5 py-0.5 rounded text-xs font-bold font-mono tracking-wider ${isLatest ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-300 border border-slate-700/50'}`}
+                    >
                       BLOCK #{block.block}
                     </span>
-                    <h4 className="text-base font-bold text-slate-100 group-hover:text-white transition-colors">
+                    <h4
+                      data-testid="timeline-event-label"
+                      title={formatEventLabel(data?.action)}
+                      className="text-base font-bold text-slate-100 group-hover:text-white transition-colors"
+                    >
                       {formatEventLabel(data?.action)}
                     </h4>
                   </div>
-                  <span className="text-xs font-mono text-slate-400 bg-slate-950/40 px-2 py-1 rounded border border-white/5">{dateStr}</span>
+                  <span
+                    data-testid="timeline-event-date"
+                    title={dateStr}
+                    className="max-w-full break-words rounded border border-white/5 bg-slate-950/40 px-2 py-1 text-left text-xs font-mono text-slate-400 md:text-right"
+                  >
+                    {dateStr}
+                  </span>
                 </div>
 
                 <div className="space-y-2 mt-3 bg-slate-950/20 p-3.5 rounded-xl border border-white/5">

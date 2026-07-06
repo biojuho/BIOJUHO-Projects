@@ -141,6 +141,12 @@ describe('ProductDetail', () => {
         & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
       expect(screen.getByText('Registered')).toBeInTheDocument();
+      expect(screen.getByTestId('timeline-block-number')).toHaveAttribute('title', 'Block 1');
+      expect(screen.getByTestId('timeline-event-label')).toHaveAttribute('title', 'Registered');
+      expect(screen.getByTestId('timeline-event-date')).toHaveTextContent(timelineLocalizedTimestamp);
+      expect(screen.getByTestId('timeline-event-date')).toHaveAttribute('title', timelineLocalizedTimestamp);
+      expect(screen.getByTestId('timeline-event-date')).toHaveClass('break-words');
+      expect(screen.getByTestId('timeline-event-date')).toHaveClass('max-w-full');
       expect(screen.getByTestId('timeline-data-value-status')).toHaveTextContent('In Transit');
       expect(screen.queryByText('IN_TRANSIT')).not.toBeInTheDocument();
       expect(screen.getByTestId('timeline-data-value-timestamp')).toHaveTextContent(timelineLocalizedTimestamp);
