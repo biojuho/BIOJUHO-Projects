@@ -34,6 +34,15 @@ def _write_operator_packet_outputs(command: list[str]) -> None:
                     "artifact_index_readiness_summary": {
                         "status": "pass",
                         "blocker_class": "ready",
+                        "stale_generated_at_roles": ["ready_gate_json"],
+                        "stale_generated_at_details": [
+                            {
+                                "role": "ready_gate_json",
+                                "generated_at": "2026-07-06T12:52:04Z",
+                                "minimum_role": "handoff_consumer_json",
+                                "minimum_generated_at": "2026-07-06T15:20:59Z",
+                            }
+                        ],
                         "consumer_packet_validation_status": "pass",
                         "consumer_command_metadata_status": "pass",
                         "recovery_command_status": "not_required",
@@ -343,6 +352,17 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     assert report["child_reports"]["operator_packet"]["blocker_class"] == "env_shape_blocked"
     assert report["child_reports"]["operator_packet"]["preflight_status"] == "env_shape_blocked"
     assert report["child_reports"]["operator_packet"]["operator_action_ids"] == ["fix_env_shape_validation"]
+    assert report["child_reports"]["operator_packet"]["artifact_index_stale_generated_at_roles"] == [
+        "ready_gate_json"
+    ]
+    assert report["child_reports"]["operator_packet"]["artifact_index_stale_generated_at_details"] == [
+        {
+            "role": "ready_gate_json",
+            "generated_at": "2026-07-06T12:52:04Z",
+            "minimum_role": "handoff_consumer_json",
+            "minimum_generated_at": "2026-07-06T15:20:59Z",
+        }
+    ]
     assert report["child_reports"]["operator_packet"]["consumer_command_metadata_status"] == "pass"
 
 
@@ -546,6 +566,8 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "env_template_variables": ["AGRIGUARD_SECRET_KEY"],
         "artifact_index_status": "pass",
         "artifact_index_blocker_class": "ready",
+        "artifact_index_stale_generated_at_roles": [],
+        "artifact_index_stale_generated_at_details": [],
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
         "artifact_index_recovery_command_status": "not_required",

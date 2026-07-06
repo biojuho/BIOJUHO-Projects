@@ -131,6 +131,12 @@ def _string_list(value: object) -> list[str]:
     return [item for item in value if isinstance(item, str)]
 
 
+def _dict_list(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, dict)]
+
+
 def _summarize_preflight_json(path: Path) -> dict[str, object]:
     payload = _read_json_file(path)
     if payload is None:
@@ -258,6 +264,12 @@ def _summarize_operator_packet_json(
             {
                 "artifact_index_status": artifact_index_summary.get("status"),
                 "artifact_index_blocker_class": artifact_index_summary.get("blocker_class"),
+                "artifact_index_stale_generated_at_roles": _string_list(
+                    artifact_index_summary.get("stale_generated_at_roles")
+                ),
+                "artifact_index_stale_generated_at_details": _dict_list(
+                    artifact_index_summary.get("stale_generated_at_details")
+                ),
                 "consumer_packet_validation_status": artifact_index_summary.get(
                     "consumer_packet_validation_status"
                 ),
