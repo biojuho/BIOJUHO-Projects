@@ -111,6 +111,12 @@ def _string_list(value: Any) -> list[str]:
     return [str(item) for item in value if isinstance(item, str)]
 
 
+def _dict_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, dict)]
+
+
 def _operator_action_ids_from_packet(payload: dict[str, Any] | None) -> list[str]:
     if payload is None:
         return []
@@ -463,6 +469,11 @@ def _build_status_view(
         if artifact_index is not None and isinstance(artifact_index.get("missing_generated_at_roles"), list)
         else []
     )
+    stale_generated_at_roles = (
+        artifact_index.get("stale_generated_at_roles")
+        if artifact_index is not None and isinstance(artifact_index.get("stale_generated_at_roles"), list)
+        else []
+    )
     artifact_index_recovery_summary = (
         _artifact_index_recovery_summary(artifact_index, _packet_guarded_wrapper_command(packet))
         if artifact_index is not None
@@ -586,6 +597,12 @@ def _build_status_view(
             "missing_generated_at_roles": [
                 str(role) for role in missing_generated_at_roles if isinstance(role, str)
             ],
+            "stale_generated_at_roles": [
+                str(role) for role in stale_generated_at_roles if isinstance(role, str)
+            ],
+            "stale_generated_at_details": _dict_list(
+                artifact_index.get("stale_generated_at_details") if artifact_index is not None else None
+            ),
             "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status")
             if artifact_index is not None
             else None,
@@ -1010,6 +1027,11 @@ def _artifact_index_readiness_summary(
         if isinstance(index, dict)
         else []
     )
+    stale_generated_at_roles = (
+        index.get("stale_generated_at_roles")
+        if isinstance(index, dict) and isinstance(index.get("stale_generated_at_roles"), list)
+        else []
+    )
     return {
         "found": index is not None,
         "path": str(index_json),
@@ -1025,6 +1047,12 @@ def _artifact_index_readiness_summary(
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
+        "stale_generated_at_roles": [
+            str(role) for role in stale_generated_at_roles if isinstance(role, str)
+        ],
+        "stale_generated_at_details": _dict_list(
+            index.get("stale_generated_at_details") if isinstance(index, dict) else None
+        ),
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
         "next_actions": next_actions,
         "next_commands": next_commands,

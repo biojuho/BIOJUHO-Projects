@@ -287,6 +287,8 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["artifact_index_status"] == "pass"
     assert view["artifact_index_blocker_class"] == "ready"
     assert view["artifact_index_missing_generated_at_roles"] == []
+    assert view["artifact_index_stale_generated_at_roles"] == []
+    assert view["artifact_index_stale_generated_at_details"] == []
     assert view["consumer_packet_validation_status"] == "pass"
     assert view["consumer_command_metadata_status"] == "pass"
     assert view["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"

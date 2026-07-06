@@ -162,6 +162,8 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
             "note": None,
             "command": None,
         },
+        "stale_generated_at_roles": [],
+        "stale_generated_at_details": [],
         "operator_action_ids": ["fix_env_shape_validation"],
         "next_actions": [
             "Replace env template placeholders and sample domains.",
@@ -1301,6 +1303,8 @@ def test_guarded_launch_status_only_derives_missing_child_blocker_classes(tmp_pa
     assert payload["artifact_index"]["blocker_class"] == "ready"
     assert payload["artifact_index"]["consumer_metadata_status"] == "pass"
     assert payload["artifact_index"]["missing_generated_at_roles"] == []
+    assert payload["artifact_index"]["stale_generated_at_roles"] == []
+    assert payload["artifact_index"]["stale_generated_at_details"] == []
 
 
 def test_guarded_launch_status_only_blocks_stale_pass_artifact_index_metadata(tmp_path: Path, capsys) -> None:
@@ -1424,6 +1428,77 @@ def test_guarded_launch_status_only_reports_missing_artifact_freshness_roles(tmp
     assert payload["artifact_index"]["status"] == "fail"
     assert payload["artifact_index"]["blocker_class"] == "artifact_index_blocked"
     assert payload["artifact_index"]["missing_generated_at_roles"] == ["handoff_consumer_json"]
+    assert payload["artifact_index"]["stale_generated_at_roles"] == []
+    assert payload["artifact_index"]["stale_generated_at_details"] == []
+
+
+def test_guarded_launch_status_only_reports_stale_artifact_freshness_roles(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    artifact_index = output_dir.resolve() / "blocked-artifact-index.json"
+    artifacts["launch_report_json"].parent.mkdir(parents=True, exist_ok=True)
+    artifacts["launch_report_json"].write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "stage": "preflight",
+                "stop_reason": "preflight_failed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifact_index.write_text(
+        json.dumps(
+            {
+                "status": "fail",
+                "missing_required_roles": [],
+                "missing_generated_at_roles": [],
+                "stale_generated_at_roles": ["ready_gate_json"],
+                "stale_generated_at_details": [
+                    {
+                        "role": "ready_gate_json",
+                        "generated_at": "2026-07-06T12:52:04Z",
+                        "minimum_role": "handoff_consumer_json",
+                        "minimum_generated_at": "2026-07-06T15:20:59Z",
+                    }
+                ],
+                "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
+                "recovery_command_status": "pass",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json",
+            str(artifact_index),
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["artifact_index"]["status"] == "fail"
+    assert payload["artifact_index"]["blocker_class"] == "artifact_index_blocked"
+    assert payload["artifact_index"]["stale_generated_at_roles"] == ["ready_gate_json"]
+    assert payload["artifact_index"]["stale_generated_at_details"] == [
+        {
+            "role": "ready_gate_json",
+            "generated_at": "2026-07-06T12:52:04Z",
+            "minimum_role": "handoff_consumer_json",
+            "minimum_generated_at": "2026-07-06T15:20:59Z",
+        }
+    ]
 
 
 def test_guarded_launch_status_only_derives_top_blocker_without_summary(tmp_path: Path, capsys) -> None:
@@ -1570,6 +1645,8 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "blocker_class": "ready",
         "missing_required_roles": [],
         "missing_generated_at_roles": [],
+        "stale_generated_at_roles": [],
+        "stale_generated_at_details": [],
         "consumer_packet_validation_status": "pass",
         "consumer_metadata_status": "pass",
         "consumer_command_metadata_status": "pass",

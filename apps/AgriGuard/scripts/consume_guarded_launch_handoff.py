@@ -351,6 +351,16 @@ def build_consumer_view(
         "artifact_index_missing_generated_at_roles": _string_list(
             artifact_index.get("missing_generated_at_roles")
         ),
+        "artifact_index_stale_generated_at_roles": _string_list(
+            artifact_index.get("stale_generated_at_roles")
+        ),
+        "artifact_index_stale_generated_at_details": [
+            dict(item)
+            for item in artifact_index.get("stale_generated_at_details", [])
+            if isinstance(item, dict)
+        ]
+        if isinstance(artifact_index.get("stale_generated_at_details"), list)
+        else [],
         "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status"),
         "consumer_command_metadata_status": artifact_index.get("consumer_command_metadata_status"),
         "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index.get(

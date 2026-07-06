@@ -542,6 +542,39 @@
               },
               "type": "array"
             },
+            "stale_generated_at_roles": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "stale_generated_at_details": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "generated_at": {
+                    "type": "string"
+                  },
+                  "minimum_generated_at": {
+                    "type": "string"
+                  },
+                  "minimum_role": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "role",
+                  "generated_at",
+                  "minimum_role",
+                  "minimum_generated_at"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
             "path": {
               "type": [
                 "string",
@@ -568,6 +601,8 @@
             "blocker_class",
             "missing_required_roles",
             "missing_generated_at_roles",
+            "stale_generated_at_roles",
+            "stale_generated_at_details",
             "consumer_packet_validation_status",
             "consumer_metadata_status",
             "consumer_command_metadata_status",

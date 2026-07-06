@@ -262,6 +262,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert f"Artifact index path: `{artifact_index_json.resolve()}`" in markdown
     assert "Artifact index blocker class: `ready`" in markdown
     assert "Artifact index missing generated_at roles: `-`" in markdown
+    assert "Artifact index stale generated_at roles: `-`" in markdown
     assert "Artifact index consumer packet validation: `pass`" in markdown
     assert "Artifact index consumer command metadata: `pass`" in markdown
     assert "Artifact index readiness command metadata: `pass`" in markdown
