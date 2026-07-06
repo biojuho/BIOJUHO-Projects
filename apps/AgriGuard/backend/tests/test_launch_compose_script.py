@@ -507,6 +507,17 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
                         "preflight_status": "fail",
                         "blocking_action_count": 1,
                         "operator_actions": [{"id": "set_secret_key"}],
+                        "compose_replacement_guard": {
+                            "current_runtime_action_before_preflight": "none",
+                            "compose_replacement_requires_env_shape_validation": False,
+                            "compose_replacement_requires_strict_preflight": True,
+                            "compose_runs_only_after_preflight_passes": True,
+                            "blocked_stop_reasons": [
+                                "env_shape_validation_requires_single_env_file",
+                                "env_shape_validation_failed",
+                                "preflight_failed",
+                            ],
+                        },
                         "operator_env_template": {
                             "variables": ["AGRIGUARD_SECRET_KEY"],
                         },
@@ -589,6 +600,17 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "preflight_status": "fail",
         "blocking_action_count": 1,
         "operator_action_ids": ["set_secret_key"],
+        "compose_replacement_guard": {
+            "current_runtime_action_before_preflight": "none",
+            "compose_replacement_requires_env_shape_validation": False,
+            "compose_replacement_requires_strict_preflight": True,
+            "compose_runs_only_after_preflight_passes": True,
+            "blocked_stop_reasons": [
+                "env_shape_validation_requires_single_env_file",
+                "env_shape_validation_failed",
+                "preflight_failed",
+            ],
+        },
         "env_template_variables": ["AGRIGUARD_SECRET_KEY"],
         "artifact_index_status": "pass",
         "artifact_index_blocker_class": "ready",

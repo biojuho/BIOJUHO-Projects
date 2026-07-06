@@ -76,8 +76,23 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     assert "password123" not in json.dumps(packet)
     assert packet["preflight_checks"]["runtime"] == "compose"
     assert packet["preflight_checks"]["firebase_credentials_resolved_path"] == "C:/secure/missing-firebase.json"
+    assert packet["compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": False,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     markdown = render_launch_operator_packet.render_markdown(packet)
     assert f"Generated: `{packet['generated_at']}`" in markdown
+    assert "Compose replacement action before preflight: `none`" in markdown
+    assert "Compose replacement requires env-shape validation: `false`" in markdown
+    assert "Compose replacement requires strict preflight: `true`" in markdown
+    assert "Compose runs only after preflight passes: `true`" in markdown
     assert "## Preflight Checks" in markdown
     assert "| `firebase_credentials_resolved_path` | `C:/secure/missing-firebase.json` |" in markdown
     firebase_action = next(
@@ -172,6 +187,10 @@ def test_operator_packet_preserves_env_file_in_safe_rerun_commands(tmp_path: Pat
     )
 
     assert packet["operator_env_files"] == ["var/operator.env"]
+    assert packet["compose_replacement_guard"]["current_runtime_action_before_preflight"] == "none"
+    assert packet["compose_replacement_guard"]["compose_replacement_requires_env_shape_validation"] is True
+    assert packet["compose_replacement_guard"]["compose_replacement_requires_strict_preflight"] is True
+    assert packet["compose_replacement_guard"]["compose_runs_only_after_preflight_passes"] is True
     assert packet["safe_rerun_commands"][0] == _command(
         [
             render_launch_operator_packet.sys.executable,
@@ -980,6 +999,7 @@ def test_operator_packet_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_
     assert packet["blocker_class"] == "operator_values_required"
     assert packet["guarded_launch_evidence"]["markdown_table_validation"]["status"] == "pass"
     assert packet["guarded_launch_evidence"]["markdown_table_validation"]["blocker_class"] == "ready"
+    assert packet["compose_replacement_guard"]["compose_replacement_requires_strict_preflight"] is True
     assert "validate_launch_env_template.py" in packet["safe_rerun_commands"][0]
     assert str(APP_ROOT) in packet["safe_rerun_commands"][0]
     assert "run_guarded_launch.py" in packet["safe_rerun_commands"][1]

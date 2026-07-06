@@ -249,6 +249,9 @@ def _summarize_operator_packet_json(
         "env_template_variables": template_variables,
         "secrets_redacted": payload.get("secrets_redacted"),
     }
+    compose_replacement_guard = payload.get("compose_replacement_guard")
+    if isinstance(compose_replacement_guard, dict):
+        summary["compose_replacement_guard"] = dict(compose_replacement_guard)
     guarded_evidence = (
         payload.get("guarded_launch_evidence")
         if isinstance(payload.get("guarded_launch_evidence"), dict)

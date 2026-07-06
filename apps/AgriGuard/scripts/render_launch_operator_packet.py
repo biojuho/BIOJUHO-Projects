@@ -674,6 +674,20 @@ def _packet_blocker_class(*, preflight_status: str, blocked: bool) -> str:
     return "operator_values_required"
 
 
+def _compose_replacement_guard(*, validate_env_file_shape: bool) -> dict[str, object]:
+    return {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": validate_env_file_shape,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
+
+
 def build_operator_packet(
     *,
     preflight_json: Path,
@@ -765,6 +779,7 @@ def build_operator_packet(
         actions = _build_actions(errors)
 
     blocked = status != "pass" or bool(actions)
+    validate_env_file_shape = len(env_files) == 1
     guarded_output_dir = (guarded_output_dir or (workspace_root / "var")).resolve()
     guarded_output_prefix = guarded_output_prefix or run_guarded_launch.DEFAULT_OUTPUT_PREFIX
     guarded_status_json = (
@@ -796,7 +811,7 @@ def build_operator_packet(
         str(app_root.resolve()),
         *_env_file_args(env_files),
     ]
-    if len(env_files) == 1:
+    if validate_env_file_shape:
         rerun_launch_parts.extend(
             [
                 "--validate-env-file-shape",
@@ -905,6 +920,9 @@ def build_operator_packet(
             "database_password_source": checks.get("database_password_source"),
             "database_url_source": checks.get("database_url_source"),
         },
+        "compose_replacement_guard": _compose_replacement_guard(
+            validate_env_file_shape=validate_env_file_shape
+        ),
         "operator_env_template": {
             "format": "dotenv",
             "placeholder_values_must_be_replaced": True,
@@ -946,6 +964,11 @@ def _markdown_count_ratio(summary: dict[str, object], passed_key: str, total_key
 
 
 def render_markdown(packet: dict[str, object]) -> str:
+    compose_replacement_guard = (
+        packet.get("compose_replacement_guard")
+        if isinstance(packet.get("compose_replacement_guard"), dict)
+        else {}
+    )
     lines = [
         "# AgriGuard Launch Operator Packet",
         "",
@@ -953,6 +976,14 @@ def render_markdown(packet: dict[str, object]) -> str:
         f"- Status: `{packet['status']}`",
         f"- Blocker class: `{packet['blocker_class']}`",
         f"- Preflight status: `{packet['preflight_status']}`",
+        "- Compose replacement action before preflight: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('current_runtime_action_before_preflight'))}`",
+        "- Compose replacement requires env-shape validation: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('compose_replacement_requires_env_shape_validation'))}`",
+        "- Compose replacement requires strict preflight: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('compose_replacement_requires_strict_preflight'))}`",
+        "- Compose runs only after preflight passes: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('compose_runs_only_after_preflight_passes'))}`",
         f"- Env validation blocker class: `{packet.get('env_validation_blocker_class') or '-'}`",
         f"- Preflight JSON: `{packet['preflight_json']}`",
         f"- Secrets redacted: `{str(packet['secrets_redacted']).lower()}`",
