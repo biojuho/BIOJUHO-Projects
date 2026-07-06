@@ -108,10 +108,8 @@ export default function ProductTimeline({ history = [] }) {
     );
   }
 
-  // 역순 정렬하여 최신 이벤트가 위에 나타나게 하거나
-  // 원본 순서(일반적으로 과거->현재 순)대로 그릴지 결정
-  // 블록번호 기준으로 오름차순(과거->최신)으로 그린다고 가정하고
-  // 마지막 요소가 최신(idx === history.length - 1)
+  // Render in source order, which is expected to be ascending by block number
+  // from oldest to newest. The final item is therefore the latest event.
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
