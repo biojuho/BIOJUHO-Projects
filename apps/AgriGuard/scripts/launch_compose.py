@@ -144,11 +144,19 @@ def _summarize_browser_smoke_json(path: Path) -> dict[str, object]:
     payload = _read_json_file(path)
     if payload is None:
         return {"found": False, "path": str(path)}
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
     return {
         "found": True,
         "path": str(path),
         "status": payload.get("status"),
-        "summary": payload.get("summary") if isinstance(payload.get("summary"), dict) else {},
+        "base_url": payload.get("base_url"),
+        "api_url": payload.get("api_url"),
+        "mobile": payload.get("mobile"),
+        "include_unavailable_check": payload.get("include_unavailable_check"),
+        "summary": summary,
+        "failed_step_names": _string_list(summary.get("failed_step_names")),
+        "failed_check_names": _string_list(summary.get("failed_check_names")),
+        "failed_precheck_names": _string_list(summary.get("failed_precheck_names")),
         "prechecks": payload.get("prechecks") if isinstance(payload.get("prechecks"), list) else [],
     }
 

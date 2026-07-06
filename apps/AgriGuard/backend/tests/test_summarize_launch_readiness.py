@@ -164,6 +164,10 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                         "status": "blocked",
                         "operator_action_ids": ["set_firebase_service_account_file"],
                     },
+                    "browser_smoke": {
+                        "found": False,
+                        "path": str(tmp_path / "browser-smoke.json"),
+                    },
                 },
             }
         ),
@@ -218,6 +222,8 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["reports"]["env_validation"]["blocker_class"] == "ready"
     assert summary["reports"]["launch"]["env_validation_blocker_class"] == "ready"
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
+    assert summary["reports"]["launch"]["browser_smoke"]["found"] is False
+    assert summary["reports"]["launch"]["browser_smoke"]["path"].endswith("browser-smoke.json")
     assert summary["reports"]["operator_packet"]["blocker_class"] == "operator_values_required"
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert summary["reports"]["operator_packet"]["preflight_checks"]["firebase_credentials_resolved_path"] == (
@@ -275,6 +281,33 @@ def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> Non
                 "stage": "browser_smoke",
                 "stop_reason": None,
                 "results": [],
+                "child_reports": {
+                    "browser_smoke": {
+                        "found": True,
+                        "path": str(tmp_path / "browser-smoke.json"),
+                        "status": "pass",
+                        "base_url": "http://127.0.0.1:5330",
+                        "api_url": "http://127.0.0.1:8060",
+                        "mobile": True,
+                        "include_unavailable_check": True,
+                        "summary": {
+                            "total": 7,
+                            "passed": 7,
+                            "failed": 0,
+                            "checks_total": 191,
+                            "checks_passed": 191,
+                            "checks_failed": 0,
+                            "prechecks_total": 3,
+                            "prechecks_passed": 3,
+                            "prechecks_failed": 0,
+                            "screenshot_artifacts_total": 19,
+                            "screenshot_artifacts_passed": 19,
+                            "screenshot_artifacts_failed": 0,
+                            "failed_step_names": [],
+                            "failed_precheck_names": [],
+                        },
+                    }
+                },
             }
         ),
         encoding="utf-8",
@@ -300,6 +333,16 @@ def test_launch_readiness_summary_classifies_ready_launch(tmp_path: Path) -> Non
 
     assert summary["status"] == "ready"
     assert summary["blocker_class"] == "ready"
+    browser_smoke = summary["reports"]["launch"]["browser_smoke"]
+    assert browser_smoke["status"] == "pass"
+    assert browser_smoke["mobile"] is True
+    assert browser_smoke["steps_passed"] == 7
+    assert browser_smoke["checks_passed"] == 191
+    markdown = summarize_launch_readiness.render_markdown(summary)
+    assert "## Browser Smoke Evidence" in markdown
+    assert "| `status` | `pass` |" in markdown
+    assert "| `checks` | `191/191` |" in markdown
+    assert "| `screenshots` | `19/19` |" in markdown
 
 
 def test_launch_readiness_summary_main_writes_outputs_and_exits_nonzero_when_blocked(tmp_path: Path) -> None:

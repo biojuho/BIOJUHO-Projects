@@ -61,6 +61,51 @@ def _env_validation_summary(path: Path, workspace_root: Path) -> dict[str, objec
     }
 
 
+def _summary_count(summary: dict[str, object], key: str) -> object:
+    value = summary.get(key)
+    return value if isinstance(value, int) else None
+
+
+def _summary_ratio(report: dict[str, object], passed_key: str, total_key: str) -> str | None:
+    passed = report.get(passed_key)
+    total = report.get(total_key)
+    if isinstance(passed, int) and isinstance(total, int):
+        return f"{passed}/{total}"
+    return None
+
+
+def _browser_smoke_summary(report: dict[str, object], workspace_root: Path) -> dict[str, object]:
+    if not report:
+        return {}
+    raw_path = report.get("path")
+    path = _rel(Path(raw_path), workspace_root) if isinstance(raw_path, str) and raw_path else None
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    return {
+        "found": report.get("found"),
+        "path": path,
+        "status": report.get("status"),
+        "base_url": report.get("base_url"),
+        "api_url": report.get("api_url"),
+        "mobile": report.get("mobile"),
+        "include_unavailable_check": report.get("include_unavailable_check"),
+        "steps_total": _summary_count(summary, "total"),
+        "steps_passed": _summary_count(summary, "passed"),
+        "steps_failed": _summary_count(summary, "failed"),
+        "checks_total": _summary_count(summary, "checks_total"),
+        "checks_passed": _summary_count(summary, "checks_passed"),
+        "checks_failed": _summary_count(summary, "checks_failed"),
+        "prechecks_total": _summary_count(summary, "prechecks_total"),
+        "prechecks_passed": _summary_count(summary, "prechecks_passed"),
+        "prechecks_failed": _summary_count(summary, "prechecks_failed"),
+        "screenshot_artifacts_total": _summary_count(summary, "screenshot_artifacts_total"),
+        "screenshot_artifacts_passed": _summary_count(summary, "screenshot_artifacts_passed"),
+        "screenshot_artifacts_failed": _summary_count(summary, "screenshot_artifacts_failed"),
+        "failed_step_names": _string_list(summary.get("failed_step_names")),
+        "failed_check_names": _string_list(summary.get("failed_check_names")),
+        "failed_precheck_names": _string_list(summary.get("failed_precheck_names")),
+    }
+
+
 def _launch_report_summary(path: Path, workspace_root: Path) -> dict[str, object]:
     payload = _read_json(path)
     if payload is None:
@@ -84,6 +129,11 @@ def _launch_report_summary(path: Path, workspace_root: Path) -> dict[str, object
         if isinstance(child_reports.get("operator_packet"), dict)
         else {}
     )
+    browser_smoke = (
+        child_reports.get("browser_smoke")
+        if isinstance(child_reports.get("browser_smoke"), dict)
+        else {}
+    )
     return {
         "found": True,
         "path": _rel(path, workspace_root),
@@ -99,6 +149,7 @@ def _launch_report_summary(path: Path, workspace_root: Path) -> dict[str, object
         "preflight_status": preflight.get("status"),
         "operator_packet_status": operator_packet.get("status"),
         "operator_packet_action_ids": _list(operator_packet.get("operator_action_ids")),
+        "browser_smoke": _browser_smoke_summary(browser_smoke, workspace_root),
     }
 
 
@@ -337,6 +388,7 @@ def _markdown_check_value(value: object) -> str:
 def render_markdown(summary: dict[str, object]) -> str:
     reports = summary.get("reports") if isinstance(summary.get("reports"), dict) else {}
     launch = reports.get("launch") if isinstance(reports.get("launch"), dict) else {}
+    browser_smoke = launch.get("browser_smoke") if isinstance(launch.get("browser_smoke"), dict) else {}
     env_validation = reports.get("env_validation") if isinstance(reports.get("env_validation"), dict) else {}
     operator_packet = reports.get("operator_packet") if isinstance(reports.get("operator_packet"), dict) else {}
     action_ids = (
@@ -391,6 +443,46 @@ def render_markdown(summary: dict[str, object]) -> str:
     for name in ("env_validation", "launch", "operator_packet"):
         report = reports.get(name) if isinstance(reports.get(name), dict) else {}
         lines.append(f"- `{name}`: found=`{str(report.get('found')).lower()}`, status=`{report.get('status')}`")
+
+    if browser_smoke:
+        lines.extend(["", "## Browser Smoke Evidence", ""])
+        lines.append("| Field | Value |")
+        lines.append("| --- | --- |")
+        browser_rows = (
+            ("found", browser_smoke.get("found")),
+            ("status", browser_smoke.get("status")),
+            ("path", browser_smoke.get("path")),
+            ("base_url", browser_smoke.get("base_url")),
+            ("api_url", browser_smoke.get("api_url")),
+            ("mobile", browser_smoke.get("mobile")),
+            ("include_unavailable_check", browser_smoke.get("include_unavailable_check")),
+            (
+                "steps",
+                _summary_ratio(browser_smoke, "steps_passed", "steps_total"),
+            ),
+            (
+                "checks",
+                _summary_ratio(browser_smoke, "checks_passed", "checks_total"),
+            ),
+            (
+                "prechecks",
+                _summary_ratio(browser_smoke, "prechecks_passed", "prechecks_total"),
+            ),
+            (
+                "screenshots",
+                _summary_ratio(
+                    browser_smoke,
+                    "screenshot_artifacts_passed",
+                    "screenshot_artifacts_total",
+                ),
+            ),
+            ("failed_steps", browser_smoke.get("failed_step_names")),
+            ("failed_prechecks", browser_smoke.get("failed_precheck_names")),
+        )
+        for key, value in browser_rows:
+            rendered = _markdown_check_value(value)
+            if rendered != "-":
+                lines.append(f"| `{key}` | `{rendered}` |")
 
     if preflight_check_rows:
         lines.extend(["", "## Operator Packet Preflight Checks", ""])

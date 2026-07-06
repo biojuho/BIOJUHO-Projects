@@ -1091,6 +1091,10 @@ def test_launch_compose_embeds_browser_child_report_summary(tmp_path: Path) -> N
                 json.dumps(
                     {
                         "status": "fail",
+                        "base_url": "http://localhost",
+                        "api_url": "http://localhost:8002",
+                        "mobile": True,
+                        "include_unavailable_check": True,
                         "summary": {"total": 0, "prechecks_failed": 1},
                         "prechecks": [{"name": "backend_contract", "ok": False}],
                     }
@@ -1121,6 +1125,13 @@ def test_launch_compose_embeds_browser_child_report_summary(tmp_path: Path) -> N
         "found": True,
         "path": str(browser_json.resolve()),
         "status": "fail",
+        "base_url": "http://localhost",
+        "api_url": "http://localhost:8002",
+        "mobile": True,
+        "include_unavailable_check": True,
         "summary": {"total": 0, "prechecks_failed": 1},
+        "failed_step_names": [],
+        "failed_check_names": [],
+        "failed_precheck_names": [],
         "prechecks": [{"name": "backend_contract", "ok": False}],
     }
