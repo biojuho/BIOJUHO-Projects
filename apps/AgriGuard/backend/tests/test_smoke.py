@@ -651,7 +651,13 @@ def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
     )
     report_path = tmp_path / "child.json"
     report_path.write_text(
-        json.dumps({"checks": [{"name": "nav_loaded", "ok": True}, {"name": "qr_failed", "ok": False}, {"ok": True}]}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-07-06T00:00:00Z",
+                "checks": [{"name": "nav_loaded", "ok": True}, {"name": "qr_failed", "ok": False}, {"ok": True}],
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -659,6 +665,9 @@ def test_browser_smoke_suite_summarizes_child_report(tmp_path: Path):
 
     assert summary == {
         "report_found": True,
+        "child_schema_version": 1,
+        "child_generated_at": "2026-07-06T00:00:00Z",
+        "child_generated_at_valid": True,
         "checks_total": 3,
         "checks_passed": 2,
         "checks_failed": 1,
@@ -741,7 +750,13 @@ def test_browser_smoke_suite_launch_gate_requires_screenshot_artifact(tmp_path: 
     )
     report_path = tmp_path / "child.json"
     report_path.write_text(
-        json.dumps({"checks": [{"name": "rendered", "ok": True}]}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-07-06T00:00:00Z",
+                "checks": [{"name": "rendered", "ok": True}],
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -752,6 +767,36 @@ def test_browser_smoke_suite_launch_gate_requires_screenshot_artifact(tmp_path: 
         "screenshot_artifacts_missing": True,
         "screenshot_artifact_dimension_failures": [],
         "screenshot_artifacts_gate_ok": False,
+    }
+    assert not script.child_report_passes_launch_gate(0, summary)
+
+
+def test_browser_smoke_suite_launch_gate_requires_child_report_freshness(tmp_path: Path):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_launch_gate_requires_freshness_under_test",
+    )
+    screenshot = tmp_path / "screen.png"
+    png_header = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR"
+        b"\x00\x00\x00\x02"
+        b"\x00\x00\x00\x03"
+        b"\x08\x02\x00\x00\x00"
+    )
+    screenshot.write_bytes(png_header + (b"\x00" * script.MIN_SCREENSHOT_BYTES))
+    report_path = tmp_path / "child.json"
+    report_path.write_text(
+        json.dumps({"checks": [{"name": "rendered", "ok": True}], "screenshot": str(screenshot)}),
+        encoding="utf-8",
+    )
+
+    summary = script.summarize_child_report(report_path)
+
+    assert script.screenshot_artifact_gate(summary)["screenshot_artifacts_gate_ok"] is True
+    assert script.child_report_metadata_gate(summary) == {
+        "child_report_metadata_gate_ok": False,
+        "child_report_metadata_failures": ["schema_version_not_1", "generated_at_missing_or_invalid"],
     }
     assert not script.child_report_passes_launch_gate(0, summary)
 
@@ -772,7 +817,14 @@ def test_browser_smoke_suite_launch_gate_accepts_valid_screenshot_artifact(tmp_p
     screenshot.write_bytes(png_header + (b"\x00" * script.MIN_SCREENSHOT_BYTES))
     report_path = tmp_path / "child.json"
     report_path.write_text(
-        json.dumps({"checks": [{"name": "rendered", "ok": True}], "screenshot": str(screenshot)}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-07-06T00:00:00Z",
+                "checks": [{"name": "rendered", "ok": True}],
+                "screenshot": str(screenshot),
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -798,7 +850,14 @@ def test_browser_smoke_suite_mobile_launch_gate_requires_viewport_screenshot_dim
     screenshot.write_bytes(png_header + (b"\x00" * script.MIN_SCREENSHOT_BYTES))
     report_path = tmp_path / "child.json"
     report_path.write_text(
-        json.dumps({"checks": [{"name": "rendered", "ok": True}], "screenshot": str(screenshot)}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-07-06T00:00:00Z",
+                "checks": [{"name": "rendered", "ok": True}],
+                "screenshot": str(screenshot),
+            }
+        ),
         encoding="utf-8",
     )
 

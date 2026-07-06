@@ -34,6 +34,17 @@ def _generated_timestamp_utc() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _is_ascii_utc_timestamp(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        value.encode("ascii")
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except (UnicodeEncodeError, ValueError):
+        return False
+    return value.endswith("Z") and " " not in value
+
+
 class BrowserSmokeStep:
     def __init__(self, *, name: str, command: list[str], json_out: Path) -> None:
         self.name = name
@@ -611,6 +622,9 @@ def summarize_child_report(path: Path) -> dict[str, object]:
     if not path.exists():
         return {
             "report_found": False,
+            "child_schema_version": None,
+            "child_generated_at": "",
+            "child_generated_at_valid": False,
             "checks_total": 0,
             "checks_passed": 0,
             "checks_failed": 0,
@@ -618,11 +632,17 @@ def summarize_child_report(path: Path) -> dict[str, object]:
             **validate_screenshot_artifacts({}),
         }
     payload = json.loads(path.read_text(encoding="utf-8"))
+    child_metadata = {
+        "child_schema_version": payload.get("schema_version"),
+        "child_generated_at": payload.get("generated_at") if isinstance(payload.get("generated_at"), str) else "",
+        "child_generated_at_valid": _is_ascii_utc_timestamp(payload.get("generated_at")),
+    }
     artifact_summary = validate_screenshot_artifacts(payload)
     checks = payload.get("checks")
     if not isinstance(checks, list):
         return {
             "report_found": True,
+            **child_metadata,
             "checks_total": 0,
             "checks_passed": 0,
             "checks_failed": 0,
@@ -638,6 +658,7 @@ def summarize_child_report(path: Path) -> dict[str, object]:
     ]
     return {
         "report_found": True,
+        **child_metadata,
         "checks_total": checks_total,
         "checks_passed": checks_passed,
         "checks_failed": checks_total - checks_passed,
@@ -687,6 +708,20 @@ def screenshot_artifact_gate(
     }
 
 
+def child_report_metadata_gate(child_summary: dict[str, object]) -> dict[str, object]:
+    failures: list[str] = []
+    if child_summary.get("report_found") is not True:
+        failures.append("report_missing")
+    if child_summary.get("child_schema_version") != 1:
+        failures.append("schema_version_not_1")
+    if child_summary.get("child_generated_at_valid") is not True:
+        failures.append("generated_at_missing_or_invalid")
+    return {
+        "child_report_metadata_gate_ok": not failures,
+        "child_report_metadata_failures": failures,
+    }
+
+
 def expected_screenshot_dimensions_for_step(step_name: str, *, mobile: bool) -> tuple[int, int]:
     if mobile or step_name in MOBILE_ONLY_SCREENSHOT_STEPS:
         return MOBILE_SCREENSHOT_DIMENSIONS
@@ -700,10 +735,12 @@ def child_report_passes_launch_gate(
     expected_screenshot_dimensions: tuple[int, int] | None = None,
 ) -> bool:
     artifact_gate = screenshot_artifact_gate(child_summary, expected_dimensions=expected_screenshot_dimensions)
+    metadata_gate = child_report_metadata_gate(child_summary)
     return (
         returncode == 0
         and child_summary.get("checks_failed") == 0
         and artifact_gate["screenshot_artifacts_gate_ok"] is True
+        and metadata_gate["child_report_metadata_gate_ok"] is True
     )
 
 
@@ -739,6 +776,7 @@ def run_step(
     except subprocess.TimeoutExpired as exc:
         child_summary = summarize_child_report(step.json_out)
         artifact_gate = screenshot_artifact_gate(child_summary, expected_dimensions=expected_screenshot_dimensions)
+        metadata_gate = child_report_metadata_gate(child_summary)
         return {
             "name": step.name,
             "ok": False,
@@ -752,9 +790,11 @@ def run_step(
             "stderr_tail": _tail(exc.stderr or ""),
             **child_summary,
             **artifact_gate,
+            **metadata_gate,
         }
     child_summary = summarize_child_report(step.json_out)
     artifact_gate = screenshot_artifact_gate(child_summary, expected_dimensions=expected_screenshot_dimensions)
+    metadata_gate = child_report_metadata_gate(child_summary)
     return {
         "name": step.name,
         "ok": child_report_passes_launch_gate(
@@ -772,6 +812,7 @@ def run_step(
         "stderr_tail": _tail(completed.stderr),
         **child_summary,
         **artifact_gate,
+        **metadata_gate,
     }
 
 
@@ -891,6 +932,17 @@ def main() -> int:
         for result in results
         if result.get("screenshot_artifacts_missing") is True
     ]
+    child_report_metadata_failed_steps = [
+        str(result.get("name"))
+        for result in results
+        if result.get("dry_run") is not True and result.get("child_report_metadata_gate_ok") is not True
+    ]
+    child_report_metadata_failures = [
+        f"{result.get('name')}:{failure}"
+        for result in results
+        for failure in result.get("child_report_metadata_failures", [])
+        if isinstance(failure, str)
+    ]
     failed_precheck_names = [
         str(precheck.get("name") or f"precheck_{index}")
         for index, precheck in enumerate(prechecks, start=1)
@@ -927,6 +979,11 @@ def main() -> int:
             "failed_screenshot_artifacts": failed_screenshot_artifacts,
             "screenshot_artifact_dimension_failures": screenshot_artifact_dimension_failures,
             "screenshot_artifacts_missing_steps": screenshot_artifacts_missing_steps,
+            "child_reports_with_valid_generated_at": sum(
+                1 for result in results if result.get("child_generated_at_valid") is True
+            ),
+            "child_report_metadata_failed_steps": child_report_metadata_failed_steps,
+            "child_report_metadata_failures": child_report_metadata_failures,
             "prechecks_total": len(prechecks),
             "prechecks_passed": prechecks_passed,
             "prechecks_failed": prechecks_failed,
