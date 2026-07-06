@@ -975,7 +975,9 @@ export default function SensorDeviceManager() {
                       <tr key={sensor.sensor_id} className="align-top">
                         <td className="py-4 pr-4">
                           <div className="font-mono text-foreground">{sensor.sensor_id}</div>
-                          <div className="mt-1 max-w-56 truncate text-xs text-muted-foreground">{sensor.label || 'Unlabeled'}</div>
+                          <div title={sensor.label || 'Unlabeled'} className="mt-1 max-w-56 truncate text-xs text-muted-foreground">
+                            {sensor.label || 'Unlabeled'}
+                          </div>
                         </td>
                         <td className="py-4 pr-4">
                           <SensorStateBadge isActive={sensor.is_active} />
@@ -1587,7 +1589,13 @@ export default function SensorDeviceManager() {
                             >
                               {sensor.sensor_id}
                             </div>
-                            <div className="mt-1 max-w-56 truncate text-xs text-muted-foreground">{sensor.label || 'Unlabeled'}</div>
+                            <div
+                              data-testid="registered-sensor-label"
+                              title={sensor.label || 'Unlabeled'}
+                              className="mt-1 max-w-56 truncate text-xs text-muted-foreground"
+                            >
+                              {sensor.label || 'Unlabeled'}
+                            </div>
                             {!isSafe && (
                               <Badge variant="warning" className="mt-2">
                                 <ShieldAlert className="h-3.5 w-3.5" />

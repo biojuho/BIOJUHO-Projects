@@ -393,6 +393,9 @@ describe('SensorDeviceManager', () => {
     expect(sensorIds[0]).toHaveAttribute('title', 'sensor-cold-1');
     expect(sensorIds[0]).toHaveClass('truncate');
     expect(sensorIds[0]).not.toHaveClass('break-all');
+    const sensorLabels = screen.getAllByTestId('registered-sensor-label');
+    expect(sensorLabels[0]).toHaveAttribute('title', 'Dock probe 1');
+    expect(sensorLabels[0]).toHaveClass('truncate');
     const ownerIds = screen.getAllByTestId('registered-sensor-owner-id');
     expect(ownerIds[0]).toHaveAttribute('title', 'tenant-cold-chain');
     expect(ownerIds[0]).toHaveClass('truncate');
