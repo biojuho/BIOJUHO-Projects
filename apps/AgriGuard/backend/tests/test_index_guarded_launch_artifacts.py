@@ -61,7 +61,10 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
             "packet_markdown_table_blocker_class": "ready",
             "packet_path_mismatch_count": 0,
             "ready_gate_command_shell": "powershell",
-            "ready_gate_command_text": "& python run_guarded_launch.py --require-ready",
+            "ready_gate_command_text": (
+                "& python run_guarded_launch.py --status-only --env-file operator.env "
+                "--require-ready --status-json-out ready-gate.json"
+            ),
             "operator_command_count": 2,
             "operator_command_text_count": 2,
             "operator_commands": [
@@ -69,13 +72,16 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
                     "id": "inspect_status",
                     "description": "Print the compact guarded-launch status view.",
                     "command_shell": "powershell",
-                    "command_text": "& python run_guarded_launch.py --status-only",
+                    "command_text": "& python run_guarded_launch.py --status-only --env-file operator.env",
                 },
                 {
                     "id": "require_ready",
                     "description": "Fail closed unless the selected guarded-launch prefix is ready.",
                     "command_shell": "powershell",
-                    "command_text": "& python run_guarded_launch.py --require-ready",
+                    "command_text": (
+                        "& python run_guarded_launch.py --status-only --env-file operator.env "
+                        "--require-ready --status-json-out ready-gate.json"
+                    ),
                 },
             ],
             "handoff_validation_command_shell": "powershell",
@@ -148,11 +154,17 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_command_metadata_status"] == "pass"
     assert index["consumer_readiness_env_validation_blocker_class"] == "env_shape_blocked"
     assert index["consumer_ready_gate_command_shell"] == "powershell"
-    assert index["consumer_ready_gate_command_text"] == "& python run_guarded_launch.py --require-ready"
+    assert index["consumer_ready_gate_command_text"] == (
+        "& python run_guarded_launch.py --status-only --env-file operator.env "
+        "--require-ready --status-json-out ready-gate.json"
+    )
+    assert index["consumer_ready_gate_command_missing_flags"] == []
     assert index["consumer_operator_command_count"] == 2
     assert index["consumer_operator_command_text_count"] == 2
     assert index["consumer_operator_commands"][0]["id"] == "inspect_status"
-    assert index["consumer_operator_commands"][0]["command_text"] == "& python run_guarded_launch.py --status-only"
+    assert index["consumer_operator_commands"][0]["command_text"] == (
+        "& python run_guarded_launch.py --status-only --env-file operator.env"
+    )
     assert index["consumer_handoff_validation_command_shell"] == "powershell"
     assert index["consumer_handoff_validation_command_text"] == "& python validate_guarded_launch_handoff.py handoff.json"
     assert artifacts_by_role["handoff_validation_json"]["generated_at"] == "2026-07-06T12:55:00Z"
@@ -184,6 +196,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert "Consumer packet evidence outputs blocker class: `ready`" in markdown
     assert "Consumer packet Markdown table blocker class: `ready`" in markdown
     assert "Consumer command metadata: `pass`" in markdown
+    assert "Consumer ready gate command missing flags: `-`" in markdown
     assert "Consumer readiness command metadata: `pass`" in markdown
     assert "Consumer ready gate command shell: `powershell`" in markdown
     assert "Consumer operator command text count: `2`" in markdown
@@ -191,7 +204,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert "## Consumer Operator Commands" in markdown
     assert "## Consumer Readiness Next Actions" in markdown
     assert "- Replace env template placeholders and sample domains." in markdown
-    assert "`inspect_status` (powershell): `& python run_guarded_launch.py --status-only`" in markdown
+    assert "`inspect_status` (powershell): `& python run_guarded_launch.py --status-only --env-file operator.env`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "| Role | Required | Exists | Size | Generated | SHA-256 | Path |" in markdown
     assert "`2026-07-06T12:55:00Z`" in markdown
@@ -260,14 +273,20 @@ def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: P
             "packet_markdown_table_status": "pass",
             "packet_path_mismatch_count": 0,
             "ready_gate_command_shell": "powershell",
-            "ready_gate_command_text": "& python run_guarded_launch.py --require-ready",
+            "ready_gate_command_text": (
+                "& python run_guarded_launch.py --status-only --env-file operator.env "
+                "--require-ready --status-json-out current.ready-gate.json"
+            ),
             "operator_command_count": 1,
             "operator_command_text_count": 1,
             "operator_commands": [
                 {
                     "id": "require_ready",
                     "command_shell": "powershell",
-                    "command_text": "& python run_guarded_launch.py --require-ready",
+                    "command_text": (
+                        "& python run_guarded_launch.py --status-only --env-file operator.env "
+                        "--require-ready --status-json-out current.ready-gate.json"
+                    ),
                 }
             ],
             "handoff_validation_command_shell": "powershell",
@@ -325,6 +344,30 @@ def test_index_guarded_launch_artifacts_fails_stale_consumer_command_metadata(tm
     assert index["status"] == "fail"
     assert index["blocker_class"] == "artifact_index_blocked"
     assert index["consumer_command_metadata_status"] == "fail"
+    assert index["recovery_command_status"] == "pass"
+
+
+def test_index_guarded_launch_artifacts_fails_ready_gate_command_without_env_file(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    consumer = json.loads(paths["handoff_consumer_json"].read_text(encoding="utf-8"))
+    stale_command = "& python run_guarded_launch.py --status-only --require-ready --status-json-out ready-gate.json"
+    consumer["ready_gate_command_text"] = stale_command
+    consumer["operator_commands"][1]["command_text"] = stale_command
+    paths["handoff_consumer_json"].write_text(json.dumps(consumer), encoding="utf-8")
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
+
+    assert index["status"] == "fail"
+    assert index["blocker_class"] == "artifact_index_blocked"
+    assert index["consumer_command_metadata_status"] == "fail"
+    assert index["consumer_ready_gate_command_missing_flags"] == ["--env-file"]
+    assert "Consumer ready gate command missing flags: `--env-file`" in markdown
     assert index["recovery_command_status"] == "pass"
 
 

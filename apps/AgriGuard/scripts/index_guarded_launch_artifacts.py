@@ -50,6 +50,12 @@ FRESHNESS_REQUIRED_JSON_ROLES = {
     "handoff_consumer_json",
     "ready_gate_json",
 }
+READY_GATE_COMMAND_REQUIRED_FLAGS = (
+    "--status-only",
+    "--require-ready",
+    "--env-file",
+    "--status-json-out",
+)
 
 
 def _generated_timestamp_utc() -> str:
@@ -177,6 +183,12 @@ def _operator_commands(value: object) -> list[dict[str, str]]:
             summary["command_shell"] = command_shell
         commands.append(summary)
     return commands
+
+
+def _missing_command_flags(command_text: str | None, required_flags: tuple[str, ...]) -> list[str]:
+    if command_text is None:
+        return list(required_flags)
+    return [flag for flag in required_flags if flag not in command_text]
 
 
 def _artifact_index_blocker_class(status: object) -> str:
@@ -334,6 +346,10 @@ def build_index(
     consumer_ready_gate_command_text = (
         _string_value(consumer.get("ready_gate_command_text")) if isinstance(consumer, dict) else None
     )
+    consumer_ready_gate_command_missing_flags = _missing_command_flags(
+        consumer_ready_gate_command_text,
+        READY_GATE_COMMAND_REQUIRED_FLAGS,
+    )
     consumer_operator_command_count = (
         _int_value(consumer.get("operator_command_count")) if isinstance(consumer, dict) else None
     )
@@ -349,6 +365,7 @@ def build_index(
     consumer_command_metadata_status = (
         "pass"
         if consumer_ready_gate_command_text
+        and not consumer_ready_gate_command_missing_flags
         and consumer_operator_command_count is not None
         and consumer_operator_command_count > 0
         and consumer_operator_command_text_count == consumer_operator_command_count
@@ -448,6 +465,8 @@ def build_index(
         "consumer_command_metadata_status": consumer_command_metadata_status,
         "consumer_ready_gate_command_shell": consumer_ready_gate_command_shell,
         "consumer_ready_gate_command_text": consumer_ready_gate_command_text,
+        "consumer_ready_gate_command_required_flags": list(READY_GATE_COMMAND_REQUIRED_FLAGS),
+        "consumer_ready_gate_command_missing_flags": consumer_ready_gate_command_missing_flags,
         "consumer_operator_command_count": consumer_operator_command_count,
         "consumer_operator_command_text_count": consumer_operator_command_text_count,
         "consumer_operator_commands": consumer_operator_commands,
@@ -524,6 +543,12 @@ def render_markdown(index: dict[str, object]) -> str:
     recovery_command_shell = index.get("recovery_command_shell")
     operator_command_count = index.get("consumer_operator_command_count")
     operator_command_text_count = index.get("consumer_operator_command_text_count")
+    ready_gate_missing_flags = index.get("consumer_ready_gate_command_missing_flags")
+    ready_gate_missing_flags_text = (
+        ", ".join(str(flag) for flag in ready_gate_missing_flags)
+        if isinstance(ready_gate_missing_flags, list) and ready_gate_missing_flags
+        else "-"
+    )
     lines = [
         "# AgriGuard Guarded Launch Artifact Index",
         "",
@@ -546,6 +571,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer command metadata: `{index.get('consumer_command_metadata_status')}`",
         f"- Consumer ready gate command shell: `{index.get('consumer_ready_gate_command_shell') or '-'}`",
         f"- Consumer ready gate command: `{index.get('consumer_ready_gate_command_text') or '-'}`",
+        f"- Consumer ready gate command missing flags: `{ready_gate_missing_flags_text}`",
         f"- Consumer operator command count: `{operator_command_count if isinstance(operator_command_count, int) else '-'}`",
         f"- Consumer operator command text count: `{operator_command_text_count if isinstance(operator_command_text_count, int) else '-'}`",
         f"- Consumer handoff validation command shell: `{index.get('consumer_handoff_validation_command_shell') or '-'}`",
