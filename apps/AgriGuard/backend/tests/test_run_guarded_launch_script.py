@@ -1684,6 +1684,76 @@ def test_guarded_launch_status_only_prefers_live_ready_gate_file_state(tmp_path:
     }
 
 
+def test_guarded_launch_status_only_ready_gate_arg_overrides_index_path(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    custom_index = tmp_path / "handoff" / "current.artifact-index.json"
+    stale_ready_gate = tmp_path / "handoff" / "stale.ready-gate.json"
+    selected_ready_gate = tmp_path / "handoff" / "selected.ready-gate.json"
+    custom_index.parent.mkdir(parents=True, exist_ok=True)
+    stale_ready_gate.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-07-06T12:00:00Z",
+                "status": "ready",
+                "blocker_class": "ready",
+            }
+        ),
+        encoding="utf-8",
+    )
+    selected_ready_gate.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-07-06T13:00:00Z",
+                "status": "blocked",
+                "blocker_class": "preflight_blocked",
+            }
+        ),
+        encoding="utf-8",
+    )
+    custom_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "blocker_class": "ready",
+                "artifacts": [
+                    {
+                        "role": "ready_gate_json",
+                        "path": str(stale_ready_gate.resolve()),
+                        "exists": True,
+                        "sha256": run_guarded_launch._sha256_file(stale_ready_gate),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json-out",
+            str(custom_index),
+            "--handoff-ready-gate-json-out",
+            str(selected_ready_gate),
+            "--status-only",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["artifacts"]["ready_gate_json"] == str(selected_ready_gate.resolve())
+    assert payload["ready_gate"]["path"] == str(selected_ready_gate.resolve())
+    assert payload["ready_gate"]["generated_at"] == "2026-07-06T13:00:00Z"
+    assert payload["ready_gate"]["status"] == "blocked"
+    assert payload["ready_gate"]["sha256"] == run_guarded_launch._sha256_file(selected_ready_gate)
+
+
 def test_guarded_launch_status_only_exposes_recovery_command_text(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     output_dir = tmp_path / "launch artifacts"

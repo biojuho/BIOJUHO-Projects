@@ -409,6 +409,7 @@ def _build_status_view(
     artifact_paths: dict[str, Path],
     artifact_index_json: Path | None = None,
     artifact_index_markdown: Path | None = None,
+    ready_gate_json: Path | None = None,
 ) -> dict[str, object]:
     launch = _read_json(artifact_paths["launch_report_json"])
     summary = _read_json(artifact_paths["readiness_summary_json"])
@@ -423,6 +424,8 @@ def _build_status_view(
         artifacts["artifact_index_json"] = str(artifact_index_json)
     if artifact_index_markdown is not None:
         artifacts["artifact_index_markdown"] = str(artifact_index_markdown)
+    if ready_gate_json is not None:
+        artifacts["ready_gate_json"] = str(ready_gate_json)
     if artifact_index is not None and isinstance(artifact_index.get("artifacts"), list):
         for item in artifact_index["artifacts"]:
             if not isinstance(item, dict):
@@ -1433,6 +1436,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
             artifact_index_markdown=artifact_index_markdown,
+            ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
         )
         if args.status_json_out:
             write_json(args.status_json_out.resolve(), status_view)
@@ -1483,6 +1487,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
             artifact_index_markdown=artifact_index_markdown,
+            ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
         )
         write_json(effective_status_json_out, status_view)
     post_launch_returncode = 0
@@ -1512,6 +1517,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                 artifact_paths=artifact_paths,
                 artifact_index_json=artifact_index_json,
                 artifact_index_markdown=artifact_index_markdown,
+                ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
             )
         if effective_status_json_out is not None and status_view is not None:
             write_json(effective_status_json_out, status_view)
@@ -1548,6 +1554,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     artifact_paths=artifact_paths,
                     artifact_index_json=artifact_index_json,
                     artifact_index_markdown=artifact_index_markdown,
+                    ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
                 )
             if effective_status_json_out is not None and status_view is not None:
                 write_json(effective_status_json_out, status_view)
@@ -1568,6 +1575,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                         artifact_paths=artifact_paths,
                         artifact_index_json=artifact_index_json,
                         artifact_index_markdown=artifact_index_markdown,
+                        ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
                     )
                 if effective_status_json_out is not None and status_view is not None:
                     write_json(effective_status_json_out, status_view)
@@ -1603,6 +1611,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             artifact_paths=artifact_paths,
             artifact_index_json=artifact_index_json,
             artifact_index_markdown=artifact_index_markdown,
+            ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
         )
     if effective_status_json_out is not None and status_view is not None:
         write_json(effective_status_json_out, status_view)
