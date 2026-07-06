@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib import error, parse, request
 
@@ -27,6 +28,10 @@ MIN_SCREENSHOT_BYTES = 512
 DESKTOP_SCREENSHOT_DIMENSIONS = (1440, 960)
 MOBILE_SCREENSHOT_DIMENSIONS = (390, 844)
 MOBILE_ONLY_SCREENSHOT_STEPS = {"qr_path", "consumer_verify_unavailable"}
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class BrowserSmokeStep:
@@ -784,6 +789,8 @@ def build_precheck_failure_report(args: argparse.Namespace, prechecks: list[dict
     ]
     prechecks_passed = len(prechecks) - len(failed_precheck_names)
     return {
+        "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": "fail",
         "base_url": args.base_url,
         "api_url": args.api_url,
@@ -890,6 +897,8 @@ def main() -> int:
         if precheck.get("ok") is not True
     ]
     report = {
+        "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": "pass" if failed == 0 and prechecks_failed == 0 else "fail",
         "base_url": args.base_url,
         "api_url": args.api_url,

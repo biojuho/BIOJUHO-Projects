@@ -608,6 +608,10 @@ def test_browser_smoke_suite_rejects_frontend_operator_token_env(monkeypatch, tm
 
     payload = json.loads(json_out.read_text(encoding="utf-8"))
     encoded_payload = json.dumps(payload)
+    assert payload["schema_version"] == 1
+    assert payload["generated_at"].endswith("Z")
+    payload["generated_at"].encode("ascii")
+    assert " " not in payload["generated_at"]
     assert payload["summary"]["failed_precheck_names"] == ["frontend_operator_token_env"]
     assert payload["prechecks"][0]["configured"] is True
     assert "AGRIGUARD_BROWSER_OPERATOR_TOKEN" in payload["prechecks"][0]["detail"]
