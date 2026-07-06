@@ -894,6 +894,7 @@ def test_launch_report_accepts_utf8_bom_firebase_credentials_file(tmp_path: Path
     )
 
     assert report["status"] == "pass"
+    assert report["checks"]["firebase_credentials_resolved_path"] == str(credentials_path.resolve())
     assert report["checks"]["firebase_credentials_file_exists"] is True
     assert report["checks"]["firebase_credentials_file_valid"] is True
 
@@ -937,6 +938,9 @@ def test_launch_report_rejects_missing_compose_firebase_credentials_file(tmp_pat
     assert report["blocker_class"] == "preflight_blocked"
     assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist." in report["errors"]
     assert report["checks"]["firebase_credentials_file_checked"] is True
+    assert report["checks"]["firebase_credentials_resolved_path"] == str(
+        (tmp_path / "firebase-service-account.json").resolve()
+    )
     assert report["checks"]["firebase_credentials_file_exists"] is False
     assert report["checks"]["firebase_credentials_file_valid"] is False
 

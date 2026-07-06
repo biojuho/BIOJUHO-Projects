@@ -863,6 +863,7 @@ def build_operator_packet(
             "runtime": checks.get("runtime"),
             "docker_checked": checks.get("docker_checked"),
             "firebase_credentials_source": checks.get("firebase_credentials_source"),
+            "firebase_credentials_resolved_path": checks.get("firebase_credentials_resolved_path"),
             "forbidden_launch_flags_enabled": checks.get("forbidden_launch_flags_enabled"),
             "allowed_origins_source": checks.get("allowed_origins_source"),
             "public_verify_base_url_source": checks.get("public_verify_base_url_source"),

@@ -722,10 +722,14 @@ def build_launch_report(
         firebase_credentials = (
             env.get(str(firebase_credentials_source)) or ""
         ).strip()
+        effective_app_root = app_root or Path(__file__).resolve().parents[1]
+        checks["firebase_credentials_resolved_path"] = str(
+            _resolve_app_relative_path(firebase_credentials, app_root=effective_app_root)
+        )
         firebase_credential_errors, firebase_credentials_file_exists = _firebase_credentials_file_check(
             firebase_credentials,
             source=str(firebase_credentials_source),
-            app_root=app_root or Path(__file__).resolve().parents[1],
+            app_root=effective_app_root,
         )
         reportable_firebase_credential_errors = _firebase_credential_errors_for_report(
             firebase_credential_errors,
@@ -744,6 +748,7 @@ def build_launch_report(
         checks["firebase_credentials_file_valid"] = not firebase_credential_errors
     else:
         checks["firebase_credentials_file_checked"] = False
+        checks["firebase_credentials_resolved_path"] = None
 
     if check_docker:
         docker_report = check_docker_readiness(
