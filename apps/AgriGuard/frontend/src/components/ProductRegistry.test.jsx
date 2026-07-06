@@ -13,6 +13,10 @@ vi.mock('../services/api', () => ({
 describe('ProductRegistry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
     productApi.create.mockResolvedValue({
       data: {
         id: 'batch-1',
@@ -38,7 +42,10 @@ describe('ProductRegistry', () => {
     expect(screen.getByTestId('registry-harvest-chain-grid')).toHaveClass('grid-cols-1');
     expect(screen.getByTestId('registry-harvest-chain-grid')).toHaveClass('gap-4');
     expect(screen.getByTestId('registry-cold-chain-control')).toHaveClass('sm:mt-8');
+    expect(screen.getByLabelText('Requires Cold Chain')).toHaveClass('absolute');
+    expect(screen.getByLabelText('Requires Cold Chain')).toHaveClass('opacity-0');
     expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('peer-checked:bg-primary');
+    expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('pointer-events-none');
     expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('border-primary');
     expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('bg-primary/10');
     expect(screen.getByText('Requires Cold Chain')).toHaveClass('whitespace-nowrap');
@@ -70,6 +77,12 @@ describe('ProductRegistry', () => {
     expect(screen.getByText('batch-1')).toBeInTheDocument();
     expect(screen.getByText('Public verify label')).toBeInTheDocument();
     expect(screen.getByText('https://verify.agriguard.test/verify/public-token-1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Copy public verify label URL/i })).toHaveClass('min-h-11');
+    fireEvent.click(screen.getByRole('button', { name: /Copy public verify label URL/i }));
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://verify.agriguard.test/verify/public-token-1');
+    });
+    expect(screen.getByRole('button', { name: /Copied public verify label URL/i })).toBeInTheDocument();
     expect(screen.queryByText(/^TX:/)).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Sprout, QrCode, Loader2, Check } from 'lucide-react';
+import { Sprout, QrCode, Loader2, Check, Copy } from 'lucide-react';
 import { productApi } from '../services/api';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
@@ -31,6 +31,7 @@ export default function ProductRegistry() {
     success: null,
     submitError: null,
   });
+  const [labelCopyStatus, setLabelCopyStatus] = useState('');
 
   const [formData, setFormData] = useState(EMPTY_FORM);
 
@@ -53,6 +54,7 @@ export default function ProductRegistry() {
         harvest_date: formData.harvest_date ? new Date(formData.harvest_date).toISOString() : null,
       });
       setUiState({ loading: false, success: res.data, submitError: null });
+      setLabelCopyStatus('');
       setFormData(EMPTY_FORM);
     } catch (error) {
       console.error("Failed to register product", error);
@@ -63,6 +65,24 @@ export default function ProductRegistry() {
       });
     }
   }, [formData]);
+
+  const handleCopyLabelUrl = useCallback(async () => {
+    const labelUrl = uiState.success?.qr_code;
+    if (!labelUrl) return;
+
+    if (!navigator.clipboard?.writeText) {
+      setLabelCopyStatus('Copy failed');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(labelUrl);
+      setLabelCopyStatus('Copied');
+    } catch (error) {
+      console.error('Failed to copy registry label URL', error);
+      setLabelCopyStatus('Copy failed');
+    }
+  }, [uiState.success?.qr_code]);
 
   const inputClass = "min-h-11 w-full bg-white/5 border border-input rounded-lg px-4 py-2.5 text-foreground focus:ring-2 focus:ring-ring outline-none transition-all placeholder:text-muted-foreground sm:py-3";
 
@@ -141,16 +161,16 @@ export default function ProductRegistry() {
                 />
               </div>
               <div data-testid="registry-cold-chain-control" className="space-y-2 flex items-center sm:mt-8">
-                <label className="group flex min-h-11 cursor-pointer items-center gap-3">
+                <label className="group relative flex min-h-11 cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
                     checked={formData.requires_cold_chain}
                     onChange={(e) => handleChange('requires_cold_chain', e.target.checked)}
-                    className="peer sr-only"
+                    className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                   />
                   <span
                     data-testid="registry-cold-chain-checkbox"
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 border-primary bg-primary/10 text-transparent transition-all group-hover:bg-primary/15 peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
+                    className="pointer-events-none flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 border-primary bg-primary/10 text-transparent transition-all group-hover:bg-primary/15 peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
                     aria-hidden="true"
                   >
                     <Check className="h-4 w-4" />
@@ -208,6 +228,16 @@ export default function ProductRegistry() {
                 <div className="mt-4 p-3 bg-background/50 rounded-lg font-mono text-xs text-muted-foreground break-all">
                   {uiState.success.qr_code}
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCopyLabelUrl}
+                  className="mt-3 min-h-11 w-full border-primary/25 text-primary hover:bg-primary/10 sm:w-auto"
+                  aria-label={labelCopyStatus === 'Copied' ? 'Copied public verify label URL' : 'Copy public verify label URL'}
+                >
+                  {labelCopyStatus === 'Copied' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {labelCopyStatus || 'Copy label URL'}
+                </Button>
               </div>
             </div>
           </CardContent>
