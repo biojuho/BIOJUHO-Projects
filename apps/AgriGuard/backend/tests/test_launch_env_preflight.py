@@ -879,6 +879,9 @@ def test_launch_report_skips_docker_checks_by_default(tmp_path: Path) -> None:
         app_root=tmp_path,
     )
 
+    assert report["generated_at"].endswith("Z")
+    report["generated_at"].encode("ascii")
+    assert " " not in report["generated_at"]
     assert report["status"] == "pass"
     assert report["blocker_class"] == "ready"
     assert report["checks"]["docker_checked"] is False

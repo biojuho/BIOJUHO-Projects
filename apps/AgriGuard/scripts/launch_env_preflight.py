@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable, Iterable
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -34,6 +35,10 @@ FIREBASE_SERVICE_ACCOUNT_REQUIRED_FIELDS = (
     "client_email",
     "token_uri",
 )
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _strip_optional_quotes(value: str) -> str:
@@ -713,6 +718,7 @@ def build_launch_report(
         allow_local_allowed_origins=allow_local_allowed_origins,
         allow_missing_firebase_credentials=allow_missing_firebase_credentials,
     )
+    report["generated_at"] = _generated_timestamp_utc()
     checks = report["checks"]
     assert isinstance(checks, dict)
     checks["docker_checked"] = check_docker

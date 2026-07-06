@@ -280,6 +280,7 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
             validation_json.write_text(
                 json.dumps(
                     {
+                        "generated_at": "2026-07-06T12:40:00Z",
                         "status": "fail",
                         "blocker_class": "env_shape_blocked",
                         "ready_for_preflight": False,
@@ -329,6 +330,7 @@ def test_launch_compose_stops_when_env_shape_validation_fails(tmp_path: Path, ca
     assert report["child_reports"]["env_validation"] == {
         "found": True,
         "path": str(validation_json.resolve()),
+        "generated_at": "2026-07-06T12:40:00Z",
         "status": "fail",
         "blocker_class": "env_shape_blocked",
         "ready_for_preflight": False,
@@ -1048,6 +1050,7 @@ def test_launch_compose_embeds_preflight_child_report_summary(tmp_path: Path) ->
         json_out.write_text(
             json.dumps(
                 {
+                    "generated_at": "2026-07-06T12:41:00Z",
                     "status": "fail",
                     "blocker_class": "preflight_blocked",
                     "errors": ["missing AGRIGUARD_SECRET_KEY"],
@@ -1075,6 +1078,7 @@ def test_launch_compose_embeds_preflight_child_report_summary(tmp_path: Path) ->
     assert report["child_reports"]["preflight"] == {
         "found": True,
         "path": str(json_out.resolve()),
+        "generated_at": "2026-07-06T12:41:00Z",
         "status": "fail",
         "blocker_class": "preflight_blocked",
         "errors": ["missing AGRIGUARD_SECRET_KEY"],

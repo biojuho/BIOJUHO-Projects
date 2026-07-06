@@ -85,6 +85,9 @@ def test_validate_launch_env_template_accepts_shape_safe_env(tmp_path: Path) -> 
 
     report = validate_launch_env_template.build_validation_report(env_file=env_file, app_root=APP_ROOT)
 
+    assert report["generated_at"].endswith("Z")
+    report["generated_at"].encode("ascii")
+    assert " " not in report["generated_at"]
     assert report["status"] == "pass"
     assert report["blocker_class"] == "ready"
     assert report["ready_for_preflight"] is True
@@ -196,9 +199,13 @@ def test_validate_launch_env_template_main_writes_json_and_markdown(tmp_path: Pa
 
     assert result == 0
     payload = json.loads(json_out.read_text(encoding="utf-8"))
+    assert payload["generated_at"].endswith("Z")
+    payload["generated_at"].encode("ascii")
+    assert " " not in payload["generated_at"]
     assert payload["blocker_class"] == "ready"
     assert payload["ready_for_preflight"] is True
     markdown = markdown_out.read_text(encoding="utf-8")
+    assert f"Generated: `{payload['generated_at']}`" in markdown
     assert "Blocker class: `ready`" in markdown
     assert "Launch validation blocker class: `ready`" in markdown
     assert "Ready for preflight: `true`" in markdown

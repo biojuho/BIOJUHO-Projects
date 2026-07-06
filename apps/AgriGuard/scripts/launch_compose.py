@@ -135,7 +135,7 @@ def _summarize_preflight_json(path: Path) -> dict[str, object]:
     payload = _read_json_file(path)
     if payload is None:
         return {"found": False, "path": str(path)}
-    return {
+    summary = {
         "found": True,
         "path": str(path),
         "status": payload.get("status"),
@@ -143,6 +143,9 @@ def _summarize_preflight_json(path: Path) -> dict[str, object]:
         "errors": payload.get("errors") if isinstance(payload.get("errors"), list) else [],
         "warnings": payload.get("warnings") if isinstance(payload.get("warnings"), list) else [],
     }
+    if "generated_at" in payload:
+        summary["generated_at"] = payload.get("generated_at")
+    return summary
 
 
 def _summarize_browser_smoke_json(path: Path) -> dict[str, object]:
@@ -170,7 +173,7 @@ def _summarize_env_validation_json(path: Path) -> dict[str, object]:
     payload = _read_json_file(path)
     if payload is None:
         return {"found": False, "path": str(path)}
-    return {
+    summary = {
         "found": True,
         "path": str(path),
         "status": payload.get("status"),
@@ -188,6 +191,9 @@ def _summarize_env_validation_json(path: Path) -> dict[str, object]:
             else []
         ),
     }
+    if "generated_at" in payload:
+        summary["generated_at"] = payload.get("generated_at")
+    return summary
 
 
 def _summarize_operator_packet_json(

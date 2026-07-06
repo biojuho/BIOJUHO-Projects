@@ -5,6 +5,7 @@ import importlib.util
 import json
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,10 @@ def _load_peer_module(module_name: str) -> Any:
 
 
 launch_env_preflight = _load_peer_module("launch_env_preflight")
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _default_app_root() -> Path:
@@ -241,6 +246,7 @@ def build_validation_report(*, env_file: Path, app_root: Path | None = None) -> 
 
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": status,
         "blocker_class": _env_validation_blocker_class(status),
         "ready_for_preflight": not blocking_findings,
@@ -270,6 +276,7 @@ def render_markdown(report: dict[str, object]) -> str:
     lines = [
         "# AgriGuard Launch Env Template Validation",
         "",
+        f"- Generated: `{report.get('generated_at') or '-'}`",
         f"- Status: `{report['status']}`",
         f"- Blocker class: `{report['blocker_class']}`",
         f"- Ready for preflight: `{str(report['ready_for_preflight']).lower()}`",
