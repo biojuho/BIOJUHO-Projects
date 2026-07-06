@@ -868,7 +868,10 @@ def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp
                 "status": "fail",
                 "errors": ["Set AGRIGUARD_SECRET_KEY before compose launch."],
                 "warnings": [],
-                "checks": {},
+                "checks": {
+                    "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+                    "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
+                },
             }
         ),
         encoding="utf-8",
@@ -884,6 +887,7 @@ def test_operator_packet_env_template_has_placeholders_and_safe_launch_flags(tmp
     assert "AGRIGUARD_QR_TOKEN_PEPPER=<set-stable-qr-token-pepper-32-plus-chars>" in template
     assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE=<absolute-path-outside-repo-to-firebase-service-account.json>" in template
     assert "# Absolute host path to a Firebase Admin service account .json file outside the repo." in template
+    assert "# Current preflight checked path: C:/secure/missing-firebase.json" in template
     assert "ALLOW_TEST_BYPASS=false" in template
     assert "ALLOW_DEV_AUTH_FALLBACK=false" in template
     assert "super-secret-value" not in template

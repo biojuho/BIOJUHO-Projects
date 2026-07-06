@@ -1067,6 +1067,9 @@ def render_env_template(packet: dict[str, object]) -> str:
             if isinstance(action, dict) and isinstance(action.get("id"), str)
         ]
 
+    preflight_checks = packet.get("preflight_checks") if isinstance(packet.get("preflight_checks"), dict) else {}
+    firebase_resolved_path = preflight_checks.get("firebase_credentials_resolved_path")
+
     lines = [
         "# AgriGuard launch env template",
         "# Replace every <...> placeholder before running launch preflight.",
@@ -1079,6 +1082,8 @@ def render_env_template(packet: dict[str, object]) -> str:
         comment = entry.get("comment")
         if comment:
             lines.append(f"# {comment}")
+        if entry["key"] == "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE" and isinstance(firebase_resolved_path, str):
+            lines.append(f"# Current preflight checked path: {firebase_resolved_path}")
         lines.append(f"{entry['key']}={entry['value']}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
