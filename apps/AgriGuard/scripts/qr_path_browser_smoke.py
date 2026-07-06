@@ -43,8 +43,8 @@ PUBLIC_VERIFY_SUMMARY_TARGETS = [
         "min_visible_ratio": 0.98,
     },
     {
-        "name": "manual_verify_last_verified_card_first_viewport",
-        "text": "Last verified",
+        "name": "manual_verify_last_checked_card_first_viewport",
+        "text": "Last checked",
         "closest_selector": ".rounded-md.border",
         "min_visible_ratio": 0.98,
     },

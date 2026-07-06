@@ -113,6 +113,8 @@ describe('ConsumerVerify', () => {
     expect(screen.getByText('Hallabong')).toBeInTheDocument();
     expect(screen.getByText('Jeju')).toBeInTheDocument();
     expect(screen.getByText('AG-1234567890')).toBeInTheDocument();
+    expect(screen.getByText('Last verified')).toBeInTheDocument();
+    expect(screen.queryByText('Last checked')).not.toBeInTheDocument();
     expect(screen.getByText('Evidence hash: hash-123')).toBeInTheDocument();
     expect(screen.getByTestId('consumer-proof-tx')).toHaveTextContent(
       'TX 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
@@ -152,6 +154,8 @@ describe('ConsumerVerify', () => {
     expect(screen.getByTestId('consumer-trust-badge')).toHaveTextContent('Not verified');
     expect(screen.getByText('Unverified AgriGuard QR')).toBeInTheDocument();
     expect(screen.getAllByText('Not verified')).toHaveLength(2);
+    expect(screen.getByText('Last checked')).toBeInTheDocument();
+    expect(screen.queryByText('Last verified')).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(qrVerifyApi.verify).toHaveBeenCalledWith('fake-token', {
@@ -180,5 +184,7 @@ describe('ConsumerVerify', () => {
 
     expect(await screen.findByText('Needs more evidence')).toBeInTheDocument();
     expect(screen.getByTestId('consumer-trust-badge')).toHaveTextContent('Evidence pending');
+    expect(screen.getByText('Last checked')).toBeInTheDocument();
+    expect(screen.queryByText('Last verified')).not.toBeInTheDocument();
   });
 });

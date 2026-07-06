@@ -71,6 +71,12 @@ function formatTrustBadgeLabel(verification, trust) {
   return verification?.is_valid ? 'Evidence pending' : 'Not verified';
 }
 
+function formatLastEvidenceLabel(verification, trust) {
+  return verification?.is_valid && trust?.status && trust.status !== 'Unknown'
+    ? 'Last verified'
+    : 'Last checked';
+}
+
 function MetaNoIndex() {
   useEffect(() => {
     const previousTitle = document.title;
@@ -217,6 +223,7 @@ export default function ConsumerVerify() {
   const trust = verification?.trust_badge;
   const trustStyle = useMemo(() => TRUST_STYLE[trust?.status] || TRUST_STYLE.Unknown, [trust?.status]);
   const trustBadgeLabel = formatTrustBadgeLabel(verification, trust);
+  const lastEvidenceLabel = formatLastEvidenceLabel(verification, trust);
   const TrustIcon = trustStyle.icon;
 
   if (state.loading) {
@@ -282,7 +289,7 @@ export default function ConsumerVerify() {
           <EvidenceRow icon={MapPin} label="Origin" value={product?.origin || 'Not verified'} tone="text-emerald-700" />
           <EvidenceRow icon={PackageCheck} label="Batch" value={batch?.batch_code || 'Hidden'} tone="text-blue-700" />
           <EvidenceRow icon={Thermometer} label="Temperature" value={temperature.message} tone="text-cyan-700" />
-          <EvidenceRow icon={Clock} label="Last verified" value={formatDateTime(verification.last_verified_at)} tone="text-slate-700" />
+          <EvidenceRow icon={Clock} label={lastEvidenceLabel} value={formatDateTime(verification.last_verified_at)} tone="text-slate-700" />
         </section>
 
         {batch && (
