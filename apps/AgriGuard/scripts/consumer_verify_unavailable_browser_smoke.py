@@ -46,6 +46,54 @@ def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
     return {"name": name, "ok": bool(ok), "detail": detail}
 
 
+def summarize_checks(checks: list[dict[str, object]]) -> dict[str, object]:
+    passed = sum(1 for item in checks if item.get("ok") is True)
+    failed_check_names = [
+        str(item.get("name") or f"check_{index}")
+        for index, item in enumerate(checks, start=1)
+        if item.get("ok") is not True
+    ]
+    return {
+        "passed": passed,
+        "failed": len(checks) - passed,
+        "total": len(checks),
+        "failed_check_names": failed_check_names,
+    }
+
+
+def mobile_viewport(viewport: dict[str, object]) -> bool:
+    width = viewport.get("width")
+    return isinstance(width, int) and width <= 500
+
+
+def enrich_launch_evidence_contract(report: dict[str, object]) -> dict[str, object]:
+    raw_checks = report.get("checks", [])
+    checks = [item for item in raw_checks if isinstance(item, dict)] if isinstance(raw_checks, list) else []
+    summary = summarize_checks(checks)
+    status = "pass" if summary["failed"] == 0 else "fail"
+    viewport = report.get("viewport")
+    viewport_dict = viewport if isinstance(viewport, dict) else {}
+    report.update(
+        {
+            "status": status,
+            "base_url": report.get("baseUrl", ""),
+            "mobile": mobile_viewport(viewport_dict),
+            "passed": summary["passed"],
+            "failed": summary["failed"],
+            "total": summary["total"],
+            "ok": status == "pass",
+            "summary": {
+                **summary,
+                "base_url": report.get("baseUrl", ""),
+                "url": report.get("url", ""),
+                "screenshot": report.get("screenshot", ""),
+            },
+            "screenshot_path": report.get("screenshot", ""),
+        }
+    )
+    return report
+
+
 def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -264,16 +312,12 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     )
     checks.append(check("no_page_errors", len(page_errors) == 0, str(page_errors[:3])))
 
-    passed = sum(1 for item in checks if item["ok"])
     report = {
         "schema_version": 1,
         "generated_at": _generated_timestamp_utc(),
         "baseUrl": args.base_url,
         "url": route_url(args.base_url, args.token),
         "viewport": viewport,
-        "passed": passed,
-        "total": len(checks),
-        "ok": passed == len(checks),
         "checks": checks,
         "consoleMessages": console_messages,
         "unexpectedConsoleMessages": unexpected_console_messages,
@@ -286,14 +330,17 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "pageErrors": page_errors,
         "screenshot": str(screenshot),
     }
-    return dict(redact_report_public_tokens(report, {args.token}))
+    return dict(redact_report_public_tokens(enrich_launch_evidence_contract(report), {args.token}))
 
 
 def main() -> int:
     args = parse_args()
     report = run_browser(args)
     write_json(args.json_out, report)
-    print(f"consumer verify unavailable browser smoke: {report['passed']}/{report['total']} PASS")
+    print(
+        f"consumer verify unavailable browser smoke {report['status']}: "
+        f"{report['passed']}/{report['total']} checks passed"
+    )
     print(f"json written: {args.json_out}")
     return 0 if report["ok"] else 1
 

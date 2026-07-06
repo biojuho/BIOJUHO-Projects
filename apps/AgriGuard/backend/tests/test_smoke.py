@@ -1930,6 +1930,36 @@ def test_consumer_verify_unavailable_browser_smoke_route_and_viewport():
     )
 
 
+def test_consumer_verify_unavailable_browser_smoke_enriches_launch_evidence_contract():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "consumer_verify_unavailable_browser_smoke.py",
+        "consumer_verify_unavailable_browser_smoke_contract_under_test",
+    )
+
+    report = script.enrich_launch_evidence_contract(
+        {
+            "baseUrl": "http://127.0.0.1:5174",
+            "url": "http://127.0.0.1:5174/verify/offline-token",
+            "viewport": {"width": 390, "height": 844},
+            "screenshot": "var/unavailable.png",
+            "checks": [
+                script.check("unavailable_state_visible", True),
+                script.check("expected_api_failure_observed", False, "no failure"),
+            ],
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert report["base_url"] == "http://127.0.0.1:5174"
+    assert report["mobile"] is True
+    assert report["passed"] == 1
+    assert report["failed"] == 1
+    assert report["total"] == 2
+    assert report["ok"] is False
+    assert report["summary"]["failed_check_names"] == ["expected_api_failure_observed"]
+    assert report["summary"]["screenshot"] == "var/unavailable.png"
+
+
 def test_consumer_verify_unavailable_browser_smoke_redacts_report_token():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "consumer_verify_unavailable_browser_smoke.py",
