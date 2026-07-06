@@ -101,6 +101,21 @@ def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
     return {"name": name, "ok": bool(ok), "detail": detail}
 
 
+def summarize_checks(checks: list[dict[str, object]]) -> dict[str, object]:
+    passed = sum(1 for item in checks if item.get("ok") is True)
+    failed_check_names = [
+        str(item.get("name") or f"check_{index}")
+        for index, item in enumerate(checks, start=1)
+        if item.get("ok") is not True
+    ]
+    return {
+        "passed": passed,
+        "failed": len(checks) - passed,
+        "total": len(checks),
+        "failed_check_names": failed_check_names,
+    }
+
+
 def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -614,17 +629,27 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     )
     checks.append(check("no_page_errors", len(page_errors) == 0, str(len(page_errors))))
 
-    passed = sum(1 for item in checks if item["ok"])
+    summary = summarize_checks(checks)
+    ok = summary["failed"] == 0
     return {
         "schema_version": 1,
         "generated_at": _generated_timestamp_utc(),
+        "status": "pass" if ok else "fail",
         "baseUrl": args.base_url,
+        "base_url": args.base_url,
         "mode": "click-nav" if args.click_nav else "direct-route",
         "viewport": viewport,
         "mobile": bool(args.mobile),
-        "passed": passed,
-        "total": len(checks),
-        "ok": passed == len(checks),
+        "passed": summary["passed"],
+        "failed": summary["failed"],
+        "total": summary["total"],
+        "ok": ok,
+        "summary": {
+            **summary,
+            "mode": "click-nav" if args.click_nav else "direct-route",
+            "base_url": args.base_url,
+            "screenshot_dir": str(screenshot_dir),
+        },
         "operator_token_configured": bool(args.operator_token),
         "checks": checks,
         "observations": observations,
@@ -633,6 +658,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "actionableRequestFailures": actionable_request_failures,
         "pageErrors": page_errors,
         "screenshotDir": str(screenshot_dir),
+        "screenshot_dir": str(screenshot_dir),
     }
 
 
@@ -640,7 +666,7 @@ def main() -> int:
     args = parse_args()
     report = run_browser(args)
     write_json(args.json_out, report)
-    print(f"agriguard nav browser smoke: {report['passed']}/{report['total']} PASS")
+    print(f"agriguard nav browser smoke {report['status']}: {report['passed']}/{report['total']} checks passed")
     print(f"json written: {args.json_out}")
     return 0 if report["ok"] else 1
 

@@ -496,6 +496,28 @@ def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
 
 
+def test_nav_browser_smoke_summarizes_launch_evidence_contract():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
+        "nav_browser_smoke_summary_under_test",
+    )
+
+    summary = script.summarize_checks(
+        [
+            script.check("dashboard_route_rendered", True),
+            script.check("qr_tokens_route_rendered", False, "missing heading"),
+            {"ok": False},
+        ]
+    )
+
+    assert summary == {
+        "passed": 1,
+        "failed": 2,
+        "total": 3,
+        "failed_check_names": ["qr_tokens_route_rendered", "check_3"],
+    }
+
+
 def test_nav_browser_smoke_tracks_mobile_first_viewport_affordances():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
