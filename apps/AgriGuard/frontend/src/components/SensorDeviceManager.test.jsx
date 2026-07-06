@@ -710,7 +710,10 @@ describe('SensorDeviceManager', () => {
     expect(postedPayload).not.toContain('setClientPassword');
     expect(screen.getByRole('status')).toHaveTextContent('Broker provisioning evidence recorded.');
     expect(screen.getByText('Credential rotation recorded')).toBeInTheDocument();
-    expect(screen.getByText('abababababab')).toBeInTheDocument();
+    const latestEvidenceHash = screen.getByTestId('broker-latest-evidence-hash');
+    expect(latestEvidenceHash).toHaveTextContent('abababababab');
+    expect(latestEvidenceHash).toHaveAttribute('title', 'ab'.repeat(32));
+    expect(latestEvidenceHash).toHaveClass('select-all');
     expect(screen.getByText('mosquitto-prod-01')).toBeInTheDocument();
     expect(screen.getByText('CHG-2026-0610')).toBeInTheDocument();
   });
@@ -759,7 +762,10 @@ describe('SensorDeviceManager', () => {
     expect(within(evidenceRow).getByText('Mode')).toBeInTheDocument();
     expect(within(evidenceRow).getByText('Hash')).toBeInTheDocument();
     expect(within(evidenceRow).getByText('Rotation')).toBeInTheDocument();
-    expect(screen.getByTestId('broker-evidence-history-hash')).toHaveTextContent('cdcdcdcdcdcd');
+    const historyHash = screen.getByTestId('broker-evidence-history-hash');
+    expect(historyHash).toHaveTextContent('cdcdcdcdcdcd');
+    expect(historyHash).toHaveAttribute('title', 'cd'.repeat(32));
+    expect(historyHash).toHaveClass('select-all');
   });
 
   it('fills the form from an existing sensor and saves updates', async () => {

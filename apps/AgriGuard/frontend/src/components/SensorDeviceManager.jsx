@@ -1145,7 +1145,11 @@ export default function SensorDeviceManager() {
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Fingerprint className="h-3.5 w-3.5" />
-                      <strong className="font-mono font-medium text-foreground">
+                      <strong
+                        data-testid="broker-latest-evidence-hash"
+                        title={latestProvisioningEvidence.artifact_hash}
+                        className="select-all font-mono font-medium text-foreground"
+                      >
                         {latestProvisioningEvidence.artifact_hash.slice(0, 12)}
                       </strong>
                     </span>
@@ -1349,7 +1353,13 @@ export default function SensorDeviceManager() {
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
                               Hash
                             </span>
-                            <span data-testid="broker-evidence-history-hash" className="font-mono text-foreground">{item.artifact_hash.slice(0, 12)}</span>
+                            <span
+                              data-testid="broker-evidence-history-hash"
+                              title={item.artifact_hash}
+                              className="select-all font-mono text-foreground"
+                            >
+                              {item.artifact_hash.slice(0, 12)}
+                            </span>
                           </td>
                           <td className="flex items-center justify-between gap-3 pt-3 md:table-cell md:py-3">
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
