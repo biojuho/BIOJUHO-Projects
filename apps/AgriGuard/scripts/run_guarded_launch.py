@@ -482,6 +482,7 @@ def _build_status_view(
         blocker_class = _launch_view_blocker_class(launch) or _operator_packet_view_blocker_class(packet)
     if status == "ready" and blocker_class is None:
         blocker_class = "ready"
+    ready_gate_current_status = "pass" if status == "ready" and blocker_class == "ready" else "fail"
 
     return {
         "schema_version": 1,
@@ -508,6 +509,8 @@ def _build_status_view(
             ),
             "status": ready_gate_payload.get("status") if ready_gate_payload is not None else None,
             "blocker_class": _artifact_index_view_blocker_class(ready_gate_payload),
+            "current_status": ready_gate_current_status,
+            "current_blocker_class": "ready" if ready_gate_current_status == "pass" else blocker_class,
             "command_shell": artifact_index.get("consumer_ready_gate_command_shell")
             if artifact_index is not None
             else None,

@@ -1605,6 +1605,8 @@ def test_guarded_launch_status_only_prefers_custom_artifact_index(tmp_path: Path
         "sha256": None,
         "status": None,
         "blocker_class": None,
+        "current_status": "fail",
+        "current_blocker_class": "operator_values_required",
         "command_shell": "powershell",
         "command_text": "& python run_guarded_launch.py --status-only --require-ready",
     }
@@ -1675,6 +1677,8 @@ def test_guarded_launch_status_only_prefers_live_ready_gate_file_state(tmp_path:
         "generated_at": "2026-07-06T12:50:00Z",
         "status": "blocked",
         "blocker_class": "preflight_blocked",
+        "current_status": "fail",
+        "current_blocker_class": None,
         "command_shell": "powershell",
         "command_text": "& python run_guarded_launch.py --status-only --require-ready",
     }

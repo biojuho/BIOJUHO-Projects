@@ -1180,6 +1180,19 @@
                 "null"
               ]
             },
+            "current_blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "current_status": {
+              "enum": [
+                "pass",
+                "fail"
+              ],
+              "type": "string"
+            },
             "exists": {
               "type": [
                 "boolean",
@@ -1221,6 +1234,8 @@
             "sha256",
             "status",
             "blocker_class",
+            "current_status",
+            "current_blocker_class",
             "command_shell",
             "command_text"
           ],
