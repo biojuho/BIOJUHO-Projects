@@ -437,6 +437,30 @@ describe('SensorDeviceManager', () => {
     expect(actionPanel).toHaveClass('md:min-w-64');
   });
 
+  it('renders MQTT rejection audit rows as mobile-first cards', async () => {
+    render(<SensorDeviceManager />);
+
+    const rejectionTable = await screen.findByTestId('mqtt-rejection-table');
+    expect(rejectionTable).not.toHaveClass('min-w-[760px]');
+    expect(rejectionTable).toHaveClass('md:min-w-[760px]');
+
+    const rejectionRow = screen.getByTestId('mqtt-rejection-row');
+    expect(rejectionRow).toHaveClass('block');
+    expect(rejectionRow).toHaveClass('md:table-row');
+    expect(within(rejectionRow).getByText('Sensor')).toBeInTheDocument();
+    expect(within(rejectionRow).getByText('Reason')).toBeInTheDocument();
+    expect(within(rejectionRow).getByText('Occurred')).toBeInTheDocument();
+    expect(within(rejectionRow).getByText('Registry gate')).toBeInTheDocument();
+    expect(within(rejectionRow).getByText('Message')).toBeInTheDocument();
+
+    const rejectedSensorId = screen.getByTestId('mqtt-rejection-sensor-id');
+    expect(rejectedSensorId).toHaveTextContent('unknown-mqtt-1');
+    expect(rejectedSensorId).toHaveAttribute('title', 'unknown-mqtt-1');
+    expect(rejectedSensorId).toHaveClass('truncate');
+    expect(rejectedSensorId).not.toHaveClass('break-all');
+    expect(screen.getByTestId('mqtt-rejection-message')).toHaveClass('break-words');
+  });
+
   it('saves an operator token for protected sensor API calls', () => {
     getOperatorToken.mockReturnValue('');
 

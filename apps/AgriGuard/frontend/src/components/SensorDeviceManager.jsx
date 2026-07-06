@@ -1830,9 +1830,12 @@ export default function SensorDeviceManager() {
           )}
 
           {rejectionState.data?.items.length > 0 && (
-            <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+            <div className="mt-5 overflow-visible md:overflow-x-auto">
+              <table
+                data-testid="mqtt-rejection-table"
+                className="w-full border-separate border-spacing-0 text-left text-sm md:min-w-[760px] md:border-collapse"
+              >
+                <thead className="hidden border-b border-border text-xs uppercase tracking-wide text-muted-foreground md:table-header-group">
                   <tr>
                     <th scope="col" className="py-3 pr-4">Sensor</th>
                     <th scope="col" className="py-3 pr-4">Reason</th>
@@ -1841,26 +1844,57 @@ export default function SensorDeviceManager() {
                     <th scope="col" className="py-3">Message</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="block space-y-3 md:table-row-group md:divide-y md:divide-border md:space-y-0">
                   {rejectionState.data.items.map((event) => (
-                    <tr key={event.id} className="align-top">
-                      <td className="py-4 pr-4 font-mono text-foreground">{event.sensor_id || 'unknown'}</td>
-                      <td className="py-4 pr-4">
+                    <tr
+                      key={event.id}
+                      data-testid="mqtt-rejection-row"
+                      className="block rounded-lg border border-border bg-background/40 p-4 align-top md:table-row md:border-0 md:bg-transparent md:p-0"
+                    >
+                      <td className="block border-b border-border/60 pb-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Sensor
+                        </span>
+                        <span
+                          data-testid="mqtt-rejection-sensor-id"
+                          title={event.sensor_id || 'unknown'}
+                          className="block max-w-56 truncate font-mono text-foreground"
+                        >
+                          {event.sensor_id || 'unknown'}
+                        </span>
+                      </td>
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Reason
+                        </span>
                         <Badge variant="warning" className="capitalize">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           {formatReasonLabel(event.reason)}
                         </Badge>
                       </td>
-                      <td className="py-4 pr-4 text-muted-foreground">
-                        <span className="inline-flex items-center gap-1.5">
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Occurred
+                        </span>
+                        <span className="inline-flex min-w-0 items-center gap-1.5 text-right text-muted-foreground md:text-left">
                           <Clock className="h-3.5 w-3.5" />
                           {formatDateTime(event.occurred_at)}
                         </span>
                       </td>
-                      <td className="py-4 pr-4">
+                      <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Registry gate
+                        </span>
                         <RegistryGateBadge isRequired={Boolean(event.registry_required)} />
                       </td>
-                      <td className="py-4 text-muted-foreground">{event.error_message || 'No message'}</td>
+                      <td className="block pt-3 md:table-cell md:py-4">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                          Message
+                        </span>
+                        <span data-testid="mqtt-rejection-message" className="block min-w-0 break-words text-muted-foreground">
+                          {event.error_message || 'No message'}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
