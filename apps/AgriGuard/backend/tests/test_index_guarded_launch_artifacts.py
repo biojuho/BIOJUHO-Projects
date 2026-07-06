@@ -232,6 +232,30 @@ def test_index_guarded_launch_artifacts_prefers_status_view_command_metadata(tmp
     assert index["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
 
 
+def test_index_guarded_launch_artifacts_renders_browser_smoke_found_false(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    launch = json.loads(paths["launch_report_json"].read_text(encoding="utf-8"))
+    launch["child_reports"] = {
+        "browser_smoke": {
+            "found": False,
+            "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+        }
+    }
+    paths["launch_report_json"].write_text(json.dumps(launch), encoding="utf-8")
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
+
+    assert index["launch_browser_smoke"]["found"] is False
+    assert "Launch browser smoke found: `false`" in markdown
+    assert "Launch browser smoke path: `var/agriguard-browser-smoke-suite-compose-launch.json`" in markdown
+
+
 def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     paths = _write_core_artifacts(output_dir, "blocked")
@@ -305,6 +329,7 @@ def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(t
         "failed_targets": ["backend", "frontend_proxy"],
     }
     assert "Launch browser smoke status: `fail`" in markdown
+    assert "Launch browser smoke found: `true`" in markdown
     assert "Launch browser smoke evidence class: `launch_precheck_blocked`" in markdown
     assert "Launch browser smoke launch gate enforced: `true`" in markdown
     assert "Launch browser smoke prechecks: `2/3`" in markdown
