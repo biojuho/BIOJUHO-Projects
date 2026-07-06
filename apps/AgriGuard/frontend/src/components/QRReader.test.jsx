@@ -103,9 +103,11 @@ describe('QRReader', () => {
   });
 
   it('exposes the scanner page title as the primary heading', () => {
-    renderReader();
+    const { container } = renderReader();
 
     expect(screen.getByRole('heading', { level: 1, name: /Scan Product QR/i })).toBeInTheDocument();
+    expect(container.firstChild).toHaveClass('mt-4');
+    expect(container.firstChild).toHaveClass('sm:mt-8');
   });
 
   it('tracks scan failure and recovery', async () => {

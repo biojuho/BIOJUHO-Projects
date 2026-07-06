@@ -54,6 +54,7 @@ MOBILE_ROUTE_AFFORDANCES = {
             "text": "Verify code",
             "selector": "button",
             "min_visible_ratio": 0.98,
+            "min_bottom_margin": 16,
         },
     ],
 }
@@ -388,7 +389,13 @@ def measure_mobile_affordance(page: Page, spec: dict[str, object]) -> dict[str, 
             const visibleRatio = totalArea > 0 ? visibleArea / totalArea : 0;
             const minVisibleHeight = Number(spec.min_visible_height || 1);
             const minVisibleRatio = Number(spec.min_visible_ratio || 0.01);
-            const ok = visibleHeight >= minVisibleHeight && visibleRatio >= minVisibleRatio;
+            const hasBottomMarginRequirement = spec.min_bottom_margin !== undefined
+              && spec.min_bottom_margin !== null;
+            const minBottomMargin = hasBottomMarginRequirement ? Number(spec.min_bottom_margin) : 0;
+            const bottomMargin = Math.round(window.innerHeight - rect.bottom);
+            const ok = visibleHeight >= minVisibleHeight
+              && visibleRatio >= minVisibleRatio
+              && (!hasBottomMarginRequirement || bottomMargin >= minBottomMargin);
 
             return {
               name: spec.name,
@@ -408,8 +415,10 @@ def measure_mobile_affordance(page: Page, spec: dict[str, object]) -> dict[str, 
               visibleWidth: Math.round(visibleWidth),
               visibleHeight: Math.round(visibleHeight),
               visibleRatio: Math.round(visibleRatio * 1000) / 1000,
+              bottomMargin,
               minVisibleHeight,
               minVisibleRatio,
+              minBottomMargin,
               viewportHeight: window.innerHeight,
               viewportWidth: window.innerWidth,
             };

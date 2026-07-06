@@ -340,6 +340,7 @@ def test_nav_browser_smoke_tracks_mobile_first_viewport_affordances():
     assert script.mobile_touch_targets_ok({"undersizedTouchTargets": []}) is True
     assert script.mobile_touch_targets_ok({"undersizedTouchTargets": [{"tag": "button", "height": 36}]}) is False
     assert script.MOBILE_ROUTE_AFFORDANCES["registry"][0]["text"] == "Register Harvest"
+    assert script.MOBILE_ROUTE_AFFORDANCES["scanner"][0]["min_bottom_margin"] == 16
     assert script.MOBILE_ROUTE_AFFORDANCES["scanner"][0]["min_visible_ratio"] == 0.98
     assert script.MOBILE_ROUTE_AFFORDANCES["cold_chain"][0]["min_visible_height"] == 220
     assert script.MOBILE_ROUTE_AFFORDANCES["qr_tokens"][0]["min_visible_height"] == 220

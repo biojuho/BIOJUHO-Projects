@@ -254,7 +254,7 @@ export default function QRReader() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-8 animate-in fade-in duration-500">
+    <div className="max-w-md mx-auto mt-4 animate-in fade-in duration-500 sm:mt-8">
       <Card className="shadow-xl overflow-hidden">
         <div className="bg-gradient-to-r from-primary to-emerald-600 p-6 text-center">
           <div className="mx-auto bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mb-4">
