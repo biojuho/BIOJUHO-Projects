@@ -38,11 +38,20 @@ const mockProduct = {
   description: 'Fresh organic apples',
 };
 
+const timelineIsoTimestamp = '2026-07-05T23:47:51.279659+00:00';
+const timelineLocalizedTimestamp = new Date(timelineIsoTimestamp).toLocaleString('ko-KR');
+
 const mockHistory = [
   {
     block: 1,
-    data: { action: 'REGISTERED', location: 'Farm', handler_id: 'HANDLER-VERY-LONG-1234567890' },
-    timestamp: new Date().toISOString(),
+    data: {
+      action: 'REGISTERED',
+      status: 'IN_TRANSIT',
+      timestamp: timelineIsoTimestamp,
+      location: 'Farm',
+      handler_id: 'HANDLER-VERY-LONG-1234567890',
+    },
+    timestamp: timelineIsoTimestamp,
     tx_hash: '0x1234567890',
   },
 ];
@@ -97,6 +106,11 @@ describe('ProductDetail', () => {
         screen.getByTestId('product-detail-actions').compareDocumentPosition(screen.getByText('Fresh organic apples'))
         & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
+      expect(screen.getByText('Registered')).toBeInTheDocument();
+      expect(screen.getByTestId('timeline-data-value-status')).toHaveTextContent('In Transit');
+      expect(screen.queryByText('IN_TRANSIT')).not.toBeInTheDocument();
+      expect(screen.getByTestId('timeline-data-value-timestamp')).toHaveTextContent(timelineLocalizedTimestamp);
+      expect(screen.queryByText(timelineIsoTimestamp)).not.toBeInTheDocument();
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveTextContent('HANDLER-VERY-LONG-1234567890');
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveClass('break-all');
       expect(screen.getByTestId('timeline-data-value-handler_id')).not.toHaveClass('truncate');

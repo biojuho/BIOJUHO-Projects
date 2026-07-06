@@ -387,13 +387,17 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         page.get_by_role("button", name=re.compile("^Add Event$", re.I)).click(timeout=args.timeout_ms)
         page.get_by_text("Tracking event saved").wait_for(timeout=args.timeout_ms)
         page.wait_for_function(
-            "() => (document.body.textContent || '').includes('IN_TRANSIT')",
+            "() => (document.body.textContent || '').includes('In Transit')",
             timeout=args.timeout_ms,
         )
         tracking_text = body_text(page)
-        tracking_history_visible = bool(page.evaluate("() => (document.body.textContent || '').includes('IN_TRANSIT')"))
+        tracking_history_visible = bool(page.evaluate("() => (document.body.textContent || '').includes('In Transit')"))
+        raw_tracking_status_hidden = not bool(
+            page.evaluate("() => (document.body.textContent || '').includes('IN_TRANSIT')")
+        )
         checks.append(check("tracking_event_saved", "Tracking event saved" in tracking_text))
         checks.append(check("tracking_event_visible_in_history", tracking_history_visible))
+        checks.append(check("tracking_event_raw_status_hidden", raw_tracking_status_hidden))
 
         add_certification.click(timeout=args.timeout_ms)
         page.get_by_text("New Certification").wait_for(timeout=args.timeout_ms)
@@ -411,7 +415,12 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         }
         checks.append(check("certification_saved", "Certificate saved" in final_text))
         checks.append(check("certified_badge_visible", "Certified" in final_text))
-        checks.append(check("tracking_event_action_label_visible", "UNKNOWN EVENT" not in final_text and "IN TRANSIT" in final_text))
+        checks.append(
+            check(
+                "tracking_event_action_label_visible",
+                "UNKNOWN EVENT" not in final_text and "In Transit" in final_text and "IN_TRANSIT" not in final_text,
+            )
+        )
         checks.append(check("final_no_horizontal_overflow", has_no_horizontal_overflow(final_metrics), str(final_metrics)))
         capture_screenshot(page, screenshot_dir / "product-detail-final.png")
         browser.close()

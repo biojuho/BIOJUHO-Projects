@@ -2,9 +2,81 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Package, Truck, CheckCircle, Award } from 'lucide-react';
 
+const ACTION_LABELS = {
+  REGISTER: 'Registered',
+  REGISTERED: 'Registered',
+  CERTIFICATION_ISSUED: 'Certification Issued',
+  IN_TRANSIT: 'In Transit',
+  DELIVERED: 'Delivered',
+  VERIFIED: 'Verified',
+};
+
+const FIELD_LABELS = {
+  handler_id: 'Handler ID',
+  owner_id: 'Owner ID',
+  product_id: 'Product ID',
+  qr_code: 'QR Code',
+  tx_hash: 'TX Hash',
+};
+
+const MACHINE_VALUE_KEYS = new Set([
+  'handler_id',
+  'owner_id',
+  'product_id',
+  'qr_code',
+  'tx_hash',
+]);
+
+const DATE_VALUE_KEYS = new Set([
+  'created_at',
+  'event_timestamp',
+  'timestamp',
+  'updated_at',
+]);
+
+const toTitleCase = (value) =>
+  value
+    .toLowerCase()
+    .split(/[\s_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+const formatEventLabel = (value) => {
+  if (!value) return 'Unknown Event';
+  const normalized = String(value).trim();
+  return ACTION_LABELS[normalized] || toTitleCase(normalized);
+};
+
+const formatFieldLabel = (key) => FIELD_LABELS[key] || toTitleCase(key);
+
+const formatDateTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ko-KR');
+};
+
+const formatTimelineValue = (key, value) => {
+  if (value === null || value === undefined || value === '') return 'Not recorded';
+
+  if (key === 'status' || key === 'action') {
+    return formatEventLabel(value);
+  }
+
+  if (DATE_VALUE_KEYS.has(key)) {
+    const formattedDate = formatDateTime(value);
+    if (formattedDate) return formattedDate;
+  }
+
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+};
+
 const EventIcon = ({ action }) => {
   switch (action) {
     case 'REGISTER':
+    case 'REGISTERED':
       return <Package className="w-4 h-4 text-blue-400" />;
     case 'CERTIFICATION_ISSUED':
       return <Award className="w-4 h-4 text-amber-400" />;
@@ -70,7 +142,7 @@ export default function ProductTimeline({ history = [] }) {
         {history.map((block, idx) => {
           const isLatest = idx === history.length - 1;
           const { data, timestamp, tx_hash } = block;
-          const dateStr = new Date(timestamp).toLocaleString('ko-KR');
+          const dateStr = formatDateTime(timestamp) || 'Time pending';
           const explorerUrl = block.explorer_url || data?.explorer_url || '';
 
           return (
@@ -99,8 +171,8 @@ export default function ProductTimeline({ history = [] }) {
                     <span className={`px-2.5 py-0.5 rounded text-xs font-bold font-mono tracking-wider ${isLatest ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-300 border border-slate-700/50'}`}>
                       BLOCK #{block.block}
                     </span>
-                    <h4 className="text-base font-bold text-slate-100 group-hover:text-white transition-colors capitalize">
-                      {data?.action ? data.action.replace(/_/g, ' ') : 'UNKNOWN EVENT'}
+                    <h4 className="text-base font-bold text-slate-100 group-hover:text-white transition-colors">
+                      {formatEventLabel(data?.action)}
                     </h4>
                   </div>
                   <span className="text-xs font-mono text-slate-400 bg-slate-950/40 px-2 py-1 rounded border border-white/5">{dateStr}</span>
@@ -109,14 +181,16 @@ export default function ProductTimeline({ history = [] }) {
                 <div className="space-y-2 mt-3 bg-slate-950/20 p-3.5 rounded-xl border border-white/5">
                   {Object.entries(data).map(([key, value]) => {
                     if (key === 'action' || key === 'explorer_url') return null;
+                    const formattedValue = formatTimelineValue(key, value);
+                    const machineValue = MACHINE_VALUE_KEYS.has(key);
                     return (
                       <div key={key} className="flex flex-col gap-1 text-xs sm:flex-row sm:gap-2">
-                        <span className="font-semibold text-slate-400 capitalize sm:min-w-[100px]">{key.replace(/_/g, ' ')}:</span>
+                        <span className="font-semibold text-slate-400 sm:min-w-[100px]">{formatFieldLabel(key)}:</span>
                         <span
                           data-testid={`timeline-data-value-${key}`}
-                          className="min-w-0 break-all font-mono text-slate-200 select-all"
+                          className={`min-w-0 break-all text-slate-200 select-all ${machineValue ? 'font-mono' : 'font-medium'}`}
                         >
-                          {value}
+                          {formattedValue}
                         </span>
                       </div>
                     );
