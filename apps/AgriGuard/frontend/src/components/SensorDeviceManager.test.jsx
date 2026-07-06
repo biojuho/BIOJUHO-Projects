@@ -740,6 +740,21 @@ describe('SensorDeviceManager', () => {
     expect(await screen.findByText('RUNBOOK-HIST')).toBeInTheDocument();
     expect(screen.getByText('cdcdcdcdcdcd')).toBeInTheDocument();
     expect(screen.getByText('1 recorded broker application events')).toBeInTheDocument();
+
+    const evidenceTable = screen.getByTestId('broker-evidence-history-table');
+    expect(evidenceTable).not.toHaveClass('min-w-[760px]');
+    expect(evidenceTable).toHaveClass('md:min-w-[760px]');
+
+    const evidenceRow = screen.getByTestId('broker-evidence-history-row');
+    expect(evidenceRow).toHaveClass('block');
+    expect(evidenceRow).toHaveClass('md:table-row');
+    expect(within(evidenceRow).getByText('Applied')).toBeInTheDocument();
+    expect(within(evidenceRow).getByText('Broker')).toBeInTheDocument();
+    expect(within(evidenceRow).getByText('Runbook')).toBeInTheDocument();
+    expect(within(evidenceRow).getByText('Mode')).toBeInTheDocument();
+    expect(within(evidenceRow).getByText('Hash')).toBeInTheDocument();
+    expect(within(evidenceRow).getByText('Rotation')).toBeInTheDocument();
+    expect(screen.getByTestId('broker-evidence-history-hash')).toHaveTextContent('cdcdcdcdcdcd');
   });
 
   it('fills the form from an existing sensor and saves updates', async () => {

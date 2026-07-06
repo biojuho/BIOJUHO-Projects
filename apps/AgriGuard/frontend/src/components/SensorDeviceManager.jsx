@@ -1299,9 +1299,12 @@ export default function SensorDeviceManager() {
               )}
 
               {provisioningEvidenceHistoryItems.length > 0 ? (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[760px] border-collapse text-left text-xs">
-                    <thead className="border-b border-border uppercase tracking-wide text-muted-foreground">
+                <div className="mt-4 overflow-visible md:overflow-x-auto">
+                  <table
+                    data-testid="broker-evidence-history-table"
+                    className="w-full border-separate border-spacing-0 text-left text-xs md:min-w-[760px] md:border-collapse"
+                  >
+                    <thead className="hidden border-b border-border uppercase tracking-wide text-muted-foreground md:table-header-group">
                       <tr>
                         <th scope="col" className="py-2 pr-4">Applied</th>
                         <th scope="col" className="py-2 pr-4">Broker</th>
@@ -1311,15 +1314,49 @@ export default function SensorDeviceManager() {
                         <th scope="col" className="py-2">Rotation</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border text-muted-foreground">
+                    <tbody className="block space-y-3 text-muted-foreground md:table-row-group md:divide-y md:divide-border md:space-y-0">
                       {provisioningEvidenceHistoryItems.map((item) => (
-                        <tr key={item.id} className="align-top">
-                          <td className="py-3 pr-4 text-foreground">{formatDateTime(item.applied_at)}</td>
-                          <td className="py-3 pr-4">{item.broker_host || 'Not recorded'}</td>
-                          <td className="py-3 pr-4">{item.runbook_reference || 'Not recorded'}</td>
-                          <td className="py-3 pr-4">{formatReasonLabel(item.mode)}</td>
-                          <td className="py-3 pr-4 font-mono text-foreground">{item.artifact_hash.slice(0, 12)}</td>
-                          <td className="py-3">{item.credential_rotation_required ? 'Required' : 'Recorded'}</td>
+                        <tr
+                          key={item.id}
+                          data-testid="broker-evidence-history-row"
+                          className="block rounded-lg border border-border bg-background/40 p-4 align-top md:table-row md:border-0 md:bg-transparent md:p-0"
+                        >
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 pb-3 md:table-cell md:border-0 md:py-3 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Applied
+                            </span>
+                            <span className="min-w-0 text-right text-foreground md:text-left">{formatDateTime(item.applied_at)}</span>
+                          </td>
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-3 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Broker
+                            </span>
+                            <span className="min-w-0 break-words text-right md:text-left">{item.broker_host || 'Not recorded'}</span>
+                          </td>
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-3 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Runbook
+                            </span>
+                            <span className="min-w-0 break-words text-right md:text-left">{item.runbook_reference || 'Not recorded'}</span>
+                          </td>
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-3 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Mode
+                            </span>
+                            <span className="text-right md:text-left">{formatReasonLabel(item.mode)}</span>
+                          </td>
+                          <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-3 md:pr-4">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Hash
+                            </span>
+                            <span data-testid="broker-evidence-history-hash" className="font-mono text-foreground">{item.artifact_hash.slice(0, 12)}</span>
+                          </td>
+                          <td className="flex items-center justify-between gap-3 pt-3 md:table-cell md:py-3">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Rotation
+                            </span>
+                            <span>{item.credential_rotation_required ? 'Required' : 'Recorded'}</span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
