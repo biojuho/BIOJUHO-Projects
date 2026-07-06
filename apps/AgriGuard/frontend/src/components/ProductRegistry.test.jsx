@@ -79,6 +79,7 @@ describe('ProductRegistry', () => {
     expect(batchId).toHaveAttribute('title', 'batch-1');
     expect(batchId).toHaveClass('truncate');
     expect(batchId).toHaveClass('max-w-full');
+    expect(batchId).toHaveClass('select-all');
     expect(screen.getByText('Public verify label')).toBeInTheDocument();
     expect(screen.getByText('https://verify.agriguard.test/verify/public-token-1')).toBeInTheDocument();
     expect(screen.getByTestId('registry-success-content')).toHaveClass('min-w-0');

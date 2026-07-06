@@ -225,7 +225,7 @@ export default function ProductRegistry() {
                     data-testid="registry-success-batch-id"
                     title={uiState.success.id}
                     variant="outline"
-                    className="max-w-full truncate font-mono"
+                    className="max-w-full truncate select-all font-mono"
                   >
                     {uiState.success.id}
                   </Badge>
