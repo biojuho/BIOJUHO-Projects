@@ -341,7 +341,7 @@ export default function ProductDetail() {
                     data-testid="product-detail-id"
                     variant="outline"
                     title={product.id}
-                    className="block min-w-0 flex-1 truncate px-2 py-1 font-mono text-xs leading-6 sm:text-sm"
+                    className="block min-w-0 flex-1 truncate select-all px-2 py-1 font-mono text-xs leading-6 sm:text-sm"
                   >
                     {product.id}
                   </Badge>
