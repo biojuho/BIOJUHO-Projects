@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,16 @@ def _load_peer_module(module_name: str) -> Any:
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {script_path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    previous_module = sys.modules.get(module_name)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if previous_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous_module
 
 
 validate_guarded_launch_handoff = _load_peer_module("validate_guarded_launch_handoff")

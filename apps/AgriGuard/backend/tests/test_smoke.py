@@ -422,6 +422,43 @@ def test_qr_ab_markdown_generated_timestamp_is_ascii_utc():
     assert " " not in generated_value
 
 
+def test_launch_peer_loaders_support_dataclass_modules():
+    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+    loader_scripts = (
+        "consume_guarded_launch_handoff",
+        "index_guarded_launch_artifacts",
+        "prepare_launch_env",
+        "render_guarded_launch_handoff",
+        "render_launch_operator_packet",
+        "run_guarded_launch",
+        "validate_launch_env_template",
+    )
+
+    for script_name in loader_scripts:
+        script = _load_script_module(
+            scripts_dir / f"{script_name}.py",
+            f"{script_name}_loader_under_test",
+        )
+        previous_module = sys.modules.get("ab_test_qr_page")
+        peer = script._load_peer_module("ab_test_qr_page")
+        observation = peer.QRSessionObservation(
+            "session-1",
+            "A",
+            True,
+            True,
+            False,
+            False,
+            9.5,
+            4.0,
+        )
+
+        assert observation.session_id == "session-1"
+        if previous_module is None:
+            assert "ab_test_qr_page" not in sys.modules
+        else:
+            assert sys.modules["ab_test_qr_page"] is previous_module
+
+
 def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "nav_browser_smoke.py",
