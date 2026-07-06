@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { Sprout, Loader2, ArrowLeft, ThermometerSnowflake, MapPin, Calendar, CheckCircle, Plus, ShieldCheck, Truck } from 'lucide-react';
+import { Sprout, Loader2, ArrowLeft, ThermometerSnowflake, MapPin, Calendar, CheckCircle, Plus, ShieldCheck, Truck, Copy, Check } from 'lucide-react';
 import { hasOperatorToken, productApi } from '../services/api';
 import { trackQrEvent } from '../services/qrAnalytics';
 import ProductTimeline from './ProductTimeline';
@@ -50,9 +50,11 @@ export default function ProductDetail() {
   const [operatorNotice, setOperatorNotice] = useState(
     operatorTokenAvailable ? '' : 'Operator updates locked',
   );
+  const [productIdCopyStatus, setProductIdCopyStatus] = useState('');
   const scanSource = searchParams.get('scan_source');
   const scanSession = searchParams.get('scan_session');
   const scanVariant = searchParams.get('scan_variant') || 'qr_page_v1';
+  const productIdForCopy = data.product?.id || '';
 
   const loadProductDetails = useCallback(async (productId) => {
     const [prodRes, histRes] = await Promise.allSettled([
@@ -171,6 +173,23 @@ export default function ProductDetail() {
     setCertState(prev => ({ ...prev, data: { ...prev.data, [field]: value } }));
   }, []);
 
+  const handleCopyProductId = useCallback(async () => {
+    if (!productIdForCopy) return;
+
+    if (!navigator.clipboard?.writeText) {
+      setProductIdCopyStatus('Copy failed');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(productIdForCopy);
+      setProductIdCopyStatus('Copied');
+    } catch (err) {
+      console.error('Failed to copy product ID', err);
+      setProductIdCopyStatus('Copy failed');
+    }
+  }, [productIdForCopy]);
+
   const handleAddTracking = useCallback(async (e) => {
     e.preventDefault();
     if (!trackingState.data.location || !trackingState.data.handler_id) return;
@@ -229,9 +248,9 @@ export default function ProductDetail() {
   const formInputClass = "w-full bg-white/5 border border-input rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
 
   const actionControls = (
-    <div data-testid="product-detail-actions" className="mt-4 grid gap-2 border-t border-border pt-4 sm:flex sm:flex-wrap sm:items-center md:mt-6 md:gap-3 md:pt-6">
+    <div data-testid="product-detail-actions" className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4 sm:flex sm:flex-wrap sm:items-center md:mt-6 md:gap-3 md:pt-6">
       {operatorNotice && (
-        <Badge variant={operatorTokenAvailable ? 'info' : 'outline'} className="justify-center border-amber-500/30 text-amber-300 sm:justify-start">
+        <Badge variant={operatorTokenAvailable ? 'info' : 'outline'} className="col-span-2 justify-center border-amber-500/30 text-amber-300 sm:justify-start">
           {operatorNotice}
         </Badge>
       )}
@@ -243,7 +262,7 @@ export default function ProductDetail() {
           setOperatorNotice('');
           setTrackingState(prev => ({ ...prev, showForm: !prev.showForm }));
         }}
-        className="w-full border-orange-500/30 text-orange-400 hover:bg-orange-500/10 sm:w-auto"
+        className="w-full border-orange-500/30 px-2 text-xs text-orange-400 hover:bg-orange-500/10 sm:w-auto sm:px-4 sm:text-sm"
       >
         <Truck className="w-4 h-4" /> Add Tracking Event
       </Button>
@@ -255,7 +274,7 @@ export default function ProductDetail() {
           setOperatorNotice('');
           setCertState(prev => ({ ...prev, showForm: !prev.showForm }));
         }}
-        className="w-full border-secondary/30 text-secondary hover:bg-secondary/10 sm:w-auto"
+        className="w-full border-secondary/30 px-2 text-xs text-secondary hover:bg-secondary/10 sm:w-auto sm:px-4 sm:text-sm"
       >
         <ShieldCheck className="w-4 h-4" /> Add Certification
       </Button>
@@ -284,9 +303,29 @@ export default function ProductDetail() {
                 <Sprout className="mt-0.5 h-7 w-7 shrink-0 text-primary sm:h-8 sm:w-8" />
                 <span className="min-w-0 break-words">{product.name}</span>
               </h1>
-              <p className="text-muted-foreground text-lg">
-                ID: <Badge variant="outline" className="font-mono text-sm">{product.id}</Badge>
-              </p>
+              <div className="mt-3">
+                <p className="text-sm font-medium text-muted-foreground">ID</p>
+                <div className="mt-1 flex items-start gap-2">
+                  <Badge
+                    data-testid="product-detail-id"
+                    variant="outline"
+                    className="min-w-0 flex-1 break-all px-2 py-1 font-mono text-sm leading-relaxed"
+                  >
+                    {product.id}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyProductId}
+                    aria-label={productIdCopyStatus === 'Copied' ? 'Copied product ID' : 'Copy product ID'}
+                    title={productIdCopyStatus || 'Copy product ID'}
+                    className="h-9 w-9 shrink-0 border-primary/25 text-primary hover:bg-primary/10"
+                  >
+                    {productIdCopyStatus === 'Copied' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <Card data-testid="product-detail-qr-card" className="min-w-[200px]">

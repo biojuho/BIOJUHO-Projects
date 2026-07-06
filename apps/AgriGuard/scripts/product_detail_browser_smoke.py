@@ -45,6 +45,11 @@ MOBILE_FIRST_VIEWPORT_TARGETS = [
         "min_visible_ratio": 0.98,
     },
     {
+        "name": "product_id_copy_action_first_viewport",
+        "aria_label": "Copy product ID",
+        "min_visible_ratio": 0.98,
+    },
+    {
         "name": "operator_tracking_action_first_viewport",
         "text": "Add Tracking Event",
         "selector": "button",

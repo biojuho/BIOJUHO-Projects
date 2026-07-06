@@ -59,6 +59,10 @@ const mockHistory = [
 describe('ProductDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
     hasOperatorToken.mockReturnValue(false);
     vi.useRealTimers();
   });
@@ -87,6 +91,7 @@ describe('ProductDetail', () => {
       expect(screen.getByTestId('product-detail-heading')).toHaveClass('text-2xl');
       expect(screen.getByTestId('product-detail-heading')).toHaveClass('sm:text-3xl');
       expect(screen.getByTestId('product-detail-actions')).toHaveClass('grid');
+      expect(screen.getByTestId('product-detail-actions')).toHaveClass('grid-cols-2');
       expect(screen.getByTestId('product-detail-actions')).toHaveClass('mt-4');
       expect(screen.getByTestId('product-detail-actions')).toHaveClass('gap-2');
       expect(screen.getByTestId('product-detail-actions')).toHaveClass('sm:flex');
@@ -94,13 +99,19 @@ describe('ProductDetail', () => {
       expect(screen.getByText('Seoul Farm')).toBeInTheDocument();
       expect(screen.getByRole('img', { name: 'Product verification QR' })).toBeInTheDocument();
       expect(screen.getByText('QR-12345')).toBeInTheDocument();
+      expect(screen.getByTestId('product-detail-id')).toHaveTextContent('1');
+      expect(screen.getByRole('button', { name: /Copy product ID/i })).toBeInTheDocument();
       expect(screen.queryByAltText('QR Code')).not.toBeInTheDocument();
       expect(document.querySelector('img[src*="api.qrserver.com"]')).toBeNull();
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toBeDisabled();
       expect(screen.getByRole('button', { name: /Add Certification/i })).toBeDisabled();
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toHaveClass('w-full');
+      expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toHaveClass('text-xs');
+      expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toHaveClass('sm:text-sm');
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toHaveClass('sm:w-auto');
       expect(screen.getByRole('button', { name: /Add Certification/i })).toHaveClass('w-full');
+      expect(screen.getByRole('button', { name: /Add Certification/i })).toHaveClass('text-xs');
+      expect(screen.getByRole('button', { name: /Add Certification/i })).toHaveClass('sm:text-sm');
       expect(screen.getByText('Operator updates locked')).toBeInTheDocument();
       expect(
         screen.getByTestId('product-detail-actions').compareDocumentPosition(screen.getByText('Fresh organic apples'))
@@ -120,6 +131,21 @@ describe('ProductDetail', () => {
       expect(screen.getByTestId('timeline-tx-status')).toHaveTextContent('TX recorded');
       expect(screen.queryByText('Verify Link')).not.toBeInTheDocument();
     });
+  });
+
+  it('copies the product ID from the detail header', async () => {
+    productApi.getById.mockResolvedValueOnce({ data: mockProduct });
+    productApi.getHistory.mockResolvedValueOnce({ data: { history: mockHistory } });
+
+    renderWithRouter(<ProductDetail />);
+
+    const copyButton = await screen.findByRole('button', { name: /Copy product ID/i });
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('1');
+    });
+    expect(screen.getByRole('button', { name: /Copied product ID/i })).toBeInTheDocument();
   });
 
   it('renders a real explorer link when history includes one', async () => {
