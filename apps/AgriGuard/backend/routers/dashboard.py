@@ -47,9 +47,18 @@ def _format_tracking_event_as_activity(event: models.TrackingEvent) -> dict:
     }
 
 
-@router.get("/")
-def read_root():
+def _health_payload() -> dict:
     return {"message": "Welcome to AgriGuard API (DB Connected)", "status": "running"}
+
+
+@router.get("/")
+def read_root() -> dict:
+    return _health_payload()
+
+
+@router.get("/health")
+def read_health() -> dict:
+    return _health_payload()
 
 
 @router.get("/api/v1/dashboard/summary", response_model=schemas.DashboardResponse)
