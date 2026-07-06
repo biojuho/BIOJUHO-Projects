@@ -192,6 +192,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     }
     assert "Blocker class: `ready`" in markdown
     assert f"Generated: `{index['generated_at']}`" in markdown
+    assert "Launch stage: `preflight`" in markdown
     assert "Launch browser smoke launch gate enforced: `-`" in markdown
     assert "Consumer readiness next action count: `2`" in markdown
     assert "Consumer readiness next command count: `1`" in markdown
@@ -329,6 +330,7 @@ def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(t
         "failed_targets": ["backend", "frontend_proxy"],
     }
     assert "Launch browser smoke status: `fail`" in markdown
+    assert "Launch stage: `browser_smoke`" in markdown
     assert "Launch browser smoke found: `true`" in markdown
     assert "Launch browser smoke evidence class: `launch_precheck_blocked`" in markdown
     assert "Launch browser smoke launch gate enforced: `true`" in markdown

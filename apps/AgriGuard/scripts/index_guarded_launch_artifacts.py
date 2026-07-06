@@ -714,6 +714,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Blocker class: `{index.get('blocker_class') or '-'}`",
         f"- Output prefix: `{index.get('output_prefix')}`",
         f"- Launch status: `{index.get('launch_status')}`",
+        f"- Launch stage: `{index.get('launch_stage') or '-'}`",
         f"- Launch browser smoke status: `{browser_smoke.get('status') or '-'}`",
         f"- Launch browser smoke found: `{_bool_text(browser_smoke.get('found'))}`",
         f"- Launch browser smoke evidence class: `{browser_smoke.get('evidence_class') or '-'}`",
