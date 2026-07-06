@@ -1131,6 +1131,42 @@ def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def browser_suite_evidence_contract(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    failed_precheck_names: list[str],
+    failed_step_names: list[str],
+) -> dict[str, object]:
+    if args.dry_run:
+        evidence_class = "command_plan_only"
+        operator_action = "execute without --dry-run for browser evidence"
+    elif failed_precheck_names:
+        evidence_class = "launch_precheck_blocked"
+        operator_action = "resolve failed prechecks before running launch browser smoke"
+    elif args.skip_backend_contract_check:
+        evidence_class = "ui_click_coverage_only"
+        operator_action = "rerun without --skip-backend-contract-check before launch"
+    elif status == "pass":
+        evidence_class = "launch_gated_browser_pass"
+        operator_action = "browser launch gate passed"
+    else:
+        evidence_class = "launch_gated_browser_fail"
+        operator_action = "resolve failed browser steps before launch"
+
+    strict_prechecks_enforced = not args.dry_run and not args.skip_backend_contract_check
+    return {
+        "evidence_class": evidence_class,
+        "launch_gate_enforced": strict_prechecks_enforced,
+        "strict_prechecks_enforced": strict_prechecks_enforced,
+        "backend_contract_check_skipped": bool(args.skip_backend_contract_check),
+        "dry_run": bool(args.dry_run),
+        "failed_precheck_names": failed_precheck_names,
+        "failed_step_names": failed_step_names,
+        "operator_action": operator_action,
+    }
+
+
 def build_precheck_failure_report(args: argparse.Namespace, prechecks: list[dict[str, object]]) -> dict[str, object]:
     failed_precheck_names = [
         str(precheck.get("name") or f"precheck_{index}")
@@ -1138,10 +1174,19 @@ def build_precheck_failure_report(args: argparse.Namespace, prechecks: list[dict
         if precheck.get("ok") is not True
     ]
     prechecks_passed = len(prechecks) - len(failed_precheck_names)
+    status = "fail"
+    evidence_contract = browser_suite_evidence_contract(
+        args,
+        status=status,
+        failed_precheck_names=failed_precheck_names,
+        failed_step_names=[],
+    )
     return {
         "schema_version": 1,
         "generated_at": _generated_timestamp_utc(),
-        "status": "fail",
+        "status": status,
+        "evidence_class": evidence_contract["evidence_class"],
+        "launch_gate": evidence_contract,
         "base_url": args.base_url,
         "api_url": args.api_url,
         "mobile": args.mobile,
@@ -1161,6 +1206,9 @@ def build_precheck_failure_report(args: argparse.Namespace, prechecks: list[dict
             "prechecks_passed": prechecks_passed,
             "prechecks_failed": len(failed_precheck_names),
             "failed_precheck_names": failed_precheck_names,
+            "evidence_class": evidence_contract["evidence_class"],
+            "launch_gate_enforced": evidence_contract["launch_gate_enforced"],
+            "operator_action": evidence_contract["operator_action"],
         },
         "prechecks": prechecks,
         "results": [],
@@ -1269,10 +1317,19 @@ def main() -> int:
         for index, precheck in enumerate(prechecks, start=1)
         if precheck.get("ok") is not True
     ]
+    status = "pass" if failed == 0 and prechecks_failed == 0 else "fail"
+    evidence_contract = browser_suite_evidence_contract(
+        args,
+        status=status,
+        failed_precheck_names=failed_precheck_names,
+        failed_step_names=failed_step_names,
+    )
     report = {
         "schema_version": 1,
         "generated_at": _generated_timestamp_utc(),
-        "status": "pass" if failed == 0 and prechecks_failed == 0 else "fail",
+        "status": status,
+        "evidence_class": evidence_contract["evidence_class"],
+        "launch_gate": evidence_contract,
         "base_url": args.base_url,
         "api_url": args.api_url,
         "mobile": args.mobile,
@@ -1309,6 +1366,9 @@ def main() -> int:
             "prechecks_passed": prechecks_passed,
             "prechecks_failed": prechecks_failed,
             "failed_precheck_names": failed_precheck_names,
+            "evidence_class": evidence_contract["evidence_class"],
+            "launch_gate_enforced": evidence_contract["launch_gate_enforced"],
+            "operator_action": evidence_contract["operator_action"],
         },
         "prechecks": prechecks,
         "results": results,

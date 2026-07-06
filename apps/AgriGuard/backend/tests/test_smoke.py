@@ -633,6 +633,42 @@ def test_browser_smoke_suite_unavailable_check_is_explicit_opt_in(monkeypatch):
     assert "--intercept-api-failure" in opted_in_steps[-1].command
 
 
+def test_browser_smoke_suite_classifies_evidence_modes():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_evidence_mode_under_test",
+    )
+
+    launch_blocked = script.browser_suite_evidence_contract(
+        types.SimpleNamespace(dry_run=False, skip_backend_contract_check=False),
+        status="fail",
+        failed_precheck_names=["public_verify_cache_headers"],
+        failed_step_names=[],
+    )
+    assert launch_blocked["evidence_class"] == "launch_precheck_blocked"
+    assert launch_blocked["launch_gate_enforced"] is True
+    assert launch_blocked["operator_action"] == "resolve failed prechecks before running launch browser smoke"
+
+    ui_coverage = script.browser_suite_evidence_contract(
+        types.SimpleNamespace(dry_run=False, skip_backend_contract_check=True),
+        status="fail",
+        failed_precheck_names=[],
+        failed_step_names=["qr_path"],
+    )
+    assert ui_coverage["evidence_class"] == "ui_click_coverage_only"
+    assert ui_coverage["launch_gate_enforced"] is False
+    assert ui_coverage["operator_action"] == "rerun without --skip-backend-contract-check before launch"
+
+    command_plan = script.browser_suite_evidence_contract(
+        types.SimpleNamespace(dry_run=True, skip_backend_contract_check=False),
+        status="pass",
+        failed_precheck_names=[],
+        failed_step_names=[],
+    )
+    assert command_plan["evidence_class"] == "command_plan_only"
+    assert command_plan["launch_gate_enforced"] is False
+
+
 def test_browser_smoke_suite_rejects_frontend_operator_token_env(monkeypatch, tmp_path: Path):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
@@ -661,6 +697,9 @@ def test_browser_smoke_suite_rejects_frontend_operator_token_env(monkeypatch, tm
     payload["generated_at"].encode("ascii")
     assert " " not in payload["generated_at"]
     assert payload["summary"]["failed_precheck_names"] == ["frontend_operator_token_env"]
+    assert payload["evidence_class"] == "launch_precheck_blocked"
+    assert payload["summary"]["evidence_class"] == "launch_precheck_blocked"
+    assert payload["launch_gate"]["operator_action"] == "resolve failed prechecks before running launch browser smoke"
     assert payload["prechecks"][0]["configured"] is True
     assert "AGRIGUARD_BROWSER_OPERATOR_TOKEN" in payload["prechecks"][0]["detail"]
     assert "secret-frontend-token" not in encoded_payload
