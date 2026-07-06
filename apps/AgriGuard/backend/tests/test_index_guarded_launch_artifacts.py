@@ -37,6 +37,7 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
     _write_json(
         paths["handoff_validation_json"],
         {
+            "generated_at": "2026-07-06T12:55:00Z",
             "status": "pass",
             "blocker_class": "ready",
             "errors": [],
@@ -47,6 +48,7 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
     _write_json(
         paths["handoff_consumer_json"],
         {
+            "generated_at": "2026-07-06T12:55:01Z",
             "status": "fail",
             "blocker_class": "preflight_blocked",
             "validation_matches_handoff": True,
@@ -110,6 +112,11 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         output_prefix="blocked",
     )
     markdown = index_guarded_launch_artifacts.render_markdown(index)
+    artifacts_by_role = {
+        artifact["role"]: artifact
+        for artifact in index["artifacts"]
+        if isinstance(artifact, dict)
+    }
 
     assert index["status"] == "pass"
     assert index["generated_at"].endswith("Z")
@@ -147,6 +154,9 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_operator_commands"][0]["command_text"] == "& python run_guarded_launch.py --status-only"
     assert index["consumer_handoff_validation_command_shell"] == "powershell"
     assert index["consumer_handoff_validation_command_text"] == "& python validate_guarded_launch_handoff.py handoff.json"
+    assert artifacts_by_role["handoff_validation_json"]["generated_at"] == "2026-07-06T12:55:00Z"
+    assert artifacts_by_role["handoff_consumer_json"]["generated_at"] == "2026-07-06T12:55:01Z"
+    assert artifacts_by_role["handoff_markdown"]["generated_at"] is None
     assert index["consumer_readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert index["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert index["missing_required_roles"] == []
@@ -181,6 +191,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert "- Replace env template placeholders and sample domains." in markdown
     assert "`inspect_status` (powershell): `& python run_guarded_launch.py --status-only`" in markdown
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
+    assert "| Role | Required | Exists | Size | Generated | SHA-256 | Path |" in markdown
+    assert "`2026-07-06T12:55:00Z`" in markdown
 
 
 def test_index_guarded_launch_artifacts_prefers_status_view_command_metadata(tmp_path: Path) -> None:

@@ -73,6 +73,14 @@ def _sha256_file(path: Path) -> str | None:
         return None
 
 
+def _artifact_generated_at(path: Path, *, exists: bool) -> str | None:
+    if not exists or not path.is_file() or path.suffix.lower() != ".json":
+        return None
+    payload = _read_json(path)
+    generated_at = payload.get("generated_at") if isinstance(payload, dict) else None
+    return generated_at if isinstance(generated_at, str) and generated_at else None
+
+
 def _artifact(role: str, path: Path, required: bool) -> dict[str, object]:
     exists = path.exists()
     return {
@@ -82,6 +90,7 @@ def _artifact(role: str, path: Path, required: bool) -> dict[str, object]:
         "exists": exists,
         "size_bytes": path.stat().st_size if exists else None,
         "sha256": _sha256_file(path) if exists and path.is_file() else None,
+        "generated_at": _artifact_generated_at(path, exists=exists),
     }
 
 
@@ -568,10 +577,10 @@ def render_markdown(index: dict[str, object]) -> str:
         lines.append("")
     lines.extend(
         [
-        "## Artifacts",
-        "",
-        "| Role | Required | Exists | Size | SHA-256 | Path |",
-        "| --- | --- | --- | --- | --- | --- |",
+            "## Artifacts",
+            "",
+            "| Role | Required | Exists | Size | Generated | SHA-256 | Path |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for artifact in artifacts:
@@ -585,6 +594,7 @@ def render_markdown(index: dict[str, object]) -> str:
                     str(artifact.get("required")).lower(),
                     str(artifact.get("exists")).lower(),
                     str(artifact.get("size_bytes") if artifact.get("size_bytes") is not None else "-"),
+                    f"`{artifact.get('generated_at') or '-'}`",
                     f"`{artifact.get('sha256') or '-'}`",
                     f"`{artifact.get('path')}`",
                 ]
