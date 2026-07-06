@@ -211,6 +211,10 @@ def _joined_list(value: object) -> str:
     return ", ".join(values) if values else "-"
 
 
+def _bool_text(value: object) -> str:
+    return str(value).lower() if isinstance(value, bool) else "-"
+
+
 def _launch_browser_smoke_summary(launch: dict[str, Any] | None, workspace_root: Path) -> dict[str, object]:
     child_reports = launch.get("child_reports") if isinstance(launch, dict) else None
     browser_smoke = child_reports.get("browser_smoke") if isinstance(child_reports, dict) else None
@@ -712,7 +716,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Launch status: `{index.get('launch_status')}`",
         f"- Launch browser smoke status: `{browser_smoke.get('status') or '-'}`",
         f"- Launch browser smoke evidence class: `{browser_smoke.get('evidence_class') or '-'}`",
-        f"- Launch browser smoke launch gate enforced: `{str(browser_smoke.get('launch_gate_enforced')).lower()}`",
+        f"- Launch browser smoke launch gate enforced: `{_bool_text(browser_smoke.get('launch_gate_enforced'))}`",
         f"- Launch browser smoke path: `{browser_smoke.get('path') or '-'}`",
         f"- Launch browser smoke prechecks: `{_count_ratio(browser_smoke, 'prechecks_passed', 'prechecks_total')}`",
         "- Launch browser smoke failed prechecks: "

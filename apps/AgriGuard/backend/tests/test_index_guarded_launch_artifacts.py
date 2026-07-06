@@ -192,6 +192,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     }
     assert "Blocker class: `ready`" in markdown
     assert f"Generated: `{index['generated_at']}`" in markdown
+    assert "Launch browser smoke launch gate enforced: `-`" in markdown
     assert "Consumer readiness next action count: `2`" in markdown
     assert "Consumer readiness next command count: `1`" in markdown
     assert "Validation blocker class: `ready`" in markdown
