@@ -141,6 +141,7 @@ describe('QRTokenManager', () => {
     const clearTokenButton = screen.getByRole('button', { name: /clear token/i });
     expect(clearTokenButton).toHaveClass('h-11');
     expect(clearTokenButton).toHaveClass('min-w-11');
+    expect(clearTokenButton).not.toHaveClass('sm:min-h-8');
     expect(clearTokenButton).toHaveTextContent('Clear');
 
     const filterForm = screen.getByTestId('qr-token-filter-panel').querySelector('form');

@@ -44,7 +44,7 @@ export default function Layout() {
                       key={item.name}
                       to={item.path}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                        'flex min-h-11 items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                         isActive
                           ? 'bg-primary/20 text-primary border border-primary/30'
                           : 'text-muted-foreground hover:bg-accent hover:text-foreground'

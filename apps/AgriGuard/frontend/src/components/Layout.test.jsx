@@ -23,6 +23,7 @@ describe('Layout', () => {
     expect(nav).toHaveClass('bg-background');
     expect(nav).toHaveClass('shadow-black/20');
     expect(nav).not.toHaveClass('glass');
+    expect(screen.getByRole('link', { name: /dashboard/i })).toHaveClass('min-h-11');
 
     fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
 
