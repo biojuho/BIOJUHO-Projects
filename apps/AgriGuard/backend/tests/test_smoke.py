@@ -350,6 +350,7 @@ def test_qr_ab_script_can_reuse_prior_summary_output():
         with open(json_out_path, encoding="utf-8") as handle:
             summary = json.load(handle)
 
+        assert summary["schema_version"] == 1
         assert summary["dataset_size"] == 2
         assert summary["control"]["sessions"] == 1
         assert summary["variant"]["sessions"] == 1

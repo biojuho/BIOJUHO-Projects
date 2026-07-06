@@ -368,6 +368,7 @@ def main() -> int:
 
     if args.json_out:
         payload = {
+            "schema_version": 1,
             "generated_at": generated_at,
             "audience_profile": AUDIENCE_PROFILE,
             "hypothesis": AB_TEST_HYPOTHESIS,
