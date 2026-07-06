@@ -56,10 +56,28 @@ READY_GATE_COMMAND_REQUIRED_FLAGS = (
     "--env-file",
     "--status-json-out",
 )
+GENERATED_AT_ORDER_RULES = {
+    "ready_gate_json": ("handoff_consumer_json",),
+}
 
 
 def _generated_timestamp_utc() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _parse_generated_timestamp(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _default_app_root() -> Path:
@@ -189,6 +207,41 @@ def _missing_command_flags(command_text: str | None, required_flags: tuple[str, 
     if command_text is None:
         return list(required_flags)
     return [flag for flag in required_flags if flag not in command_text]
+
+
+def _stale_generated_at_details(artifacts: list[dict[str, object]]) -> list[dict[str, str]]:
+    artifacts_by_role = {str(item.get("role")): item for item in artifacts}
+    stale_details: list[dict[str, str]] = []
+    for role, source_roles in GENERATED_AT_ORDER_RULES.items():
+        artifact = artifacts_by_role.get(role)
+        if not artifact or not artifact.get("exists"):
+            continue
+        artifact_generated_at = artifact.get("generated_at")
+        artifact_timestamp = _parse_generated_timestamp(artifact_generated_at)
+        if artifact_timestamp is None:
+            continue
+
+        latest_source: tuple[str, object, datetime] | None = None
+        for source_role in source_roles:
+            source = artifacts_by_role.get(source_role)
+            if not source or not source.get("exists"):
+                continue
+            source_generated_at = source.get("generated_at")
+            source_timestamp = _parse_generated_timestamp(source_generated_at)
+            if source_timestamp is None:
+                continue
+            if latest_source is None or source_timestamp > latest_source[2]:
+                latest_source = (source_role, source_generated_at, source_timestamp)
+        if latest_source is not None and artifact_timestamp < latest_source[2]:
+            stale_details.append(
+                {
+                    "role": role,
+                    "generated_at": str(artifact_generated_at),
+                    "minimum_role": latest_source[0],
+                    "minimum_generated_at": str(latest_source[1]),
+                }
+            )
+    return stale_details
 
 
 def _artifact_index_blocker_class(status: object) -> str:
@@ -322,6 +375,8 @@ def build_index(
         for item in artifacts
         if item["role"] in FRESHNESS_REQUIRED_JSON_ROLES and item["exists"] and not item["generated_at"]
     ]
+    stale_generated_at_details = _stale_generated_at_details(artifacts)
+    stale_generated_at_roles = [detail["role"] for detail in stale_generated_at_details]
     consumer = _read_json(paths["handoff_consumer_json"])
     validation = _read_json(paths["handoff_validation_json"])
     launch = _read_json(paths["launch_report_json"])
@@ -385,6 +440,7 @@ def build_index(
         "pass"
         if not missing_required
         and not missing_generated_at_roles
+        and not stale_generated_at_roles
         and isinstance(consumer, dict)
         and consumer_validation_matches
         and consumer_packet_validation_status == "pass"
@@ -440,6 +496,8 @@ def build_index(
         "artifacts": artifacts,
         "missing_required_roles": missing_required,
         "missing_generated_at_roles": missing_generated_at_roles,
+        "stale_generated_at_roles": stale_generated_at_roles,
+        "stale_generated_at_details": stale_generated_at_details,
         "consumer_status": consumer.get("status") if isinstance(consumer, dict) else None,
         "consumer_blocker_class": consumer.get("blocker_class") if isinstance(consumer, dict) else None,
         "consumer_validation_matches_handoff": consumer_validation_matches,
@@ -515,6 +573,11 @@ def render_markdown(index: dict[str, object]) -> str:
         if isinstance(index.get("missing_generated_at_roles"), list)
         else []
     )
+    stale_generated_at_roles = (
+        index.get("stale_generated_at_roles")
+        if isinstance(index.get("stale_generated_at_roles"), list)
+        else []
+    )
     artifacts = index.get("artifacts") if isinstance(index.get("artifacts"), list) else []
     consumer_errors = index.get("consumer_errors") if isinstance(index.get("consumer_errors"), list) else []
     consumer_error_text = "; ".join(str(error) for error in consumer_errors) if consumer_errors else "-"
@@ -586,6 +649,8 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
         "- Missing generated_at roles: "
         f"`{', '.join(str(role) for role in missing_generated_at_roles) if missing_generated_at_roles else '-'}`",
+        "- Stale generated_at roles: "
+        f"`{', '.join(str(role) for role in stale_generated_at_roles) if stale_generated_at_roles else '-'}`",
         f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
         f"- Recovery summary blocker class: `{recovery_summary.get('blocker_class') or '-'}`",
         f"- Recovery action: `{index.get('recovery_action') or '-'}`",

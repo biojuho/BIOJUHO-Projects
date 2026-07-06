@@ -174,6 +174,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert index["missing_required_roles"] == []
     assert index["missing_generated_at_roles"] == []
+    assert index["stale_generated_at_roles"] == []
+    assert index["stale_generated_at_details"] == []
     assert index["recovery_action"] is None
     assert index["recovery_command"] is None
     assert index["recovery_command_shell"] is None
@@ -209,6 +211,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert "| Role | Required | Exists | Size | Generated | SHA-256 | Path |" in markdown
     assert "`2026-07-06T12:55:00Z`" in markdown
     assert "Missing generated_at roles: `-`" in markdown
+    assert "Stale generated_at roles: `-`" in markdown
 
 
 def test_index_guarded_launch_artifacts_prefers_status_view_command_metadata(tmp_path: Path) -> None:
@@ -390,6 +393,40 @@ def test_index_guarded_launch_artifacts_fails_missing_json_generated_at(tmp_path
     assert index["missing_generated_at_roles"] == ["handoff_consumer_json"]
     assert index["recovery_command_status"] == "pass"
     assert "Missing generated_at roles: `handoff_consumer_json`" in markdown
+
+
+def test_index_guarded_launch_artifacts_fails_stale_ready_gate_json(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    _write_json(
+        paths["ready_gate_json"],
+        {
+            "generated_at": "2026-07-06T12:52:04Z",
+            "status": "blocked",
+            "blocker_class": "preflight_blocked",
+        },
+    )
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
+
+    assert index["status"] == "fail"
+    assert index["blocker_class"] == "artifact_index_blocked"
+    assert index["stale_generated_at_roles"] == ["ready_gate_json"]
+    assert index["stale_generated_at_details"] == [
+        {
+            "role": "ready_gate_json",
+            "generated_at": "2026-07-06T12:52:04Z",
+            "minimum_role": "handoff_consumer_json",
+            "minimum_generated_at": "2026-07-06T12:55:01Z",
+        }
+    ]
+    assert index["recovery_command_status"] == "pass"
+    assert "Stale generated_at roles: `ready_gate_json`" in markdown
 
 
 def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:
