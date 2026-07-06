@@ -1690,8 +1690,9 @@ def test_guarded_launch_status_only_derives_top_blocker_without_summary(tmp_path
 
     payload = json.loads(capsys.readouterr().out)
     assert result == 0
-    assert payload["status"] == "fail"
+    assert payload["status"] == "blocked"
     assert payload["blocker_class"] == "preflight_blocked"
+    assert payload["launch"]["status"] == "fail"
     assert payload["launch"]["blocker_class"] == "preflight_blocked"
 
 

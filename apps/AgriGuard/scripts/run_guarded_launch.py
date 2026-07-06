@@ -486,18 +486,22 @@ def _build_status_view(
     artifact_index_recovery_command_shell, artifact_index_recovery_command_text = _recovery_command_shell_text(
         artifact_index_recovery_summary
     )
+    launch_blocker_class = _launch_view_blocker_class(launch)
+    operator_packet_blocker_class = _operator_packet_view_blocker_class(packet)
     status = "missing_artifacts"
     if summary is not None:
         status = str(summary.get("status") or "unknown")
     elif launch is not None and launch.get("status") == "pass":
         status = "ready"
+    elif launch is not None and launch_blocker_class is not None:
+        status = "blocked"
     elif launch is not None:
         status = str(launch.get("status") or "unknown")
     elif packet is not None:
         status = str(packet.get("status") or "unknown")
     blocker_class = summary.get("blocker_class") if summary is not None else None
     if blocker_class is None:
-        blocker_class = _launch_view_blocker_class(launch) or _operator_packet_view_blocker_class(packet)
+        blocker_class = launch_blocker_class or operator_packet_blocker_class
     if status == "ready" and blocker_class is None:
         blocker_class = "ready"
     ready_gate_current_status = "pass" if status == "ready" and blocker_class == "ready" else "fail"
