@@ -290,6 +290,7 @@ describe('ColdChainMonitor', () => {
     expect(staleSensorId).toHaveClass('w-full');
     expect(staleSensorId).toHaveClass('min-w-0');
     expect(staleSensorId).toHaveClass('truncate');
+    expect(staleSensorId).toHaveClass('select-all');
     expect(staleSensorId).toHaveClass('sm:w-auto');
     const sensorRows = screen.getAllByTestId('cold-chain-zone-sensor-row');
     expect(sensorRows[0]).toHaveClass('flex-col');

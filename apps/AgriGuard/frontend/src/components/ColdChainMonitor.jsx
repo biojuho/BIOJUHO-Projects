@@ -395,7 +395,7 @@ export default function ColdChainMonitor() {
                           <span
                             data-testid="cold-chain-zone-sensor-id"
                             title={sensor.sensor_id}
-                            className="w-full min-w-0 truncate font-mono text-foreground sm:w-auto"
+                            className="w-full min-w-0 truncate select-all font-mono text-foreground sm:w-auto"
                           >
                             {sensor.sensor_id}
                           </span>
