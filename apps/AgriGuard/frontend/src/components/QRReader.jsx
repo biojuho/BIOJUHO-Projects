@@ -371,8 +371,8 @@ export default function QRReader() {
                 {manualValueReady && (
                   <button
                     type="button"
-                    aria-label="Clear manual verification code"
-                    title="Clear manual verification code"
+                    aria-label="Clear pasted verification code"
+                    title="Clear pasted verification code"
                     onClick={handleManualClear}
                     className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >

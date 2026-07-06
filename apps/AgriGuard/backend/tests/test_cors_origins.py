@@ -352,3 +352,14 @@ def test_backend_sets_baseline_security_headers_on_api_responses() -> None:
     for header, expected in main.BASELINE_SECURITY_HEADERS.items():
         assert response.headers[header] == expected
     assert response.headers["X-RateLimit-Limit"] == "100"
+
+
+def test_backend_public_verify_cache_headers_survive_middleware_stack() -> None:
+    response = TestClient(main.app).get(
+        "/api/qr/not-a-real-token/verify",
+        params={"session_id": "full-app-cache-header-probe"},
+    )
+
+    assert response.status_code == 200
+    for header, expected in main.PUBLIC_VERIFY_CACHE_HEADERS.items():
+        assert response.headers[header] == expected

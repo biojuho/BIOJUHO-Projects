@@ -243,11 +243,11 @@ describe('QRReader', () => {
     const verifyButton = screen.getByRole('button', { name: /Verify code/i });
 
     fireEvent.change(input, { target: { value: ' manual-token ' } });
-    fireEvent.click(screen.getByRole('button', { name: /Clear manual verification code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Clear pasted verification code/i }));
 
     expect(input).toHaveValue('');
     expect(verifyButton).toBeDisabled();
-    expect(screen.queryByRole('button', { name: /Clear manual verification code/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Clear pasted verification code/i })).not.toBeInTheDocument();
     expect(navigateMock).not.toHaveBeenCalled();
   });
 

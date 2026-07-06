@@ -6,6 +6,7 @@ import time
 import warnings
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from database import initialize_database, verify_database_connection
 from dependencies import close_cache, get_cache
@@ -248,13 +249,18 @@ except ImportError:
     pass
 
 _RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "100"))
+_PUBLIC_VERIFY_RATE_LIMIT_MAX = int(os.environ.get("PUBLIC_VERIFY_RATE_LIMIT_MAX", "30"))
 _RATE_LIMIT_WINDOW = 60
-
 BASELINE_SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(self), geolocation=(), microphone=()",
+}
+PUBLIC_VERIFY_CACHE_HEADERS = {
+    "Cache-Control": "no-store",
+    "Pragma": "no-cache",
+    "Expires": "0",
 }
 
 
@@ -264,17 +270,39 @@ def apply_baseline_security_headers(response):
             response.headers[header] = value
 
 
+def apply_public_verify_cache_headers(response):
+    for header, value in PUBLIC_VERIFY_CACHE_HEADERS.items():
+        response.headers[header] = value
+
+
+def _is_public_verify_path(path: str) -> bool:
+    return path.startswith("/api/qr/") and path.endswith("/verify")
+
+
+def _rate_limit_max_for_path(path: str) -> int:
+    if _is_public_verify_path(path):
+        return _PUBLIC_VERIFY_RATE_LIMIT_MAX
+    return _RATE_LIMIT_MAX
+
+
+def _rate_limit_scope_for_path(path: str) -> str:
+    if _is_public_verify_path(path):
+        return "api_qr_verify"
+    return path
+
+
 @app.middleware("http")
-async def rate_limit_middleware(request, call_next):
+async def rate_limit_middleware(request, call_next) -> Any:
     if request.url.path in ("/health", "/ws/iot", "/metrics"):
         return await call_next(request)
 
     client_ip = request.client.host if request.client else "unknown"
     cache = get_cache()
-    key = f"ratelimit:{client_ip}:{int(time.time()) // _RATE_LIMIT_WINDOW}"
+    max_requests = _rate_limit_max_for_path(request.url.path)
+    key = f"ratelimit:{_rate_limit_scope_for_path(request.url.path)}:{client_ip}:{int(time.time()) // _RATE_LIMIT_WINDOW}"
     count = await cache.incr(key, ttl=_RATE_LIMIT_WINDOW)
 
-    if count > _RATE_LIMIT_MAX:
+    if count > max_requests:
         from fastapi.responses import JSONResponse
 
         return JSONResponse(
@@ -284,8 +312,8 @@ async def rate_limit_middleware(request, call_next):
         )
 
     response = await call_next(request)
-    response.headers["X-RateLimit-Limit"] = str(_RATE_LIMIT_MAX)
-    response.headers["X-RateLimit-Remaining"] = str(max(0, _RATE_LIMIT_MAX - count))
+    response.headers["X-RateLimit-Limit"] = str(max_requests)
+    response.headers["X-RateLimit-Remaining"] = str(max(0, max_requests - count))
     return response
 
 
@@ -293,6 +321,8 @@ async def rate_limit_middleware(request, call_next):
 async def security_headers_middleware(request, call_next):
     response = await call_next(request)
     apply_baseline_security_headers(response)
+    if _is_public_verify_path(request.url.path):
+        apply_public_verify_cache_headers(response)
     return response
 
 

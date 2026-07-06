@@ -138,9 +138,13 @@ describe('QRTokenManager', () => {
     expect(operatorTokenInput).toHaveAttribute('spellcheck', 'false');
     expect(tokenControls).toHaveClass('grid');
     expect(tokenControls).toHaveClass('grid-cols-[minmax(0,1fr)_5rem]');
+    expect(screen.getByRole('button', { name: /clear token/i })).toHaveClass('h-11');
+    expect(screen.getByRole('button', { name: /clear token/i })).toHaveClass('w-11');
 
     const filterForm = screen.getByTestId('qr-token-filter-panel').querySelector('form');
     expect(filterForm).toHaveClass('grid-cols-2');
+    expect(filterForm).toHaveClass('gap-2');
+    expect(filterForm).toHaveClass('sm:gap-3');
     expect(screen.getByLabelText('Product ID').parentElement).toHaveClass('col-span-2');
     expect(screen.getByLabelText('Product ID').parentElement).toHaveClass('lg:col-span-1');
     expect(screen.getByRole('button', { name: /load tokens/i })).toHaveClass('min-h-10');

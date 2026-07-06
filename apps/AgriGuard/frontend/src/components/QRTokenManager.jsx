@@ -209,7 +209,7 @@ export default function QRTokenManager() {
   ], [tokenState.data]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 text-foreground sm:space-y-8 sm:p-8">
+    <div className="mx-auto max-w-7xl space-y-4 px-4 py-4 text-foreground sm:space-y-8 sm:p-8">
       <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-300">
@@ -242,8 +242,8 @@ export default function QRTokenManager() {
                 Save
               </Button>
             </div>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground">
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="min-w-0 text-xs leading-5 text-muted-foreground">
                 {hasSavedOperatorToken ? 'A token is saved locally for operator API calls.' : 'No token saved. Protected actions will return 401.'}
               </p>
               {hasSavedOperatorToken && (
@@ -252,10 +252,10 @@ export default function QRTokenManager() {
                   variant="ghost"
                   size="sm"
                   onClick={clearOperatorToken}
-                  className="min-h-10 justify-start px-2 text-xs text-muted-foreground hover:text-foreground sm:min-h-8"
+                  className="h-11 min-h-11 w-11 shrink-0 px-0 text-xs text-muted-foreground hover:text-foreground sm:h-8 sm:min-h-8 sm:w-auto sm:px-2"
                 >
                   <X className="h-4 w-4" />
-                  Clear token
+                  <span className="sr-only sm:not-sr-only">Clear token</span>
                 </Button>
               )}
             </div>
@@ -264,8 +264,8 @@ export default function QRTokenManager() {
       </div>
 
       <Card data-testid="qr-token-filter-panel">
-        <CardContent className="p-4 sm:p-6">
-          <form onSubmit={handleSearch} className="grid grid-cols-2 gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_auto] lg:items-end">
+        <CardContent className="p-3 sm:p-6">
+          <form onSubmit={handleSearch} className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_auto] lg:items-end">
             <div className="col-span-2 min-w-0 lg:col-span-1">
               <label htmlFor="product-id" className="text-sm font-medium text-muted-foreground">
                 Product ID
