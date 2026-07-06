@@ -1258,6 +1258,17 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                     "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
                     "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
                 },
+                "compose_replacement_guard": {
+                    "current_runtime_action_before_preflight": "none",
+                    "compose_replacement_requires_env_shape_validation": True,
+                    "compose_replacement_requires_strict_preflight": True,
+                    "compose_runs_only_after_preflight_passes": True,
+                    "blocked_stop_reasons": [
+                        "env_shape_validation_requires_single_env_file",
+                        "env_shape_validation_failed",
+                        "preflight_failed",
+                    ],
+                },
                 "preflight_errors": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."],
                 "operator_actions": [{"id": "fallback_action"}],
                 "secrets_redacted": True,
@@ -1340,6 +1351,17 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
         "runtime": "compose",
         "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
         "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
+    }
+    assert payload["operator_packet"]["compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": True,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
     }
     assert payload["operator_packet"]["preflight_errors"] == [
         "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."

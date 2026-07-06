@@ -794,6 +794,42 @@
                 "null"
               ]
             },
+            "compose_replacement_guard": {
+              "additionalProperties": false,
+              "properties": {
+                "blocked_stop_reasons": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "compose_replacement_requires_env_shape_validation": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "compose_replacement_requires_strict_preflight": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "compose_runs_only_after_preflight_passes": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "current_runtime_action_before_preflight": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            },
             "env_validation_blocker_class": {
               "type": [
                 "string",

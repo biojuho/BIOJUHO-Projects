@@ -596,6 +596,9 @@ def _build_status_view(
             "preflight_status": packet.get("preflight_status") if packet is not None else None,
             "preflight_checks": _operator_packet_preflight_checks(packet),
             "preflight_errors": _string_list(packet.get("preflight_errors")) if packet is not None else [],
+            "compose_replacement_guard": _dict_value(
+                packet.get("compose_replacement_guard") if packet is not None else None
+            ),
             "secrets_redacted": packet.get("secrets_redacted") if packet is not None else None,
         },
         "artifact_index": {
