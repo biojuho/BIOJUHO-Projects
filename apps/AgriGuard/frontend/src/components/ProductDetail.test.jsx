@@ -107,7 +107,11 @@ describe('ProductDetail', () => {
       expect(screen.getByTestId('product-detail-card-content')).toContainElement(screen.getByTestId('product-detail-actions'));
       expect(screen.getByText('Seoul Farm')).toBeInTheDocument();
       expect(screen.getByRole('img', { name: 'Product verification QR' })).toBeInTheDocument();
-      expect(screen.getByText('QR-12345')).toBeInTheDocument();
+      const qrValue = screen.getByTestId('product-detail-qr-value');
+      expect(qrValue).toHaveTextContent('QR-12345');
+      expect(qrValue).toHaveAttribute('title', 'QR-12345');
+      expect(qrValue).toHaveClass('break-all');
+      expect(qrValue).toHaveClass('select-all');
       expect(screen.getByTestId('product-detail-id')).toHaveTextContent('1');
       expect(screen.getByTestId('product-detail-id')).toHaveAttribute('title', '1');
       expect(screen.getByTestId('product-detail-id')).toHaveClass('truncate');

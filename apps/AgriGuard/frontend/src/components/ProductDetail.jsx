@@ -376,7 +376,13 @@ export default function ProductDetail() {
                 <div className="flex justify-center mb-2">
                   <QRTracker value={qrCodeValue} ariaLabel="Product verification QR" />
                 </div>
-                <p className="text-center text-xs text-muted-foreground font-mono break-all">{qrCodeValue}</p>
+                <p
+                  data-testid="product-detail-qr-value"
+                  title={qrCodeValue}
+                  className="break-all select-all text-center font-mono text-xs text-muted-foreground"
+                >
+                  {qrCodeValue}
+                </p>
               </CardContent>
             </Card>
           </div>
