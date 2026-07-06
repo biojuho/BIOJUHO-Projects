@@ -177,6 +177,12 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                 "preflight_status": "fail",
                 "blocking_action_count": 1,
                 "operator_actions": [{"id": "set_firebase_service_account_file"}],
+                "preflight_checks": {
+                    "runtime": "compose",
+                    "docker_checked": True,
+                    "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+                    "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
+                },
                 "safe_rerun_commands": [
                     "& python validate_launch_env_template.py",
                     "& python run_guarded_launch.py",
@@ -214,6 +220,9 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
     assert summary["reports"]["operator_packet"]["blocker_class"] == "operator_values_required"
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
+    assert summary["reports"]["operator_packet"]["preflight_checks"]["firebase_credentials_resolved_path"] == (
+        "C:/secure/missing-firebase.json"
+    )
     assert summary["reports"]["operator_packet"]["artifact_index_status"] == "pass"
     assert summary["reports"]["operator_packet"]["artifact_index_blocker_class"] == "ready"
     assert summary["reports"]["operator_packet"]["consumer_packet_validation_status"] == "pass"
@@ -250,6 +259,8 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert "- Consumer command metadata: `pass`" in markdown
     assert "- Consumer readiness command metadata: `pass`" in markdown
     assert "- Artifact index recovery command status: `not_required`" in markdown
+    assert "## Operator Packet Preflight Checks" in markdown
+    assert "| `firebase_credentials_resolved_path` | `C:/secure/missing-firebase.json` |" in markdown
     assert "Provide a real Firebase Admin service-account .json at an absolute host path outside the repo" in markdown
 
 

@@ -113,6 +113,18 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
         for item in actions
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     ]
+    checks = payload.get("preflight_checks") if isinstance(payload.get("preflight_checks"), dict) else {}
+    safe_check_keys = (
+        "runtime",
+        "docker_checked",
+        "firebase_credentials_source",
+        "firebase_credentials_resolved_path",
+        "forbidden_launch_flags_enabled",
+        "allowed_origins_source",
+        "public_verify_base_url_source",
+        "database_password_source",
+        "database_url_source",
+    )
     summary = {
         "found": True,
         "path": _rel(path, workspace_root),
@@ -123,6 +135,7 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
         "preflight_status": payload.get("preflight_status"),
         "blocking_action_count": payload.get("blocking_action_count"),
         "operator_action_ids": action_ids,
+        "preflight_checks": {key: checks[key] for key in safe_check_keys if key in checks},
         "safe_rerun_commands": [
             str(command)
             for command in _list(payload.get("safe_rerun_commands"))
@@ -311,6 +324,16 @@ def build_summary(
     }
 
 
+def _markdown_check_value(value: object) -> str:
+    if value is None or value == "":
+        return "-"
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) or "-"
+    return str(value).replace("|", "\\|")
+
+
 def render_markdown(summary: dict[str, object]) -> str:
     reports = summary.get("reports") if isinstance(summary.get("reports"), dict) else {}
     launch = reports.get("launch") if isinstance(reports.get("launch"), dict) else {}
@@ -321,6 +344,26 @@ def render_markdown(summary: dict[str, object]) -> str:
         if isinstance(operator_packet.get("operator_action_ids"), list)
         else []
     )
+    preflight_checks = (
+        operator_packet.get("preflight_checks")
+        if isinstance(operator_packet.get("preflight_checks"), dict)
+        else {}
+    )
+    preflight_check_rows = [
+        (key, _markdown_check_value(preflight_checks.get(key)))
+        for key in (
+            "runtime",
+            "docker_checked",
+            "firebase_credentials_source",
+            "firebase_credentials_resolved_path",
+            "forbidden_launch_flags_enabled",
+            "allowed_origins_source",
+            "public_verify_base_url_source",
+            "database_password_source",
+            "database_url_source",
+        )
+        if key in preflight_checks and _markdown_check_value(preflight_checks.get(key)) != "-"
+    ]
     lines = [
         "# AgriGuard Launch Readiness Summary",
         "",
@@ -348,6 +391,13 @@ def render_markdown(summary: dict[str, object]) -> str:
     for name in ("env_validation", "launch", "operator_packet"):
         report = reports.get(name) if isinstance(reports.get(name), dict) else {}
         lines.append(f"- `{name}`: found=`{str(report.get('found')).lower()}`, status=`{report.get('status')}`")
+
+    if preflight_check_rows:
+        lines.extend(["", "## Operator Packet Preflight Checks", ""])
+        lines.append("| Check | Value |")
+        lines.append("| --- | --- |")
+        for key, value in preflight_check_rows:
+            lines.append(f"| `{key}` | `{value}` |")
 
     lines.extend(["", "## Next Actions", ""])
     next_actions = _string_list(summary.get("next_actions"))
