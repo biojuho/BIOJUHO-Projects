@@ -87,6 +87,7 @@ describe('ProductRegistry', () => {
     expect(labelUrl).toHaveAttribute('title', 'https://verify.agriguard.test/verify/public-token-1');
     expect(labelUrl).toHaveClass('overflow-x-auto');
     expect(labelUrl).toHaveClass('whitespace-nowrap');
+    expect(labelUrl).toHaveClass('select-all');
     expect(labelUrl).not.toHaveClass('break-all');
     expect(screen.getByRole('button', { name: /Copy public verify label URL/i })).toHaveClass('min-h-11');
     fireEvent.click(screen.getByRole('button', { name: /Copy public verify label URL/i }));
