@@ -422,6 +422,31 @@ def test_qr_ab_markdown_generated_timestamp_is_ascii_utc():
     assert " " not in generated_value
 
 
+def test_browser_smoke_child_timestamp_helpers_are_ascii_utc():
+    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+    script_names = (
+        "admin_routes_browser_smoke",
+        "consumer_verify_unavailable_browser_smoke",
+        "dashboard_auth_browser_smoke",
+        "nav_browser_smoke",
+        "product_detail_browser_smoke",
+        "qr_path_browser_smoke",
+        "supply_chain_browser_smoke",
+    )
+
+    for script_name in script_names:
+        script = _load_script_module(
+            scripts_dir / f"{script_name}.py",
+            f"{script_name}_timestamp_under_test",
+        )
+
+        timestamp = script._generated_timestamp_utc()
+
+        timestamp.encode("ascii")
+        assert timestamp.endswith("Z")
+        assert " " not in timestamp
+
+
 def test_launch_peer_loaders_support_dataclass_modules():
     scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
     loader_scripts = (

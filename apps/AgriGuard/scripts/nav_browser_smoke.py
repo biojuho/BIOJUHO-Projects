@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
@@ -59,6 +60,10 @@ MOBILE_ROUTE_AFFORDANCES = {
         },
     ],
 }
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_args() -> argparse.Namespace:
@@ -612,6 +617,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     passed = sum(1 for item in checks if item["ok"])
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "baseUrl": args.base_url,
         "mode": "click-nav" if args.click_nav else "direct-route",
         "viewport": viewport,

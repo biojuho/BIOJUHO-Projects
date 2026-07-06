@@ -7,6 +7,7 @@ import re
 import sys
 import time
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib import error, parse, request
 
@@ -49,6 +50,10 @@ PUBLIC_VERIFY_SUMMARY_TARGETS = [
         "min_visible_ratio": 0.98,
     },
 ]
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_args() -> argparse.Namespace:
@@ -535,6 +540,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     passed = sum(1 for item in checks if item["ok"])
     report = {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "baseUrl": args.base_url,
         "apiUrl": seed_api_url,
         "viewport": viewport,
@@ -561,6 +567,7 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001 - browser smoke evidence should capture unexpected API/UI failures.
         report = {
             "schema_version": 1,
+            "generated_at": _generated_timestamp_utc(),
             "baseUrl": args.base_url,
             "apiUrl": resolve_seed_api_url(base_url=args.base_url, api_url=args.api_url),
             "viewport": parse_viewport(args.viewport),

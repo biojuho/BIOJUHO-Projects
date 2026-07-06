@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib import error, parse, request
 
@@ -41,6 +42,10 @@ PUBLIC_QR_SCREENSHOT_MASK_SCRIPT = r"""() => {
       }
     });
 }"""
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_args() -> argparse.Namespace:
@@ -429,6 +434,8 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
 
     ok = all(item["ok"] for item in checks)
     report = {
+        "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": "pass" if ok else "fail",
         "checks": checks,
         "viewport": viewport,
@@ -445,6 +452,8 @@ def main() -> int:
         result = run_smoke(args)
     except Exception as exc:  # noqa: BLE001 - script evidence should capture unexpected browser/API failures.
         result = {
+            "schema_version": 1,
+            "generated_at": _generated_timestamp_utc(),
             "status": "fail",
             "checks": [check("unhandled_exception", False, str(exc))],
             "viewport": resolve_viewport(mobile=args.mobile, viewport=args.viewport),

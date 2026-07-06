@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
@@ -14,6 +15,10 @@ DEFAULT_DESKTOP_VIEWPORT = "1440x960"
 DEFAULT_MOBILE_VIEWPORT = "390x844"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 DASHBOARD_AUTH_COPY = "Paste a Firebase/operator token below, or save one in QR Tokens or Sensors."
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_args() -> argparse.Namespace:
@@ -198,6 +203,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     passed = sum(1 for item in checks if item["ok"])
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "baseUrl": args.base_url,
         "url": route_url(args.base_url),
         "viewport": viewport,

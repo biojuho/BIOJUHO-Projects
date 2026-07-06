@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -16,6 +17,10 @@ DEFAULT_DESKTOP_VIEWPORT = "1440x960"
 DEFAULT_MOBILE_VIEWPORT = "390x844"
 DEFAULT_OPERATOR_TOKEN = "browser-smoke-token"
 RANGE_RE = re.compile(r"Showing\s+(\d+)-(\d+)\s+of\s+(\d+)\s+products")
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_args() -> argparse.Namespace:
@@ -439,6 +444,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     passed = sum(1 for item in checks if item["ok"])
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "url": args.url,
         "viewport": resolve_viewport(mobile=args.mobile, viewport=args.viewport),
         "mobile": bool(args.mobile),

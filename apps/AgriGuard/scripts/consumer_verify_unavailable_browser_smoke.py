@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -17,6 +18,10 @@ PUBLIC_QR_TOKEN_REDACTION = "<redacted-public-qr-token>"
 PUBLIC_VERIFY_ROUTE_RE = re.compile(
     r"((?:/verify|/api/(?:api/)?qr)/)[^/?#\s]+((?:/verify)?(?:[?#]\S*)?)"
 )
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_args() -> argparse.Namespace:
@@ -262,6 +267,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     passed = sum(1 for item in checks if item["ok"])
     report = {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "baseUrl": args.base_url,
         "url": route_url(args.base_url, args.token),
         "viewport": viewport,
