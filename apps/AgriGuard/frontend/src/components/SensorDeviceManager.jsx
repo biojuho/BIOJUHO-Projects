@@ -1580,7 +1580,13 @@ export default function SensorDeviceManager() {
                             <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
                               Sensor
                             </span>
-                            <div className="break-all font-mono text-foreground">{sensor.sensor_id}</div>
+                            <div
+                              data-testid="registered-sensor-id"
+                              title={sensor.sensor_id}
+                              className="block max-w-full truncate font-mono text-foreground md:max-w-56"
+                            >
+                              {sensor.sensor_id}
+                            </div>
                             <div className="mt-1 max-w-56 truncate text-xs text-muted-foreground">{sensor.label || 'Unlabeled'}</div>
                             {!isSafe && (
                               <Badge variant="warning" className="mt-2">

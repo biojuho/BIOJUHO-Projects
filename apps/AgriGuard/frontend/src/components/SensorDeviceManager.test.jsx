@@ -389,6 +389,10 @@ describe('SensorDeviceManager', () => {
     const rows = screen.getAllByTestId('registered-sensor-row');
     expect(rows[0]).toHaveClass('block');
     expect(rows[0]).toHaveClass('md:table-row');
+    const sensorIds = screen.getAllByTestId('registered-sensor-id');
+    expect(sensorIds[0]).toHaveAttribute('title', 'sensor-cold-1');
+    expect(sensorIds[0]).toHaveClass('truncate');
+    expect(sensorIds[0]).not.toHaveClass('break-all');
     expect(within(rows[0]).getByText('Actions')).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: /edit/i })).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: /disable/i })).toBeInTheDocument();
