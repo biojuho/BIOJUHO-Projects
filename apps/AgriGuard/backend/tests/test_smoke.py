@@ -376,9 +376,16 @@ def _load_script_module(script_path: Path, module_name: str):
         spec = importlib.util.spec_from_file_location(module_name, script_path)
         module = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
+        previous_module = sys.modules.get(module_name)
+        sys.modules[module_name] = module
         spec.loader.exec_module(module)
         return module
     finally:
+        if "previous_module" in locals():
+            if previous_module is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous_module
         if previous_playwright is None:
             sys.modules.pop("playwright", None)
         else:
@@ -387,6 +394,30 @@ def _load_script_module(script_path: Path, module_name: str):
             sys.modules.pop("playwright.sync_api", None)
         else:
             sys.modules["playwright.sync_api"] = previous_sync_api
+
+
+def test_qr_ab_markdown_generated_timestamp_is_ascii_utc():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "ab_test_qr_page.py",
+        "qr_ab_timestamp_under_test",
+    )
+    control = script._empty_variant_summary("A")
+    variant = script._empty_variant_summary("B")
+    decision = {
+        "outcome": "insufficient_data",
+        "summary": "Need samples for both variants before making a decision",
+        "verification_relative_lift": None,
+        "time_improved": None,
+        "error_not_worse": None,
+    }
+
+    markdown = script.render_markdown("ascii sample", 0, {}, control, variant, decision)
+
+    generated_line = next(line for line in markdown.splitlines() if line.startswith("- Generated: "))
+    generated_value = generated_line.removeprefix("- Generated: ")
+    generated_line.encode("ascii")
+    assert generated_value.endswith("Z")
+    assert " " not in generated_value
 
 
 def test_nav_browser_smoke_uses_phone_viewport_for_mobile_default():

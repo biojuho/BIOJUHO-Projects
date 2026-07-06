@@ -252,6 +252,10 @@ def format_bool(value: bool | None) -> str:
     return str(value)
 
 
+def generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def render_markdown(
     dataset_name: str,
     dataset_size: int,
@@ -260,7 +264,7 @@ def render_markdown(
     variant: dict,
     decision: dict,
 ) -> str:
-    generated_at = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    generated_at = generated_timestamp_utc()
     lines = [
         "# AgriGuard QR Page A/B Test Draft",
         "",
