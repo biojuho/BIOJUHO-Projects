@@ -725,7 +725,12 @@ describe('SensorDeviceManager', () => {
       data: filteredBrokerProvisioningEvidenceHistoryResponse,
     });
 
-    fireEvent.change(screen.getByLabelText('Broker host filter'), {
+    const brokerHostFilter = screen.getByLabelText('Broker host filter');
+    expect(brokerHostFilter).toHaveClass('min-w-0');
+    expect(brokerHostFilter).toHaveClass('w-full');
+    expect(brokerHostFilter).toHaveClass('sm:min-w-64');
+
+    fireEvent.change(brokerHostFilter, {
       target: { value: 'mosquitto-prod-01' },
     });
     fireEvent.click(screen.getByRole('button', { name: /filter history/i }));

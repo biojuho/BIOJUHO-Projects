@@ -1278,7 +1278,7 @@ export default function SensorDeviceManager() {
                       value={evidenceHistoryDraft.brokerHost}
                       onChange={(event) => setEvidenceHistoryDraft({ brokerHost: event.target.value })}
                       placeholder="e.g. mosquitto-prod-01"
-                      className="mt-2 min-h-10 min-w-64"
+                      className="mt-2 min-h-10 min-w-0 w-full sm:min-w-64"
                     />
                   </div>
                   <Button type="submit" variant="secondary" className="min-h-10" disabled={provisioningEvidenceHistoryState.loading}>
