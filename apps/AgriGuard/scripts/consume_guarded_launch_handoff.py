@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,10 @@ def _load_peer_module(module_name: str) -> Any:
 
 
 validate_guarded_launch_handoff = _load_peer_module("validate_guarded_launch_handoff")
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def read_json(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
@@ -281,6 +286,7 @@ def build_consumer_view(
 
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": status,
         "handoff_json": str(handoff_json),
         "handoff_sha256": current_handoff_sha256,

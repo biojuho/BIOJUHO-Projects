@@ -112,6 +112,9 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     markdown = index_guarded_launch_artifacts.render_markdown(index)
 
     assert index["status"] == "pass"
+    assert index["generated_at"].endswith("Z")
+    index["generated_at"].encode("ascii")
+    assert " " not in index["generated_at"]
     assert index["blocker_class"] == "ready"
     assert index["consumer_status"] == "fail"
     assert index["consumer_blocker_class"] == "preflight_blocked"
@@ -162,6 +165,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         "command": None,
     }
     assert "Blocker class: `ready`" in markdown
+    assert f"Generated: `{index['generated_at']}`" in markdown
     assert "Consumer readiness next action count: `2`" in markdown
     assert "Consumer readiness next command count: `1`" in markdown
     assert "Validation blocker class: `ready`" in markdown

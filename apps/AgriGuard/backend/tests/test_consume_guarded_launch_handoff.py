@@ -179,6 +179,9 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     )
 
     assert view["status"] == "pass"
+    assert view["generated_at"].endswith("Z")
+    view["generated_at"].encode("ascii")
+    assert " " not in view["generated_at"]
     assert view["validation_blocker_class"] == "ready"
     assert view["handoff_status"] == "ready"
     assert view["handoff_blocker_class"] == "ready"

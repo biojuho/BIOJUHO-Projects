@@ -122,6 +122,9 @@ def test_validate_guarded_launch_handoff_main_writes_pass_report(tmp_path: Path)
 
     report = json.loads(validation_json.read_text(encoding="utf-8"))
     assert result == 0
+    assert report["generated_at"].endswith("Z")
+    report["generated_at"].encode("ascii")
+    assert " " not in report["generated_at"]
     assert report["status"] == "pass"
     assert report["blocker_class"] == "ready"
     assert report["errors"] == []

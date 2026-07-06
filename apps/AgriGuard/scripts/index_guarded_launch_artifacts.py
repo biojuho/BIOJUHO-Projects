@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,10 @@ REQUIRED_CORE_ARTIFACT_ROLES = (
     "handoff_consumer_json",
 )
 STATUS_ARTIFACT_ROLE = "status_json"
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _default_app_root() -> Path:
@@ -383,6 +388,7 @@ def build_index(
     }
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": index_status,
         "blocker_class": _artifact_index_blocker_class(index_status),
         "output_prefix": output_prefix,
@@ -488,6 +494,7 @@ def render_markdown(index: dict[str, object]) -> str:
     lines = [
         "# AgriGuard Guarded Launch Artifact Index",
         "",
+        f"- Generated: `{index.get('generated_at') or '-'}`",
         f"- Status: `{index.get('status')}`",
         f"- Blocker class: `{index.get('blocker_class') or '-'}`",
         f"- Output prefix: `{index.get('output_prefix')}`",

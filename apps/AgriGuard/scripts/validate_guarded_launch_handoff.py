@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,10 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_SCHEMA_PATH = SCRIPT_DIR / "guarded_launch_handoff.schema.json"
 VALIDATION_FAILURE_EXIT_CODE = 2
 VALIDATION_REPORT_SCHEMA_VERSION = 1
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def read_json(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
@@ -152,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     status = "fail" if errors else "pass"
     result = {
         "validation_report_schema_version": VALIDATION_REPORT_SCHEMA_VERSION,
+        "generated_at": _generated_timestamp_utc(),
         "handoff_json": str(args.handoff_json),
         "handoff_sha256": sha256_file(args.handoff_json),
         "schema_json": str(args.schema_json),

@@ -496,6 +496,11 @@ def _build_status_view(
             "path": ready_gate_path,
             "exists": ready_gate_exists,
             "sha256": ready_gate_sha256,
+            **(
+                {"generated_at": ready_gate_payload.get("generated_at")}
+                if ready_gate_payload is not None and "generated_at" in ready_gate_payload
+                else {}
+            ),
             "status": ready_gate_payload.get("status") if ready_gate_payload is not None else None,
             "blocker_class": _artifact_index_view_blocker_class(ready_gate_payload),
             "command_shell": artifact_index.get("consumer_ready_gate_command_shell")

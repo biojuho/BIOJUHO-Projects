@@ -1563,7 +1563,13 @@ def test_guarded_launch_status_only_prefers_live_ready_gate_file_state(tmp_path:
     custom_ready_gate = tmp_path / "handoff" / "current.ready-gate.json"
     custom_index.parent.mkdir(parents=True, exist_ok=True)
     custom_ready_gate.write_text(
-        json.dumps({"status": "blocked", "blocker_class": "preflight_blocked"}),
+        json.dumps(
+            {
+                "generated_at": "2026-07-06T12:50:00Z",
+                "status": "blocked",
+                "blocker_class": "preflight_blocked",
+            }
+        ),
         encoding="utf-8",
     )
     custom_index.write_text(
@@ -1612,6 +1618,7 @@ def test_guarded_launch_status_only_prefers_live_ready_gate_file_state(tmp_path:
         "path": str(custom_ready_gate.resolve()),
         "exists": True,
         "sha256": run_guarded_launch._sha256_file(custom_ready_gate),
+        "generated_at": "2026-07-06T12:50:00Z",
         "status": "blocked",
         "blocker_class": "preflight_blocked",
         "command_shell": "powershell",
