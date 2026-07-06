@@ -217,9 +217,24 @@ def _launch_browser_smoke_summary(launch: dict[str, Any] | None, workspace_root:
     if not isinstance(browser_smoke, dict):
         return {}
     summary = browser_smoke.get("summary") if isinstance(browser_smoke.get("summary"), dict) else {}
+    launch_gate = browser_smoke.get("launch_gate") if isinstance(browser_smoke.get("launch_gate"), dict) else {}
+    launch_gate_enforced = None
+    for value in (
+        browser_smoke.get("launch_gate_enforced"),
+        summary.get("launch_gate_enforced"),
+        launch_gate.get("launch_gate_enforced"),
+    ):
+        if isinstance(value, bool):
+            launch_gate_enforced = value
+            break
     return {
         "found": browser_smoke.get("found") if isinstance(browser_smoke.get("found"), bool) else None,
         "status": _string_value(browser_smoke.get("status")),
+        "evidence_class": _string_value(browser_smoke.get("evidence_class") or summary.get("evidence_class")),
+        "launch_gate_enforced": launch_gate_enforced,
+        "operator_action": _string_value(
+            browser_smoke.get("operator_action") or summary.get("operator_action") or launch_gate.get("operator_action")
+        ),
         "path": _path_value(browser_smoke.get("path"), workspace_root),
         "base_url": _string_value(browser_smoke.get("base_url")),
         "api_url": _string_value(browser_smoke.get("api_url")),
@@ -248,6 +263,7 @@ def _launch_browser_smoke_summary(launch: dict[str, Any] | None, workspace_root:
         "failed_precheck_names": _string_list(
             browser_smoke.get("failed_precheck_names") or summary.get("failed_precheck_names")
         ),
+        "failed_targets": _string_list(browser_smoke.get("failed_targets") or summary.get("failed_targets")),
     }
 
 
@@ -695,10 +711,14 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Output prefix: `{index.get('output_prefix')}`",
         f"- Launch status: `{index.get('launch_status')}`",
         f"- Launch browser smoke status: `{browser_smoke.get('status') or '-'}`",
+        f"- Launch browser smoke evidence class: `{browser_smoke.get('evidence_class') or '-'}`",
+        f"- Launch browser smoke launch gate enforced: `{str(browser_smoke.get('launch_gate_enforced')).lower()}`",
         f"- Launch browser smoke path: `{browser_smoke.get('path') or '-'}`",
         f"- Launch browser smoke prechecks: `{_count_ratio(browser_smoke, 'prechecks_passed', 'prechecks_total')}`",
         "- Launch browser smoke failed prechecks: "
         f"`{_joined_list(browser_smoke.get('failed_precheck_names'))}`",
+        "- Launch browser smoke operator action: "
+        f"`{browser_smoke.get('operator_action') or '-'}`",
         f"- Validation status: `{index.get('validation_status')}`",
         f"- Validation blocker class: `{index.get('validation_blocker_class') or '-'}`",
         f"- Consumer validation matches handoff: `{str(index.get('consumer_validation_matches_handoff')).lower()}`",

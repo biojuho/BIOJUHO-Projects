@@ -240,6 +240,11 @@ def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(t
         "browser_smoke": {
             "found": True,
             "status": "fail",
+            "evidence_class": "launch_precheck_blocked",
+            "launch_gate": {
+                "launch_gate_enforced": True,
+                "operator_action": "resolve failed prechecks before running launch browser smoke",
+            },
             "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
             "base_url": "http://127.0.0.1:5174",
             "api_url": "http://127.0.0.1:8002",
@@ -256,6 +261,7 @@ def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(t
                 "prechecks_passed": 2,
                 "prechecks_failed": 1,
                 "failed_precheck_names": ["public_verify_cache_headers"],
+                "failed_targets": ["backend", "frontend_proxy"],
             },
         }
     }
@@ -272,6 +278,9 @@ def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(t
     assert index["launch_browser_smoke"] == {
         "found": True,
         "status": "fail",
+        "evidence_class": "launch_precheck_blocked",
+        "launch_gate_enforced": True,
+        "operator_action": "resolve failed prechecks before running launch browser smoke",
         "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
         "base_url": "http://127.0.0.1:5174",
         "api_url": "http://127.0.0.1:8002",
@@ -292,10 +301,17 @@ def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(t
         "failed_step_names": [],
         "failed_check_names": [],
         "failed_precheck_names": ["public_verify_cache_headers"],
+        "failed_targets": ["backend", "frontend_proxy"],
     }
     assert "Launch browser smoke status: `fail`" in markdown
+    assert "Launch browser smoke evidence class: `launch_precheck_blocked`" in markdown
+    assert "Launch browser smoke launch gate enforced: `true`" in markdown
     assert "Launch browser smoke prechecks: `2/3`" in markdown
     assert "Launch browser smoke failed prechecks: `public_verify_cache_headers`" in markdown
+    assert (
+        "Launch browser smoke operator action: "
+        "`resolve failed prechecks before running launch browser smoke`"
+    ) in markdown
 
 
 def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: Path) -> None:
