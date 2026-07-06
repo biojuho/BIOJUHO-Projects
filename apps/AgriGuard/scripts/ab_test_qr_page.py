@@ -263,8 +263,9 @@ def render_markdown(
     control: dict,
     variant: dict,
     decision: dict,
+    generated_at: str | None = None,
 ) -> str:
-    generated_at = generated_timestamp_utc()
+    generated_at = generated_at or generated_timestamp_utc()
     lines = [
         "# AgriGuard QR Page A/B Test Draft",
         "",
@@ -349,6 +350,7 @@ def main() -> int:
     control = summarize_variant(dataset, "A")
     variant = summarize_variant(dataset, "B")
     decision = decide(control, variant, args.min_relative_lift)
+    generated_at = generated_timestamp_utc()
 
     markdown = render_markdown(
         dataset_name=dataset_name,
@@ -357,6 +359,7 @@ def main() -> int:
         control=control,
         variant=variant,
         decision=decision,
+        generated_at=generated_at,
     )
     print(markdown)
 
@@ -365,6 +368,7 @@ def main() -> int:
 
     if args.json_out:
         payload = {
+            "generated_at": generated_at,
             "audience_profile": AUDIENCE_PROFILE,
             "hypothesis": AB_TEST_HYPOTHESIS,
             "dataset_name": dataset_name,

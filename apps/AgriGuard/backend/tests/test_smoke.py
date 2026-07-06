@@ -354,6 +354,8 @@ def test_qr_ab_script_can_reuse_prior_summary_output():
         assert summary["control"]["sessions"] == 1
         assert summary["variant"]["sessions"] == 1
         assert summary["metadata"] == {"cohort": "self-output"}
+        assert summary["generated_at"].endswith("Z")
+        summary["generated_at"].encode("ascii")
     finally:
         for path in (dataset_path, json_out_path):
             try:
