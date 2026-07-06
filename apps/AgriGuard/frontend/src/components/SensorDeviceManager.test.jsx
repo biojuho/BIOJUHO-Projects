@@ -393,6 +393,10 @@ describe('SensorDeviceManager', () => {
     expect(sensorIds[0]).toHaveAttribute('title', 'sensor-cold-1');
     expect(sensorIds[0]).toHaveClass('truncate');
     expect(sensorIds[0]).not.toHaveClass('break-all');
+    const ownerIds = screen.getAllByTestId('registered-sensor-owner-id');
+    expect(ownerIds[0]).toHaveAttribute('title', 'tenant-cold-chain');
+    expect(ownerIds[0]).toHaveClass('truncate');
+    expect(ownerIds[0]).not.toHaveClass('break-all');
     expect(within(rows[0]).getByText('Actions')).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: /edit/i })).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: /disable/i })).toBeInTheDocument();

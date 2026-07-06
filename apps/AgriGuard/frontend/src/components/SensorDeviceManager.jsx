@@ -1605,7 +1605,11 @@ export default function SensorDeviceManager() {
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
                               Owner
                             </span>
-                            <span className="max-w-[12rem] break-all text-right font-mono text-xs text-muted-foreground md:max-w-none md:text-left">
+                            <span
+                              data-testid="registered-sensor-owner-id"
+                              title={sensor.owner_id || 'Unowned'}
+                              className="block max-w-[12rem] truncate text-right font-mono text-xs text-muted-foreground md:max-w-40 md:text-left"
+                            >
                               {sensor.owner_id || 'Unowned'}
                             </span>
                           </td>
