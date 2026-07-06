@@ -23,12 +23,12 @@ const CONNECTIVITY_VARIANTS = {
   no_data: 'secondary',
 };
 
-const formatTemperature = (value) => (
-  typeof value === 'number' ? `${value} C` : '--'
+const formatTemperature = (value, fallback = '--') => (
+  typeof value === 'number' ? `${value} C` : fallback
 );
 
-const formatHumidity = (value) => (
-  typeof value === 'number' ? `${value}%` : '--'
+const formatHumidity = (value, fallback = '--') => (
+  typeof value === 'number' ? `${value}%` : fallback
 );
 
 const formatLastSeen = (value) => {
@@ -215,19 +215,19 @@ export default function ColdChainMonitor() {
         <StatCard
           icon={Thermometer}
           label="Temperature"
-          value={formatTemperature(latestReading?.temperature)}
+          value={formatTemperature(latestReading?.temperature, 'No readings')}
           color={latestReading?.temperature > 8 || latestReading?.temperature < -25 ? 'red' : 'blue'}
         />
         <StatCard
           icon={Droplets}
           label="Humidity"
-          value={formatHumidity(latestReading?.humidity)}
+          value={formatHumidity(latestReading?.humidity, 'No readings')}
           color="cyan"
         />
         <StatCard
           icon={Activity}
           label="Zone"
-          value={latestReading?.zone || '--'}
+          value={latestReading?.zone || 'No zone'}
           color="purple"
         />
         <StatCard

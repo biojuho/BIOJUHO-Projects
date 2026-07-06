@@ -352,6 +352,9 @@ describe('ColdChainMonitor', () => {
 
     expect(await screen.findByText('Cold Storage B')).toBeInTheDocument();
     expect(screen.getByText('registered-silent-sensor')).toBeInTheDocument();
+    expect(screen.getByTestId('cold-chain-stat-temperature')).toHaveTextContent('No readings');
+    expect(screen.getByTestId('cold-chain-stat-humidity')).toHaveTextContent('No readings');
+    expect(screen.getByTestId('cold-chain-stat-zone')).toHaveTextContent('No zone');
     expect(screen.getByText('0 readings')).toBeInTheDocument();
     expect(screen.getAllByText('--').length).toBeGreaterThan(0);
     expect(screen.getByText('No temperature readings yet')).toBeInTheDocument();
