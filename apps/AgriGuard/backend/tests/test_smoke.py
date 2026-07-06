@@ -954,6 +954,103 @@ def test_browser_smoke_suite_backend_contract_flags_stale_backend():
     assert "restart/rebuild the backend" in summary["detail"]
 
 
+def test_browser_smoke_suite_public_verify_cache_header_summary():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_public_cache_summary_under_test",
+    )
+
+    passing_probe = {
+        "ok": True,
+        "url": "http://127.0.0.1:8002/api/qr/token/verify",
+        "status": 200,
+        "headers": {
+            "Cache-Control": "private, no-store",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    }
+    failing_probe = {
+        "ok": False,
+        "url": "http://127.0.0.1:5174/api/api/qr/token/verify",
+        "status": 200,
+        "headers": {"Cache-Control": "", "Pragma": "", "Expires": ""},
+    }
+
+    assert script.public_verify_cache_headers_ok(passing_probe["headers"]) is True
+    assert script.public_verify_cache_headers_ok(failing_probe["headers"]) is False
+
+    summary = script.summarize_public_verify_cache_headers(
+        api_url="http://127.0.0.1:8002/",
+        frontend_api_url="http://127.0.0.1:5174/api/",
+        backend_probe=passing_probe,
+        frontend_proxy_probe=failing_probe,
+    )
+
+    assert summary["ok"] is False
+    assert summary["failed_targets"] == ["frontend_proxy"]
+    assert summary["api_url"] == "http://127.0.0.1:8002"
+    assert summary["frontend_api_url"] == "http://127.0.0.1:5174/api"
+    assert "restart/rebuild the backend or proxy" in summary["detail"]
+
+
+def test_browser_smoke_suite_precheck_stops_on_public_verify_cache_header_failure(
+    monkeypatch,
+    tmp_path: Path,
+):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_public_cache_precheck_under_test",
+    )
+    json_out = tmp_path / "browser-smoke.json"
+    child_output_dir = tmp_path / "browser-smoke-children"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_browser_smoke_suite.py",
+            "--json-out",
+            str(json_out),
+            "--output-dir",
+            str(child_output_dir),
+        ],
+    )
+    monkeypatch.setattr(
+        script,
+        "check_backend_contract",
+        lambda *_args, **_kwargs: {"name": "backend_contract", "ok": True},
+    )
+    monkeypatch.setattr(
+        script,
+        "check_public_verify_cache_headers",
+        lambda *_args, **_kwargs: {
+            "name": "public_verify_cache_headers",
+            "ok": False,
+            "failed_targets": ["backend", "frontend_proxy"],
+            "detail": "public verify no-store cache headers are missing through backend, frontend_proxy",
+        },
+    )
+    monkeypatch.setattr(
+        script,
+        "check_backend_proxy_alignment",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not run")),
+    )
+    monkeypatch.setattr(
+        script,
+        "run_step",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not run")),
+    )
+
+    assert script.main() == 1
+
+    payload = json.loads(json_out.read_text(encoding="utf-8"))
+    assert payload["status"] == "fail"
+    assert payload["summary"]["failed_precheck_names"] == ["public_verify_cache_headers"]
+    assert payload["summary"]["prechecks_total"] == 3
+    assert payload["results"] == []
+
+
 def test_browser_smoke_suite_backend_proxy_alignment_accepts_shared_state():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",

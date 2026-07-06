@@ -23,6 +23,17 @@ REQUIRED_BACKEND_OPENAPI_PATHS = (
     "/sensor-devices",
     "/sensor-devices/{sensor_id}",
 )
+PUBLIC_VERIFY_CACHE_PROBE_TOKEN = "browser-smoke-cache-precheck-token"
+PUBLIC_VERIFY_CACHE_PROBE_QUERY = (
+    "?session_id=browser-smoke-cache-precheck"
+    "&variant_id=browser_smoke_precheck"
+    "&source=browser_smoke_precheck"
+)
+PUBLIC_VERIFY_CACHE_HEADER_EXPECTATIONS = {
+    "Cache-Control": "no-store",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 MIN_SCREENSHOT_BYTES = 512
 DESKTOP_SCREENSHOT_DIMENSIONS = (1440, 960)
@@ -386,6 +397,112 @@ def _openapi_url(api_url: str) -> str:
 
 def _frontend_api_url(base_url: str) -> str:
     return base_url.rstrip("/") + "/api"
+
+
+def _public_verify_cache_probe_url(api_base_url: str) -> str:
+    return (
+        api_base_url.rstrip("/")
+        + f"/api/qr/{parse.quote(PUBLIC_VERIFY_CACHE_PROBE_TOKEN)}/verify"
+        + PUBLIC_VERIFY_CACHE_PROBE_QUERY
+    )
+
+
+def _response_cache_headers(response) -> dict[str, str]:
+    return {
+        header: str(response.headers.get(header) or "")
+        for header in PUBLIC_VERIFY_CACHE_HEADER_EXPECTATIONS
+    }
+
+
+def public_verify_cache_headers_ok(headers: dict[str, object]) -> bool:
+    cache_control = str(headers.get("Cache-Control") or "").lower()
+    pragma = str(headers.get("Pragma") or "").lower()
+    expires = str(headers.get("Expires") or "")
+    return "no-store" in cache_control and "no-cache" in pragma and expires == "0"
+
+
+def probe_public_verify_cache_headers(api_base_url: str, *, timeout_seconds: int) -> dict[str, object]:
+    url = _public_verify_cache_probe_url(api_base_url)
+    try:
+        with request.urlopen(url, timeout=timeout_seconds) as response:
+            headers = _response_cache_headers(response)
+            status = response.status
+    except error.HTTPError as exc:
+        headers = _response_cache_headers(exc)
+        return {
+            "url": url,
+            "ok": False,
+            "status": exc.code,
+            "headers": headers,
+            "detail": f"public verify cache probe failed with HTTP {exc.code}",
+        }
+    except (OSError, TimeoutError) as exc:
+        return {
+            "url": url,
+            "ok": False,
+            "status": None,
+            "headers": {header: "" for header in PUBLIC_VERIFY_CACHE_HEADER_EXPECTATIONS},
+            "detail": f"public verify cache probe failed: {exc}",
+        }
+
+    ok = public_verify_cache_headers_ok(headers)
+    return {
+        "url": url,
+        "ok": ok,
+        "status": status,
+        "headers": headers,
+        "detail": (
+            "public verify response has launch-safe no-store cache headers"
+            if ok
+            else "public verify response is missing launch-safe no-store cache headers"
+        ),
+    }
+
+
+def summarize_public_verify_cache_headers(
+    *,
+    api_url: str,
+    frontend_api_url: str,
+    backend_probe: dict[str, object],
+    frontend_proxy_probe: dict[str, object],
+) -> dict[str, object]:
+    probes = {
+        "backend": backend_probe,
+        "frontend_proxy": frontend_proxy_probe,
+    }
+    failed_targets = [name for name, probe in probes.items() if probe.get("ok") is not True]
+    return {
+        "name": "public_verify_cache_headers",
+        "ok": not failed_targets,
+        "api_url": api_url.rstrip("/"),
+        "frontend_api_url": frontend_api_url.rstrip("/"),
+        "expected_headers": PUBLIC_VERIFY_CACHE_HEADER_EXPECTATIONS,
+        "failed_targets": failed_targets,
+        "probes": probes,
+        "detail": (
+            "public verify no-store cache headers are present through backend and frontend proxy"
+            if not failed_targets
+            else (
+                "public verify no-store cache headers are missing through "
+                + ", ".join(failed_targets)
+                + "; restart/rebuild the backend or proxy before running launch browser smoke"
+            )
+        ),
+    }
+
+
+def check_public_verify_cache_headers(*, base_url: str, api_url: str, timeout_ms: int) -> dict[str, object]:
+    timeout_seconds = max(1, min(15, int(timeout_ms / 1000)))
+    frontend_api_url = _frontend_api_url(base_url)
+    return summarize_public_verify_cache_headers(
+        api_url=api_url,
+        frontend_api_url=frontend_api_url,
+        backend_probe=probe_public_verify_cache_headers(api_url, timeout_seconds=timeout_seconds),
+        frontend_proxy_probe=probe_public_verify_cache_headers(
+            frontend_api_url,
+            timeout_seconds=timeout_seconds,
+        ),
+    )
 
 
 def summarize_backend_openapi_contract(payload: dict[str, object]) -> dict[str, object]:
@@ -876,6 +993,18 @@ def main() -> int:
         backend_contract = check_backend_contract(args.api_url, timeout_ms=args.timeout_ms)
         prechecks.append(backend_contract)
         if backend_contract.get("ok") is not True:
+            report = build_precheck_failure_report(args, prechecks)
+            write_json(args.json_out, report)
+            print(json.dumps(report["summary"], indent=2, sort_keys=True))
+            return 1
+
+        public_verify_cache_headers = check_public_verify_cache_headers(
+            base_url=args.base_url,
+            api_url=args.api_url,
+            timeout_ms=args.timeout_ms,
+        )
+        prechecks.append(public_verify_cache_headers)
+        if public_verify_cache_headers.get("ok") is not True:
             report = build_precheck_failure_report(args, prechecks)
             write_json(args.json_out, report)
             print(json.dumps(report["summary"], indent=2, sort_keys=True))
