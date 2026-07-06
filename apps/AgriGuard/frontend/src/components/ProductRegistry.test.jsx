@@ -77,6 +77,11 @@ describe('ProductRegistry', () => {
     expect(screen.getByText('batch-1')).toBeInTheDocument();
     expect(screen.getByText('Public verify label')).toBeInTheDocument();
     expect(screen.getByText('https://verify.agriguard.test/verify/public-token-1')).toBeInTheDocument();
+    const labelUrl = screen.getByTestId('registry-label-url');
+    expect(labelUrl).toHaveAttribute('title', 'https://verify.agriguard.test/verify/public-token-1');
+    expect(labelUrl).toHaveClass('overflow-x-auto');
+    expect(labelUrl).toHaveClass('whitespace-nowrap');
+    expect(labelUrl).not.toHaveClass('break-all');
     expect(screen.getByRole('button', { name: /Copy public verify label URL/i })).toHaveClass('min-h-11');
     fireEvent.click(screen.getByRole('button', { name: /Copy public verify label URL/i }));
     await waitFor(() => {

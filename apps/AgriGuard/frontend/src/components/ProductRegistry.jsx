@@ -225,7 +225,11 @@ export default function ProductRegistry() {
                 <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Public verify label
                 </p>
-                <div className="mt-4 p-3 bg-background/50 rounded-lg font-mono text-xs text-muted-foreground break-all">
+                <div
+                  data-testid="registry-label-url"
+                  title={uiState.success.qr_code}
+                  className="mt-4 max-w-full overflow-x-auto whitespace-nowrap rounded-lg bg-background/50 p-3 font-mono text-xs text-muted-foreground"
+                >
                   {uiState.success.qr_code}
                 </div>
                 <Button
