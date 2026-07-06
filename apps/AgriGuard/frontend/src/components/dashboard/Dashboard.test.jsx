@@ -250,4 +250,43 @@ describe('Dashboard', () => {
     expect(await screen.findByText('AgriGuard 공급망 현황')).toBeInTheDocument();
     expect(screen.queryByText('Operator authentication required')).not.toBeInTheDocument();
   });
+
+  it('clears a stale operator token from the auth recovery form', async () => {
+    serviceMocks.getOperatorToken.mockReturnValue('stale-token');
+    api.get.mockImplementation((url, config = {}) => {
+      if (url === '/dashboard/summary') {
+        return Promise.reject({
+          message: 'Request failed with status code 401',
+          response: { status: 401 },
+        });
+      }
+      if (url === '/qr-events/kpis') {
+        return Promise.resolve({ data: qrKpis });
+      }
+      if (url === '/qr-events/kpis/trend') {
+        return Promise.resolve({
+          data: {
+            ...qrTrend,
+            timezone: config.params?.timezone || qrTrend.timezone,
+          },
+        });
+      }
+      return Promise.reject(new Error(`unexpected URL ${url}`));
+    });
+
+    render(<Dashboard />);
+
+    const tokenInput = await screen.findByLabelText('Operator bearer token');
+    expect(tokenInput).toHaveValue('stale-token');
+
+    fireEvent.click(screen.getByRole('button', { name: /clear token/i }));
+
+    expect(serviceMocks.setOperatorToken).toHaveBeenCalledWith('');
+    expect(tokenInput).toHaveValue('');
+    expect(serviceMocks.showToast).toHaveBeenCalledWith(
+      'Operator token cleared. Protected dashboard metrics will still require authentication.',
+      'success',
+    );
+    expect(screen.queryByRole('button', { name: /clear token/i })).not.toBeInTheDocument();
+  });
 });

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Activity, Package, ShieldCheck, Thermometer, AlertTriangle, CheckCircle2, TrendingUp, MapPin, Clock3 } from 'lucide-react';
+import { Activity, Package, ShieldCheck, Thermometer, AlertTriangle, CheckCircle2, TrendingUp, MapPin, Clock3, X } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import api, { getOperatorToken, setOperatorToken, withOperatorAuth } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -113,6 +113,12 @@ export default function Dashboard() {
     fetchDashboardSummary();
   }, [fetchDashboardSummary, operatorTokenInput, showToast]);
 
+  const handleClearOperatorToken = useCallback(() => {
+    setOperatorToken('');
+    setOperatorTokenInput('');
+    showToast('Operator token cleared. Protected dashboard metrics will still require authentication.', 'success');
+  }, [showToast]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(QR_KPI_TIMEZONE_STORAGE_KEY, qrKpiTimezone);
@@ -172,7 +178,7 @@ export default function Dashboard() {
               <label htmlFor="dashboard-operator-token" className="text-sm font-medium text-foreground">
                 Operator bearer token
               </label>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <Input
                   id="dashboard-operator-token"
                   type="password"
@@ -186,6 +192,17 @@ export default function Dashboard() {
                 <Button type="submit" className="min-h-11">
                   Save and retry
                 </Button>
+                {operatorTokenInput && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleClearOperatorToken}
+                    className="min-h-11 justify-start px-3 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear token
+                  </Button>
+                )}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 The token stays in this browser local storage and is used only for operator API calls.
