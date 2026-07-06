@@ -468,7 +468,13 @@ export default function QRTokenManager() {
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
                           Batch
                         </span>
-                        <span className="break-all text-right font-mono text-xs text-muted-foreground md:text-left">{token.batch_code}</span>
+                        <span
+                          data-testid="qr-token-batch-code"
+                          title={token.batch_code}
+                          className="block max-w-[12rem] truncate text-right font-mono text-xs text-muted-foreground md:max-w-40 md:text-left"
+                        >
+                          {token.batch_code}
+                        </span>
                       </td>
                       <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
