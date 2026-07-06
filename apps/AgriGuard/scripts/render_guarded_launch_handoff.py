@@ -244,6 +244,23 @@ def _markdown_check_value(value: object) -> str:
     return str(value).replace("|", "\\|")
 
 
+def _summary_ratio(report: dict[str, object], passed_key: str, total_key: str) -> str | None:
+    passed = report.get(passed_key)
+    total = report.get(total_key)
+    if isinstance(passed, int) and isinstance(total, int):
+        return f"{passed}/{total}"
+    return None
+
+
+def _has_browser_smoke_evidence(browser_smoke: dict[str, object]) -> bool:
+    return bool(
+        browser_smoke.get("path")
+        or browser_smoke.get("status")
+        or browser_smoke.get("found") is True
+        or _summary_ratio(browser_smoke, "checks_passed", "checks_total")
+    )
+
+
 def _operator_command_entry(*, command_id: str, description: str, command: list[str]) -> dict[str, object]:
     return {
         "id": command_id,
@@ -394,6 +411,11 @@ def render_markdown(handoff: dict[str, object]) -> str:
         if isinstance(readiness_summary.get("next_actions"), list)
         else []
     )
+    browser_smoke = (
+        readiness_summary.get("browser_smoke")
+        if isinstance(readiness_summary.get("browser_smoke"), dict)
+        else {}
+    )
     operator_packet = (
         status_view.get("operator_packet") if isinstance(status_view.get("operator_packet"), dict) else {}
     )
@@ -487,6 +509,37 @@ def render_markdown(handoff: dict[str, object]) -> str:
         lines.append("| --- | --- |")
         for key, value in preflight_check_rows:
             lines.append(f"| `{key}` | `{value}` |")
+        lines.append("")
+    if _has_browser_smoke_evidence(browser_smoke):
+        lines.extend(["## Status Browser Smoke Evidence", ""])
+        lines.append("| Field | Value |")
+        lines.append("| --- | --- |")
+        browser_rows = (
+            ("found", browser_smoke.get("found")),
+            ("status", browser_smoke.get("status")),
+            ("path", browser_smoke.get("path")),
+            ("base_url", browser_smoke.get("base_url")),
+            ("api_url", browser_smoke.get("api_url")),
+            ("mobile", browser_smoke.get("mobile")),
+            ("include_unavailable_check", browser_smoke.get("include_unavailable_check")),
+            ("steps", _summary_ratio(browser_smoke, "steps_passed", "steps_total")),
+            ("checks", _summary_ratio(browser_smoke, "checks_passed", "checks_total")),
+            ("prechecks", _summary_ratio(browser_smoke, "prechecks_passed", "prechecks_total")),
+            (
+                "screenshots",
+                _summary_ratio(
+                    browser_smoke,
+                    "screenshot_artifacts_passed",
+                    "screenshot_artifacts_total",
+                ),
+            ),
+            ("failed_steps", browser_smoke.get("failed_step_names")),
+            ("failed_prechecks", browser_smoke.get("failed_precheck_names")),
+        )
+        for key, value in browser_rows:
+            rendered = _markdown_check_value(value)
+            if rendered != "-":
+                lines.append(f"| `{key}` | `{rendered}` |")
         lines.append("")
     if readiness_actions:
         lines.extend(["## Readiness Next Actions", ""])

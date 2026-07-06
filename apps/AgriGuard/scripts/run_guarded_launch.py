@@ -403,6 +403,7 @@ def _build_status_view(
     artifact_index = _read_json(artifact_index_json) if artifact_index_json is not None else None
     action_ids = _operator_action_ids_from_summary(summary) or _operator_action_ids_from_packet(packet)
     summary_env_validation = _summary_report(summary, "env_validation")
+    summary_launch = _summary_report(summary, "launch")
     summary_operator_packet = _summary_report(summary, "operator_packet")
     artifacts = {key: str(value) for key, value in artifact_paths.items()}
     if artifact_index_json is not None:
@@ -526,6 +527,7 @@ def _build_status_view(
             "operator_packet_artifact_index_recovery_command_status": summary_operator_packet.get(
                 "artifact_index_recovery_command_status"
             ),
+            "browser_smoke": _browser_smoke_status_view(summary_launch),
         },
         "operator_packet": {
             "found": packet is not None,
@@ -629,6 +631,47 @@ def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dic
         "artifact_index_recovery_command_status": artifact_index_summary.get(
             "recovery_command_status"
         ),
+    }
+
+
+def _browser_smoke_status_view(summary_launch: dict[str, Any]) -> dict[str, object]:
+    browser = (
+        summary_launch.get("browser_smoke")
+        if isinstance(summary_launch.get("browser_smoke"), dict)
+        else {}
+    )
+    found = browser.get("found")
+    return {
+        "found": bool(found) if isinstance(found, bool) else False,
+        "path": browser.get("path") if isinstance(browser.get("path"), str) else None,
+        "status": browser.get("status") if isinstance(browser.get("status"), str) else None,
+        "base_url": browser.get("base_url") if isinstance(browser.get("base_url"), str) else None,
+        "api_url": browser.get("api_url") if isinstance(browser.get("api_url"), str) else None,
+        "mobile": browser.get("mobile") if isinstance(browser.get("mobile"), bool) else None,
+        "include_unavailable_check": browser.get("include_unavailable_check")
+        if isinstance(browser.get("include_unavailable_check"), bool)
+        else None,
+        "steps_total": browser.get("steps_total") if isinstance(browser.get("steps_total"), int) else None,
+        "steps_passed": browser.get("steps_passed") if isinstance(browser.get("steps_passed"), int) else None,
+        "steps_failed": browser.get("steps_failed") if isinstance(browser.get("steps_failed"), int) else None,
+        "checks_total": browser.get("checks_total") if isinstance(browser.get("checks_total"), int) else None,
+        "checks_passed": browser.get("checks_passed") if isinstance(browser.get("checks_passed"), int) else None,
+        "checks_failed": browser.get("checks_failed") if isinstance(browser.get("checks_failed"), int) else None,
+        "prechecks_total": browser.get("prechecks_total") if isinstance(browser.get("prechecks_total"), int) else None,
+        "prechecks_passed": browser.get("prechecks_passed") if isinstance(browser.get("prechecks_passed"), int) else None,
+        "prechecks_failed": browser.get("prechecks_failed") if isinstance(browser.get("prechecks_failed"), int) else None,
+        "screenshot_artifacts_total": browser.get("screenshot_artifacts_total")
+        if isinstance(browser.get("screenshot_artifacts_total"), int)
+        else None,
+        "screenshot_artifacts_passed": browser.get("screenshot_artifacts_passed")
+        if isinstance(browser.get("screenshot_artifacts_passed"), int)
+        else None,
+        "screenshot_artifacts_failed": browser.get("screenshot_artifacts_failed")
+        if isinstance(browser.get("screenshot_artifacts_failed"), int)
+        else None,
+        "failed_step_names": _string_list(browser.get("failed_step_names")),
+        "failed_check_names": _string_list(browser.get("failed_check_names")),
+        "failed_precheck_names": _string_list(browser.get("failed_precheck_names")),
     }
 
 

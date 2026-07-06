@@ -1023,6 +1023,32 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                     },
                 ],
                 "reports": {
+                    "launch": {
+                        "browser_smoke": {
+                            "found": True,
+                            "path": "var/browser-smoke.json",
+                            "status": "pass",
+                            "base_url": "http://127.0.0.1:5330",
+                            "api_url": "http://127.0.0.1:8060",
+                            "mobile": True,
+                            "include_unavailable_check": True,
+                            "steps_total": 7,
+                            "steps_passed": 7,
+                            "steps_failed": 0,
+                            "checks_total": 191,
+                            "checks_passed": 191,
+                            "checks_failed": 0,
+                            "prechecks_total": 3,
+                            "prechecks_passed": 3,
+                            "prechecks_failed": 0,
+                            "screenshot_artifacts_total": 19,
+                            "screenshot_artifacts_passed": 19,
+                            "screenshot_artifacts_failed": 0,
+                            "failed_step_names": [],
+                            "failed_check_names": [],
+                            "failed_precheck_names": [],
+                        }
+                    },
                     "env_validation": {
                         "blocker_class": "env_shape_blocked",
                         "ready_for_preflight": False,
@@ -1099,6 +1125,9 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["readiness_summary"]["operator_packet_preflight_status"] == "env_shape_blocked"
     assert payload["readiness_summary"]["operator_packet_consumer_command_metadata_status"] == "fail"
     assert payload["readiness_summary"]["operator_packet_consumer_readiness_command_metadata_status"] == "pass"
+    assert payload["readiness_summary"]["browser_smoke"]["status"] == "pass"
+    assert payload["readiness_summary"]["browser_smoke"]["mobile"] is True
+    assert payload["readiness_summary"]["browser_smoke"]["checks_passed"] == 191
     assert payload["readiness_summary"]["next_actions"] == ["Open the operator packet."]
     assert payload["readiness_summary"]["next_commands"] == [
         {

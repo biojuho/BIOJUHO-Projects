@@ -104,6 +104,32 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
                     }
                 ],
                 "reports": {
+                    "launch": {
+                        "browser_smoke": {
+                            "found": False,
+                            "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+                            "status": None,
+                            "base_url": None,
+                            "api_url": None,
+                            "mobile": None,
+                            "include_unavailable_check": None,
+                            "steps_total": None,
+                            "steps_passed": None,
+                            "steps_failed": None,
+                            "checks_total": None,
+                            "checks_passed": None,
+                            "checks_failed": None,
+                            "prechecks_total": None,
+                            "prechecks_passed": None,
+                            "prechecks_failed": None,
+                            "screenshot_artifacts_total": None,
+                            "screenshot_artifacts_passed": None,
+                            "screenshot_artifacts_failed": None,
+                            "failed_step_names": [],
+                            "failed_check_names": [],
+                            "failed_precheck_names": [],
+                        }
+                    },
                     "operator_packet": {
                         "operator_action_ids": ["set_firebase_service_account_file"],
                     },
@@ -174,6 +200,10 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         "Open the operator packet for exact variables and validation commands.",
         "Provide a real Firebase Admin service-account .json outside the repo.",
     ]
+    assert handoff["status_view"]["readiness_summary"]["browser_smoke"]["found"] is False
+    assert handoff["status_view"]["readiness_summary"]["browser_smoke"]["path"] == (
+        "var/agriguard-browser-smoke-suite-compose-launch.json"
+    )
     assert handoff["packet_validation"]["status"] == "pass"
     assert handoff["packet_validation"]["blocker_class"] == "ready"
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
@@ -233,6 +263,10 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "Readiness next command count: `1`" in markdown
     assert "## Status Preflight Checks" in markdown
     assert "| `firebase_credentials_resolved_path` | `C:/secure/missing-firebase.json` |" in markdown
+    assert "## Status Browser Smoke Evidence" in markdown
+    assert "| `found` | `false` |" in markdown
+    assert "| `path` | `var/agriguard-browser-smoke-suite-compose-launch.json` |" in markdown
+    assert "None/None" not in markdown
     assert "## Readiness Next Actions" in markdown
     assert "- Open the operator packet for exact variables and validation commands." in markdown
     assert "- Provide a real Firebase Admin service-account .json outside the repo." in markdown

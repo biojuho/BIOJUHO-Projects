@@ -955,6 +955,165 @@
                 "null"
               ]
             },
+            "browser_smoke": {
+              "additionalProperties": false,
+              "properties": {
+                "api_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "base_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "checks_failed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "checks_passed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "checks_total": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "failed_check_names": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "failed_precheck_names": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "failed_step_names": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "found": {
+                  "type": "boolean"
+                },
+                "include_unavailable_check": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "mobile": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "path": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prechecks_failed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "prechecks_passed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "prechecks_total": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "screenshot_artifacts_failed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "screenshot_artifacts_passed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "screenshot_artifacts_total": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "steps_failed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "steps_passed": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "steps_total": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "found",
+                "path",
+                "status",
+                "base_url",
+                "api_url",
+                "mobile",
+                "include_unavailable_check",
+                "steps_total",
+                "steps_passed",
+                "steps_failed",
+                "checks_total",
+                "checks_passed",
+                "checks_failed",
+                "prechecks_total",
+                "prechecks_passed",
+                "prechecks_failed",
+                "screenshot_artifacts_total",
+                "screenshot_artifacts_passed",
+                "screenshot_artifacts_failed",
+                "failed_step_names",
+                "failed_check_names",
+                "failed_precheck_names"
+              ],
+              "type": "object"
+            },
             "path": {
               "type": "string"
             },
@@ -982,7 +1141,8 @@
             "operator_packet_consumer_packet_validation_status",
             "operator_packet_consumer_command_metadata_status",
             "operator_packet_consumer_readiness_command_metadata_status",
-            "operator_packet_artifact_index_recovery_command_status"
+            "operator_packet_artifact_index_recovery_command_status",
+            "browser_smoke"
           ],
           "type": "object"
         },
