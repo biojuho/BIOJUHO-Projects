@@ -260,6 +260,13 @@ def build_consumer_view(
     )
     external_action_ids = _operator_action_ids(handoff or {})
     ready_gate_status = ready_gate.get("status")
+    status_view_ready_gate = (
+        status_view.get("ready_gate")
+        if isinstance(status_view.get("ready_gate"), dict)
+        else {}
+    )
+    status_view_ready_gate_current_status = status_view_ready_gate.get("current_status")
+    status_view_ready_gate_current_blocker_class = status_view_ready_gate.get("current_blocker_class")
     if handoff is not None:
         _append_semantic_consistency_errors(
             errors,
@@ -270,6 +277,21 @@ def build_consumer_view(
             external_blocker=external_blocker,
             external_action_ids=external_action_ids,
         )
+        if isinstance(status_view_ready_gate_current_status, str) and ready_gate_status != status_view_ready_gate_current_status:
+            errors.append(
+                "ready_gate status "
+                f"{ready_gate_status!r} does not match status_view ready_gate current_status "
+                f"{status_view_ready_gate_current_status!r}"
+            )
+        if (
+            isinstance(status_view_ready_gate_current_blocker_class, str)
+            and ready_gate.get("blocker_class") != status_view_ready_gate_current_blocker_class
+        ):
+            errors.append(
+                "ready_gate blocker_class "
+                f"{ready_gate.get('blocker_class')!r} does not match status_view ready_gate current_blocker_class "
+                f"{status_view_ready_gate_current_blocker_class!r}"
+            )
     packet_validation = _packet_validation(handoff)
     packet_validation_status = packet_validation.get("status")
     packet_recovery_summary = (
@@ -298,6 +320,8 @@ def build_consumer_view(
         "handoff_blocker_class": handoff_blocker_class,
         "ready_gate_status": ready_gate_status,
         "ready_gate_blocker_class": ready_gate.get("blocker_class"),
+        "status_view_ready_gate_current_status": status_view_ready_gate_current_status,
+        "status_view_ready_gate_current_blocker_class": status_view_ready_gate_current_blocker_class,
         "ready_gate_command_shell": _string_value(ready_gate.get("command_shell")),
         "ready_gate_command_text": _string_value(ready_gate.get("command_text")),
         "operator_command_count": len(operator_commands),

@@ -188,6 +188,8 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["handoff_blocker_class"] == "ready"
     assert view["ready_gate_status"] == "pass"
     assert view["ready_gate_blocker_class"] == "ready"
+    assert view["status_view_ready_gate_current_status"] == "pass"
+    assert view["status_view_ready_gate_current_blocker_class"] == "ready"
     assert view["packet_validation_status"] == "pass"
     assert view["packet_validation_blocker_class"] == "ready"
     assert view["packet_evidence_outputs_status"] == "pass"
@@ -271,6 +273,8 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["handoff_blocker_class"] == "preflight_blocked"
     assert view["blocker_class"] == "preflight_blocked"
     assert view["ready_gate_blocker_class"] == "preflight_blocked"
+    assert view["status_view_ready_gate_current_status"] == "fail"
+    assert view["status_view_ready_gate_current_blocker_class"] == "preflight_blocked"
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["packet_validation_status"] == "pass"
     assert view["packet_validation_blocker_class"] == "ready"
@@ -467,6 +471,7 @@ def test_consume_guarded_launch_handoff_fails_semantic_blocker_drift(tmp_path: P
     ) in view["errors"]
     assert "blocked handoff has external_blocker status 'resolved'" in view["errors"]
     assert "blocked handoff has ready_gate status 'pass'" in view["errors"]
+    assert "ready_gate status 'pass' does not match status_view ready_gate current_status 'fail'" in view["errors"]
     assert any("external_blocker operator_action_ids" in error for error in view["errors"])
 
 
