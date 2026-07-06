@@ -1283,6 +1283,38 @@ def test_qr_path_browser_smoke_keeps_invalid_manual_probe_distinct(monkeypatch):
     assert args.invalid_manual_value != script.LEGACY_FIXTURE_MANUAL_TOKEN
 
 
+def test_qr_path_browser_smoke_enriches_launch_evidence_contract():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
+        "qr_path_browser_smoke_contract_under_test",
+    )
+
+    report = script.enrich_launch_evidence_contract(
+        {
+            "baseUrl": "http://127.0.0.1:5174",
+            "apiUrl": "http://127.0.0.1:8002",
+            "viewport": {"width": 390, "height": 844},
+            "screenshotDir": "var/qr-path",
+            "checks": [
+                script.check("manual_verify_public_view_visible", True),
+                script.check("public_verify_api_responses_no_store", False, "missing no-store"),
+                {"ok": False},
+            ],
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert report["base_url"] == "http://127.0.0.1:5174"
+    assert report["api_url"] == "http://127.0.0.1:8002"
+    assert report["mobile"] is True
+    assert report["passed"] == 1
+    assert report["failed"] == 2
+    assert report["total"] == 3
+    assert report["ok"] is False
+    assert report["summary"]["failed_check_names"] == ["public_verify_api_responses_no_store", "check_3"]
+    assert report["summary"]["screenshot_dir"] == "var/qr-path"
+
+
 def test_qr_path_browser_smoke_uses_operator_token_env(monkeypatch):
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "qr_path_browser_smoke.py",
