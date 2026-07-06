@@ -145,11 +145,13 @@ describe('Dashboard', () => {
     expect(screen.getByText('7-day QR trend')).toBeInTheDocument();
     expect(screen.getByText(`All variants / ${browserTimezone}`)).toBeInTheDocument();
     expect(screen.getByText('Jun 10')).toBeInTheDocument();
+    expect(screen.getByText('Jun 10')).toHaveAttribute('title', 'Jun 10');
     const trendGrid = screen.getByTestId('qr-kpi-trend-grid');
     expect(trendGrid).toHaveClass('w-full');
     expect(trendGrid).not.toHaveClass('min-w-[680px]');
     expect(trendGrid.style.gridTemplateColumns).toBe('repeat(auto-fit, minmax(92px, 1fr))');
     expect(screen.getByText('1,240 scans')).toBeInTheDocument();
+    expect(screen.getByText('1,240 scans')).toHaveAttribute('title', '1,240 scans');
   });
 
   it('formats dashboard status labels for compact mobile chart ticks', () => {

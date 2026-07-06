@@ -530,14 +530,18 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
               >
                 {trendItems.map((item) => {
                   const tone = kpiTone(item.scan_success_status);
+                  const formattedTrendDate = formatTrendDate(item.date);
+                  const formattedTrendScans = `${formatDashboardCount(item.verification_complete_sessions)} scans`;
                   return (
                     <div key={item.date} className="min-w-0 bg-background/40 px-3 py-2">
-                      <p className="truncate text-xs font-medium text-muted-foreground">{formatTrendDate(item.date)}</p>
+                      <p title={formattedTrendDate} className="truncate text-xs font-medium text-muted-foreground">
+                        {formattedTrendDate}
+                      </p>
                       <p className={`mt-1 text-sm font-semibold ${tone.text}`}>
                         {formatPercent(item.scan_success_rate)}
                       </p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {formatDashboardCount(item.verification_complete_sessions)} scans
+                      <p title={formattedTrendScans} className="mt-1 truncate text-xs text-muted-foreground">
+                        {formattedTrendScans}
                       </p>
                     </div>
                   );
