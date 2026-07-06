@@ -38,6 +38,9 @@ describe('ProductRegistry', () => {
     expect(screen.getByTestId('registry-harvest-chain-grid')).toHaveClass('grid-cols-1');
     expect(screen.getByTestId('registry-harvest-chain-grid')).toHaveClass('gap-4');
     expect(screen.getByTestId('registry-cold-chain-control')).toHaveClass('sm:mt-8');
+    expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('peer-checked:bg-primary');
+    expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('border-primary');
+    expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('bg-primary/10');
     expect(screen.getByText('Requires Cold Chain')).toHaveClass('whitespace-nowrap');
     expect(screen.getByLabelText('Description')).toHaveClass('h-20');
     expect(screen.getByLabelText('Description')).toHaveClass('min-h-11');
@@ -49,6 +52,7 @@ describe('ProductRegistry', () => {
     fireEvent.change(screen.getByLabelText(/Owner ID/), {
       target: { value: 'farmer-001' },
     });
+    fireEvent.click(screen.getByLabelText('Requires Cold Chain'));
     fireEvent.click(screen.getByRole('button', { name: /register harvest/i }));
 
     await waitFor(() => {
@@ -56,6 +60,7 @@ describe('ProductRegistry', () => {
         expect.objectContaining({
           name: 'Organic Tomatoes',
           owner_id: 'farmer-001',
+          requires_cold_chain: true,
           harvest_date: null,
         }),
       );

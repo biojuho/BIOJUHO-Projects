@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Sprout, QrCode, Loader2 } from 'lucide-react';
+import { Sprout, QrCode, Loader2, Check } from 'lucide-react';
 import { productApi } from '../services/api';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
@@ -141,13 +141,20 @@ export default function ProductRegistry() {
                 />
               </div>
               <div data-testid="registry-cold-chain-control" className="space-y-2 flex items-center sm:mt-8">
-                <label className="flex min-h-11 items-center space-x-3 cursor-pointer">
+                <label className="group flex min-h-11 cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
                     checked={formData.requires_cold_chain}
                     onChange={(e) => handleChange('requires_cold_chain', e.target.checked)}
-                    className="h-6 w-6 rounded border-border bg-white/5 text-primary focus:ring-ring"
+                    className="peer sr-only"
                   />
+                  <span
+                    data-testid="registry-cold-chain-checkbox"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 border-primary bg-primary/10 text-transparent transition-all group-hover:bg-primary/15 peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
+                    aria-hidden="true"
+                  >
+                    <Check className="h-4 w-4" />
+                  </span>
                   <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Requires Cold Chain</span>
                 </label>
               </div>
