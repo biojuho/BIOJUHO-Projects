@@ -124,6 +124,19 @@ def parse_session(item: dict) -> QRSessionObservation:
     )
 
 
+def _summary_session_rows(raw: dict) -> list[dict]:
+    rows: list[dict] = []
+    for key in ("control", "variant"):
+        summary = raw.get(key)
+        if not isinstance(summary, dict):
+            continue
+
+        session_rows = summary.get("session_rows")
+        if isinstance(session_rows, list):
+            rows.extend(item for item in session_rows if isinstance(item, dict))
+    return rows
+
+
 def load_dataset(path: str | None) -> tuple[list[QRSessionObservation], str, dict]:
     if not path:
         return SAMPLE_DATASET, "built-in sample", {}
@@ -132,7 +145,7 @@ def load_dataset(path: str | None) -> tuple[list[QRSessionObservation], str, dic
     if isinstance(raw, list):
         return [parse_session(item) for item in raw], path, {}
 
-    sessions = raw.get("sessions") or raw.get("observations") or raw.get("items") or []
+    sessions = raw.get("sessions") or raw.get("observations") or raw.get("items") or _summary_session_rows(raw)
     metadata = raw.get("metadata", {})
     dataset_name = raw.get("dataset_name") or metadata.get("dataset_name") or path
     return [parse_session(item) for item in sessions], dataset_name, metadata
@@ -144,37 +157,50 @@ def relative_lift(baseline: float, variant: float) -> float:
     return (variant - baseline) / baseline
 
 
-def summarize_variant(dataset: list[QRSessionObservation], variant: str) -> dict:
-    subset = [item for item in dataset if item.variant == variant]
-    if not subset:
-        return {
-            "variant": variant,
-            "sessions": 0,
-            "scan_success_rate": 0.0,
-            "verification_success_rate": 0.0,
-            "invalid_error_rate": 0.0,
-            "manual_recovery_rate": 0.0,
-            "median_time_to_verify_sec": None,
-            "average_trust_score": 0.0,
-            "session_rows": [],
-        }
+def _empty_variant_summary(variant: str) -> dict:
+    return {
+        "variant": variant,
+        "sessions": 0,
+        "scan_success_rate": 0.0,
+        "verification_success_rate": 0.0,
+        "invalid_error_rate": 0.0,
+        "manual_recovery_rate": 0.0,
+        "median_time_to_verify_sec": None,
+        "average_trust_score": 0.0,
+        "session_rows": [],
+    }
 
+
+def _success_rate(subset: list[QRSessionObservation], field_name: str) -> float:
+    return round(sum(1 for item in subset if getattr(item, field_name)) / len(subset), 4)
+
+
+def _median_time_to_verify(subset: list[QRSessionObservation]) -> float:
     subset_sorted = sorted(subset, key=lambda item: item.time_to_verify_sec)
     mid = len(subset_sorted) // 2
     if len(subset_sorted) % 2 == 0:
-        median_time = (subset_sorted[mid - 1].time_to_verify_sec + subset_sorted[mid].time_to_verify_sec) / 2
-    else:
-        median_time = subset_sorted[mid].time_to_verify_sec
+        return (subset_sorted[mid - 1].time_to_verify_sec + subset_sorted[mid].time_to_verify_sec) / 2
+    return subset_sorted[mid].time_to_verify_sec
+
+
+def _average_trust_score(subset: list[QRSessionObservation]) -> float:
+    return round(sum(item.trust_score for item in subset) / len(subset), 2)
+
+
+def summarize_variant(dataset: list[QRSessionObservation], variant: str) -> dict:
+    subset = [item for item in dataset if item.variant == variant]
+    if not subset:
+        return _empty_variant_summary(variant)
 
     return {
         "variant": variant,
         "sessions": len(subset),
-        "scan_success_rate": round(sum(1 for item in subset if item.scan_success) / len(subset), 4),
-        "verification_success_rate": round(sum(1 for item in subset if item.verification_success) / len(subset), 4),
-        "invalid_error_rate": round(sum(1 for item in subset if item.invalid_error) / len(subset), 4),
-        "manual_recovery_rate": round(sum(1 for item in subset if item.used_manual_recovery) / len(subset), 4),
-        "median_time_to_verify_sec": round(median_time, 2),
-        "average_trust_score": round(sum(item.trust_score for item in subset) / len(subset), 2),
+        "scan_success_rate": _success_rate(subset, "scan_success"),
+        "verification_success_rate": _success_rate(subset, "verification_success"),
+        "invalid_error_rate": _success_rate(subset, "invalid_error"),
+        "manual_recovery_rate": _success_rate(subset, "used_manual_recovery"),
+        "median_time_to_verify_sec": round(_median_time_to_verify(subset), 2),
+        "average_trust_score": _average_trust_score(subset),
         "session_rows": [asdict(item) for item in subset],
     }
 

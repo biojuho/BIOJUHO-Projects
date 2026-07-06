@@ -287,6 +287,81 @@ def test_qr_ab_script_handles_missing_variant_data():
             pass
 
 
+def test_qr_ab_script_can_reuse_prior_summary_output():
+    """Verify a JSON summary emitted by the QR A/B helper can be used as a later dataset."""
+    dataset_path = os.path.join(temp_root, f"qr-ab-summary-{uuid.uuid4().hex}.json")
+    json_out_path = os.path.join(temp_root, f"qr-ab-summary-output-{uuid.uuid4().hex}.json")
+    try:
+        payload = {
+            "dataset_name": "prior summary sample",
+            "metadata": {"cohort": "self-output"},
+            "control": {
+                "session_rows": [
+                    {
+                        "session_id": "a-001",
+                        "variant": "A",
+                        "scan_success": True,
+                        "verification_success": True,
+                        "invalid_error": False,
+                        "used_manual_recovery": False,
+                        "time_to_verify_sec": 18.0,
+                        "trust_score": 3.6,
+                    }
+                ]
+            },
+            "variant": {
+                "session_rows": [
+                    {
+                        "session_id": "b-001",
+                        "variant": "B",
+                        "scan_success": True,
+                        "verification_success": True,
+                        "invalid_error": False,
+                        "used_manual_recovery": False,
+                        "time_to_verify_sec": 12.0,
+                        "trust_score": 4.2,
+                    }
+                ]
+            },
+        }
+        with open(dataset_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+
+        result = subprocess.run(
+            [
+                PYTHON,
+                "../scripts/ab_test_qr_page.py",
+                "--dataset",
+                dataset_path,
+                "--json-out",
+                json_out_path,
+            ],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            env=_subprocess_env(),
+        )
+
+        assert result.returncode == 0, result.stderr or result.stdout
+        assert "Sessions: 2" in result.stdout
+        assert "A - scanner-first control | 1" in result.stdout
+        assert "B - guided verification variant | 1" in result.stdout
+
+        with open(json_out_path, encoding="utf-8") as handle:
+            summary = json.load(handle)
+
+        assert summary["dataset_size"] == 2
+        assert summary["control"]["sessions"] == 1
+        assert summary["variant"]["sessions"] == 1
+        assert summary["metadata"] == {"cohort": "self-output"}
+    finally:
+        for path in (dataset_path, json_out_path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
 def _load_script_module(script_path: Path, module_name: str):
     sync_api = types.ModuleType("playwright.sync_api")
     sync_api.Page = object
