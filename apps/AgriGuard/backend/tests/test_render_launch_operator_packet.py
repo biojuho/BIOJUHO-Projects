@@ -786,6 +786,15 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
+                "launch_browser_smoke": {
+                    "found": True,
+                    "status": "fail",
+                    "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+                    "prechecks_total": 3,
+                    "prechecks_passed": 2,
+                    "prechecks_failed": 1,
+                    "failed_precheck_names": ["public_verify_cache_headers"],
+                },
             }
         ),
         encoding="utf-8",
@@ -826,6 +835,15 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
             "note": None,
             "command": None,
         },
+        "launch_browser_smoke": {
+            "found": True,
+            "status": "fail",
+            "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+            "prechecks_total": 3,
+            "prechecks_passed": 2,
+            "prechecks_failed": 1,
+            "failed_precheck_names": ["public_verify_cache_headers"],
+        },
         "operator_action_ids": ["fix_env_shape_validation"],
         "next_actions": [
             "Replace env template placeholders and sample domains.",
@@ -853,6 +871,9 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery summary required: `false`" in markdown
+    assert "Browser smoke status: `fail`" in markdown
+    assert "Browser smoke prechecks: `2/3`" in markdown
+    assert "Browser smoke failed prechecks: `public_verify_cache_headers`" in markdown
     assert "Artifact index blocker class: `ready`" in markdown
     assert "Missing generated_at roles: `handoff_consumer_json`" in markdown
     assert "Stale generated_at roles: `ready_gate_json`" in markdown

@@ -498,6 +498,10 @@ def _dict_list(value: Any) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, dict)]
 
 
+def _dict_value(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
 def _artifact_index_readiness_summary(
     index_json: Path,
     workspace_root: Path,
@@ -545,6 +549,7 @@ def _artifact_index_readiness_summary(
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
+        "launch_browser_smoke": _dict_value(index.get("launch_browser_smoke")) if index is not None else {},
         "operator_action_ids": [str(action_id) for action_id in action_ids if isinstance(action_id, str)],
         "next_actions": next_actions,
         "next_commands": next_commands,
@@ -930,6 +935,16 @@ def _markdown_check_value(value: object) -> str:
     return str(value).replace("|", "\\|")
 
 
+def _markdown_count_ratio(summary: dict[str, object], passed_key: str, total_key: str) -> str:
+    passed = summary.get(passed_key)
+    total = summary.get(total_key)
+    if not isinstance(passed, int) or isinstance(passed, bool):
+        return "-"
+    if not isinstance(total, int) or isinstance(total, bool):
+        return "-"
+    return f"{passed}/{total}"
+
+
 def render_markdown(packet: dict[str, object]) -> str:
     lines = [
         "# AgriGuard Launch Operator Packet",
@@ -1041,6 +1056,11 @@ def render_markdown(packet: dict[str, object]) -> str:
         if isinstance(readiness_summary.get("recovery_summary"), dict)
         else {}
     )
+    browser_smoke = (
+        readiness_summary.get("launch_browser_smoke")
+        if isinstance(readiness_summary.get("launch_browser_smoke"), dict)
+        else {}
+    )
     lines.extend(
         [
             "",
@@ -1062,6 +1082,12 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Recovery command note: `{readiness_summary.get('recovery_command_note') or '-'}`",
             f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
             f"- Recovery summary blocker class: `{recovery_summary.get('blocker_class') or '-'}`",
+            f"- Browser smoke status: `{browser_smoke.get('status') or '-'}`",
+            f"- Browser smoke path: `{browser_smoke.get('path') or '-'}`",
+            "- Browser smoke prechecks: "
+            f"`{_markdown_count_ratio(browser_smoke, 'prechecks_passed', 'prechecks_total')}`",
+            "- Browser smoke failed prechecks: "
+            f"`{_markdown_check_value(browser_smoke.get('failed_precheck_names'))}`",
             f"- Action IDs: `{', '.join(str(action_id) for action_id in action_ids) if action_ids else '-'}`",
             f"- Next action count: `{len(next_actions)}`",
             f"- Next command count: `{len(next_commands)}`",

@@ -181,6 +181,76 @@ def _int_value(value: object) -> int | None:
     return None
 
 
+def _path_value(value: object, workspace_root: Path) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    path = Path(text)
+    if not path.is_absolute():
+        return text.replace("\\", "/")
+    try:
+        return path.resolve().relative_to(workspace_root.resolve()).as_posix()
+    except ValueError:
+        return text
+
+
+def _summary_count(summary: dict[str, object], key: str) -> int | None:
+    return _int_value(summary.get(key))
+
+
+def _count_ratio(summary: dict[str, object], passed_key: str, total_key: str) -> str:
+    passed = _int_value(summary.get(passed_key))
+    total = _int_value(summary.get(total_key))
+    if passed is None or total is None:
+        return "-"
+    return f"{passed}/{total}"
+
+
+def _joined_list(value: object) -> str:
+    values = _string_list(value)
+    return ", ".join(values) if values else "-"
+
+
+def _launch_browser_smoke_summary(launch: dict[str, Any] | None, workspace_root: Path) -> dict[str, object]:
+    child_reports = launch.get("child_reports") if isinstance(launch, dict) else None
+    browser_smoke = child_reports.get("browser_smoke") if isinstance(child_reports, dict) else None
+    if not isinstance(browser_smoke, dict):
+        return {}
+    summary = browser_smoke.get("summary") if isinstance(browser_smoke.get("summary"), dict) else {}
+    return {
+        "found": browser_smoke.get("found") if isinstance(browser_smoke.get("found"), bool) else None,
+        "status": _string_value(browser_smoke.get("status")),
+        "path": _path_value(browser_smoke.get("path"), workspace_root),
+        "base_url": _string_value(browser_smoke.get("base_url")),
+        "api_url": _string_value(browser_smoke.get("api_url")),
+        "mobile": browser_smoke.get("mobile") if isinstance(browser_smoke.get("mobile"), bool) else None,
+        "include_unavailable_check": browser_smoke.get("include_unavailable_check")
+        if isinstance(browser_smoke.get("include_unavailable_check"), bool)
+        else None,
+        "steps_total": _summary_count(summary, "steps_total"),
+        "steps_passed": _summary_count(summary, "steps_passed"),
+        "steps_failed": _summary_count(summary, "steps_failed"),
+        "checks_total": _summary_count(summary, "checks_total"),
+        "checks_passed": _summary_count(summary, "checks_passed"),
+        "checks_failed": _summary_count(summary, "checks_failed"),
+        "prechecks_total": _summary_count(summary, "prechecks_total"),
+        "prechecks_passed": _summary_count(summary, "prechecks_passed"),
+        "prechecks_failed": _summary_count(summary, "prechecks_failed"),
+        "screenshot_artifacts_total": _summary_count(summary, "screenshot_artifacts_total"),
+        "screenshot_artifacts_passed": _summary_count(summary, "screenshot_artifacts_passed"),
+        "screenshot_artifacts_failed": _summary_count(summary, "screenshot_artifacts_failed"),
+        "failed_step_names": _string_list(
+            browser_smoke.get("failed_step_names") or summary.get("failed_step_names")
+        ),
+        "failed_check_names": _string_list(
+            browser_smoke.get("failed_check_names") or summary.get("failed_check_names")
+        ),
+        "failed_precheck_names": _string_list(
+            browser_smoke.get("failed_precheck_names") or summary.get("failed_precheck_names")
+        ),
+    }
+
+
 def _operator_commands(value: object) -> list[dict[str, str]]:
     if not isinstance(value, list):
         return []
@@ -436,6 +506,8 @@ def build_index(
     )
     validation_status = validation.get("status") if isinstance(validation, dict) else None
     validation_blocker_class = validation.get("blocker_class") if isinstance(validation, dict) else None
+    workspace_root = _workspace_root(app_root)
+    launch_browser_smoke = _launch_browser_smoke_summary(launch, workspace_root)
     index_status = (
         "pass"
         if not missing_required
@@ -550,6 +622,7 @@ def build_index(
         "validation_blocker_class": validation_blocker_class,
         "launch_status": launch.get("status") if isinstance(launch, dict) else None,
         "launch_stage": launch.get("stage") if isinstance(launch, dict) else None,
+        "launch_browser_smoke": launch_browser_smoke,
         "recovery_action": recovery_action,
         "recovery_command": recovery_command,
         "recovery_command_shell": recovery_command_shell,
@@ -604,6 +677,7 @@ def render_markdown(index: dict[str, object]) -> str:
     recovery_summary = index.get("recovery_summary") if isinstance(index.get("recovery_summary"), dict) else {}
     recovery_command_text = index.get("recovery_command_text")
     recovery_command_shell = index.get("recovery_command_shell")
+    browser_smoke = index.get("launch_browser_smoke") if isinstance(index.get("launch_browser_smoke"), dict) else {}
     operator_command_count = index.get("consumer_operator_command_count")
     operator_command_text_count = index.get("consumer_operator_command_text_count")
     ready_gate_missing_flags = index.get("consumer_ready_gate_command_missing_flags")
@@ -620,6 +694,11 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Blocker class: `{index.get('blocker_class') or '-'}`",
         f"- Output prefix: `{index.get('output_prefix')}`",
         f"- Launch status: `{index.get('launch_status')}`",
+        f"- Launch browser smoke status: `{browser_smoke.get('status') or '-'}`",
+        f"- Launch browser smoke path: `{browser_smoke.get('path') or '-'}`",
+        f"- Launch browser smoke prechecks: `{_count_ratio(browser_smoke, 'prechecks_passed', 'prechecks_total')}`",
+        "- Launch browser smoke failed prechecks: "
+        f"`{_joined_list(browser_smoke.get('failed_precheck_names'))}`",
         f"- Validation status: `{index.get('validation_status')}`",
         f"- Validation blocker class: `{index.get('validation_blocker_class') or '-'}`",
         f"- Consumer validation matches handoff: `{str(index.get('consumer_validation_matches_handoff')).lower()}`",

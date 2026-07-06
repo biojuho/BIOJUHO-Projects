@@ -231,6 +231,73 @@ def test_index_guarded_launch_artifacts_prefers_status_view_command_metadata(tmp
     assert index["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
 
 
+def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    launch = json.loads(paths["launch_report_json"].read_text(encoding="utf-8"))
+    launch["stage"] = "browser_smoke"
+    launch["child_reports"] = {
+        "browser_smoke": {
+            "found": True,
+            "status": "fail",
+            "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+            "base_url": "http://127.0.0.1:5174",
+            "api_url": "http://127.0.0.1:8002",
+            "mobile": False,
+            "include_unavailable_check": True,
+            "summary": {
+                "steps_total": 0,
+                "steps_passed": 0,
+                "steps_failed": 0,
+                "checks_total": 0,
+                "checks_passed": 0,
+                "checks_failed": 0,
+                "prechecks_total": 3,
+                "prechecks_passed": 2,
+                "prechecks_failed": 1,
+                "failed_precheck_names": ["public_verify_cache_headers"],
+            },
+        }
+    }
+    paths["launch_report_json"].write_text(json.dumps(launch), encoding="utf-8")
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
+
+    assert index["launch_stage"] == "browser_smoke"
+    assert index["launch_browser_smoke"] == {
+        "found": True,
+        "status": "fail",
+        "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+        "base_url": "http://127.0.0.1:5174",
+        "api_url": "http://127.0.0.1:8002",
+        "mobile": False,
+        "include_unavailable_check": True,
+        "steps_total": 0,
+        "steps_passed": 0,
+        "steps_failed": 0,
+        "checks_total": 0,
+        "checks_passed": 0,
+        "checks_failed": 0,
+        "prechecks_total": 3,
+        "prechecks_passed": 2,
+        "prechecks_failed": 1,
+        "screenshot_artifacts_total": None,
+        "screenshot_artifacts_passed": None,
+        "screenshot_artifacts_failed": None,
+        "failed_step_names": [],
+        "failed_check_names": [],
+        "failed_precheck_names": ["public_verify_cache_headers"],
+    }
+    assert "Launch browser smoke status: `fail`" in markdown
+    assert "Launch browser smoke prechecks: `2/3`" in markdown
+    assert "Launch browser smoke failed prechecks: `public_verify_cache_headers`" in markdown
+
+
 def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: Path) -> None:
     output_dir = tmp_path / "launch-artifacts"
     custom_dir = tmp_path / "custom-handoff"
