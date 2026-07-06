@@ -217,7 +217,7 @@ export default function ProductRegistry() {
               <div className="p-3 bg-primary/20 rounded-xl">
                 <QrCode className="w-8 h-8 text-primary" />
               </div>
-              <div>
+              <div data-testid="registry-success-content" className="min-w-0 flex-1">
                 <h3 className="text-lg font-bold text-foreground">Registration Successful!</h3>
                 <p className="text-primary text-sm mt-1">
                   Batch ID: <Badge variant="outline" className="font-mono">{uiState.success.id}</Badge>
