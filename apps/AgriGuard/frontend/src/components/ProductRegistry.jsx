@@ -186,7 +186,7 @@ export default function ProductRegistry() {
                 id={FIELD_IDS.description}
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                className={`${inputClass} h-20 resize-none sm:h-32`}
+                className={`${inputClass} h-16 resize-none sm:h-32`}
                 placeholder="Batch details..."
               />
             </div>

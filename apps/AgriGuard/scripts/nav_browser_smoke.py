@@ -30,6 +30,7 @@ MOBILE_ROUTE_AFFORDANCES = {
             "text": "Register Harvest",
             "selector": "button",
             "min_visible_ratio": 0.98,
+            "min_bottom_margin": 16,
         },
     ],
     "qr_tokens": [

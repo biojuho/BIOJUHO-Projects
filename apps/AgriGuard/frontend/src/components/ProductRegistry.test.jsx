@@ -49,7 +49,7 @@ describe('ProductRegistry', () => {
     expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('border-primary');
     expect(screen.getByTestId('registry-cold-chain-checkbox')).toHaveClass('bg-primary/10');
     expect(screen.getByText('Requires Cold Chain')).toHaveClass('whitespace-nowrap');
-    expect(screen.getByLabelText('Description')).toHaveClass('h-20');
+    expect(screen.getByLabelText('Description')).toHaveClass('h-16');
     expect(screen.getByLabelText('Description')).toHaveClass('min-h-11');
     expect(screen.getByLabelText('Description')).toHaveClass('sm:h-32');
 
