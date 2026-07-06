@@ -107,6 +107,15 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
                 "consumer_readiness_env_validation_ready_for_preflight": False,
                 "consumer_readiness_env_validation_placeholder_count": 6,
                 "consumer_readiness_operator_packet_preflight_status": "env_shape_blocked",
+                "launch_browser_smoke": {
+                    "found": True,
+                    "status": "fail",
+                    "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+                    "prechecks_total": 3,
+                    "prechecks_passed": 2,
+                    "prechecks_failed": 1,
+                    "failed_precheck_names": ["public_verify_cache_headers"],
+                },
                 "recovery_summary": {
                     "required": False,
                     "action": None,
@@ -161,6 +170,30 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
             "blocker_class": "ready",
             "note": None,
             "command": None,
+        },
+        "launch_browser_smoke": {
+            "found": True,
+            "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+            "status": "fail",
+            "base_url": None,
+            "api_url": None,
+            "mobile": None,
+            "include_unavailable_check": None,
+            "steps_total": None,
+            "steps_passed": None,
+            "steps_failed": None,
+            "checks_total": None,
+            "checks_passed": None,
+            "checks_failed": None,
+            "prechecks_total": 3,
+            "prechecks_passed": 2,
+            "prechecks_failed": 1,
+            "screenshot_artifacts_total": None,
+            "screenshot_artifacts_passed": None,
+            "screenshot_artifacts_failed": None,
+            "failed_step_names": [],
+            "failed_check_names": [],
+            "failed_precheck_names": ["public_verify_cache_headers"],
         },
         "stale_generated_at_roles": [],
         "stale_generated_at_details": [],
@@ -1360,6 +1393,15 @@ def test_guarded_launch_status_only_derives_missing_child_blocker_classes(tmp_pa
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_action_ids": ["set_firebase_service_account_file"],
+                "launch_browser_smoke": {
+                    "found": True,
+                    "status": "fail",
+                    "path": "var/agriguard-browser-smoke-suite-compose-launch.json",
+                    "prechecks_total": 3,
+                    "prechecks_passed": 2,
+                    "prechecks_failed": 1,
+                    "failed_precheck_names": ["public_verify_cache_headers"],
+                },
                 "recovery_command_status": "not_required",
             }
         ),
@@ -1393,6 +1435,12 @@ def test_guarded_launch_status_only_derives_missing_child_blocker_classes(tmp_pa
     assert payload["artifact_index"]["missing_generated_at_roles"] == []
     assert payload["artifact_index"]["stale_generated_at_roles"] == []
     assert payload["artifact_index"]["stale_generated_at_details"] == []
+    assert payload["artifact_index"]["launch_browser_smoke"]["status"] == "fail"
+    assert payload["artifact_index"]["launch_browser_smoke"]["prechecks_passed"] == 2
+    assert payload["artifact_index"]["launch_browser_smoke"]["prechecks_total"] == 3
+    assert payload["artifact_index"]["launch_browser_smoke"]["failed_precheck_names"] == [
+        "public_verify_cache_headers"
+    ]
 
 
 def test_guarded_launch_status_only_blocks_stale_pass_artifact_index_metadata(tmp_path: Path, capsys) -> None:

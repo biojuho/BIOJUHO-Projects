@@ -497,6 +497,7 @@ def _build_status_view(
     if status == "ready" and blocker_class is None:
         blocker_class = "ready"
     ready_gate_current_status = "pass" if status == "ready" and blocker_class == "ready" else "fail"
+    artifact_index_browser_smoke = _artifact_index_browser_smoke_status_view(artifact_index)
 
     return {
         "schema_version": 1,
@@ -651,6 +652,7 @@ def _build_status_view(
             "recovery_command_status": artifact_index.get("recovery_command_status")
             if artifact_index is not None
             else None,
+            **({"launch_browser_smoke": artifact_index_browser_smoke} if artifact_index_browser_smoke is not None else {}),
         },
     }
 
@@ -839,6 +841,17 @@ def _browser_smoke_status_view(summary_launch: dict[str, Any]) -> dict[str, obje
         "failed_check_names": _string_list(browser.get("failed_check_names")),
         "failed_precheck_names": _string_list(browser.get("failed_precheck_names")),
     }
+
+
+def _artifact_index_browser_smoke_status_view(artifact_index: dict[str, Any] | None) -> dict[str, object] | None:
+    browser_smoke = (
+        artifact_index.get("launch_browser_smoke")
+        if isinstance(artifact_index, dict) and isinstance(artifact_index.get("launch_browser_smoke"), dict)
+        else None
+    )
+    if browser_smoke is None:
+        return None
+    return _browser_smoke_status_view({"browser_smoke": browser_smoke})
 
 
 def _refresh_launch_report_operator_packet_fields(
@@ -1102,6 +1115,7 @@ def _artifact_index_readiness_summary(
         if isinstance(index, dict)
         else []
     )
+    launch_browser_smoke = _artifact_index_browser_smoke_status_view(index)
     stale_generated_at_roles = (
         index.get("stale_generated_at_roles")
         if isinstance(index, dict) and isinstance(index.get("stale_generated_at_roles"), list)
@@ -1122,6 +1136,7 @@ def _artifact_index_readiness_summary(
         "recovery_command_status": index.get("recovery_command_status") if index is not None else None,
         "recovery_command_note": None if index is not None else MISSING_ARTIFACT_INDEX_RECOVERY_NOTE,
         "recovery_summary": _artifact_index_recovery_summary(index, missing_index_command),
+        **({"launch_browser_smoke": launch_browser_smoke} if launch_browser_smoke is not None else {}),
         "stale_generated_at_roles": [
             str(role) for role in stale_generated_at_roles if isinstance(role, str)
         ],
