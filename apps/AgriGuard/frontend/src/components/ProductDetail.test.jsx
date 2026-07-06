@@ -157,9 +157,11 @@ describe('ProductDetail', () => {
       expect(document.body).not.toHaveTextContent('년');
       expect(screen.queryByText(timelineIsoTimestamp)).not.toBeInTheDocument();
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveTextContent('HANDLER-VERY-LONG-1234567890');
+      expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveAttribute('title', 'HANDLER-VERY-LONG-1234567890');
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveClass('break-all');
       expect(screen.getByTestId('timeline-data-value-handler_id')).not.toHaveClass('truncate');
       expect(screen.getByTestId('timeline-tx-hash')).toHaveTextContent('TX: 0x1234567890');
+      expect(screen.getByTestId('timeline-tx-hash')).toHaveAttribute('title', '0x1234567890');
       expect(screen.getByTestId('timeline-tx-hash')).toHaveClass('break-all');
       expect(screen.getByTestId('timeline-tx-hash')).not.toHaveClass('truncate');
       expect(screen.getByTestId('timeline-tx-status')).toHaveTextContent('TX recorded');

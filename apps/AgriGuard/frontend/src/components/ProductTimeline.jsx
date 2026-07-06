@@ -209,6 +209,7 @@ export default function ProductTimeline({ history = [] }) {
                         <span className="font-semibold text-slate-400 sm:min-w-[100px]">{formatFieldLabel(key)}:</span>
                         <span
                           data-testid={`timeline-data-value-${key}`}
+                          title={formattedValue}
                           className={`min-w-0 break-all text-slate-200 select-all ${machineValue ? 'font-mono' : 'font-medium'}`}
                         >
                           {formattedValue}
@@ -221,6 +222,7 @@ export default function ProductTimeline({ history = [] }) {
                 <div className="mt-4 flex flex-col gap-2 border-t border-white/5 pt-3 sm:flex-row sm:items-center sm:justify-between">
                   <p
                     data-testid="timeline-tx-hash"
+                    title={tx_hash}
                     className="min-w-0 break-all text-[10px] font-mono text-slate-500 select-all group-hover:text-slate-400 transition-colors"
                   >
                     TX: {tx_hash}
