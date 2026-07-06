@@ -109,6 +109,9 @@ describe('ProductDetail', () => {
       expect(screen.getByRole('img', { name: 'Product verification QR' })).toBeInTheDocument();
       expect(screen.getByText('QR-12345')).toBeInTheDocument();
       expect(screen.getByTestId('product-detail-id')).toHaveTextContent('1');
+      expect(screen.getByTestId('product-detail-id')).toHaveAttribute('title', '1');
+      expect(screen.getByTestId('product-detail-id')).toHaveClass('truncate');
+      expect(screen.getByTestId('product-detail-id')).not.toHaveClass('break-all');
       expect(screen.getByText('Jun 1, 2026')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copy product ID/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copy public verify label URL/i })).toBeInTheDocument();
