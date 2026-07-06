@@ -19,6 +19,28 @@ def _arg_after(command: list[str], flag: str) -> str:
     return command[command.index(flag) + 1]
 
 
+def test_guarded_launch_load_peer_module_supports_dataclasses() -> None:
+    previous_module = sys.modules.get("ab_test_qr_page")
+
+    module = run_guarded_launch._load_peer_module("ab_test_qr_page")
+    observation = module.QRSessionObservation(
+        "session-1",
+        "A",
+        True,
+        True,
+        False,
+        False,
+        9.5,
+        4.0,
+    )
+
+    assert observation.session_id == "session-1"
+    if previous_module is None:
+        assert "ab_test_qr_page" not in sys.modules
+    else:
+        assert sys.modules["ab_test_qr_page"] is previous_module
+
+
 def test_guarded_launch_dry_run_prints_canonical_command(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     env_file = tmp_path / "operator.env"
