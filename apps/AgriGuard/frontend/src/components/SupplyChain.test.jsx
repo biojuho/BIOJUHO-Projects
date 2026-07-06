@@ -65,6 +65,13 @@ describe('SupplyChain', () => {
     expect(screen.getByText('Product 1')).toBeInTheDocument();
     expect(screen.getByText('Product 20')).toBeInTheDocument();
     expect(screen.queryByText('Product 21')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('supply-chain-product-info')[0]).toHaveClass('min-w-0');
+    const productIds = screen.getAllByTestId('supply-chain-product-id');
+    expect(productIds[0]).toHaveTextContent('ID: product-01');
+    expect(productIds[0]).toHaveAttribute('title', 'product-01');
+    expect(productIds[0]).toHaveClass('max-w-full');
+    expect(productIds[0]).toHaveClass('truncate');
+    expect(productIds[0]).not.toHaveClass('break-all');
     expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));

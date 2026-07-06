@@ -252,14 +252,20 @@ export default function SupplyChain() {
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row justify-between gap-6">
                   {/* Product Info */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="p-2 bg-primary/20 rounded-lg">
+                  <div data-testid="supply-chain-product-info" className="min-w-0 flex-1">
+                    <div className="mb-4 flex items-start gap-3">
+                      <span className="shrink-0 rounded-lg bg-primary/20 p-2">
                         <Package className="w-6 h-6 text-primary" />
                       </span>
-                      <div>
-                        <h3 className="text-xl font-bold">{product.name}</h3>
-                        <p className="text-sm font-mono text-muted-foreground">ID: {product.id}</p>
+                      <div className="min-w-0">
+                        <h3 className="break-words text-xl font-bold">{product.name}</h3>
+                        <p
+                          data-testid="supply-chain-product-id"
+                          title={product.id}
+                          className="block max-w-full truncate text-sm font-mono text-muted-foreground"
+                        >
+                          ID: {product.id}
+                        </p>
                       </div>
                     </div>
 
