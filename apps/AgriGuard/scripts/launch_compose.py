@@ -575,6 +575,20 @@ def _write_failed_launch_report(
     write_json(launch_report_json, launch_report)
 
 
+def _compose_replacement_guard(*, validate_env_file_shape: bool) -> dict[str, object]:
+    return {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": validate_env_file_shape,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run AgriGuard compose launch behind strict preflight.")
     parser.add_argument("--app-root", type=Path, default=_default_app_root(), help="AgriGuard app root.")
@@ -834,6 +848,9 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     if args.dry_run:
         plan = {
             "status": "dry_run",
+            "compose_replacement_guard": _compose_replacement_guard(
+                validate_env_file_shape=args.validate_env_file_shape
+            ),
             "preflight_command": preflight_command,
             "compose_command": compose_command,
             "browser_smoke_command": browser_smoke_command,
@@ -863,6 +880,9 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         "status": "running",
         "blocker_class": None,
         "stage": "preflight",
+        "compose_replacement_guard": _compose_replacement_guard(
+            validate_env_file_shape=args.validate_env_file_shape
+        ),
         "app_root": str(app_root),
         "preflight_json": str(json_out),
         "env_validation_json": str(env_validation_json_out) if args.validate_env_file_shape else None,

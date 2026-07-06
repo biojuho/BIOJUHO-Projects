@@ -101,6 +101,17 @@ def test_launch_compose_dry_run_prints_preflight_and_compose_plan(tmp_path: Path
     assert payload["browser_smoke_command"] is None
     assert payload["env_validation_command"] is None
     assert payload["readiness_summary_command"] is None
+    assert payload["compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": False,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     assert payload["will_validate_env_file_shape_before_preflight"] is False
     assert payload["operator_packet_command"] == [
         sys.executable,
@@ -203,6 +214,10 @@ def test_launch_compose_dry_run_env_shape_validation_plan(tmp_path: Path, capsys
     assert result == 0
     assert payload["will_validate_env_file_shape_before_preflight"] is True
     assert payload["env_validation_requires_single_env_file"] is False
+    assert payload["compose_replacement_guard"]["current_runtime_action_before_preflight"] == "none"
+    assert payload["compose_replacement_guard"]["compose_replacement_requires_env_shape_validation"] is True
+    assert payload["compose_replacement_guard"]["compose_replacement_requires_strict_preflight"] is True
+    assert payload["compose_replacement_guard"]["compose_runs_only_after_preflight_passes"] is True
     assert payload["env_validation_command"] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "validate_launch_env_template.py"),
@@ -546,6 +561,17 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
     assert report["blocker_class"] == "preflight_blocked"
     assert report["stage"] == "preflight"
     assert report["stop_reason"] == "preflight_failed"
+    assert report["compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": False,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     assert [item["name"] for item in report["results"]] == ["preflight", "operator_packet"]
     assert report["results"][0]["stdout_tail"] == "preflight failed"
     assert report["child_reports"]["preflight"] == {"found": False, "path": str(json_out.resolve())}
