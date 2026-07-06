@@ -518,6 +518,9 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
     assert "docker compose up was not run" in capsys.readouterr().err
     report = json.loads(launch_report_json.read_text(encoding="utf-8"))
     assert report["status"] == "fail"
+    assert report["generated_at"].endswith("Z")
+    report["generated_at"].encode("ascii")
+    assert " " not in report["generated_at"]
     assert report["blocker_class"] == "preflight_blocked"
     assert report["stage"] == "preflight"
     assert report["stop_reason"] == "preflight_failed"

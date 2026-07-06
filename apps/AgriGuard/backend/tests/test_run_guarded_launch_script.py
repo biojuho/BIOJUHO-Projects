@@ -600,6 +600,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
         artifacts["launch_report_json"].write_text(
             json.dumps(
                 {
+                    "generated_at": "initial-launch",
                     "status": "fail",
                     "stage": "preflight",
                     "child_reports": {
@@ -751,6 +752,7 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     assert second_handoff_action_ids == [["set_firebase_service_account_file"]]
     assert final_handoff_readiness_command_metadata == ["pass"]
     launch_report = json.loads(artifacts["launch_report_json"].read_text(encoding="utf-8"))
+    assert launch_report["generated_at"] == "refresh-3"
     operator_packet = launch_report["child_reports"]["operator_packet"]
     assert operator_packet["generated_at"] == "refresh-3"
     launch_readiness_summary = launch_report["child_reports"]["readiness_summary"]

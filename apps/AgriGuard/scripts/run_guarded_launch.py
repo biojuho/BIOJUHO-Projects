@@ -707,6 +707,7 @@ def _refresh_launch_report_operator_packet_fields(
     if not isinstance(operator_packet, dict):
         return False
     operator_packet.update(fields)
+    launch_report["generated_at"] = fields.get("generated_at") or _generated_timestamp_utc()
     write_json(launch_report_json, launch_report)
     return True
 
@@ -768,6 +769,7 @@ def _refresh_launch_report_readiness_summary_fields(
             "next_commands": _next_commands_from_summary(readiness_summary),
         }
     )
+    launch_report["generated_at"] = readiness_summary.get("generated_at") or _generated_timestamp_utc()
     write_json(launch_report_json, launch_report)
     return True
 

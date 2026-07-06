@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
@@ -21,6 +22,10 @@ def _workspace_root(app_root: Path) -> Path:
     if app_root.parent.name == "apps":
         return app_root.parents[1]
     return app_root.parent
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _default_json_out(app_root: Path) -> Path:
@@ -513,6 +518,10 @@ def _refresh_launch_blocker_class(launch_report: dict[str, object]) -> None:
     launch_report["blocker_class"] = _launch_blocker_class(launch_report)
 
 
+def _touch_launch_report_generated_at(launch_report: dict[str, object]) -> None:
+    launch_report["generated_at"] = _generated_timestamp_utc()
+
+
 def _write_failed_launch_report(
     *,
     app_root: Path,
@@ -523,6 +532,7 @@ def _write_failed_launch_report(
     command_runner: CommandRunner,
 ) -> None:
     _refresh_launch_blocker_class(launch_report)
+    _touch_launch_report_generated_at(launch_report)
     write_json(launch_report_json, launch_report)
     if readiness_summary_command is None or readiness_summary_json is None:
         return
@@ -543,6 +553,7 @@ def _write_failed_launch_report(
     )
     child_reports["readiness_summary"] = _summarize_readiness_summary_json(readiness_summary_json)
     _refresh_launch_blocker_class(launch_report)
+    _touch_launch_report_generated_at(launch_report)
     write_json(launch_report_json, launch_report)
 
 
@@ -830,6 +841,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
 
     launch_report: dict[str, object] = {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": "running",
         "blocker_class": None,
         "stage": "preflight",
@@ -1018,6 +1030,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         launch_report["stage"] = "compose"
         launch_report["stop_reason"] = None
         _refresh_launch_blocker_class(launch_report)
+        _touch_launch_report_generated_at(launch_report)
         write_json(launch_report_json, launch_report)
         return compose_result.returncode
 
@@ -1031,6 +1044,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     launch_report["stop_reason"] = None if browser_smoke_result.returncode == 0 else "browser_smoke_failed"
     if browser_smoke_result.returncode == 0:
         _refresh_launch_blocker_class(launch_report)
+        _touch_launch_report_generated_at(launch_report)
         write_json(launch_report_json, launch_report)
     else:
         _write_failed_launch_report(
