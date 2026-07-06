@@ -171,8 +171,10 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
         encoding="utf-8",
     )
 
+    env_file = output_dir / "operator.env"
     handoff = render_guarded_launch_handoff.build_handoff(
         app_root=APP_ROOT,
+        env_file=env_file,
         output_dir=output_dir,
         output_prefix="blocked",
         ready_gate_json=output_dir / "blocked-ready-gate.json",
@@ -233,6 +235,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     inspect_command = handoff["operator_commands"][0]["command"]
     assert ready_command[1] == str(APP_ROOT / "scripts" / "run_guarded_launch.py")
     assert ready_command[ready_command.index("--app-root") + 1] == str(APP_ROOT.resolve())
+    assert ready_command[ready_command.index("--env-file") + 1] == str(env_file.resolve())
     assert ready_command[ready_command.index("--output-dir") + 1] == str(output_dir.resolve())
     assert ready_command[ready_command.index("--output-prefix") + 1] == "blocked"
     assert ready_command[ready_command.index("--status-json-out") + 1] == str(
@@ -241,6 +244,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "--require-ready" in ready_command
     assert inspect_command[1] == str(APP_ROOT / "scripts" / "run_guarded_launch.py")
     assert inspect_command[inspect_command.index("--app-root") + 1] == str(APP_ROOT.resolve())
+    assert inspect_command[inspect_command.index("--env-file") + 1] == str(env_file.resolve())
     assert inspect_command[inspect_command.index("--output-dir") + 1] == str(output_dir.resolve())
     assert "--require-ready" not in inspect_command
     assert handoff["ready_gate"]["command_shell"] == "powershell"
@@ -386,10 +390,13 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     )
     _write_operator_packet(artifacts["operator_packet_json"])
 
+    env_file = tmp_path / "operator.env"
     result = render_guarded_launch_handoff.main(
         [
             "--app-root",
             str(APP_ROOT),
+            "--env-file",
+            str(env_file),
             "--output-dir",
             str(output_dir),
             "--output-prefix",
@@ -431,6 +438,9 @@ def test_guarded_launch_handoff_main_writes_outputs_and_exits_nonzero_when_block
     )
     assert payload["ready_gate"]["command"][payload["ready_gate"]["command"].index("--app-root") + 1] == str(
         APP_ROOT.resolve()
+    )
+    assert payload["ready_gate"]["command"][payload["ready_gate"]["command"].index("--env-file") + 1] == str(
+        env_file.resolve()
     )
     assert validation["status"] == "pass"
     assert "Ready gate: `fail`" in markdown

@@ -184,6 +184,7 @@ def test_guarded_launch_dry_run_can_plan_handoff_outputs(tmp_path: Path, capsys)
         sys.executable,
         str(app_root.resolve() / "scripts" / "render_guarded_launch_handoff.py"),
     ]
+    assert _arg_after(payload["handoff_command"], "--env-file") == str(env_file.resolve())
     assert payload["handoff_consumer_command"][:2] == [
         sys.executable,
         str(app_root.resolve() / "scripts" / "consume_guarded_launch_handoff.py"),

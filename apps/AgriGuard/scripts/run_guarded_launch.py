@@ -1045,6 +1045,7 @@ def _build_wrapper_command(
 def _build_handoff_command(
     *,
     app_root: Path,
+    env_file: Path,
     output_dir: Path,
     output_prefix: str,
     ready_gate_json: Path,
@@ -1059,6 +1060,8 @@ def _build_handoff_command(
         str(output_dir),
         "--output-prefix",
         output_prefix,
+        "--env-file",
+        str(env_file),
         "--ready-gate-json",
         str(ready_gate_json),
         "--json-out",
@@ -1353,6 +1356,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
     handoff_command = (
         _build_handoff_command(
             app_root=app_root,
+            env_file=env_file,
             output_dir=output_dir,
             output_prefix=args.output_prefix,
             ready_gate_json=handoff_ready_gate_json,

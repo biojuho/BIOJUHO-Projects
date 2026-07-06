@@ -215,6 +215,7 @@ def _packet_validation_summary(status_view: dict[str, object]) -> dict[str, obje
 def _wrapper_status_argv(
     *,
     app_root: Path,
+    env_file: Path | None = None,
     output_dir: Path,
     output_prefix: str,
     ready_gate_json: Path | None = None,
@@ -231,6 +232,8 @@ def _wrapper_status_argv(
         output_prefix,
         "--status-only",
     ]
+    if env_file is not None:
+        argv.extend(["--env-file", str(env_file)])
     if require_ready:
         argv.append("--require-ready")
     if ready_gate_json is not None:
@@ -324,6 +327,7 @@ def _handoff_blocker_class(status_view: dict[str, object], ready: bool) -> objec
 def build_handoff(
     *,
     app_root: Path,
+    env_file: Path | None = None,
     output_dir: Path,
     output_prefix: str,
     ready_gate_json: Path,
@@ -331,6 +335,7 @@ def build_handoff(
     validation_json: Path | None = None,
 ) -> dict[str, object]:
     app_root = app_root.resolve()
+    env_file = env_file.resolve() if env_file is not None else None
     output_dir = output_dir.resolve()
     artifact_paths = run_guarded_launch._artifact_paths(output_dir, output_prefix)
     status_view = run_guarded_launch._build_status_view(
@@ -354,6 +359,7 @@ def build_handoff(
         "status_json_out": str(ready_gate_json),
         "command": _wrapper_status_argv(
             app_root=app_root,
+            env_file=env_file,
             output_dir=output_dir,
             output_prefix=output_prefix,
             ready_gate_json=ready_gate_json,
@@ -380,6 +386,7 @@ def build_handoff(
                 description="Print the compact guarded-launch status view.",
                 command=_wrapper_status_argv(
                     app_root=app_root,
+                    env_file=env_file,
                     output_dir=output_dir,
                     output_prefix=output_prefix,
                 ),
@@ -608,6 +615,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     workspace_root = _workspace_root(app_root)
     parser = argparse.ArgumentParser(description="Render an AgriGuard guarded-launch operator handoff.")
     parser.add_argument("--app-root", type=Path, default=app_root)
+    parser.add_argument(
+        "--env-file",
+        type=Path,
+        default=None,
+        help="Operator env file embedded in copied guarded-launch status commands.",
+    )
     parser.add_argument("--output-dir", type=Path, default=workspace_root / "var")
     parser.add_argument("--output-prefix", default=run_guarded_launch.DEFAULT_OUTPUT_PREFIX)
     parser.add_argument("--ready-gate-json", type=Path, default=None)
@@ -623,6 +636,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     app_root = args.app_root.resolve()
     output_dir = args.output_dir.resolve()
+    env_file = args.env_file.resolve() if args.env_file else run_guarded_launch._default_env_file(app_root)
     ready_gate_json = (
         args.ready_gate_json.resolve()
         if args.ready_gate_json
@@ -641,6 +655,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     handoff = build_handoff(
         app_root=app_root,
+        env_file=env_file,
         output_dir=output_dir,
         output_prefix=args.output_prefix,
         ready_gate_json=ready_gate_json,
