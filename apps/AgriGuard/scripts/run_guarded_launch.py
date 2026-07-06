@@ -638,6 +638,46 @@ def _build_status_view(
     }
 
 
+def _same_resolved_path(left: Path, right: Path) -> bool:
+    try:
+        return left.resolve() == right.resolve()
+    except OSError:
+        return False
+
+
+def _status_view_for_json_out(status_view: dict[str, object], status_json_out: Path) -> dict[str, object]:
+    artifacts = status_view.get("artifacts") if isinstance(status_view.get("artifacts"), dict) else {}
+    ready_gate_path_value = artifacts.get("ready_gate_json")
+    if not isinstance(ready_gate_path_value, str):
+        return status_view
+    ready_gate_path = Path(ready_gate_path_value)
+    if not _same_resolved_path(ready_gate_path, status_json_out):
+        return status_view
+
+    updated = dict(status_view)
+    ready_gate = dict(status_view.get("ready_gate") if isinstance(status_view.get("ready_gate"), dict) else {})
+    ready_gate.update(
+        {
+            "found": True,
+            "exists": True,
+            "path": ready_gate_path_value,
+            "sha256": None,
+            "sha256_status": "self_referential_unavailable",
+            "generated_at": status_view.get("generated_at"),
+            "status": status_view.get("status"),
+            "blocker_class": status_view.get("blocker_class"),
+        }
+    )
+    updated["ready_gate"] = ready_gate
+    return updated
+
+
+def _write_status_view_json(path: Path, status_view: dict[str, object]) -> dict[str, object]:
+    output_view = _status_view_for_json_out(status_view, path)
+    write_json(path, output_view)
+    return output_view
+
+
 def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dict[str, object]:
     if packet is None:
         return {}
@@ -1443,7 +1483,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
         )
         if args.status_json_out:
-            write_json(args.status_json_out.resolve(), status_view)
+            status_view = _write_status_view_json(args.status_json_out.resolve(), status_view)
         print(json.dumps(status_view, indent=2, sort_keys=True))
         return 0 if not args.require_ready or _status_view_ready(status_view) else 1
 
@@ -1493,7 +1533,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             artifact_index_markdown=artifact_index_markdown,
             ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
         )
-        write_json(effective_status_json_out, status_view)
+        status_view = _write_status_view_json(effective_status_json_out, status_view)
     post_launch_returncode = 0
     if handoff_command is not None:
         handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
@@ -1524,7 +1564,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                 ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
             )
         if effective_status_json_out is not None and status_view is not None:
-            write_json(effective_status_json_out, status_view)
+            status_view = _write_status_view_json(effective_status_json_out, status_view)
         operator_packet_refresh_result = command_runner(operator_packet_refresh_command, cwd=app_root, text=True)
         if operator_packet_refresh_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = operator_packet_refresh_result.returncode
@@ -1561,7 +1601,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                     ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
                 )
             if effective_status_json_out is not None and status_view is not None:
-                write_json(effective_status_json_out, status_view)
+                status_view = _write_status_view_json(effective_status_json_out, status_view)
             handoff_result = command_runner(handoff_command, cwd=app_root, text=True)
             if handoff_result.returncode != 0 and post_launch_returncode == 0:
                 post_launch_returncode = handoff_result.returncode
@@ -1582,7 +1622,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                         ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
                     )
                 if effective_status_json_out is not None and status_view is not None:
-                    write_json(effective_status_json_out, status_view)
+                    status_view = _write_status_view_json(effective_status_json_out, status_view)
                 operator_packet_refresh_result = command_runner(operator_packet_refresh_command, cwd=app_root, text=True)
                 if operator_packet_refresh_result.returncode != 0 and post_launch_returncode == 0:
                     post_launch_returncode = operator_packet_refresh_result.returncode
@@ -1618,7 +1658,7 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             ready_gate_json=handoff_ready_gate_json if args.handoff_ready_gate_json_out else None,
         )
     if effective_status_json_out is not None and status_view is not None:
-        write_json(effective_status_json_out, status_view)
+        status_view = _write_status_view_json(effective_status_json_out, status_view)
     if post_launch_returncode != 0:
         return post_launch_returncode
     if args.require_ready and status_view is not None and not _status_view_ready(status_view):

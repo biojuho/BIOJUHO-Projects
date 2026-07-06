@@ -1685,6 +1685,79 @@ def test_guarded_launch_status_only_prefers_live_ready_gate_file_state(tmp_path:
     }
 
 
+def test_guarded_launch_status_only_self_ready_gate_output_is_current(tmp_path: Path, capsys) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    custom_index = tmp_path / "handoff" / "current.artifact-index.json"
+    custom_ready_gate = tmp_path / "handoff" / "current.ready-gate.json"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), "blocked")
+    artifacts["readiness_summary_json"].parent.mkdir(parents=True, exist_ok=True)
+    custom_index.parent.mkdir(parents=True, exist_ok=True)
+    artifacts["readiness_summary_json"].write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "blocker_class": "preflight_blocked",
+            }
+        ),
+        encoding="utf-8",
+    )
+    custom_index.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "blocker_class": "ready",
+                "missing_required_roles": [],
+                "consumer_packet_validation_status": "pass",
+                "consumer_command_metadata_status": "pass",
+                "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
+                "consumer_ready_gate_command_shell": "powershell",
+                "consumer_ready_gate_command_text": "& python run_guarded_launch.py --status-only --require-ready",
+                "recovery_command_status": "not_required",
+                "artifacts": [
+                    {
+                        "role": "ready_gate_json",
+                        "path": str(custom_ready_gate.resolve()),
+                        "exists": False,
+                        "sha256": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_guarded_launch.main(
+        [
+            "--app-root",
+            str(app_root),
+            "--output-dir",
+            str(output_dir),
+            "--output-prefix",
+            "blocked",
+            "--artifact-index-json-out",
+            str(custom_index),
+            "--status-only",
+            "--require-ready",
+            "--status-json-out",
+            str(custom_ready_gate),
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    persisted = json.loads(custom_ready_gate.read_text(encoding="utf-8"))
+    assert result == 1
+    assert payload == persisted
+    assert payload["ready_gate"]["found"] is True
+    assert payload["ready_gate"]["exists"] is True
+    assert payload["ready_gate"]["path"] == str(custom_ready_gate.resolve())
+    assert payload["ready_gate"]["generated_at"] == payload["generated_at"]
+    assert payload["ready_gate"]["status"] == "blocked"
+    assert payload["ready_gate"]["blocker_class"] == "preflight_blocked"
+    assert payload["ready_gate"]["sha256"] is None
+    assert payload["ready_gate"]["sha256_status"] == "self_referential_unavailable"
+
+
 def test_guarded_launch_status_only_ready_gate_arg_overrides_index_path(tmp_path: Path, capsys) -> None:
     app_root = tmp_path / "AgriGuard"
     output_dir = tmp_path / "launch-artifacts"
