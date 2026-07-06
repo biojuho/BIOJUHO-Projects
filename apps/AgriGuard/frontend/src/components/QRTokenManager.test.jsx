@@ -57,6 +57,20 @@ const tokenListResponse = {
   total_pages: 1,
 };
 
+const KOREAN_DATE_MARKER_RE = new RegExp(
+  [0xb144, 0xc624, 0xc804, 0xd6c4].map((codePoint) => String.fromCharCode(codePoint)).join('|'),
+);
+
+function formatExpectedOperatorDateTime(value) {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 describe('QRTokenManager', () => {
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -105,6 +119,9 @@ describe('QRTokenManager', () => {
     });
     expect(screen.getAllByText('Active').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Revoked').length).toBeGreaterThan(0);
+    expect(screen.getByText(formatExpectedOperatorDateTime('2026-06-02T03:04:00Z'))).toBeInTheDocument();
+    expect(screen.getByText(formatExpectedOperatorDateTime('2026-07-01T00:00:00Z'))).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(KOREAN_DATE_MARKER_RE);
     expect(screen.getByText('Showing 2 of 2 matching tokens for product-qr-1')).toBeInTheDocument();
     expect(screen.queryByText('new-public-token')).not.toBeInTheDocument();
   });

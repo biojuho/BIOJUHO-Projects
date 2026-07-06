@@ -42,6 +42,7 @@ const SENSOR_ID_PATTERN = '[A-Za-z0-9_.:\\-]+';
 const SENSOR_ID_PATTERN_RE = /^[A-Za-z0-9_.:-]+$/;
 const SENSOR_ID_PATTERN_MESSAGE = 'Sensor ID may contain letters, numbers, dot, underscore, colon, and hyphen.';
 const PROTECTED_AUTO_LOAD_MESSAGE = 'Save an operator bearer token to load protected sensor data.';
+const SENSOR_DATE_LOCALE = 'en-US';
 const DEFAULT_PROVISIONING_CONFIG = {
   passwordFilePath: '/etc/mosquitto/passwd',
   dynamicSecurityRole: 'agriguard-sensor',
@@ -60,13 +61,13 @@ function formatDateTime(value) {
   if (!value) return 'Never seen';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Invalid date';
-  return date.toLocaleString(undefined, {
+  return new Intl.DateTimeFormat(SENSOR_DATE_LOCALE, {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  }).format(date);
 }
 
 function formatBattery(value) {

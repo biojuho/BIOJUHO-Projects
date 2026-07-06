@@ -20,6 +20,7 @@ import { cn } from '../lib/utils';
 
 const PAGE_SIZE = 20;
 const STATUS_OPTIONS = ['all', 'active', 'revoked', 'expired'];
+const QR_TOKEN_DATE_LOCALE = 'en-US';
 
 const statusVariant = {
   active: 'success',
@@ -31,13 +32,13 @@ function formatDateTime(value) {
   if (!value) return 'Not set';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Invalid date';
-  return date.toLocaleString(undefined, {
+  return new Intl.DateTimeFormat(QR_TOKEN_DATE_LOCALE, {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  }).format(date);
 }
 
 function formatStatusLabel(value) {

@@ -202,6 +202,20 @@ const filteredBrokerProvisioningEvidenceHistoryResponse = {
   total_pages: 1,
 };
 
+const KOREAN_DATE_MARKER_RE = new RegExp(
+  [0xb144, 0xc624, 0xc804, 0xd6c4].map((codePoint) => String.fromCharCode(codePoint)).join('|'),
+);
+
+function formatExpectedOperatorDateTime(value) {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 describe('SensorDeviceManager', () => {
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -304,6 +318,8 @@ describe('SensorDeviceManager', () => {
     expect(screen.getByText('tenant-cold-chain')).toBeInTheDocument();
     expect(screen.getByText('tenant-retail')).toBeInTheDocument();
     expect(screen.getByText('91%')).toBeInTheDocument();
+    expect(screen.getByText(formatExpectedOperatorDateTime('2026-06-09T00:05:00Z'))).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(KOREAN_DATE_MARKER_RE);
     await waitFor(() => {
       expect(screen.getAllByText('sensor/unsupported').length).toBeGreaterThan(0);
     });
