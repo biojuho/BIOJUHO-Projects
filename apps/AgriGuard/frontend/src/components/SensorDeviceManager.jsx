@@ -1157,10 +1157,24 @@ export default function SensorDeviceManager() {
                       {latestProvisioningEvidence.active_sensor_count} active / {latestProvisioningEvidence.disabled_sensor_count} disabled
                     </span>
                     <span>
-                      Broker <strong className="font-medium text-foreground">{latestProvisioningEvidence.broker_host || 'Not recorded'}</strong>
+                      Broker{' '}
+                      <strong
+                        data-testid="broker-latest-evidence-host"
+                        title={latestProvisioningEvidence.broker_host || 'Not recorded'}
+                        className="select-all font-medium text-foreground"
+                      >
+                        {latestProvisioningEvidence.broker_host || 'Not recorded'}
+                      </strong>
                     </span>
                     <span>
-                      Runbook <strong className="font-medium text-foreground">{latestProvisioningEvidence.runbook_reference || 'Not recorded'}</strong>
+                      Runbook{' '}
+                      <strong
+                        data-testid="broker-latest-evidence-runbook"
+                        title={latestProvisioningEvidence.runbook_reference || 'Not recorded'}
+                        className="select-all font-medium text-foreground"
+                      >
+                        {latestProvisioningEvidence.runbook_reference || 'Not recorded'}
+                      </strong>
                     </span>
                   </div>
                 ) : (
@@ -1335,13 +1349,25 @@ export default function SensorDeviceManager() {
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
                               Broker
                             </span>
-                            <span className="min-w-0 break-words text-right md:text-left">{item.broker_host || 'Not recorded'}</span>
+                            <span
+                              data-testid="broker-evidence-history-host"
+                              title={item.broker_host || 'Not recorded'}
+                              className="min-w-0 break-words select-all text-right md:text-left"
+                            >
+                              {item.broker_host || 'Not recorded'}
+                            </span>
                           </td>
                           <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-3 md:pr-4">
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
                               Runbook
                             </span>
-                            <span className="min-w-0 break-words text-right md:text-left">{item.runbook_reference || 'Not recorded'}</span>
+                            <span
+                              data-testid="broker-evidence-history-runbook"
+                              title={item.runbook_reference || 'Not recorded'}
+                              className="min-w-0 break-words select-all text-right md:text-left"
+                            >
+                              {item.runbook_reference || 'Not recorded'}
+                            </span>
                           </td>
                           <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-3 md:pr-4">
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">

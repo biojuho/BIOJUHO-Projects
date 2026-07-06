@@ -725,8 +725,14 @@ describe('SensorDeviceManager', () => {
     expect(latestEvidenceHash).toHaveTextContent('abababababab');
     expect(latestEvidenceHash).toHaveAttribute('title', 'ab'.repeat(32));
     expect(latestEvidenceHash).toHaveClass('select-all');
-    expect(screen.getByText('mosquitto-prod-01')).toBeInTheDocument();
-    expect(screen.getByText('CHG-2026-0610')).toBeInTheDocument();
+    const latestEvidenceHost = screen.getByTestId('broker-latest-evidence-host');
+    expect(latestEvidenceHost).toHaveTextContent('mosquitto-prod-01');
+    expect(latestEvidenceHost).toHaveAttribute('title', 'mosquitto-prod-01');
+    expect(latestEvidenceHost).toHaveClass('select-all');
+    const latestEvidenceRunbook = screen.getByTestId('broker-latest-evidence-runbook');
+    expect(latestEvidenceRunbook).toHaveTextContent('CHG-2026-0610');
+    expect(latestEvidenceRunbook).toHaveAttribute('title', 'CHG-2026-0610');
+    expect(latestEvidenceRunbook).toHaveClass('select-all');
   });
 
   it('filters broker provisioning evidence history by broker host', async () => {
@@ -773,6 +779,16 @@ describe('SensorDeviceManager', () => {
     expect(within(evidenceRow).getByText('Mode')).toBeInTheDocument();
     expect(within(evidenceRow).getByText('Hash')).toBeInTheDocument();
     expect(within(evidenceRow).getByText('Rotation')).toBeInTheDocument();
+    const historyHost = screen.getByTestId('broker-evidence-history-host');
+    expect(historyHost).toHaveTextContent('mosquitto-prod-01');
+    expect(historyHost).toHaveAttribute('title', 'mosquitto-prod-01');
+    expect(historyHost).toHaveClass('break-words');
+    expect(historyHost).toHaveClass('select-all');
+    const historyRunbook = screen.getByTestId('broker-evidence-history-runbook');
+    expect(historyRunbook).toHaveTextContent('RUNBOOK-HIST');
+    expect(historyRunbook).toHaveAttribute('title', 'RUNBOOK-HIST');
+    expect(historyRunbook).toHaveClass('break-words');
+    expect(historyRunbook).toHaveClass('select-all');
     const historyHash = screen.getByTestId('broker-evidence-history-hash');
     expect(historyHash).toHaveTextContent('cdcdcdcdcdcd');
     expect(historyHash).toHaveAttribute('title', 'cd'.repeat(32));
