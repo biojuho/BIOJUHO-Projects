@@ -465,6 +465,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
                 json.dumps(
                     {
                         "status": "blocked",
+                        "generated_at": "2026-07-06T12:25:00Z",
                         "blocker_class": "operator_values_required",
                         "preflight_status": "fail",
                         "blocking_action_count": 1,
@@ -529,6 +530,7 @@ def test_launch_compose_stops_when_preflight_fails(tmp_path: Path, capsys) -> No
         "markdown_path": str(operator_packet_markdown.resolve()),
         "env_template_path": str(operator_env_template.resolve()),
         "env_template_found": True,
+        "generated_at": "2026-07-06T12:25:00Z",
         "status": "blocked",
         "blocker_class": "operator_values_required",
         "env_validation_status": None,

@@ -60,6 +60,9 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
 
     action_ids = {action["id"] for action in packet["operator_actions"]}
     assert packet["status"] == "blocked"
+    assert packet["generated_at"].endswith("Z")
+    packet["generated_at"].encode("ascii")
+    assert " " not in packet["generated_at"]
     assert packet["blocker_class"] == "operator_values_required"
     assert packet["secrets_redacted"] is True
     assert action_ids == {
@@ -74,6 +77,7 @@ def test_operator_packet_maps_preflight_errors_to_redacted_actions(tmp_path: Pat
     assert packet["preflight_checks"]["runtime"] == "compose"
     assert packet["preflight_checks"]["firebase_credentials_resolved_path"] == "C:/secure/missing-firebase.json"
     markdown = render_launch_operator_packet.render_markdown(packet)
+    assert f"Generated: `{packet['generated_at']}`" in markdown
     assert "## Preflight Checks" in markdown
     assert "| `firebase_credentials_resolved_path` | `C:/secure/missing-firebase.json` |" in markdown
     firebase_action = next(

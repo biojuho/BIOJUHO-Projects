@@ -631,6 +631,7 @@ def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dic
     if not artifact_index_summary:
         return {}
     return {
+        "generated_at": packet.get("generated_at"),
         "artifact_index_status": artifact_index_summary.get("status"),
         "artifact_index_blocker_class": artifact_index_summary.get("blocker_class"),
         "consumer_packet_validation_status": artifact_index_summary.get(

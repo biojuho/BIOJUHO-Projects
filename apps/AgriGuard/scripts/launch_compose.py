@@ -221,6 +221,7 @@ def _summarize_operator_packet_json(
         "markdown_path": str(markdown_path),
         "env_template_path": str(env_template_path),
         "env_template_found": env_template_path.exists(),
+        "generated_at": payload.get("generated_at"),
         "status": payload.get("status"),
         "blocker_class": payload.get("blocker_class"),
         "env_validation_status": payload.get("env_validation_status"),

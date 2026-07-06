@@ -179,6 +179,7 @@ def _operator_packet_summary(path: Path, workspace_root: Path) -> dict[str, obje
     summary = {
         "found": True,
         "path": _rel(path, workspace_root),
+        "generated_at": payload.get("generated_at"),
         "status": payload.get("status"),
         "blocker_class": payload.get("blocker_class"),
         "env_validation_status": payload.get("env_validation_status"),
@@ -427,6 +428,7 @@ def render_markdown(summary: dict[str, object]) -> str:
         f"- Env validation placeholder count: `{env_validation.get('placeholder_count')}`",
         f"- Operator packet preflight status: `{operator_packet.get('preflight_status')}`",
         f"- Operator packet blocker class: `{operator_packet.get('blocker_class') or '-'}`",
+        f"- Operator packet generated at: `{operator_packet.get('generated_at') or '-'}`",
         f"- Artifact index status: `{operator_packet.get('artifact_index_status')}`",
         f"- Artifact index blocker class: `{operator_packet.get('artifact_index_blocker_class') or '-'}`",
         f"- Artifact index consumer packet validation: `{operator_packet.get('consumer_packet_validation_status')}`",

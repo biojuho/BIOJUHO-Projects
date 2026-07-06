@@ -177,6 +177,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
         json.dumps(
             {
                 "status": "blocked",
+                "generated_at": "2026-07-06T12:20:00Z",
                 "blocker_class": "operator_values_required",
                 "preflight_status": "fail",
                 "blocking_action_count": 1,
@@ -225,6 +226,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["reports"]["launch"]["browser_smoke"]["found"] is False
     assert summary["reports"]["launch"]["browser_smoke"]["path"].endswith("browser-smoke.json")
     assert summary["reports"]["operator_packet"]["blocker_class"] == "operator_values_required"
+    assert summary["reports"]["operator_packet"]["generated_at"] == "2026-07-06T12:20:00Z"
     assert summary["reports"]["operator_packet"]["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert summary["reports"]["operator_packet"]["preflight_checks"]["firebase_credentials_resolved_path"] == (
         "C:/secure/missing-firebase.json"
@@ -261,6 +263,7 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert "- Artifact index blocker class: `ready`" in markdown
     assert "- Launch report blocker class: `preflight_blocked`" in markdown
     assert "- Operator packet blocker class: `operator_values_required`" in markdown
+    assert "- Operator packet generated at: `2026-07-06T12:20:00Z`" in markdown
     assert "- Artifact index consumer packet validation: `pass`" in markdown
     assert "- Consumer command metadata: `pass`" in markdown
     assert "- Consumer readiness command metadata: `pass`" in markdown

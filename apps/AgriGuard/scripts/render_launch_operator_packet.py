@@ -854,6 +854,7 @@ def build_operator_packet(
 
     return {
         "schema_version": 1,
+        "generated_at": run_guarded_launch._generated_timestamp_utc(),
         "status": "blocked" if blocked else "ready",
         "blocker_class": _packet_blocker_class(preflight_status=status, blocked=blocked),
         "preflight_status": status,
@@ -912,6 +913,7 @@ def render_markdown(packet: dict[str, object]) -> str:
     lines = [
         "# AgriGuard Launch Operator Packet",
         "",
+        f"- Generated: `{packet.get('generated_at') or '-'}`",
         f"- Status: `{packet['status']}`",
         f"- Blocker class: `{packet['blocker_class']}`",
         f"- Preflight status: `{packet['preflight_status']}`",
