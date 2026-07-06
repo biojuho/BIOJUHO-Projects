@@ -71,6 +71,9 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     encoded_report = json.dumps(report)
     capsys.readouterr()
     assert result == 0, report
+    assert report["generated_at"].endswith("Z")
+    report["generated_at"].encode("ascii")
+    assert " " not in report["generated_at"]
     assert report["status"] == "pass"
     assert report["ready_for_preflight"] is True
     assert report["secrets_redacted"] is True
@@ -96,7 +99,9 @@ def test_prepare_launch_env_generates_secrets_and_redacted_report(tmp_path: Path
     assert env["AGRIGUARD_QR_TOKEN_PEPPER"] not in encoded_report
     assert report["guarded_output_prefix"] == prepare_launch_env.run_guarded_launch.DEFAULT_OUTPUT_PREFIX
     assert all(command.startswith("& ") for command in report["safe_next_commands"])
-    assert "Ready for preflight: `true`" in markdown_out.read_text(encoding="utf-8")
+    markdown = markdown_out.read_text(encoding="utf-8")
+    assert f"Generated: `{report['generated_at']}`" in markdown
+    assert "Ready for preflight: `true`" in markdown
 
 
 def test_prepare_launch_env_safe_next_commands_can_target_guarded_bundle(tmp_path: Path, capsys) -> None:

@@ -5,6 +5,7 @@ import importlib.util
 import json
 import secrets
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,10 @@ def _rel(path: Path, root: Path) -> str:
 
 def _generated_secret(num_bytes: int = 32) -> str:
     return secrets.token_urlsafe(num_bytes)
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _quote_powershell_arg(value: str) -> str:
@@ -198,6 +203,7 @@ def build_report(
     blocking_findings.extend(local_file_findings)
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": "pass" if ready_for_preflight else "fail",
         "ready_for_preflight": ready_for_preflight,
         "env_file": _rel(env_file, workspace_root),
@@ -264,6 +270,7 @@ def render_markdown(report: dict[str, object]) -> str:
     lines = [
         "# AgriGuard Prepared Launch Env",
         "",
+        f"- Generated: `{report['generated_at']}`",
         f"- Status: `{report['status']}`",
         f"- Ready for preflight: `{str(report['ready_for_preflight']).lower()}`",
         f"- Env file: `{report['env_file']}`",
