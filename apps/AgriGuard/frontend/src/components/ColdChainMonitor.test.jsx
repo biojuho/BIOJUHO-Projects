@@ -285,6 +285,9 @@ describe('ColdChainMonitor', () => {
     expect(screen.getAllByText('1 offline / 1 stale').length).toBeGreaterThan(0);
     expect(screen.getByText('stale-sensor')).toBeInTheDocument();
     expect(screen.getByText('offline-sensor')).toBeInTheDocument();
+    const staleSensorId = screen.getByText('stale-sensor');
+    expect(staleSensorId).toHaveAttribute('title', 'stale-sensor');
+    expect(staleSensorId).toHaveClass('truncate');
   });
 
   it('allows long sensor health values to wrap instead of truncating on mobile cards', async () => {
