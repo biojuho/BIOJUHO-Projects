@@ -317,6 +317,41 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
                 )
             )
 
+            clear_button = page.get_by_role("button", name="Clear supply chain search")
+            clear_button.wait_for(timeout=args.timeout_ms)
+            checks.append(check("search_clear_button_visible", clear_button.is_visible(), search_term))
+            clear_button.click(timeout=args.timeout_ms)
+            page.wait_for_function(
+                """() => {
+                    const input = document.querySelector('#supply-chain-search');
+                    const text = document.body.textContent || '';
+                    return input && input.value === '' && /Showing\\s+1-\\d+\\s+of\\s+\\d+\\s+products/.test(text);
+                }""",
+                timeout=args.timeout_ms,
+            )
+            clear_range = read_range(page, args.timeout_ms)
+            clear_metrics = read_metrics(page)
+            observations["clear"] = {
+                "range": clear_range,
+                "metrics": clear_metrics,
+            }
+            checks.append(check("search_clear_restores_empty_input", page.locator("#supply-chain-search").input_value() == ""))
+            checks.append(check("search_clear_resets_to_first_page", bool(clear_range and clear_range["first"] == 1), str(clear_range)))
+            checks.append(
+                check(
+                    "search_clear_restores_unfiltered_total",
+                    bool(initial_range and clear_range and clear_range["total"] == initial_range["total"]),
+                    f"initial={initial_range} clear={clear_range}",
+                )
+            )
+            checks.append(
+                check(
+                    "search_clear_has_no_horizontal_overflow",
+                    int(clear_metrics["scrollWidth"]) <= int(clear_metrics["clientWidth"]) + 1,
+                    str(clear_metrics),
+                )
+            )
+
             ensure_parent(args.screenshot)
             page.screenshot(path=args.screenshot, full_page=False)
             checks.append(check("screenshot_written", True, args.screenshot))

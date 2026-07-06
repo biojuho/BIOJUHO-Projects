@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Package, Truck, CheckCircle, Factory, ShieldCheck, MapPin, Search } from 'lucide-react';
+import { Package, Truck, CheckCircle, Factory, ShieldCheck, MapPin, Search, X } from 'lucide-react';
 import { productApi } from '../services/api';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from './ui/Card';
@@ -189,9 +189,28 @@ export default function SupplyChain() {
               setSearchTerm(e.target.value);
               setPage(1);
             }}
-            className="min-h-11 w-full bg-white/5 border border-input rounded-lg pl-10 pr-4 py-2 text-foreground focus:outline-none focus:border-primary transition-colors"
+            className={cn(
+              'min-h-11 w-full bg-white/5 border border-input rounded-lg pl-10 py-2 text-foreground focus:outline-none focus:border-primary transition-colors',
+              searchTerm ? 'pr-12' : 'pr-4'
+            )}
           />
           <Search className="w-5 h-5 text-muted-foreground absolute left-3 top-2.5" />
+          {searchTerm && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setSearchTerm('');
+                setPage(1);
+              }}
+              className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear supply chain search"
+              title="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 

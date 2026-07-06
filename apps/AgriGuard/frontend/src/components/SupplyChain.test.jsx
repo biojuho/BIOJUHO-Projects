@@ -103,6 +103,15 @@ describe('SupplyChain', () => {
     expect(screen.getByText('Product 1')).toBeInTheDocument();
     expect(screen.getByText('Page 1 / 1')).toBeInTheDocument();
     expect(productApi.getPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, search: 'product-01' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear supply chain search' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Showing 1-20 of 25 products')).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText(/Search products or locations/i)).toHaveValue('');
+    expect(productApi.getPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, search: '' });
   });
 
   it('normalizes backend tracking labels before rendering current status', async () => {
