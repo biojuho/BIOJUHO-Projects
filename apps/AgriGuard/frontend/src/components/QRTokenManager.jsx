@@ -9,6 +9,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import { qrTokenAdminApi, getOperatorToken, setOperatorToken } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
@@ -144,6 +145,17 @@ export default function QRTokenManager() {
     });
   }, [operatorTokenInput]);
 
+  const clearOperatorToken = useCallback(() => {
+    setOperatorToken('');
+    setOperatorTokenInput('');
+    setHasSavedOperatorToken(false);
+    setActionState({
+      loading: false,
+      error: null,
+      success: { message: 'Operator token cleared.' },
+    });
+  }, []);
+
   const confirmAction = useCallback(async () => {
     if (!pendingAction) return;
     setActionState({ loading: true, error: null, success: null });
@@ -230,9 +242,23 @@ export default function QRTokenManager() {
                 Save
               </Button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {hasSavedOperatorToken ? 'A token is saved locally for operator API calls.' : 'No token saved. Protected actions will return 401.'}
-            </p>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                {hasSavedOperatorToken ? 'A token is saved locally for operator API calls.' : 'No token saved. Protected actions will return 401.'}
+              </p>
+              {hasSavedOperatorToken && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearOperatorToken}
+                  className="min-h-10 justify-start px-2 text-xs text-muted-foreground hover:text-foreground sm:min-h-8"
+                >
+                  <X className="h-4 w-4" />
+                  Clear token
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

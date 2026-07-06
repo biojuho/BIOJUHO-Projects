@@ -157,6 +157,14 @@ describe('QRTokenManager', () => {
 
     expect(setOperatorToken).toHaveBeenCalledWith('saved-token');
     expect(screen.getByText('Operator token saved for this browser.')).toBeInTheDocument();
+    expect(screen.getByText('A token is saved locally for operator API calls.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear token/i }));
+
+    expect(setOperatorToken).toHaveBeenLastCalledWith('');
+    expect(screen.getByLabelText('Operator bearer token')).toHaveValue('');
+    expect(screen.getByText('Operator token cleared.')).toBeInTheDocument();
+    expect(screen.getByText('No token saved. Protected actions will return 401.')).toBeInTheDocument();
   });
 
   it('requires inline confirmation before revoking an active token', async () => {
