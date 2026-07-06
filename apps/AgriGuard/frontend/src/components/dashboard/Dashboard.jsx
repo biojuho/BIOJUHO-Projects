@@ -11,6 +11,7 @@ import { Input } from '../ui/Input';
 const QR_KPI_TIMEZONE_STORAGE_KEY = 'agriguard.qrKpi.reportingTimezone';
 const DEFAULT_REPORTING_TIMEZONES = ['UTC', 'Asia/Seoul', 'America/Los_Angeles', 'Europe/Amsterdam'];
 const DASHBOARD_LOCALE = 'en-US';
+const DASHBOARD_NUMBER_FORMATTER = new Intl.NumberFormat(DASHBOARD_LOCALE);
 
 function getDashboardLoadError(error) {
   const detail = error?.message || 'Dashboard summary could not be loaded.';
@@ -394,6 +395,10 @@ function formatKpiStatus(status) {
   return 'No data';
 }
 
+function formatDashboardCount(value) {
+  return DASHBOARD_NUMBER_FORMATTER.format(Number(value ?? 0));
+}
+
 function formatTrendDate(date) {
   const parsed = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return date;
@@ -500,7 +505,7 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
                 />
               </div>
               <p className="mt-2 text-xs text-muted-foreground sm:mt-3">
-                Target {qrKpis.target_daily_scans.toLocaleString()} scans in {qrKpis.hours} hours.
+                Target {formatDashboardCount(qrKpis.target_daily_scans)} scans in {qrKpis.hours} hours.
               </p>
             </div>
           </div>
@@ -532,7 +537,7 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
                         {formatPercent(item.scan_success_rate)}
                       </p>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {item.verification_complete_sessions.toLocaleString()} scans
+                        {formatDashboardCount(item.verification_complete_sessions)} scans
                       </p>
                     </div>
                   );
