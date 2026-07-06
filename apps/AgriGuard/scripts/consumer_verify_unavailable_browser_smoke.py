@@ -208,7 +208,7 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         initial_text = page_text(page)
         initial_metrics = read_metrics(page)
         checks.append(check("unavailable_state_visible", "Verification unavailable" in initial_text))
-        checks.append(check("network_recovery_copy_visible", "Retry with network access or scan again" in initial_text))
+        checks.append(check("consumer_recovery_copy_visible", "Try again in a moment or scan again" in initial_text))
         checks.append(check("retry_button_visible", page.get_by_role("button", name="Retry").is_visible()))
         checks.append(check("scan_recovery_link_visible", page.get_by_role("link", name="Scan").is_visible()))
         checks.append(check("no_product_evidence_rendered", "Batch and origin" not in initial_text and "Evidence hash:" not in initial_text))

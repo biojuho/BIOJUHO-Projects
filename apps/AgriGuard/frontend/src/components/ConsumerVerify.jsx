@@ -149,7 +149,7 @@ function ErrorState({ onRetry }) {
         <AlertTriangle className="h-9 w-9 text-amber-600" aria-hidden="true" />
         <h1 className="mt-4 text-xl font-bold text-slate-950">Verification unavailable</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          The public verification service did not respond. Retry with network access or scan again.
+          The public verification service did not respond. Try again in a moment or scan again.
         </p>
         <div className="mt-5 flex gap-2">
           <Button type="button" onClick={onRetry} className="bg-slate-950 text-white hover:bg-slate-800">

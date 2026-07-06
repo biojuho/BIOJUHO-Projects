@@ -166,6 +166,17 @@ describe('ConsumerVerify', () => {
     });
   });
 
+  it('uses plain-language recovery copy when verification is unavailable', async () => {
+    qrVerifyApi.verify.mockRejectedValue(new Error('service unavailable'));
+
+    renderVerify('/verify/offline-token');
+
+    expect(await screen.findByRole('heading', { name: 'Verification unavailable' })).toBeInTheDocument();
+    expect(screen.getByText('The public verification service did not respond. Try again in a moment or scan again.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Scan' })).toBeInTheDocument();
+  });
+
   it('labels registered QR codes with incomplete public evidence as pending', async () => {
     qrVerifyApi.verify.mockResolvedValue({
       data: {
