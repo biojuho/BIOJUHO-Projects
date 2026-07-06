@@ -2,7 +2,7 @@
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, AlertCircle, ScanLine, CheckCircle, RefreshCcw, Keyboard } from 'lucide-react';
+import { Camera, AlertCircle, ScanLine, CheckCircle, RefreshCcw, Keyboard, X } from 'lucide-react';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -249,6 +249,10 @@ export default function QRReader() {
     navigate(createVerificationPath(qrToken, sessionId));
   };
 
+  const handleManualClear = () => {
+    setManualQrValue('');
+  };
+
   return (
     <div className="max-w-md mx-auto mt-8 animate-in fade-in duration-500">
       <Card className="shadow-xl overflow-hidden">
@@ -276,7 +280,6 @@ export default function QRReader() {
                     message: `Camera error: ${normalized.error_message}`,
                     errorCode: normalized.error_code,
                   });
-                  showToast('Camera access failed', 'error');
                 }}
                 components={{
                   audio: false,
@@ -351,19 +354,32 @@ export default function QRReader() {
               <label className="mt-4 block text-sm font-medium text-foreground" htmlFor={MANUAL_INPUT_ID}>
                 Manual verification code
               </label>
-              <Input
-                id={MANUAL_INPUT_ID}
-                aria-describedby={MANUAL_HELP_ID}
-                autoCapitalize="none"
-                autoComplete="off"
-                className="mt-2 min-h-11 bg-background text-base sm:text-sm"
-                enterKeyHint="go"
-                inputMode="text"
-                placeholder="Paste /verify link or token"
-                spellCheck={false}
-                value={manualQrValue}
-                onChange={(event) => setManualQrValue(event.target.value)}
-              />
+              <div className="relative mt-2">
+                <Input
+                  id={MANUAL_INPUT_ID}
+                  aria-describedby={MANUAL_HELP_ID}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  className={`min-h-11 bg-background text-base sm:text-sm ${manualValueReady ? 'pr-12' : ''}`}
+                  enterKeyHint="go"
+                  inputMode="text"
+                  placeholder="Paste /verify link or token"
+                  spellCheck={false}
+                  value={manualQrValue}
+                  onChange={(event) => setManualQrValue(event.target.value)}
+                />
+                {manualValueReady && (
+                  <button
+                    type="button"
+                    aria-label="Clear manual verification code"
+                    title="Clear manual verification code"
+                    onClick={handleManualClear}
+                    className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground" id={MANUAL_HELP_ID}>
                 Use this when the camera is unavailable or the QR surface is damaged.
               </p>

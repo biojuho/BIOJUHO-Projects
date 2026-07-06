@@ -236,6 +236,32 @@ describe('QRReader', () => {
     expect(verifyButton).toHaveClass('bg-emerald-600');
   });
 
+  it('clears a pasted manual verification code without navigating', () => {
+    renderReader();
+
+    const input = screen.getByLabelText(/Manual verification code/i);
+    const verifyButton = screen.getByRole('button', { name: /Verify code/i });
+
+    fireEvent.change(input, { target: { value: ' manual-token ' } });
+    fireEvent.click(screen.getByRole('button', { name: /Clear manual verification code/i }));
+
+    expect(input).toHaveValue('');
+    expect(verifyButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Clear manual verification code/i })).not.toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps camera failures inline without covering manual recovery with a duplicate toast', async () => {
+    renderReader();
+
+    fireEvent.click(screen.getByRole('button', { name: 'trigger-error' }));
+
+    expect(await screen.findByText('Camera error: permission denied')).toBeInTheDocument();
+    expect(screen.queryByText('Camera access failed')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Manual verification code/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Retry scan/i })).toBeInTheDocument();
+  });
+
   it('ignores late camera errors after manual recovery starts', async () => {
     renderReader();
 
