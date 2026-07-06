@@ -202,6 +202,15 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                     "artifact_index_readiness_summary": {
                         "status": "pass",
                         "blocker_class": "ready",
+                        "stale_generated_at_roles": ["ready_gate_json"],
+                        "stale_generated_at_details": [
+                            {
+                                "role": "ready_gate_json",
+                                "generated_at": "2026-07-06T12:52:04Z",
+                                "minimum_role": "handoff_consumer_json",
+                                "minimum_generated_at": "2026-07-06T15:20:59Z",
+                            }
+                        ],
                         "consumer_packet_validation_status": "pass",
                         "consumer_command_metadata_status": "pass",
                         "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -237,6 +246,15 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     )
     assert summary["reports"]["operator_packet"]["artifact_index_status"] == "pass"
     assert summary["reports"]["operator_packet"]["artifact_index_blocker_class"] == "ready"
+    assert summary["reports"]["operator_packet"]["artifact_index_stale_generated_at_roles"] == ["ready_gate_json"]
+    assert summary["reports"]["operator_packet"]["artifact_index_stale_generated_at_details"] == [
+        {
+            "role": "ready_gate_json",
+            "generated_at": "2026-07-06T12:52:04Z",
+            "minimum_role": "handoff_consumer_json",
+            "minimum_generated_at": "2026-07-06T15:20:59Z",
+        }
+    ]
     assert summary["reports"]["operator_packet"]["consumer_packet_validation_status"] == "pass"
     assert summary["reports"]["operator_packet"]["consumer_command_metadata_status"] == "pass"
     assert (

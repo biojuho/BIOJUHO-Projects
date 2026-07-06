@@ -492,6 +492,12 @@ def _next_commands(value: Any) -> list[dict[str, str]]:
     return commands
 
 
+def _dict_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, dict)]
+
+
 def _artifact_index_readiness_summary(
     index_json: Path,
     workspace_root: Path,
@@ -514,12 +520,21 @@ def _artifact_index_readiness_summary(
         if isinstance(index, dict)
         else []
     )
+    stale_generated_at_roles = (
+        [str(role) for role in index.get("stale_generated_at_roles", []) if isinstance(role, str)]
+        if isinstance(index, dict)
+        else []
+    )
     return {
         "found": index is not None,
         "path": _rel(index_json, workspace_root),
         "status": index.get("status") if index is not None else None,
         "blocker_class": index.get("blocker_class") if index is not None else None,
         "missing_generated_at_roles": missing_generated_at_roles,
+        "stale_generated_at_roles": stale_generated_at_roles,
+        "stale_generated_at_details": _dict_list(
+            index.get("stale_generated_at_details") if isinstance(index, dict) else None
+        ),
         "consumer_packet_validation_status": index.get("consumer_packet_validation_status") if index is not None else None,
         "consumer_command_metadata_status": index.get("consumer_command_metadata_status") if index is not None else None,
         "consumer_readiness_operator_packet_consumer_command_metadata_status": index.get(
@@ -1037,6 +1052,8 @@ def render_markdown(packet: dict[str, object]) -> str:
             f"- Artifact index blocker class: `{readiness_summary.get('blocker_class') or '-'}`",
             "- Missing generated_at roles: "
             f"`{', '.join(str(role) for role in readiness_summary.get('missing_generated_at_roles', [])) or '-'}`",
+            "- Stale generated_at roles: "
+            f"`{', '.join(str(role) for role in readiness_summary.get('stale_generated_at_roles', [])) or '-'}`",
             f"- Consumer packet validation: `{readiness_summary.get('consumer_packet_validation_status')}`",
             f"- Consumer command metadata: `{readiness_summary.get('consumer_command_metadata_status')}`",
             "- Consumer readiness command metadata: "
