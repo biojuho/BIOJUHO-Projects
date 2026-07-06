@@ -117,11 +117,19 @@ describe('ConsumerVerify', () => {
     expect(document.body).not.toHaveTextContent('년');
     expect(screen.getByText('Last verified')).toBeInTheDocument();
     expect(screen.queryByText('Last checked')).not.toBeInTheDocument();
-    expect(screen.getByText('Evidence hash: hash-123')).toBeInTheDocument();
-    expect(screen.getByTestId('consumer-proof-tx')).toHaveTextContent(
+    const proofHash = screen.getByTestId('consumer-proof-hash');
+    expect(proofHash).toHaveTextContent('Evidence hash: hash-123');
+    expect(proofHash).toHaveAttribute('title', 'hash-123');
+    expect(proofHash).toHaveClass('break-all');
+    expect(proofHash).toHaveClass('select-all');
+
+    const proofTx = screen.getByTestId('consumer-proof-tx');
+    expect(proofTx).toHaveTextContent(
       'TX 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
     );
-    expect(screen.getByTestId('consumer-proof-tx')).toHaveClass('break-all');
+    expect(proofTx).toHaveAttribute('title', '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef');
+    expect(proofTx).toHaveClass('break-all');
+    expect(proofTx).toHaveClass('select-all');
     expect(document.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
     expect(toastMocks.hideToast).toHaveBeenCalled();
 
@@ -227,7 +235,8 @@ describe('ConsumerVerify', () => {
     expect(await screen.findAllByText('Evidence pending')).toHaveLength(2);
     expect(screen.getByText('Temperature evidence unavailable')).toBeInTheDocument();
     expect(screen.getByText('Blockchain proof is not available yet.')).toBeInTheDocument();
-    expect(screen.getByText('Evidence hash: Pending')).toBeInTheDocument();
+    expect(screen.getByTestId('consumer-proof-hash')).toHaveTextContent('Evidence hash: Pending');
+    expect(screen.getByTestId('consumer-proof-hash')).toHaveAttribute('title', 'Pending');
     expect(screen.getByText('No public route checkpoints are available for this code.')).toBeInTheDocument();
     expect(screen.getByText('not reported')).toBeInTheDocument();
     expect(screen.getAllByText('Not available').length).toBeGreaterThan(0);

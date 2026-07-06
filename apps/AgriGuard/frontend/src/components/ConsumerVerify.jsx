@@ -282,6 +282,7 @@ export default function ConsumerVerify() {
   const batch = verification.batch;
   const proofRecords = Array.isArray(proof.records) ? proof.records : [];
   const hasProofRecords = proofRecords.length > 0;
+  const evidenceHash = proof.evidence_hash || 'Pending';
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
@@ -392,14 +393,26 @@ export default function ConsumerVerify() {
           <div className="rounded-md bg-slate-50 p-3 text-sm">
             <p className="font-semibold capitalize text-slate-950">{proof.status}</p>
             <p className="mt-1 leading-6 text-slate-600">{proof.message}</p>
-            <p className="mt-3 break-all font-mono text-xs text-slate-500">Evidence hash: {proof.evidence_hash || 'Pending'}</p>
+            <p
+              data-testid="consumer-proof-hash"
+              title={evidenceHash}
+              className="mt-3 break-all select-all font-mono text-xs text-slate-500"
+            >
+              Evidence hash: {evidenceHash}
+            </p>
           </div>
           {hasProofRecords && (
             <ol className="mt-3 space-y-2">
               {proofRecords.map((record) => (
                 <li key={`${record.tx_hash}-${record.block}-${record.event_type}`} className="rounded-md border border-slate-200 p-3 text-sm">
                   <p className="font-semibold text-slate-950">{record.event_type}</p>
-                  <p data-testid="consumer-proof-tx" className="mt-1 break-all font-mono text-xs text-slate-600">TX {record.tx_hash}</p>
+                  <p
+                    data-testid="consumer-proof-tx"
+                    title={record.tx_hash}
+                    className="mt-1 break-all select-all font-mono text-xs text-slate-600"
+                  >
+                    TX {record.tx_hash}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">Block {record.block} - {formatDateTime(record.timestamp)}</p>
                 </li>
               ))}
