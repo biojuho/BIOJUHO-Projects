@@ -198,4 +198,36 @@ describe('ConsumerVerify', () => {
     expect(screen.getByText('Last checked')).toBeInTheDocument();
     expect(screen.queryByText('Last verified')).not.toBeInTheDocument();
   });
+
+  it('renders fallback evidence when public verification fields are delayed', async () => {
+    qrVerifyApi.verify.mockResolvedValue({
+      data: {
+        ...safePayload(),
+        verified_at: 'not-a-date',
+        last_verified_at: 'not-a-date',
+        trust_badge: null,
+        temperature_summary: null,
+        blockchain_proof: null,
+        route: null,
+        product: {
+          name: 'Hallabong',
+          origin: null,
+        },
+        batch: {
+          ...safePayload().batch,
+          recall_status: null,
+        },
+      },
+    });
+
+    renderVerify('/verify/partial-token');
+
+    expect(await screen.findAllByText('Evidence pending')).toHaveLength(2);
+    expect(screen.getByText('Temperature evidence unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Blockchain proof is not available yet.')).toBeInTheDocument();
+    expect(screen.getByText('Evidence hash: Pending')).toBeInTheDocument();
+    expect(screen.getByText('No public route checkpoints are available for this code.')).toBeInTheDocument();
+    expect(screen.getByText('not reported')).toBeInTheDocument();
+    expect(screen.getAllByText('Not available').length).toBeGreaterThan(0);
+  });
 });

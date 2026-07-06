@@ -42,8 +42,34 @@ const TRUST_STYLE = {
   },
 };
 
+const DEFAULT_TRUST_BADGE = {
+  status: 'Unknown',
+  label: 'Evidence pending',
+  reason: 'Public verification evidence is not available yet.',
+};
+
+const DEFAULT_TEMPERATURE_SUMMARY = {
+  status: 'unknown',
+  message: 'Temperature evidence unavailable',
+  min_celsius: null,
+  max_celsius: null,
+  readings_count: 0,
+  last_reading_at: null,
+};
+
+const DEFAULT_BLOCKCHAIN_PROOF = {
+  status: 'pending',
+  message: 'Blockchain proof is not available yet.',
+  evidence_hash: '',
+  records: [],
+};
+
 function formatDateTime(value) {
   if (!value) {
+    return 'Not available';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
     return 'Not available';
   }
   return new Intl.DateTimeFormat(undefined, {
@@ -53,14 +79,18 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit',
     timeZoneName: 'short',
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function formatDate(value) {
   if (!value) {
     return 'Pending';
   }
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Pending';
+  }
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
 }
 
 function formatTrustBadgeLabel(verification, trust) {
@@ -220,7 +250,7 @@ export default function ConsumerVerify() {
     };
   }, [qrToken, reloadAttempt, scanSource, scanVariant, sessionId]);
 
-  const trust = verification?.trust_badge;
+  const trust = verification?.trust_badge || DEFAULT_TRUST_BADGE;
   const trustStyle = useMemo(() => TRUST_STYLE[trust?.status] || TRUST_STYLE.Unknown, [trust?.status]);
   const trustBadgeLabel = formatTrustBadgeLabel(verification, trust);
   const lastEvidenceLabel = formatLastEvidenceLabel(verification, trust);
@@ -244,12 +274,13 @@ export default function ConsumerVerify() {
     );
   }
 
-  const temperature = verification.temperature_summary;
-  const proof = verification.blockchain_proof;
-  const route = verification.route || [];
+  const temperature = verification.temperature_summary || DEFAULT_TEMPERATURE_SUMMARY;
+  const proof = verification.blockchain_proof || DEFAULT_BLOCKCHAIN_PROOF;
+  const route = Array.isArray(verification.route) ? verification.route : [];
   const product = verification.product;
   const batch = verification.batch;
-  const hasProofRecords = proof.records?.length > 0;
+  const proofRecords = Array.isArray(proof.records) ? proof.records : [];
+  const hasProofRecords = proofRecords.length > 0;
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
@@ -297,7 +328,7 @@ export default function ConsumerVerify() {
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="font-medium text-slate-500">Category</dt>
-                <dd className="mt-1 font-semibold text-slate-950">{product.category}</dd>
+                <dd className="mt-1 font-semibold text-slate-950">{product?.category || 'Not available'}</dd>
               </div>
               <div>
                 <dt className="font-medium text-slate-500">Harvest date</dt>
@@ -309,7 +340,7 @@ export default function ConsumerVerify() {
               </div>
               <div>
                 <dt className="font-medium text-slate-500">Recall status</dt>
-                <dd className="mt-1 font-semibold text-slate-950">{batch.recall_status.replace('_', ' ')}</dd>
+                <dd className="mt-1 font-semibold text-slate-950">{(batch.recall_status || 'not_reported').replace(/_/g, ' ')}</dd>
               </div>
             </dl>
           </EvidenceSection>
@@ -360,11 +391,11 @@ export default function ConsumerVerify() {
           <div className="rounded-md bg-slate-50 p-3 text-sm">
             <p className="font-semibold capitalize text-slate-950">{proof.status}</p>
             <p className="mt-1 leading-6 text-slate-600">{proof.message}</p>
-            <p className="mt-3 break-all font-mono text-xs text-slate-500">Evidence hash: {proof.evidence_hash}</p>
+            <p className="mt-3 break-all font-mono text-xs text-slate-500">Evidence hash: {proof.evidence_hash || 'Pending'}</p>
           </div>
           {hasProofRecords && (
             <ol className="mt-3 space-y-2">
-              {proof.records.map((record) => (
+              {proofRecords.map((record) => (
                 <li key={`${record.tx_hash}-${record.block}-${record.event_type}`} className="rounded-md border border-slate-200 p-3 text-sm">
                   <p className="font-semibold text-slate-950">{record.event_type}</p>
                   <p data-testid="consumer-proof-tx" className="mt-1 break-all font-mono text-xs text-slate-600">TX {record.tx_hash}</p>
