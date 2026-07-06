@@ -151,6 +151,13 @@ def validate(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
         "provider_check_count",
         "missing_cli_count",
         "auth_context_missing_count",
+        "run_browser_smoke_suite.py",
+        "evidence_class",
+        "launch_precheck_blocked",
+        "ui_click_coverage_only",
+        "child_status",
+        "render_guarded_launch_handoff.py",
+        "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
         "git diff --cached --name-only",
         "git branch -vv",
     ]:

@@ -83,6 +83,42 @@ python apps/desci-platform/scripts/browser_smoke.py --frontend http://127.0.0.1:
 Record the JSON result and screenshot or trace directory in the cycle report.
 Do not claim a user-facing launch path is ready from backend tests alone.
 
+For AgriGuard launch work, separate strict launch evidence from UI-click
+coverage. The default aggregate browser suite is the launch gate and must fail
+closed when `public_verify_cache_headers`, backend/proxy alignment, or another
+precheck fails:
+
+```powershell
+python apps/AgriGuard/scripts/run_browser_smoke_suite.py --base-url http://127.0.0.1:5174 --api-url http://127.0.0.1:8002 --json-out var/agriguard-browser-suite-auto-research.json --output-dir var/agriguard-browser-suite-auto-research --timeout-ms 30000
+```
+
+Use `--skip-backend-contract-check` only for non-launch UI-click coverage while
+a known runtime/preflight blocker exists. Reports must preserve
+`evidence_class`, `launch_gate_enforced`, `failed_precheck_names`, child
+`child_status`, and screenshot artifact counts so operators can distinguish
+`launch_precheck_blocked` from `ui_click_coverage_only`.
+
+When validating the optional unavailable-service path, opt in explicitly:
+
+```powershell
+python apps/AgriGuard/scripts/run_browser_smoke_suite.py --base-url http://127.0.0.1:5174 --api-url http://127.0.0.1:8002 --skip-backend-contract-check --include-unavailable-check --json-out var/agriguard-browser-suite-unavailable-auto-research.json --output-dir var/agriguard-browser-suite-unavailable-auto-research --timeout-ms 30000
+```
+
+For guarded launch handoff work, keep compose replacement fail-closed until the
+real outside-repo Firebase Admin service account exists at the configured
+`AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE` path and strict preflight passes:
+
+```powershell
+python apps/AgriGuard/scripts/render_guarded_launch_handoff.py --help
+python apps/AgriGuard/scripts/consume_guarded_launch_handoff.py --help
+python apps/AgriGuard/scripts/validate_guarded_launch_handoff.py --help
+```
+
+Do not stop or replace a stale running Docker backend merely to make browser
+smoke greener when the compose replacement guard still reports a missing
+outside-repo Firebase credential. Record source-vs-runtime divergence when
+source tests pass but the live backend/proxy remains stale.
+
 ## DeSci Provider Gate Chain
 
 When DeSci release readiness is blocked by Railway, Vercel, GitHub, or another

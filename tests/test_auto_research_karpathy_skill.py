@@ -104,3 +104,10 @@ def test_auto_research_workspace_loop_documents_safe_git_flow() -> None:
     assert "auth_context_missing_count" in reference
     assert "provider_preflight.py" in reference
     assert "--launch-click-suite" in reference
+    assert "run_browser_smoke_suite.py" in reference
+    assert "evidence_class" in reference
+    assert "launch_precheck_blocked" in reference
+    assert "ui_click_coverage_only" in reference
+    assert "child_status" in reference
+    assert "render_guarded_launch_handoff.py" in reference
+    assert "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE" in reference
