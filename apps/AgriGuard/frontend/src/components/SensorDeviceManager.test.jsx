@@ -405,6 +405,21 @@ describe('SensorDeviceManager', () => {
     expect(within(rows[0]).getByRole('button', { name: /disable/i })).toBeInTheDocument();
   });
 
+  it('keeps unsupported broker identity values inspectable in compact rows', async () => {
+    render(<SensorDeviceManager />);
+
+    const unsupportedSensorId = await screen.findByTestId('unsupported-sensor-id');
+    expect(unsupportedSensorId).toHaveTextContent('sensor/unsupported');
+    expect(unsupportedSensorId).toHaveAttribute('title', 'sensor/unsupported');
+    expect(unsupportedSensorId).toHaveClass('truncate');
+    expect(unsupportedSensorId).not.toHaveClass('break-all');
+
+    const unsupportedSensorLabel = screen.getByTestId('unsupported-sensor-label');
+    expect(unsupportedSensorLabel).toHaveTextContent('Legacy slash probe');
+    expect(unsupportedSensorLabel).toHaveAttribute('title', 'Legacy slash probe');
+    expect(unsupportedSensorLabel).toHaveClass('truncate');
+  });
+
   it('saves an operator token for protected sensor API calls', () => {
     getOperatorToken.mockReturnValue('');
 

@@ -974,8 +974,18 @@ export default function SensorDeviceManager() {
                     return (
                       <tr key={sensor.sensor_id} className="align-top">
                         <td className="py-4 pr-4">
-                          <div className="font-mono text-foreground">{sensor.sensor_id}</div>
-                          <div title={sensor.label || 'Unlabeled'} className="mt-1 max-w-56 truncate text-xs text-muted-foreground">
+                          <div
+                            data-testid="unsupported-sensor-id"
+                            title={sensor.sensor_id}
+                            className="max-w-56 truncate font-mono text-foreground"
+                          >
+                            {sensor.sensor_id}
+                          </div>
+                          <div
+                            data-testid="unsupported-sensor-label"
+                            title={sensor.label || 'Unlabeled'}
+                            className="mt-1 max-w-56 truncate text-xs text-muted-foreground"
+                          >
                             {sensor.label || 'Unlabeled'}
                           </div>
                         </td>
