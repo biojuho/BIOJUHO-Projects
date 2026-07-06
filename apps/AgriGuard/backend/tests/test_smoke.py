@@ -1159,6 +1159,7 @@ def test_product_detail_browser_smoke_tracks_mobile_first_viewport_targets():
 
     assert target_names == {
         "product_qr_first_viewport",
+        "public_verify_label_copy_action_first_viewport",
         "product_id_copy_action_first_viewport",
         "operator_tracking_action_first_viewport",
         "operator_certification_action_first_viewport",
@@ -1167,9 +1168,10 @@ def test_product_detail_browser_smoke_tracks_mobile_first_viewport_targets():
     assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=True) is True
     assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=False) is False
     assert script.MOBILE_FIRST_VIEWPORT_TARGETS[0]["aria_label"] == "Product verification QR"
-    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[1]["aria_label"] == "Copy product ID"
-    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[2]["text"] == "Add Tracking Event"
-    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[3]["text"] == "Add Certification"
+    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[1]["aria_label"] == "Copy public verify label URL"
+    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[2]["aria_label"] == "Copy product ID"
+    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[3]["text"] == "Add Tracking Event"
+    assert script.MOBILE_FIRST_VIEWPORT_TARGETS[4]["text"] == "Add Certification"
 
 
 def test_product_detail_browser_smoke_uses_operator_token_env(monkeypatch):

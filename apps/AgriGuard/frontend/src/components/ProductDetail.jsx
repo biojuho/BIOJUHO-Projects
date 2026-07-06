@@ -51,10 +51,12 @@ export default function ProductDetail() {
     operatorTokenAvailable ? '' : 'Operator updates locked',
   );
   const [productIdCopyStatus, setProductIdCopyStatus] = useState('');
+  const [qrCodeCopyStatus, setQrCodeCopyStatus] = useState('');
   const scanSource = searchParams.get('scan_source');
   const scanSession = searchParams.get('scan_session');
   const scanVariant = searchParams.get('scan_variant') || 'qr_page_v1';
   const productIdForCopy = data.product?.id || '';
+  const qrCodeForCopy = data.product?.qr_code || data.product?.id || '';
 
   const loadProductDetails = useCallback(async (productId) => {
     const [prodRes, histRes] = await Promise.allSettled([
@@ -189,6 +191,23 @@ export default function ProductDetail() {
       setProductIdCopyStatus('Copy failed');
     }
   }, [productIdForCopy]);
+
+  const handleCopyQrCode = useCallback(async () => {
+    if (!qrCodeForCopy) return;
+
+    if (!navigator.clipboard?.writeText) {
+      setQrCodeCopyStatus('Copy failed');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(qrCodeForCopy);
+      setQrCodeCopyStatus('Copied');
+    } catch (err) {
+      console.error('Failed to copy public verify label URL', err);
+      setQrCodeCopyStatus('Copy failed');
+    }
+  }, [qrCodeForCopy]);
 
   const handleAddTracking = useCallback(async (e) => {
     e.preventDefault();
@@ -328,8 +347,19 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            <Card data-testid="product-detail-qr-card" className="min-w-[200px]">
+            <Card data-testid="product-detail-qr-card" className="relative min-w-[200px]">
               <CardContent data-testid="product-detail-qr-card-content" className="p-3 sm:p-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyQrCode}
+                  aria-label={qrCodeCopyStatus === 'Copied' ? 'Copied public verify label URL' : 'Copy public verify label URL'}
+                  title={qrCodeCopyStatus || 'Copy public verify label URL'}
+                  className="absolute right-2 top-2 h-9 w-9 border-primary/25 bg-background/80 text-primary hover:bg-primary/10"
+                >
+                  {qrCodeCopyStatus === 'Copied' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
                 <div className="flex justify-center mb-2">
                   <QRTracker value={qrCodeValue} ariaLabel="Product verification QR" />
                 </div>

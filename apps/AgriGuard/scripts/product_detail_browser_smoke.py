@@ -45,6 +45,11 @@ MOBILE_FIRST_VIEWPORT_TARGETS = [
         "min_visible_ratio": 0.98,
     },
     {
+        "name": "public_verify_label_copy_action_first_viewport",
+        "aria_label": "Copy public verify label URL",
+        "min_visible_ratio": 0.98,
+    },
+    {
         "name": "product_id_copy_action_first_viewport",
         "aria_label": "Copy product ID",
         "min_visible_ratio": 0.98,
@@ -331,6 +336,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport=viewport, is_mobile=args.mobile, has_touch=args.mobile)
+        page.context.grant_permissions(["clipboard-write"], origin=args.base_url.rstrip("/"))
         page.add_init_script(
             "window.localStorage.setItem('agriguard-operator-token', "
             f"{json.dumps(args.operator_token)});",
@@ -378,6 +384,12 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         checks.append(check("initial_no_horizontal_overflow", has_no_horizontal_overflow(initial_metrics), str(initial_metrics)))
         for item in initial_mobile_affordances:
             checks.append(check(str(item["name"]), bool(item["ok"]), json.dumps(item, sort_keys=True)))
+        qr_copy_button = page.get_by_role("button", name="Copy public verify label URL")
+        checks.append(check("public_verify_label_copy_action_visible", qr_copy_button.is_visible()))
+        checks.append(check("public_verify_label_copy_action_enabled", qr_copy_button.is_enabled()))
+        qr_copy_button.click(timeout=args.timeout_ms)
+        page.get_by_role("button", name="Copied public verify label URL").wait_for(timeout=args.timeout_ms)
+        checks.append(check("public_verify_label_copy_action_copied_state", True))
         capture_screenshot(page, screenshot_dir / "product-detail-initial.png")
 
         add_tracking = page.get_by_role("button", name=re.compile("add tracking event", re.I))
@@ -390,17 +402,33 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         page.get_by_placeholder(re.compile("Location")).fill("Detail Smoke Distribution Center")
         page.get_by_placeholder(re.compile("Handler ID")).fill("HANDLER-DETAIL-SMOKE")
         page.get_by_role("button", name=re.compile("^Add Event$", re.I)).click(timeout=args.timeout_ms)
-        page.get_by_text("Tracking event saved").wait_for(timeout=args.timeout_ms)
-        page.wait_for_function(
-            "() => (document.body.textContent || '').includes('In Transit')",
-            timeout=args.timeout_ms,
-        )
+        try:
+            page.wait_for_function(
+                """() => {
+                    const text = document.body.textContent || '';
+                    return text.includes('Tracking event saved')
+                      || text.includes('Tracking event could not be saved.')
+                      || text.includes('Operator authentication required to save chain updates.');
+                }""",
+                timeout=args.timeout_ms,
+            )
+        except Exception:
+            pass
         tracking_text = body_text(page)
-        tracking_history_visible = bool(page.evaluate("() => (document.body.textContent || '').includes('In Transit')"))
+        observations["trackingSubmit"] = {
+            "bodyTextSample": tracking_text.replace("\n", " ")[:1000],
+        }
+        tracking_saved = "Tracking event saved" in tracking_text
+        if tracking_saved:
+            page.wait_for_function(
+                "() => (document.body.textContent || '').includes('In Transit')",
+                timeout=args.timeout_ms,
+            )
+        tracking_history_visible = tracking_saved and bool(page.evaluate("() => (document.body.textContent || '').includes('In Transit')"))
         raw_tracking_status_hidden = not bool(
             page.evaluate("() => (document.body.textContent || '').includes('IN_TRANSIT')")
         )
-        checks.append(check("tracking_event_saved", "Tracking event saved" in tracking_text))
+        checks.append(check("tracking_event_saved", tracking_saved, tracking_text[:500]))
         checks.append(check("tracking_event_visible_in_history", tracking_history_visible))
         checks.append(check("tracking_event_raw_status_hidden", raw_tracking_status_hidden))
 
@@ -409,16 +437,28 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         page.get_by_placeholder(re.compile("Certification Type")).fill("GAP")
         page.get_by_placeholder(re.compile("Issued By")).fill("Detail Smoke Authority")
         page.get_by_role("button", name=re.compile("^Add Certificate$", re.I)).click(timeout=args.timeout_ms)
-        page.get_by_text("Certificate saved").wait_for(timeout=args.timeout_ms)
-        page.get_by_text("Certified", exact=True).wait_for(timeout=args.timeout_ms)
+        try:
+            page.wait_for_function(
+                """() => {
+                    const text = document.body.textContent || '';
+                    return text.includes('Certificate saved')
+                      || text.includes('Certificate could not be saved.')
+                      || text.includes('Operator authentication required to save chain updates.');
+                }""",
+                timeout=args.timeout_ms,
+            )
+        except Exception:
+            pass
         final_text = body_text(page)
         final_metrics = read_metrics(page)
         observations["final"] = {
             "url": page.url,
             "metrics": final_metrics,
             "screenshot": str(screenshot_dir / "product-detail-final.png"),
+            "bodyTextSample": final_text.replace("\n", " ")[:1000],
         }
-        checks.append(check("certification_saved", "Certificate saved" in final_text))
+        certification_saved = "Certificate saved" in final_text
+        checks.append(check("certification_saved", certification_saved, final_text[:500]))
         checks.append(check("certified_badge_visible", "Certified" in final_text))
         checks.append(
             check(

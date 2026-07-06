@@ -101,6 +101,7 @@ describe('ProductDetail', () => {
       expect(screen.getByText('QR-12345')).toBeInTheDocument();
       expect(screen.getByTestId('product-detail-id')).toHaveTextContent('1');
       expect(screen.getByRole('button', { name: /Copy product ID/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Copy public verify label URL/i })).toBeInTheDocument();
       expect(screen.queryByAltText('QR Code')).not.toBeInTheDocument();
       expect(document.querySelector('img[src*="api.qrserver.com"]')).toBeNull();
       expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toBeDisabled();
@@ -146,6 +147,21 @@ describe('ProductDetail', () => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('1');
     });
     expect(screen.getByRole('button', { name: /Copied product ID/i })).toBeInTheDocument();
+  });
+
+  it('copies the public verify label from the QR card', async () => {
+    productApi.getById.mockResolvedValueOnce({ data: mockProduct });
+    productApi.getHistory.mockResolvedValueOnce({ data: { history: mockHistory } });
+
+    renderWithRouter(<ProductDetail />);
+
+    const copyButton = await screen.findByRole('button', { name: /Copy public verify label URL/i });
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('QR-12345');
+    });
+    expect(screen.getByRole('button', { name: /Copied public verify label URL/i })).toBeInTheDocument();
   });
 
   it('renders a real explorer link when history includes one', async () => {
