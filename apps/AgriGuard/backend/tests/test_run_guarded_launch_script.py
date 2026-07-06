@@ -613,6 +613,10 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
                             "generated_at": "initial-packet",
                             "preflight_status": "fail",
                             "consumer_command_metadata_status": None,
+                            "artifact_index_stale_generated_at_roles": ["ready_gate_json"],
+                            "artifact_index_stale_generated_at_details": [
+                                {"role": "ready_gate_json", "minimum_role": "handoff_consumer_json"}
+                            ],
                         },
                         "readiness_summary": {
                             "found": True,
@@ -642,6 +646,10 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
                             "preflight_status": "fail",
                             "operator_action_ids": ["set_firebase_service_account_file"],
                             "consumer_command_metadata_status": None,
+                            "artifact_index_stale_generated_at_roles": ["ready_gate_json"],
+                            "artifact_index_stale_generated_at_details": [
+                                {"role": "ready_gate_json", "minimum_role": "handoff_consumer_json"}
+                            ],
                         }
                     },
                     "next_commands": [],
@@ -762,6 +770,8 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     assert launch_readiness_summary["generated_at"] == "refresh-3"
     assert operator_packet["artifact_index_status"] == "pass"
     assert operator_packet["artifact_index_blocker_class"] == "ready"
+    assert operator_packet["artifact_index_stale_generated_at_roles"] == []
+    assert operator_packet["artifact_index_stale_generated_at_details"] == []
     assert operator_packet["consumer_packet_validation_status"] == "pass"
     assert operator_packet["consumer_command_metadata_status"] == "pass"
     assert operator_packet["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
@@ -772,6 +782,8 @@ def test_guarded_launch_refreshes_operator_packet_after_final_artifact_index(tmp
     assert readiness_operator_packet["generated_at"] == "refresh-3"
     assert readiness_operator_packet["artifact_index_status"] == "pass"
     assert readiness_operator_packet["artifact_index_blocker_class"] == "ready"
+    assert readiness_operator_packet["artifact_index_stale_generated_at_roles"] == []
+    assert readiness_operator_packet["artifact_index_stale_generated_at_details"] == []
     assert readiness_operator_packet["consumer_packet_validation_status"] == "pass"
     assert readiness_operator_packet["consumer_command_metadata_status"] == "pass"
     assert (
@@ -856,6 +868,82 @@ def test_guarded_launch_refreshes_status_before_second_artifact_index_pass(tmp_p
     )
     assert final_status["artifact_index_recovery_summary"]["required"] is False
     assert final_status["artifact_index_recovery_summary"]["blocker_class"] == "ready"
+
+
+def test_guarded_launch_reruns_stale_ready_gate_index_after_refresh(tmp_path: Path) -> None:
+    app_root = tmp_path / "AgriGuard"
+    output_dir = tmp_path / "launch-artifacts"
+    output_prefix = "release-check"
+    artifacts = run_guarded_launch._artifact_paths(output_dir.resolve(), output_prefix)
+    artifact_index_json = output_dir.resolve() / "release-check-artifact-index.json"
+    artifact_index_markdown = output_dir.resolve() / "release-check-artifact-index.md"
+    ready_gate_json = output_dir.resolve() / "release-check-ready-gate.json"
+    artifact_index_command = [
+        sys.executable,
+        str(app_root.resolve() / "scripts" / "index_guarded_launch_artifacts.py"),
+    ]
+    calls: list[list[str]] = []
+
+    def write_index(payload: dict[str, object]) -> None:
+        artifact_index_json.parent.mkdir(parents=True, exist_ok=True)
+        artifact_index_json.write_text(json.dumps(payload), encoding="utf-8")
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            write_index(
+                {
+                    "status": "fail",
+                    "blocker_class": "artifact_index_blocked",
+                    "missing_required_roles": [],
+                    "missing_generated_at_roles": [],
+                    "stale_generated_at_roles": ["ready_gate_json"],
+                    "stale_generated_at_details": [
+                        {
+                            "role": "ready_gate_json",
+                            "minimum_role": "handoff_consumer_json",
+                        }
+                    ],
+                }
+            )
+            return subprocess.CompletedProcess(args=command, returncode=1, stdout="", stderr="")
+
+        ready_gate = json.loads(ready_gate_json.read_text(encoding="utf-8"))
+        assert ready_gate["artifacts"]["ready_gate_json"] == str(ready_gate_json)
+        assert ready_gate["ready_gate"]["found"] is True
+        assert ready_gate["ready_gate"]["exists"] is True
+        assert ready_gate["ready_gate"]["generated_at"] == ready_gate["generated_at"]
+        assert ready_gate["ready_gate"]["sha256"] is None
+        assert ready_gate["ready_gate"]["sha256_status"] == "self_referential_unavailable"
+        write_index(
+            {
+                "status": "pass",
+                "blocker_class": "ready",
+                "missing_required_roles": [],
+                "missing_generated_at_roles": [],
+                "stale_generated_at_roles": [],
+                "stale_generated_at_details": [],
+            }
+        )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    result = run_guarded_launch._run_artifact_index_command(
+        command_runner=runner,
+        app_root=app_root.resolve(),
+        output_dir=output_dir.resolve(),
+        output_prefix=output_prefix,
+        artifact_paths=artifacts,
+        artifact_index_json=artifact_index_json,
+        artifact_index_markdown=artifact_index_markdown,
+        ready_gate_json=ready_gate_json,
+        artifact_index_command=artifact_index_command,
+    )
+
+    assert result.returncode == 0
+    assert calls == [artifact_index_command, artifact_index_command]
+    final_index = json.loads(artifact_index_json.read_text(encoding="utf-8"))
+    assert final_index["status"] == "pass"
+    assert final_index["stale_generated_at_roles"] == []
 
 
 def test_guarded_launch_returns_handoff_validation_failure(tmp_path: Path) -> None:

@@ -695,6 +695,75 @@ def _write_status_view_json(path: Path, status_view: dict[str, object]) -> dict[
     return output_view
 
 
+def _artifact_index_ready_gate_refresh_applicable(artifact_index_json: Path) -> bool:
+    artifact_index = _read_json(artifact_index_json)
+    if artifact_index is None:
+        return False
+
+    problem_roles: set[str] = set()
+    for key in ("missing_required_roles", "missing_generated_at_roles", "stale_generated_at_roles"):
+        roles = artifact_index.get(key)
+        if not isinstance(roles, list):
+            continue
+        problem_roles.update(str(role) for role in roles if isinstance(role, str))
+
+    return "ready_gate_json" in problem_roles and problem_roles <= {"ready_gate_json"}
+
+
+def _rerun_artifact_index_after_ready_gate_refresh(
+    *,
+    command_runner: CommandRunner,
+    app_root: Path,
+    output_dir: Path,
+    output_prefix: str,
+    artifact_paths: dict[str, Path],
+    artifact_index_json: Path,
+    artifact_index_markdown: Path,
+    ready_gate_json: Path,
+    artifact_index_command: list[str],
+) -> subprocess.CompletedProcess[str]:
+    status_view = _build_status_view(
+        output_dir=output_dir,
+        output_prefix=output_prefix,
+        artifact_paths=artifact_paths,
+        artifact_index_json=artifact_index_json,
+        artifact_index_markdown=artifact_index_markdown,
+        ready_gate_json=ready_gate_json,
+    )
+    _write_status_view_json(ready_gate_json, status_view)
+    return command_runner(artifact_index_command, cwd=app_root, text=True)
+
+
+def _run_artifact_index_command(
+    *,
+    command_runner: CommandRunner,
+    app_root: Path,
+    output_dir: Path,
+    output_prefix: str,
+    artifact_paths: dict[str, Path],
+    artifact_index_json: Path,
+    artifact_index_markdown: Path,
+    ready_gate_json: Path,
+    artifact_index_command: list[str],
+) -> subprocess.CompletedProcess[str]:
+    artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+    if artifact_index_result.returncode == 0:
+        return artifact_index_result
+    if not _artifact_index_ready_gate_refresh_applicable(artifact_index_json):
+        return artifact_index_result
+    return _rerun_artifact_index_after_ready_gate_refresh(
+        command_runner=command_runner,
+        app_root=app_root,
+        output_dir=output_dir,
+        output_prefix=output_prefix,
+        artifact_paths=artifact_paths,
+        artifact_index_json=artifact_index_json,
+        artifact_index_markdown=artifact_index_markdown,
+        ready_gate_json=ready_gate_json,
+        artifact_index_command=artifact_index_command,
+    )
+
+
 def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dict[str, object]:
     if packet is None:
         return {}
@@ -710,6 +779,12 @@ def _operator_packet_artifact_index_fields(packet: dict[str, Any] | None) -> dic
         "generated_at": packet.get("generated_at"),
         "artifact_index_status": artifact_index_summary.get("status"),
         "artifact_index_blocker_class": artifact_index_summary.get("blocker_class"),
+        "artifact_index_stale_generated_at_roles": _string_list(
+            artifact_index_summary.get("stale_generated_at_roles")
+        ),
+        "artifact_index_stale_generated_at_details": _dict_list(
+            artifact_index_summary.get("stale_generated_at_details")
+        ),
         "consumer_packet_validation_status": artifact_index_summary.get(
             "consumer_packet_validation_status"
         ),
@@ -1572,7 +1647,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         if consumer_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = consumer_result.returncode
     if artifact_index_command is not None:
-        artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+        artifact_index_result = _run_artifact_index_command(
+            command_runner=command_runner,
+            app_root=app_root,
+            output_dir=output_dir,
+            output_prefix=args.output_prefix,
+            artifact_paths=artifact_paths,
+            artifact_index_json=artifact_index_json,
+            artifact_index_markdown=artifact_index_markdown,
+            ready_gate_json=handoff_ready_gate_json,
+            artifact_index_command=artifact_index_command,
+        )
         if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = artifact_index_result.returncode
     if (
@@ -1615,7 +1700,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
         consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
         if consumer_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = consumer_result.returncode
-        artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+        artifact_index_result = _run_artifact_index_command(
+            command_runner=command_runner,
+            app_root=app_root,
+            output_dir=output_dir,
+            output_prefix=args.output_prefix,
+            artifact_paths=artifact_paths,
+            artifact_index_json=artifact_index_json,
+            artifact_index_markdown=artifact_index_markdown,
+            ready_gate_json=handoff_ready_gate_json,
+            artifact_index_command=artifact_index_command,
+        )
         if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
             post_launch_returncode = artifact_index_result.returncode
         if post_launch_returncode == 0:
@@ -1636,7 +1731,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
             consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
             if consumer_result.returncode != 0 and post_launch_returncode == 0:
                 post_launch_returncode = consumer_result.returncode
-            artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+            artifact_index_result = _run_artifact_index_command(
+                command_runner=command_runner,
+                app_root=app_root,
+                output_dir=output_dir,
+                output_prefix=args.output_prefix,
+                artifact_paths=artifact_paths,
+                artifact_index_json=artifact_index_json,
+                artifact_index_markdown=artifact_index_markdown,
+                ready_gate_json=handoff_ready_gate_json,
+                artifact_index_command=artifact_index_command,
+            )
             if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
                 post_launch_returncode = artifact_index_result.returncode
             if post_launch_returncode == 0:
@@ -1673,7 +1778,17 @@ def main(argv: list[str] | None = None, *, command_runner: CommandRunner = subpr
                 consumer_result = command_runner(handoff_consumer_command, cwd=app_root, text=True)
                 if consumer_result.returncode != 0 and post_launch_returncode == 0:
                     post_launch_returncode = consumer_result.returncode
-                artifact_index_result = command_runner(artifact_index_command, cwd=app_root, text=True)
+                artifact_index_result = _run_artifact_index_command(
+                    command_runner=command_runner,
+                    app_root=app_root,
+                    output_dir=output_dir,
+                    output_prefix=args.output_prefix,
+                    artifact_paths=artifact_paths,
+                    artifact_index_json=artifact_index_json,
+                    artifact_index_markdown=artifact_index_markdown,
+                    ready_gate_json=handoff_ready_gate_json,
+                    artifact_index_command=artifact_index_command,
+                )
                 if artifact_index_result.returncode != 0 and post_launch_returncode == 0:
                     post_launch_returncode = artifact_index_result.returncode
     if effective_status_json_out is not None or args.require_ready:
