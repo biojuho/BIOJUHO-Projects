@@ -339,7 +339,8 @@ export default function QRTokenManager() {
                 <h2 className="text-lg font-semibold text-emerald-100">New label URL ready</h2>
                 <p
                   data-testid="qr-token-reissue-url"
-                  className="mt-2 max-w-full overflow-x-auto whitespace-nowrap rounded-md border border-emerald-400/20 bg-slate-950/60 px-3 py-2 font-mono text-xs text-emerald-50 sm:text-sm"
+                  title={actionState.success.qrCode}
+                  className="mt-2 max-w-full overflow-x-auto whitespace-nowrap rounded-md border border-emerald-400/20 bg-slate-950/60 px-3 py-2 font-mono text-xs text-emerald-50 select-all sm:text-sm"
                 >
                   {actionState.success.qrCode}
                 </p>

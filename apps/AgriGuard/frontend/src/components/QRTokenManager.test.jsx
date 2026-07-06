@@ -241,6 +241,8 @@ describe('QRTokenManager', () => {
     expect(screen.getByText('https://verify.agriguard.test/verify/new-public-token')).toBeInTheDocument();
     expect(screen.getByTestId('qr-token-reissue-url')).toHaveClass('overflow-x-auto');
     expect(screen.getByTestId('qr-token-reissue-url')).toHaveClass('whitespace-nowrap');
+    expect(screen.getByTestId('qr-token-reissue-url')).toHaveClass('select-all');
+    expect(screen.getByTestId('qr-token-reissue-url')).toHaveAttribute('title', 'https://verify.agriguard.test/verify/new-public-token');
     expect(screen.getByTestId('qr-token-reissue-result')).toHaveClass('scroll-mt-24');
     await waitFor(() => {
       expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
