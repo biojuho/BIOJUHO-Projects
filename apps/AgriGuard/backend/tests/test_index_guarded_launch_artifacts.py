@@ -190,7 +190,8 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
         "note": None,
         "command": None,
     }
-    assert "Blocker class: `ready`" in markdown
+    assert "Artifact index status: `pass`" in markdown
+    assert "Artifact index blocker class: `ready`" in markdown
     assert f"Generated: `{index['generated_at']}`" in markdown
     assert "Launch stage: `preflight`" in markdown
     assert "Launch browser smoke launch gate enforced: `-`" in markdown
