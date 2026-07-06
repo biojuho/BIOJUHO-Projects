@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,10 @@ def _workspace_root(app_root: Path) -> Path:
 
 def _default_env_file(app_root: Path) -> Path:
     return _workspace_root(app_root) / "var" / "agriguard-launch-operator.env.template"
+
+
+def _generated_timestamp_utc() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _artifact_paths(output_dir: Path, output_prefix: str) -> dict[str, Path]:
@@ -475,6 +480,7 @@ def _build_status_view(
 
     return {
         "schema_version": 1,
+        "generated_at": _generated_timestamp_utc(),
         "status": status,
         "blocker_class": blocker_class,
         "operator_action_ids": action_ids,

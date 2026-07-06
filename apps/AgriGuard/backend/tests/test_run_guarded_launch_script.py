@@ -988,6 +988,9 @@ def test_guarded_launch_status_only_reports_missing_artifacts(tmp_path: Path, ca
 
     payload = json.loads(capsys.readouterr().out)
     assert result == 0
+    assert payload["generated_at"].endswith("Z")
+    payload["generated_at"].encode("ascii")
+    assert " " not in payload["generated_at"]
     assert payload["status"] == "missing_artifacts"
     assert payload["launch"]["found"] is False
     assert payload["readiness_summary"]["found"] is False

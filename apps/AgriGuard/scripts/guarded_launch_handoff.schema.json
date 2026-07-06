@@ -590,6 +590,9 @@
             "null"
           ]
         },
+        "generated_at": {
+          "type": "string"
+        },
         "launch": {
           "additionalProperties": false,
           "properties": {
@@ -1220,6 +1223,7 @@
       },
       "required": [
         "schema_version",
+        "generated_at",
         "status",
         "blocker_class",
         "operator_action_ids",
