@@ -402,6 +402,7 @@ describe('SensorDeviceManager', () => {
     const sensorLabels = screen.getAllByTestId('registered-sensor-label');
     expect(sensorLabels[0]).toHaveAttribute('title', 'Dock probe 1');
     expect(sensorLabels[0]).toHaveClass('truncate');
+    expect(sensorLabels[0]).toHaveClass('select-all');
     const ownerIds = screen.getAllByTestId('registered-sensor-owner-id');
     expect(ownerIds[0]).toHaveAttribute('title', 'tenant-cold-chain');
     expect(ownerIds[0]).toHaveClass('truncate');
@@ -439,6 +440,7 @@ describe('SensorDeviceManager', () => {
     expect(unsupportedSensorLabel).toHaveTextContent('Legacy slash probe');
     expect(unsupportedSensorLabel).toHaveAttribute('title', 'Legacy slash probe');
     expect(unsupportedSensorLabel).toHaveClass('truncate');
+    expect(unsupportedSensorLabel).toHaveClass('select-all');
 
     const actionPanel = screen.getByTestId('unsupported-sensor-action-panel');
     expect(actionPanel).toHaveClass('min-w-0');

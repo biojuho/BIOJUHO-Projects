@@ -994,7 +994,7 @@ export default function SensorDeviceManager() {
                           <div
                             data-testid="unsupported-sensor-label"
                             title={sensor.label || 'Unlabeled'}
-                            className="mt-1 max-w-56 truncate text-xs text-muted-foreground"
+                            className="mt-1 max-w-56 truncate select-all text-xs text-muted-foreground"
                           >
                             {sensor.label || 'Unlabeled'}
                           </div>
@@ -1679,7 +1679,7 @@ export default function SensorDeviceManager() {
                             <div
                               data-testid="registered-sensor-label"
                               title={sensor.label || 'Unlabeled'}
-                              className="mt-1 max-w-56 truncate text-xs text-muted-foreground"
+                              className="mt-1 max-w-56 truncate select-all text-xs text-muted-foreground"
                             >
                               {sensor.label || 'Unlabeled'}
                             </div>
