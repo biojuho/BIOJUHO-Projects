@@ -219,8 +219,16 @@ export default function ProductRegistry() {
               </div>
               <div data-testid="registry-success-content" className="min-w-0 flex-1">
                 <h3 className="text-lg font-bold text-foreground">Registration Successful!</h3>
-                <p className="text-primary text-sm mt-1">
-                  Batch ID: <Badge variant="outline" className="font-mono">{uiState.success.id}</Badge>
+                <p className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm text-primary">
+                  <span>Batch ID:</span>
+                  <Badge
+                    data-testid="registry-success-batch-id"
+                    title={uiState.success.id}
+                    variant="outline"
+                    className="max-w-full truncate font-mono"
+                  >
+                    {uiState.success.id}
+                  </Badge>
                 </p>
                 <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Public verify label

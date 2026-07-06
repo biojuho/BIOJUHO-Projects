@@ -75,6 +75,10 @@ describe('ProductRegistry', () => {
 
     expect(await screen.findByText('Registration Successful!')).toBeInTheDocument();
     expect(screen.getByText('batch-1')).toBeInTheDocument();
+    const batchId = screen.getByTestId('registry-success-batch-id');
+    expect(batchId).toHaveAttribute('title', 'batch-1');
+    expect(batchId).toHaveClass('truncate');
+    expect(batchId).toHaveClass('max-w-full');
     expect(screen.getByText('Public verify label')).toBeInTheDocument();
     expect(screen.getByText('https://verify.agriguard.test/verify/public-token-1')).toBeInTheDocument();
     expect(screen.getByTestId('registry-success-content')).toHaveClass('min-w-0');
