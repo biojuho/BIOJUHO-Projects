@@ -740,6 +740,66 @@
               },
               "type": "array"
             },
+            "preflight_checks": {
+              "additionalProperties": false,
+              "properties": {
+                "allowed_origins_source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "database_password_source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "database_url_source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "docker_checked": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "firebase_credentials_resolved_path": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "firebase_credentials_source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "forbidden_launch_flags_enabled": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "public_verify_base_url_source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "runtime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            },
             "preflight_status": {
               "type": [
                 "string",

@@ -111,6 +111,26 @@ def _operator_action_ids_from_packet(payload: dict[str, Any] | None) -> list[str
     ]
 
 
+def _operator_packet_preflight_checks(payload: dict[str, Any] | None) -> dict[str, object]:
+    if payload is None:
+        return {}
+    checks = payload.get("preflight_checks")
+    if not isinstance(checks, dict):
+        return {}
+    safe_keys = (
+        "runtime",
+        "docker_checked",
+        "firebase_credentials_source",
+        "firebase_credentials_resolved_path",
+        "forbidden_launch_flags_enabled",
+        "allowed_origins_source",
+        "public_verify_base_url_source",
+        "database_password_source",
+        "database_url_source",
+    )
+    return {key: checks[key] for key in safe_keys if key in checks}
+
+
 def _operator_action_ids_from_summary(payload: dict[str, Any] | None) -> list[str]:
     if payload is None:
         return []
@@ -519,6 +539,7 @@ def _build_status_view(
             if packet is not None and isinstance(packet.get("blocking_action_count"), int)
             else None,
             "preflight_status": packet.get("preflight_status") if packet is not None else None,
+            "preflight_checks": _operator_packet_preflight_checks(packet),
             "preflight_errors": _string_list(packet.get("preflight_errors")) if packet is not None else [],
             "secrets_redacted": packet.get("secrets_redacted") if packet is not None else None,
         },

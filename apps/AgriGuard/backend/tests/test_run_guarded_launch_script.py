@@ -1047,6 +1047,11 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                 "blocker_class": "operator_values_required",
                 "blocking_action_count": 1,
                 "preflight_status": "fail",
+                "preflight_checks": {
+                    "runtime": "compose",
+                    "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+                    "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
+                },
                 "preflight_errors": ["AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."],
                 "operator_actions": [{"id": "fallback_action"}],
                 "secrets_redacted": True,
@@ -1111,6 +1116,11 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["operator_packet"]["blocking_action_count"] == 1
     assert payload["operator_packet"]["blocker_class"] == "operator_values_required"
     assert payload["operator_packet"]["preflight_status"] == "fail"
+    assert payload["operator_packet"]["preflight_checks"] == {
+        "runtime": "compose",
+        "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+        "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
+    }
     assert payload["operator_packet"]["preflight_errors"] == [
         "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE file does not exist."
     ]

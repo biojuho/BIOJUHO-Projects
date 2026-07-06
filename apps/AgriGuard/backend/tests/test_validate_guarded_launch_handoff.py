@@ -63,6 +63,13 @@ def _write_blocked_handoff(tmp_path: Path) -> dict[str, object]:
 
 def test_validate_guarded_launch_handoff_accepts_rendered_handoff(tmp_path: Path) -> None:
     handoff = _write_blocked_handoff(tmp_path)
+    handoff["status_view"]["operator_packet"]["preflight_checks"] = {
+        "runtime": "compose",
+        "docker_checked": True,
+        "firebase_credentials_source": "AGRIGUARD_FIREBASE_SERVICE_ACCOUNT_FILE",
+        "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
+        "forbidden_launch_flags_enabled": [],
+    }
 
     errors = validate_guarded_launch_handoff.validate_handoff(handoff)
 
