@@ -26,13 +26,14 @@ def _write_core_artifacts(output_dir: Path, prefix: str) -> dict[str, Path]:
     _write_json(
         paths["launch_report_json"],
         {
+            "generated_at": "2026-07-06T12:54:58Z",
             "status": "fail",
             "stage": "preflight",
             "stop_reason": "preflight_failed",
             "results": [{"name": "preflight"}],
         },
     )
-    _write_json(paths["handoff_json"], {"status": "blocked"})
+    _write_json(paths["handoff_json"], {"generated_at": "2026-07-06T12:54:59Z", "status": "blocked"})
     paths["handoff_markdown"].write_text("# Handoff\n", encoding="utf-8")
     _write_json(
         paths["handoff_validation_json"],
@@ -160,6 +161,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert index["consumer_readiness_operator_packet_preflight_status"] == "env_shape_blocked"
     assert index["consumer_readiness_operator_packet_consumer_command_metadata_status"] == "pass"
     assert index["missing_required_roles"] == []
+    assert index["missing_generated_at_roles"] == []
     assert index["recovery_action"] is None
     assert index["recovery_command"] is None
     assert index["recovery_command_shell"] is None
@@ -193,6 +195,7 @@ def test_index_guarded_launch_artifacts_passes_complete_blocked_evidence(tmp_pat
     assert "`validate_env_template` (powershell): `& python validate_launch_env_template.py`" in markdown
     assert "| Role | Required | Exists | Size | Generated | SHA-256 | Path |" in markdown
     assert "`2026-07-06T12:55:00Z`" in markdown
+    assert "Missing generated_at roles: `-`" in markdown
 
 
 def test_index_guarded_launch_artifacts_prefers_status_view_command_metadata(tmp_path: Path) -> None:
@@ -230,15 +233,24 @@ def test_index_guarded_launch_artifacts_accepts_custom_handoff_paths(tmp_path: P
     )
     _write_json(
         paths["launch_report_json"],
-        {"status": "fail", "stage": "preflight", "results": [{"name": "preflight"}]},
+        {
+            "generated_at": "2026-07-06T12:56:00Z",
+            "status": "fail",
+            "stage": "preflight",
+            "results": [{"name": "preflight"}],
+        },
     )
-    _write_json(paths["handoff_json"], {"status": "blocked"})
+    _write_json(paths["handoff_json"], {"generated_at": "2026-07-06T12:56:01Z", "status": "blocked"})
     paths["handoff_markdown"].parent.mkdir(parents=True, exist_ok=True)
     paths["handoff_markdown"].write_text("# Custom handoff\n", encoding="utf-8")
-    _write_json(paths["handoff_validation_json"], {"status": "pass", "errors": []})
+    _write_json(
+        paths["handoff_validation_json"],
+        {"generated_at": "2026-07-06T12:56:02Z", "status": "pass", "errors": []},
+    )
     _write_json(
         paths["handoff_consumer_json"],
         {
+            "generated_at": "2026-07-06T12:56:03Z",
             "status": "fail",
             "blocker_class": "preflight_blocked",
             "validation_matches_handoff": True,
@@ -314,6 +326,27 @@ def test_index_guarded_launch_artifacts_fails_stale_consumer_command_metadata(tm
     assert index["blocker_class"] == "artifact_index_blocked"
     assert index["consumer_command_metadata_status"] == "fail"
     assert index["recovery_command_status"] == "pass"
+
+
+def test_index_guarded_launch_artifacts_fails_missing_json_generated_at(tmp_path: Path) -> None:
+    output_dir = tmp_path / "launch-artifacts"
+    paths = _write_core_artifacts(output_dir, "blocked")
+    consumer = json.loads(paths["handoff_consumer_json"].read_text(encoding="utf-8"))
+    consumer.pop("generated_at")
+    paths["handoff_consumer_json"].write_text(json.dumps(consumer), encoding="utf-8")
+
+    index = index_guarded_launch_artifacts.build_index(
+        app_root=APP_ROOT,
+        output_dir=output_dir,
+        output_prefix="blocked",
+    )
+    markdown = index_guarded_launch_artifacts.render_markdown(index)
+
+    assert index["status"] == "fail"
+    assert index["blocker_class"] == "artifact_index_blocked"
+    assert index["missing_generated_at_roles"] == ["handoff_consumer_json"]
+    assert index["recovery_command_status"] == "pass"
+    assert "Missing generated_at roles: `handoff_consumer_json`" in markdown
 
 
 def test_index_guarded_launch_artifacts_fails_packet_validation_drift(tmp_path: Path) -> None:
@@ -441,7 +474,7 @@ def test_index_guarded_launch_artifacts_can_require_status_json(tmp_path: Path) 
         output_prefix="blocked",
         status_json=status_json,
     )
-    _write_json(status_json, {"status": "blocked"})
+    _write_json(status_json, {"generated_at": "2026-07-06T12:57:00Z", "status": "blocked"})
     present_index = index_guarded_launch_artifacts.build_index(
         app_root=APP_ROOT,
         output_dir=output_dir,

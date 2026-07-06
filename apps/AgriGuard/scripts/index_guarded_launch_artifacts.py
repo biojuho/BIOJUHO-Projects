@@ -38,6 +38,18 @@ REQUIRED_CORE_ARTIFACT_ROLES = (
     "handoff_consumer_json",
 )
 STATUS_ARTIFACT_ROLE = "status_json"
+FRESHNESS_REQUIRED_JSON_ROLES = {
+    "status_json",
+    "env_validation_json",
+    "preflight_json",
+    "launch_report_json",
+    "operator_packet_json",
+    "readiness_summary_json",
+    "handoff_json",
+    "handoff_validation_json",
+    "handoff_consumer_json",
+    "ready_gate_json",
+}
 
 
 def _generated_timestamp_utc() -> str:
@@ -293,6 +305,11 @@ def build_index(
         )
     ]
     missing_required = [item["role"] for item in artifacts if item["required"] and not item["exists"]]
+    missing_generated_at_roles = [
+        str(item["role"])
+        for item in artifacts
+        if item["role"] in FRESHNESS_REQUIRED_JSON_ROLES and item["exists"] and not item["generated_at"]
+    ]
     consumer = _read_json(paths["handoff_consumer_json"])
     validation = _read_json(paths["handoff_validation_json"])
     launch = _read_json(paths["launch_report_json"])
@@ -350,6 +367,7 @@ def build_index(
     index_status = (
         "pass"
         if not missing_required
+        and not missing_generated_at_roles
         and isinstance(consumer, dict)
         and consumer_validation_matches
         and consumer_packet_validation_status == "pass"
@@ -404,6 +422,7 @@ def build_index(
         "output_dir": str(output_dir),
         "artifacts": artifacts,
         "missing_required_roles": missing_required,
+        "missing_generated_at_roles": missing_generated_at_roles,
         "consumer_status": consumer.get("status") if isinstance(consumer, dict) else None,
         "consumer_blocker_class": consumer.get("blocker_class") if isinstance(consumer, dict) else None,
         "consumer_validation_matches_handoff": consumer_validation_matches,
@@ -472,6 +491,11 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
 
 def render_markdown(index: dict[str, object]) -> str:
     missing_roles = index.get("missing_required_roles") if isinstance(index.get("missing_required_roles"), list) else []
+    missing_generated_at_roles = (
+        index.get("missing_generated_at_roles")
+        if isinstance(index.get("missing_generated_at_roles"), list)
+        else []
+    )
     artifacts = index.get("artifacts") if isinstance(index.get("artifacts"), list) else []
     consumer_errors = index.get("consumer_errors") if isinstance(index.get("consumer_errors"), list) else []
     consumer_error_text = "; ".join(str(error) for error in consumer_errors) if consumer_errors else "-"
@@ -534,6 +558,8 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Consumer readiness command metadata: `{index.get('consumer_readiness_operator_packet_consumer_command_metadata_status')}`",
         f"- Consumer errors: `{consumer_error_text}`",
         f"- Missing required roles: `{', '.join(str(role) for role in missing_roles) if missing_roles else '-'}`",
+        "- Missing generated_at roles: "
+        f"`{', '.join(str(role) for role in missing_generated_at_roles) if missing_generated_at_roles else '-'}`",
         f"- Recovery summary required: `{str(recovery_summary.get('required')).lower()}`",
         f"- Recovery summary blocker class: `{recovery_summary.get('blocker_class') or '-'}`",
         f"- Recovery action: `{index.get('recovery_action') or '-'}`",
