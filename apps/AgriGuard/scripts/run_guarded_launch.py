@@ -455,6 +455,11 @@ def _build_status_view(
         if artifact_index is not None and isinstance(artifact_index.get("missing_required_roles"), list)
         else []
     )
+    missing_generated_at_roles = (
+        artifact_index.get("missing_generated_at_roles")
+        if artifact_index is not None and isinstance(artifact_index.get("missing_generated_at_roles"), list)
+        else []
+    )
     artifact_index_recovery_summary = (
         _artifact_index_recovery_summary(artifact_index, _packet_guarded_wrapper_command(packet))
         if artifact_index is not None
@@ -571,6 +576,9 @@ def _build_status_view(
             "blocker_class": _artifact_index_view_blocker_class(artifact_index),
             "missing_required_roles": [
                 str(role) for role in missing_required_roles if isinstance(role, str)
+            ],
+            "missing_generated_at_roles": [
+                str(role) for role in missing_generated_at_roles if isinstance(role, str)
             ],
             "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status")
             if artifact_index is not None

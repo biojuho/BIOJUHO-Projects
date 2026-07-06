@@ -306,6 +306,7 @@ def test_operator_packet_can_target_custom_guarded_evidence_outputs(tmp_path: Pa
             {
                 "status": "pass",
                 "blocker_class": "ready",
+                "missing_generated_at_roles": ["handoff_consumer_json"],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -740,6 +741,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
             {
                 "status": "pass",
                 "blocker_class": "ready",
+                "missing_generated_at_roles": ["handoff_consumer_json"],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -783,6 +785,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
         "path": "var/agriguard-guarded-launch-artifact-index.json",
         "status": "pass",
         "blocker_class": "ready",
+        "missing_generated_at_roles": ["handoff_consumer_json"],
         "consumer_packet_validation_status": "pass",
         "consumer_command_metadata_status": "pass",
         "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -824,6 +827,7 @@ def test_operator_packet_mirrors_artifact_index_readiness_summary(tmp_path: Path
     assert "Recovery command status: `not_required`" in markdown
     assert "Recovery summary required: `false`" in markdown
     assert "Artifact index blocker class: `ready`" in markdown
+    assert "Missing generated_at roles: `handoff_consumer_json`" in markdown
     assert "Env validation blocker class: `env_shape_blocked`" in markdown
     assert "Consumer command metadata: `pass`" in markdown
     assert "Consumer readiness command metadata: `pass`" in markdown

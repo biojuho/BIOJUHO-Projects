@@ -70,6 +70,7 @@ def test_validate_guarded_launch_handoff_accepts_rendered_handoff(tmp_path: Path
         "firebase_credentials_resolved_path": "C:/secure/missing-firebase.json",
         "forbidden_launch_flags_enabled": [],
     }
+    handoff["status_view"]["ready_gate"]["generated_at"] = "2026-07-06T13:23:00Z"
 
     errors = validate_guarded_launch_handoff.validate_handoff(handoff)
 

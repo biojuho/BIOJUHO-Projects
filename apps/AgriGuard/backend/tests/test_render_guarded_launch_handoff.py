@@ -154,6 +154,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
                 "status": "pass",
                 "blocker_class": "ready",
                 "missing_required_roles": [],
+                "missing_generated_at_roles": [],
                 "consumer_packet_validation_status": "pass",
                 "consumer_command_metadata_status": "pass",
                 "consumer_readiness_operator_packet_consumer_command_metadata_status": "pass",
@@ -256,6 +257,7 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "Artifact index status: `pass`" in markdown
     assert f"Artifact index path: `{artifact_index_json.resolve()}`" in markdown
     assert "Artifact index blocker class: `ready`" in markdown
+    assert "Artifact index missing generated_at roles: `-`" in markdown
     assert "Artifact index consumer packet validation: `pass`" in markdown
     assert "Artifact index consumer command metadata: `pass`" in markdown
     assert "Artifact index readiness command metadata: `pass`" in markdown

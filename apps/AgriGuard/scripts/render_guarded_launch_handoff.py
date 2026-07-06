@@ -452,6 +452,11 @@ def render_markdown(handoff: dict[str, object]) -> str:
         if key in preflight_checks and _markdown_check_value(preflight_checks.get(key)) != "-"
     ]
     artifact_index = status_view.get("artifact_index") if isinstance(status_view.get("artifact_index"), dict) else {}
+    missing_generated_at_roles = (
+        artifact_index.get("missing_generated_at_roles")
+        if isinstance(artifact_index.get("missing_generated_at_roles"), list)
+        else []
+    )
     ready_gate = handoff.get("ready_gate") if isinstance(handoff.get("ready_gate"), dict) else {}
     validation = handoff.get("validation") if isinstance(handoff.get("validation"), dict) else {}
     packet_validation = handoff.get("packet_validation") if isinstance(handoff.get("packet_validation"), dict) else {}
@@ -489,6 +494,8 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Artifact index status: `{artifact_index.get('status')}`",
         f"- Artifact index path: `{artifact_index.get('path') or '-'}`",
         f"- Artifact index blocker class: `{artifact_index.get('blocker_class') or '-'}`",
+        "- Artifact index missing generated_at roles: "
+        f"`{', '.join(str(role) for role in missing_generated_at_roles) or '-'}`",
         f"- Artifact index consumer packet validation: `{artifact_index.get('consumer_packet_validation_status')}`",
         f"- Artifact index consumer command metadata: `{artifact_index.get('consumer_command_metadata_status')}`",
         "- Artifact index readiness command metadata: "

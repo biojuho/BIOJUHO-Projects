@@ -324,6 +324,9 @@ def build_consumer_view(
         "packet_artifact_index_recovery_summary": packet_recovery_summary,
         "artifact_index_status": artifact_index.get("status"),
         "artifact_index_blocker_class": artifact_index.get("blocker_class"),
+        "artifact_index_missing_generated_at_roles": _string_list(
+            artifact_index.get("missing_generated_at_roles")
+        ),
         "consumer_packet_validation_status": artifact_index.get("consumer_packet_validation_status"),
         "consumer_command_metadata_status": artifact_index.get("consumer_command_metadata_status"),
         "consumer_readiness_operator_packet_consumer_command_metadata_status": artifact_index.get(

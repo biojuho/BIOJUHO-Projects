@@ -536,6 +536,12 @@
               },
               "type": "array"
             },
+            "missing_generated_at_roles": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
             "path": {
               "type": [
                 "string",
@@ -561,6 +567,7 @@
             "status",
             "blocker_class",
             "missing_required_roles",
+            "missing_generated_at_roles",
             "consumer_packet_validation_status",
             "consumer_metadata_status",
             "consumer_command_metadata_status",
@@ -1181,6 +1188,12 @@
             },
             "found": {
               "type": "boolean"
+            },
+            "generated_at": {
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "path": {
               "type": [
