@@ -1164,6 +1164,17 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
                 "blocker_class": "preflight_blocked",
                 "stage": "preflight",
                 "stop_reason": "preflight_failed",
+                "compose_replacement_guard": {
+                    "current_runtime_action_before_preflight": "none",
+                    "compose_replacement_requires_env_shape_validation": True,
+                    "compose_replacement_requires_strict_preflight": True,
+                    "compose_runs_only_after_preflight_passes": True,
+                    "blocked_stop_reasons": [
+                        "env_shape_validation_requires_single_env_file",
+                        "env_shape_validation_failed",
+                        "preflight_failed",
+                    ],
+                },
                 "results": [{"name": "env_validation"}, {"name": "preflight"}],
             }
         ),
@@ -1286,6 +1297,17 @@ def test_guarded_launch_status_only_reads_compact_prefix_view(tmp_path: Path, ca
     assert payload["launch"]["stage"] == "preflight"
     assert payload["launch"]["blocker_class"] == "preflight_blocked"
     assert payload["launch"]["result_names"] == ["env_validation", "preflight"]
+    assert payload["launch"]["compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": True,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     assert payload["readiness_summary"]["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert payload["readiness_summary"]["env_validation_blocker_class"] == "env_shape_blocked"
     assert payload["readiness_summary"]["env_validation_ready_for_preflight"] is False

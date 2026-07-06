@@ -419,6 +419,11 @@ def build_handoff(
 def render_markdown(handoff: dict[str, object]) -> str:
     status_view = handoff.get("status_view") if isinstance(handoff.get("status_view"), dict) else {}
     launch = status_view.get("launch") if isinstance(status_view.get("launch"), dict) else {}
+    compose_replacement_guard = (
+        launch.get("compose_replacement_guard")
+        if isinstance(launch.get("compose_replacement_guard"), dict)
+        else {}
+    )
     readiness_summary = (
         status_view.get("readiness_summary") if isinstance(status_view.get("readiness_summary"), dict) else {}
     )
@@ -482,6 +487,12 @@ def render_markdown(handoff: dict[str, object]) -> str:
         f"- Status: `{handoff.get('status')}`",
         f"- Output prefix: `{handoff.get('output_prefix')}`",
         f"- Launch stage: `{launch.get('stage')}`",
+        "- Compose replacement action before preflight: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('current_runtime_action_before_preflight'))}`",
+        "- Compose replacement requires strict preflight: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('compose_replacement_requires_strict_preflight'))}`",
+        "- Compose runs only after preflight passes: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('compose_runs_only_after_preflight_passes'))}`",
         f"- Blocker class: `{handoff.get('blocker_class')}`",
         f"- Ready gate: `{ready_gate.get('status')}`",
         f"- Ready gate blocker class: `{ready_gate.get('blocker_class') or '-'}`",

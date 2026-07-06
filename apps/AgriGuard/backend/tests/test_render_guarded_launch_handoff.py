@@ -81,6 +81,17 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
                 "status": "fail",
                 "stage": "preflight",
                 "stop_reason": "preflight_failed",
+                "compose_replacement_guard": {
+                    "current_runtime_action_before_preflight": "none",
+                    "compose_replacement_requires_env_shape_validation": True,
+                    "compose_replacement_requires_strict_preflight": True,
+                    "compose_runs_only_after_preflight_passes": True,
+                    "blocked_stop_reasons": [
+                        "env_shape_validation_requires_single_env_file",
+                        "env_shape_validation_failed",
+                        "preflight_failed",
+                    ],
+                },
                 "results": [{"name": "env_validation"}, {"name": "preflight"}],
             }
         ),
@@ -207,6 +218,17 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert handoff["status_view"]["readiness_summary"]["browser_smoke"]["path"] == (
         "var/agriguard-browser-smoke-suite-compose-launch.json"
     )
+    assert handoff["status_view"]["launch"]["compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": True,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     assert handoff["packet_validation"]["status"] == "pass"
     assert handoff["packet_validation"]["blocker_class"] == "ready"
     assert handoff["packet_validation"]["evidence_outputs_status"] == "pass"
@@ -268,6 +290,9 @@ def test_guarded_launch_handoff_blocks_on_prefight_status(tmp_path: Path) -> Non
     assert "Artifact index readiness command metadata: `pass`" in markdown
     assert "Readiness next action count: `2`" in markdown
     assert "Readiness next command count: `1`" in markdown
+    assert "Compose replacement action before preflight: `none`" in markdown
+    assert "Compose replacement requires strict preflight: `true`" in markdown
+    assert "Compose runs only after preflight passes: `true`" in markdown
     assert "## Status Preflight Checks" in markdown
     assert "| `firebase_credentials_resolved_path` | `C:/secure/missing-firebase.json` |" in markdown
     assert "## Status Browser Smoke Evidence" in markdown

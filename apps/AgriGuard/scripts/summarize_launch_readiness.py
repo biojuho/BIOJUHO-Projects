@@ -55,6 +55,10 @@ def _dict_list(value: object) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, dict)]
 
 
+def _dict_value(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
 def _env_validation_summary(path: Path, workspace_root: Path) -> dict[str, object]:
     payload = _read_json(path)
     if payload is None:
@@ -153,6 +157,7 @@ def _launch_report_summary(path: Path, workspace_root: Path) -> dict[str, object
         "stage": payload.get("stage"),
         "stop_reason": payload.get("stop_reason"),
         "run_browser_smoke": payload.get("run_browser_smoke"),
+        "compose_replacement_guard": _dict_value(payload.get("compose_replacement_guard")),
         "result_names": result_names,
         "env_validation_blocker_class": env_validation.get("blocker_class"),
         "env_validation_ready_for_preflight": env_validation.get("ready_for_preflight"),
@@ -407,6 +412,7 @@ def _markdown_check_value(value: object) -> str:
 def render_markdown(summary: dict[str, object]) -> str:
     reports = summary.get("reports") if isinstance(summary.get("reports"), dict) else {}
     launch = reports.get("launch") if isinstance(reports.get("launch"), dict) else {}
+    compose_replacement_guard = _dict_value(launch.get("compose_replacement_guard"))
     browser_smoke = launch.get("browser_smoke") if isinstance(launch.get("browser_smoke"), dict) else {}
     env_validation = reports.get("env_validation") if isinstance(reports.get("env_validation"), dict) else {}
     operator_packet = reports.get("operator_packet") if isinstance(reports.get("operator_packet"), dict) else {}
@@ -442,6 +448,12 @@ def render_markdown(summary: dict[str, object]) -> str:
         f"- Status: `{summary['status']}`",
         f"- Blocker class: `{summary['blocker_class']}`",
         f"- Launch report blocker class: `{launch.get('blocker_class') or '-'}`",
+        "- Compose replacement action before preflight: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('current_runtime_action_before_preflight'))}`",
+        "- Compose replacement requires strict preflight: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('compose_replacement_requires_strict_preflight'))}`",
+        "- Compose runs only after preflight passes: "
+        f"`{_markdown_check_value(compose_replacement_guard.get('compose_runs_only_after_preflight_passes'))}`",
         f"- Env validation blocker class: `{env_validation.get('blocker_class') or '-'}`",
         f"- Env validation ready for preflight: `{str(env_validation.get('ready_for_preflight')).lower()}`",
         f"- Env validation placeholder count: `{env_validation.get('placeholder_count')}`",

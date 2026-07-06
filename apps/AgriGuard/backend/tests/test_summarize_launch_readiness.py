@@ -156,6 +156,17 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
                 "stage": "preflight",
                 "stop_reason": "preflight_failed",
                 "run_browser_smoke": True,
+                "compose_replacement_guard": {
+                    "current_runtime_action_before_preflight": "none",
+                    "compose_replacement_requires_env_shape_validation": True,
+                    "compose_replacement_requires_strict_preflight": True,
+                    "compose_runs_only_after_preflight_passes": True,
+                    "blocked_stop_reasons": [
+                        "env_shape_validation_requires_single_env_file",
+                        "env_shape_validation_failed",
+                        "preflight_failed",
+                    ],
+                },
                 "results": [{"name": "env_validation"}, {"name": "preflight"}, {"name": "operator_packet"}],
                 "child_reports": {
                     "env_validation": {
@@ -236,6 +247,17 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert summary["reports"]["env_validation"]["blocker_class"] == "ready"
     assert summary["reports"]["launch"]["env_validation_blocker_class"] == "ready"
     assert summary["reports"]["launch"]["result_names"] == ["env_validation", "preflight", "operator_packet"]
+    assert summary["reports"]["launch"]["compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": True,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     assert summary["reports"]["launch"]["browser_smoke"]["found"] is False
     assert summary["reports"]["launch"]["browser_smoke"]["path"].endswith("browser-smoke.json")
     assert summary["reports"]["operator_packet"]["blocker_class"] == "operator_values_required"
@@ -284,6 +306,9 @@ def test_launch_readiness_summary_classifies_preflight_blocker(tmp_path: Path) -
     assert "- Artifact index status: `pass`" in markdown
     assert "- Artifact index blocker class: `ready`" in markdown
     assert "- Launch report blocker class: `preflight_blocked`" in markdown
+    assert "- Compose replacement action before preflight: `none`" in markdown
+    assert "- Compose replacement requires strict preflight: `true`" in markdown
+    assert "- Compose runs only after preflight passes: `true`" in markdown
     assert "- Operator packet blocker class: `operator_values_required`" in markdown
     assert "- Operator packet generated at: `2026-07-06T12:20:00Z`" in markdown
     assert "- Artifact index consumer packet validation: `pass`" in markdown

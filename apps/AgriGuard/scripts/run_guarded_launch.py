@@ -117,6 +117,10 @@ def _dict_list(value: Any) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, dict)]
 
 
+def _dict_value(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
 def _operator_action_ids_from_packet(payload: dict[str, Any] | None) -> list[str]:
     if payload is None:
         return []
@@ -541,6 +545,9 @@ def _build_status_view(
             "stage": launch.get("stage") if launch is not None else None,
             "stop_reason": launch.get("stop_reason") if launch is not None else None,
             "result_names": _result_names(launch),
+            "compose_replacement_guard": _dict_value(
+                launch.get("compose_replacement_guard") if launch is not None else None
+            ),
         },
         "readiness_summary": {
             "found": summary is not None,
