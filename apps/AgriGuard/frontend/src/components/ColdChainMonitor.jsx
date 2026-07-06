@@ -8,6 +8,7 @@ import { Badge } from './ui/Badge';
 import { useThrottledWebSocket } from '../hooks/useThrottledWebSocket';
 
 const STATUS_POLL_INTERVAL_MS = 15000;
+const COLD_CHAIN_LOCALE = 'en-US';
 
 const CONNECTIVITY_LABELS = {
   online: 'Sensors online',
@@ -41,12 +42,13 @@ const formatLastSeen = (value) => {
     return 'Unknown';
   }
 
-  return date.toLocaleString('ko-KR', {
-    month: '2-digit',
+  return new Intl.DateTimeFormat(COLD_CHAIN_LOCALE, {
+    month: 'short',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  });
+    timeZoneName: 'short',
+  }).format(date);
 };
 
 function getSensorStatusMessage({ connectivityStatus, offlineSensors, staleSensors, deviceCount, watchHours }) {
@@ -150,7 +152,7 @@ export default function ColdChainMonitor() {
   }, [connected, fetchStatus]);
 
   const chartData = readings.map((r) => ({
-    time: new Date(r.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+    time: new Intl.DateTimeFormat(COLD_CHAIN_LOCALE, { hour: '2-digit', minute: '2-digit' }).format(new Date(r.timestamp)),
     temp: r.temperature,
     humidity: r.humidity,
     zone: r.zone,

@@ -32,6 +32,20 @@ vi.mock('recharts', () => ({
   ReferenceLine: () => <div />,
 }));
 
+const KOREAN_DATE_MARKER_RE = new RegExp(
+  [0xb144, 0xc624, 0xc804, 0xd6c4].map((codePoint) => String.fromCharCode(codePoint)).join('|'),
+);
+
+function formatExpectedLastSeen(value) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date(value));
+}
+
 describe('ColdChainMonitor', () => {
   beforeEach(() => {
     vi.useRealTimers();
@@ -109,6 +123,8 @@ describe('ColdChainMonitor', () => {
       'Keyboard-navigable line chart of recent cold-chain humidity readings.',
     );
     expect(screen.getAllByText('Cold Storage A').length).toBeGreaterThan(0);
+    expect(screen.getByText(formatExpectedLastSeen('2026-04-09T01:05:00Z'))).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(KOREAN_DATE_MARKER_RE);
     expect(screen.queryByText('1 alerts')).not.toBeInTheDocument();
   });
 
