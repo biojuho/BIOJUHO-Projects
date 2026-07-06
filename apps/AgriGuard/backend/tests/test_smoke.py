@@ -336,7 +336,7 @@ def test_nav_browser_smoke_tracks_mobile_first_viewport_affordances():
     assert set(script.MOBILE_ROUTE_AFFORDANCES).issubset(route_names)
     assert script.should_check_mobile_affordances({"viewportWidth": 390}, mobile=False) is True
     assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=True) is True
-    assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=False) is False
+    assert script.should_check_mobile_affordances({"viewportWidth": 1440}, mobile=False) is True
     assert script.mobile_touch_targets_ok({"undersizedTouchTargets": []}) is True
     assert script.mobile_touch_targets_ok({"undersizedTouchTargets": [{"tag": "button", "height": 36}]}) is False
     assert script.MOBILE_ROUTE_AFFORDANCES["registry"][0]["text"] == "Register Harvest"

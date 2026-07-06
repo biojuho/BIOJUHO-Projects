@@ -138,7 +138,7 @@ describe('QRReader', () => {
     renderReader();
 
     expect(screen.getByTestId('scanner-frame')).toHaveClass('max-w-[248px]');
-    expect(screen.getByTestId('scanner-frame')).toHaveClass('sm:max-w-none');
+    expect(screen.getByTestId('scanner-frame')).toHaveClass('sm:max-w-[320px]');
     expect(scannerApi.components).toEqual(expect.objectContaining({
       audio: false,
       finder: true,

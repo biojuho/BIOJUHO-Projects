@@ -338,7 +338,7 @@ def route_semantics_ok(metrics: dict[str, object]) -> bool:
 
 
 def should_check_mobile_affordances(metrics: dict[str, object], *, mobile: bool) -> bool:
-    return bool(mobile) or int(metrics["viewportWidth"]) <= MOBILE_VIEWPORT_MAX_WIDTH
+    return bool(mobile) or _metric_int(metrics, "viewportWidth") > 0
 
 
 def mobile_touch_targets_detail(metrics: dict[str, object]) -> dict[str, object]:
