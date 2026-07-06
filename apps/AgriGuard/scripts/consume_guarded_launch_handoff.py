@@ -95,6 +95,10 @@ def _string_list(value: object) -> list[str]:
     return [str(item) for item in value if isinstance(item, str)]
 
 
+def _dict_value(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
 def _next_commands(value: object) -> list[dict[str, str]]:
     if not isinstance(value, list):
         return []
@@ -237,6 +241,10 @@ def build_consumer_view(
         else {}
     )
     status_view = handoff.get("status_view") if handoff is not None and isinstance(handoff.get("status_view"), dict) else {}
+    launch = status_view.get("launch") if isinstance(status_view.get("launch"), dict) else {}
+    operator_packet = (
+        status_view.get("operator_packet") if isinstance(status_view.get("operator_packet"), dict) else {}
+    )
     readiness_summary = (
         status_view.get("readiness_summary")
         if isinstance(status_view.get("readiness_summary"), dict)
@@ -330,6 +338,10 @@ def build_consumer_view(
         "handoff_validation_command_shell": _string_value(validation_block.get("command_shell")),
         "handoff_validation_command_text": _string_value(validation_block.get("command_text")),
         "status_view_status": status_view.get("status"),
+        "launch_compose_replacement_guard": _dict_value(launch.get("compose_replacement_guard")),
+        "operator_packet_compose_replacement_guard": _dict_value(
+            operator_packet.get("compose_replacement_guard")
+        ),
         "packet_validation_status": packet_validation_status,
         "packet_validation_blocker_class": packet_validation.get("blocker_class"),
         "packet_evidence_outputs_status": packet_validation.get("evidence_outputs_status"),

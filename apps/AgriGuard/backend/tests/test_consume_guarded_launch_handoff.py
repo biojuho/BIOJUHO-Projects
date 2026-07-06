@@ -82,6 +82,17 @@ def _write_operator_packet(
                 "status": "blocked",
                 "secrets_redacted": True,
                 "operator_actions": [{"id": action_id} for action_id in action_ids],
+                "compose_replacement_guard": {
+                    "current_runtime_action_before_preflight": "none",
+                    "compose_replacement_requires_env_shape_validation": True,
+                    "compose_replacement_requires_strict_preflight": True,
+                    "compose_runs_only_after_preflight_passes": True,
+                    "blocked_stop_reasons": [
+                        "env_shape_validation_requires_single_env_file",
+                        "env_shape_validation_failed",
+                        "preflight_failed",
+                    ],
+                },
                 "guarded_launch_evidence": {
                     "artifact_index_readiness_summary": artifact_summary,
                     "validation": {
@@ -168,6 +179,17 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
             "status": "pass",
             "stage": "browser_smoke",
             "stop_reason": None,
+            "compose_replacement_guard": {
+                "current_runtime_action_before_preflight": "none",
+                "compose_replacement_requires_env_shape_validation": False,
+                "compose_replacement_requires_strict_preflight": True,
+                "compose_runs_only_after_preflight_passes": True,
+                "blocked_stop_reasons": [
+                    "env_shape_validation_requires_single_env_file",
+                    "env_shape_validation_failed",
+                    "preflight_failed",
+                ],
+            },
             "results": [{"name": "preflight"}, {"name": "compose"}, {"name": "browser_smoke"}],
         },
     )
@@ -190,6 +212,28 @@ def test_consume_guarded_launch_handoff_passes_ready_handoff(tmp_path: Path) -> 
     assert view["ready_gate_blocker_class"] == "ready"
     assert view["status_view_ready_gate_current_status"] == "pass"
     assert view["status_view_ready_gate_current_blocker_class"] == "ready"
+    assert view["launch_compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": False,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
+    assert view["operator_packet_compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": True,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     assert view["packet_validation_status"] == "pass"
     assert view["packet_validation_blocker_class"] == "ready"
     assert view["packet_evidence_outputs_status"] == "pass"
@@ -275,6 +319,18 @@ def test_consume_guarded_launch_handoff_fails_blocked_handoff(tmp_path: Path) ->
     assert view["ready_gate_blocker_class"] == "preflight_blocked"
     assert view["status_view_ready_gate_current_status"] == "fail"
     assert view["status_view_ready_gate_current_blocker_class"] == "preflight_blocked"
+    assert view["launch_compose_replacement_guard"] == {}
+    assert view["operator_packet_compose_replacement_guard"] == {
+        "current_runtime_action_before_preflight": "none",
+        "compose_replacement_requires_env_shape_validation": True,
+        "compose_replacement_requires_strict_preflight": True,
+        "compose_runs_only_after_preflight_passes": True,
+        "blocked_stop_reasons": [
+            "env_shape_validation_requires_single_env_file",
+            "env_shape_validation_failed",
+            "preflight_failed",
+        ],
+    }
     assert view["operator_action_ids"] == ["set_firebase_service_account_file"]
     assert view["packet_validation_status"] == "pass"
     assert view["packet_validation_blocker_class"] == "ready"
