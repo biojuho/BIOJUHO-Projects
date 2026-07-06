@@ -408,6 +408,19 @@ describe('SensorDeviceManager', () => {
   it('keeps unsupported broker identity values inspectable in compact rows', async () => {
     render(<SensorDeviceManager />);
 
+    const unsupportedTable = await screen.findByTestId('unsupported-sensors-table');
+    expect(unsupportedTable).not.toHaveClass('min-w-[680px]');
+    expect(unsupportedTable).toHaveClass('md:min-w-[680px]');
+
+    const unsupportedRow = screen.getByTestId('unsupported-sensor-row');
+    expect(unsupportedRow).toHaveClass('block');
+    expect(unsupportedRow).toHaveClass('md:table-row');
+    expect(within(unsupportedRow).getByText('Sensor')).toBeInTheDocument();
+    expect(within(unsupportedRow).getByText('State')).toBeInTheDocument();
+    expect(within(unsupportedRow).getByText('Zone')).toBeInTheDocument();
+    expect(within(unsupportedRow).getByText('Last seen')).toBeInTheDocument();
+    expect(within(unsupportedRow).getByText('Next action')).toBeInTheDocument();
+
     const unsupportedSensorId = await screen.findByTestId('unsupported-sensor-id');
     expect(unsupportedSensorId).toHaveTextContent('sensor/unsupported');
     expect(unsupportedSensorId).toHaveAttribute('title', 'sensor/unsupported');
@@ -418,6 +431,10 @@ describe('SensorDeviceManager', () => {
     expect(unsupportedSensorLabel).toHaveTextContent('Legacy slash probe');
     expect(unsupportedSensorLabel).toHaveAttribute('title', 'Legacy slash probe');
     expect(unsupportedSensorLabel).toHaveClass('truncate');
+
+    const actionPanel = screen.getByTestId('unsupported-sensor-action-panel');
+    expect(actionPanel).toHaveClass('min-w-0');
+    expect(actionPanel).toHaveClass('md:min-w-64');
   });
 
   it('saves an operator token for protected sensor API calls', () => {

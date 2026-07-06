@@ -956,9 +956,12 @@ export default function SensorDeviceManager() {
           )}
 
           {unsupportedItems.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] border-collapse text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+            <div className="overflow-visible md:overflow-x-auto">
+              <table
+                data-testid="unsupported-sensors-table"
+                className="w-full border-separate border-spacing-0 text-left text-sm md:min-w-[680px] md:border-collapse"
+              >
+                <thead className="hidden border-b border-border text-xs uppercase tracking-wide text-muted-foreground md:table-header-group">
                   <tr>
                     <th scope="col" className="py-3 pr-4">Sensor</th>
                     <th scope="col" className="py-3 pr-4">State</th>
@@ -967,13 +970,20 @@ export default function SensorDeviceManager() {
                     <th scope="col" className="py-3">Next action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="block space-y-3 md:table-row-group md:divide-y md:divide-border md:space-y-0">
                   {unsupportedItems.map((sensor, index) => {
                     const reissueInputId = `reissue-sensor-id-${index}`;
                     const isReissuing = actionState.loading && reissuePendingId === sensor.sensor_id;
                     return (
-                      <tr key={sensor.sensor_id} className="align-top">
-                        <td className="py-4 pr-4">
+                      <tr
+                        key={sensor.sensor_id}
+                        data-testid="unsupported-sensor-row"
+                        className="block rounded-lg border border-border bg-background/40 p-4 align-top md:table-row md:border-0 md:bg-transparent md:p-0"
+                      >
+                        <td className="block border-b border-border/60 pb-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                            Sensor
+                          </span>
                           <div
                             data-testid="unsupported-sensor-id"
                             title={sensor.sensor_id}
@@ -989,13 +999,29 @@ export default function SensorDeviceManager() {
                             {sensor.label || 'Unlabeled'}
                           </div>
                         </td>
-                        <td className="py-4 pr-4">
+                        <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                            State
+                          </span>
                           <SensorStateBadge isActive={sensor.is_active} />
                         </td>
-                        <td className="py-4 pr-4 text-muted-foreground">{sensor.zone || 'Unassigned'}</td>
-                        <td className="py-4 pr-4 text-muted-foreground">{formatDateTime(sensor.last_seen_at)}</td>
-                        <td className="py-4">
-                          <div className="min-w-64 space-y-2">
+                        <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                            Zone
+                          </span>
+                          <span className="min-w-0 break-words text-right text-muted-foreground md:text-left">{sensor.zone || 'Unassigned'}</span>
+                        </td>
+                        <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                            Last seen
+                          </span>
+                          <span className="min-w-0 text-right text-muted-foreground md:text-left">{formatDateTime(sensor.last_seen_at)}</span>
+                        </td>
+                        <td className="block pt-3 md:table-cell md:py-4">
+                          <div data-testid="unsupported-sensor-action-panel" className="min-w-0 space-y-2 md:min-w-64">
+                            <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">
+                              Next action
+                            </span>
                             <p className="text-xs text-muted-foreground">
                               {sensor.is_active ? 'Old ID will be disabled; rotate broker credentials after reissue.' : 'Create replacement ID before reactivation.'}
                             </p>
