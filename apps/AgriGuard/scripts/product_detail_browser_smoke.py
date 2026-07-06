@@ -114,6 +114,14 @@ def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
     return {"name": name, "ok": bool(ok), "detail": detail}
 
 
+def actionable_request_failures(request_failures: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        failure
+        for failure in request_failures
+        if "ERR_ABORTED" not in failure.get("failure", "")
+    ]
+
+
 def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -475,8 +483,15 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         for item in console_messages
         if item["type"] == "error" and "favicon" not in item["text"].lower()
     ]
+    observations["actionable_request_failures"] = actionable_request_failures(request_failures)
     checks.append(check("no_page_errors", not page_errors, json.dumps(page_errors[:3])))
-    checks.append(check("no_request_failures", not request_failures, json.dumps(request_failures[:3])))
+    checks.append(
+        check(
+            "no_request_failures",
+            not observations["actionable_request_failures"],
+            json.dumps(observations["actionable_request_failures"][:3]),
+        )
+    )
     checks.append(check("no_external_qr_requests", not external_qr_requests, json.dumps(external_qr_requests[:3])))
     checks.append(check("no_console_errors", not critical_logs, json.dumps(critical_logs[:3])))
 

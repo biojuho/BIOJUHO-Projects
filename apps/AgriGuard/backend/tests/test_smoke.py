@@ -1103,6 +1103,20 @@ def test_admin_routes_browser_smoke_classifies_expected_missing_auth_console():
     assert not script.is_expected_missing_auth_console({"type": "warning", "text": "401 (Unauthorized)"})
 
 
+def test_admin_routes_browser_smoke_filters_aborted_request_failures():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
+        "admin_routes_browser_smoke_actionable_requests_under_test",
+    )
+
+    failures = [
+        {"url": "http://127.0.0.1:5174/api/qr-tokens/products/p1", "failure": "net::ERR_ABORTED"},
+        {"url": "http://127.0.0.1:5174/api/sensor-devices", "failure": "net::ERR_CONNECTION_REFUSED"},
+    ]
+
+    assert script.actionable_request_failures(failures) == [failures[1]]
+
+
 def test_admin_routes_browser_smoke_redacts_public_qr_tokens_from_report():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "admin_routes_browser_smoke.py",
@@ -1187,6 +1201,20 @@ def test_product_detail_browser_smoke_uses_operator_token_env(monkeypatch):
     args = script.parse_args()
 
     assert args.operator_token == "staging-detail-token"
+
+
+def test_product_detail_browser_smoke_filters_aborted_request_failures():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "product_detail_browser_smoke.py",
+        "product_detail_browser_smoke_actionable_requests_under_test",
+    )
+
+    failures = [
+        {"url": "http://127.0.0.1:5174/node_modules/.vite/deps/lucide-react.js", "failure": "net::ERR_ABORTED"},
+        {"url": "http://127.0.0.1:5174/api/products/product-1", "failure": "net::ERR_CONNECTION_REFUSED"},
+    ]
+
+    assert script.actionable_request_failures(failures) == [failures[1]]
 
 
 def test_product_detail_browser_smoke_redacts_public_qr_tokens_from_report():

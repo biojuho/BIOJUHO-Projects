@@ -113,6 +113,8 @@ describe('ConsumerVerify', () => {
     expect(screen.getByText('Hallabong')).toBeInTheDocument();
     expect(screen.getByText('Jeju')).toBeInTheDocument();
     expect(screen.getByText('AG-1234567890')).toBeInTheDocument();
+    expect(screen.getByText('Jun 1, 2026')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('년');
     expect(screen.getByText('Last verified')).toBeInTheDocument();
     expect(screen.queryByText('Last checked')).not.toBeInTheDocument();
     expect(screen.getByText('Evidence hash: hash-123')).toBeInTheDocument();

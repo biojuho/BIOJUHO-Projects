@@ -33,6 +33,7 @@ const DATE_VALUE_KEYS = new Set([
   'timestamp',
   'updated_at',
 ]);
+const TIMELINE_LOCALE = 'en-US';
 
 const toTitleCase = (value) =>
   value
@@ -53,7 +54,15 @@ const formatFieldLabel = (key) => FIELD_LABELS[key] || toTitleCase(key);
 const formatDateTime = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('ko-KR');
+  return new Intl.DateTimeFormat(TIMELINE_LOCALE, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+  }).format(date);
 };
 
 const formatTimelineValue = (key, value) => {

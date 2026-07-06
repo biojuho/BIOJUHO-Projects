@@ -33,13 +33,22 @@ const mockProduct = {
   name: 'Organic Apples',
   category: 'Fruit',
   origin: 'Seoul Farm',
+  harvest_date: '2026-06-01T00:00:00Z',
   qr_code: 'QR-12345',
   requires_cold_chain: true,
   description: 'Fresh organic apples',
 };
 
 const timelineIsoTimestamp = '2026-07-05T23:47:51.279659+00:00';
-const timelineLocalizedTimestamp = new Date(timelineIsoTimestamp).toLocaleString('ko-KR');
+const timelineLocalizedTimestamp = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  timeZoneName: 'short',
+}).format(new Date(timelineIsoTimestamp));
 
 const mockHistory = [
   {
@@ -100,6 +109,7 @@ describe('ProductDetail', () => {
       expect(screen.getByRole('img', { name: 'Product verification QR' })).toBeInTheDocument();
       expect(screen.getByText('QR-12345')).toBeInTheDocument();
       expect(screen.getByTestId('product-detail-id')).toHaveTextContent('1');
+      expect(screen.getByText('Jun 1, 2026')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copy product ID/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copy public verify label URL/i })).toBeInTheDocument();
       expect(screen.queryByAltText('QR Code')).not.toBeInTheDocument();
@@ -122,6 +132,7 @@ describe('ProductDetail', () => {
       expect(screen.getByTestId('timeline-data-value-status')).toHaveTextContent('In Transit');
       expect(screen.queryByText('IN_TRANSIT')).not.toBeInTheDocument();
       expect(screen.getByTestId('timeline-data-value-timestamp')).toHaveTextContent(timelineLocalizedTimestamp);
+      expect(document.body).not.toHaveTextContent('년');
       expect(screen.queryByText(timelineIsoTimestamp)).not.toBeInTheDocument();
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveTextContent('HANDLER-VERY-LONG-1234567890');
       expect(screen.getByTestId('timeline-data-value-handler_id')).toHaveClass('break-all');

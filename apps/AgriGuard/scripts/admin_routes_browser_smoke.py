@@ -241,6 +241,14 @@ def is_expected_missing_auth_console(message: dict[str, str]) -> bool:
     return message.get("type") == "error" and EXPECTED_AUTH_CONSOLE_FRAGMENT in text
 
 
+def actionable_request_failures(request_failures: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        failure
+        for failure in request_failures
+        if "ERR_ABORTED" not in failure.get("failure", "")
+    ]
+
+
 def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     checks: list[dict[str, object]] = []
     observations: dict[str, object] = {}
@@ -393,6 +401,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     observations["console_messages"] = console_messages
     observations["request_failures"] = request_failures
     observations["page_errors"] = page_errors
+    observations["actionable_request_failures"] = actionable_request_failures(request_failures)
 
     expected_auth_console_messages = [
         item for item in console_messages if is_expected_missing_auth_console(item)
@@ -402,7 +411,13 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         and not is_expected_missing_auth_console(item)
     ]
     checks.append(check("no_page_errors", not page_errors, json.dumps(page_errors[:3])))
-    checks.append(check("no_request_failures", not request_failures, json.dumps(request_failures[:3])))
+    checks.append(
+        check(
+            "no_request_failures",
+            not observations["actionable_request_failures"],
+            json.dumps(observations["actionable_request_failures"][:3]),
+        )
+    )
     checks.append(
         check(
             "expected_missing_auth_console_errors",

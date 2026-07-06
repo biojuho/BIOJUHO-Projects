@@ -63,6 +63,7 @@ const DEFAULT_BLOCKCHAIN_PROOF = {
   evidence_hash: '',
   records: [],
 };
+const PUBLIC_VERIFY_LOCALE = 'en-US';
 
 function formatDateTime(value) {
   if (!value) {
@@ -72,7 +73,7 @@ function formatDateTime(value) {
   if (Number.isNaN(date.getTime())) {
     return 'Not available';
   }
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(PUBLIC_VERIFY_LOCALE, {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
@@ -90,7 +91,7 @@ function formatDate(value) {
   if (Number.isNaN(date.getTime())) {
     return 'Pending';
   }
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+  return new Intl.DateTimeFormat(PUBLIC_VERIFY_LOCALE, { dateStyle: 'medium' }).format(date);
 }
 
 function formatTrustBadgeLabel(verification, trust) {

@@ -14,12 +14,24 @@ import { Badge } from './ui/Badge';
 const VERIFICATION_TRACK_RETRY_DELAY_MS = 3000;
 const MAX_VERIFICATION_TRACK_ATTEMPTS = 3;
 const OPERATOR_AUTH_REQUIRED_MESSAGE = 'Operator authentication required to save chain updates.';
+const PRODUCT_DETAIL_LOCALE = 'en-US';
 
 function protectedActionErrorMessage(error, fallbackMessage) {
   if (error?.response?.status === 401) {
     return OPERATOR_AUTH_REQUIRED_MESSAGE;
   }
   return fallbackMessage;
+}
+
+function formatProductDate(value) {
+  if (!value) {
+    return 'Pending';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Pending';
+  }
+  return new Intl.DateTimeFormat(PRODUCT_DETAIL_LOCALE, { dateStyle: 'medium' }).format(date);
 }
 
 export default function ProductDetail() {
@@ -381,7 +393,7 @@ export default function ProductDetail() {
               <div className="min-w-0">
                 <p className="text-[11px] font-medium leading-tight text-muted-foreground sm:text-sm">Harvest Date</p>
                 <p className="break-words text-xs font-semibold leading-tight text-foreground sm:text-base">
-                  {product.harvest_date ? new Date(product.harvest_date).toLocaleDateString() : 'Pending'}
+                  {formatProductDate(product.harvest_date)}
                 </p>
               </div>
             </div>
