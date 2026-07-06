@@ -262,7 +262,7 @@ export default function SupplyChain() {
                         <p
                           data-testid="supply-chain-product-id"
                           title={product.id}
-                          className="block max-w-full truncate text-sm font-mono text-muted-foreground"
+                          className="block max-w-full truncate select-all text-sm font-mono text-muted-foreground"
                         >
                           ID: {product.id}
                         </p>

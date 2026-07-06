@@ -71,6 +71,7 @@ describe('SupplyChain', () => {
     expect(productIds[0]).toHaveAttribute('title', 'product-01');
     expect(productIds[0]).toHaveClass('max-w-full');
     expect(productIds[0]).toHaveClass('truncate');
+    expect(productIds[0]).toHaveClass('select-all');
     expect(productIds[0]).not.toHaveClass('break-all');
     const cardFooters = screen.getAllByTestId('supply-chain-card-footer');
     expect(cardFooters[0]).toHaveClass('flex-col');
