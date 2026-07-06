@@ -285,13 +285,19 @@ export default function SupplyChain() {
                   <StatusFlow status={status} />
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                  <span className="text-sm font-semibold text-muted-foreground">
-                    Current Status: <Badge variant="outline" className="ml-2">{getStatusText(status)}</Badge>
+                <div
+                  data-testid="supply-chain-card-footer"
+                  className="mt-4 flex flex-col items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span
+                    data-testid="supply-chain-current-status"
+                    className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold text-muted-foreground"
+                  >
+                    Current Status: <Badge variant="outline">{getStatusText(status)}</Badge>
                   </span>
 
-                  <Button variant="link" asChild className="text-primary hover:text-primary/80">
-                    <a href={`/product/${product.id}`}>View Details →</a>
+                  <Button variant="link" asChild className="px-0 text-primary hover:text-primary/80 sm:px-4">
+                    <a href={`/product/${product.id}`}>View Details</a>
                   </Button>
                 </div>
               </CardContent>

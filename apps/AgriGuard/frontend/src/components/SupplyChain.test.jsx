@@ -72,6 +72,15 @@ describe('SupplyChain', () => {
     expect(productIds[0]).toHaveClass('max-w-full');
     expect(productIds[0]).toHaveClass('truncate');
     expect(productIds[0]).not.toHaveClass('break-all');
+    const cardFooters = screen.getAllByTestId('supply-chain-card-footer');
+    expect(cardFooters[0]).toHaveClass('flex-col');
+    expect(cardFooters[0]).toHaveClass('sm:flex-row');
+    expect(cardFooters[0]).toHaveClass('gap-3');
+    const statusRows = screen.getAllByTestId('supply-chain-current-status');
+    expect(statusRows[0]).toHaveClass('min-w-0');
+    expect(statusRows[0]).toHaveClass('flex-wrap');
+    expect(screen.getAllByRole('link', { name: 'View Details' })[0]).toHaveClass('px-0');
+    expect(screen.getAllByRole('link', { name: 'View Details' })[0]).toHaveClass('sm:px-4');
     expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
