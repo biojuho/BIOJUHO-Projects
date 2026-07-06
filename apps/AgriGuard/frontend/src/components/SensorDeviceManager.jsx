@@ -987,7 +987,7 @@ export default function SensorDeviceManager() {
                           <div
                             data-testid="unsupported-sensor-id"
                             title={sensor.sensor_id}
-                            className="max-w-56 truncate font-mono text-foreground"
+                            className="max-w-56 truncate select-all font-mono text-foreground"
                           >
                             {sensor.sensor_id}
                           </div>
@@ -1672,7 +1672,7 @@ export default function SensorDeviceManager() {
                             <div
                               data-testid="registered-sensor-id"
                               title={sensor.sensor_id}
-                              className="block max-w-full truncate font-mono text-foreground md:max-w-56"
+                              className="block max-w-full truncate select-all font-mono text-foreground md:max-w-56"
                             >
                               {sensor.sensor_id}
                             </div>
@@ -1703,7 +1703,7 @@ export default function SensorDeviceManager() {
                             <span
                               data-testid="registered-sensor-owner-id"
                               title={sensor.owner_id || 'Unowned'}
-                              className="block max-w-[12rem] truncate text-right font-mono text-xs text-muted-foreground md:max-w-40 md:text-left"
+                              className="block max-w-[12rem] truncate select-all text-right font-mono text-xs text-muted-foreground md:max-w-40 md:text-left"
                             >
                               {sensor.owner_id || 'Unowned'}
                             </span>
@@ -1909,7 +1909,7 @@ export default function SensorDeviceManager() {
                         <span
                           data-testid="mqtt-rejection-sensor-id"
                           title={event.sensor_id || 'unknown'}
-                          className="block max-w-56 truncate font-mono text-foreground"
+                          className="block max-w-56 truncate select-all font-mono text-foreground"
                         >
                           {event.sensor_id || 'unknown'}
                         </span>

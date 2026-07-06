@@ -397,6 +397,7 @@ describe('SensorDeviceManager', () => {
     const sensorIds = screen.getAllByTestId('registered-sensor-id');
     expect(sensorIds[0]).toHaveAttribute('title', 'sensor-cold-1');
     expect(sensorIds[0]).toHaveClass('truncate');
+    expect(sensorIds[0]).toHaveClass('select-all');
     expect(sensorIds[0]).not.toHaveClass('break-all');
     const sensorLabels = screen.getAllByTestId('registered-sensor-label');
     expect(sensorLabels[0]).toHaveAttribute('title', 'Dock probe 1');
@@ -404,6 +405,7 @@ describe('SensorDeviceManager', () => {
     const ownerIds = screen.getAllByTestId('registered-sensor-owner-id');
     expect(ownerIds[0]).toHaveAttribute('title', 'tenant-cold-chain');
     expect(ownerIds[0]).toHaveClass('truncate');
+    expect(ownerIds[0]).toHaveClass('select-all');
     expect(ownerIds[0]).not.toHaveClass('break-all');
     expect(within(rows[0]).getByText('Actions')).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: /edit/i })).toBeInTheDocument();
@@ -430,6 +432,7 @@ describe('SensorDeviceManager', () => {
     expect(unsupportedSensorId).toHaveTextContent('sensor/unsupported');
     expect(unsupportedSensorId).toHaveAttribute('title', 'sensor/unsupported');
     expect(unsupportedSensorId).toHaveClass('truncate');
+    expect(unsupportedSensorId).toHaveClass('select-all');
     expect(unsupportedSensorId).not.toHaveClass('break-all');
 
     const unsupportedSensorLabel = screen.getByTestId('unsupported-sensor-label');
@@ -462,6 +465,7 @@ describe('SensorDeviceManager', () => {
     expect(rejectedSensorId).toHaveTextContent('unknown-mqtt-1');
     expect(rejectedSensorId).toHaveAttribute('title', 'unknown-mqtt-1');
     expect(rejectedSensorId).toHaveClass('truncate');
+    expect(rejectedSensorId).toHaveClass('select-all');
     expect(rejectedSensorId).not.toHaveClass('break-all');
     expect(screen.getByTestId('mqtt-rejection-message')).toHaveClass('break-words');
   });
