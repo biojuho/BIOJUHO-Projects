@@ -92,6 +92,11 @@ describe('ProductDetail', () => {
       expect(screen.getByText('Organic Apples')).toBeInTheDocument();
       expect(screen.getByTestId('product-detail-card-content')).toHaveClass('p-4');
       expect(screen.getByTestId('product-detail-card-content')).toHaveClass('sm:p-8');
+      expect(screen.getByTestId('product-detail-qr-card')).toHaveClass('w-full');
+      expect(screen.getByTestId('product-detail-qr-card')).toHaveClass('max-w-xs');
+      expect(screen.getByTestId('product-detail-qr-card')).toHaveClass('self-center');
+      expect(screen.getByTestId('product-detail-qr-card')).not.toHaveClass('min-w-[200px]');
+      expect(screen.getByTestId('product-detail-qr-card')).toHaveClass('md:min-w-[200px]');
       expect(screen.getByTestId('product-detail-qr-card-content')).toHaveClass('p-3');
       expect(screen.getByTestId('product-detail-qr-card-content')).toHaveClass('sm:p-4');
       expect(screen.getByTestId('product-detail-evidence-grid')).toHaveClass('mt-4');

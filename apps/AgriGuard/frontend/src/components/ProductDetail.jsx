@@ -360,7 +360,7 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            <Card data-testid="product-detail-qr-card" className="relative min-w-[200px]">
+            <Card data-testid="product-detail-qr-card" className="relative w-full max-w-xs self-center md:w-auto md:min-w-[200px] md:self-auto">
               <CardContent data-testid="product-detail-qr-card-content" className="p-3 sm:p-4">
                 <Button
                   type="button"
