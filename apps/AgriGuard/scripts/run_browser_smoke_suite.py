@@ -421,6 +421,173 @@ def public_verify_cache_headers_ok(headers: dict[str, object]) -> bool:
     return "no-store" in cache_control and "no-cache" in pragma and expires == "0"
 
 
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def _repo_relative_path(path: Path) -> str | None:
+    workspace_root = Path(__file__).resolve().parents[3]
+    try:
+        return path.resolve().relative_to(workspace_root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return None
+
+
+def _local_url_port(url: str) -> int | None:
+    parsed = parse.urlparse(url)
+    if parsed.hostname not in {"127.0.0.1", "localhost"}:
+        return None
+    try:
+        return parsed.port
+    except ValueError:
+        return None
+
+
+def _run_docker_json(command: list[str]) -> object:
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=3,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(_tail(completed.stderr or completed.stdout or "docker command failed", limit=300))
+    return json.loads(completed.stdout or "null")
+
+
+def _docker_ps_rows() -> list[dict[str, object]]:
+    completed = subprocess.run(
+        ["docker", "ps", "--format", "{{json .}}"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=3,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(_tail(completed.stderr or completed.stdout or "docker ps failed", limit=300))
+    rows: list[dict[str, object]] = []
+    for line in completed.stdout.splitlines():
+        if not line.strip():
+            continue
+        payload = json.loads(line)
+        if isinstance(payload, dict):
+            rows.append(payload)
+    return rows
+
+
+def _docker_container_for_local_port(port: int) -> dict[str, object] | None:
+    for row in _docker_ps_rows():
+        ports = str(row.get("Ports") or "")
+        if f":{port}->" in ports:
+            return row
+    return None
+
+
+def _classify_firebase_secret_mount(mounts: object) -> dict[str, object] | None:
+    if not isinstance(mounts, list):
+        return None
+    app_root = Path(__file__).resolve().parents[1]
+    workspace_root = Path(__file__).resolve().parents[3]
+    for mount in mounts:
+        if not isinstance(mount, dict):
+            continue
+        destination = str(mount.get("Destination") or "")
+        if destination != "/run/secrets/agriguard_firebase_service_account":
+            continue
+        source = str(mount.get("Source") or "")
+        source_path = Path(source) if source else None
+        source_class = "unknown"
+        source_path_hint = None
+        if source_path is not None:
+            if _is_relative_to(source_path, app_root) or _is_relative_to(source_path, workspace_root):
+                source_class = "repo_local"
+                source_path_hint = _repo_relative_path(source_path)
+            else:
+                source_class = "outside_repo"
+        return {
+            "destination": destination,
+            "source_class": source_class,
+            "source_path_hint": source_path_hint,
+            "read_only": bool(mount.get("RW") is False),
+        }
+    return None
+
+
+def _docker_launch_unsafe_signals(env: dict[str, str], firebase_mount: dict[str, object] | None) -> list[str]:
+    signals: list[str] = []
+    if env.get("ALLOW_DEV_AUTH_FALLBACK", "").lower() == "true":
+        signals.append("ALLOW_DEV_AUTH_FALLBACK=true")
+    if env.get("SECRET_KEY", "").startswith("dev-only-"):
+        signals.append("SECRET_KEY=dev-default")
+    if not env.get("QR_TOKEN_PEPPER"):
+        signals.append("QR_TOKEN_PEPPER_EMPTY")
+    if not env.get("PUBLIC_VERIFY_BASE_URL"):
+        signals.append("PUBLIC_VERIFY_BASE_URL_EMPTY")
+    if firebase_mount and firebase_mount.get("source_class") == "repo_local":
+        signals.append("FIREBASE_SECRET_REPO_LOCAL")
+    return signals
+
+
+def diagnose_local_docker_runtime(api_url: str) -> dict[str, object]:
+    port = _local_url_port(api_url)
+    if port is None:
+        return {"available": False, "found": False, "reason": "api_url_is_not_localhost_with_port"}
+    try:
+        container = _docker_container_for_local_port(port)
+    except Exception as exc:  # noqa: BLE001 - best-effort diagnostic only
+        return {"available": False, "found": False, "reason": f"docker_unavailable: {exc}"}
+    if container is None:
+        return {"available": True, "found": False, "target_port": port}
+
+    container_id = str(container.get("ID") or "")
+    try:
+        inspect_payload = _run_docker_json(["docker", "inspect", container_id])
+    except Exception as exc:  # noqa: BLE001 - best-effort diagnostic only
+        return {
+            "available": True,
+            "found": True,
+            "target_port": port,
+            "container_id": container_id[:12],
+            "name": str(container.get("Names") or ""),
+            "image": str(container.get("Image") or ""),
+            "inspect_error": str(exc),
+        }
+    inspect_data = inspect_payload[0] if isinstance(inspect_payload, list) and inspect_payload else {}
+    config = inspect_data.get("Config") if isinstance(inspect_data, dict) else {}
+    env_values = config.get("Env") if isinstance(config, dict) else []
+    env: dict[str, str] = {}
+    if isinstance(env_values, list):
+        for value in env_values:
+            if isinstance(value, str) and "=" in value:
+                key, env_value = value.split("=", 1)
+                env[key] = env_value
+    mounts = inspect_data.get("Mounts") if isinstance(inspect_data, dict) else []
+    firebase_mount = _classify_firebase_secret_mount(mounts)
+    unsafe_signals = _docker_launch_unsafe_signals(env, firebase_mount)
+    return {
+        "available": True,
+        "found": True,
+        "target_port": port,
+        "container_id": container_id[:12],
+        "name": str(container.get("Names") or ""),
+        "image": str(container.get("Image") or ""),
+        "firebase_secret_mount": firebase_mount,
+        "launch_unsafe_signals": unsafe_signals,
+        "detail": (
+            "local Docker backend runtime has launch-unsafe drift signals: " + ", ".join(unsafe_signals)
+            if unsafe_signals
+            else "local Docker backend runtime was found without launch-unsafe drift signals"
+        ),
+    }
+
+
 def probe_public_verify_cache_headers(api_base_url: str, *, timeout_seconds: int) -> dict[str, object]:
     url = _public_verify_cache_probe_url(api_base_url)
     try:
@@ -465,12 +632,34 @@ def summarize_public_verify_cache_headers(
     frontend_api_url: str,
     backend_probe: dict[str, object],
     frontend_proxy_probe: dict[str, object],
+    runtime_diagnostics: dict[str, object] | None = None,
 ) -> dict[str, object]:
     probes = {
         "backend": backend_probe,
         "frontend_proxy": frontend_proxy_probe,
     }
     failed_targets = [name for name, probe in probes.items() if probe.get("ok") is not True]
+    diagnostics = runtime_diagnostics or {}
+    docker_runtime = (
+        diagnostics.get("backend_docker_runtime")
+        if isinstance(diagnostics.get("backend_docker_runtime"), dict)
+        else {}
+    )
+    unsafe_signals = (
+        docker_runtime.get("launch_unsafe_signals")
+        if isinstance(docker_runtime.get("launch_unsafe_signals"), list)
+        else []
+    )
+    failure_detail = (
+        "public verify no-store cache headers are missing through "
+        + ", ".join(failed_targets)
+        + "; restart/rebuild the backend or proxy before running launch browser smoke"
+    )
+    if unsafe_signals:
+        failure_detail += (
+            "; local Docker backend runtime appears stale or launch-unsafe: "
+            + ", ".join(str(signal) for signal in unsafe_signals)
+        )
     return {
         "name": "public_verify_cache_headers",
         "ok": not failed_targets,
@@ -479,14 +668,11 @@ def summarize_public_verify_cache_headers(
         "expected_headers": PUBLIC_VERIFY_CACHE_HEADER_EXPECTATIONS,
         "failed_targets": failed_targets,
         "probes": probes,
+        **({"runtime_diagnostics": diagnostics} if diagnostics else {}),
         "detail": (
             "public verify no-store cache headers are present through backend and frontend proxy"
             if not failed_targets
-            else (
-                "public verify no-store cache headers are missing through "
-                + ", ".join(failed_targets)
-                + "; restart/rebuild the backend or proxy before running launch browser smoke"
-            )
+            else failure_detail
         ),
     }
 
@@ -494,14 +680,20 @@ def summarize_public_verify_cache_headers(
 def check_public_verify_cache_headers(*, base_url: str, api_url: str, timeout_ms: int) -> dict[str, object]:
     timeout_seconds = max(1, min(15, int(timeout_ms / 1000)))
     frontend_api_url = _frontend_api_url(base_url)
+    backend_probe = probe_public_verify_cache_headers(api_url, timeout_seconds=timeout_seconds)
+    frontend_proxy_probe = probe_public_verify_cache_headers(
+        frontend_api_url,
+        timeout_seconds=timeout_seconds,
+    )
+    runtime_diagnostics = None
+    if backend_probe.get("ok") is not True or frontend_proxy_probe.get("ok") is not True:
+        runtime_diagnostics = {"backend_docker_runtime": diagnose_local_docker_runtime(api_url)}
     return summarize_public_verify_cache_headers(
         api_url=api_url,
         frontend_api_url=frontend_api_url,
-        backend_probe=probe_public_verify_cache_headers(api_url, timeout_seconds=timeout_seconds),
-        frontend_proxy_probe=probe_public_verify_cache_headers(
-            frontend_api_url,
-            timeout_seconds=timeout_seconds,
-        ),
+        backend_probe=backend_probe,
+        frontend_proxy_probe=frontend_proxy_probe,
+        runtime_diagnostics=runtime_diagnostics,
     )
 
 

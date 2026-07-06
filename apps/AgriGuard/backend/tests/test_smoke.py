@@ -994,6 +994,110 @@ def test_browser_smoke_suite_public_verify_cache_header_summary():
     assert "restart/rebuild the backend or proxy" in summary["detail"]
 
 
+def test_browser_smoke_suite_public_verify_cache_header_summary_includes_docker_runtime_drift():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_public_cache_docker_drift_under_test",
+    )
+
+    summary = script.summarize_public_verify_cache_headers(
+        api_url="http://127.0.0.1:8002/",
+        frontend_api_url="http://127.0.0.1:5174/api/",
+        backend_probe={
+            "ok": False,
+            "url": "http://127.0.0.1:8002/api/qr/token/verify",
+            "status": 200,
+            "headers": {"Cache-Control": "", "Pragma": "", "Expires": ""},
+        },
+        frontend_proxy_probe={
+            "ok": False,
+            "url": "http://127.0.0.1:5174/api/api/qr/token/verify",
+            "status": 200,
+            "headers": {"Cache-Control": "", "Pragma": "", "Expires": ""},
+        },
+        runtime_diagnostics={
+            "backend_docker_runtime": {
+                "available": True,
+                "found": True,
+                "target_port": 8002,
+                "name": "agriguard-backend",
+                "launch_unsafe_signals": [
+                    "ALLOW_DEV_AUTH_FALLBACK=true",
+                    "PUBLIC_VERIFY_BASE_URL_EMPTY",
+                    "FIREBASE_SECRET_REPO_LOCAL",
+                ],
+            }
+        },
+    )
+
+    assert summary["ok"] is False
+    assert summary["runtime_diagnostics"]["backend_docker_runtime"]["name"] == "agriguard-backend"
+    assert "local Docker backend runtime appears stale or launch-unsafe" in summary["detail"]
+    assert "ALLOW_DEV_AUTH_FALLBACK=true" in summary["detail"]
+    assert "FIREBASE_SECRET_REPO_LOCAL" in summary["detail"]
+
+
+def test_browser_smoke_suite_docker_runtime_diagnostic_redacts_launch_unsafe_container(monkeypatch):
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
+        "run_browser_smoke_suite_docker_runtime_diagnostic_under_test",
+    )
+    repo_local_firebase = Path(script.__file__).resolve().parents[1] / "backend" / "firebase-service-account.json"
+
+    monkeypatch.setattr(
+        script,
+        "_docker_container_for_local_port",
+        lambda port: {
+            "ID": "abcdef1234567890",
+            "Names": "agriguard-backend",
+            "Image": "agriguard-backend",
+            "Ports": f"127.0.0.1:{port}->8002/tcp",
+        },
+    )
+    monkeypatch.setattr(
+        script,
+        "_run_docker_json",
+        lambda _command: [
+            {
+                "Config": {
+                    "Env": [
+                        "ALLOW_DEV_AUTH_FALLBACK=true",
+                        "SECRET_KEY=dev-only-local-agriguard-session-key-change-before-prod",
+                        "QR_TOKEN_PEPPER=",
+                        "PUBLIC_VERIFY_BASE_URL=",
+                    ]
+                },
+                "Mounts": [
+                    {
+                        "Destination": "/run/secrets/agriguard_firebase_service_account",
+                        "Source": str(repo_local_firebase),
+                        "RW": False,
+                    }
+                ],
+            }
+        ],
+    )
+
+    diagnostic = script.diagnose_local_docker_runtime("http://127.0.0.1:8002")
+    encoded = json.dumps(diagnostic)
+
+    assert diagnostic["found"] is True
+    assert diagnostic["container_id"] == "abcdef123456"
+    assert diagnostic["target_port"] == 8002
+    assert diagnostic["firebase_secret_mount"]["source_class"] == "repo_local"
+    assert diagnostic["firebase_secret_mount"]["source_path_hint"] == (
+        "apps/AgriGuard/backend/firebase-service-account.json"
+    )
+    assert diagnostic["launch_unsafe_signals"] == [
+        "ALLOW_DEV_AUTH_FALLBACK=true",
+        "SECRET_KEY=dev-default",
+        "QR_TOKEN_PEPPER_EMPTY",
+        "PUBLIC_VERIFY_BASE_URL_EMPTY",
+        "FIREBASE_SECRET_REPO_LOCAL",
+    ]
+    assert "dev-only-local-agriguard-session-key-change-before-prod" not in encoded
+
+
 def test_browser_smoke_suite_precheck_stops_on_public_verify_cache_header_failure(
     monkeypatch,
     tmp_path: Path,
