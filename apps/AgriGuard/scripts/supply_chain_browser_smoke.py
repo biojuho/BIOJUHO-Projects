@@ -76,6 +76,44 @@ def check(name: str, ok: bool, detail: str = "") -> dict[str, object]:
     return {"name": name, "ok": bool(ok), "detail": detail}
 
 
+def summarize_checks(checks: list[dict[str, object]]) -> dict[str, object]:
+    passed = sum(1 for item in checks if item.get("ok") is True)
+    failed_check_names = [
+        str(item.get("name") or f"check_{index}")
+        for index, item in enumerate(checks, start=1)
+        if item.get("ok") is not True
+    ]
+    return {
+        "passed": passed,
+        "failed": len(checks) - passed,
+        "total": len(checks),
+        "failed_check_names": failed_check_names,
+    }
+
+
+def enrich_launch_evidence_contract(report: dict[str, object]) -> dict[str, object]:
+    raw_checks = report.get("checks", [])
+    checks = [item for item in raw_checks if isinstance(item, dict)] if isinstance(raw_checks, list) else []
+    summary = summarize_checks(checks)
+    status = "pass" if summary["failed"] == 0 else "fail"
+    report.update(
+        {
+            "status": status,
+            "passed": summary["passed"],
+            "failed": summary["failed"],
+            "total": summary["total"],
+            "ok": status == "pass",
+            "summary": {
+                **summary,
+                "url": report.get("url", ""),
+                "screenshot": report.get("screenshot", ""),
+            },
+            "screenshot_path": report.get("screenshot", ""),
+        }
+    )
+    return report
+
+
 def write_json(path: str | Path, payload: dict[str, object]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -441,16 +479,12 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
     )
     checks.append(check("no_page_errors", len(page_errors) == 0, str(len(page_errors))))
 
-    passed = sum(1 for item in checks if item["ok"])
-    return {
+    report = {
         "schema_version": 1,
         "generated_at": _generated_timestamp_utc(),
         "url": args.url,
         "viewport": resolve_viewport(mobile=args.mobile, viewport=args.viewport),
         "mobile": bool(args.mobile),
-        "passed": passed,
-        "total": len(checks),
-        "ok": passed == len(checks),
         "allow_unpaginated_fallback": args.allow_unpaginated_fallback,
         "operator_token_configured": bool(args.operator_token),
         "checks": checks,
@@ -463,13 +497,14 @@ def run_browser(args: argparse.Namespace) -> dict[str, object]:
         "pageErrors": page_errors,
         "screenshot": args.screenshot,
     }
+    return enrich_launch_evidence_contract(report)
 
 
 def main() -> int:
     args = parse_args()
     report = run_browser(args)
     write_json(args.json_out, report)
-    print(f"agriguard supply-chain browser smoke: {report['passed']}/{report['total']} PASS")
+    print(f"agriguard supply-chain browser smoke {report['status']}: {report['passed']}/{report['total']} checks passed")
     print(f"json written: {args.json_out}")
     return 0 if report["ok"] else 1
 

@@ -633,6 +633,34 @@ def test_browser_smoke_suite_unavailable_check_is_explicit_opt_in(monkeypatch):
     assert "--intercept-api-failure" in opted_in_steps[-1].command
 
 
+def test_dashboard_auth_browser_smoke_enriches_launch_evidence_contract():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "dashboard_auth_browser_smoke.py",
+        "dashboard_auth_browser_smoke_contract_under_test",
+    )
+
+    report = script.enrich_launch_evidence_contract(
+        {
+            "baseUrl": "http://127.0.0.1:5174",
+            "url": "http://127.0.0.1:5174/",
+            "screenshot": "var/dashboard-auth.png",
+            "checks": [
+                script.check("auth_error_visible", True),
+                script.check("dashboard_loaded_after_retry", False, "missing dashboard"),
+            ],
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert report["base_url"] == "http://127.0.0.1:5174"
+    assert report["passed"] == 1
+    assert report["failed"] == 1
+    assert report["total"] == 2
+    assert report["ok"] is False
+    assert report["summary"]["failed_check_names"] == ["dashboard_loaded_after_retry"]
+    assert report["summary"]["screenshot"] == "var/dashboard-auth.png"
+
+
 def test_browser_smoke_suite_classifies_evidence_modes():
     script = _load_script_module(
         Path(__file__).resolve().parents[2] / "scripts" / "run_browser_smoke_suite.py",
@@ -1495,6 +1523,33 @@ def test_supply_chain_browser_smoke_uses_phone_viewport_for_mobile_default():
     assert script.resolve_viewport(mobile=False, viewport=None) == {"width": 1440, "height": 960}
     assert script.resolve_viewport(mobile=True, viewport=None) == {"width": 390, "height": 844}
     assert script.resolve_viewport(mobile=True, viewport="412x915") == {"width": 412, "height": 915}
+
+
+def test_supply_chain_browser_smoke_enriches_launch_evidence_contract():
+    script = _load_script_module(
+        Path(__file__).resolve().parents[2] / "scripts" / "supply_chain_browser_smoke.py",
+        "supply_chain_browser_smoke_contract_under_test",
+    )
+
+    report = script.enrich_launch_evidence_contract(
+        {
+            "url": "http://127.0.0.1:5174/supply-chain",
+            "screenshot": "var/supply-chain.png",
+            "checks": [
+                script.check("products_page_endpoint_used", True),
+                script.check("products_page_payloads_bounded", False, "unbounded payload"),
+            ],
+        }
+    )
+
+    assert report["status"] == "fail"
+    assert report["passed"] == 1
+    assert report["failed"] == 1
+    assert report["total"] == 2
+    assert report["ok"] is False
+    assert report["summary"]["failed_check_names"] == ["products_page_payloads_bounded"]
+    assert report["summary"]["url"] == "http://127.0.0.1:5174/supply-chain"
+    assert report["screenshot_path"] == "var/supply-chain.png"
 
 
 def test_supply_chain_browser_smoke_defaults_operator_token_for_local_dev(monkeypatch):
