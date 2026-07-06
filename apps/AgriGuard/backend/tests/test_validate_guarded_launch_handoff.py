@@ -73,6 +73,9 @@ def test_validate_guarded_launch_handoff_accepts_rendered_handoff(tmp_path: Path
 
     errors = validate_guarded_launch_handoff.validate_handoff(handoff)
 
+    assert handoff["generated_at"] == handoff["status_view"]["generated_at"]
+    assert handoff["generated_at"].endswith("Z")
+    handoff["generated_at"].encode("ascii")
     assert errors == []
 
 

@@ -316,6 +316,9 @@
       "const": 1,
       "type": "integer"
     },
+    "generated_at": {
+      "type": "string"
+    },
     "secrets_redacted": {
       "type": "boolean"
     },
@@ -1243,6 +1246,7 @@
   },
   "required": [
     "schema_version",
+    "generated_at",
     "status",
     "blocker_class",
     "secrets_redacted",

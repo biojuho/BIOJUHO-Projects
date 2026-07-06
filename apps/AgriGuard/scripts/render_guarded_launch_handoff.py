@@ -342,6 +342,9 @@ def build_handoff(
     packet_validation = _packet_validation_summary(status_view)
     ready = run_guarded_launch._status_view_ready(status_view)
     blocker_class = _handoff_blocker_class(status_view, ready)
+    generated_at = status_view.get("generated_at")
+    if not isinstance(generated_at, str) or not generated_at:
+        generated_at = run_guarded_launch._generated_timestamp_utc()
     ready_gate = {
         "status": "pass" if ready else "fail",
         "blocker_class": blocker_class,
@@ -361,6 +364,7 @@ def build_handoff(
     ready_gate["command_text"] = _format_operator_command(ready_gate["command"])
     handoff: dict[str, object] = {
         "schema_version": 1,
+        "generated_at": generated_at,
         "status": "ready" if ready else "blocked",
         "blocker_class": blocker_class,
         "secrets_redacted": True,
