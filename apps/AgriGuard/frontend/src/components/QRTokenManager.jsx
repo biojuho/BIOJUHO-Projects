@@ -449,7 +449,13 @@ export default function QRTokenManager() {
                           Token
                         </span>
                         <div className="break-all font-mono text-foreground">{token.token_prefix}</div>
-                        <div className="mt-1 max-w-full break-all text-xs text-muted-foreground md:max-w-52 md:truncate">{token.id}</div>
+                        <div
+                          data-testid="qr-token-id"
+                          title={token.id}
+                          className="mt-1 max-w-full truncate text-xs text-muted-foreground md:max-w-52"
+                        >
+                          {token.id}
+                        </div>
                       </td>
                       <td className="flex items-center justify-between gap-3 border-b border-border/60 py-3 md:table-cell md:border-0 md:py-4 md:pr-4">
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground md:hidden">

@@ -124,6 +124,11 @@ describe('QRTokenManager', () => {
     const rows = screen.getAllByTestId('qr-token-row');
     expect(rows[0]).toHaveClass('block');
     expect(rows[0]).toHaveClass('md:table-row');
+    const tokenIds = screen.getAllByTestId('qr-token-id');
+    expect(tokenIds[0]).toHaveTextContent('token-active-1');
+    expect(tokenIds[0]).toHaveAttribute('title', 'token-active-1');
+    expect(tokenIds[0]).toHaveClass('truncate');
+    expect(tokenIds[0]).not.toHaveClass('break-all');
     expect(within(rows[0]).getByText('Action')).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: /revoke/i })).toBeInTheDocument();
   });
