@@ -453,14 +453,14 @@ export default function QRTokenManager() {
                         <div
                           data-testid="qr-token-prefix"
                           title={token.token_prefix}
-                          className="block max-w-full truncate font-mono text-foreground md:max-w-52"
+                          className="block max-w-full truncate select-all font-mono text-foreground md:max-w-52"
                         >
                           {token.token_prefix}
                         </div>
                         <div
                           data-testid="qr-token-id"
                           title={token.id}
-                          className="mt-1 max-w-full truncate text-xs text-muted-foreground md:max-w-52"
+                          className="mt-1 max-w-full truncate select-all text-xs text-muted-foreground md:max-w-52"
                         >
                           {token.id}
                         </div>
@@ -478,7 +478,7 @@ export default function QRTokenManager() {
                         <span
                           data-testid="qr-token-batch-code"
                           title={token.batch_code}
-                          className="block max-w-[12rem] truncate text-right font-mono text-xs text-muted-foreground md:max-w-40 md:text-left"
+                          className="block max-w-[12rem] truncate select-all text-right font-mono text-xs text-muted-foreground md:max-w-40 md:text-left"
                         >
                           {token.batch_code}
                         </span>

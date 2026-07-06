@@ -144,15 +144,18 @@ describe('QRTokenManager', () => {
     const tokenPrefixes = screen.getAllByTestId('qr-token-prefix');
     expect(tokenPrefixes[0]).toHaveAttribute('title', 'tok_active');
     expect(tokenPrefixes[0]).toHaveClass('truncate');
+    expect(tokenPrefixes[0]).toHaveClass('select-all');
     expect(tokenPrefixes[0]).not.toHaveClass('break-all');
     const tokenIds = screen.getAllByTestId('qr-token-id');
     expect(tokenIds[0]).toHaveTextContent('token-active-1');
     expect(tokenIds[0]).toHaveAttribute('title', 'token-active-1');
     expect(tokenIds[0]).toHaveClass('truncate');
+    expect(tokenIds[0]).toHaveClass('select-all');
     expect(tokenIds[0]).not.toHaveClass('break-all');
     const batchCodes = screen.getAllByTestId('qr-token-batch-code');
     expect(batchCodes[0]).toHaveAttribute('title', 'LOT-A');
     expect(batchCodes[0]).toHaveClass('truncate');
+    expect(batchCodes[0]).toHaveClass('select-all');
     expect(batchCodes[0]).not.toHaveClass('break-all');
     expect(within(rows[0]).getByText('Action')).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: /revoke/i })).toBeInTheDocument();
