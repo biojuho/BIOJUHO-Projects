@@ -323,6 +323,11 @@ describe('SensorDeviceManager', () => {
     await waitFor(() => {
       expect(screen.getAllByText('sensor/unsupported').length).toBeGreaterThan(0);
     });
+    const omittedIds = screen.getByTestId('broker-provisioning-unsupported-ids');
+    expect(omittedIds).toHaveTextContent('sensor/unsupported');
+    expect(omittedIds).toHaveAttribute('title', 'sensor/unsupported');
+    expect(omittedIds).toHaveClass('break-all');
+    expect(omittedIds).toHaveClass('select-all');
     expect(sensorDeviceAdminApi.listUnsupportedIdentities).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(/user sensor-cold-1/)).toBeInTheDocument();
     expect(sensorDeviceAdminApi.getBrokerProvisioning).toHaveBeenCalledWith({

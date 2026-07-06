@@ -1414,7 +1414,11 @@ export default function SensorDeviceManager() {
                     <ShieldAlert className="h-4 w-4" />
                     {provisioning.unsupported_sensor_ids.length} unsupported sensor IDs omitted
                   </div>
-                  <p className="mt-2 font-mono text-xs text-amber-50/90">
+                  <p
+                    data-testid="broker-provisioning-unsupported-ids"
+                    title={provisioning.unsupported_sensor_ids.join(', ')}
+                    className="mt-2 break-all select-all font-mono text-xs text-amber-50/90"
+                  >
                     {provisioning.unsupported_sensor_ids.join(', ')}
                   </p>
                 </div>
