@@ -287,7 +287,19 @@ describe('ColdChainMonitor', () => {
     expect(screen.getByText('offline-sensor')).toBeInTheDocument();
     const staleSensorId = screen.getByText('stale-sensor');
     expect(staleSensorId).toHaveAttribute('title', 'stale-sensor');
+    expect(staleSensorId).toHaveClass('w-full');
+    expect(staleSensorId).toHaveClass('min-w-0');
     expect(staleSensorId).toHaveClass('truncate');
+    expect(staleSensorId).toHaveClass('sm:w-auto');
+    const sensorRows = screen.getAllByTestId('cold-chain-zone-sensor-row');
+    expect(sensorRows[0]).toHaveClass('flex-col');
+    expect(sensorRows[0]).toHaveClass('sm:flex-row');
+    expect(sensorRows[0]).toHaveClass('sm:justify-between');
+    const sensorStatusRows = screen.getAllByTestId('cold-chain-zone-sensor-status');
+    expect(sensorStatusRows[0]).toHaveClass('w-full');
+    expect(sensorStatusRows[0]).toHaveClass('justify-between');
+    expect(sensorStatusRows[0]).toHaveClass('sm:w-auto');
+    expect(sensorStatusRows[0]).toHaveClass('sm:justify-end');
   });
 
   it('allows long sensor health values to wrap instead of truncating on mobile cards', async () => {

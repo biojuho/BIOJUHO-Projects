@@ -387,15 +387,22 @@ export default function ColdChainMonitor() {
                   {zone.sensors?.length > 0 && (
                     <ul className="mt-4 space-y-2">
                       {zone.sensors.slice(0, 3).map((sensor) => (
-                        <li key={sensor.sensor_id} className="flex items-center justify-between gap-3 rounded-md bg-black/10 px-3 py-2 text-sm">
+                        <li
+                          key={sensor.sensor_id}
+                          data-testid="cold-chain-zone-sensor-row"
+                          className="flex flex-col items-start gap-2 rounded-md bg-black/10 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                        >
                           <span
                             data-testid="cold-chain-zone-sensor-id"
                             title={sensor.sensor_id}
-                            className="truncate font-mono text-foreground"
+                            className="w-full min-w-0 truncate font-mono text-foreground sm:w-auto"
                           >
                             {sensor.sensor_id}
                           </span>
-                          <div className="flex shrink-0 items-center gap-2">
+                          <div
+                            data-testid="cold-chain-zone-sensor-status"
+                            className="flex w-full items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:justify-end"
+                          >
                             <Badge variant={CONNECTIVITY_VARIANTS[sensor.status] ?? 'secondary'}>{sensor.status}</Badge>
                             <span className="font-mono text-xs text-muted-foreground">{sensor.age_minutes}m</span>
                           </div>
