@@ -97,6 +97,7 @@ function EmptyTimelineState({ title, message, heightClass }) {
 
 export default function ColdChainMonitor() {
   const [status, setStatus] = useState(null);
+  const [statusError, setStatusError] = useState('');
   const { showToast } = useToast();
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/ws/iot`;
@@ -115,14 +116,17 @@ export default function ColdChainMonitor() {
         }
         return r.json();
       })
-      .then(setStatus)
+      .then((payload) => {
+        setStatus(payload);
+        setStatusError('');
+      })
       .catch((error) => {
         if (error?.name === 'AbortError') {
           return;
         }
-        showToast('IoT status unavailable', 'warning');
+        setStatusError('IoT aggregate status is unavailable. Live stream readings may still arrive, but zone health is delayed.');
       });
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -207,6 +211,20 @@ export default function ColdChainMonitor() {
           <div>
             <p className="font-semibold">{connectivityLabel}</p>
             <p className="text-sm text-muted-foreground">{sensorStatusMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {statusError && (
+        <div
+          role="status"
+          aria-atomic="true"
+          className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-200 sm:p-4"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-semibold">IoT status unavailable</p>
+            <p className="text-sm text-muted-foreground">{statusError}</p>
           </div>
         </div>
       )}

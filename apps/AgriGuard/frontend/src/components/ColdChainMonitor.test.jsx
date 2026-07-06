@@ -170,7 +170,7 @@ describe('ColdChainMonitor', () => {
     ];
     let fetchCount = 0;
     globalThis.fetch.mockImplementation(() => {
-      const index = fetchCount >= 2 ? 1 : 0;
+      const index = fetchCount >= 1 ? 1 : 0;
       fetchCount += 1;
       return Promise.resolve({
         ok: true,
@@ -360,5 +360,18 @@ describe('ColdChainMonitor', () => {
     expect(screen.getByText('No temperature readings yet')).toBeInTheDocument();
     expect(screen.getByText('No humidity readings yet')).toBeInTheDocument();
     expect(screen.getAllByRole('status').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps aggregate status failures visible inline', async () => {
+    globalThis.fetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+    });
+
+    render(<ColdChainMonitor />);
+
+    expect(await screen.findByText('IoT status unavailable')).toBeInTheDocument();
+    expect(screen.getByText('IoT aggregate status is unavailable. Live stream readings may still arrive, but zone health is delayed.')).toBeInTheDocument();
+    expect(screen.getByText('Stream live')).toBeInTheDocument();
   });
 });
