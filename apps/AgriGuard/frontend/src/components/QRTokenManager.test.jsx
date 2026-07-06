@@ -138,8 +138,10 @@ describe('QRTokenManager', () => {
     expect(operatorTokenInput).toHaveAttribute('spellcheck', 'false');
     expect(tokenControls).toHaveClass('grid');
     expect(tokenControls).toHaveClass('grid-cols-[minmax(0,1fr)_5rem]');
-    expect(screen.getByRole('button', { name: /clear token/i })).toHaveClass('h-11');
-    expect(screen.getByRole('button', { name: /clear token/i })).toHaveClass('w-11');
+    const clearTokenButton = screen.getByRole('button', { name: /clear token/i });
+    expect(clearTokenButton).toHaveClass('h-11');
+    expect(clearTokenButton).toHaveClass('min-w-11');
+    expect(clearTokenButton).toHaveTextContent('Clear');
 
     const filterForm = screen.getByTestId('qr-token-filter-panel').querySelector('form');
     expect(filterForm).toHaveClass('grid-cols-2');

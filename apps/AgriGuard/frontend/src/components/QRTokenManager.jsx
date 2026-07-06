@@ -252,10 +252,12 @@ export default function QRTokenManager() {
                   variant="ghost"
                   size="sm"
                   onClick={clearOperatorToken}
-                  className="h-11 min-h-11 w-11 shrink-0 px-0 text-xs text-muted-foreground hover:text-foreground sm:h-8 sm:min-h-8 sm:w-auto sm:px-2"
+                  aria-label="Clear token"
+                  title="Clear token"
+                  className="h-11 min-h-11 min-w-11 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground sm:h-8 sm:min-h-8"
                 >
                   <X className="h-4 w-4" />
-                  <span className="sr-only sm:not-sr-only">Clear token</span>
+                  <span>Clear</span>
                 </Button>
               )}
             </div>
