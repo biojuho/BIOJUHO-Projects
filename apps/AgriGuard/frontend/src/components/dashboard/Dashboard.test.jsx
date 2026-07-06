@@ -113,7 +113,7 @@ describe('Dashboard', () => {
     render(<Dashboard />);
 
     expect(await screen.findByText('Consumer QR KPIs')).toBeInTheDocument();
-    expect(screen.getByText('AgriGuard 공급망 현황')).toBeInTheDocument();
+    expect(screen.getByText('AgriGuard Supply Chain Status')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-page')).toHaveClass('px-4');
     expect(screen.getByTestId('dashboard-page')).toHaveClass('sm:p-8');
     expect(screen.getByTestId('dashboard-page')).toHaveClass('space-y-5');
@@ -126,11 +126,11 @@ describe('Dashboard', () => {
     expect(screen.getByTestId('qr-kpi-scan-success-status')).toHaveClass('shrink-0');
     expect(screen.getByTestId('qr-kpi-daily-scan-status')).toHaveClass('whitespace-nowrap');
     expect(screen.getByTestId('qr-kpi-daily-scan-status')).toHaveClass('shrink-0');
-    expect(screen.getByText('실시간 데이터')).toHaveClass('whitespace-nowrap');
-    expect(screen.getByText('전체 제품')).toBeInTheDocument();
-    expect(screen.getByText('인증 제품')).toBeInTheDocument();
-    expect(screen.getByText('콜드체인 제품')).toBeInTheDocument();
-    expect(screen.getByText('추적 이벤트')).toBeInTheDocument();
+    expect(screen.getByText('Live data')).toHaveClass('whitespace-nowrap');
+    expect(screen.getByText('Total products')).toBeInTheDocument();
+    expect(screen.getByText('Certified products')).toBeInTheDocument();
+    expect(screen.getByText('Cold-chain products')).toBeInTheDocument();
+    expect(screen.getByText('Tracking events')).toBeInTheDocument();
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith('/qr-events/kpis');
       expect(api.get).toHaveBeenCalledWith('/qr-events/kpis/trend', {
@@ -144,6 +144,7 @@ describe('Dashboard', () => {
     expect(screen.getByText(/Target 1,000 scans in 24 hours/)).toBeInTheDocument();
     expect(screen.getByText('7-day QR trend')).toBeInTheDocument();
     expect(screen.getByText(`All variants / ${browserTimezone}`)).toBeInTheDocument();
+    expect(screen.getByText('Jun 10')).toBeInTheDocument();
     const trendGrid = screen.getByTestId('qr-kpi-trend-grid');
     expect(trendGrid).toHaveClass('w-full');
     expect(trendGrid).not.toHaveClass('min-w-[680px]');
@@ -204,7 +205,7 @@ describe('Dashboard', () => {
 
     expect(await screen.findByText('Operator authentication required')).toBeInTheDocument();
     expect(screen.getByText('Paste a Firebase/operator token below, or save one in QR Tokens or Sensors.')).toBeInTheDocument();
-    expect(screen.queryByText('백엔드 연결 실패')).not.toBeInTheDocument();
+    expect(screen.queryByText('Backend connection failed')).not.toBeInTheDocument();
     expect(screen.getByText('Request failed with status code 401')).toBeInTheDocument();
   });
 
@@ -247,7 +248,7 @@ describe('Dashboard', () => {
       expect(serviceMocks.setOperatorToken).toHaveBeenCalledWith('operator-token');
       expect(summaryAttempts).toBeGreaterThanOrEqual(2);
     });
-    expect(await screen.findByText('AgriGuard 공급망 현황')).toBeInTheDocument();
+    expect(await screen.findByText('AgriGuard Supply Chain Status')).toBeInTheDocument();
     expect(screen.queryByText('Operator authentication required')).not.toBeInTheDocument();
   });
 

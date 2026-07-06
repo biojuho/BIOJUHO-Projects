@@ -10,6 +10,7 @@ import { Input } from '../ui/Input';
 
 const QR_KPI_TIMEZONE_STORAGE_KEY = 'agriguard.qrKpi.reportingTimezone';
 const DEFAULT_REPORTING_TIMEZONES = ['UTC', 'Asia/Seoul', 'America/Los_Angeles', 'Europe/Amsterdam'];
+const DASHBOARD_LOCALE = 'en-US';
 
 function getDashboardLoadError(error) {
   const detail = error?.message || 'Dashboard summary could not be loaded.';
@@ -26,9 +27,9 @@ function getDashboardLoadError(error) {
 
   return {
     kind: 'backend',
-    title: '백엔드 연결 실패',
-    description: 'AgriGuard 백엔드(포트 8002)가 실행 중인지 확인하세요.',
-    toast: '백엔드 연결 실패: 포트 8002 서버를 확인해주세요.',
+    title: 'Backend connection failed',
+    description: 'Confirm the AgriGuard backend on port 8002 is running.',
+    toast: 'Backend connection failed: check the port 8002 server.',
     detail,
   };
 }
@@ -232,11 +233,11 @@ export default function Dashboard() {
       {/* Header */}
       <div data-testid="dashboard-hero-header" className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="max-w-full text-2xl font-bold leading-tight bg-gradient-to-r from-primary to-emerald-600 bg-clip-text text-transparent sm:text-3xl">
-          AgriGuard 공급망 현황
+          AgriGuard Supply Chain Status
         </h1>
         <Badge variant="success" className="gap-1.5 whitespace-nowrap">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          실시간 데이터
+          Live data
         </Badge>
       </div>
 
@@ -252,31 +253,31 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         <StatCard
-          title="전체 제품"
+          title="Total products"
           value={data?.total_products ?? 0}
           icon={<Package className="h-5 w-5" />}
           color="text-blue-400"
           bg="bg-blue-500/15"
         />
         <StatCard
-          title="인증 제품"
+          title="Certified products"
           value={data?.certified_products ?? 0}
           icon={<ShieldCheck className="h-5 w-5" />}
           color="text-primary"
           bg="bg-primary/15"
           sub={data?.total_products > 0
-            ? `${Math.round((data.certified_products / data.total_products) * 100)}% 인증률`
+            ? `${Math.round((data.certified_products / data.total_products) * 100)}% certified`
             : '—'}
         />
         <StatCard
-          title="콜드체인 제품"
+          title="Cold-chain products"
           value={data?.cold_chain_products ?? 0}
           icon={<Thermometer className="h-5 w-5" />}
           color="text-cyan-400"
           bg="bg-cyan-500/15"
         />
         <StatCard
-          title="추적 이벤트"
+          title="Tracking events"
           value={data?.total_tracking_events ?? 0}
           icon={<Activity className="h-5 w-5" />}
           color="text-violet-400"
@@ -291,13 +292,13 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              추적 상태 분포
+              Tracking status distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
             {statusEntries.length === 0 ? (
               <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-                추적 이벤트가 없습니다
+                No tracking events yet
               </div>
             ) : (
               <div className="h-64 min-w-0">
@@ -338,13 +339,13 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MapPin className="h-4 w-4 text-blue-400" />
-              원산지별 제품 현황
+              Products by origin
             </CardTitle>
           </CardHeader>
           <CardContent>
             {originEntries.length === 0 ? (
               <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-                제품이 없습니다
+                No products yet
               </div>
             ) : (
               <div className="h-64 min-w-0">
@@ -396,7 +397,7 @@ function formatKpiStatus(status) {
 function formatTrendDate(date) {
   const parsed = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString(undefined, { month: 'short', day: '2-digit', timeZone: 'UTC' });
+  return new Intl.DateTimeFormat(DASHBOARD_LOCALE, { month: 'short', day: '2-digit', timeZone: 'UTC' }).format(parsed);
 }
 
 function kpiTone(status) {
