@@ -717,6 +717,7 @@ def render_markdown(index: dict[str, object]) -> str:
         f"- Launch browser smoke prechecks: `{_count_ratio(browser_smoke, 'prechecks_passed', 'prechecks_total')}`",
         "- Launch browser smoke failed prechecks: "
         f"`{_joined_list(browser_smoke.get('failed_precheck_names'))}`",
+        f"- Launch browser smoke failed targets: `{_joined_list(browser_smoke.get('failed_targets'))}`",
         "- Launch browser smoke operator action: "
         f"`{browser_smoke.get('operator_action') or '-'}`",
         f"- Validation status: `{index.get('validation_status')}`",

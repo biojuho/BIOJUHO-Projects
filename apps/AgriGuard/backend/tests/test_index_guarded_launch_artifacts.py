@@ -308,6 +308,7 @@ def test_index_guarded_launch_artifacts_mirrors_browser_smoke_precheck_failure(t
     assert "Launch browser smoke launch gate enforced: `true`" in markdown
     assert "Launch browser smoke prechecks: `2/3`" in markdown
     assert "Launch browser smoke failed prechecks: `public_verify_cache_headers`" in markdown
+    assert "Launch browser smoke failed targets: `backend, frontend_proxy`" in markdown
     assert (
         "Launch browser smoke operator action: "
         "`resolve failed prechecks before running launch browser smoke`"
