@@ -174,7 +174,13 @@ export default function Dashboard() {
           <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
           <h2 className="text-xl font-semibold text-destructive">{error.title}</h2>
           <p className="text-destructive/70 mt-2 text-sm">{error.description}</p>
-          <p className="text-muted-foreground mt-1 text-xs font-mono">{error.detail}</p>
+          <p
+            data-testid="dashboard-error-detail"
+            title={error.detail}
+            className="mt-1 break-all select-all text-xs font-mono text-muted-foreground"
+          >
+            {error.detail}
+          </p>
           {error.kind === 'auth' && (
             <form onSubmit={handleSaveOperatorToken} className="mx-auto mt-6 max-w-xl text-left">
               <label htmlFor="dashboard-operator-token" className="text-sm font-medium text-foreground">
@@ -465,8 +471,14 @@ function ConsumerQrKpiStrip({ qrKpis, trend, error, selectedTimezone, timezoneOp
       </CardHeader>
       <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
         {error && (
-          <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
-            QR KPI service unavailable: {error}
+          <div
+            data-testid="qr-kpi-error"
+            className="mb-4 break-words rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100"
+          >
+            <span className="font-medium">QR KPI service unavailable:</span>{' '}
+            <span title={error} className="select-all">
+              {error}
+            </span>
           </div>
         )}
         {qrKpis ? (

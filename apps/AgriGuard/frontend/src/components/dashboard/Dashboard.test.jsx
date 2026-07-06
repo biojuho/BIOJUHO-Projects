@@ -208,7 +208,41 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Operator authentication required')).toBeInTheDocument();
     expect(screen.getByText('Paste a Firebase/operator token below, or save one in QR Tokens or Sensors.')).toBeInTheDocument();
     expect(screen.queryByText('Backend connection failed')).not.toBeInTheDocument();
-    expect(screen.getByText('Request failed with status code 401')).toBeInTheDocument();
+    const errorDetail = screen.getByTestId('dashboard-error-detail');
+    expect(errorDetail).toHaveTextContent('Request failed with status code 401');
+    expect(errorDetail).toHaveAttribute('title', 'Request failed with status code 401');
+    expect(errorDetail).toHaveClass('break-all');
+    expect(errorDetail).toHaveClass('select-all');
+  });
+
+  it('keeps QR KPI service errors inspectable without stretching the card', async () => {
+    const kpiErrorMessage = 'QR KPI backend timed out at /qr-events/kpis';
+    api.get.mockImplementation((url, config = {}) => {
+      if (url === '/dashboard/summary') {
+        return Promise.resolve({ data: dashboardSummary });
+      }
+      if (url === '/qr-events/kpis') {
+        return Promise.reject(new Error(kpiErrorMessage));
+      }
+      if (url === '/qr-events/kpis/trend') {
+        return Promise.resolve({
+          data: {
+            ...qrTrend,
+            timezone: config.params?.timezone || qrTrend.timezone,
+          },
+        });
+      }
+      return Promise.reject(new Error(`unexpected URL ${url}`));
+    });
+
+    render(<Dashboard />);
+
+    const kpiError = await screen.findByTestId('qr-kpi-error');
+    expect(kpiError).toHaveClass('break-words');
+    expect(screen.getByText('QR KPI service unavailable:')).toHaveClass('font-medium');
+    const kpiErrorDetail = screen.getByText(kpiErrorMessage);
+    expect(kpiErrorDetail).toHaveAttribute('title', kpiErrorMessage);
+    expect(kpiErrorDetail).toHaveClass('select-all');
   });
 
   it('saves an operator token from the auth error and retries the dashboard summary', async () => {
