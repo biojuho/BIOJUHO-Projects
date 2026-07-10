@@ -50,8 +50,8 @@ def load_keys() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.HEAVY: [
-        ("anthropic", "claude-sonnet-4-20250514"),
-        ("gemini", "gemini-2.5-pro-preview-03-25"),
+        ("anthropic", "claude-sonnet-4-5-20250929"),  # sonnet-4-20250514 retired 2026-07 (404)
+        ("gemini", "gemini-2.5-pro"),  # preview-03-25 alias retired (404)
         ("mimo", "mimo-v2-pro"),  # $0.09/1M, GPT-5급 성능
         ("grok", "grok-3"),
         ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),  # ★ 로컬 $0: 코드생성·추론 특화
@@ -91,6 +91,7 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
     "claude-3-haiku-20240307": TaskTier.LIGHTWEIGHT,
     "claude-3-5-haiku-20241022": TaskTier.MEDIUM,
     "claude-haiku-4-5-20251001": TaskTier.MEDIUM,
+    "claude-sonnet-4-5-20250929": TaskTier.HEAVY,
     "claude-sonnet-4-20250514": TaskTier.HEAVY,
     "claude-3-5-sonnet-20241022": TaskTier.HEAVY,
     # Ollama local models
@@ -103,6 +104,7 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
 # Model cost table (USD per 1M tokens: input, output)
 # ---------------------------------------------------------------------------
 MODEL_COSTS: dict[str, tuple[float, float]] = {
+    "claude-sonnet-4-5-20250929": (3.0, 15.0),
     "claude-sonnet-4-20250514": (3.0, 15.0),
     "claude-3-5-sonnet-20241022": (3.0, 15.0),
     "claude-haiku-4-5-20251001": (0.8, 4.0),
@@ -144,6 +146,8 @@ FALLBACK_ERRORS: tuple[str, ...] = (
     "model not found",
     "invalid api key",
     "invalid_api_key",
+    # Gemini phrasing: "API key not valid. Please pass a valid API key."
+    "api key not valid",
     # DeepSeek 한국어 프롬프트 오류 → 즉시 폴백 (KI: resilient_llm_operations)
     "invalid_request_error",
     "invalid request",
