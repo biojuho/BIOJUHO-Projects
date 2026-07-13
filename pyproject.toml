@@ -77,6 +77,8 @@ ignore = [
 ]
 "apps/desci-platform/backend/tests/**" = ["S101", "S105", "S106", "N802", "N803", "F811", "E402", "B008", "E501"]
 "apps/desci-platform/scripts/**" = ["S106", "S603", "S110", "S310", "E402", "B008", "E501", "S101"]
+"packages/shared/**/tests/**" = ["S101"]  # pytest asserts (mirrors desci tests entry)
+"packages/shared/tests/**" = ["S101"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["shared", "getdaytrends", "content_intelligence"]
