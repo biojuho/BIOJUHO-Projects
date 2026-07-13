@@ -164,3 +164,20 @@ automation/getdaytrends/run_scheduled.log
 /notebooklm-automation/
 /notebooklm_output/
 /x-article-publisher-skill/
+
+# ── Autonomous-loop evidence & runtime artifacts (retention policy 2026-06-12) ──
+# Loop evidence belongs in var/ (untracked); commit only curated narrative docs.
+var/
+!var/.gitkeep
+docs/reports/2026-*/
+# Root-level screenshot/markdown evidence dumps from loop sessions
+/*-auto-research-*
+/*-loaded-*.md
+/*-snapshot.md
+/*-clicks.png
+/agriguard-*.png
+/dailynews-*.png
+/desci-*.png
+/canva-*.png
+/dashboard-*.png
+playwright-report/
