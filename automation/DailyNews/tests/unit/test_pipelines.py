@@ -373,6 +373,64 @@ class TestAnalyzePipeline:
         assert reports[0].quality_state == "needs_review"
         assert any("Evidence tags missing" in warning for warning in warnings)
 
+    @pytest.mark.asyncio
+    async def test_generate_briefs_persists_source_intelligence_meta(self, state_store, sample_items):
+        from antigravity_mcp.integrations.embedding_adapter import ArticleCluster
+        from antigravity_mcp.pipelines.analyze import generate_briefs
+
+        sample_items[0].full_text = "Full article body"
+
+        class FakeEmbeddingAdapter:
+            is_available = True
+
+            async def cluster_articles(self, articles):
+                return [
+                    ArticleCluster(
+                        cluster_id=0,
+                        topic_label="AI market",
+                        articles=articles,
+                        source_count=2,
+                        embedding_provider="fastembed",
+                    )
+                ]
+
+        mock_llm = MagicMock()
+        mock_llm.build_report_payload = AsyncMock(
+            return_value=(
+                GeneratedPayload(
+                    summary_lines=["Summary line 1"],
+                    insights=["Insight 1"],
+                    channel_drafts=[ChannelDraft(channel="x", status="draft", content="Draft")],
+                    generation_mode="v1-brief",
+                    parse_meta={"used_fallback": False, "format": "v1"},
+                    quality_state="ok",
+                ),
+                [],
+            )
+        )
+
+        _, reports, _, _ = await generate_briefs(
+            items=sample_items,
+            window_name="manual",
+            window_start="2026-03-03T00:00:00+00:00",
+            window_end="2026-03-04T00:00:00+00:00",
+            state_store=state_store,
+            llm_adapter=mock_llm,
+            embedding_adapter=FakeEmbeddingAdapter(),
+        )
+
+        saved = state_store.get_report(reports[0].report_id)
+        assert saved is not None
+        source_meta = saved.analysis_meta["source_intelligence"]
+        assert source_meta["article_count"] == 2
+        assert source_meta["source_count"] == 2
+        assert source_meta["full_text_count"] == 1
+        assert source_meta["full_text_coverage"] == 0.5
+        assert source_meta["cluster_count"] == 1
+        assert source_meta["multi_source_topic_count"] == 1
+        assert source_meta["embedding_provider"] == "fastembed"
+        assert source_meta["top_multi_source_topics"][0]["sources"] == ["Reuters", "TechCrunch"]
+
 
 class TestReportStateSemantics:
     def test_content_report_delivery_state_distinguishes_notion_sync(self, sample_report):
@@ -1453,6 +1511,48 @@ Draft - Draft text""",
         assert ctx.summary_lines == original_summary
         assert ctx.analysis_meta["auto_heal"]["applied"] is False
         assert ctx.analysis_meta["auto_heal"]["reason"] == "no_improvement"
+
+    @pytest.mark.asyncio
+    async def test_finalize_quality_flags_prohibited_analogy_phrasing(self, state_store):
+        from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext
+        from antigravity_mcp.pipelines.qa_steps import finalize_quality
+
+        ctx = ReportAssemblyContext(
+            category="Tech",
+            items=[
+                ContentItem(
+                    source_name="Reuters",
+                    category="Tech",
+                    title="Story A",
+                    link="https://example.com/story-a",
+                    summary="Summary A",
+                )
+            ],
+            window_name="morning",
+            window_start="2026-04-10T00:00:00+00:00",
+            window_end="2026-04-10T12:00:00+00:00",
+            state_store=state_store,
+            report_id="report-tech-analogy-test",
+            generation_mode="v1-brief",
+            fingerprint="fp-analogy-test",
+            source_links=["https://example.com/story-a"],
+            enriched_items=[],
+            summary_lines=[
+                "AI 플랫폼 비용은 이번 주 12% 올랐다. [A1]",
+                "기업 구매팀은 벤더 교체 비용을 다시 계산해야 한다. [A1]",
+            ],
+            insights=[
+                "이 변화는 마치 예산표가 한 번에 흔들리는 상황 같다. [A1]",
+                "다음 분기 계약 조건에서 사용량 기준 단가를 확인해야 한다. [A1]",
+            ],
+            channel_drafts=[ChannelDraft(channel="x", status="draft", content="AI 비용 12% 상승. 계약 단가 확인.")],
+            analysis_meta={"parser": {"used_fallback": False, "format": "v1"}},
+        )
+
+        await finalize_quality(ctx)
+
+        assert ctx.quality_state == "needs_review"
+        assert "Prohibited analogy/metaphor phrasing detected." in ctx.analysis_meta["quality_review"]["warnings"]
 
     def test_report_markdown_prefers_styled_brief_for_v1_brief(self, sample_report):
         from antigravity_mcp.pipelines.publish import _report_markdown

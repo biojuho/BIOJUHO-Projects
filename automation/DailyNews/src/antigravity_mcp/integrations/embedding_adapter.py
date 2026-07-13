@@ -30,6 +30,7 @@ class ArticleCluster:
     topic_label: str  # derived from the first article's title
     articles: list[ContentItem] = field(default_factory=list)
     source_count: int = 0  # number of distinct sources covering this topic
+    embedding_provider: str = ""  # which embedding backend produced this cluster
 
     @property
     def is_multi_source(self) -> bool:
@@ -96,6 +97,7 @@ class EmbeddingAdapter:
                     topic_label=a.title,
                     articles=[a],
                     source_count=1,
+                    embedding_provider="none",
                 )
                 for i, a in enumerate(articles)
             ]
@@ -106,7 +108,13 @@ class EmbeddingAdapter:
         except Exception as exc:
             logger.warning("Embedding API failed, skipping clustering: %s", exc)
             return [
-                ArticleCluster(cluster_id=i, topic_label=a.title, articles=[a], source_count=1)
+                ArticleCluster(
+                    cluster_id=i,
+                    topic_label=a.title,
+                    articles=[a],
+                    source_count=1,
+                    embedding_provider="gemini-fallback",
+                )
                 for i, a in enumerate(articles)
             ]
 
@@ -135,6 +143,7 @@ class EmbeddingAdapter:
                         cluster_id=len(clusters),
                         topic_label=articles[i].title,
                         articles=[articles[i]],
+                        embedding_provider="gemini",
                     )
                 )
                 cluster_centroids.append(emb)
