@@ -5744,13 +5744,13 @@ function testPublicWorkflowEvidenceRedactsLocalPaths() {
     scriptFunctionSource("scripts/verify-workspace.mjs", "redactLocalPaths"),
     "redactLocalPaths;",
   ].join("\n"), {
-    root: "/Users/ju-hopark/Desktop/JooPark Project",
+    root: "/Users/sample-owner/Desktop/JooPark Project",
   });
   assert.equal(
-    redactLocalPaths("/opt/node /Users/ju-hopark/Desktop/JooPark Project/scripts/audit-release-readiness.mjs --run-gates"),
+    redactLocalPaths("/opt/node /Users/sample-owner/Desktop/JooPark Project/scripts/audit-release-readiness.mjs --run-gates"),
     "/opt/node project-root/scripts/audit-release-readiness.mjs --run-gates",
   );
-  assert.equal(redactLocalPaths("/Users/ju-hopark/Downloads/secret.md"), "<local-path>");
+  assert.equal(redactLocalPaths("/Users/sample-owner/Downloads/secret.md"), "<local-path>");
   assert.match(auditSource, /const publicProjectRoot = "project-root"/);
   assert.match(auditSource, /function redactLocalPathText\(value\)/);
   assert.match(auditSource, /function redactAuditPayload\(value\)/);
@@ -5798,7 +5798,36 @@ function testPublicWorkflowEvidenceRedactsLocalPaths() {
       assert.equal(payload.repositoryRootRedacted, true, `${relPath} should mark repositoryRoot as redacted`);
     }
     assert.equal(text.includes("/Users/"), false, `${relPath} should not expose local absolute paths`);
-    assert.equal(text.includes("/Users/ju-hopark"), false, `${relPath} should not expose the local account path`);
+  }
+}
+
+function testReposSnapshotRedactsPrivateProjects() {
+  const snapshot = JSON.parse(readFileSync(join(root, "data/repos.json"), "utf8"));
+  for (const project of snapshot.projects) {
+    if (!project.isPrivate) continue;
+    assert.match(project.id, /^repo-private-\d+$/, `${project.id} private id should stay redacted`);
+    assert.match(project.name, /^private-project-\d+$/, `${project.name} private name should stay redacted`);
+    assert.equal(project.url, "", `${project.name} private url should stay empty`);
+    assert.deepEqual(project.topics, [], `${project.name} private topics should stay empty`);
+  }
+}
+
+function testTrackedFilesExposeNoLocalAccountPaths() {
+  const textExtensions = new Set([
+    ".js", ".mjs", ".md", ".html", ".css", ".json", ".yml", ".yaml", ".svg", ".txt", ".webmanifest", ".sh",
+  ]);
+  const syntheticFixtureAllowlist = new Set(["scripts/test-pure-helpers.mjs"]);
+  const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" })
+    .split("\0")
+    .filter(Boolean);
+  const accountPathPattern = /\/Users\/(?=[A-Za-z0-9._%+-]*[A-Za-z0-9])[A-Za-z0-9._%+-]+/;
+  for (const relPath of tracked) {
+    if (syntheticFixtureAllowlist.has(relPath)) continue;
+    const dotIndex = relPath.lastIndexOf(".");
+    const extension = dotIndex === -1 ? "" : relPath.slice(dotIndex).toLowerCase();
+    if (!textExtensions.has(extension)) continue;
+    const text = readFileSync(join(root, relPath), "utf8");
+    assert.doesNotMatch(text, accountPathPattern, `${relPath} exposes a local account path`);
   }
 }
 
@@ -6491,6 +6520,8 @@ testGithubProjectDiscoveryOptionValueGuard();
 testOutputQualityPublishInstallPathRepairAwareCoverage();
 testPublishDispatchOptionValueGuard();
 testPublicWorkflowEvidenceRedactsLocalPaths();
+testReposSnapshotRedactsPrivateProjects();
+testTrackedFilesExposeNoLocalAccountPaths();
 testRemoteWorkflowCheckOptionValueGuard();
 testRemoteWorkflowInstallerOptionValueGuard();
 testWorkflowUiInstallRepairAwareActions();

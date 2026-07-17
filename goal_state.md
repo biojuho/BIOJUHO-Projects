@@ -2,7 +2,7 @@
 
 updated: 2026-06-08T16:03:32+09:00
 status: complete
-project_path: /Users/ju-hopark/Desktop/JooPark Project
+project_path: project-root
 cycle_limit_before_pause: 25
 cycles_completed_since_last_pause: 19
 

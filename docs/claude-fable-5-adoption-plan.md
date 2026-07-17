@@ -2,7 +2,7 @@
 
 Updated: 2026-06-11
 
-Source reviewed: `/Users/ju-hopark/Downloads/CLAUDE-FABLE-5.md`
+Source reviewed: `<local-home>/Downloads/CLAUDE-FABLE-5.md`
 
 ## Summary
 
