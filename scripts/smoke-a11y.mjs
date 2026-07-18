@@ -736,7 +736,7 @@ async function main() {
   } finally {
     if (pageClient) pageClient.close();
     await terminateProcess(chrome);
-    rmSync(tmpProfile, { recursive: true, force: true });
+    rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
   }
 
   const appConsoleIssues = consoleIssues.filter((issue) => issue.text && !issue.text.includes("Autofill.enable"));
@@ -760,7 +760,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  rmSync(tmpProfile, { recursive: true, force: true });
+  rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
   console.error(error.stack || error.message);
   process.exit(1);
 });

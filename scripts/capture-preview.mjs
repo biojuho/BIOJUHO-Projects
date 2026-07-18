@@ -292,7 +292,7 @@ async function main() {
     if (pageClient) pageClient.close();
     await terminateProcess(chrome);
     if (serverHandle) await new Promise((resolveClose) => serverHandle.server.close(resolveClose));
-    rmSync(tmpProfile, { recursive: true, force: true });
+    rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
   }
 }
 

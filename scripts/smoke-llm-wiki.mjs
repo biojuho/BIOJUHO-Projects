@@ -494,5 +494,5 @@ try {
   process.exitCode = 1;
 } finally {
   if (chrome) chrome.kill();
-  try { rmSync(tmpProfile, { recursive: true, force: true }); } catch {}
+  try { rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 }); } catch {}
 }
