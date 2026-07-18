@@ -445,7 +445,6 @@ function writeReleaseNotes(manifest) {
     "",
     "```bash",
     "node scripts/verify-release.mjs",
-    "node scripts/audit-release-readiness.mjs --run-gates",
     "BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs",
     "BASE_URL=http://127.0.0.1:5178 node scripts/smoke-mobile.mjs",
     "BASE_URL=http://127.0.0.1:5178 node scripts/smoke-interactions.mjs",
@@ -453,7 +452,7 @@ function writeReleaseNotes(manifest) {
     "node scripts/smoke-release.mjs",
     "```",
     "",
-    "Expected result: verification and smoke commands report `status` as `pass`; the smoke output should also have empty `consoleIssues` and `networkIssues`. `smoke-mobile.mjs` must also report empty `layoutIssues`. `smoke-a11y.mjs` must report every keyboard and ARIA check as `true`. `audit-release-readiness.mjs --run-gates` maps release requirements to concrete evidence and reports external publish blockers such as a missing Git remote. `smoke-release.mjs` is the full packaged-release gate: it rebuilds `dist/release`, verifies the manifest, serves the package on a temporary local port, route-smokes the served package, checks the mobile layout, runs the click/input interaction smoke, and runs the keyboard/ARIA accessibility smoke.",
+    "Expected result: verification and smoke commands report `status` as `pass`; the smoke output should also have empty `consoleIssues` and `networkIssues`. `smoke-mobile.mjs` must also report empty `layoutIssues`. `smoke-a11y.mjs` must report every keyboard and ARIA check as `true`. `smoke-release.mjs` is the full packaged-release gate: it rebuilds `dist/release`, verifies the manifest, serves the package on a temporary local port, route-smokes the served package, checks the mobile layout, runs the click/input interaction smoke, and runs the keyboard/ARIA accessibility smoke.",
     "",
   ];
   writeFileSync(join(packageDir, "RELEASE.md"), lines.join("\n"), "utf-8");

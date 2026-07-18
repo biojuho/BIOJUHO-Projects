@@ -81,8 +81,6 @@ const packagedBrowserGateContextExcludedFiles = new Set([
   "data/publish-evidence.json",
   "data/remote-workflow-file-check.json",
   "data/workflow-ui-install-plan.json",
-  "scripts/audit-release-readiness.mjs",
-  "scripts/capture-output-quality-audit.mjs",
 ]);
 const packagedBrowserGateRuntimeFiles = [
   "index.html",
@@ -171,7 +169,6 @@ const packagedBrowserGateRuntimeFiles = [
 const packagedBrowserGateReleaseScripts = [
   "scripts/package-release.mjs",
   "scripts/verify-release.mjs",
-  "scripts/verify-workspace.mjs",
   "scripts/capture-preview.mjs",
   "scripts/check-app-structure.mjs",
   "scripts/smoke-chrome.mjs",
@@ -181,13 +178,6 @@ const packagedBrowserGateReleaseScripts = [
   "scripts/smoke-a11y.mjs",
   "scripts/product-smoke-lock.mjs",
   "scripts/smoke-release.mjs",
-  "scripts/plan-workflow-ui-install.mjs",
-  "scripts/plan-publish-dispatch.mjs",
-  "scripts/install-remote-workflow-files.mjs",
-  "scripts/check-remote-workflow-files.mjs",
-  "scripts/capture-publish-evidence.mjs",
-  "scripts/capture-launch-execution-packet.mjs",
-  "scripts/capture-output-quality-audit.mjs",
 ];
 
 const contentTypes = {
@@ -235,7 +225,6 @@ function packagedBrowserGateInputFiles() {
     ...packagedBrowserGateRuntimeFiles,
     ...packagedBrowserGateReleaseScripts,
     "package.json",
-    "scripts/audit-release-readiness.mjs",
   ])]
     .filter((file) => !packagedBrowserGateContextExcludedFiles.has(file))
     .sort();
