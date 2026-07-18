@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "joopark-release-readiness-summary/v1",
+  "generatedAt": "2026-07-03T10:10:54.752Z",
+  "sourceCommit": "4fec71f",
+  "command": "npm run verify",
+  "status": "pass",
+  "checks": {
+    "pass": 285,
+    "fail": 0,
+    "notRun": 0,
+    "blocked": 0,
+    "total": 285
+  },
+  "externalClaimGuard": {
+    "status": "ready_for_external_claim",
+    "ready": true,
+    "readyForExternalClaim": true,
+    "releaseQualityReady": true,
+    "publicLaunchProofReady": true,
+    "launchPacketReadyForExternalClaim": true,
+    "blockedCount": 0,
+    "requirementCount": 3,
+    "requiredSignals": [
+      "remoteWorkflowFilesReady=true",
+      "remoteWorkflowVisibilityReady=true",
+      "allDispatchReady=true",
+      "postPublishEvidenceReady=true",
+      "launchPacketReadyForExternalClaim=true",
+      "readyForExternalClaim=true"
+    ],
+    "requirements": [
+      {
+        "key": "workflow_installation",
+        "label": "Workflow installation",
+        "status": "pass",
+        "detail": "workflowUiInstallReady=true; remoteWorkflowFilesReady=true; remoteWorkflowVisibilityReady=true; workflowScopeInstallBlocked=false.",
+        "missing": []
+      },
+      {
+        "key": "public_launch_proof",
+        "label": "Public launch proof",
+        "status": "pass",
+        "detail": "postPublishEvidenceReady=true; evidenceFresh=true; pagesEvidenceReady=true; workflowEvidenceReady=true.",
+        "missing": []
+      },
+      {
+        "key": "external_completion_claim",
+        "label": "External completion claim",
+        "status": "pass",
+        "detail": "releaseQualityReady=true; publicLaunchProofReady=true; launchPacketReadyForExternalClaim=true; readyForExternalClaim=true.",
+        "missing": []
+      }
+    ],
+    "blockedRequirements": [],
+    "blockedSignals": [],
+    "nextAction": {
+      "key": "share-launch-proof",
+      "status": "ready",
+      "command": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+      "detail": "Pages and workflow run evidence are fresh and complete.",
+      "deferredKey": "",
+      "deferredCommand": ""
+    },
+    "stopCondition": "Stop condition: do not claim readyForExternalClaim, public launch complete, or post public launch copy until Workflow installation, Public launch proof, and External completion claim are all pass.",
+    "completionAudit": {
+      "status": "ready_for_external_claim",
+      "launchCompletionAchieved": true,
+      "primaryMetric": "completionAuditStructuredCoverage",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep",
+      "readyForExternalClaim": true,
+      "blockedSignals": [],
+      "nextActionKey": "share-launch-proof",
+      "nextActionStatus": "ready",
+      "nextActionCommand": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+      "guard": "Do not claim external launch completion until launchCompletionAchieved=true and readyForExternalClaim=true."
+    }
+  },
+  "completionAudit": {
+    "status": "ready_for_external_claim",
+    "launchCompletionAchieved": true,
+    "primaryMetric": "completionAuditStructuredCoverage",
+    "baseline": 0,
+    "candidate": 4,
+    "decision": "keep",
+    "readyForExternalClaim": true,
+    "blockedSignals": [],
+    "nextActionKey": "share-launch-proof",
+    "nextActionStatus": "ready",
+    "nextActionCommand": "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown",
+    "guard": "Do not claim external launch completion until launchCompletionAchieved=true and readyForExternalClaim=true."
+  },
+  "packagedBrowserGate": {
+    "status": "pass",
+    "cached": true,
+    "cache": {
+      "source": "autoresearch-results/release-readiness-gates.json",
+      "generatedAt": "2026-07-03T10:09:57.649Z",
+      "maxAgeHours": 6,
+      "ageMinutes": 1,
+      "inputFiles": 90,
+      "contextMatched": true,
+      "status": "valid",
+      "cachedEvidenceStatus": "pass",
+      "cachedResultStatus": "pass",
+      "issues": [],
+      "contextMismatches": []
+    }
+  }
+}

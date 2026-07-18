@@ -5,7 +5,6 @@ Pasted_content_01.txt
 autoresearch-skill-system/
 dist/
 autoresearch-results/release-readiness-gates.json
-autoresearch-results/release-readiness-summary.json
 
 # 유튜브 쇼츠 다운로드 부산물 (이 웹앱과 무관한 로컬 작업물)
 *.mp4

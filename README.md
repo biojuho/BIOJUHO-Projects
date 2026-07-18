@@ -18,22 +18,23 @@ python3 -m http.server 5178
 npm test
 ```
 
-`npm test`는 아래 순서로 실행됩니다.
+`npm test`는 정적 게이트만 순서대로 실행합니다(브라우저 불필요, 약 12초).
 
 ```bash
-npm run test:unit
-npm run lint
-npm run check:structure
-npm run audit:xss
-npm run check:vendor
-npm run measure:perf
-npm run verify:product
-npm run test:product
+npm run test:unit        # 순수 헬퍼 단위 테스트
+npm run lint             # node --check 문법 검사
+npm run check:structure  # app.js/뷰 모듈 구조 가드
+npm run check:docs       # docs/app-architecture.md 정합
+npm run audit:xss        # raw() 주입 정적 감사
+npm run check:vendor     # vendor SRI/라이선스 정합
+npm run check:wiki       # LLM 위키 문서 게이트 17종
+npm run measure:perf     # 대용량 데이터 성능 예산
+npm run verify:dashboard # 대시보드 모듈 검증
 ```
 
-`npm run verify:product`는 임시 로컬 정적 서버를 띄우고 데스크톱/모바일/상호작용/접근성 브라우저 스모크를 순차 실행한 뒤 서버를 정리합니다. 개별 스모크를 직접 실행할 때는 먼저 로컬 서버를 켭니다.
+브라우저 게이트는 두 계층입니다. `npm run verify:product`는 임시 로컬 정적 서버를 띄우고 데스크톱/모바일/상호작용/접근성 브라우저 스모크를 순차 실행한 뒤 서버를 정리합니다. `npm run test:product`는 `dist/release` 패키지를 다시 빌드해 패키지 대상 스모크를 실행합니다. 릴리스 전 전체 검증은 `npm run verify:full`(= npm test → verify:product → smoke:cockpit → test:product)입니다. 개별 스모크를 직접 실행할 때는 먼저 로컬 서버를 켭니다.
 
-기본 `npm run verify`는 `node scripts/verify-workspace.mjs` runner로 release gate만 `--format=summary`로 실행합니다. `npm run verify:full`은 full evidence sync로 `launch_readiness_refresh`, `product_loop_summary_sync`, `productLoopGateParityReady`, `productLoopPublishParityReady`, `summarySyncReady`, `nextCandidatesReady`, `nextCandidateListReady`, `latestExperiment`, `latestDirectionLoop`, `latestDirectionExperiment`, `latestDiscoveryExperiment`, `directionLoopSyncReady`, `latestDirectionExperimentReady`, `latestDiscoveryExperimentReady`를 `autoresearch-results/verify-workspace-summary.json`과 System Status receipt에 남깁니다. `npm run refresh:launch-readiness`와 `node scripts/sync-product-loop-summary.mjs --write --markdown`은 여전히 개별 복구 명령입니다.
+과거의 launch/publish 증거 동기화 기계(audit-release-readiness, verify-workspace, refresh-launch-readiness 등)는 2026-07-18에 `archive/meta-machine/scripts/`로 동결됐습니다. `data/`와 `autoresearch-results/`의 launch receipt JSON은 런타임(System Status)과 서비스워커 프리캐시가 읽는 동결 스냅샷으로 보존되며 더 이상 재생성되지 않습니다.
 
 ```bash
 BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs
@@ -53,21 +54,9 @@ node scripts/verify-release.mjs
 
 `dist/release/`는 GitHub Pages, Netlify, Vercel에 그대로 올릴 수 있는 정적 패키지입니다. 패키저는 `release-manifest.json`, `release-provenance.json`, `404.html`, `_headers`, `_redirects`, `vercel.json`, `site.webmanifest`, `sw.js`, vendor 파일, data snapshot, `autoresearch-results/release-readiness-summary.json`, `autoresearch-results/verify-workspace-summary.json`을 함께 넣고 source parity를 검증합니다.
 
-GitHub Pages 배포 템플릿은 `docs/github-pages-workflow.yml`입니다. 로컬에 설치된 workflow는 `.github/workflows/joopark-pages.yml`이고, CI smoke는 `.github/workflows/joopark-ci.yml`에서 정적 체크, 소스 브라우저 스모크, 패키지 릴리스 스모크를 분리 실행합니다. 후보 drift 확인 템플릿은 `docs/github-drift-watch-workflow.yml`입니다.
+GitHub Pages 배포 템플릿은 `docs/github-pages-workflow.yml`입니다. 로컬에 설치된 workflow는 `.github/workflows/joopark-pages.yml`이고, CI smoke는 `.github/workflows/joopark-ci.yml`에서 정적 체크, 소스 브라우저 스모크, 패키지 릴리스 스모크를 분리 실행합니다. Pages build 잡은 `npm test`(정적 게이트)를 통과해야만 패키징·배포로 진행합니다.
 
-수동 dispatch가 허용된 상태에서도 Pages 배포는 대상 ref를 명시해 실행합니다: `gh workflow run --repo OWNER/REPO joopark-pages.yml -f ref=codex/joopark-workspace-release`.
-
-Launch-readiness evidence는 `npm run refresh:launch-readiness`로 갱신합니다. 이 명령은 `scripts/refresh-launch-readiness.mjs`를 실행해 `data/launch-readiness-refresh.json`과 `data/launch-readiness-refresh.md`를 다시 쓰고, `commandCoverage=6`, `decision=keep_b`, `evidenceFreshnessStatus=fresh`, `evidenceMaxAgeHours=24`, `sourceArtifactCount=6`, `outputQualitySourceInputCount=11`, `latestGate`, `outputQualityGateTraceability`, `safeToDispatch`, `readyForExternalClaim`, `dispatchCommandDisposition`, `activeDispatchCommandCount`, `dispatchCommandReferenceCount`, 그리고 `nextAction` 상태를 한 영수증에 남깁니다. 원본 `suggestedDispatchCommandCount`는 dispatch plan provenance/reference로 보존하고, proof-ready 상태에서는 `dispatchCommandDisposition=not_applicable_after_launch_proof` 및 `activeDispatchCommandCount=0`으로 표시해 실행 후보가 아님을 분리합니다. System Status의 `readiness receipt 복사`는 `readyForExternalClaim=true` 전에는 dispatch나 외부 완료 claim을 막는 guard를 그대로 복사하고, pass 상태에서는 `share_launch_proof` 명령을 다음 공유 액션으로 노출합니다.
-
-Publish evidence guard는 `repoEvidenceReady, evidenceFresh, postPublishEvidenceReady`를 공개 claim의 최소 입력으로 표시합니다. Stop condition: do not post public launch copy, archive proof, or claim readyForExternalClaim until all six evidence fields are live, fresh, linked, successful, and readyForExternalClaim=true.
-
-`node scripts/audit-release-readiness.mjs --format=summary`의 `JooPark Release Readiness Summary`는 `External Claim Guard` 아래에 구조화된 `completionAudit` 상태를 함께 내보냅니다. System Status의 Release gate cache 패널과 복사 receipt도 `completionAudit`, `launchCompletionAchieved`, `blockedSignals`를 노출합니다. `launchCompletionAchieved=false`, `readyForExternalClaim=false`, `blockedSignals`가 남아 있으면 release gate가 pass여도 외부 출시 완료 claim은 금지됩니다.
-
-Remote workflow file check는 외부 dispatch 전에 default branch의 workflow YAML이 로컬 템플릿과 같은지 확인하는 guard입니다. 현재 확인 명령은 `node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write`이고, 결과는 `data/remote-workflow-file-check.json` 및 System Status의 `Remote workflow file check` 패널에 표시됩니다. `remoteWorkflowFilesReady`가 false이면 `remoteMatchesTemplate`, `remoteBlobSha`, `githubEditFileUrl`, `installAction`, `workflowScopeApprovalHandoff`, `workflowScopeInstallBlocked`, `device-code approval URL`, `one-time device code 저장 금지` 상태를 먼저 확인합니다.
-
-Remote workflow install packet은 System Status에서 `Remote workflow install packet` / `install packet 복사`로 공유합니다. 이 패킷은 `GitHub UI fallback`, `GitHub edit-file URL`, `githubEditFileUrl`, `replace_existing_remote_file`, `remoteBlobSha`, `Post-install verification checklist`, `remoteWorkflowFilesChecked: true`, `remoteWorkflowVisibilityReady: true`, `allDispatchReady: true`를 함께 담아, 없는 파일 생성과 기존 파일 교체를 분리합니다. CLI 설치가 승인된 경우에만 `node scripts/install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify`를 사용하고, 그 전에는 GitHub UI에서 default branch 파일을 편집한 뒤 다시 check 명령을 실행합니다.
-
-Post-install proof parser는 System Status의 로컬 붙여넣기 검증 도구입니다. `placeholder` 템플릿이나 안내문은 `not dispatch approval`로 남기고, 실제 post-install proof를 붙여넣었을 때만 `postInstallProofParserCoverage=1`, `Fields detected: 6/6` 상태를 표시합니다. Missing field repair hints: `node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write`, `node scripts/plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects --write`, `node scripts/verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown`. 필수 필드는 `pages_workflow_commit`, `drift_workflow_commit`, `remote_parity_proof`, `actions_visibility_proof`, `dispatch_readiness_proof`, `handoff_verifier_proof`입니다.
+Pages 배포는 push 트리거가 environment 보호 규칙으로 항상 거부되므로, 대상 ref를 명시한 수동 dispatch가 유일한 경로입니다: `gh workflow run --repo OWNER/REPO joopark-pages.yml -f ref=codex/joopark-workspace-release`.
 
 ## 데이터 경계
 
@@ -79,19 +68,7 @@ Post-install proof parser는 System Status의 로컬 붙여넣기 검증 도구�
 | `db-catalog.js` | 브라우저 localStorage DB 카탈로그 UI helper |
 | `autoresearch-results/*.json` | 릴리스/검증 cache artifact. 런타임 proof cache로 남겨두며 외부 완료 증거 자체는 아님 |
 
-OSS 후보의 별/포크/커밋 값은 source-backed snapshot입니다. 앱은 이를 live DB나 실시간 GitHub 동기화로 표시하지 않고, 포트폴리오 카드에 `Seed demo snapshot` 경계를 노출합니다. 최신성 확인은 아래 명령으로 분리합니다.
-
-```bash
-node scripts/check-candidate-freshness-drift.mjs --snapshot-only
-node scripts/check-candidate-freshness-drift.mjs --live
-node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift
-```
-
-GitHub 관련 프로젝트 전수 확인은 읽기 전용 산출물로 분리합니다. 이 명령은 로컬 `~/Desktop` 하위 Git 체크아웃과 `biojuho` GitHub 저장소 목록을 수집해 `data/github-project-discovery.json` 및 `.md`에 남기며, push·deploy·branch 삭제는 수행하지 않습니다. JSON은 공개 패키지에 들어가도 로컬 절대 경로가 노출되지 않도록 `localPathMode=relative-to-local-root`, `privacy.publicArtifactSafe=true`, `privacy.absoluteLocalPathExposure=false`를 기록하고, System Status 화면의 `GitHub project discovery` 패널에서 같은 guard와 상위 프로젝트를 확인합니다.
-
-```bash
-npm run audit:github-projects
-```
+OSS 후보의 별/포크/커밋 값은 source-backed snapshot입니다. 앱은 이를 live DB나 실시간 GitHub 동기화로 표시하지 않고, 포트폴리오 카드에 `Seed demo snapshot` 경계를 노출합니다. 후보 드리프트 감시 기계는 2026-07-18에 `archive/meta-machine/`으로 동결됐습니다.
 
 ## 주요 기능
 

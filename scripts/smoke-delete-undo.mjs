@@ -502,12 +502,12 @@ async function main() {
   } finally {
     if (pageClient) pageClient.close();
     await terminateProcess(chrome);
-    rmSync(tmpProfile, { recursive: true, force: true });
+    rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
   }
 }
 
 main().catch((error) => {
-  rmSync(tmpProfile, { recursive: true, force: true });
+  rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
   console.error(error.stack || error.message);
   process.exit(1);
 });
