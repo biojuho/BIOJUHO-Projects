@@ -138,7 +138,7 @@ function progress(event, extra = {}) {
 
 function cleanupTmpProfile() {
   try {
-    rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    try { rmSync(tmpProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 }); } catch (_) { /* tmp 프로필 정리 실패는 스모크 결과와 무관 */ }
   } catch (error) {
     progress("cleanup-profile-warning", { message: error.message });
   }
