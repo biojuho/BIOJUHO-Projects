@@ -95,7 +95,7 @@
   ],
   "scripts": {
     "build": "node scripts/package-release.mjs",
-    "test": "npm run test:unit && npm run lint && npm run check:structure && npm run check:docs && npm run audit:xss && npm run check:vendor && npm run check:wiki && npm run measure:perf && npm run verify:dashboard",
+    "test": "npm run test:unit && npm run lint && npm run check:structure && npm run check:docs && npm run audit:xss && npm run check:vendor && npm run check:css && npm run check:wiki && npm run measure:perf && npm run verify:dashboard",
     "test:unit": "node scripts/test-pure-helpers.mjs",
     "test:product": "node scripts/smoke-release.mjs",
     "audit:xss": "node scripts/audit-raw-xss.mjs",
@@ -113,6 +113,7 @@
     "verify:full": "npm test && npm run verify:product && npm run smoke:cockpit && npm run test:product",
     "lint": "node scripts/check-syntax.mjs",
     "typecheck": "npm run lint",
-    "check:wiki": "node scripts/check-llm-wiki-docs.mjs"
+    "check:wiki": "node scripts/check-llm-wiki-docs.mjs",
+    "check:css": "node scripts/check-css-usage.mjs"
   }
 }

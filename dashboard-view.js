@@ -96,13 +96,10 @@
 
     function renderDashboardIntelligenceHTML(model = {}) {
       const cards = listOf(model.cards);
-      const candidates = listOf(model.candidates);
-      const loops = listOf(model.loops);
-      const latestReceipt = model.latestReceipt || null;
       const active = model.autoresearchActive === true;
       const sources = listOf(model.externalResearchSources);
       return html`
-        <section class="panel dashboard-intelligence" data-dashboard-intelligence data-dashboard-card-count="${cards.length}" data-dashboard-candidate-count="${candidates.length}" data-dashboard-loop-count="${loops.length}" data-dashboard-autoresearch-active="${active ? "true" : "false"}">
+        <section class="panel dashboard-intelligence" data-dashboard-intelligence data-dashboard-card-count="${cards.length}" data-dashboard-autoresearch-active="${active ? "true" : "false"}">
           <div class="panel-head">
             <div>
               <h2>운영 관제판</h2>
@@ -112,24 +109,6 @@
           </div>
           <div class="dashboard-intel-grid">
             ${cards.slice(0, 9).map((item) => raw(cardHTML(item)))}
-          </div>
-          <div class="dashboard-loop-panel" data-dashboard-autoresearch-loop>
-            <div>
-              <span>AutoResearch loop</span>
-              <strong>${loops.length ? `${loops.length} receipts` : "ready"}</strong>
-              <p>현황 재확인, localStorage 요약, evidence 확인, research 확장, 후보 점수화, receipt 저장까지 브라우저 로컬 데이터로 반복합니다.</p>
-            </div>
-            <div class="dashboard-loop-actions">
-              <button type="button" class="primary-btn" data-action="dashboard-autoresearch-run">1회 실행</button>
-              <button type="button" class="secondary-btn" data-action="${active ? "dashboard-autoresearch-stop" : "dashboard-autoresearch-start"}">${active ? "멈춰" : "반복 시작"}</button>
-            </div>
-          </div>
-          ${raw(receiptHTML(latestReceipt))}
-          <div class="dashboard-candidate-strip" data-dashboard-candidate-strip>
-            <div class="panel-head compact-head"><div><h3>다음 루프 후보 TOP 5</h3></div></div>
-            <ol>
-              ${candidates.slice(0, 5).map((item, index) => raw(candidateHTML(item, index)))}
-            </ol>
           </div>
           <details class="dashboard-research-sources">
             <summary>외부 research source ${sources.length}개</summary>
@@ -143,17 +122,37 @@
 
     function systemDashboardReceiptHTML(model = {}) {
       const receipts = listOf(model.receipts);
-      const latest = receipts[0] || null;
+      const candidates = listOf(model.candidates);
+      const loops = listOf(model.loops);
+      const active = model.autoresearchActive === true;
+      const latest = model.latestReceipt || receipts[0] || null;
       return html`
-        <section class="panel dashboard-system-receipts" data-system-dashboard-receipts data-system-dashboard-receipt-count="${receipts.length}" data-system-dashboard-latest-hash="${latest ? latest.receiptHash : ""}">
+        <section class="panel dashboard-system-receipts" data-system-dashboard-receipts data-system-dashboard-receipt-count="${receipts.length}" data-system-dashboard-latest-hash="${latest ? latest.receiptHash : ""}" data-dashboard-candidate-count="${candidates.length}" data-dashboard-loop-count="${loops.length}" data-dashboard-autoresearch-active="${active ? "true" : "false"}">
           <div class="panel-head">
             <div>
               <h2>Dashboard intelligence receipts</h2>
               <p>AutoResearch loop, 후보 점수, 저장소 health, evidence snapshot 영수증</p>
             </div>
-            <span class="publish-state">${receipts.length ? "ready" : "empty"}</span>
+            <span class="publish-state">${active ? "loop active" : (receipts.length ? "ready" : "empty")}</span>
           </div>
-          ${latest ? raw(receiptHTML(latest)) : raw(html`<p class="settings-note">Home에서 AutoResearch loop를 실행하면 System Status에 receipt가 표시됩니다.</p>`)}
+          <div class="dashboard-loop-panel" data-dashboard-autoresearch-loop>
+            <div>
+              <span>AutoResearch loop</span>
+              <strong>${loops.length ? `${loops.length} receipts` : "ready"}</strong>
+              <p>현황 재확인, localStorage 요약, evidence 확인, research 확장, 후보 점수화, receipt 저장까지 브라우저 로컬 데이터로 반복합니다.</p>
+            </div>
+            <div class="dashboard-loop-actions">
+              <button type="button" class="primary-btn" data-action="dashboard-autoresearch-run">1회 실행</button>
+              <button type="button" class="secondary-btn" data-action="${active ? "dashboard-autoresearch-stop" : "dashboard-autoresearch-start"}">${active ? "멈춰" : "반복 시작"}</button>
+            </div>
+          </div>
+          ${latest ? raw(receiptHTML(latest)) : raw(html`<p class="settings-note">AutoResearch loop를 실행하면 여기에 receipt가 표시됩니다.</p>`)}
+          <div class="dashboard-candidate-strip" data-dashboard-candidate-strip>
+            <div class="panel-head compact-head"><div><h3>다음 루프 후보 TOP 5</h3></div></div>
+            <ol>
+              ${candidates.slice(0, 5).map((item, index) => raw(candidateHTML(item, index)))}
+            </ol>
+          </div>
           <dl class="storage-grid">
             ${listOf(model.collections).map((item) => raw(html`
               <div><dt>${item.key}</dt><dd>${item.count}/${item.retention}</dd></div>

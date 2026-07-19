@@ -171,34 +171,6 @@
       });
     }
 
-    function copyHomeLaunchBlockerResolver(target) {
-      copyConfiguredText(target, {
-        panelSelector: "[data-home-launch-blocker-resolver]",
-        textSelector: "[data-home-launch-blocker-resolver-text]",
-        statusSelector: "[data-home-launch-blocker-resolver-copy-status]",
-        targetDatasetKeys: "homeLaunchBlockerResolverCopied",
-        panelDatasetKeys: "homeLaunchBlockerResolverCopied",
-        successStatus: "resolver 복사됨",
-        failureStatus: "resolver 복사 실패",
-        successToast: "launch blocker resolver를 복사했습니다",
-        failureToast: "launch blocker resolver 복사 실패",
-      });
-    }
-
-    function copyHomeLaunchActionChecklist(target) {
-      copyConfiguredText(target, {
-        panelSelector: "[data-home-launch-action-checklist]",
-        textSelector: "[data-home-launch-action-checklist-text]",
-        statusSelector: "[data-home-launch-action-checklist-copy-status]",
-        targetDatasetKeys: "homeLaunchActionChecklistCopied",
-        panelDatasetKeys: "homeLaunchActionChecklistCopied",
-        successStatus: "checklist 복사됨",
-        failureStatus: "checklist 복사 실패",
-        successToast: "launch action checklist를 복사했습니다",
-        failureToast: "launch action checklist 복사 실패",
-      });
-    }
-
     function copyPostInstallEvidenceIntake(target) {
       copyConfiguredText(target, {
         panelSelector: "[data-post-install-evidence-intake]",
@@ -336,8 +308,6 @@
       copyPublishLaunchProofReceipt,
       copyRemoteWorkflowInstallPacket,
       copyWorkflowUiInstallReceipt,
-      copyHomeLaunchBlockerResolver,
-      copyHomeLaunchActionChecklist,
       copyPostInstallEvidenceIntake,
       copyPublishWorkflowScopePacket,
       copyLaunchExecutionPacket,

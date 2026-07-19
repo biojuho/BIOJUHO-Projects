@@ -1,5 +1,5 @@
-const CACHE_VERSION = "joopark-workspace-v3-offline-2026-06-18-pipeline-view-module";
-const CACHE_VERSION_LINEAGE = ["joopark-workspace-v3-offline-2026-06-09-github-discovery", "joopark-workspace-v3-offline-2026-06-09-ops-runtime-loader", "joopark-workspace-v3-offline-2026-06-09-home-view-module", "joopark-workspace-v3-offline-2026-06-09-runtime-error-boundary-module", "joopark-workspace-v3-offline-2026-06-08-review-issue-payload-module", "joopark-workspace-v3-offline-2026-06-08-review-execution-checklist-module"];
+const CACHE_VERSION = "joopark-workspace-v3-offline-2026-07-20-swr-asset-cache";
+const CACHE_VERSION_LINEAGE = ["joopark-workspace-v3-offline-2026-06-18-pipeline-view-module", "joopark-workspace-v3-offline-2026-06-09-github-discovery", "joopark-workspace-v3-offline-2026-06-09-ops-runtime-loader", "joopark-workspace-v3-offline-2026-06-09-home-view-module", "joopark-workspace-v3-offline-2026-06-09-runtime-error-boundary-module", "joopark-workspace-v3-offline-2026-06-08-review-issue-payload-module", "joopark-workspace-v3-offline-2026-06-08-review-execution-checklist-module"];
 const APP_SHELL_CACHE = `joopark-app-shell-${CACHE_VERSION}`;
 
 const APP_SHELL_ASSETS = [
@@ -135,7 +135,26 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(clearOldCaches().then(() => self.clients.claim()));
 });
 
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(APP_SHELL_CACHE);
+  const cached = await cache.match(request);
+  const refresh = fetch(request)
+    .then((response) => {
+      if (response && response.ok) cache.put(request, response.clone());
+      return response;
+    })
+    .catch(() => null);
+  if (cached) return cached;
+  return (await refresh) || (await cache.match("./index.html"));
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || !sameOrigin(event.request)) return;
-  event.respondWith(networkFirst(event.request));
+  // 내비게이션(문서)은 network-first로 항상 최신 셸을 확인하고,
+  // 정적 자산은 캐시 즉시 응답 + 백그라운드 갱신으로 재방문을 가속한다.
+  if (event.request.mode === "navigate") {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+  event.respondWith(staleWhileRevalidate(event.request));
 });

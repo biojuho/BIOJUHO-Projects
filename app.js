@@ -476,9 +476,59 @@ function openDeletedRecoveryPanel() {
   setTimeout(() => retryFocus(), 2400);
 }
 
+function focusRestoreSelector(active) {
+  if (active.id) return `#${CSS.escape(active.id)}`;
+  const tag = active.tagName.toLowerCase();
+  const name = active.getAttribute("name");
+  if (name) return `${tag}[name="${CSS.escape(name)}"]`;
+  const action = active.getAttribute("data-action");
+  if (action) return `${tag}[data-action="${CSS.escape(action)}"]`;
+  return "";
+}
+
+function captureFocusSnapshot(node) {
+  const active = document.activeElement;
+  if (!active || active === document.body || !node.contains(active)) return null;
+  const selector = focusRestoreSelector(active);
+  if (!selector) return null;
+  const snapshot = {
+    selector,
+    scrollTop: active.scrollTop || 0,
+    scrollLeft: active.scrollLeft || 0,
+  };
+  if (active.tagName === "INPUT" || active.tagName === "TEXTAREA") {
+    try {
+      snapshot.selectionStart = active.selectionStart;
+      snapshot.selectionEnd = active.selectionEnd;
+      snapshot.selectionDirection = active.selectionDirection;
+    } catch (_) {}
+  }
+  return snapshot;
+}
+
+function restoreFocusSnapshot(node, snapshot) {
+  if (!snapshot) return;
+  const current = document.activeElement;
+  const focusLost = !current || current === document.body || current === document.documentElement;
+  if (!focusLost) return;
+  let target = null;
+  try { target = node.querySelector(snapshot.selector); } catch (_) {}
+  if (!target) return;
+  try {
+    target.focus({ preventScroll: true });
+    if (typeof snapshot.selectionStart === "number" && typeof target.setSelectionRange === "function") {
+      target.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd, snapshot.selectionDirection || "none");
+    }
+    if (snapshot.scrollTop) target.scrollTop = snapshot.scrollTop;
+    if (snapshot.scrollLeft) target.scrollLeft = snapshot.scrollLeft;
+  } catch (_) {}
+}
+
 function setHTML(node, htmlString) {
   if (!node) return;
+  const focusSnapshot = captureFocusSnapshot(node);
   node.innerHTML = htmlString;
+  restoreFocusSnapshot(node, focusSnapshot);
 }
 
 function normalize(value) { return `${value}`.toLowerCase(); }
@@ -1604,9 +1654,6 @@ function homeFirstRunGuidanceModel({
   openTodos,
   noteCount,
   totalProjects,
-  publishBlockers,
-  externalClaimReady,
-  launchProofReady,
 }) {
   const firstRunSteps = [
     {
@@ -1939,13 +1986,8 @@ const homeViewHelpers = window.JooParkHomeView && window.JooParkHomeView.version
       safeGithubUrl,
       shortCommit,
       projectBenchmarkContext,
-      recordByKey,
-      firstStatusItem,
-      firstStringIncluding,
-      firstNonPassingStatusItem,
       publishEvidenceFresh,
       formatKoreanShort,
-      clampInteger,
       homeFirstRunGuidanceModel,
       homeProjectFollowThroughModel,
       kpiCard,
@@ -5609,6 +5651,13 @@ function openLlmWikiSourceFromRecord(kind, recordId, fallbackSourceKey = "") {
     return;
   }
   const articleId = sourceKey.slice(prefix.length);
+  if (!opsRuntimeGroupReady("wiki")) {
+    // 위키 런타임 미도착: 그룹 로드 뒤 같은 흐름을 재시도한다(원문 부재 오판 방지).
+    ensureOpsRuntime("wiki")
+      .then(() => openLlmWikiSourceFromRecord(kind, recordId, fallbackSourceKey))
+      .catch((error) => handleRuntimeError(error, { source: "ops-runtime", view: "llm-wiki", group: "wiki" }));
+    return;
+  }
   const location = llmWikiArticleLocation(articleId);
   if (!location) {
     showToast("연결된 LLM Wiki 원문을 찾을 수 없습니다", "warn");
@@ -5630,6 +5679,13 @@ function openIssueSource(issueId) {
   state.llmWikiRecordBacklink = null;
   if (sourceKind === "llm-wiki-action" && sourceKey.startsWith("llm-wiki:issue:")) {
     const articleId = sourceKey.slice("llm-wiki:issue:".length);
+    if (!opsRuntimeGroupReady("wiki")) {
+      // 위키 런타임 미도착: 그룹 로드 뒤 같은 흐름을 재시도한다(원문 부재 오판 방지).
+      ensureOpsRuntime("wiki")
+        .then(() => openIssueSource(issueId))
+        .catch((error) => handleRuntimeError(error, { source: "ops-runtime", view: "llm-wiki", group: "wiki" }));
+      return;
+    }
     const location = llmWikiArticleLocation(articleId);
     if (!location) {
       showToast("연결된 LLM Wiki 원문을 찾을 수 없습니다", "warn");
@@ -5974,6 +6030,7 @@ const workspaceStorageHelpers = window.JooParkWorkspaceStorage && typeof window.
       getCurrentView: () => dashboard.currentView,
       renderSettings,
       setPmWasPersisted: (value) => { pmWasPersisted = !!value; },
+      onMultitabConflict: (externalSavedAt) => handleMultitabConflict(externalSavedAt),
       consoleRef: console,
     })
   : null;
@@ -6703,6 +6760,22 @@ function persist() {
   updateDataSafetyTopbar();
   return result;
 }
+let multitabConflictToastShown = false;
+function handleMultitabConflict(externalSavedAt) {
+  state.storageHealth = {
+    ...state.storageHealth,
+    multitabConflictAt: nowISO(),
+    multitabExternalSavedAt: externalSavedAt || "",
+  };
+  updateDataSafetyTopbar();
+  if (multitabConflictToastShown) return;
+  multitabConflictToastShown = true;
+  showToast("다른 탭에서도 이 워크스페이스가 저장되고 있습니다 — 편집 유실을 피하려면 한 탭만 사용하거나 새로고침하세요", "warning", {
+    actionLabel: "새로고침",
+    onAction: () => window.location.reload(),
+    timeoutMs: 12000,
+  });
+}
 function loadPersisted() {
   const result = workspaceStorageCall("loadPersisted");
   updateDataSafetyTopbar();
@@ -7312,15 +7385,18 @@ function setNoteSourceFilter(key) {
 
 /* ---------- LLM 위키 ---------- */
 
-const llmWikiViewHelpers = window.JooParkLlmWikiView && typeof window.JooParkLlmWikiView.create === "function"
-  ? window.JooParkLlmWikiView.create({
+// llm-wiki-view.js는 "wiki" 그룹으로 지연 로드된다(초기 전송량 절감).
+// 헬퍼는 release/review 선례와 같은 lazy getter 패턴으로 모듈 도착 후 1회 생성한다.
+let llmWikiViewHelpers = null;
+function getLlmWikiViewHelpers() {
+  return llmWikiViewHelpers = createLazyRuntimeHelpers(llmWikiViewHelpers, "JooParkLlmWikiView", {
     html,
     raw,
     matches,
     renderMarkdown,
     searchEmptyState,
-  })
-  : null;
+  });
+}
 
 function llmWikiArticleCount() {
   const data = window.JooParkLlmWikiView && window.JooParkLlmWikiView.data;
@@ -7348,8 +7424,11 @@ function llmWikiActionState() {
 function renderLlmWiki() {
   const view = refs.views["llm-wiki"];
   if (!view) return;
-  if (!llmWikiViewHelpers) {
-    setHTML(view, html`<section class="empty">LLM 위키 모듈을 불러오지 못했습니다.</section>`);
+  if (!getLlmWikiViewHelpers()) {
+    // 모듈 미도착: 로딩 패널을 그리고 wiki 그룹 로드 후 자동 재렌더한다
+    // (renderCurrentView 밖에서 직접 호출되는 selectLlmWiki 경로 대비).
+    renderOpsRuntimeLoading("llm-wiki", "wiki");
+    queueOpsRuntimeRender("llm-wiki", "wiki");
     return;
   }
   setHTML(view, llmWikiViewHelpers.renderLlmWikiHTML({
@@ -8145,14 +8224,6 @@ function copyWorkflowUiInstallReceipt(target) {
   operationsCopyActionsCall("copyWorkflowUiInstallReceipt", target);
 }
 
-function copyHomeLaunchBlockerResolver(target) {
-  operationsCopyActionsCall("copyHomeLaunchBlockerResolver", target);
-}
-
-function copyHomeLaunchActionChecklist(target) {
-  operationsCopyActionsCall("copyHomeLaunchActionChecklist", target);
-}
-
 function copyPostInstallEvidenceIntake(target) {
   operationsCopyActionsCall("copyPostInstallEvidenceIntake", target);
 }
@@ -8533,10 +8604,11 @@ function setActiveNav(viewName) {
   activeNavEls = next;
 }
 
-const OPS_RUNTIME_VIEW_GROUPS = Object.freeze({ settings: "release", system: "release", "pm-portfolio": "review" });
+const OPS_RUNTIME_VIEW_GROUPS = Object.freeze({ settings: "release", system: "release", "pm-portfolio": "review", "llm-wiki": "wiki" });
 const OPS_RUNTIME_GETTERS = Object.freeze({
   release: [getReleaseStatusHelpers, getVerifyWorkspaceSummaryHelpers, getOperationsCopyActionsHelpers],
   operations: [getOperationsCopyActionsHelpers],
+  wiki: [getLlmWikiViewHelpers],
   review: [getReviewRecommendationExportHelpers, getReviewExecutionChecklistHelpers, getReviewIssuePayloadHelpers, getReviewResultViewHelpers, getReviewHandoffHelpers, getReviewArtifactViewHelpers, getReviewPackageViewHelpers, getReviewArtifactStateHelpers, getReviewResultDraftStateHelpers, getReviewCreationActionsHelpers, getReviewCopyActionsHelpers, getReviewSubmissionCopyHelpers, getReviewResultStateHelpers],
 });
 const opsRuntimeLoadPromises = new Map();
@@ -8552,12 +8624,14 @@ function ensureOpsRuntime(group) {
 }
 function renderOpsRuntimeLoading(viewName, group) {
   const view = refs.views[viewName];
-  if (view) setHTML(view, html`<section class="panel ops-runtime-loading" data-ops-runtime-loading data-ops-runtime-group="${group}"><div class="panel-head"><div><h2>${VIEW_LABELS[viewName] || "운영 화면"} 준비 중</h2><small>운영/리뷰 런타임을 지연 로드하고 있습니다.</small></div><span class="pill warn">lazy runtime</span></div></section>`);
+  if (view) setHTML(view, html`<section class="panel ops-runtime-loading" data-ops-runtime-loading data-ops-runtime-group="${group}"><div class="panel-head"><div><h2>${VIEW_LABELS[viewName] || "운영 화면"} 준비 중</h2><small>화면 런타임을 지연 로드하고 있습니다.</small></div><span class="pill warn">lazy runtime</span></div></section>`);
 }
 function queueOpsRuntimeRender(viewName, group) {
   ensureOpsRuntime(group).then(() => {
     if (dashboard.currentView === viewName) renderCurrentView();
     if (group === "release") refreshVerifyWorkspaceSummaryEvidence().catch(() => {});
+    // wiki 그룹 도착 전 navCountWiki는 0 폴백 — 도착 즉시 실제 문서 수로 갱신.
+    if (group === "wiki") updateNavCounts();
   }).catch((error) => handleRuntimeError(error, { source: "ops-runtime", view: viewName, group }));
 }
 
@@ -9644,16 +9718,22 @@ const PIPELINE_ACTION_HANDLERS = new Map([
   ["open-pipeline-cell", (target) => openPipelineCellSheet(target.dataset.asset, target.dataset.ws)],
   ["open-pipeline-wiki", (target) => {
     closeSheet({ restoreFocus: false });
+    const categoryId = target.dataset.cat || null;
+    const articleId = target.dataset.article || null;
     setView("llm-wiki");
-    selectLlmWiki(target.dataset.cat || null, target.dataset.article || null);
-    // selectLlmWiki가 뷰를 다시 그려 setView의 헤딩 포커스가 파괴되므로,
-    // 최종 렌더된 문서 헤딩으로 포커스를 재이동해 키보드/SR 좌초를 막는다.
-    const wikiView = refs.views["llm-wiki"];
-    const wikiHeading = wikiView ? wikiView.querySelector("h1, h2, h3") : null;
-    if (wikiHeading) {
-      if (!wikiHeading.hasAttribute("tabindex")) wikiHeading.setAttribute("tabindex", "-1");
-      wikiHeading.focus({ preventScroll: true });
-    }
+    // 위키 런타임은 지연 로드되므로, 로드 완료 뒤 문서를 선택하고 헤딩 포커스를 잡는다.
+    ensureOpsRuntime("wiki").then(() => {
+      if (dashboard.currentView !== "llm-wiki") return;
+      selectLlmWiki(categoryId, articleId);
+      // selectLlmWiki가 뷰를 다시 그려 setView의 헤딩 포커스가 파괴되므로,
+      // 최종 렌더된 문서 헤딩으로 포커스를 재이동해 키보드/SR 좌초를 막는다.
+      const wikiView = refs.views["llm-wiki"];
+      const wikiHeading = wikiView ? wikiView.querySelector("h1, h2, h3") : null;
+      if (wikiHeading) {
+        if (!wikiHeading.hasAttribute("tabindex")) wikiHeading.setAttribute("tabindex", "-1");
+        wikiHeading.focus({ preventScroll: true });
+      }
+    }).catch((error) => handleRuntimeError(error, { source: "ops-runtime", view: "llm-wiki", group: "wiki" }));
   }],
 ]);
 
@@ -9788,8 +9868,6 @@ const OPERATIONS_COPY_ACTION_HANDLERS = new Map([
   ["copy-publish-launch-proof-receipt", copyPublishLaunchProofReceipt],
   ["copy-remote-workflow-install-packet", copyRemoteWorkflowInstallPacket],
   ["copy-workflow-ui-install-receipt", copyWorkflowUiInstallReceipt],
-  ["copy-home-launch-blocker-resolver", copyHomeLaunchBlockerResolver],
-  ["copy-home-launch-action-checklist", copyHomeLaunchActionChecklist],
   ["copy-post-install-evidence-intake", copyPostInstallEvidenceIntake],
   ["copy-post-install-proof-parser-summary", copyPostInstallProofParserSummary],
   ["copy-publish-workflow-scope-packet", copyPublishWorkflowScopePacket],
@@ -10839,6 +10917,16 @@ function setup() {
   refreshStorageHealth();
   window.addEventListener("online", updateDataSafetyTopbar);
   window.addEventListener("offline", updateDataSafetyTopbar);
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORE_KEY_V3 || !event.newValue) return;
+    let externalSavedAt = "";
+    try {
+      const payload = JSON.parse(event.newValue);
+      if (payload && typeof payload.savedAt === "string") externalSavedAt = payload.savedAt;
+    } catch (_) {}
+    if (!externalSavedAt || externalSavedAt === dashboard.lastSavedAt) return;
+    handleMultitabConflict(externalSavedAt);
+  });
   loadGithubProjects().then((loaded) => {
     if (loaded) refreshAfterSnapshot();
     else if (dashboard.currentView === "system") renderSystemStatus();

@@ -57,6 +57,7 @@ const scriptSyntaxFiles = Object.freeze([
   "scripts/capture-preview.mjs",
   "scripts/check-app-structure.mjs",
   "scripts/check-doc-architecture.mjs",
+  "scripts/check-css-usage.mjs",
   "scripts/check-llm-wiki-docs.mjs",
   "scripts/check-syntax.mjs",
   "scripts/check-vendor-honesty.mjs",

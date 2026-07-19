@@ -6,19 +6,19 @@ This app ships as a static, no-build SPA. `index.html` loads browser globals in 
 
 Initial runtime scripts in `index.html`:
 
-`search-empty-state.js`, `home-execution-view.js`, `calendar-view.js`, `todo-view.js`, `notes-view.js`, `habits-view.js`, `stats-view.js`, `llm-wiki-view.js`, `portfolio-view.js`, `kanban-view.js`, `gantt-view.js`, `team-view.js`, `pipeline-view.js`, `workspace-storage.js`, `dashboard-storage.js`, `dashboard-prioritization.js`, `dashboard-evidence-receipts.js`, `dashboard-insights-engine.js`, `dashboard-autoresearch-loop.js`, `dashboard-view.js`, `storage-status-view.js`, `settings-view.js`, `system-status-view.js`, `backup-import-guards.js`, `backup-import-ui.js`, `dialog-shell.js`, `project-picker.js`, `global-search.js`, `command-palette.js`, `keyboard-shortcuts.js`, `interaction-setup.js`, `event-reminders.js`, `footer-clock.js`, `db-catalog.js`, `runtime-error-boundary.js`, `pwa-runtime.js`, `workspace-seed-data.js`, `home-view.js`, `ops-runtime-loader.js`, `app.js`.
+`search-empty-state.js`, `home-execution-view.js`, `calendar-view.js`, `todo-view.js`, `notes-view.js`, `habits-view.js`, `stats-view.js`, `portfolio-view.js`, `kanban-view.js`, `gantt-view.js`, `team-view.js`, `pipeline-view.js`, `workspace-storage.js`, `dashboard-storage.js`, `dashboard-prioritization.js`, `dashboard-evidence-receipts.js`, `dashboard-insights-engine.js`, `dashboard-autoresearch-loop.js`, `dashboard-view.js`, `storage-status-view.js`, `settings-view.js`, `system-status-view.js`, `backup-import-guards.js`, `backup-import-ui.js`, `dialog-shell.js`, `project-picker.js`, `global-search.js`, `command-palette.js`, `keyboard-shortcuts.js`, `interaction-setup.js`, `event-reminders.js`, `footer-clock.js`, `db-catalog.js`, `runtime-error-boundary.js`, `pwa-runtime.js`, `workspace-seed-data.js`, `home-view.js`, `ops-runtime-loader.js`, `app.js`.
 
 Vendor scripts are local files under `vendor/` and must keep their `integrity` and `crossorigin` attributes in `index.html`.
 
-Operational and review-only code is no longer in the initial script list. `ops-runtime-loader.js` exposes `window.JooParkOpsRuntime` and loads these files only when a gated route needs them:
+Operational, review-only, and knowledge-base code is no longer in the initial script list. `ops-runtime-loader.js` exposes `window.JooParkOpsRuntime` and loads these files only when a gated route needs them:
 
-`release-status.js`, `operations-copy-actions.js`, `verify-workspace-summary.js`, `review-recommendation-export.js`, `review-execution-checklist.js`, `review-issue-payload.js`, `review-result-view.js`, `review-handoff.js`, `review-artifact-view.js`, `review-package-view.js`, `review-artifact-state.js`, `review-result-draft-state.js`, `review-creation-actions.js`, `review-copy-actions.js`, `review-submission-copy.js`, `review-result-state.js`.
+`release-status.js`, `operations-copy-actions.js`, `verify-workspace-summary.js`, `llm-wiki-view.js`, `review-recommendation-export.js`, `review-execution-checklist.js`, `review-issue-payload.js`, `review-result-view.js`, `review-handoff.js`, `review-artifact-view.js`, `review-package-view.js`, `review-artifact-state.js`, `review-result-draft-state.js`, `review-creation-actions.js`, `review-copy-actions.js`, `review-submission-copy.js`, `review-result-state.js`.
 
-`app.js` owns the route gate through `OPS_RUNTIME_VIEW_GROUPS`. System routes load the release group, portfolio routes load the review group, and clipboard-only operations can load the operations group.
+`app.js` owns the route gate through `OPS_RUNTIME_VIEW_GROUPS`. System routes load the release group, portfolio routes load the review group, the LLM wiki route loads the wiki group (`llm-wiki-view.js`; the `navCountWiki` sidebar badge falls back to 0 until the group arrives, then `updateNavCounts` refreshes it), and clipboard-only operations can load the operations group.
 
 ## Ops Runtime Diagnostics
 
-`ops-runtime-loader.js` records loaded, pending, and failed lazy files, group-level last-load status, and bounded load events. System Status renders these as `Ops runtime diagnostics` with `loaded lazy files`, `ready groups`, release/review group rows, and failed-file details so browser smoke can prove lazy runtime readiness without parsing raw console output.
+`ops-runtime-loader.js` records loaded, pending, and failed lazy files, group-level last-load status, and bounded load events. System Status renders these as `Ops runtime diagnostics` with `loaded lazy files`, `ready groups`, release/review/wiki group rows, and failed-file details so browser smoke can prove lazy runtime readiness without parsing raw console output.
 
 ## Responsibility Map
 
@@ -27,7 +27,7 @@ Operational and review-only code is no longer in the initial script list. `ops-r
 | Shell and search | `search-empty-state.js`, `dialog-shell.js`, `project-picker.js`, `global-search.js`, `command-palette.js`, `keyboard-shortcuts.js`, `interaction-setup.js`, `event-reminders.js`, `footer-clock.js` | topbar search, palette, shortcuts, body event delegation, notification reminders, footer clock, modal/sheet focus handling |
 | Home | `workspace-seed-data.js`, `home-view.js`, `home-execution-view.js`, `dashboard-view.js`, `dashboard-insights-engine.js`, `dashboard-prioritization.js`, `dashboard-autoresearch-loop.js`, `dashboard-evidence-receipts.js`, `dashboard-storage.js` | dashboard seed data, first screen, readiness, execution queue, operational cockpit, AutoResearch loop receipts |
 | Personal productivity | `calendar-view.js`, `todo-view.js`, `notes-view.js`, `habits-view.js`, `stats-view.js` | calendar, todo, notes, habit, stats wrappers |
-| Knowledge base | `llm-wiki-view.js` | LLM wiki browsing and draft creation wrappers |
+| Knowledge base | `llm-wiki-view.js` | LLM wiki browsing and draft creation wrappers, lazy-loaded as the `wiki` group on first route entry |
 | PM execution | `portfolio-view.js`, `kanban-view.js`, `gantt-view.js`, `team-view.js`, `pipeline-view.js` | portfolio cards, Kanban, Gantt, resources, asset×workstream pipeline matrix |
 | DB catalog | `db-catalog.js` | DB instances, schema, queries, backups |
 | Persistence and import | `workspace-storage.js`, `dashboard-storage.js`, `storage-status-view.js`, `backup-import-guards.js`, `backup-import-ui.js` | localStorage v3, dashboard intelligence collections, import size/count/schema guards, storage health |
@@ -52,7 +52,7 @@ Dashboard intelligence is still no-server local state. `dashboard-autoresearch-l
 
 ## Generated Artifact Policy
 
-Generated files are split by whether the static app reads them as release evidence. Tracked evidence files stay in git because `package-release.mjs`, System Status, Settings runbooks, or smoke checks read them directly. Local inventory/cache files that can be regenerated and are not required for the shipped app stay ignored.
+Generated files are split by whether the static app reads them as release evidence. Tracked evidence files stay in git because System Status, Settings runbooks, or smoke checks may read them directly, but tracking alone does not make them public release inputs. `package-release.mjs` copies only its explicit public `data/*.json` allowlist, and `verify-release.mjs` rejects any missing or unexpected release data file. Local inventory/cache files that can be regenerated and are not required for the shipped app stay ignored.
 
 | Artifact | Producer | Policy |
 | --- | --- | --- |

@@ -25,6 +25,20 @@ function positiveMsOption(value, fallback) {
   return parsed;
 }
 
+const publicDataEntries = [
+  "data/adoption-candidates.json",
+  "data/github-project-discovery.json",
+  "data/launch-execution-packet.json",
+  "data/launch-readiness-refresh.json",
+  "data/output-quality-audit.json",
+  "data/pages-attestation-proof.json",
+  "data/publish-dispatch-plan.json",
+  "data/publish-evidence.json",
+  "data/remote-workflow-file-check.json",
+  "data/repos.json",
+  "data/workflow-ui-install-plan.json",
+];
+
 const expectedRuntimeFiles = [
   "404.html",
   "_headers",
@@ -81,17 +95,7 @@ const expectedRuntimeFiles = [
   "ops-runtime-loader.js",
   "app.js",
   "sw.js",
-  "data/adoption-candidates.json",
-  "data/github-project-discovery.json",
-  "data/launch-execution-packet.json",
-  "data/launch-readiness-refresh.json",
-  "data/output-quality-audit.json",
-  "data/pages-attestation-proof.json",
-  "data/publish-dispatch-plan.json",
-  "data/publish-evidence.json",
-  "data/remote-workflow-file-check.json",
-  "data/repos.json",
-  "data/workflow-ui-install-plan.json",
+  ...publicDataEntries,
   "favicon.svg",
   "icons/icon-192.svg",
   "icons/icon-512.svg",
@@ -121,7 +125,6 @@ const expectedRuntimeScriptOrder = [
   "notes-view.js",
   "habits-view.js",
   "stats-view.js",
-  "llm-wiki-view.js",
   "portfolio-view.js",
   "kanban-view.js",
   "gantt-view.js",
@@ -170,7 +173,7 @@ const expectedProvenanceDependencies = [
   "sw.js",
   "styles.css",
   "README.md",
-  "data",
+  ...publicDataEntries,
   "vendor",
 
 ];
@@ -293,6 +296,153 @@ function runtimeFiles() {
         sha256: sha256(file),
       };
     });
+}
+
+function verifyPublicDataAllowlist(actualFiles, failures) {
+  const actualDataEntries = actualFiles
+    .map((file) => file.path)
+    .filter((path) => path.startsWith("data/"))
+    .sort();
+  const expectedDataEntries = [...publicDataEntries].sort();
+  const exactMatch = actualDataEntries.length === expectedDataEntries.length
+    && actualDataEntries.every((path, index) => path === expectedDataEntries[index]);
+  if (exactMatch) return;
+
+  const actualSet = new Set(actualDataEntries);
+  const expectedSet = new Set(expectedDataEntries);
+  const missing = expectedDataEntries.filter((path) => !actualSet.has(path));
+  const unexpected = actualDataEntries.filter((path) => !expectedSet.has(path));
+  failures.push(
+    `public data allowlist mismatch: missing=${missing.join(",") || "none"}; unexpected=${unexpected.join(",") || "none"}`,
+  );
+}
+
+function verifyPrivateRepoRedaction(failures) {
+  const snapshotPath = join(releaseDir, "data", "repos.json");
+  if (!existsSync(snapshotPath)) {
+    failures.push("data/repos.json is missing");
+    return;
+  }
+
+  let snapshot;
+  try {
+    snapshot = JSON.parse(readFileSync(snapshotPath, "utf-8"));
+  } catch {
+    failures.push("data/repos.json is not valid JSON");
+    return;
+  }
+
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    failures.push("data/repos.json shape is invalid at field root");
+    return;
+  }
+  if (!Array.isArray(snapshot.projects)) {
+    failures.push("data/repos.json shape is invalid at field projects");
+    return;
+  }
+
+  const seenPrivateIds = new Set();
+  const seenPrivateNames = new Set();
+  const canonicalPrivateRepoFields = [
+    "burn",
+    "closedIssues",
+    "color",
+    "createdAt",
+    "deadline",
+    "description",
+    "diskKb",
+    "forks",
+    "health",
+    "id",
+    "isArchived",
+    "isPrivate",
+    "language",
+    "lastCommit",
+    "license",
+    "mergedPRs",
+    "name",
+    "openIssues",
+    "openPRs",
+    "owner",
+    "progress",
+    "pushedAt",
+    "risks",
+    "stars",
+    "status",
+    "topics",
+    "url",
+  ];
+  const nullFields = ["language", "license", "deadline", "pushedAt", "createdAt", "lastCommit"];
+  const zeroFields = [
+    "progress",
+    "risks",
+    "openIssues",
+    "openPRs",
+    "mergedPRs",
+    "closedIssues",
+    "stars",
+    "forks",
+    "diskKb",
+  ];
+  const redactedStrings = {
+    color: "violet",
+    description: "비공개 저장소 (메타데이터 비식별 처리)",
+    health: "green",
+    owner: "비공개",
+    status: "on-track",
+    url: "",
+  };
+  const report = (rowNumber, field, issue = "violates the redaction contract") => {
+    failures.push(`data/repos.json row ${rowNumber} field ${field} ${issue}`);
+  };
+
+  snapshot.projects.forEach((project, index) => {
+    const rowNumber = index + 1;
+    if (!project || typeof project !== "object" || Array.isArray(project)) {
+      report(rowNumber, "row", "has an invalid shape");
+      return;
+    }
+    if (typeof project.isPrivate !== "boolean") {
+      report(rowNumber, "isPrivate", "has an invalid shape");
+      return;
+    }
+    if (project.isPrivate !== true) return;
+
+    const actualFields = Object.keys(project).sort();
+    const canonicalFieldSetMatches = actualFields.length === canonicalPrivateRepoFields.length
+      && actualFields.every((field, fieldIndex) => field === canonicalPrivateRepoFields[fieldIndex]);
+    if (!canonicalFieldSetMatches) report(rowNumber, "field-set");
+
+    const idMatch = typeof project.id === "string" ? project.id.match(/^repo-private-([1-9]\d*)$/) : null;
+    const nameMatch = typeof project.name === "string" ? project.name.match(/^private-project-([1-9]\d*)$/) : null;
+    if (!idMatch) report(rowNumber, "id");
+    if (!nameMatch) report(rowNumber, "name");
+    if (idMatch && nameMatch && idMatch[1] !== nameMatch[1]) report(rowNumber, "id/name");
+
+    if (typeof project.id === "string") {
+      if (seenPrivateIds.has(project.id)) report(rowNumber, "id", "must be unique");
+      seenPrivateIds.add(project.id);
+    }
+    if (typeof project.name === "string") {
+      if (seenPrivateNames.has(project.name)) report(rowNumber, "name", "must be unique");
+      seenPrivateNames.add(project.name);
+    }
+
+    for (const [field, expected] of Object.entries(redactedStrings)) {
+      if (project[field] !== expected) report(rowNumber, field);
+    }
+    for (const field of nullFields) {
+      if (project[field] !== null) report(rowNumber, field);
+    }
+    for (const field of zeroFields) {
+      if (project[field] !== 0) report(rowNumber, field);
+    }
+    if (project.isArchived !== false) report(rowNumber, "isArchived");
+    if (!Array.isArray(project.topics) || project.topics.length !== 0) report(rowNumber, "topics");
+    if (!Array.isArray(project.burn) || project.burn.length !== 7 || project.burn.some((value) => value !== 0)) {
+      report(rowNumber, "burn");
+    }
+  });
 }
 
 function failResult(failures) {
@@ -802,6 +952,9 @@ function verify() {
   const manifestFiles = manifest.files;
   const actualByPath = new Map(actual.map((file) => [file.path, file]));
   const manifestByPath = new Map();
+
+  verifyPublicDataAllowlist(actual, failures);
+  verifyPrivateRepoRedaction(failures);
 
   for (const file of manifestFiles) {
     if (!file || typeof file.path !== "string") {

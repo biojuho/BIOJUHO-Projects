@@ -243,16 +243,9 @@ const archivedMetaCheckKeys = new Set([
   "sourceSnapshotHealth",
   "githubProjectDiscovery",
   "settingsViewModule",
-  "homeLaunchNextAction",
-  "homeLaunchActionChecklist",
-  "homeLaunchBlockerResolver",
-  "homePostInstallEvidenceIntake",
-  "homeExternalClaimGuard",
 ]);
 
 const archivedMetaFailurePrefixes = [
-  "home launch action surfaces current guard:",
-  "home launch blocker resolver exposes active unblock path:",
   "settings operational handoff copy:",
   "system publish readiness alignment:",
 ];
@@ -683,12 +676,7 @@ const interactionExpression = `
   let reviewRecommendationExportModuleOk = false;
   let backupImportUiModuleOk = false;
   let homeQuickLinksNavigateOk = false;
-  let homeLaunchNextActionOk = false;
-  let homeLaunchActionChecklistOk = false;
-  let homeLaunchBlockerResolverOk = false;
   let homeReleaseGateEvidenceOk = false;
-  let homePostInstallEvidenceIntakeOk = false;
-  let homeExternalClaimGuardOk = false;
   let homeExecutionViewModuleOk = false;
   let homeExecutionQueueOk = false;
   let homeExecutionQueueExplainabilityOk = false;
@@ -1636,273 +1624,16 @@ const interactionExpression = `
     commandPaletteExactNavLabelOk = true;
   });
 
-	  await runStep("home launch action surfaces current guard", async () => {
-	    await nav("home");
-	    await waitFor(() => {
-	      const card = document.querySelector("#view-home [data-home-launch-next-action]");
-	      const text = card ? card.textContent || "" : "";
-	      const code = card ? card.querySelector("code")?.textContent || "" : "";
-	      const label = card ? (card.dataset.homeLaunchActionLabel || "").trim() : "";
-	      const installAction = card &&
-	        card.dataset.homeLaunchActionKey === "install_workflows" &&
-	        label === "Install workflows on the default branch" &&
-	        text.includes("remoteWorkflowFilesReady=true") &&
-	        (code === "gh auth refresh -h github.com -s workflow" || code.includes("pbcopy < 'docs/github-pages-workflow.yml'") || code.includes("check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"));
-	      const proofCaptureAction = card &&
-	        card.dataset.homeLaunchActionKey === "capture_launch_proof" &&
-	        label === "Capture launch proof" &&
-	        text.includes("postPublishEvidenceReady=true") &&
-	        code.includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown");
-      const homeLaunchActionKey = card ? (card.dataset.homeLaunchActionKey || "") : "";
-      const normalizedHomeLaunchActionKey = homeLaunchActionKey.replaceAll("_", "-");
-      const shareProofAction = card &&
-        normalizedHomeLaunchActionKey === "share-launch-proof" &&
-        label === "Share launch proof" &&
-        text.includes("Pages and workflow run evidence are fresh") &&
-        code.includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown");
-      return card &&
-        (installAction || proofCaptureAction || shareProofAction) &&
-        (shareProofAction || Number(card.dataset.homeLaunchCommandCount || "0") >= 1) &&
-        Number(card.dataset.homeLaunchWithheldCount || "0") >= 0;
-	    }, "home launch action card did not load current launch evidence with label", 30000);
-	    const card = qs("#view-home [data-home-launch-next-action]");
-	    const releaseGateCard = qs('#view-home [data-home-readiness-card="release-gate"]');
-	    const text = card.textContent || "";
-	    const releaseGateCardText = releaseGateCard.textContent || "";
-	    const normalizedText = text.toLowerCase();
-	    const label = (card.dataset.homeLaunchActionLabel || "").trim();
-	    const renderedLabel = qs("strong", card).textContent.trim();
-	    const renderedLaunchCommand = qs("code", card).textContent;
-	    const isInstallAction = card.dataset.homeLaunchActionKey === "install_workflows";
-	    const isProofCaptureAction = card.dataset.homeLaunchActionKey === "capture_launch_proof";
-	    const isShareProofAction = card.dataset.homeLaunchActionKey.replaceAll("_", "-") === "share-launch-proof";
-	    const expectedLaunchCommandNeedle = (isProofCaptureAction || isShareProofAction)
-	      ? "capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown"
-	      : (renderedLaunchCommand.includes("pbcopy < 'docs/github-pages-workflow.yml'") ? "pbcopy < 'docs/github-pages-workflow.yml'" : (renderedLaunchCommand.includes("check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write") ? "check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write" : "gh auth refresh -h github.com -s workflow"));
-	    const homeLaunchTransitionCurrentStages = ["install_workflows", "capture_launch_proof", "share_launch_proof"];
-	    const homeLaunchTransitionNextStages = ["verify_visibility", "capture_launch_proof", "share_launch_proof"];
-	    const homeLaunchProofLedgerGates = ["capture_launch_proof", "share_launch_proof"];
-	    assert(releaseGateCard.dataset.homeReadinessCardEvidenceCount === "6" && releaseGateCardText.includes("릴리스 게이트") && releaseGateCardText.includes("6 proofs") && releaseGateCardText.includes("route 17/17") && releaseGateCardText.includes("mobile search/UI") && releaseGateCardText.includes("delete undo") && releaseGateCardText.includes("a11y"), "home release gate evidence summary did not render");
-	    homeReleaseGateEvidenceOk = true;
-	    assert(["action_required", "action_required_after_dispatch", "pass", "ready"].includes(card.dataset.homeLaunchActionStatus), "home launch action did not expose an actionable status");
-	    assert(["Install workflows on the default branch", "Capture launch proof", "Share launch proof"].includes(label), "home launch action label dataset did not render: " + label);
-	    assert(card.dataset.homeLaunchSafeToDispatch === (isInstallAction ? "false" : "true"), "home launch action safeToDispatch state was stale");
-	    assert(card.dataset.homeLaunchReadyForExternalClaim === (isShareProofAction ? "true" : "false"), "home launch action external launch claim state was stale");
-	    assert(card.dataset.homeLaunchTransitionSource === "generated_from_launch_execution_packet" && homeLaunchTransitionCurrentStages.includes(card.dataset.homeLaunchTransitionCurrentStage) && homeLaunchTransitionNextStages.includes(card.dataset.homeLaunchTransitionNextStage) && card.dataset.homeLaunchTransitionGateCommand.includes("verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"), "home launch transition preview dataset was incomplete");
-	    assert(card.getAttribute("data-home-launch-install-matrix-source") === "generated_from_launch_execution_packet" && Number(card.dataset.homeLaunchInstallMatrixSignalCount || "0") >= 6 && card.dataset.homeLaunchInstallMatrixNextStage === "verify_visibility", "home launch install verification matrix dataset was incomplete");
-	    const homeRemoteWorkflowFileLedgerFileCount = Number(card.dataset.homeRemoteWorkflowFileLedgerFileCount || "0");
-	    const homeRemoteWorkflowFileLedgerReadyCount = Number(card.dataset.homeRemoteWorkflowFileLedgerReadyCount || "0");
-	    const homeRemoteWorkflowFileLedgerMissingCount = Number(card.dataset.homeRemoteWorkflowFileLedgerMissingCount || "0");
-	    const homeRemoteWorkflowFileLedgerMismatchCount = Number(card.dataset.homeRemoteWorkflowFileLedgerMismatchCount || "0");
-	    const homeRemoteWorkflowFileLedgerNotCheckedCount = Number(card.dataset.homeRemoteWorkflowFileLedgerNotCheckedCount || "0");
-	    const homeRemoteWorkflowFileLedgerAccountedCount = homeRemoteWorkflowFileLedgerReadyCount + homeRemoteWorkflowFileLedgerMissingCount + homeRemoteWorkflowFileLedgerMismatchCount + homeRemoteWorkflowFileLedgerNotCheckedCount;
-	    assert(card.getAttribute("data-home-remote-workflow-file-ledger-source") === "generated_from_remote_workflow_file_check" && ["remote_file_install_required", "remote_files_ready"].includes(card.dataset.homeRemoteWorkflowFileLedgerStatus) && homeRemoteWorkflowFileLedgerFileCount === 2 && homeRemoteWorkflowFileLedgerAccountedCount === 2, "home remote workflow file acceptance ledger dataset was incomplete");
-	    const homeLaunchProofReadyCount = Number(card.dataset.homeLaunchProofLedgerReadyCount || "0");
-	    const homeLaunchProofPendingCount = Number(card.dataset.homeLaunchProofLedgerPendingCount || "0");
-	    assert(card.getAttribute("data-home-launch-proof-ledger-source") === "generated_from_launch_execution_packet" && ["proof_blocked_until_dispatch", "proof_capture_required", "proof_ready"].includes(card.dataset.homeLaunchProofLedgerStatus) && card.dataset.homeLaunchProofLedgerRequiredCount === "6" && homeLaunchProofReadyCount + homeLaunchProofPendingCount === 6 && homeLaunchProofLedgerGates.includes(card.dataset.homeLaunchProofLedgerCurrentGate), "home launch proof acceptance ledger dataset was incomplete");
-	    assert(text.includes("현재") && normalizedText.includes(label.toLowerCase()) && renderedLabel === label, "home launch action label did not render: " + text.slice(0, 240));
-	    assert(text.includes(expectedLaunchCommandNeedle) && (text.includes("remoteWorkflowFilesReady=true") || text.includes("postPublishEvidenceReady=true") || (isShareProofAction && text.includes("Pages and workflow run evidence are fresh"))), "home launch action command and success condition did not render");
-	    assert(text.includes("next transition") && text.includes(card.dataset.homeLaunchTransitionCurrentStage + " -> " + card.dataset.homeLaunchTransitionNextStage) && text.includes("pending " + card.dataset.homeLaunchTransitionPendingCount) && text.includes(isInstallAction ? "dispatch withheld" : "safeToDispatch=true"), "home launch transition preview did not render");
-	    assert(text.includes("install verification matrix") && text.includes("signals") && text.includes("remoteWorkflowVisibilityReady=true") && text.includes("dispatchReady=true") && text.includes("driftDispatchReady=true") && text.includes("allDispatchReady=true") && text.includes("verify-launch-handoff reports safeToDispatch=true"), "home launch install verification matrix did not render");
-	    assert(text.includes("remote workflow file acceptance ledger") && text.includes(card.dataset.homeRemoteWorkflowFileLedgerReadyCount + "/2 files ready") && text.includes(card.dataset.homeRemoteWorkflowFileLedgerStatus) && text.includes("missing " + card.dataset.homeRemoteWorkflowFileLedgerMissingCount) && text.includes("mismatch " + card.dataset.homeRemoteWorkflowFileLedgerMismatchCount) && text.includes("remoteMatchesTemplate required"), "home remote workflow file acceptance ledger did not render");
-	    assert(text.includes("launch proof acceptance ledger") && text.includes(homeLaunchProofReadyCount + "/6 proofs ready") && text.includes(card.dataset.homeLaunchProofLedgerStatus) && text.includes("pending " + homeLaunchProofPendingCount) && text.includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"), "home launch proof acceptance ledger did not render");
-	    assert(text.includes("safeToDispatch") && text.includes("externalClaim") && text.includes("withheld"), "home launch action guard counters did not render");
-	    assert(renderedLaunchCommand.includes(expectedLaunchCommandNeedle), "home launch action code did not expose first safe command");
-	    const homeLaunchActionChecklist = qs("#view-home [data-home-launch-action-checklist]");
-	    const homeLaunchActionChecklistText = homeLaunchActionChecklist.textContent || "";
-	    const homeLaunchActionChecklistCopyText = qs("[data-home-launch-action-checklist-text]", homeLaunchActionChecklist).textContent;
-	    const homeLaunchActionChecklistSteps = Array.from(homeLaunchActionChecklist.querySelectorAll("[data-home-launch-action-checklist-step]"));
-	    const homeLaunchActionChecklistSources = Array.from(homeLaunchActionChecklist.querySelectorAll("[data-home-launch-action-checklist-source-artifact]"));
-	    const checklistActive = homeLaunchActionChecklist.dataset.homeLaunchActionChecklistActive;
-	    assert(homeLaunchActionChecklist.dataset.homeLaunchActionChecklistReady === "true" && ["operator_auth_path", "remote_workflow_file_parity", "launch_proof_capture"].includes(checklistActive) && ["action_required", "pass"].includes(homeLaunchActionChecklist.dataset.homeLaunchActionChecklistStatus) && homeLaunchActionChecklist.dataset.homeLaunchActionChecklistRecheckCount === "5" && homeLaunchActionChecklist.dataset.homeLaunchActionChecklistSourceArtifactCount === "4" && homeLaunchActionChecklist.dataset.homeLaunchActionChecklistDispatchApproval === "false" && homeLaunchActionChecklist.dataset.homeLaunchActionChecklistVerificationOnly === "true" && Number(homeLaunchActionChecklist.dataset.homeLaunchActionChecklistWithheldCount || "0") >= 0, "home launch action checklist dataset was incomplete");
-	    assert(homeLaunchActionChecklist.dataset.homeLaunchActionChecklistImmediateCommand.includes(expectedLaunchCommandNeedle) && (homeLaunchActionChecklist.dataset.homeLaunchActionChecklistDeferredCommand.includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --markdown") || homeLaunchActionChecklist.dataset.homeLaunchActionChecklistDeferredCommand.includes("gh api repos/biojuho/BIOJUHO-Projects/pages")) && (homeLaunchActionChecklist.dataset.homeLaunchActionChecklistGuard.includes("Do not run gh workflow run until every action_required post-auth checkpoint item") || homeLaunchActionChecklist.dataset.homeLaunchActionChecklistGuard.includes("Do not run install-remote-workflow-files.mjs")), "home launch action checklist command or guard dataset was incomplete");
-	    assert(homeLaunchActionChecklistSteps.length === 5 && homeLaunchActionChecklistSteps[0].dataset.homeLaunchActionChecklistStepKey === "confirm_scope" && homeLaunchActionChecklistSteps[1].dataset.homeLaunchActionChecklistStepKey === "install_workflows" && homeLaunchActionChecklistSteps[2].dataset.homeLaunchActionChecklistStepKey === "verify_remote_parity" && homeLaunchActionChecklistSteps[3].dataset.homeLaunchActionChecklistStepKey === "verify_actions_visibility" && homeLaunchActionChecklistSteps[4].dataset.homeLaunchActionChecklistStepKey === "verify_handoff_guard" && homeLaunchActionChecklistSteps[4].dataset.homeLaunchActionChecklistStepCommand.includes("verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"), "home launch action checklist recheck sequence did not render");
-	    assert(homeLaunchActionChecklistSources.length === 4 && homeLaunchActionChecklistSources.some((item) => item.textContent.includes("gh auth status -h github.com")) && homeLaunchActionChecklistSources.some((item) => item.textContent.includes("data/remote-workflow-file-check.json")) && homeLaunchActionChecklistSources.some((item) => item.textContent.includes("data/publish-dispatch-plan.json")) && homeLaunchActionChecklistSources.some((item) => item.textContent.includes("data/launch-handoff-verification.json")), "home launch action checklist source artifacts did not render");
-	    assert(homeLaunchActionChecklistText.includes("launch action checklist") && homeLaunchActionChecklistText.includes(checklistActive) && homeLaunchActionChecklistText.includes("immediate command") && homeLaunchActionChecklistText.includes("gh auth status -h github.com") && homeLaunchActionChecklistText.includes("verify_handoff_guard") && homeLaunchActionChecklistText.includes("dispatchApproval=false") && homeLaunchActionChecklistText.includes("verificationOnly=true") && homeLaunchActionChecklistText.includes("Do not run gh workflow run"), "home launch action checklist visible text did not render");
-	    assert(homeLaunchActionChecklistCopyText.includes("JooPark Launch Action Checklist") && homeLaunchActionChecklistCopyText.includes("Active blocker: " + checklistActive) && homeLaunchActionChecklistCopyText.includes("Immediate command: " + homeLaunchActionChecklist.dataset.homeLaunchActionChecklistImmediateCommand) && homeLaunchActionChecklistCopyText.includes("Recheck sequence: 5") && homeLaunchActionChecklistCopyText.includes("Source artifacts: 4") && homeLaunchActionChecklistCopyText.includes("dispatchApproval=false") && homeLaunchActionChecklistCopyText.includes("verificationOnly=true") && homeLaunchActionChecklistCopyText.includes("5. verify_handoff_guard") && homeLaunchActionChecklistCopyText.includes("data/launch-handoff-verification.json") && homeLaunchActionChecklistCopyText.includes("Deferred proof command:") && homeLaunchActionChecklistCopyText.includes("Guard: Do not run gh workflow run"), "home launch action checklist copy text was not ready");
-	    const homeLaunchActionChecklistButton = qs('[data-action="copy-home-launch-action-checklist"]', homeLaunchActionChecklist);
-	    click('[data-action="copy-home-launch-action-checklist"]', homeLaunchActionChecklist);
-	    await waitFor(() => {
-	      const copied = homeLaunchActionChecklist.dataset.homeLaunchActionChecklistCopied === "true" || homeLaunchActionChecklistButton.dataset.homeLaunchActionChecklistCopied === "true";
-	      const statusText = qs("[data-home-launch-action-checklist-copy-status]", homeLaunchActionChecklist).textContent || "";
-	      return copied && statusText.includes("복사") &&
-	        window.__smokeClipboardText.includes("JooPark Launch Action Checklist") &&
-	        window.__smokeClipboardText.includes("Active blocker: " + checklistActive) &&
-	        window.__smokeClipboardText.includes("confirm_scope") &&
-	        window.__smokeClipboardText.includes("verify_handoff_guard") &&
-	        window.__smokeClipboardText.includes("Source artifacts:") &&
-        window.__smokeClipboardText.includes("data/launch-handoff-verification.json") &&
-        window.__smokeClipboardText.includes("dispatchApproval=false") &&
-        window.__smokeClipboardText.includes("verificationOnly=true") &&
-        window.__smokeClipboardText.includes("Do not run gh workflow run");
-    }, "home launch action checklist copy did not report success");
-    homeLaunchActionChecklistOk = true;
-    const homePostInstallIntake = qs("#view-home [data-home-post-install-evidence-intake]");
-    const homePostInstallIntakeText = homePostInstallIntake.textContent || "";
-    const homePostInstallIntakeCopyText = qs("[data-post-install-evidence-intake-text]", homePostInstallIntake).textContent;
-	    const homePostInstallFields = Array.from(homePostInstallIntake.querySelectorAll("[data-home-post-install-evidence-intake-field]"));
-	    const homePostInstallCommands = Array.from(homePostInstallIntake.querySelectorAll("[data-home-post-install-evidence-intake-command]"));
-	    const homePostInstallSignals = Array.from(homePostInstallIntake.querySelectorAll("[data-home-post-install-evidence-intake-signal]"));
-	    const homePostInstallVerificationSequence = qs("[data-home-post-install-evidence-sequence]", homePostInstallIntake);
-	    const homePostInstallVerificationSteps = Array.from(homePostInstallVerificationSequence.querySelectorAll("[data-home-post-install-evidence-sequence-step]"));
-		    const homePostInstallQuickProof = qs("[data-post-install-quick-proof]", homePostInstallIntake);
-		    const homePostInstallQuickProofSteps = Array.from(homePostInstallQuickProof.querySelectorAll("[data-post-install-quick-proof-step]"));
-		    const homePostInstallQuickProofMap = qs("[data-post-install-quick-proof-field-map]", homePostInstallIntake);
-		    const homePostInstallQuickProofMapItems = Array.from(homePostInstallQuickProofMap.querySelectorAll("[data-post-install-quick-proof-field-map-item]"));
-		    const homePostInstallProofComplete = homePostInstallIntake.dataset.homePostInstallEvidenceIntakeProofComplete === "true";
-		    const homePostInstallCompleted = Number(homePostInstallIntake.dataset.homePostInstallEvidenceIntakeCompletedCount || "0");
-		    const homePostInstallPending = Number(homePostInstallIntake.dataset.homePostInstallEvidenceIntakePendingCount || "0");
-		    const homePostInstallMappedCompleted = Number(homePostInstallIntake.dataset.postInstallQuickProofCompletedMappedFieldCount || "0");
-		    assert(homePostInstallIntake.dataset.homePostInstallEvidenceIntakeReady === "true" && ["collect_post_install_proof", "proof_complete"].includes(homePostInstallIntake.dataset.homePostInstallEvidenceIntakeStatus) && homePostInstallIntake.dataset.homePostInstallEvidenceIntakeProofComplete === (homePostInstallProofComplete ? "true" : "false") && homePostInstallCompleted + homePostInstallPending === 6 && homePostInstallIntake.dataset.homePostInstallEvidenceIntakeFieldCount === "6" && homePostInstallIntake.dataset.homePostInstallEvidenceIntakeCommandCount === "4" && homePostInstallIntake.dataset.homePostInstallEvidenceIntakeSignalCount === "8", "home post-install evidence intake dataset was incomplete");
-		    assert(homePostInstallIntake.dataset.homePostInstallEvidenceIntakeSequenceCount === "4" && homePostInstallIntake.dataset.homePostInstallEvidenceIntakeSequenceReady === "true" && homePostInstallIntake.dataset.homePostInstallEvidenceIntakeFinalCommand.includes("verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"), "home post-install evidence intake sequence dataset was incomplete");
-		    assert(homePostInstallIntake.dataset.postInstallEvidenceIntakeReady === "true" && homePostInstallIntake.dataset.postInstallEvidenceIntakeProofComplete === (homePostInstallProofComplete ? "true" : "false") && homePostInstallIntake.dataset.postInstallEvidenceIntakeFieldCount === "6" && homePostInstallIntake.dataset.postInstallQuickProofReady === "true" && homePostInstallIntake.dataset.postInstallQuickProofStepCount === "4" && homePostInstallIntake.dataset.postInstallQuickProofCoverage === "1" && homePostInstallIntake.dataset.postInstallQuickProofFieldMappingReady === "true" && homePostInstallIntake.dataset.postInstallQuickProofFieldMappingCoverage === "1" && homePostInstallIntake.dataset.postInstallQuickProofMappedFieldCount === "4" && homePostInstallMappedCompleted >= 0 && homePostInstallMappedCompleted <= 4, "home post-install evidence intake did not reuse copy selectors");
-		    assert(homePostInstallQuickProof.dataset.postInstallQuickProofReady === "true" && homePostInstallQuickProof.dataset.postInstallQuickProofStepCount === "4" && homePostInstallQuickProof.dataset.postInstallQuickProofCoverage === "1" && homePostInstallQuickProof.dataset.postInstallQuickProofFieldMappingReady === "true" && homePostInstallQuickProof.dataset.postInstallQuickProofFieldMappingCoverage === "1" && homePostInstallQuickProofSteps.length === 4 && homePostInstallQuickProofSteps[0].dataset.postInstallQuickProofStepKey === "remote_file_parity" && homePostInstallQuickProofSteps[3].dataset.postInstallQuickProofStepKey === "handoff_verifier" && homePostInstallQuickProofSteps[3].dataset.postInstallQuickProofStepCommand.includes("verify-launch-handoff.mjs"), "home post-install quick proof did not render");
-		    assert(homePostInstallQuickProofMap.dataset.postInstallQuickProofFieldMappingReady === "true" && homePostInstallQuickProofMap.dataset.postInstallQuickProofFieldMappingCoverage === "1" && homePostInstallQuickProofMap.dataset.postInstallQuickProofMappedFieldCount === "4" && Number(homePostInstallQuickProofMap.dataset.postInstallQuickProofCompletedMappedFieldCount || "0") === homePostInstallMappedCompleted && homePostInstallQuickProofMapItems.length === 4 && homePostInstallQuickProofMapItems[0].dataset.postInstallQuickProofFieldMapStep === "remote_file_parity" && homePostInstallQuickProofMapItems[0].dataset.postInstallQuickProofFieldMapField === "remote_parity_proof" && homePostInstallQuickProofMapItems[3].dataset.postInstallQuickProofFieldMapStep === "handoff_verifier" && homePostInstallQuickProofMapItems[3].dataset.postInstallQuickProofFieldMapField === "handoff_verifier_proof", "home post-install quick proof field map did not render");
-		    assert(homePostInstallFields.length === 6 && homePostInstallFields.some((item) => item.dataset.homePostInstallEvidenceIntakeFieldKey === "remote_parity_proof" && item.textContent.includes("remoteWorkflowFilesReady=")) && homePostInstallFields.some((item) => item.dataset.homePostInstallEvidenceIntakeFieldKey === "handoff_verifier_proof" && item.textContent.includes("safeToDispatch=")), "home post-install evidence fields did not render");
-		    assert(homePostInstallVerificationSequence.dataset.homePostInstallEvidenceSequenceCount === "4" && homePostInstallVerificationSequence.dataset.homePostInstallEvidenceSequenceReady === "true" && homePostInstallVerificationSteps.length === 4 && homePostInstallVerificationSteps[0].dataset.homePostInstallEvidenceSequenceKey === "remote_file_parity" && homePostInstallVerificationSteps[1].dataset.homePostInstallEvidenceSequenceKey === "actions_visibility" && homePostInstallVerificationSteps[2].dataset.homePostInstallEvidenceSequenceKey === "dispatch_readiness" && homePostInstallVerificationSteps[3].dataset.homePostInstallEvidenceSequenceKey === "handoff_verifier" && homePostInstallVerificationSteps[3].dataset.homePostInstallEvidenceSequenceCommand.includes("verify-launch-handoff.mjs"), "home post-install verification sequence did not render");
-		    assert(homePostInstallCommands.length === 4 && homePostInstallCommands.some((item) => item.textContent.includes("check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write")) && homePostInstallCommands.some((item) => item.textContent.includes("verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown")), "home post-install evidence commands did not render");
-		    assert(homePostInstallSignals.length === 8 && homePostInstallSignals.some((item) => item.textContent.includes("remoteWorkflowFilesReady=true")) && homePostInstallSignals.some((item) => item.textContent.includes("safeToDispatch=true before gh workflow run")), "home post-install evidence signals did not render");
-		    assert(homePostInstallIntakeText.includes("post-install proof intake") && homePostInstallIntakeText.includes(homePostInstallCompleted + "/6 proof fields complete") && homePostInstallIntakeText.includes(homePostInstallIntake.dataset.homePostInstallEvidenceIntakeStatus) && homePostInstallIntakeText.includes("proofComplete=" + (homePostInstallProofComplete ? "true" : "false")) && homePostInstallIntakeText.includes("Quick proof") && homePostInstallIntakeText.includes("Mapped fields") && homePostInstallIntakeText.includes("remote_file_parity -> Remote parity proof") && homePostInstallIntakeText.includes("handoff_verifier -> Handoff verifier proof") && homePostInstallIntakeText.includes("Verification sequence") && homePostInstallIntakeText.includes("Remote workflow file check") && homePostInstallIntakeText.includes("Actions visibility check") && homePostInstallIntakeText.includes("Dispatch readiness plan") && homePostInstallIntakeText.includes("Launch handoff verifier") && homePostInstallIntakeText.includes("Stop condition: do not run gh workflow run"), "home post-install evidence intake text did not render");
-		    assert(homePostInstallIntakeCopyText.includes("JooPark Workflow Post-Install Evidence Intake") && homePostInstallIntakeCopyText.includes("JooPark Post-Install Quick Proof Receipt") && homePostInstallIntakeCopyText.includes("Quick proof: ready=true; steps=4; coverage=1") && homePostInstallIntakeCopyText.includes("Quick proof field mapping: ready=true; mapped=4; completed=" + homePostInstallMappedCompleted + "/4; coverage=1") && homePostInstallIntakeCopyText.includes("Mapped proof fields:") && homePostInstallIntakeCopyText.includes("remote_file_parity -> remote_parity_proof") && homePostInstallIntakeCopyText.includes("handoff_verifier -> handoff_verifier_proof") && homePostInstallIntakeCopyText.includes("4-step proof checklist:") && homePostInstallIntakeCopyText.includes("Status: " + homePostInstallIntake.dataset.homePostInstallEvidenceIntakeStatus) && homePostInstallIntakeCopyText.includes("Evidence fields to fill:") && homePostInstallIntakeCopyText.includes("Handoff verifier proof") && homePostInstallIntakeCopyText.includes("Verification sequence:") && homePostInstallIntakeCopyText.includes("1. remote_file_parity") && homePostInstallIntakeCopyText.includes("4. handoff_verifier") && homePostInstallIntakeCopyText.includes("Expected signals:"), "home post-install evidence intake copy text was not ready");
-    const homePostInstallButton = qs('[data-action="copy-post-install-evidence-intake"]', homePostInstallIntake);
-    click('[data-action="copy-post-install-evidence-intake"]', homePostInstallIntake);
+  await runStep("home release gate readiness card keeps evidence summary", async () => {
+    await nav("home");
     await waitFor(() => {
-      const copied = homePostInstallIntake.dataset.postInstallEvidenceIntakeCopied === "true" || homePostInstallButton.dataset.postInstallEvidenceIntakeCopied === "true";
-      const statusText = qs("[data-post-install-evidence-intake-copy-status]", homePostInstallIntake).textContent || "";
-      return copied && statusText.includes("복사") &&
-		        window.__smokeClipboardText.includes("JooPark Workflow Post-Install Evidence Intake") &&
-		        window.__smokeClipboardText.includes("JooPark Post-Install Quick Proof Receipt") &&
-		        window.__smokeClipboardText.includes("4-step proof checklist:") &&
-		        window.__smokeClipboardText.includes("Quick proof field mapping: ready=true; mapped=4; completed=" + homePostInstallMappedCompleted + "/4; coverage=1") &&
-		        window.__smokeClipboardText.includes("remote_file_parity -> remote_parity_proof") &&
-		        window.__smokeClipboardText.includes("handoff_verifier -> handoff_verifier_proof") &&
-		        window.__smokeClipboardText.includes("Verification sequence:") &&
-	        window.__smokeClipboardText.includes("remoteWorkflowFilesReady=true") &&
-	        window.__smokeClipboardText.includes("safeToDispatch=true before gh workflow run") &&
-	        window.__smokeClipboardText.includes("every post-install evidence field has been filled") &&
-        window.__smokeClipboardText.includes("Stop condition: do not run gh workflow run");
-    }, "home post-install evidence intake copy did not report success");
-    homePostInstallEvidenceIntakeOk = true;
-    const homeClaimGuard = qs("#view-home [data-home-external-claim-guard]");
-    const homeClaimGuardText = homeClaimGuard.textContent || "";
-    const homeClaimGuardCopyText = qs("[data-output-quality-audit-external-claim-guard-text]", homeClaimGuard).textContent;
-    const homeClaimGuardItems = Array.from(homeClaimGuard.querySelectorAll("[data-home-external-claim-guard-item]"));
-	    const homeClaimGuardSignals = Array.from(homeClaimGuard.querySelectorAll("[data-home-external-claim-guard-signal]"));
-	    const homeClaimGuardCommands = Array.from(homeClaimGuard.querySelectorAll("[data-home-external-claim-guard-command]"));
-	    const homeClaimGuardNextProof = qs("[data-home-external-claim-guard-next-proof]", homeClaimGuard);
-	    const claimBlockedCount = Number(homeClaimGuard.dataset.homeExternalClaimGuardBlockedCount || "0");
-	    const nextClaimProofKey = homeClaimGuard.dataset.homeExternalClaimGuardNextProofKey;
-	    const homeClaimReady = homeClaimGuard.dataset.homeExternalClaimGuardReady === "true";
-	    const homeClaimGuardItemByKey = (key) => homeClaimGuardItems.find((item) => item.dataset.homeExternalClaimGuardKey === key);
-	    const homeWorkflowInstallationItem = homeClaimGuardItemByKey("workflow_installation");
-	    const homePublicLaunchProofItem = homeClaimGuardItemByKey("public_launch_proof");
-	    const homeExternalCompletionItem = homeClaimGuardItemByKey("external_completion_claim");
-	    const homeClaimGuardBlockedItems = homeClaimGuardItems.filter((item) => item.dataset.homeExternalClaimGuardItemStatus === "blocked");
-		    const homeClaimGuardSignalText = homeClaimGuardSignals.map((item) => item.textContent || "").join("\\n");
-	    assert(["blocked_external_claim", "ready_for_external_claim"].includes(homeClaimGuard.dataset.homeExternalClaimGuardStatus) && claimBlockedCount === (homeClaimReady ? 0 : claimBlockedCount) && claimBlockedCount >= 0 && claimBlockedCount <= 3 && homeClaimGuard.dataset.homeExternalClaimGuardRequirementCount === "3" && Number(homeClaimGuard.dataset.homeExternalClaimGuardCommandCount || "0") >= 5 && ["workflow_installation", "public_launch_proof", "external_completion_claim"].includes(nextClaimProofKey) && homeClaimGuard.dataset.homeExternalClaimGuardNextProofCommand.length > 0, "home external claim guard dataset was incomplete");
-	    assert(homeClaimGuard.dataset.outputQualityAuditExternalClaimGuardStatus === homeClaimGuard.dataset.homeExternalClaimGuardStatus && Number(homeClaimGuard.dataset.outputQualityAuditExternalClaimGuardBlockedCount || "0") === claimBlockedCount, "home external claim guard did not reuse output quality copy selectors");
-		    assert(homeClaimGuardNextProof.dataset.homeExternalClaimGuardNextProofReady === (homeClaimReady ? "true" : "false") && homeClaimGuardNextProof.dataset.homeExternalClaimGuardNextProofKey === nextClaimProofKey && ["blocked", "pass"].includes(homeClaimGuardNextProof.dataset.homeExternalClaimGuardNextProofStatus) && homeClaimGuardNextProof.textContent.includes("next proof") && homeClaimGuardNextProof.textContent.includes(nextClaimProofKey === "workflow_installation" ? "Workflow installation" : (nextClaimProofKey === "public_launch_proof" ? "Public launch proof" : "External completion claim")) && homeClaimGuardNextProof.textContent.includes(homeClaimReady ? "=true" : "=false"), "home external claim guard next proof shortcut was incomplete");
-	    assert(homeClaimGuardItems.length === 3 && homeWorkflowInstallationItem && homePublicLaunchProofItem && homeExternalCompletionItem && homeClaimGuardBlockedItems.length === claimBlockedCount && homeClaimGuardItems.every((item) => ["blocked", "pass"].includes(item.dataset.homeExternalClaimGuardItemStatus)) && (homeClaimReady ? homeClaimGuardBlockedItems.length === 0 : homeClaimGuardBlockedItems.length > 0), "home external claim guard requirements did not render");
-	    assert(homeClaimGuardSignals.length === 6 && homeClaimGuardSignalText.includes("postPublishEvidenceReady=") && homeClaimGuardSignalText.includes("allDispatchReady=") && homeClaimGuardSignalText.includes("readyForExternalClaim=" + (homeClaimReady ? "true" : "false")), "home external claim guard signals did not render");
-	    assert(homeClaimGuardCommands.length >= 5 && homeClaimGuardCommands.some((item) => item.textContent.includes("verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown")), "home external claim guard proof commands did not render");
-	    assert(homeClaimGuardText.includes(homeClaimReady ? "외부 완료 주장 가능" : "외부 완료 주장 차단") && homeClaimGuardText.includes(homeClaimGuard.dataset.homeExternalClaimGuardStatus) && homeClaimGuardText.includes("Workflow installation") && homeClaimGuardText.includes("Public launch proof") && homeClaimGuardText.includes("External completion claim") && homeClaimGuardText.includes("Stop condition: do not claim readyForExternalClaim"), "home external claim guard text did not render");
-	    assert(homeClaimGuardCopyText.includes("JooPark External Completion Claim Guard") && homeClaimGuardCopyText.includes("Status: " + homeClaimGuard.dataset.homeExternalClaimGuardStatus) && homeClaimGuardCopyText.includes("Blocked requirements: " + claimBlockedCount + "/3") && homeClaimGuardCopyText.includes("Next claim proof shortcut:") && homeClaimGuardCopyText.includes("requirement=" + nextClaimProofKey) && homeClaimGuardCopyText.includes("command="), "home external claim guard copy text was not ready");
-    const homeClaimGuardButton = qs('[data-action="copy-output-quality-external-claim-guard"]', homeClaimGuard);
-    click('[data-action="copy-output-quality-external-claim-guard"]', homeClaimGuard);
-    await waitFor(() => {
-      const copied = homeClaimGuard.dataset.outputQualityExternalClaimGuardCopied === "true" || homeClaimGuardButton.dataset.outputQualityExternalClaimGuardCopied === "true";
-      const statusText = qs("[data-output-quality-audit-external-claim-guard-copy-status]", homeClaimGuard).textContent || "";
-      return copied && statusText.includes("복사") &&
-	        window.__smokeClipboardText.includes("JooPark External Completion Claim Guard") &&
-		        window.__smokeClipboardText.includes("Status: " + homeClaimGuard.dataset.homeExternalClaimGuardStatus) &&
-		        window.__smokeClipboardText.includes("Next claim proof shortcut:") &&
-		        window.__smokeClipboardText.includes("requirement=" + nextClaimProofKey) &&
-		        window.__smokeClipboardText.includes("Stop condition: do not claim readyForExternalClaim");
-    }, "home external claim guard copy did not report success");
-    homeExternalClaimGuardOk = true;
-    const button = qs('[data-action="nav-to"][data-view="system"]', card);
-    assert(button.tagName === "BUTTON" && button.getAttribute("type") === "button", "home launch action system navigation did not render as a button");
-    click('[data-action="nav-to"][data-view="system"]', card);
-    await waitFor(() => document.body.dataset.view === "system" && !document.getElementById("view-system").hidden, "home launch action did not navigate to system status");
-    homeLaunchNextActionOk = true;
-  });
-
-	  await runStep("home launch blocker resolver exposes active unblock path", async () => {
-	    await nav("home");
-	    await waitFor(() => {
-	      const resolver = document.querySelector("#view-home [data-home-launch-blocker-resolver]");
-	      const primary = resolver ? resolver.querySelector("[data-home-launch-blocker-resolver-primary-command]")?.textContent || "" : "";
-	      return resolver &&
-	        resolver.dataset.homeLaunchBlockerResolverReady === "true" &&
-	        ["operator_auth_path", "remote_workflow_file_parity", "launch_proof_capture"].includes(resolver.dataset.homeLaunchBlockerResolverActive) &&
-	        ["action_required", "deferred_until_dispatch", "pass"].includes(resolver.dataset.homeLaunchBlockerResolverStatus) &&
-	        (primary === "gh auth refresh -h github.com -s workflow" || primary.includes("check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write") || primary.includes("capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write") || primary.includes("plan-publish-dispatch.mjs --live --repo biojuho/BIOJUHO-Projects"));
-	    }, "home launch blocker resolver did not load the active blocker", 30000);
-	    const resolver = qs("#view-home [data-home-launch-blocker-resolver]");
-	    const text = resolver.textContent || "";
-	    const copyText = qs("[data-home-launch-blocker-resolver-text]", resolver).textContent;
-		    const items = Array.from(resolver.querySelectorAll("[data-home-launch-blocker-resolver-item]"));
-		    const evidenceGapItems = Array.from(resolver.querySelectorAll("[data-home-launch-blocker-evidence-gap-item]"));
-	    const workflowInstallShortcut = resolver.querySelector("[data-home-workflow-install-shortcut]");
-	    const workflowInstallShortcutPaths = workflowInstallShortcut ? Array.from(workflowInstallShortcut.querySelectorAll("[data-home-workflow-install-shortcut-path]")) : [];
-	    const workflowInstallShortcutGuards = workflowInstallShortcut ? Array.from(workflowInstallShortcut.querySelectorAll("[data-home-workflow-install-shortcut-guard]")) : [];
-	    const workflowInstallShortcutCommands = workflowInstallShortcut ? Array.from(workflowInstallShortcut.querySelectorAll("[data-home-workflow-install-shortcut-command]")) : [];
-	    const fallbackCommands = Array.from(resolver.querySelectorAll("[data-home-launch-blocker-resolver-fallback-command]"));
-	    const activeResolverKey = resolver.dataset.homeLaunchBlockerResolverActive;
-	    const resolverInProofCapture = activeResolverKey === "launch_proof_capture";
-	    const resolverInRemoteWorkflowParity = activeResolverKey === "remote_workflow_file_parity";
-	    const resolverProofReady = resolver.dataset.homeLaunchBlockerResolverLaunchProofReady === "true";
-	    const resolverPostInstallProofComplete = resolver.dataset.homeLaunchBlockerResolverPostInstallProofComplete === "true";
-	    const postInstallEvidenceGapItem = evidenceGapItems.find((item) => item.dataset.homeLaunchBlockerEvidenceGapKey === "post_install_intake");
-	    const postInstallEvidenceGapText = postInstallEvidenceGapItem ? postInstallEvidenceGapItem.textContent || "" : "";
-	    const postInstallEvidenceGapCount = postInstallEvidenceGapText.match(/\\d+\\/\\d+ proof fields complete/)?.[0] || "";
-	    const resolverExpectedPassCount = resolverInProofCapture ? 5 : (resolverInRemoteWorkflowParity ? 4 : 2);
-	    const resolverExpectedActionRequiredCount = resolverInProofCapture ? 0 : (resolverInRemoteWorkflowParity ? 1 : 3);
-	    const resolverExpectedDeferredCount = resolverInProofCapture && resolverProofReady ? 0 : 1;
-	    const resolverExpectedPrimaryCommand = resolverInProofCapture
-	      ? "node scripts/capture-publish-evidence.mjs --live --repo biojuho/BIOJUHO-Projects --write"
-	      : (resolverInRemoteWorkflowParity ? "node scripts/check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write" : "gh auth refresh -h github.com -s workflow");
-	    const resolverExpectedVisibleAction = resolverInProofCapture ? "Capture live launch proof" : (resolverInRemoteWorkflowParity ? "Prove remote workflow file parity" : "Resolve workflow auth path");
-	    const resolverExpectedBlockedSignal = resolverInProofCapture ? "postPublishEvidenceReady=" + (resolverProofReady ? "true" : "false") : (resolverInRemoteWorkflowParity ? "remoteWorkflowFilesReady=false" : "workflowScopeAvailable=false");
-	    const resolverItemByKey = (key) => items.find((item) => item.dataset.homeLaunchBlockerResolverItemKey === key);
-	    const resolverOperatorAuthItem = resolverItemByKey("operator_auth_path");
-	    const resolverRemoteWorkflowItem = resolverItemByKey("remote_workflow_file_parity");
-	    const resolverWorkflowVisibilityItem = resolverItemByKey("workflow_visibility");
-	    const resolverDispatchGuardItem = resolverItemByKey("dispatch_guard");
-	    const resolverLaunchProofItem = resolverItemByKey("launch_proof_capture");
-	    assert(resolver.dataset.homeLaunchBlockerResolverSource === "generated_from_launch_execution_packet" && resolver.dataset.homeLaunchBlockerResolverRepo === "biojuho/BIOJUHO-Projects", "home launch blocker resolver source or repo dataset was incomplete");
-	    assert(resolver.dataset.homeLaunchBlockerResolverItemCount === "6" && Number(resolver.dataset.homeLaunchBlockerResolverPassCount || "0") >= resolverExpectedPassCount && Number(resolver.dataset.homeLaunchBlockerResolverActionRequiredCount || "0") === resolverExpectedActionRequiredCount && Number(resolver.dataset.homeLaunchBlockerResolverDeferredCount || "0") === resolverExpectedDeferredCount && resolver.dataset.homeLaunchBlockerResolverProofCommandCount === "6" && Number(resolver.dataset.homeLaunchBlockerResolverFallbackCommandCount || "0") >= 0 && resolver.dataset.homeLaunchBlockerResolverEvidenceGapCount === "3" && resolver.dataset.homeLaunchBlockerResolverRemoteFilesReady === (resolverInProofCapture ? "true" : "false") && resolver.dataset.homeLaunchBlockerResolverPostInstallProofComplete === (resolverPostInstallProofComplete ? "true" : "false"), "home launch blocker resolver counters were incomplete");
-		    assert((resolver.dataset.homeLaunchBlockerResolverDispatchGuard || "").includes("Do not run gh workflow run until every action_required item") && (resolver.dataset.homeLaunchBlockerResolverDispatchGuard || "").includes("safeToDispatch=true"), "home launch blocker resolver dispatch guard dataset was incomplete");
-	    assert(items.length === 6 && resolverOperatorAuthItem && ["action_required", "pass"].includes(resolverOperatorAuthItem.dataset.homeLaunchBlockerResolverItemStatus) && resolverRemoteWorkflowItem && resolverWorkflowVisibilityItem && resolverDispatchGuardItem?.dataset.homeLaunchBlockerResolverItemStatus === "pass" && resolverLaunchProofItem && ["pass", "deferred_until_dispatch"].includes(resolverLaunchProofItem.dataset.homeLaunchBlockerResolverItemStatus), "home launch blocker resolver checklist items did not render");
-	    assert(evidenceGapItems.length === 3 && evidenceGapItems.some((item) => item.dataset.homeLaunchBlockerEvidenceGapKey === "remote_workflow_files" && item.dataset.homeLaunchBlockerEvidenceGapReady === (resolverInProofCapture ? "true" : "false") && item.textContent.includes("files ready") && item.textContent.includes("missing=")) && evidenceGapItems.some((item) => item.dataset.homeLaunchBlockerEvidenceGapKey === "launch_proof" && item.textContent.includes("proofs ready") && item.textContent.includes("capture_launch_proof")) && postInstallEvidenceGapItem && postInstallEvidenceGapCount && postInstallEvidenceGapItem.textContent.includes("proofComplete=" + (resolverPostInstallProofComplete ? "true" : "false")), "home launch blocker resolver evidence gaps did not render");
-	    if (workflowInstallShortcut) {
-	      const workflowInstallShortcutCommandText = workflowInstallShortcutCommands.map((item) => item.textContent || "").join("\\n");
-	      const workflowInstallShortcutPrimaryCommand = workflowInstallShortcut.dataset.homeWorkflowInstallShortcutPrimaryCommand || "";
-	      assert(workflowInstallShortcut.dataset.homeWorkflowInstallShortcutReady === "true" && ["workflow_scope_blocked_use_ui_or_refresh", "workflow_scope_available_use_cli"].includes(workflowInstallShortcut.dataset.homeWorkflowInstallShortcutStatus) && Number(workflowInstallShortcut.dataset.homeWorkflowInstallShortcutPathCount || "0") >= 2 && Number(workflowInstallShortcut.dataset.homeWorkflowInstallShortcutCommandCount || "0") >= 10 && workflowInstallShortcut.dataset.homeWorkflowInstallShortcutTargetCount === "2" && workflowInstallShortcut.dataset.homeWorkflowInstallShortcutVerifyCommand.includes("verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"), "home workflow install shortcut dataset was incomplete");
-	      assert(workflowInstallShortcutPaths.length >= 2 && workflowInstallShortcutPaths.some((item) => item.dataset.homeWorkflowInstallShortcutPathKey === "cli_workflow_scope" && item.textContent.includes("install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify")) && workflowInstallShortcutPaths.some((item) => item.dataset.homeWorkflowInstallShortcutPathKey === "github_ui" && item.textContent.includes("pbcopy < 'docs/github-pages-workflow.yml'") && (item.textContent.includes("github.com/biojuho/BIOJUHO-Projects/new/main") || item.textContent.includes("github.com/biojuho/BIOJUHO-Projects/edit/main"))), "home workflow install shortcut paths did not render");
-	      assert(workflowInstallShortcutGuards.length === 2 && workflowInstallShortcutGuards.some((item) => item.textContent.includes("workflow_dispatch requires the workflow file on the repository default branch")) && workflowInstallShortcutGuards.some((item) => item.textContent.includes("workflow scope")), "home workflow install shortcut guards did not render");
-	      assert(workflowInstallShortcutCommandText.includes("install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify") && workflowInstallShortcutCommandText.includes("pbcopy < 'docs/github-pages-workflow.yml'") && (workflowInstallShortcut.dataset.homeWorkflowInstallShortcutStatus === "workflow_scope_blocked_use_ui_or_refresh" ? workflowInstallShortcutPrimaryCommand.includes("pbcopy < 'docs/github-pages-workflow.yml'") : workflowInstallShortcutPrimaryCommand.includes("install-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write --verify")) && qs("[data-home-workflow-install-shortcut-verify]", workflowInstallShortcut).textContent.includes("verify-launch-handoff.mjs --repo biojuho/BIOJUHO-Projects --write --markdown"), "home workflow install shortcut commands did not render");
-	    } else {
-	      assert(resolverInProofCapture, "home workflow install shortcut disappeared before proof-capture stage");
-	    }
-		    assert((resolverInProofCapture && fallbackCommands.length === 0) || (fallbackCommands.length >= 3 && fallbackCommands[0].textContent.includes("pbcopy < 'docs/github-pages-workflow.yml'") && (fallbackCommands[0].textContent.includes("github.com/biojuho/BIOJUHO-Projects/new/main") || fallbackCommands[0].textContent.includes("github.com/biojuho/BIOJUHO-Projects/edit/main")) && fallbackCommands.some((item) => item.textContent.includes("check-remote-workflow-files.mjs --repo biojuho/BIOJUHO-Projects --write"))), "home launch blocker resolver fallback commands did not render");
-	    assert(text.includes("launch unblock resolver") && text.includes(resolverExpectedVisibleAction) && text.includes(resolverExpectedBlockedSignal) && text.includes("evidence gap") && text.includes("Remote workflow files") && text.includes("Launch proof") && text.includes("Post-install intake") && text.includes("GitHub UI fallback") && text.includes("Do not run gh workflow run"), "home launch blocker resolver visible text did not render");
-	    assert(copyText.includes("JooPark Launch Blocker Resolver") && copyText.includes("activeItemKey=" + activeResolverKey) && copyText.includes("blockedSignal=" + resolverExpectedBlockedSignal) && copyText.includes("Primary proof command: " + resolverExpectedPrimaryCommand) && copyText.includes("Evidence gap:") && copyText.includes("remote_workflow_files: ") && copyText.includes("files ready") && copyText.includes("launch_proof: ") && copyText.includes("proofs ready") && copyText.includes("post_install_intake: ") && copyText.includes(postInstallEvidenceGapCount) && (!workflowInstallShortcut || (copyText.includes("Workflow install shortcut:") && copyText.includes("JooPark Workflow Install Shortcut") && copyText.includes("Target workflow files: 2"))) && copyText.includes("GitHub UI fallback:") && copyText.includes("Do not run gh workflow run"), "home launch blocker resolver copy text was not ready");
-	    const button = qs('[data-action="copy-home-launch-blocker-resolver"]', resolver);
-	    click('[data-action="copy-home-launch-blocker-resolver"]', resolver);
-	    await waitFor(() => {
-	      const copied = resolver.dataset.homeLaunchBlockerResolverCopied === "true" || button.dataset.homeLaunchBlockerResolverCopied === "true";
-	      const statusText = qs("[data-home-launch-blocker-resolver-copy-status]", resolver).textContent || "";
-	      return copied && statusText.includes("복사") &&
-		        window.__smokeClipboardText.includes("JooPark Launch Blocker Resolver") &&
-		        window.__smokeClipboardText.includes("activeItemKey=" + activeResolverKey) &&
-	        window.__smokeClipboardText.includes(resolverExpectedBlockedSignal) &&
-	        (!workflowInstallShortcut || window.__smokeClipboardText.includes("JooPark Workflow Install Shortcut")) &&
-	        (!workflowInstallShortcut || window.__smokeClipboardText.includes("Install paths: 2")) &&
-		        window.__smokeClipboardText.includes("GitHub UI fallback:") &&
-		        window.__smokeClipboardText.includes("Do not run gh workflow run");
-	    }, "home launch blocker resolver copy did not report success");
-    homeLaunchBlockerResolverOk = true;
+      const card = document.querySelector('#view-home [data-home-readiness-card="release-gate"]');
+      return card && card.dataset.homeReadinessCardEvidenceCount === "6";
+    }, "home release gate readiness card did not load evidence", 30000);
+    const releaseGateCard = qs('#view-home [data-home-readiness-card="release-gate"]');
+    const releaseGateCardText = releaseGateCard.textContent || "";
+    assert(releaseGateCard.dataset.homeReadinessCardEvidenceCount === "6" && releaseGateCardText.includes("릴리스 게이트") && releaseGateCardText.includes("6 proofs") && releaseGateCardText.includes("route 17/17") && releaseGateCardText.includes("mobile search/UI") && releaseGateCardText.includes("delete undo") && releaseGateCardText.includes("a11y"), "home release gate evidence summary did not render");
+    homeReleaseGateEvidenceOk = true;
   });
 
   await runStep("home upcoming event opens accessibly", async () => {
@@ -6185,10 +5916,13 @@ const interactionExpression = `
   });
 
   await runStep("llm wiki article actions create local drafts", async () => {
-    assert(window.JooParkLlmWikiView && window.JooParkLlmWikiView.version === "joopark-llm-wiki-view/v1", "llm wiki runtime module was not loaded");
     async function openStructuredOutputArticle() {
       await nav("llm-wiki");
       const view = qs("#view-llm-wiki");
+      // llm-wiki-view.js는 "wiki" 그룹으로 지연 로드되므로 라우트 진입 후 로딩 패널이
+      // 사라지고 카테고리 레일이 렌더될 때까지 기다린 뒤 모듈 로드를 단언한다.
+      await waitFor(() => !view.querySelector("[data-ops-runtime-loading]") && qsa(".wiki-cat", view).length > 0, "llm wiki lazy runtime did not render the category rail");
+      assert(window.JooParkLlmWikiView && window.JooParkLlmWikiView.version === "joopark-llm-wiki-view/v1", "llm wiki runtime module was not loaded");
       const apiCat = qsa(".wiki-cat", view).find((button) => button.textContent.includes("Claude API"));
       assert(apiCat, "llm wiki Claude API category was not visible");
       apiCat.click();
@@ -6799,12 +6533,7 @@ const interactionExpression = `
     reviewRecommendationExportModule: reviewRecommendationExportModuleOk,
     homeQuickLinksNavigate: homeQuickLinksNavigateOk,
     routeDeepLink: routeDeepLinkOk,
-    homeLaunchNextAction: homeLaunchNextActionOk,
-    homeLaunchActionChecklist: homeLaunchActionChecklistOk,
-    homeLaunchBlockerResolver: homeLaunchBlockerResolverOk,
     homeReleaseGateEvidence: homeReleaseGateEvidenceOk,
-	    homePostInstallEvidenceIntake: homePostInstallEvidenceIntakeOk,
-    homeExternalClaimGuard: homeExternalClaimGuardOk,
     homeExecutionViewModule: homeExecutionViewModuleOk,
     homeExecutionQueue: homeExecutionQueueOk,
     homeExecutionQueueExplainability: homeExecutionQueueExplainabilityOk,

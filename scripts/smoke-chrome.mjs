@@ -20,7 +20,7 @@ function positiveMsOption(value, fallback) {
 }
 
 const routes = [
-  ["home", ["오늘 일정", "공개 준비 요약", "데이터 소유권", "팀 · 시스템 관리"]],
+  ["home", ["오늘 일정", "워크스페이스 준비도", "데이터 소유권", "팀 · 시스템 관리"]],
   ["cal", ["이번 달 일정", "일정 추가"]],
   ["todo", ["미완료", "새 할 일"]],
   ["notes", ["개의 메모", "+ 메모"]],
@@ -238,6 +238,7 @@ function routeReadyExpression(route, timeoutMs) {
       const started = Date.now();
       const routeReadyDiagnostics = () => {
         const view = document.getElementById("view-" + route);
+        const runtimeLoading = Boolean(view?.querySelector("[data-ops-runtime-loading]"));
         return {
           route,
           readyState: document.readyState,
@@ -245,6 +246,7 @@ function routeReadyExpression(route, timeoutMs) {
           bodyView: document.body?.dataset?.view || "",
           viewExists: Boolean(view),
           viewHidden: view ? view.hidden : null,
+          runtimeLoading,
           viewTextLength: view ? view.innerText.trim().length : 0,
           visibleViews: Array.from(document.querySelectorAll(".view"))
             .filter((node) => node.hidden === false)
@@ -259,6 +261,7 @@ function routeReadyExpression(route, timeoutMs) {
           document.body.dataset.view === route &&
           state.viewExists &&
           state.viewHidden === false &&
+          !state.runtimeLoading &&
           state.viewTextLength > 0;
         if (isReady) resolve(state);
         else if (Date.now() - started > ${timeoutMs}) reject(new Error("route not ready: " + JSON.stringify(state)));

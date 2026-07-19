@@ -31,6 +31,20 @@ function positiveMsOption(value, fallback) {
   return parsed;
 }
 
+const publicDataEntries = [
+  "data/adoption-candidates.json",
+  "data/github-project-discovery.json",
+  "data/launch-execution-packet.json",
+  "data/launch-readiness-refresh.json",
+  "data/output-quality-audit.json",
+  "data/pages-attestation-proof.json",
+  "data/publish-dispatch-plan.json",
+  "data/publish-evidence.json",
+  "data/remote-workflow-file-check.json",
+  "data/repos.json",
+  "data/workflow-ui-install-plan.json",
+];
+
 const sourceEntries = [
   "index.html",
   "search-empty-state.js",
@@ -97,7 +111,7 @@ const sourceEntries = [
   "social-preview.png",
   "social-preview.svg",
   "README.md",
-  "data",
+  ...publicDataEntries,
   "vendor",
 
 ];
@@ -120,7 +134,6 @@ const runtimeAssets = [
   { path: "notes-view.js", attr: "src" },
   { path: "habits-view.js", attr: "src" },
   { path: "stats-view.js", attr: "src" },
-  { path: "llm-wiki-view.js", attr: "src" },
   { path: "portfolio-view.js", attr: "src" },
   { path: "kanban-view.js", attr: "src" },
   { path: "gantt-view.js", attr: "src" },

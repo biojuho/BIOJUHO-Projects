@@ -177,7 +177,7 @@
         <section class="kpis kpis-4">${raw(model.kpis.map((kpi) => kpiCard(kpi)).join(""))}</section>
         <section class="team-layout">
           <article class="panel team-list-panel">
-            ${raw(panelHead("팀 멤버", null, html`<button type="button" class="primary-btn" data-action="member-add">+ 멤버 추가</button>`))}
+            ${raw(panelHead("팀 멤버", null, html`<span class="pill demo-pill" title="이 뷰의 멤버 목록은 데모 시드 데이터입니다">데모 데이터</span><button type="button" class="primary-btn" data-action="member-add">+ 멤버 추가</button>`))}
             <div class="team-list">
               ${model.list.length === 0 ? raw(teamEmptyHTML(model)) : raw(model.list.map(memberRow).join(""))}
             </div>

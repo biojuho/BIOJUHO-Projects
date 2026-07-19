@@ -45,6 +45,7 @@ python3 - "$OUT" "$RAW_FILE" "$MODE" <<'PY'
 import datetime
 import json
 import pathlib
+import re
 import sys
 
 out_path = pathlib.Path(sys.argv[1])
@@ -61,6 +62,8 @@ LANG_OWNER = {
 }
 LANG_COLOR = {"Python": "cyan", "TypeScript": "blue", "JavaScript": "amber", "Go": "green", "Rust": "red"}
 today = datetime.date.today()
+PRIVATE_ID_RE = re.compile(r"repo-private-([1-9][0-9]*)\Z")
+PRIVATE_NAME_RE = re.compile(r"private-project-([1-9][0-9]*)\Z")
 
 
 def slug(name):
@@ -115,6 +118,83 @@ def existing_projects():
 
 existing = existing_projects()
 existing_by_id = {p.get("id"): p for p in existing if isinstance(p, dict) and p.get("id")}
+
+
+def existing_private_placeholder_index(project):
+    """Return an already-redacted placeholder number, never a source repo id."""
+    id_match = PRIVATE_ID_RE.fullmatch(str(project.get("id") or ""))
+    name_match = PRIVATE_NAME_RE.fullmatch(str(project.get("name") or ""))
+    if not id_match or not name_match or id_match.group(1) != name_match.group(1):
+        return None
+    return int(id_match.group(1))
+
+
+def is_private_project(project):
+    value = project.get("isPrivate") if isinstance(project, dict) else False
+    return value is True or value == 1 or (isinstance(value, str) and value.strip().lower() == "true")
+
+
+def private_placeholder(index):
+    """Build the only private-project shape allowed across the output boundary."""
+    return {
+        "id": f"repo-private-{index}",
+        "name": f"private-project-{index}",
+        "description": "비공개 저장소 (메타데이터 비식별 처리)",
+        "owner": "비공개",
+        "language": None,
+        "color": "violet",
+        "url": "",
+        "isPrivate": True,
+        "isArchived": False,
+        "license": None,
+        "topics": [],
+        "progress": 0,
+        "status": "on-track",
+        "health": "green",
+        "deadline": None,
+        "burn": [0, 0, 0, 0, 0, 0, 0],
+        "risks": 0,
+        "openIssues": 0,
+        "openPRs": 0,
+        "mergedPRs": 0,
+        "closedIssues": 0,
+        "stars": 0,
+        "forks": 0,
+        "diskKb": 0,
+        "pushedAt": None,
+        "createdAt": None,
+        "lastCommit": None,
+    }
+
+
+def sanitize_private_projects(projects):
+    """Replace every private repo with deterministic, metadata-free output."""
+    public_ids = {
+        str(project.get("id"))
+        for project in projects
+        if isinstance(project, dict) and not is_private_project(project) and project.get("id")
+    }
+    used_indexes = set()
+    next_index = 1
+    sanitized = []
+
+    for project in projects:
+        if not isinstance(project, dict) or not is_private_project(project):
+            sanitized.append(project)
+            continue
+
+        index = existing_private_placeholder_index(project)
+        if index in used_indexes or (index is not None and f"repo-private-{index}" in public_ids):
+            index = None
+        if index is None:
+            while next_index in used_indexes or f"repo-private-{next_index}" in public_ids:
+                next_index += 1
+            index = next_index
+        used_indexes.add(index)
+        next_index = max(next_index, index + 1)
+        sanitized.append(private_placeholder(index))
+
+    return sanitized
 
 
 def normalize_graphql(repo):
@@ -217,13 +297,20 @@ else:
     seen = {p["id"] for p in public_projects}
     preserved = []
     for project in existing:
-        if not isinstance(project, dict) or project.get("id") in seen:
+        if not isinstance(project, dict):
+            continue
+        # Public REST cannot return private repositories. Preserve them for
+        # continuity even if a public repo happens to collide with an old id;
+        # the output sanitizer below assigns a safe, unique placeholder.
+        if not is_private_project(project) and project.get("id") in seen:
             continue
         kept = dict(project)
         kept["publicApiStatus"] = "not-visible-from-public-api"
         preserved.append(kept)
     projects = public_projects + preserved
     source = "github:biojuho-public-api + preserved-local"
+
+projects = sanitize_private_projects(projects)
 
 out = {
     "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),

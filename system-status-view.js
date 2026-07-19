@@ -394,7 +394,7 @@
           <div class="panel-head">
             <div>
               <h2>Ops runtime diagnostics</h2>
-              <p>지연 로드되는 release/review 런타임 파일의 현재 로드 상태</p>
+              <p>지연 로드되는 release/review/wiki 런타임 파일의 현재 로드 상태</p>
             </div>
             <span class="publish-state" data-ops-runtime-status-label>${statusLabel}</span>
           </div>

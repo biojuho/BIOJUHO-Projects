@@ -32,6 +32,7 @@
     const getCurrentView = typeof options.getCurrentView === "function" ? options.getCurrentView : function () { return dashboard && dashboard.currentView; };
     const renderSettings = typeof options.renderSettings === "function" ? options.renderSettings : function () {};
     const showToast = typeof options.showToast === "function" ? options.showToast : function () {};
+    const onMultitabConflict = typeof options.onMultitabConflict === "function" ? options.onMultitabConflict : function () {};
     const consoleRef = options.consoleRef || root.console || { warn: function () {} };
     const finiteNumberOr = typeof options.finiteNumberOr === "function"
       ? options.finiteNumberOr
@@ -315,11 +316,19 @@
 
     function persist() {
       try {
+        const storedBeforeWrite = readStoredJson(storeKeyV3);
+        const externalSavedAt = storedBeforeWrite && typeof storedBeforeWrite.savedAt === "string"
+          ? storedBeforeWrite.savedAt
+          : "";
+        const multitabConflict = Boolean(
+          externalSavedAt && dashboard.lastSavedAt && externalSavedAt !== dashboard.lastSavedAt,
+        );
         const savedAt = nowISO();
         const serialized = JSON.stringify(persistPayload(savedAt));
         getStorage().setItem(storeKeyV3, serialized);
         persistArtifactStorageMirror(serialized, savedAt);
         dashboard.lastSavedAt = savedAt;
+        if (multitabConflict) onMultitabConflict(externalSavedAt, savedAt);
         state.storageHealth = {
           ...state.storageHealth,
           localBytes: storageByteLength(serialized),

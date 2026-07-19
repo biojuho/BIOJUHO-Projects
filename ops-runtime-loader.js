@@ -1,5 +1,5 @@
 /* ================================================================
- * JooPark Workspace — lazy operations/review runtime loader.
+ * JooPark Workspace — lazy operations/review/wiki runtime loader.
  * Static non-module runtime loaded before app.js.
  * ================================================================ */
 
@@ -15,6 +15,9 @@
     ]),
     operations: Object.freeze([
       "operations-copy-actions.js",
+    ]),
+    wiki: Object.freeze([
+      "llm-wiki-view.js",
     ]),
     review: Object.freeze([
       "review-recommendation-export.js",

@@ -2,6 +2,10 @@
 
 정적 SPA로 동작하는 개인 워크스페이스입니다. 일정, 할 일, 메모, 습관, 통계, PM 보드, 간트, 팀, 로컬 DB 카탈로그, LLM 위키 지식 베이스를 한 화면에서 관리하고 모든 사용자 데이터는 브라우저 `localStorage`에 저장합니다.
 
+## 프로젝트 상태 (2026-07-19 선언)
+
+이 워크스페이스는 **완성품·유지 모드**입니다. 신규 개발 에너지는 파마 피벗 산출물에 우선 배정하며, 이 저장소는 버그 수정·데이터 안전·일상 사용성 개선과 제품 회귀 게이트(`npm test`) 유지에 한정합니다. 기능 확장·새 뷰·새 게이트 추가는 기획자(Claude)가 명시적으로 "유지 모드 예외"를 선언한 핸드오프에서만 진행합니다.
+
 ## 실행
 
 ```bash
@@ -52,7 +56,7 @@ npm run build
 node scripts/verify-release.mjs
 ```
 
-`dist/release/`는 GitHub Pages, Netlify, Vercel에 그대로 올릴 수 있는 정적 패키지입니다. 패키저는 `release-manifest.json`, `release-provenance.json`, `404.html`, `_headers`, `_redirects`, `vercel.json`, `site.webmanifest`, `sw.js`, vendor 파일, data snapshot, `autoresearch-results/release-readiness-summary.json`, `autoresearch-results/verify-workspace-summary.json`을 함께 넣고 source parity를 검증합니다.
+`dist/release/`는 GitHub Pages, Netlify, Vercel에 그대로 올릴 수 있는 정적 패키지입니다. 패키저는 `release-manifest.json`, `release-provenance.json`, `404.html`, `_headers`, `_redirects`, `vercel.json`, `site.webmanifest`, `sw.js`, vendor 파일, 허용된 data snapshot, `autoresearch-results/release-readiness-summary.json`, `autoresearch-results/verify-workspace-summary.json`을 함께 넣고 source parity를 검증합니다. `data/`는 디렉터리 전체가 아니라 명시적인 공개 JSON allowlist만 복사되며, verifier는 누락 파일과 예상 밖 파일을 모두 거부합니다.
 
 GitHub Pages 배포 템플릿은 `docs/github-pages-workflow.yml`입니다. 로컬에 설치된 workflow는 `.github/workflows/joopark-pages.yml`이고, CI smoke는 `.github/workflows/joopark-ci.yml`에서 정적 체크, 소스 브라우저 스모크, 패키지 릴리스 스모크를 분리 실행합니다. Pages build 잡은 `npm test`(정적 게이트)를 통과해야만 패키징·배포로 진행합니다.
 
@@ -70,11 +74,13 @@ Pages 배포는 push 트리거가 environment 보호 규칙으로 항상 거부�
 
 OSS 후보의 별/포크/커밋 값은 source-backed snapshot입니다. 앱은 이를 live DB나 실시간 GitHub 동기화로 표시하지 않고, 포트폴리오 카드에 `Seed demo snapshot` 경계를 노출합니다. 후보 드리프트 감시 기계는 2026-07-18에 `archive/meta-machine/`으로 동결됐습니다.
 
+`scripts/sync-github.sh`가 인증된 GitHub 응답에서 비공개 저장소를 보더라도 공개 seed에는 결정적 placeholder만 남깁니다. 이름·설명·URL·토픽·커밋 메시지·활동 시각·집계값 등 원문 메타데이터는 저장하지 않습니다.
+
 ## 주요 기능
 
 | 메뉴 | 기능 |
 | --- | --- |
-| Home | 오늘 일정/할 일, 실행 큐, 운영 관제판, AutoResearch loop, 공개 준비 요약, 로컬 데이터 상태 |
+| Home | 오늘 일정/할 일, 실행 큐, 운영 관제판, 릴리스 한 줄 배지, 워크스페이스 준비도, 로컬 데이터 상태 |
 | Calendar | 월간 일정, 반복 일정, 선택일 아젠다 |
 | Todo | 빠른 추가, 우선순위, 마감일, 상태 필터, 삭제/undo |
 | Notes | Markdown 메모, pin, 색상, XSS 소독 렌더링 |
@@ -136,7 +142,7 @@ npm run check:docs
 
 주요 runtime helpers: `workspace-seed-data.js`, `home-view.js`, `dashboard-view.js`, `dashboard-insights-engine.js`, `dashboard-prioritization.js`, `dashboard-autoresearch-loop.js`, `dashboard-evidence-receipts.js`, `dashboard-storage.js`, `llm-wiki-view.js`, `calendar-view.js`, `todo-view.js`, `notes-view.js`, `habits-view.js`, `stats-view.js`, `portfolio-view.js`, `kanban-view.js`, `gantt-view.js`, `team-view.js`, `pipeline-view.js`, `workspace-storage.js`, `storage-status-view.js`, `settings-view.js`, `system-status-view.js`, `command-palette.js`, `keyboard-shortcuts.js`, `interaction-setup.js`, `event-reminders.js`, `footer-clock.js`, `db-catalog.js`, `runtime-error-boundary.js`, `pwa-runtime.js`, `ops-runtime-loader.js`.
 
-System Status의 `Ops runtime diagnostics` 패널은 `ops-runtime-loader.js`의 지연 로드 상태를 그대로 노출합니다. `loaded lazy files`, `ready groups`, pending/failed count, group별 release/review 로드 상태가 smoke와 release audit에서 검증됩니다.
+System Status의 `Ops runtime diagnostics` 패널은 `ops-runtime-loader.js`의 지연 로드 상태를 그대로 노출합니다. `loaded lazy files`, `ready groups`, pending/failed count, group별 release/review/wiki 로드 상태가 smoke와 release audit에서 검증됩니다.
 
 ## 아카이브
 

@@ -2,7 +2,8 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
@@ -277,6 +278,7 @@ function createStorage(options = {}) {
     showToast(message, tone) {
       toasts.push({ message, tone });
     },
+    onMultitabConflict: options.onMultitabConflict,
     consoleRef: { warn() {} },
   });
   return { api, dashboard, state, storage, toasts };
@@ -304,6 +306,21 @@ function testWorkspaceStorage() {
   assert.equal(failed.state.storageHealth.lastError, "quota reached");
   assert.equal(failed.toasts.at(-1).tone, "error");
   assert.match(failed.toasts.at(-1).message, /저장 실패/);
+}
+
+function testWorkspaceStorageMultitabConflict() {
+  const conflicts = [];
+  const tab = createStorage({ onMultitabConflict: (externalSavedAt) => conflicts.push(externalSavedAt) });
+  assert.equal(tab.api.persist(), true);
+  assert.equal(conflicts.length, 0);
+
+  tab.storage.setItem("current", JSON.stringify({ v: 3, savedAt: "2026-06-09T01:23:45.000Z" }));
+  assert.equal(tab.api.persist(), true);
+  assert.deepEqual(conflicts, ["2026-06-09T01:23:45.000Z"]);
+  assert.equal(JSON.parse(tab.storage.getItem("current")).savedAt, "2026-06-09T00:00:00.000Z");
+
+  assert.equal(tab.api.persist(), true);
+  assert.equal(conflicts.length, 1);
 }
 
 async function testWorkspaceStorageArtifactMirrorAndHydration() {
@@ -1712,18 +1729,25 @@ function testDashboardConfidenceBounds() {
   assert.equal(dashboardView.confidenceText(-1), "0.00");
   const rendered = dashboardView.renderDashboardIntelligenceHTML({
     cards: [],
-    loops: [],
-    latestReceipt: null,
-    candidates: [
-      { summary: "Candidate", confidence: Infinity, scoreBreakdown: { weighted: 1 }, verificationStatus: "pass", nextAction: { label: "Go" } },
-    ],
     externalResearchSources: [
       { id: "s1", title: "Source", confidence: Infinity, checkedAt: "today" },
     ],
   });
   assert.doesNotMatch(rendered, /Infinity/);
-  assert.match(rendered, /confidence 0\.00/);
   assert.match(rendered, /data-dashboard-external-source-confidence="0\.00"/);
+  // Candidate strip moved to the System Status receipts panel.
+  const receiptsRendered = dashboardView.systemDashboardReceiptHTML({
+    receipts: [],
+    loops: [],
+    latestReceipt: null,
+    candidates: [
+      { summary: "Candidate", confidence: Infinity, scoreBreakdown: { weighted: 1 }, verificationStatus: "pass", nextAction: { label: "Go" } },
+    ],
+    collections: [],
+  });
+  assert.doesNotMatch(receiptsRendered, /Infinity/);
+  assert.match(receiptsRendered, /confidence 0\.00/);
+  assert.match(receiptsRendered, /data-dashboard-candidate-strip/);
 
   const receiptRuntime = loadRuntime("dashboard-evidence-receipts.js");
   const receipts = receiptRuntime.JooParkDashboardEvidenceReceipts.create();
@@ -2593,120 +2617,12 @@ function testProductSmokePortOptionFallbacks() {
   }
 }
 
-function testHomeLaunchActionCountsPreserveExplicitZero() {
-  const source = readFileSync(join(root, "home-view.js"), "utf8");
-  assert.match(source, /function firstClampedCount\(values, fallback = 0\)/);
-  assert.match(source, /const declaredLaunchActionCommandCount = firstClampedCount\(\[/);
-  assert.match(source, /currentLaunchAction\?\.commandCount,\s+outputImmediateAction\?\.commandCount,\s+currentLaunchActionCommand \? 1 : 0,/);
-  assert.match(source, /const currentLaunchActionCommandCount = currentLaunchActionCommand\s+\? Math\.max\(1, declaredLaunchActionCommandCount\)\s+: declaredLaunchActionCommandCount;/);
-  assert.match(source, /const currentLaunchWithheldCount = firstClampedCount\(\[/);
-  assert.match(source, /currentLaunchAction\?\.withheldCommandCount,\s+outputImmediateAction\?\.withheldCommandCount,\s+outputAudit\?\.outputReadinessSnapshot\?\.publishEvidenceCommandGuard\?\.withheldDispatchCommands,/);
-  assert.equal(source.includes("currentLaunchAction?.commandCount || outputImmediateAction?.commandCount || (currentLaunchActionCommand ? 1 : 0)"), false);
-  assert.equal(source.includes("currentLaunchAction?.withheldCommandCount || outputImmediateAction?.withheldCommandCount || outputAudit?.outputReadinessSnapshot?.publishEvidenceCommandGuard?.withheldDispatchCommands || 0"), false);
-}
-
-function testHomeLaunchInstallMatrixCountsPreserveExplicitZero() {
-  const source = readFileSync(join(root, "home-view.js"), "utf8");
-  assert.match(source, /const launchInstallMatrixPathCount = firstClampedCount\(\[launchInstallMatrix\.installPathCount, launchInstallMatrixRows\.length\]\)/);
-  assert.match(source, /const launchInstallMatrixSignalCount = firstClampedCount\(\[launchInstallMatrix\.requiredSignalCount, launchInstallMatrixSignals\.length\]\)/);
-  assert.match(source, /data-home-launch-install-matrix-path-count="\$\{launchInstallMatrixPathCount\}"/);
-  assert.match(source, /data-home-launch-install-matrix-signal-count="\$\{launchInstallMatrixSignalCount\}"/);
-  assert.match(source, /\$\{launchInstallMatrixPathCount\} paths ->/);
-  assert.match(source, /\$\{launchInstallMatrixSignalCount\} signals · remoteWorkflowFilesReady=true/);
-  assert.equal(source.includes("launchInstallMatrix.installPathCount || launchInstallMatrixRows.length"), false);
-  assert.equal(source.includes("launchInstallMatrix.requiredSignalCount || launchInstallMatrixSignals.length"), false);
-}
-
 function testLaunchClaimReadinessRequiresBothArtifacts() {
-  const homeSource = readFileSync(join(root, "home-view.js"), "utf8");
   const appSource = readFileSync(join(root, "app.js"), "utf8");
-  assert.match(homeSource, /const safeToDispatch = launchExecution\?\.readyToDispatch === true && outputAudit\?\.dispatchState\?\.allDispatchReady === true/);
-  assert.match(homeSource, /const externalClaimReady = launchExecution\?\.readyForExternalClaim === true && outputAudit\?\.readyForExternalClaim === true/);
-  assert.match(homeSource, /const currentLaunchAction = externalClaimReady/);
-  assert.equal(homeSource.includes("launchExecution?.readyForExternalClaim || outputAudit?.readyForExternalClaim"), false);
-  assert.equal(homeSource.includes("launchExecution?.readyToDispatch || outputAudit?.dispatchState?.allDispatchReady"), false);
   assert.match(appSource, /const readyForExternalClaim = launchRefresh\.readyForExternalClaim === true && launchExecution\.readyForExternalClaim === true/);
   assert.match(appSource, /const safeToDispatch = launchRefresh\.safeToDispatch === true && \(launchExecution\.safeToDispatch === true \|\| launchExecution\.readyToDispatch === true\)/);
   assert.equal(appSource.includes("launchRefresh.readyForExternalClaim || launchExecution.readyForExternalClaim"), false);
   assert.equal(appSource.includes("launchRefresh.safeToDispatch || launchExecution.safeToDispatch"), false);
-}
-
-function testHomeRemoteWorkflowLedgerCountsPreserveExplicitZero() {
-  const source = readFileSync(join(root, "home-view.js"), "utf8");
-  assert.match(source, /const remoteWorkflowFileLedgerFileCount = firstClampedCount\(\[remoteWorkflowFileLedger\.fileCount, remoteWorkflowFileLedgerItems\.length\]\)/);
-  assert.match(source, /const remoteWorkflowFileLedgerReadyCount = firstClampedCount\(\[remoteWorkflowFileLedger\.readyCount\]\)/);
-  assert.match(source, /remoteWorkflowFileLedgerReadyCount === remoteWorkflowFileLedgerFileCount/);
-  assert.match(source, /data-home-remote-workflow-file-ledger-file-count="\$\{remoteWorkflowFileLedgerFileCount\}"/);
-  assert.match(source, /`\$\{remoteWorkflowFileLedgerReadyCount\}\/\$\{remoteWorkflowFileLedgerFileCount\} files ready; missing=\$\{remoteWorkflowFileLedgerMissingCount\}; mismatch=\$\{remoteWorkflowFileLedgerMismatchCount\}`/);
-  assert.equal(source.includes("remoteWorkflowFileLedger.fileCount || remoteWorkflowFileLedgerItems.length"), false);
-  assert.equal(source.includes("remoteWorkflowFileLedger.readyCount || 0"), false);
-  assert.equal(source.includes("remoteWorkflowFileLedger.missingCount || 0"), false);
-  assert.equal(source.includes("remoteWorkflowFileLedger.mismatchCount || 0"), false);
-}
-
-function testHomeLaunchProofLedgerCountsPreserveExplicitZero() {
-  const source = readFileSync(join(root, "home-view.js"), "utf8");
-  assert.match(source, /const launchProofLedgerRequiredCount = firstClampedCount\(\[launchProofLedger\.requiredProofCount, launchProofLedgerItems\.length\]\)/);
-  assert.match(source, /const launchProofLedgerReadyCount = firstClampedCount\(\[launchProofLedger\.readyProofCount\]\)/);
-  assert.match(source, /const launchProofLedgerPendingCount = firstClampedCount\(/);
-  assert.match(source, /launchProofLedgerPendingCount === 0/);
-  assert.match(source, /pending=\$\{launchProofLedgerPendingCount\}/);
-  assert.match(source, /data-home-launch-proof-ledger-required-count="\$\{launchProofLedgerRequiredTotal\}"/);
-  assert.equal(source.includes("launchProofLedger.requiredProofCount || launchProofLedgerItems.length"), false);
-  assert.equal(source.includes("launchProofLedger.readyProofCount || 0"), false);
-  assert.equal(source.includes("launchProofLedger.pendingProofCount || 0"), false);
-}
-
-function testHomeLaunchBlockerResolverCountsPreserveExplicitZero() {
-  const source = readFileSync(join(root, "home-view.js"), "utf8");
-  assert.match(source, /const launchBlockerItemCount = firstClampedCount\(\[launchBlockerResolution\.itemCount, launchBlockerItems\.length\]\)/);
-  assert.match(source, /const launchBlockerPassCount = firstClampedCount\(\[launchBlockerResolution\.passCount\]\)/);
-  assert.match(source, /const launchBlockerActionRequiredCount = firstClampedCount\(\[launchBlockerResolution\.actionRequiredCount\]\)/);
-  assert.match(source, /const launchBlockerDeferredCount = firstClampedCount\(\[launchBlockerResolution\.deferredCount\]\)/);
-  assert.match(source, /const launchBlockerProofCommandCount = firstClampedCount\(\[launchBlockerResolution\.proofCommandCount, launchBlockerProofCommands\.length\]\)/);
-  assert.match(source, /data-home-launch-blocker-resolver-item-count="\$\{launchBlockerItemCount\}"/);
-  assert.match(source, /data-home-launch-blocker-resolver-proof-command-count="\$\{launchBlockerProofCommandCount\}"/);
-  assert.match(source, /items=\$\{launchBlockerItemCount\}; pass=\$\{launchBlockerPassCount\}; actionRequired=\$\{launchBlockerActionRequiredCount\}; deferred=\$\{launchBlockerDeferredCount\}; proofCommands=\$\{launchBlockerProofCommandCount\}/);
-  assert.equal(source.includes("launchBlockerResolution.itemCount || launchBlockerItems.length"), false);
-  assert.equal(source.includes("launchBlockerResolution.passCount || 0"), false);
-  assert.equal(source.includes("launchBlockerResolution.actionRequiredCount || 0"), false);
-  assert.equal(source.includes("launchBlockerResolution.deferredCount || 0"), false);
-  assert.equal(source.includes("launchBlockerResolution.proofCommandCount || launchBlockerProofCommands.length"), false);
-}
-
-function testHomePostInstallQuickProofCountsPreserveExplicitZero() {
-  const source = readFileSync(join(root, "home-view.js"), "utf8");
-  assert.match(source, /const postInstallQuickProofStepCount = firstClampedCount\(\[postInstallEvidenceIntake\.quickProofStepCount, postInstallQuickProofSteps\.length\]\)/);
-  assert.match(source, /const postInstallQuickProofCoverage = firstClampedCount\(\[/);
-  assert.match(source, /postInstallEvidenceIntake\.quickProofCoverage,/);
-  assert.match(source, /postInstallQuickProofStepCount === 4/);
-  assert.match(source, /const postInstallQuickProofMappedFieldCount = firstClampedCount\(\[postInstallEvidenceIntake\.quickProofMappedFieldCount, postInstallQuickProofFieldMappings\.length\]\)/);
-  assert.match(source, /const postInstallQuickProofCompletedMappedFieldCount = firstClampedCount\(\[/);
-  assert.match(source, /postInstallEvidenceIntake\.quickProofCompletedMappedFieldCount,/);
-  assert.match(source, /const postInstallQuickProofFieldMappingCoverage = firstClampedCount\(\[/);
-  assert.match(source, /postInstallEvidenceIntake\.quickProofFieldMappingCoverage,/);
-  assert.match(source, /data-post-install-quick-proof-step-count="\$\{postInstallQuickProofStepCount\}"/);
-  assert.match(source, /data-post-install-quick-proof-mapped-field-count="\$\{postInstallQuickProofMappedFieldCount\}"/);
-  assert.match(source, /Quick proof: ready=\$\{postInstallQuickProofReady\}; steps=\$\{postInstallQuickProofStepCount\}; coverage=\$\{postInstallQuickProofCoverage\}/);
-  assert.match(source, /Quick proof field mapping: ready=\$\{postInstallQuickProofFieldMappingReady\}; mapped=\$\{postInstallQuickProofMappedFieldCount\}; completed=\$\{postInstallQuickProofCompletedMappedFieldCount\}\/\$\{postInstallQuickProofMappedFieldCount\}; coverage=\$\{postInstallQuickProofFieldMappingCoverage\}/);
-  assert.equal(source.includes("Number(postInstallEvidenceIntake.quickProofStepCount || postInstallQuickProofSteps.length || 0)"), false);
-  assert.equal(source.includes("Number(postInstallEvidenceIntake.quickProofCoverage || (postInstallQuickProofStepCount === 4"), false);
-  assert.equal(source.includes("Number(postInstallEvidenceIntake.quickProofMappedFieldCount || postInstallQuickProofFieldMappings.length || 0)"), false);
-  assert.equal(source.includes("Number(postInstallEvidenceIntake.quickProofCompletedMappedFieldCount || postInstallQuickProofFieldMappings.filter"), false);
-  assert.equal(source.includes("Number(postInstallEvidenceIntake.quickProofFieldMappingCoverage || (postInstallQuickProofMappedFieldCount === 4"), false);
-}
-
-function testHomeExternalClaimGuardCountsPreserveExplicitZero() {
-  const source = readFileSync(join(root, "home-view.js"), "utf8");
-  assert.match(source, /const externalClaimGuardRequirementCount = firstClampedCount\(\[externalClaimGuard\.requirementCount, externalClaimGuardRequirements\.length\]\)/);
-  assert.match(source, /const externalClaimGuardBlockedCount = firstClampedCount\(\[externalClaimGuard\.blockedCount\]\)/);
-  assert.match(source, /data-home-external-claim-guard-blocked-count="\$\{externalClaimGuardBlockedCount\}"/);
-  assert.match(source, /data-home-external-claim-guard-requirement-count="\$\{externalClaimGuardRequirementCount\}"/);
-  assert.match(source, /blocked \$\{externalClaimGuardBlockedCount\}\/\$\{externalClaimGuardRequirementCount\}/);
-  assert.equal(source.includes("Number(externalClaimGuard.requirementCount || externalClaimGuardRequirements.length || 0)"), false);
-  assert.equal(source.includes("Number(externalClaimGuard.blockedCount || 0)"), false);
-  assert.equal(source.includes("externalClaimGuard.requirementCount || externalClaimGuardRequirements.length"), false);
-  assert.equal(source.includes("externalClaimGuard.blockedCount || 0"), false);
 }
 
 function testReleaseStatusWorkflowUiInstallCoveragePreservesExplicitZero() {
@@ -3371,6 +3287,301 @@ function testReleaseStatusPostInstallIntakeCountsPreserveExplicitZero() {
   assert.equal(source.includes("postInstallIntake.quickProofMappedFieldCount || postInstallQuickProofFieldMappings.length"), false);
 }
 
+function assertPrivateProjectRedacted(project, label) {
+  const expectedKeys = [
+    "burn",
+    "closedIssues",
+    "color",
+    "createdAt",
+    "deadline",
+    "description",
+    "diskKb",
+    "forks",
+    "health",
+    "id",
+    "isArchived",
+    "isPrivate",
+    "language",
+    "lastCommit",
+    "license",
+    "mergedPRs",
+    "name",
+    "openIssues",
+    "openPRs",
+    "owner",
+    "progress",
+    "pushedAt",
+    "risks",
+    "stars",
+    "status",
+    "topics",
+    "url",
+  ];
+  assert.deepEqual(Object.keys(project).sort(), expectedKeys, `${label} should expose only the canonical placeholder fields`);
+  assert.equal(project.isPrivate, true, `${label} should remain marked private`);
+  assert.equal(project.isArchived, false, `${label} archive status should be redacted`);
+  assert.match(project.id, /^repo-private-\d+$/, `${label} id should be a deterministic placeholder`);
+  assert.match(project.name, /^private-project-\d+$/, `${label} name should be a deterministic placeholder`);
+  assert.equal(project.description, "비공개 저장소 (메타데이터 비식별 처리)", `${label} description should be generic`);
+  assert.equal(project.owner, "비공개", `${label} owner should be generic`);
+  assert.equal(project.language, null, `${label} language should be redacted`);
+  assert.equal(project.color, "violet", `${label} color should be generic`);
+  assert.equal(project.url, "", `${label} url should be empty`);
+  assert.equal(project.license, null, `${label} license should be redacted`);
+  assert.deepEqual(project.topics, [], `${label} topics should be empty`);
+  assert.equal(project.progress, 0, `${label} progress should be redacted`);
+  assert.equal(project.status, "on-track", `${label} status should be generic`);
+  assert.equal(project.health, "green", `${label} health should be generic`);
+  assert.deepEqual(project.burn, [0, 0, 0, 0, 0, 0, 0], `${label} burn history should be redacted`);
+  assert.equal(project.risks, 0, `${label} risk count should be redacted`);
+  for (const key of ["openIssues", "openPRs", "mergedPRs", "closedIssues", "stars", "forks", "diskKb"]) {
+    assert.equal(project[key], 0, `${label} ${key} should be redacted`);
+  }
+  for (const key of ["deadline", "pushedAt", "createdAt", "lastCommit"]) {
+    assert.equal(project[key], null, `${label} ${key} should be redacted`);
+  }
+}
+
+function writeExecutable(path, source) {
+  writeFileSync(path, source, "utf8");
+  chmodSync(path, 0o755);
+}
+
+function runGithubSyncFixture({ graphqlPayload, publicPayload = [], existingPayload = null }) {
+  const tempRoot = mkdtempSync(join(tmpdir(), "joopark-sync-github-"));
+  const binDir = join(tempRoot, "bin");
+  const outPath = join(tempRoot, "repos.json");
+  const graphqlFixturePath = join(tempRoot, "graphql.json");
+  const publicFixturePath = join(tempRoot, "public.json");
+  mkdirSync(binDir);
+  if (existingPayload) writeFileSync(outPath, `${JSON.stringify(existingPayload, null, 2)}\n`, "utf8");
+  writeFileSync(publicFixturePath, `${JSON.stringify(publicPayload)}\n`, "utf8");
+
+  const ghPath = join(binDir, "gh");
+  const curlPath = join(binDir, "curl");
+  if (graphqlPayload) {
+    writeFileSync(graphqlFixturePath, `${JSON.stringify(graphqlPayload)}\n`, "utf8");
+    writeExecutable(ghPath, "#!/usr/bin/env bash\ncat \"${GH_FIXTURE_PATH:?}\"\n");
+  } else {
+    writeExecutable(ghPath, "#!/usr/bin/env bash\nexit 1\n");
+  }
+  writeExecutable(curlPath, "#!/usr/bin/env bash\ncat \"${CURL_FIXTURE_PATH:?}\"\n");
+
+  try {
+    execFileSync("bash", ["scripts/sync-github.sh"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        CURL_FIXTURE_PATH: publicFixturePath,
+        GH_FIXTURE_PATH: graphqlFixturePath,
+        OUT: outPath,
+        PATH: `${binDir}:${process.env.PATH || ""}`,
+      },
+    });
+    return JSON.parse(readFileSync(outPath, "utf8"));
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function githubGraphqlRepo(overrides = {}) {
+  return {
+    name: "public-fixture",
+    description: "public description",
+    url: "https://example.invalid/public-fixture",
+    isPrivate: false,
+    isArchived: false,
+    stargazerCount: 3,
+    forkCount: 1,
+    pushedAt: "2026-07-01T00:00:00Z",
+    createdAt: "2026-01-01T00:00:00Z",
+    diskUsage: 42,
+    primaryLanguage: { name: "JavaScript", color: "#f1e05a" },
+    defaultBranchRef: {
+      name: "main",
+      target: { history: { nodes: [{ committedDate: "2026-07-01T00:00:00Z", messageHeadline: "public fixture commit" }] } },
+    },
+    issues: { totalCount: 2 },
+    closedIssues: { totalCount: 4 },
+    pullRequests: { totalCount: 1 },
+    mergedPRs: { totalCount: 3 },
+    licenseInfo: { spdxId: "MIT", name: "MIT License" },
+    repositoryTopics: { nodes: [{ topic: { name: "public-topic" } }] },
+    ...overrides,
+  };
+}
+
+function testGithubSyncRedactsPrivateProjects() {
+  const privateName = "PRIVATE_GRAPHQL_NAME_SENTINEL";
+  const privateDescription = "PRIVATE_GRAPHQL_DESCRIPTION_SENTINEL";
+  const privateUrl = "https://example.invalid/private-graphql-sentinel";
+  const privateCommit = "PRIVATE_GRAPHQL_COMMIT_SENTINEL";
+  const secondPrivateName = "PRIVATE_GRAPHQL_SECOND_NAME_SENTINEL";
+  const graphqlPayload = {
+    data: {
+      viewer: {
+        login: "fixture-user",
+        repositories: {
+          nodes: [
+            githubGraphqlRepo({
+              name: privateName,
+              description: privateDescription,
+              url: privateUrl,
+              isPrivate: true,
+              repositoryTopics: { nodes: [{ topic: { name: "private-topic-sentinel" } }] },
+              defaultBranchRef: {
+                name: "main",
+                target: { history: { nodes: [{ committedDate: "2026-07-02T00:00:00Z", messageHeadline: privateCommit }] } },
+              },
+            }),
+            githubGraphqlRepo({
+              name: secondPrivateName,
+              description: "PRIVATE_GRAPHQL_SECOND_DESCRIPTION_SENTINEL",
+              url: "https://example.invalid/private-graphql-second-sentinel",
+              isPrivate: true,
+              repositoryTopics: { nodes: [{ topic: { name: "private-second-topic-sentinel" } }] },
+            }),
+            githubGraphqlRepo(),
+          ],
+        },
+      },
+    },
+  };
+  const graphqlSnapshot = runGithubSyncFixture({ graphqlPayload });
+  const graphqlPrivate = graphqlSnapshot.projects.filter((project) => project.isPrivate);
+  assert.deepEqual(graphqlPrivate.map((project) => project.id), ["repo-private-1", "repo-private-2"]);
+  assert.deepEqual(graphqlPrivate.map((project) => project.name), ["private-project-1", "private-project-2"]);
+  assert.equal(new Set(graphqlPrivate.map((project) => project.id)).size, graphqlPrivate.length);
+  graphqlPrivate.forEach((project, index) => assertPrivateProjectRedacted(project, `GraphQL private project ${index + 1}`));
+  const repeatedGraphqlSnapshot = runGithubSyncFixture({ graphqlPayload });
+  assert.deepEqual(repeatedGraphqlSnapshot.projects, graphqlSnapshot.projects, "private placeholders should be deterministic for identical input");
+  const graphqlText = JSON.stringify(graphqlSnapshot);
+  for (const secret of [privateName, privateDescription, privateUrl, privateCommit, "private-topic-sentinel", secondPrivateName, "PRIVATE_GRAPHQL_SECOND_DESCRIPTION_SENTINEL", "private-graphql-second-sentinel", "private-second-topic-sentinel"]) {
+    assert.equal(graphqlText.includes(secret), false, `GraphQL output leaked ${secret}`);
+  }
+  const graphqlPublic = graphqlSnapshot.projects.find((project) => !project.isPrivate);
+  assert.equal(graphqlPublic.name, "public-fixture");
+  assert.equal(graphqlPublic.url, "https://example.invalid/public-fixture");
+
+  const fallbackName = "PRIVATE_FALLBACK_NAME_SENTINEL";
+  const fallbackSnapshot = runGithubSyncFixture({
+    existingPayload: {
+      projects: [{
+        ...githubGraphqlRepo({
+          id: "repo-private-fallback-raw",
+          name: fallbackName,
+          description: "PRIVATE_FALLBACK_DESCRIPTION_SENTINEL",
+          url: "https://example.invalid/private-fallback-sentinel",
+          isPrivate: true,
+          topics: ["private-fallback-topic"],
+          lastCommit: { date: "2026-07-03", message: "PRIVATE_FALLBACK_COMMIT_SENTINEL" },
+        }),
+      }],
+    },
+    publicPayload: [],
+  });
+  assert.equal(fallbackSnapshot.projects.length, 1);
+  assertPrivateProjectRedacted(fallbackSnapshot.projects[0], "public fallback private project");
+  const fallbackText = JSON.stringify(fallbackSnapshot);
+  for (const secret of [fallbackName, "PRIVATE_FALLBACK_DESCRIPTION_SENTINEL", "private-fallback-sentinel", "private-fallback-topic", "PRIVATE_FALLBACK_COMMIT_SENTINEL"]) {
+    assert.equal(fallbackText.includes(secret), false, `public fallback output leaked ${secret}`);
+  }
+}
+
+function testReposSnapshotRedactsPrivateProjects() {
+  const snapshot = JSON.parse(readFileSync(join(root, "data/repos.json"), "utf8"));
+  const privateProjects = snapshot.projects.filter((project) => project && project.isPrivate === true);
+  assert.ok(privateProjects.length > 0, "repos snapshot should exercise the private-project redaction contract");
+  privateProjects.forEach((project, index) => assertPrivateProjectRedacted(project, `snapshot private project ${index + 1}`));
+}
+
+function testPublicReleaseDataAllowlistContract() {
+  const expectedEntries = [
+    "data/adoption-candidates.json",
+    "data/github-project-discovery.json",
+    "data/launch-execution-packet.json",
+    "data/launch-readiness-refresh.json",
+    "data/output-quality-audit.json",
+    "data/pages-attestation-proof.json",
+    "data/publish-dispatch-plan.json",
+    "data/publish-evidence.json",
+    "data/remote-workflow-file-check.json",
+    "data/repos.json",
+    "data/workflow-ui-install-plan.json",
+  ];
+  const packageEntries = scriptArrayStrings("scripts/package-release.mjs", "publicDataEntries");
+  const verifierEntries = scriptArrayStrings("scripts/verify-release.mjs", "publicDataEntries");
+  assert.deepEqual(packageEntries, expectedEntries, "packager public data allowlist must match the reviewed policy");
+  assert.deepEqual(packageEntries, verifierEntries, "packager and verifier public data allowlists must match exactly");
+  assert.equal(new Set(packageEntries).size, packageEntries.length, "public data allowlist must not contain duplicates");
+  assert.ok(packageEntries.length > 0, "public data allowlist must not be empty");
+  for (const entry of packageEntries) {
+    assert.match(entry, /^data\/[a-z0-9][a-z0-9.-]*\.json$/, `${entry} should be an explicit JSON data file`);
+    assert.ok(existsSync(join(root, entry)), `${entry} should exist in the source tree`);
+  }
+
+  const packageSourceEntries = scriptArrayStrings("scripts/package-release.mjs", "sourceEntries");
+  assert.equal(packageSourceEntries.includes("data"), false, "release packager must not recursively copy the data directory");
+  const verifierSource = readFileSync(join(root, "scripts/verify-release.mjs"), "utf8");
+  assert.match(verifierSource, /function verifyPublicDataAllowlist\(actualFiles, failures\)/);
+  assert.match(verifierSource, /public data allowlist mismatch: missing=/);
+
+  const tempRoot = mkdtempSync(join(tmpdir(), "joopark-release-data-"));
+  const releaseDir = join(tempRoot, "release");
+  try {
+    execFileSync(process.execPath, ["scripts/package-release.mjs"], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, RELEASE_OUT_DIR: releaseDir },
+    });
+    const packagedEntries = readdirSync(join(releaseDir, "data"))
+      .map((name) => `data/${name}`)
+      .sort();
+    assert.deepEqual(packagedEntries, [...expectedEntries].sort(), "release package data directory must be the exact public allowlist");
+    assert.ok(existsSync(join(root, "data/vendor-security-audit.json")), "source tree should exercise a tracked non-public data file");
+    assert.equal(packagedEntries.includes("data/vendor-security-audit.json"), false, "packager must exclude tracked data files outside the public allowlist");
+
+    const sentinelPath = join(releaseDir, "data", "private-sentinel.json");
+    writeFileSync(sentinelPath, "{}\n", "utf8");
+    let verifierOutput = "";
+    try {
+      execFileSync(process.execPath, ["scripts/verify-release.mjs", releaseDir], {
+        cwd: root,
+        encoding: "utf8",
+      });
+      assert.fail("release verifier should reject an unexpected data sentinel");
+    } catch (error) {
+      verifierOutput = `${error.stdout || ""}\n${error.stderr || ""}`;
+    }
+    assert.match(verifierOutput, /public data allowlist mismatch:[^\n]*unexpected=data\/private-sentinel\.json/);
+
+    rmSync(sentinelPath);
+    const packagedReposPath = join(releaseDir, "data", "repos.json");
+    const packagedRepos = JSON.parse(readFileSync(packagedReposPath, "utf8"));
+    const packagedPrivate = packagedRepos.projects.find((project) => project && project.isPrivate === true);
+    assert.ok(packagedPrivate, "packaged repos fixture should include a private placeholder");
+    packagedPrivate.name = "PRIVATE_PACKAGED_METADATA_SENTINEL";
+    packagedPrivate.unexpectedMetadata = "PRIVATE_PACKAGED_EXTRA_SENTINEL";
+    writeFileSync(packagedReposPath, `${JSON.stringify(packagedRepos, null, 2)}\n`, "utf8");
+    let privateVerifierOutput = "";
+    try {
+      execFileSync(process.execPath, ["scripts/verify-release.mjs", releaseDir], {
+        cwd: root,
+        encoding: "utf8",
+      });
+      assert.fail("release verifier should reject private metadata in packaged repos");
+    } catch (error) {
+      privateVerifierOutput = `${error.stdout || ""}\n${error.stderr || ""}`;
+    }
+    assert.match(privateVerifierOutput, /data\/repos\.json row \d+ field (fields|name) /);
+    assert.equal(privateVerifierOutput.includes("PRIVATE_PACKAGED_METADATA_SENTINEL"), false, "verifier failure must not echo private metadata values");
+    assert.equal(privateVerifierOutput.includes("PRIVATE_PACKAGED_EXTRA_SENTINEL"), false, "verifier failure must not echo unexpected private metadata values");
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
 function testTrackedFilesExposeNoLocalAccountPaths() {
   const textExtensions = new Set([
     ".js", ".mjs", ".md", ".html", ".css", ".json", ".yml", ".yaml", ".svg", ".txt", ".webmanifest", ".sh",
@@ -3534,6 +3745,7 @@ function testMeasurePerfInvalidThresholdFallback() {
 }
 
 testWorkspaceStorage();
+testWorkspaceStorageMultitabConflict();
 await testWorkspaceStorageArtifactMirrorAndHydration();
 testDashboardStorageConfidenceBounds();
 testEventReminderStartIsIdempotent();
@@ -3594,14 +3806,7 @@ testDesktopSmokeNavigationLoadGuard();
 testProductSmokeUsesLock();
 testProductSmokeLockHeartbeatStaleness();
 testProductSmokePortOptionFallbacks();
-testHomeLaunchActionCountsPreserveExplicitZero();
-testHomeLaunchInstallMatrixCountsPreserveExplicitZero();
 testLaunchClaimReadinessRequiresBothArtifacts();
-testHomeRemoteWorkflowLedgerCountsPreserveExplicitZero();
-testHomeLaunchProofLedgerCountsPreserveExplicitZero();
-testHomeLaunchBlockerResolverCountsPreserveExplicitZero();
-testHomePostInstallQuickProofCountsPreserveExplicitZero();
-testHomeExternalClaimGuardCountsPreserveExplicitZero();
 testReleaseStatusWorkflowUiInstallCoveragePreservesExplicitZero();
 testAppWorkflowUiInstallLoaderAcceptsNoopReceiptCommands();
 testReleaseStatusPublishUnblockHandoffNamesWorkflowTargets();
@@ -3616,6 +3821,9 @@ testReleaseStatusVerifyWorkspaceNextCandidateCountPreservesExplicitZero();
 testReleaseStatusLaunchInstallMatrixCountsPreserveExplicitZero();
 testReleaseStatusRemoteWorkflowLedgerCountsPreserveExplicitZero();
 testReleaseStatusPostInstallIntakeCountsPreserveExplicitZero();
+testGithubSyncRedactsPrivateProjects();
+testReposSnapshotRedactsPrivateProjects();
+testPublicReleaseDataAllowlistContract();
 testTrackedFilesExposeNoLocalAccountPaths();
 testMobileSmokeNumericFallbacks();
 testBrowserSmokeTimeoutFallbacks();

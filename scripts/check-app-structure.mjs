@@ -174,7 +174,7 @@ const extractionCandidates = [
     id: "home-view",
     owner: "home-cockpit",
     terms: ["homeViewHelpers", "function renderHome", "homeViewCall(\"renderHome\""],
-    module: candidateModule("home-view.js", homeViewText, ["JooParkHomeView", "joopark-home-view/v1", "function createHomeView", "function renderHome", "function homeCommandTilesHTML", "function homeLaunchOperationsHTML", "data-home-readiness"]),
+    module: candidateModule("home-view.js", homeViewText, ["JooParkHomeView", "joopark-home-view/v1", "function createHomeView", "function renderHome", "function homeCommandTilesHTML", "function homeReadinessSummaryHTML", "data-home-readiness"]),
   },
   {
     id: "workspace-seed-data",

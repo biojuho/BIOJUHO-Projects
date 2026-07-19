@@ -366,7 +366,7 @@
         <section class="kpis kpis-4">${raw(kpis.map((k) => kpiCard(k)).join(""))}</section>
         <section class="db-layout">
           <article class="panel db-list-panel">
-            ${raw(panelHead("인스턴스", null, html`<button type="button" class="primary-btn" data-action="instance-add">+ 인스턴스 추가</button>`))}
+            ${raw(panelHead("인스턴스", null, html`<span class="pill demo-pill" title="이 뷰의 데이터는 로컬 데모 카탈로그입니다">데모 데이터</span><button type="button" class="primary-btn" data-action="instance-add">+ 인스턴스 추가</button>`))}
 	            <div class="db-list" data-db-virtual-list="instances" data-db-rendered-count="${visibleInstances.length}" data-db-total-count="${list.length}">
 	              ${list.length === 0
 	                ? raw(dbInstanceSearchEmpty
@@ -518,7 +518,7 @@
         <section class="kpis kpis-4">${raw(kpis.map((k) => kpiCard(k)).join(""))}</section>
         <section class="schema-pane">
           <article class="panel schema-tree-panel">
-            ${raw(panelHead("스키마", null, html`<button type="button" class="primary-btn" data-action="table-add">+ 테이블 추가</button>`))}
+            ${raw(panelHead("스키마", null, html`<span class="pill demo-pill" title="이 뷰의 데이터는 로컬 데모 카탈로그입니다">데모 데이터</span><button type="button" class="primary-btn" data-action="table-add">+ 테이블 추가</button>`))}
             <div class="schema-tree">${raw(tree)}</div>
           </article>
           <article class="panel schema-columns-panel">
@@ -600,7 +600,7 @@
         <section class="kpis kpis-4">${raw(kpis.map((k) => kpiCard(k)).join(""))}</section>
         <section class="queries-row">
           <article class="panel queries-trend-panel">
-            ${raw(panelHead("실행 시간 추세 (24h)", null, html`<small>p95 평균 ${p95}ms</small>`))}
+            ${raw(panelHead("실행 시간 추세 (24h)", null, html`<span class="pill demo-pill" title="이 뷰의 데이터는 로컬 데모 카탈로그입니다">데모 데이터</span><small>p95 평균 ${p95}ms</small>`))}
             <div class="queries-trend">${raw(spark(trendPoints, "var(--cyan)"))}</div>
           </article>
           <article class="panel queries-hist-panel">
@@ -758,7 +758,7 @@
             </div>
           </article>
           <article class="panel mig-panel">
-            ${raw(panelHead("마이그레이션 이력", null, html`<button type="button" class="primary-btn" data-action="migration-add">+ 마이그레이션 추가</button>`))}
+            ${raw(panelHead("마이그레이션 이력", null, html`<span class="pill demo-pill" title="이 뷰의 데이터는 로컬 데모 카탈로그입니다">데모 데이터</span><button type="button" class="primary-btn" data-action="migration-add">+ 마이그레이션 추가</button>`))}
             <div class="mig-list" data-db-virtual-list="migrations" data-db-rendered-count="${visibleMigrations.length}" data-db-total-count="${migrationList.length}">${raw(migRows || migEmptyHTML)}${raw(migRows ? migVirtualNote : "")}</div>
           </article>
         </section>
