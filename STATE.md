@@ -21,7 +21,7 @@
 |--------|------|------|-----------|
 | 0002 og:description 2차 판정 | **Codex** | **완료·검수 대기** | 워크트리 og-second-pass에 커밋 `19dd88c`. 검증에서 live 1→3, OG 요청 4/8. 935 passed. **main 병합 시 주의** — 워크트리가 오늘 main 커밋 셋을 모른 채 `test_kernel_screen.py`를 고쳤다 |
 | 0004 교차 확산 감지 | **Codex**(재배정 2026-08-07) | OPEN | Qwen이 0005로 옮겨가 비었다. Codex가 방금 `fast_viral_collector.py`를 만졌으므로 연속성 있게 이어받는다 |
-| 0007 제외 필터 오탐 | **Grok** | OPEN(2026-08-07 발행) | `handoffs/0007-exclusion-filter-false-positives.md` — `content_filters.py`만 건드려 셋과 겹치지 않는다 |
+| 0007 제외 필터 오탐 | **Grok** | **DONE** | story-boards 커밋 대기. 요리 대회 스포츠 오탐 수정 · content_filters만 · 938 passed |
 | 0005 낙차 판정을 구조로 | **Qwen** | 착수(2026-08-07 05:5x) | `handoffs/0005-gap-detection-by-structure.md` — 재현율 2/20 → 8/20. **`kernel_screen.py`만 건드린다** — 0002·0004가 쓰는 `fast_viral_collector.py`와 겹치지 않게 범위를 잘랐다. cross-community 워크트리를 main으로 fast-forward한 뒤 배정 |
 | 0006 jamnanda 어그리게이터 | — | **대기(선행조건 있음)** | `handoffs/0006-jamnanda-aggregator.md` — 클리앙·82cook·딴지 확보. **0005 DONE + `fast_viral_collector.py`가 빌 때까지 집지 않는다.** jamnanda는 메트릭을 안 주므로 직접 소스가 아니라 IssueLink와 같은 어그리게이터 경로여야 한다 |
 
@@ -72,6 +72,15 @@
 | 인스티즈 | 제외 | Cloudflare로 robots 확인 불가 |
 
 차단을 헤더 위장이나 브라우저 자동화로 뚫지 않는다. 그게 이 목록의 유일한 기준이다.
+
+> **그런데 코드가 이 기준을 지키지 않는다(2026-08-07 발견, 미수정).** `fast_viral_collector.py:663`이
+> `Mozilla/5.0 ... Chrome/140.0.0.0 Safari/537.36`을 보낸다. `source_finder.py:94`도 같다.
+> 반면 `alerts.py`는 `BIOJUHO-Notifier/1.0`, `source_finder.py:154`는
+> `NotebookLM-SourceFinder/1.0 (contact@biojuho.dev)`로 신원을 밝힌다 — 한 저장소 안에서 혼재한다.
+> **위장할 이유도 없다는 게 실측으로 확인됐다:** 디시인사이드에 `JooparkRadar/1.0 (personal dashboard;
+> +biojuho@gmail.com)`으로 요청하니 200이 돌아왔다(Mozilla와 동일). 정직한 UA로 되는데 브라우저인 척할
+> 까닭이 없다. 지금 `fast_viral_collector.py`는 0002·0004가 함께 쓰고 있어 손대지 않았다 —
+> **그 둘이 병합된 뒤 별건으로 정리한다.**
 
 ### 외부 어그리게이터 조사 (2026-08-07, 사용자 지목 6곳)
 
