@@ -18,11 +18,15 @@ from bs4 import BeautifulSoup
 
 try:
     from .content_filters import excluded_topic_reason
+    from .kernel_screen import screen_material
+    from .source_backoff import SourceBackoff
     from .direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from .exposure_observation_tracker import ExposureObservationTracker
     from .lead_time_tracker import LeadTimeTracker
 except ImportError:
     from content_filters import excluded_topic_reason
+    from kernel_screen import screen_material
+    from source_backoff import SourceBackoff
     from direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from exposure_observation_tracker import ExposureObservationTracker
     from lead_time_tracker import LeadTimeTracker
@@ -531,10 +535,15 @@ def _velocity_score(
 ) -> tuple[int, float]:
     lifetime_rate = views / max(age_minutes, 1)
     effective_rate = max(lifetime_rate, delta_views_per_minute)
-    velocity_points = min(45, round(math.log10(effective_rate + 1) * 18))
-    freshness_points = max(0, 25 - min(age_minutes, 25))
-    engagement_points = min(20, comments * 2 + votes * 2)
-    early_points = 10 if before_issuelink else 0
+    velocity_points = min(35, round(math.log10(effective_rate + 1) * 14))
+    # 나이 상한을 360분으로 넓혔는데 신선도는 25분에서 0이 되고 있었다 —
+    # 반응이 쌓일 시간을 준 글은 이 배점을 통째로 못 받았다. 상한에 맞춰 완만하게 감쇠한다.
+    freshness_points = max(0, round(15 * (1 - min(age_minutes, 360) / 360)))
+    # 댓글+추천 10개면 만점이라 댓글 500개와 10개가 같은 점수였다. 커뮤니티에서 댓글은
+    # 추천보다 강한 신호이므로 가중치를 주고, 포화를 풀어 반응이 실제로 순위를 만들게 한다.
+    engagement_points = min(40, round(math.log10(comments * 3 + votes + 1) * 16))
+    # IssueLink에 아직 없다고 가산점을 주면 인과가 거꾸로다 — 잘 퍼지는 글일수록 이미 거기 있다.
+    early_points = 5 if before_issuelink else 0
     return min(100, velocity_points + freshness_points + engagement_points + early_points), effective_rate
 
 
@@ -556,9 +565,11 @@ def _direct_signal_score(
             delta_views_per_minute=delta_views_per_minute,
             before_issuelink=before_issuelink,
         )
-    freshness_points = max(0, 35 - min(age_minutes, 35))
-    engagement_points = min(45, round(math.log10(comments + votes + 1) * 20))
-    early_points = 10 if before_issuelink else 0
+    # 조회를 제공하지 않는 소스(개드립)용 경로. 여기도 35분 절벽을 완만한 감쇠로 바꾼다 —
+    # 댓글+추천 177개를 요구하던 통과선 때문에 개드립은 구조적으로 화면에 못 올라왔다.
+    freshness_points = max(0, round(20 * (1 - min(age_minutes, 360) / 360)))
+    engagement_points = min(55, round(math.log10(comments * 3 + votes + 1) * 22))
+    early_points = 5 if before_issuelink else 0
     return min(100, freshness_points + engagement_points + early_points), None
 
 
@@ -577,6 +588,8 @@ class FastViralCollector:
         )
         self._refresh_lock = asyncio.Lock()
         self._last_attempt_at: datetime | None = None
+        # 차단당한 소스를 5분마다 계속 두드리면 상대에게도 우리에게도 손해다.
+        self._backoff = SourceBackoff()
         self._snapshot: dict[str, Any] = {
             "available": False,
             "items": [],
@@ -626,12 +639,19 @@ class FastViralCollector:
                 "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.6",
             }
             async with httpx.AsyncClient(follow_redirects=True, headers=headers) as session:
+                # 연속 실패한 소스는 이번 회차를 건너뛴다(백오프). 82cook이 요청 빈도로
+                # IP 단위 차단을 걸었을 때 수집기가 5분마다 계속 찌르고 있었다.
+                active_sources = [
+                    source for source in DIRECT_COMMUNITY_SOURCES
+                    if not self._backoff.should_skip(str(source["key"]), now)
+                ]
+                skipped = [s for s in DIRECT_COMMUNITY_SOURCES if s not in active_sources]
                 results = await asyncio.gather(
                     session.get(FMKOREA_HUMOR_URL, timeout=httpx.Timeout(12.0, connect=5.0)),
                     session.get(ISSUELINK_URL, timeout=httpx.Timeout(12.0, connect=5.0)),
                     *(
                         session.get(source["url"], timeout=httpx.Timeout(12.0, connect=5.0))
-                        for source in DIRECT_COMMUNITY_SOURCES
+                        for source in active_sources
                     ),
                     return_exceptions=True,
                 )
@@ -672,19 +692,33 @@ class FastViralCollector:
                 except Exception:
                     errors.append("IssueLink 비교 파싱 실패")
 
-            for source, result in zip(DIRECT_COMMUNITY_SOURCES, results[2:], strict=True):
+            for source in skipped:
+                key = str(source["key"])
+                direct_source_health[key] = False
+                resume = self._backoff.status(now).get(key, {}).get("resume_in_minutes", 0)
+                errors.append(f"{source['label']} 연속 실패로 대기 중({resume}분 후 재시도)")
+
+            for source, result in zip(active_sources, results[2:], strict=True):
                 key = str(source["key"])
                 label = str(source["label"])
                 if isinstance(result, Exception):
                     direct_source_health[key] = False
+                    self._backoff.record_failure(key, now)
                     errors.append(f"{label} 직접 목록 수집 실패")
+                    continue
+                if _looks_blocked(result):
+                    direct_source_health[key] = False
+                    self._backoff.record_failure(key, now)
+                    errors.append(f"{label} 자동 접근 차단 — 요청 간격을 늘려 재시도")
                     continue
                 try:
                     result.raise_for_status()
                     parsed = parse_direct_community_source(key, result.text, now=now)
                     direct_source_health[key] = bool(parsed)
                     expanded_direct_items.extend(parsed)
-                    if not parsed:
+                    if parsed:
+                        self._backoff.record_success(key)
+                    else:
                         errors.append(f"{label} 직접 목록이 비어 있음")
                 except Exception:
                     direct_source_health[key] = False
@@ -762,10 +796,17 @@ class FastViralCollector:
                     delta_views_per_minute=delta_rate,
                     before_issuelink=before_issuelink,
                 )
+                # 커널 판정을 게이트 안으로 들인다. 예전에는 조회 속도로 12건을 고른 뒤
+                # 라우터에서 판정을 붙였기 때문에, 판정은 표시 순서만 바꾸고 무엇을 남길지에는
+                # 아무 영향이 없었다. 사는 축(가해자 명확·낙차)은 확산이 덜 붙었어도 통과시킨다 —
+                # X에서 판정이 붙는 소재는 조회가 늦게 오기 때문이다.
+                screen = screen_material(item["title"], community_label=item.get("community_label"))
+                item["kernel_screen"] = screen
+                live_axis = str(screen.get("axis", "")).startswith("live")
                 if item["views"] > 0:
-                    qualified_signal = score >= 55 and item["views"] >= 80
+                    qualified_signal = score >= (35 if live_axis else 55) and item["views"] >= 80
                 else:
-                    qualified_signal = score >= 45 and item["comments"] + item["votes"] >= 5
+                    qualified_signal = score >= (28 if live_axis else 45) and item["comments"] + item["votes"] >= 5
                 if not qualified_signal:
                     continue
                 cross_source_count = int(item.get("cross_community_source_count") or 1)
@@ -820,7 +861,9 @@ class FastViralCollector:
                 ),
                 reverse=True,
             )
-            qualified = _select_diverse_community_items(qualified, limit)
+            # 라운드로빈이 소스당 1건씩만 남기면 "오늘 유난히 좋은 소스"의 상위 글이 통째로
+            # 밀려난다. 풀을 넓게 잡아 뒤의 커널 정렬이 고를 여지를 남긴다.
+            qualified = _select_diverse_community_items(qualified, limit * 3)
             any_direct_ok = fmkorea_ok or any(direct_source_health.values())
             fallback_mode = not any_direct_ok and bool(issue_items)
             resolved_originals = 0
@@ -833,7 +876,8 @@ class FastViralCollector:
                 for item in issue_items:
                     if _snapshot_item_key(item) in direct_keys:
                         continue
-                    exclusion = excluded_topic_reason(item["title"], item.get("community_label"))
+                    # 라벨은 출처지 주제가 아니다. 넣으면 MLB파크가 "mlb"에 걸려 전량 사라진다.
+                    exclusion = excluded_topic_reason(item["title"])
                     if exclusion:
                         excluded_topics[exclusion] += 1
                         continue

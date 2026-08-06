@@ -113,7 +113,7 @@ def test_parse_bobaedream_best_reads_full_category_and_metrics():
             "title": "지금 퍼지는 목격담",
             # 목록 글자는 "신유머/이.."로 잘려 나오므로 title 속성의 전체 이름을 쓴다.
             "category": "신유머/이슈/움짤",
-            "community_source": "bobaedream",
+            "community_source": "bobae",
             "community_label": "보배드림",
             "source_url": "https://www.bobaedream.co.kr/view?code=best&No=1018692&vdate=",
             "link_kind": "publisher_original",
@@ -160,7 +160,9 @@ def test_parse_bobaedream_best_falls_back_when_category_title_missing():
 
 def test_bobaedream_is_registered_as_a_direct_source():
     keys = {source["key"] for source in DIRECT_COMMUNITY_SOURCES}
-    assert "bobaedream" in keys
+    # 키는 IssueLink 슬러그와 같아야 한다. 다르면 같은 글이 화면에 두 번 오르고,
+    # "IssueLink 선행 감지" 표시가 거짓이 되며, 부당한 가산점이 붙는다.
+    assert "bobae" in keys
     # 등록만 하고 파서를 빠뜨리면 수집이 조용히 0건이 된다.
     for source in DIRECT_COMMUNITY_SOURCES:
         assert parse_direct_community_source(source["key"], "<html></html>") == []
@@ -248,7 +250,7 @@ def test_parse_todayhumor_reads_comment_count_outside_the_title_link():
 def test_all_registered_sources_have_a_parser():
     # 등록만 하고 파서를 빠뜨리면 그 소스는 조용히 0건이 된다.
     assert {s["key"] for s in DIRECT_COMMUNITY_SOURCES} >= {
-        "dogdrip", "theqoo", "ruliweb", "bobaedream", "cook82", "ppomppu", "todayhumor",
+        "dogdrip", "theqoo", "ruliweb", "bobae", "82cook", "ppomppu", "todayhumor",
     }
     for source in DIRECT_COMMUNITY_SOURCES:
         assert parse_direct_community_source(source["key"], "<html></html>") == []

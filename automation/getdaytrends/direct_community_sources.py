@@ -36,7 +36,7 @@ DIRECT_COMMUNITY_SOURCES = (
     # 자동차·시사 비중이 커서 기존 제외 필터(스포츠·정치·증시·실적·부동산)에 걸리는 글이 다른
     # 세 곳보다 많다 — 그건 필터가 처리하고, 여기서는 목록만 그대로 읽는다.
     {
-        "key": "bobaedream",
+        "key": "bobae",
         "label": "보배드림",
         "url": "https://www.bobaedream.co.kr/list?code=best",
     },
@@ -46,7 +46,7 @@ DIRECT_COMMUNITY_SOURCES = (
     # 오늘의유머는 AI 학습 금지를 명시했다 — 우리는 목록을 읽어 사람에게 보여줄 뿐,
     # 어떤 모델도 학습시키지 않는다. 그 경계를 넘는 용도로 이 소스를 쓰지 않는다.
     {
-        "key": "cook82",
+        "key": "82cook",
         "label": "82cook",
         "url": "https://www.82cook.com/entiz/enti.php?bn=15",
     },
@@ -292,7 +292,7 @@ def parse_bobaedream_best(html: str, *, now: datetime | None = None) -> list[dic
             )
         items.append(
             _base_item(
-                source="bobaedream",
+                source="bobae",
                 label="보배드림",
                 post_id=post_id,
                 title=title,
@@ -344,7 +344,7 @@ def parse_82cook_free(html: str, *, now: datetime | None = None) -> list[dict[st
         numbers = row.select("td.numbers")
         items.append(
             _base_item(
-                source="cook82",
+                source="82cook",
                 label="82cook",
                 post_id=post_id,
                 title=title,
@@ -458,8 +458,8 @@ _PARSERS = {
     "dogdrip": parse_dogdrip_latest,
     "theqoo": parse_theqoo_hot,
     "ruliweb": parse_ruliweb_best,
-    "bobaedream": parse_bobaedream_best,
-    "cook82": parse_82cook_free,
+    "bobae": parse_bobaedream_best,
+    "82cook": parse_82cook_free,
     "ppomppu": parse_ppomppu_free,
     "todayhumor": parse_todayhumor_best,
 }

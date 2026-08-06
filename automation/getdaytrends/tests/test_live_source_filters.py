@@ -94,7 +94,9 @@ def test_anime_topics_are_excluded_without_swallowing_lookalikes():
     assert excluded_topic_reason("극장판 개봉 첫날 후기") == "애니·만화 제외"
     assert excluded_topic_reason("신작 애니 추천 좀") == "애니·만화 제외"
     assert excluded_topic_reason("애니 1화 보는데 작화 미쳤다") == "애니·만화 제외"
-    assert excluded_topic_reason("웹툰 원작 드라마 캐스팅") == "애니·만화 제외"
+    # "웹툰"은 2026-08-06에 제외 목록에서 뺐다 — "웹툰 작가 지망생이 겪은 갑질" 같은
+    # 사연을 통째로 잘라내고 있었다. 웹툰 화제 자체는 X 소재로 유효하다.
+    assert topic_is_allowed("웹툰 작가 지망생이 겪은 갑질") is True
     assert excluded_topic_reason("귀멸의 칼날 신작 소식") == "애니·만화 제외"
 
     # "애니"가 들어가도 애니메이션이 아닌 말들.
