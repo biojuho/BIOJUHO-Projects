@@ -113,3 +113,19 @@ def test_deal_posts_are_excluded_after_adding_ppomppu_hot():
     # 일상 사연에 쓰이는 말까지 끌려가면 안 된다.
     assert topic_is_allowed("할머니가 손주 이벤트에 온 사연") is True
     assert topic_is_allowed("사장이 알바비 떼먹은 이야기") is True
+
+
+def test_cooking_and_school_contests_are_not_sports():
+    """'대회…우승'만으로 스포츠 제외하면 요리·교내 대회 사연이 조용히 사라진다.
+
+    2026-08-07 정답지: "농심배 짜파게티 대회에서 우승한 작품"(X 48만)이 이 패턴에 걸렸다.
+    """
+    assert topic_is_allowed("농심배 짜파게티 대회에서 우승한 작품") is True
+    assert topic_is_allowed("사내 요리 대회에서 우승한 후기") is True
+    assert topic_is_allowed("교내 과학 대회 우승 상금 날아간 사연") is True
+
+    # 종목·선수 단서가 있는 대회 우승은 여전히 스포츠다.
+    assert excluded_topic_reason("골프 대회에서 우승한 선수 근황") == "스포츠 제외"
+    assert excluded_topic_reason("수영 대회 우승 뒤 은퇴 선언") == "스포츠 제외"
+    assert excluded_topic_reason("대회 우승 선수 도핑 적발") == "스포츠 제외"
+    assert excluded_topic_reason("PGA 투어 우승 상금 공개") == "스포츠 제외"
