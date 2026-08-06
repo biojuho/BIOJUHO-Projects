@@ -40,6 +40,26 @@ DIRECT_COMMUNITY_SOURCES = (
         "label": "보배드림",
         "url": "https://www.bobaedream.co.kr/list?code=best",
     },
+    # 2026-08-06 소스 확대. 기존 네 곳이 전부 유머 게시판이라 사연·고민 소재가 얇았다.
+    # robots를 각각 확인하고 통과한 곳만 붙였다(뽐뿌 Allow:/zboard/, 82cook 특정 경로만
+    # 금지, 오늘의유머 Allow:/ + Content-Signal ai-train=no).
+    # 오늘의유머는 AI 학습 금지를 명시했다 — 우리는 목록을 읽어 사람에게 보여줄 뿐,
+    # 어떤 모델도 학습시키지 않는다. 그 경계를 넘는 용도로 이 소스를 쓰지 않는다.
+    {
+        "key": "cook82",
+        "label": "82cook",
+        "url": "https://www.82cook.com/entiz/enti.php?bn=15",
+    },
+    {
+        "key": "ppomppu",
+        "label": "뽐뿌",
+        "url": "https://www.ppomppu.co.kr/zboard/zboard.php?id=freeboard",
+    },
+    {
+        "key": "todayhumor",
+        "label": "오늘의유머",
+        "url": "https://www.todayhumor.co.kr/board/list.php?table=bestofbest",
+    },
 )
 
 
@@ -297,11 +317,151 @@ def parse_bobaedream_best(html: str, *, now: datetime | None = None) -> list[dic
     return items
 
 
+def parse_82cook_free(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    reference = now or datetime.now(UTC)
+    soup = BeautifulSoup(html, "html.parser")
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for position, row in enumerate(soup.select("tr")):
+        if "noticeList" in (row.get("class") or []):
+            continue
+        link = row.select_one('td.title > a[href*="read.php"]')
+        href = str(link.get("href") or "") if link else ""
+        match = re.search(r"[?&]num=(\d+)", href)
+        if link is None or match is None or match.group(1) in seen:
+            continue
+        post_id = match.group(1)
+        title = " ".join(link.get_text(" ", strip=True).split())
+        if not title:
+            continue
+        seen.add(post_id)
+        date_node = row.select_one("td.regdate")
+        # 목록 텍스트는 "18:42:20"인데 title 속성에 "2026-08-06 18:42:20" 전체가 있다.
+        stamp = " ".join(str(date_node.get("title") or "").split()) if date_node else ""
+        published_label = stamp[-8:-3] if len(stamp) >= 16 else (
+            " ".join(date_node.get_text(" ", strip=True).split())[:5] if date_node else ""
+        )
+        numbers = row.select("td.numbers")
+        items.append(
+            _base_item(
+                source="cook82",
+                label="82cook",
+                post_id=post_id,
+                title=title,
+                url=urljoin("https://www.82cook.com/entiz/", href),
+                category="82cook 자유게시판",
+                published_label=published_label,
+                age_minutes=_age_minutes(published_label, reference),
+                views=_parse_count(numbers[-1].get_text(" ", strip=True)) if numbers else 0,
+                votes=0,
+                comments=_parse_count((row.select_one("td.title em") or row).get_text(" ", strip=True))
+                if row.select_one("td.title em")
+                else 0,
+                position=position,
+            )
+        )
+    return items
+
+
+def parse_ppomppu_free(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    reference = now or datetime.now(UTC)
+    soup = BeautifulSoup(html, "html.parser")
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for position, row in enumerate(soup.select("tr.baseList")):
+        link = row.select_one("a.baseList-title")
+        href = str(link.get("href") or "") if link else ""
+        match = re.search(r"[?&]no=(\d+)", href)
+        if link is None or match is None or match.group(1) in seen:
+            continue
+        post_id = match.group(1)
+        title = " ".join(link.get_text(" ", strip=True).split())
+        if not title:
+            continue
+        seen.add(post_id)
+        cells = row.select("td.baseList-space")
+        published_label = ""
+        for cell in cells:
+            text = " ".join(cell.get_text(" ", strip=True).split())
+            if re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?", text):
+                published_label = text[:5]
+                break
+        items.append(
+            _base_item(
+                source="ppomppu",
+                label="뽐뿌",
+                post_id=post_id,
+                title=title,
+                url=urljoin("https://www.ppomppu.co.kr/zboard/", href),
+                category="뽐뿌 자유게시판",
+                published_label=published_label,
+                age_minutes=_age_minutes(published_label, reference),
+                views=_parse_count((row.select_one("td.baseList-views") or row).get_text(" ", strip=True))
+                if row.select_one("td.baseList-views")
+                else 0,
+                votes=_parse_count((row.select_one("td.baseList-rec") or row).get_text(" ", strip=True))
+                if row.select_one("td.baseList-rec")
+                else 0,
+                comments=0,
+                position=position,
+            )
+        )
+    return items
+
+
+def parse_todayhumor_best(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    reference = now or datetime.now(UTC)
+    soup = BeautifulSoup(html, "html.parser")
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for position, row in enumerate(soup.select("tr.view")):
+        link = row.select_one('td.subject a[href*="view.php"]')
+        href = str(link.get("href") or "") if link else ""
+        match = re.search(r"[?&]no=(\d+)", href)
+        if link is None or match is None or match.group(1) in seen:
+            continue
+        post_id = match.group(1)
+        title = " ".join(link.get_text(" ", strip=True).split())
+        # 댓글 수는 제목 링크 밖의 별도 span에 있다("<a>제목</a><span> [9]</span>").
+        comment_node = row.select_one("td.subject span.list_memo_count_span")
+        if not title:
+            continue
+        seen.add(post_id)
+        date_node = row.select_one("td.date")
+        # "26/08/06 09:15" 형식 — 시각만 넘겨 오늘 기준으로 계산한다.
+        stamp = " ".join(date_node.get_text(" ", strip=True).split()) if date_node else ""
+        published_label = stamp.split(" ")[-1] if " " in stamp else ""
+        items.append(
+            _base_item(
+                source="todayhumor",
+                label="오늘의유머",
+                post_id=post_id,
+                title=title,
+                url=urljoin("https://www.todayhumor.co.kr", href),
+                category="오늘의유머 베오베",
+                published_label=published_label,
+                age_minutes=_age_minutes(published_label, reference),
+                views=_parse_count((row.select_one("td.hits") or row).get_text(" ", strip=True))
+                if row.select_one("td.hits")
+                else 0,
+                votes=_parse_count((row.select_one("td.oknok") or row).get_text(" ", strip=True))
+                if row.select_one("td.oknok")
+                else 0,
+                comments=_parse_count(comment_node.get_text(" ", strip=True)) if comment_node else 0,
+                position=position,
+            )
+        )
+    return items
+
+
 _PARSERS = {
     "dogdrip": parse_dogdrip_latest,
     "theqoo": parse_theqoo_hot,
     "ruliweb": parse_ruliweb_best,
     "bobaedream": parse_bobaedream_best,
+    "cook82": parse_82cook_free,
+    "ppomppu": parse_ppomppu_free,
+    "todayhumor": parse_todayhumor_best,
 }
 
 

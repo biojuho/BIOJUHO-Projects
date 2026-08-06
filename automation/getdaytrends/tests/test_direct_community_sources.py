@@ -8,6 +8,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from direct_community_sources import (  # noqa: E402
     DIRECT_COMMUNITY_SOURCES,
+    parse_82cook_free,
+    parse_ppomppu_free,
+    parse_todayhumor_best,
     parse_bobaedream_best,
     parse_direct_community_source,
     parse_dogdrip_latest,
@@ -159,5 +162,93 @@ def test_bobaedream_is_registered_as_a_direct_source():
     keys = {source["key"] for source in DIRECT_COMMUNITY_SOURCES}
     assert "bobaedream" in keys
     # 등록만 하고 파서를 빠뜨리면 수집이 조용히 0건이 된다.
+    for source in DIRECT_COMMUNITY_SOURCES:
+        assert parse_direct_community_source(source["key"], "<html></html>") == []
+
+
+def test_parse_82cook_reads_full_timestamp_from_the_title_attribute():
+    # 목록 텍스트는 "18:42:20"뿐이고 전체 시각은 title 속성에 있다.
+    html = """
+    <table>
+      <tr class="noticeList"><td class="title"><a href="read.php?bn=15&amp;num=1">공지</a></td></tr>
+      <tr>
+        <td class="numbers"><a class="photolink" href="read.php?bn=15&amp;num=4224140">1831734</a></td>
+        <td class="title"><a href="read.php?bn=15&amp;num=4224140">맛 없는 복숭아 고기에 넣어도 돼요?</a> <em>7</em></td>
+        <td class="regdate numbers" title="2026-08-06 09:03:20"> 09:03:20</td>
+        <td class="numbers">74</td>
+      </tr>
+    </table>
+    """
+
+    items = parse_82cook_free(html, now=NOW)
+
+    # 공지 행은 빠진다.
+    assert [item["id"] for item in items] == ["4224140"]
+    item = items[0]
+    assert item["title"] == "맛 없는 복숭아 고기에 넣어도 돼요?"
+    assert item["community_label"] == "82cook"
+    assert item["source_url"] == "https://www.82cook.com/entiz/read.php?bn=15&num=4224140"
+    assert item["published_label"] == "09:03"
+    assert item["age_minutes"] == 7
+    assert item["views"] == 74
+    assert item["comments"] == 7
+
+
+def test_parse_ppomppu_skips_notices_and_reads_metrics():
+    html = """
+    <table>
+      <tr class="baseNotice"><td><a class="baseList-title" href="view.php?id=regulation&amp;no=6">규칙</a></td></tr>
+      <tr class="baseList">
+        <td class="baseList-space baseList-numb">10069771</td>
+        <td class="baseList-space"><a class="baseList-title" href="view.php?id=freeboard&amp;page=1&amp;no=10069771"><span>요코하마 경기 보러왔네요</span></a></td>
+        <td class="baseList-space">글쓴이</td>
+        <td class="baseList-space">09:05:50</td>
+        <td class="baseList-space baseList-rec">3</td>
+        <td class="baseList-space baseList-views">213</td>
+      </tr>
+    </table>
+    """
+
+    items = parse_ppomppu_free(html, now=NOW)
+
+    assert [item["id"] for item in items] == ["10069771"]
+    item = items[0]
+    assert item["title"] == "요코하마 경기 보러왔네요"
+    assert item["source_url"] == "https://www.ppomppu.co.kr/zboard/view.php?id=freeboard&page=1&no=10069771"
+    assert item["published_label"] == "09:05"
+    assert item["age_minutes"] == 5
+    assert item["votes"] == 3
+    assert item["views"] == 213
+
+
+def test_parse_todayhumor_reads_comment_count_outside_the_title_link():
+    # 댓글 수가 제목 링크 밖 span에 있어서 처음에는 0으로 읽혔다.
+    html = """
+    <table>
+      <tr class="view">
+        <td class="no"><a href="/board/view.php?table=bestofbest&amp;no=483548">483548</a></td>
+        <td class="subject"><a href="/board/view.php?table=bestofbest&amp;no=483548">올리브영에서 아내 기다리는 남편</a><span class="list_memo_count_span"> [9]</span></td>
+        <td class="date">26/08/06 09:04</td>
+        <td class="hits">4,842</td>
+        <td class="oknok">80</td>
+      </tr>
+    </table>
+    """
+
+    items = parse_todayhumor_best(html, now=NOW)
+    item = items[0]
+
+    assert item["title"] == "올리브영에서 아내 기다리는 남편"
+    assert item["comments"] == 9
+    assert item["views"] == 4_842
+    assert item["votes"] == 80
+    assert item["age_minutes"] == 6
+
+
+def test_all_registered_sources_have_a_parser():
+    # 등록만 하고 파서를 빠뜨리면 그 소스는 조용히 0건이 된다.
+    assert {s["key"] for s in DIRECT_COMMUNITY_SOURCES} >= {
+        "dogdrip", "theqoo", "ruliweb", "bobaedream", "cook82", "ppomppu", "todayhumor",
+    }
     for source in DIRECT_COMMUNITY_SOURCES:
         assert parse_direct_community_source(source["key"], "<html></html>") == []

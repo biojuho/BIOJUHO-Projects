@@ -43,6 +43,11 @@
 |------|------|------|
 | 개드립 · 더쿠 HOT · 루리웹 베스트 | 직접 수집 | 기존 |
 | 보배드림 베스트 | 직접 수집 | robots `Allow: /` 확인 후 추가 |
+| 82cook 자유게시판 | 직접 수집 | robots가 특정 경로만 금지 — 사연·고민 비중이 가장 높다 |
+| 뽐뿌 자유게시판 | 직접 수집 | robots `Allow: /zboard/`(장터만 금지) |
+| 오늘의유머 베오베 | 직접 수집 | robots `Allow: /` + `Content-Signal: ai-train=no` — **읽어서 사람에게 보여줄 뿐 어떤 모델도 학습시키지 않는다** |
+| 디시인사이드 · 인벤 | 미착수(가능) | robots 확인 완료(디시 `Allow: /`, 인벤은 특정 게시판만 금지) |
+| MLB파크 | 제외 | robots `Disallow: /`(Googlebot만 허용) |
 | FMKorea | IssueLink 경유만 | 자동 접근 차단(HTTP 430 + 보안 시스템 페이지), robots도 대부분 봇에 메인만 허용 |
 | 클리앙 | 제외 | robots.txt조차 403 — IP 단위로 자동 접근 차단 |
 | AAGAG | 제외 | robots 정책 |
