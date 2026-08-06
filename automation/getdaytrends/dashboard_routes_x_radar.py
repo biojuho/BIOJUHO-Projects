@@ -9,8 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 try:
     from .freshness import attach_freshness
+    from .kernel_screen import attach_kernel_screen
 except ImportError:  # 스크립트로 직접 실행할 때
     from freshness import attach_freshness
+    from kernel_screen import attach_kernel_screen
 
 if TYPE_CHECKING:
     try:
@@ -55,7 +57,7 @@ def _x_radar() -> XOpportunityRadar:
 def get_x_radar():
     # 수집이 멈춰도 화면은 마지막 스냅샷을 계속 보여준다. 얼마나 묵었는지를
     # 함께 실어 보내야 프론트가 라이브 표시를 껐다 켤 수 있다.
-    return attach_freshness(_x_radar().snapshot(), "x_radar")
+    return attach_kernel_screen(attach_freshness(_x_radar().snapshot(), "x_radar"), title_field="keyword")
 
 
 @router.post("/refresh")
@@ -68,4 +70,4 @@ async def refresh_x_radar(payload: XRadarRefreshRequest):
         focus_keywords=payload.focus_keywords,
         force_refresh=payload.force_refresh,
     )
-    return attach_freshness(result, "x_radar")
+    return attach_kernel_screen(attach_freshness(result, "x_radar"), title_field="keyword")

@@ -224,6 +224,13 @@ _HTML = """<!DOCTYPE html>
   .freshness.is-warn{{color:#b45309;font-weight:600}}
   .freshness.is-stale{{color:#b91c1c;font-weight:700}}
   .freshness-hint{{color:#b91c1c}}
+  /* 커널 소재 판정 — 적합도 점수와 다른 축이라 색을 분리한다 */
+  .kernel-badge{{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:-.2px}}
+  .kernel-badge.is-live{{background:rgba(34,197,94,.14);color:#15803d}}
+  .kernel-badge.is-dead{{background:rgba(148,163,184,.16);color:#64748b}}
+  .kernel-badge.is-unknown{{background:rgba(59,130,246,.12);color:#1d4ed8}}
+  .kernel-flag{{margin-left:4px;padding:2px 6px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(239,68,68,.12);color:#b91c1c}}
+  .kernel-why{{display:block;margin-top:3px;font-size:11px;color:#94a3b8}}
   .reference-connector-note{{color:#64748b;font-size:.7rem}}
   .reference-toolbar{{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;margin-bottom:12px}}
   .reference-form{{display:grid;grid-template-columns:1.4fr 2fr 1fr 1fr .7fr;gap:10px;margin-bottom:12px}}
@@ -1421,6 +1428,7 @@ function renderFastViral(data) {{
           <div>
             <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(item.community_label || item.community_source || '커뮤니티')}} · 최초 감지 ${{safeHtml(firstSeen)}} · ${{safeHtml(leadLabel)}} · 근거 신뢰도 ${{safeHtml(confidenceLabel)}} · ${{safeHtml(item.score_version || '기존 점수')}}</div>
             <div class="x-radar-keyword"><a href="${{safeExternalUrl(item.source_url)}}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">${{safeHtml(item.title)}} ↗</a></div>
+            <div>${{kernelBadge(item)}}</div>
           </div>
           ${{scoreBlock}}
         </div>
@@ -1471,6 +1479,19 @@ function safeExternalUrl(value) {{
   const url = String(value || '');
   const normalized = url.toLowerCase();
   return normalized.startsWith('https://') || normalized.startsWith('http://') ? safeHtml(url) : '#';
+}}
+
+// 커널 소재 판정 배지. 판정은 서버(kernel_screen.py)가 하고 여기서는 표시만 한다.
+// 제목 한 줄만 본 휴리스틱이므로 근거를 함께 보여준다 — 사람이 뒤집을 수 있어야 쓸모가 있다.
+function kernelBadge(item) {{
+  const k = (item && item.kernel_screen) || null;
+  if (!k || !k.axis) return '';
+  const tone = String(k.axis).startsWith('live') ? 'is-live' : (String(k.axis).startsWith('dead') ? 'is-dead' : 'is-unknown');
+  const flags = (k.verify_first ? '<span class="kernel-flag">검증 먼저</span>' : '')
+    + (k.tone_clash ? '<span class="kernel-flag">계정 톤 충돌</span>' : '');
+  const why = Array.isArray(k.signals) && k.signals.length
+    ? `<span class="kernel-why">${{safeHtml(k.signals.join(' · '))}}</span>` : '';
+  return `<span class="kernel-badge ${{tone}}">${{safeHtml(k.axis_label || '')}}</span>${{flags}}${{why}}`;
 }}
 
 // 신선도 판정은 서버(freshness.py)가 한다. 여기서는 등급을 화면 상태로만 옮긴다 —
