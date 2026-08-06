@@ -102,3 +102,14 @@ def test_anime_topics_are_excluded_without_swallowing_lookalikes():
     # "애니"가 들어가도 애니메이션이 아닌 말들.
     assert topic_is_allowed("애니팡 신기록 세웠다") is True
     assert topic_is_allowed("애니콜 시절 광고 기억나냐") is True
+
+
+def test_deal_posts_are_excluded_after_adding_ppomppu_hot():
+    """뽐뿌 HOT을 붙이자 핫딜이 소재로 올라왔다. 반응은 좋지만 X에 옮길 사연이 아니다."""
+    assert excluded_topic_reason("네이버멤버십 연간 이용권 50프로 할인 떴네요") == "핫딜·판촉 제외"
+    assert excluded_topic_reason("쿠팡 최저가 특가 정보") == "핫딜·판촉 제외"
+    assert excluded_topic_reason("무료배송 쿠폰 뿌립니다") == "핫딜·판촉 제외"
+
+    # 일상 사연에 쓰이는 말까지 끌려가면 안 된다.
+    assert topic_is_allowed("할머니가 손주 이벤트에 온 사연") is True
+    assert topic_is_allowed("사장이 알바비 떼먹은 이야기") is True

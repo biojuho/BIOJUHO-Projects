@@ -140,7 +140,10 @@ _BLOCKED_TITLE_PATTERNS = (
 )
 _COMMUNITY_LABELS = {
     "82cook": "82cook",
-    "bobae": "보배드림",
+    "bobae": "보배드림 베스트",
+    "bobae_freeb": "보배드림 자유",
+    "bobae_national": "보배드림 국내",
+    "bobae_strange": "보배드림 신유머",
     "clien": "클리앙",
     "dogdrip": "개드립",
     "etoland": "이토랜드",
@@ -149,7 +152,8 @@ _COMMUNITY_LABELS = {
     "instiz": "인스티즈",
     "inven": "인벤",
     "mlbpark": "MLB파크",
-    "ppomppu": "뽐뿌",
+    "ppomppu": "뽐뿌 HOT",
+    "ppomppu_freeboard": "뽐뿌 자유",
     "ruliweb": "루리웹",
     "slr": "SLR클럽",
     "theqoo": "더쿠",

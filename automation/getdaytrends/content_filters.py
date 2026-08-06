@@ -251,6 +251,9 @@ _POLITICS_TERMS = (
     # 하다 — 새 인물·단체는 계속 생긴다. 대안은 STATE.md의 결정 대기 항목에 적어 두었다.
     "최민희",
     "리박스쿨",
+    "김민석",
+    "정동영",
+    "우원식",
     "친일파",
     "친일 청산",
     "역사 왜곡",
@@ -353,10 +356,27 @@ _ANIME_CONTEXT_PATTERNS = (
 )
 
 
+# 핫딜·판촉. 2026-08-06 뽐뿌 HOT을 붙이자 "네이버멤버십 연간 이용권 50프로 할인"이
+# 소재로 올라왔다. 커뮤니티에서 반응은 좋지만 X에 옮길 사연이 아니다.
+_DEAL_TERMS = (
+    "할인", "특가", "최저가", "무료배송", "쿠폰", "적립", "핫딜", "역대가", "품절",
+    "공동구매", "공구", "세일", "증정", "이벤트 응모", "기프티콘", "카드할인",
+)
+
+_DEAL_PATTERNS = (
+    re.compile(r"\d+\s*(?:%|프로|퍼센트)\s*(?:할인|세일|싸)"),
+    re.compile(r"(?:원|만원)\s*(?:쿠폰|할인|캐시백)"),
+)
+
+
 def excluded_topic_reason(*values: object) -> str | None:
     """Return the factual exclusion bucket for a topic, if any."""
     haystack = " ".join(str(value or "") for value in values).casefold()
     compact = re.sub(r"\s+", " ", haystack)
+    if any(term.casefold() in compact for term in _DEAL_TERMS):
+        return "핫딜·판촉 제외"
+    if any(pattern.search(compact) for pattern in _DEAL_PATTERNS):
+        return "핫딜·판촉 제외"
     if any(term.casefold() in compact for term in _GENDER_CONFLICT_TERMS):
         return "성별 갈등 제외"
     if any(pattern.search(compact) for pattern in _GENDER_CONFLICT_CONTEXT_PATTERNS):

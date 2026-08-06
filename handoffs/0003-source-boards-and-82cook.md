@@ -1,9 +1,9 @@
 # 핸드오프 0003 — 사연 게시판 확장과 82cook 차단 처리
 
-- **상태:** OPEN
+- **상태:** DONE
 - **기획자:** Claude
 - **추천 실행자:** Grok 또는 Qwen (파서 추가 반복 작업)
-- **실행자:** (비어 있음)
+- **실행자:** Grok
 - **작성일:** 2026-08-06
 
 ## 목표
@@ -65,5 +65,47 @@
 ## 반환 (실행자가 채운다)
 
 - 결과:
+  - **보배드림** `freeb`·`national`·`strange`를 각각 독립 소스(`bobae_freeb`/`bobae_national`/`bobae_strange`)로 추가.
+    기존 `parse_bobaedream_best`는 같은 테이블 구조라 일반화 함수 `parse_bobaedream_board(board_code=…)`로 묶었고,
+    best 전용 동작(다른 code 링크 skip)은 회귀 테스트로 유지.
+  - **뽐뿌** `hot.php`(`ppomppu`) + `zboard.php?id=freeboard`(`ppomppu_freeboard`) 병행.
+    hot.php는 `td.board_date`·`span.list_comment2` 구조라 공통 파서 `parse_ppomppu_list`에서 처리.
+  - **루리웹 `/best/selection`**: 넣지 않음. 핸드오프 배경의 실측(사연 밀도 낮음)을 따름. 추가 실측 생략.
+  - **82cook 결정: ① 직접 수집에서 빼고 IssueLink 경유만 유지.**
+    근거: `curl -m 12 https://www.82cook.com/entiz/enti.php?bn=15` → **연결 거부(exit 7, http=000)**.
+    robots 확인 시도도 동일하게 실패. 헤더 위장/자동화 우회 금지 기준에 따라 직접 수집 목록에서 제거.
+    파서 `parse_82cook_free`와 `_PARSERS["82cook"]`는 재개용으로 남김.
+  - 등록 직접 소스 **10곳**(+FMKorea 슬롯 → `direct_source_total=11`). 실수집 시 신규 5개 전부 `*_direct=true`.
+  - 사이트당 요청: refresh마다 소스 1회. 주기(5분)는 그대로 — 사이트당 간격은 유지, 병렬 소스 수만 증가.
+    82cook 제거로 차단 호스트를 더 이상 두드리지 않음.
+
+  **robots 확인 (2026-08-06 실측)**
+  - 보배드림 `https://www.bobaedream.co.kr/robots.txt` → `User-agent: *` / `Allow: /`
+  - 뽐뿌 `https://www.ppomppu.co.kr/robots.txt` → `Allow: /zboard/` (market 계열만 Disallow; freeboard·hot 해당 없음)
+  - 82cook robots: 호스트 443 연결 거부라 본문 확인 불가(기존 조사 기록: 특정 경로만 금지)
+
+  **실 HTML 파싱 건수 (2026-08-06)**
+  | 소스 | 건수 | 조회/댓글/시각 샘플 |
+  |------|------|---------------------|
+  | bobae best | 30 | views 868 · cmt 18 · 18:57 |
+  | bobae freeb | 35 | views 82310 · cmt 218 · 07/30(상단) + 당일 HH:MM 다수 |
+  | bobae national | 35 | views 43628 · cmt 175 · 08/01 |
+  | bobae strange | 35 | views 60690 · cmt 146 · 08/03 |
+  | ppomppu freeboard | 30 | views 94 · votes 0 · 19:31 |
+  | ppomppu hot | 22 | views 1609 · votes 17 · cmt 12 · 19:27 |
+
+  **실수집(FastViralCollector.refresh)**
+  - `direct_source_count=10` / `direct_source_total=11`
+  - 신규 health: bobae_freeb/national/strange·ppomppu·ppomppu_freeboard 전부 true
+  - 표시 12건 중 82cook 1건은 IssueLink 경유로 유지
+  - 오류 1건: FMKorea 자동 접근 차단(기존)
+
 - 실행한 명령:
+  - `curl` robots·목록 URL 프로브(82cook 연결 거부 포함)
+  - `.venv/bin/python -m pytest automation/getdaytrends/tests -q` → **923 passed, 7 skipped**
+  - `FastViralCollector.refresh(limit=12)` 일회 실수집 검증
+
 - 남은 것:
+  - 8010 운영 서버 재기동은 사용자/운영자가 해야 화면 `source_health`에 반영(이 세션은 사용자 8010을 건드리지 않음).
+  - 루리웹 힛갤은 필요 시 제목 20건 밀도 재실측 후 별도 핸드오프로.
+  - 82cook 차단 해제 시 `DIRECT_COMMUNITY_SOURCES`에 한 줄 재등록하면 됨(파서 준비됨).

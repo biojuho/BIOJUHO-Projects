@@ -20,12 +20,13 @@
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
 | 0002 og:description 2차 판정 | **Codex** | 진행 중 | `handoffs/0002-og-description-second-pass.md` — 제목만 보는 판정의 한계를 넘는다. 요청 예산(refresh당 8건·도메인당 2초) 엄수 |
-| 0003 사연 게시판 확장·82cook 처리 | **Grok** | 진행 중 | `handoffs/0003-source-boards-and-82cook.md` — 보배드림 freeb/national/strange, 뽐뿌 freeboard 병행, 82cook 차단 대응 결정 |
 | 0004 교차 확산 감지 되살리기 | **Qwen** | 진행 중 | `handoffs/0004-cross-community-detection.md` — 한국어 조사 정규화 + 클러스터 키 안정화 |
 
+> **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
+
 **Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
-`og-second-pass`(Codex) · `story-boards`(Grok) · `cross-community`(Qwen).
-0002와 0004가 `fast_viral_collector.py`를 함께 건드려서 워크트리를 분리했다 — 병합할 때 그 파일을 주의한다.
+`og-second-pass`(Codex) · `story-boards`(Grok, 0003 완료) · `cross-community`(Qwen).
+0002와 0004가 `fast_viral_collector.py`를 함께 건드려서 워크트리를 분리했다 — 병합할 때 그 파일을 주의한다(0003도 라벨 맵 8줄을 건드림).
 
 > **실행자에게:** 세 건은 서로 독립이라 동시에 집어도 된다. 집을 때 상태를 CLAIMED로 바꾸고
 > 이름을 적어 같은 일을 둘이 하지 않게 한다. 각 핸드오프의 금지사항(특히 요청 예산과
@@ -50,10 +51,10 @@
 | 소스 | 상태 | 근거 |
 |------|------|------|
 | 개드립 · 더쿠 HOT · 루리웹 베스트 | 직접 수집 | 기존 |
-| 보배드림 베스트 | 직접 수집 | robots `Allow: /` 확인 후 추가 |
-| 82cook 자유게시판 | 직접 수집 | robots가 특정 경로만 금지 — 사연·고민 비중이 가장 높다 |
-| 뽐뿌 자유게시판 | 직접 수집 | robots `Allow: /zboard/`(장터만 금지) |
+| 보배드림 베스트·자유·국내·신유머 | 직접 수집 | robots `Allow: /` — freeb/national/strange는 베스트 승격 전 사연 창구(0003, story-boards 브랜치) |
+| 뽐뿌 HOT + 자유게시판 | 직접 수집 | robots `Allow: /zboard/` — hot.php와 freeboard 병행(0003) |
 | 오늘의유머 베오베 | 직접 수집 | robots `Allow: /` + `Content-Signal: ai-train=no` — **읽어서 사람에게 보여줄 뿐 어떤 모델도 학습시키지 않는다** |
+| 82cook 자유게시판 | IssueLink 경유만 | 2026-08-06 IP 443 연결 거부 → 직접 수집 제외(0003). 파서는 재개용 유지 |
 | 디시인사이드 · 인벤 | 미착수(가능) | robots 확인 완료(디시 `Allow: /`, 인벤은 특정 게시판만 금지) |
 | MLB파크 | 제외 | robots `Disallow: /`(Googlebot만 허용) |
 | FMKorea | IssueLink 경유만 | 자동 접근 차단(HTTP 430 + 보안 시스템 페이지), robots도 대부분 봇에 메인만 허용 |

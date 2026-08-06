@@ -10,8 +10,12 @@ from direct_community_sources import (  # noqa: E402
     DIRECT_COMMUNITY_SOURCES,
     parse_82cook_free,
     parse_ppomppu_free,
+    parse_ppomppu_hot,
     parse_todayhumor_best,
     parse_bobaedream_best,
+    parse_bobaedream_freeb,
+    parse_bobaedream_national,
+    parse_bobaedream_strange,
     parse_direct_community_source,
     parse_dogdrip_latest,
     parse_ruliweb_best,
@@ -114,7 +118,7 @@ def test_parse_bobaedream_best_reads_full_category_and_metrics():
             # 목록 글자는 "신유머/이.."로 잘려 나오므로 title 속성의 전체 이름을 쓴다.
             "category": "신유머/이슈/움짤",
             "community_source": "bobae",
-            "community_label": "보배드림",
+            "community_label": "보배드림 베스트",
             "source_url": "https://www.bobaedream.co.kr/view?code=best&No=1018692&vdate=",
             "link_kind": "publisher_original",
             # 목록 시각은 KST다. NOW(UTC 00:10)는 KST 09:10이므로 09:03은 7분 전이다.
@@ -216,11 +220,105 @@ def test_parse_ppomppu_skips_notices_and_reads_metrics():
     assert [item["id"] for item in items] == ["10069771"]
     item = items[0]
     assert item["title"] == "요코하마 경기 보러왔네요"
+    assert item["community_source"] == "ppomppu_freeboard"
+    assert item["community_label"] == "뽐뿌 자유"
     assert item["source_url"] == "https://www.ppomppu.co.kr/zboard/view.php?id=freeboard&page=1&no=10069771"
     assert item["published_label"] == "09:05"
     assert item["age_minutes"] == 5
     assert item["votes"] == 3
     assert item["views"] == 213
+
+
+def test_parse_ppomppu_hot_reads_board_date_cells_and_comment_span():
+    # hot.php는 baseList-views 대신 board_date 세 칸(시각·추천-비추·조회)을 쓴다.
+    html = """
+    <table>
+      <tr class="baseList" data-bbs_id="freeboard" data-bbs_no="10069788">
+        <td class="baseList-space baseList-numb"><a href="/zboard/zboard.php?id=freeboard">자유게시판</a></td>
+        <td class="baseList-space title">
+          <a class="baseList-title" href="/zboard/zboard.php?id=freeboard&amp;no=10069788">
+            이해찬대표 회고록 속 김민석
+          </a>
+          <span class="list_comment2">12</span>
+        </td>
+        <td class="baseList-space board_date">09:05:01</td>
+        <td class="baseList-space board_date">17 - 0</td>
+        <td class="baseList-space board_date">1609</td>
+      </tr>
+    </table>
+    """
+
+    items = parse_ppomppu_hot(html, now=NOW)
+    assert len(items) == 1
+    item = items[0]
+    assert item["id"] == "10069788"
+    assert item["community_source"] == "ppomppu"
+    assert item["category"] == "자유게시판"
+    assert item["published_label"] == "09:05"
+    assert item["votes"] == 17
+    assert item["views"] == 1609
+    assert item["comments"] == 12
+
+
+def test_parse_bobaedream_free_boards_share_table_structure_with_distinct_keys():
+    # freeb/national/strange는 best와 같은 테이블이지만 code= 값만 다르다.
+    freeb_html = """
+    <table><tr>
+      <td class="pl14">
+        <a class="bsubject" href="/view?code=freeb&amp;No=3424935" title="짜장면 먹고 울어서 감사하고 싶은 글">
+          짜장면 먹고 울어서 감사하고 싶은 글
+        </a>
+        <span class="Comment">(<strong class="totreply">218</strong>)</span>
+      </td>
+      <td class="date">09:03</td>
+      <td class="recomm">2460</td>
+      <td class="count">82310</td>
+    </tr></table>
+    """
+    national_html = """
+    <table><tr>
+      <td class="pl14">
+        <a class="bsubject" href="/view?code=national&amp;No=2412171">신차인증))드디어 신차 인증 합니다</a>
+        <span class="Comment">(<strong class="totreply">175</strong>)</span>
+      </td>
+      <td class="date">08/01</td>
+      <td class="recomm">640</td>
+      <td class="count">43628</td>
+    </tr></table>
+    """
+    strange_html = """
+    <table><tr>
+      <td class="pl14">
+        <a class="bsubject" href="/view?code=strange&amp;No=6966536">울산 골때리게 됐네요</a>
+        <span class="Comment">(<strong class="totreply">66</strong>)</span>
+      </td>
+      <td class="date">09:05</td>
+      <td class="recomm">638</td>
+      <td class="count">35068</td>
+    </tr></table>
+    """
+
+    freeb = parse_bobaedream_freeb(freeb_html, now=NOW)[0]
+    assert freeb["community_source"] == "bobae_freeb"
+    assert freeb["id"] == "3424935"
+    assert freeb["comments"] == 218
+    assert freeb["views"] == 82_310
+    assert freeb["age_minutes"] == 7
+
+    national = parse_bobaedream_national(national_html, now=NOW)[0]
+    assert national["community_source"] == "bobae_national"
+    # 08/01 00:00 KST 기준. NOW=08/06 09:10 KST → 5일 9시간 10분 = 7750분.
+    assert national["published_label"] == "08/01"
+    assert national["age_minutes"] == 7750
+
+    strange = parse_bobaedream_strange(strange_html, now=NOW)[0]
+    assert strange["community_source"] == "bobae_strange"
+    assert strange["id"] == "6966536"
+    assert strange["age_minutes"] == 5
+
+    # 다른 게시판 코드를 넘기면 0건 — 소스 키 분리가 깨지지 않게.
+    assert parse_bobaedream_freeb(national_html, now=NOW) == []
+    assert parse_bobaedream_best(freeb_html, now=NOW) == []
 
 
 def test_parse_todayhumor_reads_comment_count_outside_the_title_link():
@@ -249,8 +347,22 @@ def test_parse_todayhumor_reads_comment_count_outside_the_title_link():
 
 def test_all_registered_sources_have_a_parser():
     # 등록만 하고 파서를 빠뜨리면 그 소스는 조용히 0건이 된다.
-    assert {s["key"] for s in DIRECT_COMMUNITY_SOURCES} >= {
-        "dogdrip", "theqoo", "ruliweb", "bobae", "82cook", "ppomppu", "todayhumor",
+    keys = {s["key"] for s in DIRECT_COMMUNITY_SOURCES}
+    assert keys >= {
+        "dogdrip",
+        "theqoo",
+        "ruliweb",
+        "bobae",
+        "bobae_freeb",
+        "bobae_national",
+        "bobae_strange",
+        "ppomppu",
+        "ppomppu_freeboard",
+        "todayhumor",
     }
+    # 82cook은 직접 수집에서 제외(IP 차단). IssueLink 경유만 유지.
+    assert "82cook" not in keys
     for source in DIRECT_COMMUNITY_SOURCES:
         assert parse_direct_community_source(source["key"], "<html></html>") == []
+    # 파서 자체는 재개용으로 남겨 둔다.
+    assert parse_direct_community_source("82cook", "<html></html>") == []
