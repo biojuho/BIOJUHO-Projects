@@ -93,9 +93,6 @@ def test_every_verdict_carries_its_reason():
         assert screen_material(title).get("signals"), title
 
 
-@pytest.mark.xfail(
-    reason="요리 대회가 스포츠로 분류된다 — '대회에서 우승'이 트리거. 48만 노출 소재가 화면에 못 온다.",
-    strict=False,
-)
 def test_a_cooking_contest_is_not_a_sports_event():
+    """2026-08-07: '대회에서 우승' 스포츠 오탐. 0007에서 패턴을 좁혀 해제."""
     assert excluded_topic_reason("농심배 짜파게티 대회에서 우승한 작품") is None
