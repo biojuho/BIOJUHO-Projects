@@ -19,9 +19,13 @@
 
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
-| 0002 og:description 2차 판정 | (미배정) | OPEN | `handoffs/0002-og-description-second-pass.md` — 제목만 보는 판정의 한계를 넘는다. 요청 예산(refresh당 8건·도메인당 2초) 엄수 |
-| 0003 사연 게시판 확장·82cook 처리 | (미배정) | OPEN | `handoffs/0003-source-boards-and-82cook.md` — 보배드림 freeb/national/strange, 뽐뿌 freeboard 병행, 82cook 차단 대응 결정 |
-| 0004 교차 확산 감지 되살리기 | (미배정) | OPEN | `handoffs/0004-cross-community-detection.md` — 한국어 조사 정규화 + 클러스터 키 안정화 |
+| 0002 og:description 2차 판정 | **Codex** | 진행 중 | `handoffs/0002-og-description-second-pass.md` — 제목만 보는 판정의 한계를 넘는다. 요청 예산(refresh당 8건·도메인당 2초) 엄수 |
+| 0003 사연 게시판 확장·82cook 처리 | **Grok** | 진행 중 | `handoffs/0003-source-boards-and-82cook.md` — 보배드림 freeb/national/strange, 뽐뿌 freeboard 병행, 82cook 차단 대응 결정 |
+| 0004 교차 확산 감지 되살리기 | **Qwen** | 진행 중 | `handoffs/0004-cross-community-detection.md` — 한국어 조사 정규화 + 클러스터 키 안정화 |
+
+**Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
+`og-second-pass`(Codex) · `story-boards`(Grok) · `cross-community`(Qwen).
+0002와 0004가 `fast_viral_collector.py`를 함께 건드려서 워크트리를 분리했다 — 병합할 때 그 파일을 주의한다.
 
 > **실행자에게:** 세 건은 서로 독립이라 동시에 집어도 된다. 집을 때 상태를 CLAIMED로 바꾸고
 > 이름을 적어 같은 일을 둘이 하지 않게 한다. 각 핸드오프의 금지사항(특히 요청 예산과
