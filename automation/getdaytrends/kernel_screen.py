@@ -35,6 +35,7 @@ _WRONGDOING_TERMS = (
     "갑질", "떠넘", "뺏", "강요", "무시", "방치", "폭언", "욕설", "협박", "바가지",
     "몰래", "무단", "속이", "속였", "거짓말", "잠수", "먹튀", "안 준", "안 줬", "안줌",
     "밀린", "체불", "미지급", "손절", "차별", "부당", "억지", "진상짓", "새치기",
+    "떼먹", "떼어먹", "안 갚", "안갚", "미납", "가로채", "빼돌",
 )
 
 # ── 5-1절 사는 축② : 가해자 없는 강한 낙차 ────────────────────────────────
@@ -183,7 +184,41 @@ def screen_material(title: str, *, community_label: str | None = None) -> dict[s
     }
 
 
-def attach_kernel_screen(payload: dict[str, Any], *, title_field: str = "title") -> dict[str, Any]:
+# 정렬 우선순위. 보류(unknown)를 죽는 축보다 위에 두는 이유는, 모르는 것을 버리는 것보다
+# 사람이 원문을 열어 확인하게 하는 편이 낫기 때문이다.
+_AXIS_RANK = {"live_wrong": 0, "live_gap": 1, "unknown": 2, "dead_debate": 3, "dead_flat": 4}
+
+
+def sort_by_kernel(items: list[Any]) -> list[Any]:
+    """커널 축을 1차 키, 적합도 점수를 2차 키로 정렬한다.
+
+    **이것이 금지 목록 추격을 대체하는 지점이다.**
+
+    제외 필터(정치·스포츠·애니·성인성)는 금지 목록이라 새 표현이 나올 때마다 뚫린다 —
+    2026-08-06 하루에만 네 갈래에서 누수가 나왔다("국짐", "애니회사", "이임생", "성접대").
+    단어를 계속 쫓는 건 끝이 없다.
+
+    그런데 그날 누수된 9건을 커널로 판정하면 **사는 축이 0건**이다(죽는 축 7 · 보류 2).
+    금지 목록이 뚫려도 허용 기준(가해자 명확·낙차)을 통과하지 못하면 화면 위로 오지 못한다.
+    필터는 최후 방어선으로 남기고, 선별은 여기서 한다.
+    """
+
+    def key(item: Any) -> tuple[int, float]:
+        if not isinstance(item, dict):
+            return (9, 0.0)
+        axis = (item.get("kernel_screen") or {}).get("axis", "unknown")
+        try:
+            score = float(item.get("x_exposure_score") or 0)
+        except (TypeError, ValueError):
+            score = 0.0
+        return (_AXIS_RANK.get(axis, 2), -score)
+
+    return sorted(items, key=key)
+
+
+def attach_kernel_screen(
+    payload: dict[str, Any], *, title_field: str = "title", sort: bool = True
+) -> dict[str, Any]:
     """스냅샷 응답의 items 각각에 kernel_screen을 얹는다(원본은 건드리지 않는다)."""
     enriched = dict(payload or {})
     items = enriched.get("items")
@@ -199,6 +234,8 @@ def attach_kernel_screen(payload: dict[str, Any], *, title_field: str = "title")
             copy.get(title_field, ""), community_label=copy.get("community_label")
         )
         screened.append(copy)
+    if sort:
+        screened = sort_by_kernel(screened)
     enriched["items"] = screened
     # 선별을 돕는 요약 — 목록 위에서 "지금 쓸 만한 게 몇 개인지"가 바로 보이게.
     enriched["kernel_summary"] = {

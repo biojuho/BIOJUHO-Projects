@@ -1389,7 +1389,7 @@ function renderFastViral(data) {{
   const container = document.getElementById('fast-viral-list');
   const status = document.getElementById('fast-viral-status');
   if (!container || !status) return;
-  const items = Array.isArray(data.items) ? data.items : [];
+  const items = applySortMode(Array.isArray(data.items) ? data.items : []);
   const sourceHealth = data.source_health || {{}};
   const fallbackMode = Boolean(data.fallback_mode);
   const exclusions = data.excluded_topic_counts || {{}};
@@ -1403,8 +1403,14 @@ function renderFastViral(data) {{
     <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTotal))}}건</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
     ${{kernelSummary(data)}}
+    ${{sortToggle()}}
     ${{fresh.hint}}
   `;
+  const sortButton = document.getElementById('fast-viral-sort');
+  if (sortButton) sortButton.addEventListener('click', () => {{
+    fastViralSortMode = fastViralSortMode === 'kernel' ? 'speed' : 'kernel';
+    renderFastViral(data);
+  }});
   if (!items.length) {{
     const errors = Array.isArray(data.errors) && data.errors.length ? ` (${{safeHtml(data.errors.join(', '))}})` : '';
     container.innerHTML = `<div class="x-radar-empty">현재 속도·안전 게이트를 통과한 조기 후보가 없습니다.${{errors}} 2분 뒤 다시 확인합니다.</div>`;
@@ -1480,6 +1486,30 @@ function safeExternalUrl(value) {{
   const url = String(value || '');
   const normalized = url.toLowerCase();
   return normalized.startsWith('https://') || normalized.startsWith('http://') ? safeHtml(url) : '#';
+}}
+
+// 정렬 토글. 기본은 커널 축 우선(서버가 그렇게 보낸다).
+// 속도순은 "지금 뜨는 것"을 놓치지 않기 위한 되돌리기 경로다.
+let fastViralSortMode = 'kernel';
+const KERNEL_AXIS_RANK = {{ live_wrong: 0, live_gap: 1, unknown: 2, dead_debate: 3, dead_flat: 4 }};
+
+function applySortMode(items) {{
+  const list = Array.isArray(items) ? items.slice() : [];
+  if (fastViralSortMode === 'speed') {{
+    return list.sort((a, b) => Number(b.x_exposure_score || 0) - Number(a.x_exposure_score || 0));
+  }}
+  return list.sort((a, b) => {{
+    const ra = KERNEL_AXIS_RANK[(a.kernel_screen || {{}}).axis] ?? 2;
+    const rb = KERNEL_AXIS_RANK[(b.kernel_screen || {{}}).axis] ?? 2;
+    if (ra !== rb) return ra - rb;
+    return Number(b.x_exposure_score || 0) - Number(a.x_exposure_score || 0);
+  }});
+}}
+
+function sortToggle() {{
+  const kernelOn = fastViralSortMode === 'kernel';
+  return `<button type="button" class="ghost-button" id="fast-viral-sort" aria-pressed="${{kernelOn}}">`
+    + `정렬: ${{kernelOn ? '소재 우선' : '속도 우선'}}</button>`;
 }}
 
 // 목록 위 한 줄 요약. 훑기 전에 "지금 쓸 만한 게 몇 개인지"가 먼저 보여야 선별이 빨라진다.

@@ -95,8 +95,9 @@ class TestAttach:
         assert attach_kernel_screen({})["items"] if False else True
         assert "kernel_summary" not in attach_kernel_screen({"items": "nope"})
         out = attach_kernel_screen({"items": [None, {"title": "논란"}]})
-        assert out["items"][0] is None
-        assert out["items"][1]["kernel_screen"]["axis"] == "dead_debate"
+        # 정렬이 붙은 뒤로 dict가 아닌 항목은 맨 뒤로 밀린다 — 화면 위를 차지하면 안 된다.
+        assert out["items"][-1] is None
+        assert out["items"][0]["kernel_screen"]["axis"] == "dead_debate"
 
 
 class TestGapTypes:
@@ -138,3 +139,54 @@ class TestShortInput:
 
     def test_full_sentence_is_still_judged(self):
         assert screen_material("팀장이 회식비를 떠넘김")["axis"] == "live_wrong"
+
+
+class TestKernelSorting:
+    """금지 목록 추격을 대체하는 지점.
+
+    제외 필터는 새 표현마다 뚫린다. 2026-08-06 하루에 네 갈래에서 누수가 나왔지만,
+    그 9건을 커널로 판정하면 사는 축이 0건이었다 — 허용 기준으로 세우면 아래로 밀린다.
+    """
+
+    def test_live_axes_rise_above_higher_scoring_dead_ones(self):
+        items = [
+            {"title": "복도에 실외기 설치 완료", "x_exposure_score": 96},
+            {"title": "팀장이 회식비를 떠넘김", "x_exposure_score": 40},
+        ]
+        out = attach_kernel_screen({"items": items})["items"]
+        # 점수는 96 대 40이지만 소재 축이 이긴다.
+        assert out[0]["title"] == "팀장이 회식비를 떠넘김"
+
+    def test_score_breaks_ties_within_the_same_axis(self):
+        items = [
+            {"title": "손님이 진상짓하고 잠수", "x_exposure_score": 30},
+            {"title": "사장이 알바비를 떼먹음", "x_exposure_score": 80},
+        ]
+        out = attach_kernel_screen({"items": items})["items"]
+        assert out[0]["x_exposure_score"] == 80
+
+    def test_unknown_outranks_dead(self):
+        # 모르는 것을 버리는 것보다 사람이 원문을 열어 보게 하는 편이 낫다.
+        items = [
+            {"title": "얘들아 다들 이거 합쳐봐", "x_exposure_score": 90},
+            {"title": "김혜수", "x_exposure_score": 10},
+        ]
+        out = attach_kernel_screen({"items": items})["items"]
+        assert out[0]["title"] == "김혜수"
+
+    def test_leaked_filter_items_do_not_reach_the_top(self):
+        # 오늘 실제로 제외 필터를 빠져나간 제목들. 커널 정렬에서는 전부 아래로 간다.
+        leaked = [
+            "국짐이 정청래편인척",
+            "요즘 애니회사들, 유부녀를 판다.jpg",
+            "이야 성접대는 좀 많이 큰데?",
+        ]
+        items = [{"title": t, "x_exposure_score": 95} for t in leaked]
+        items.append({"title": "남편이 친정 용돈을 뺏어감", "x_exposure_score": 20})
+        out = attach_kernel_screen({"items": items})["items"]
+        assert out[0]["title"] == "남편이 친정 용돈을 뺏어감"
+
+    def test_sorting_can_be_turned_off(self):
+        items = [{"title": "복도에 실외기 설치 완료"}, {"title": "팀장이 회식비를 떠넘김"}]
+        out = attach_kernel_screen({"items": items}, sort=False)["items"]
+        assert out[0]["title"] == "복도에 실외기 설치 완료"
