@@ -21,7 +21,8 @@
 |--------|------|------|-----------|
 | 0002 og:description 2차 판정 | **Codex** | 진행 중 | `handoffs/0002-og-description-second-pass.md` — 제목만 보는 판정의 한계를 넘는다. 요청 예산(refresh당 8건·도메인당 2초) 엄수 |
 | 0004 교차 확산 감지 되살리기 | **Qwen** | 진행 중 | `handoffs/0004-cross-community-detection.md` — 한국어 조사 정규화 + 클러스터 키 안정화 |
-| 0005 낙차 판정을 구조로 | **Qwen** | OPEN(2026-08-07 발행) | `handoffs/0005-gap-detection-by-structure.md` — 재현율 2/20 → 8/20. **`kernel_screen.py`만 건드린다** — 0002·0004가 쓰는 `fast_viral_collector.py`와 겹치지 않게 범위를 잘랐다 |
+| 0005 낙차 판정을 구조로 | **Qwen** | 착수(2026-08-07 05:5x) | `handoffs/0005-gap-detection-by-structure.md` — 재현율 2/20 → 8/20. **`kernel_screen.py`만 건드린다** — 0002·0004가 쓰는 `fast_viral_collector.py`와 겹치지 않게 범위를 잘랐다. cross-community 워크트리를 main으로 fast-forward한 뒤 배정 |
+| 0006 jamnanda 어그리게이터 | — | **대기(선행조건 있음)** | `handoffs/0006-jamnanda-aggregator.md` — 클리앙·82cook·딴지 확보. **0005 DONE + `fast_viral_collector.py`가 빌 때까지 집지 않는다.** jamnanda는 메트릭을 안 주므로 직접 소스가 아니라 IssueLink와 같은 어그리게이터 경로여야 한다 |
 
 > **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
 
