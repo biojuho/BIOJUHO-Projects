@@ -229,3 +229,33 @@ def test_looks_blocked_survives_unreadable_body():
             raise UnicodeDecodeError("utf-8", b"", 0, 1, "broken")
 
     assert _looks_blocked(Broken()) is False
+
+
+def test_diverse_selection_spreads_across_communities_instead_of_one_board():
+    """애그리게이터에 준 자리가 한 커뮤니티로 쏠리면 확대한 의미가 없다."""
+    items = [
+        {"community_source": "fmkorea", "title": f"fm{i}", "x_exposure_score": 90 - i, "comments": 0, "source_position": i}
+        for i in range(6)
+    ] + [
+        {"community_source": "ppomppu", "title": "뽐뿌글", "x_exposure_score": 40, "comments": 0, "source_position": 6},
+        {"community_source": "inven", "title": "인벤글", "x_exposure_score": 30, "comments": 0, "source_position": 7},
+        {"community_source": "clien", "title": "클리앙글", "x_exposure_score": 20, "comments": 0, "source_position": 8},
+    ]
+
+    picked = _select_diverse_community_items(items, 4)
+
+    # 점수만 보면 FMKorea가 네 자리를 다 가져간다. 커뮤니티가 갈려야 한다.
+    assert len({item["community_source"] for item in picked}) == 4
+    assert picked[0]["community_source"] == "fmkorea"
+
+
+def test_diverse_selection_does_not_leave_seats_empty_with_one_source():
+    """커뮤니티가 하나뿐이면 그 커뮤니티로 자리를 채운다 — 다양성 때문에 화면을 비우지 않는다."""
+    items = [
+        {"community_source": "fmkorea", "title": f"fm{i}", "x_exposure_score": 90 - i, "comments": 0, "source_position": i}
+        for i in range(3)
+    ]
+
+    picked = _select_diverse_community_items(items, 3)
+
+    assert [item["title"] for item in picked] == ["fm0", "fm1", "fm2"]

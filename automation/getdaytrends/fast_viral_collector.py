@@ -725,7 +725,12 @@ class FastViralCollector:
             any_direct_ok = fmkorea_ok or any(direct_source_health.values())
             fallback_mode = not any_direct_ok and bool(issue_items)
             resolved_originals = 0
-            if issue_items and len(qualified) < limit:
+            # 애그리게이터 몫을 미리 떼어 둔다. 예전에는 직접 목록이 자리를 다 채우면
+            # IssueLink를 아예 보지 않았는데, 그러면 클리앙·인벤·뽐뿌·82cook처럼 직접
+            # 수집이 막혔거나 붙이지 않은 커뮤니티가 영영 화면에 오르지 못한다.
+            # 직접 목록이 전부 죽은 경우에는 종전대로 애그리게이터가 전부 채운다.
+            aggregator_quota = limit if not any_direct_ok else max(1, limit // 3)
+            if issue_items:
                 allowed_issue_items: list[dict[str, Any]] = []
                 for item in issue_items:
                     if _snapshot_item_key(item) in direct_keys:
@@ -777,9 +782,11 @@ class FastViralCollector:
                     item["exposure_coverage"] = exposure_coverage
                     item["observed_at"] = observation["observed_at"]
                     item["observation_delta"] = observation
-                selected_issue_items = _select_diverse_community_items(
-                    allowed_issue_items, max(0, limit - len(qualified))
-                )
+                selected_issue_items = _select_diverse_community_items(allowed_issue_items, aggregator_quota)
+                if selected_issue_items:
+                    # 확보한 자리만큼 직접 목록을 점수 낮은 쪽부터 덜어낸다.
+                    qualified.sort(key=lambda item: item.get("x_exposure_score", 0), reverse=True)
+                    qualified = qualified[: max(0, limit - len(selected_issue_items))]
                 async with httpx.AsyncClient(headers=headers, follow_redirects=False) as redirect_session:
                     resolved_originals = await _resolve_community_origins(redirect_session, selected_issue_items)
                 for item in selected_issue_items:

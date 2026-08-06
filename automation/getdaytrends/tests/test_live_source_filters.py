@@ -44,6 +44,10 @@ def test_political_nicknames_are_excluded_even_from_humor_boards():
     assert excluded_topic_reason("오세훈 시장 신년 인터뷰") == "정치 제외"
     assert excluded_topic_reason("더불어민주당 새 지도부 구성") == "정치 제외"
 
+    # 애그리게이터 경유로 올라온 글에서도 같은 기준이 걸려야 한다.
+    assert excluded_topic_reason("친일파 재산 환수하겠다!") == "정치 제외"
+    assert excluded_topic_reason("최민희 발언 정리") == "정치 제외"
+
     # 일상 화제까지 끌려 들어가면 필터가 무뎌진다.
     assert topic_is_allowed("동네 시장에서 산 붕어빵 후기") is True
     assert topic_is_allowed("국밥집 사장님이 준 서비스") is True
