@@ -97,3 +97,44 @@ class TestAttach:
         out = attach_kernel_screen({"items": [None, {"title": "논란"}]})
         assert out["items"][0] is None
         assert out["items"][1]["kernel_screen"]["axis"] == "dead_debate"
+
+
+class TestGapTypes:
+    """커널 1-3절 낙차 4종. 처음에는 ①만 구현해 상위 게시물 2건을 놓쳤다."""
+
+    def test_expectation_result_reversal(self):
+        assert screen_material("장사가 너무 잘돼서 오히려 망했다")["axis"] == "live_gap"
+
+    def test_rule_behavior_reversal(self):
+        # 실측 노출 4위. "절대 안 준다"는 원칙이 곧 낙차다.
+        r = screen_material("배우 오만석이 연기엔 100점이 없어 수업에 A+을 절대 안 준다고 함")
+        assert r["axis"] == "live_gap"
+        assert any("규칙" in s for s in r["signals"])
+
+    def test_scale_life_gap(self):
+        # 실측 노출 5위. 큰 규모가 도시락 같은 생활 소재와 붙을 때.
+        r = screen_material("JYP 새 사옥 식당이 3배 커지면서 매니저 도시락까지 공짜로 퍼줌")
+        assert r["axis"] == "live_gap"
+        assert any("규모" in s for s in r["signals"])
+
+    def test_relationship_meaning_reversal(self):
+        r = screen_material("엄마가 뜻밖에 꺼낸 한마디")
+        assert r["axis"] == "live_gap"
+
+    def test_ordinary_sentence_is_not_forced_into_a_gap(self):
+        # 낙차 패턴이 너무 넓으면 전부 사는 축이 되어 선별이 무의미해진다.
+        assert screen_material("오늘 점심 뭐 먹을지 고민 중")["axis"] == "dead_flat"
+        assert screen_material("복도에 실외기 설치 완료")["axis"] == "dead_flat"
+
+
+class TestShortInput:
+    """X 레이더는 제목이 아니라 검색어 한 단어를 준다."""
+
+    def test_single_keyword_is_not_judged(self):
+        for keyword in ("김혜수", "오디세이", "태국"):
+            r = screen_material(keyword)
+            assert r["axis"] == "unknown"
+            assert "판정할 수 없" in r["signals"][0]
+
+    def test_full_sentence_is_still_judged(self):
+        assert screen_material("팀장이 회식비를 떠넘김")["axis"] == "live_wrong"

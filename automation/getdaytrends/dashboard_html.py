@@ -1402,6 +1402,7 @@ function renderFastViral(data) {{
     <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/${{safeHtml(String(data.direct_source_total || 0))}}곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
     <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTotal))}}건</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
+    ${{kernelSummary(data)}}
     ${{fresh.hint}}
   `;
   if (!items.length) {{
@@ -1479,6 +1480,14 @@ function safeExternalUrl(value) {{
   const url = String(value || '');
   const normalized = url.toLowerCase();
   return normalized.startsWith('https://') || normalized.startsWith('http://') ? safeHtml(url) : '#';
+}}
+
+// 목록 위 한 줄 요약. 훑기 전에 "지금 쓸 만한 게 몇 개인지"가 먼저 보여야 선별이 빨라진다.
+function kernelSummary(data) {{
+  const k = (data && data.kernel_summary) || null;
+  if (!k) return '';
+  const verify = k.verify_first ? ` · 검증 먼저 ${{k.verify_first}}` : '';
+  return `<span class="kernel-badge is-live">쓸 만함 ${{k.live}}</span><span class="kernel-badge is-dead">거를 것 ${{k.dead}}${{verify}}</span>`;
 }}
 
 // 커널 소재 판정 배지. 판정은 서버(kernel_screen.py)가 하고 여기서는 표시만 한다.
@@ -1580,6 +1589,7 @@ function renderXRadar(data) {{
           <div>
             <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(item.lane)}} · ${{safeHtml(ageLabel)}}</div>
             <div class="x-radar-keyword">${{safeHtml(item.keyword)}}</div>
+            <div>${{kernelBadge(item)}}</div>
             <div class="tap-meta" style="margin-top:8px">
               <span class="tap-chip">${{safeHtml(item.category)}}</span>
               <span class="tap-chip">검색량 ${{safeHtml(item.volume || 'N/A')}}</span>

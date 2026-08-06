@@ -47,10 +47,20 @@ _GAP_TERMS = (
     "안 했는데", "했더니", "하자마자",
 )
 
-# 역접 구조 자체를 잡는다 — 어휘가 없어도 "긍정 → 부정"이 한 문장에 붙으면 낙차다.
+# 커널 1-3절이 정의한 낙차 4종을 구조로 잡는다. 어휘가 없어도 두 요소가 부딪히면 낙차다.
+# 처음에는 ①만 구현해서 "오만석 A+ 안 준다"(노출 4위) "JYP 도시락 공짜"(5위)를 놓쳤다.
 _GAP_PATTERNS = (
-    re.compile(r"(?:잘|많이|열심히|성공|대박|1위).{0,18}(?:망|실패|손해|잃|끝났|무너)"),
-    re.compile(r"(?:공짜|무료|선물|호의).{0,18}(?:청구|요구|돈|받아)"),
+    # ① 예상-결과 역전
+    (re.compile(r"(?:잘|많이|열심히|성공|대박|1위).{0,18}(?:망|실패|손해|잃|끝났|무너)"), "예상-결과 역전"),
+    (re.compile(r"(?:공짜|무료|선물|호의).{0,18}(?:청구|요구|돈|받아)"), "예상-결과 역전"),
+    # ② 규칙-행동 역전 — 원칙을 세워두고 스스로 깨거나, 예외 없이 지키는 쪽 모두 낙차다
+    (re.compile(r"(?:절대|무조건|한 번도|한번도|평생)\s*(?:안|못|없)"), "규칙-행동 역전"),
+    (re.compile(r"(?:규정|원칙|금지|만점|100점).{0,20}(?:없|안|예외|깨|어긴)"), "규칙-행동 역전"),
+    # ③ 규모-생활 격차 — 큰 단위가 사소한 생활 소재와 붙을 때
+    (re.compile(r"\d+\s*(?:억|천만|백만)\D{0,20}(?:라면|커피|도시락|택시|치킨|김밥|편의점|월세|용돈)"), "규모-생활 격차"),
+    (re.compile(r"(?:도시락|간식|커피|물|화장지).{0,14}(?:공짜|무료|무제한|다 주|퍼줌|퍼준)"), "규모-생활 격차"),
+    # ④ 관계-의미 역전 — 가까운 관계에서 예상과 반대 행동이 나올 때
+    (re.compile(r"(?:엄마|아빠|아들|딸|남편|아내|사장|팀장|선생|담임).{0,16}(?:뜻밖|의외|반대로|처음으로|몰래)"), "관계-의미 역전"),
 )
 
 # ── 5-1절 죽는 축① : 쌍방 논쟁형 (독자 판단이 갈림) ───────────────────────
@@ -125,7 +135,7 @@ def screen_material(title: str, *, community_label: str | None = None) -> dict[s
     debate_q = [p for p in _DEBATE_PATTERNS if p.search(raw)]
     actors = _hits(text, _ACTOR_TERMS)
     wrongs = _hits(text, _WRONGDOING_TERMS)
-    gaps = _hits(text, _GAP_TERMS) + ["역접 구조" for p in _GAP_PATTERNS if p.search(text)]
+    gaps = _hits(text, _GAP_TERMS) + [name for p, name in _GAP_PATTERNS if p.search(text)]
 
     # 판정 순서가 곧 우선순위다. 가해자와 논쟁 신호가 함께 있으면 논쟁이 이긴다 —
     # 독자 판단이 갈리는 순간 인용 방향이 모이지 않기 때문이다.
@@ -147,6 +157,13 @@ def screen_material(title: str, *, community_label: str | None = None) -> dict[s
     elif actors:
         axis = "unknown"
         signals.append(f"역할 '{actors[0]}'은 있으나 행위가 드러나지 않음")
+        confidence = "low"
+    elif len(re.sub(r"\W", "", raw)) < 8:
+        # 신호가 하나도 없는데 입력까지 짧다. X 레이더는 제목이 아니라 검색어 한 단어를
+        # 준다("김혜수", "오디세이") — 그걸 "낙차 약함"으로 단정하면 판정처럼 보이는
+        # 착시만 만든다. 모르면 모른다고 한다.
+        axis = "unknown"
+        signals.append("단어만 있어 소재 축을 판정할 수 없음 — 원문에서 확인")
         confidence = "low"
     else:
         axis = "dead_flat"
