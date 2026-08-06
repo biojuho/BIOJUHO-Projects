@@ -278,7 +278,7 @@ _HTML = """<!DOCTYPE html>
   <h3 id="fast-viral-title">🚨 커뮤니티 바이럴 조기감지</h3>
   <p class="x-radar-intro">개드립·더쿠 HOT·루리웹 베스트·보배드림 베스트를 직접 확인하고, 연결 제한이나 후보 부족 때는 IssueLink의 다른 커뮤니티 원문으로 보완합니다. 댓글·조회·추천·교차확산으로 X 노출 적합도를 계산하며 선행시간은 두 최초 감지 시각이 모두 있을 때만 표시합니다.</p>
   <div class="x-radar-controls">
-    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산과 성인성 제목은 제외합니다. AAGAG는 robots 정책에 따라, FMKorea·클리앙은 사이트가 자동 접근을 차단해 직접 수집하지 않습니다(FMKorea는 IssueLink 경유로만 확인).</div>
+    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화와 성인성 제목은 제외합니다. AAGAG는 robots 정책에 따라, FMKorea·클리앙은 사이트가 자동 접근을 차단해 직접 수집하지 않습니다(FMKorea는 IssueLink 경유로만 확인).</div>
     <select id="fast-viral-limit" class="tap-input" aria-label="조기 후보 표시 개수">
       <option value="6">상위 6개</option>
       <option value="12" selected>상위 12개</option>
@@ -299,7 +299,7 @@ _HTML = """<!DOCTYPE html>
 <!-- X Breaking / Viral Source Radar -->
 <section class="panel x-radar-panel" aria-labelledby="x-radar-title">
   <h3 id="x-radar-title">⚡ X 속보·바이럴 원문 레이더</h3>
-  <p class="x-radar-intro">독립 원문·Threads 교차 근거가 있는 주제와, 공개 X 상위 5위 반복 또는 연속 순위 상승이 확인된 X 네이티브 단어를 분리해 표시합니다. 공개 X는 90초 캐시·2분 자동 갱신이며 수동 확인은 캐시를 우회합니다. 스포츠·정치·증시·종목·기업 실적·부동산은 표시하지 않으며 자동 문안 생성이나 게시 기능은 없습니다.</p>
+  <p class="x-radar-intro">독립 원문·Threads 교차 근거가 있는 주제와, 공개 X 상위 5위 반복 또는 연속 순위 상승이 확인된 X 네이티브 단어를 분리해 표시합니다. 공개 X는 90초 캐시·2분 자동 갱신이며 수동 확인은 캐시를 우회합니다. 스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화는 표시하지 않으며 자동 문안 생성이나 게시 기능은 없습니다.</p>
   <div class="x-radar-controls">
     <input id="x-radar-focus" class="tap-input" maxlength="500" placeholder="관심 분야 선택 입력 — 예: AI, 사건, 크리에이터 (비워두면 전체)">
     <select id="x-radar-limit" class="tap-input" aria-label="표시 개수">
@@ -1393,7 +1393,7 @@ function renderFastViral(data) {{
     <strong>${{items.length}}개 커뮤니티 원문</strong>
     <span class="fast-viral-early">${{safeHtml(String(data.community_source_count || 0))}}개 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
     <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/${{safeHtml(String(data.direct_source_total || 0))}}곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
-    <span>스포츠·정치·증시·실적·부동산 ${{safeHtml(String(excludedTotal))}}건 제외</span>
+    <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTotal))}}건</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
     ${{fresh.hint}}
   `;
@@ -1505,10 +1505,8 @@ function renderXRadar(data) {{
     sourceHealth.threads_api ? 'Threads 공식 검색 연결' : 'Threads 수동 검색 링크',
   ];
   const exclusions = data.filter_summary || {{}};
-  const excludedTopicCount = Number(exclusions['스포츠 제외'] || 0)
-    + Number(exclusions['정치 제외'] || 0)
-    + Number(exclusions['증시·실적 제외'] || 0)
-    + Number(exclusions['부동산 제외'] || 0);
+  // 제외 버킷을 하나씩 더하면 새 버킷이 생겼을 때 조용히 빠진다. 전부 합산한다.
+  const excludedTopicCount = Object.values(exclusions).reduce((sum, value) => sum + Number(value || 0), 0);
   const errorText = (data.errors || []).length
     ? `<span class="reference-connector-note">일부 소스 오류 ${{data.errors.length}}건</span>`
     : '';
@@ -1516,7 +1514,7 @@ function renderXRadar(data) {{
     <span class="live-dot${{fresh.dotClass}}"></span>
     <strong>${{items.length}}개 원문 소재</strong>
     <span>X 노출 적합도 순 · X 네이티브 ${{safeHtml(String(data.x_native_count || 0))}}개</span>
-    <span>스포츠·정치·증시·실적·부동산 ${{safeHtml(String(excludedTopicCount))}}개 제외 · 기타 근거 부족 ${{safeHtml(String(Math.max(0, Number(data.filtered_out_count || 0) - excludedTopicCount)))}}개</span>
+    <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTopicCount))}}개 · 기타 근거 부족 ${{safeHtml(String(Math.max(0, Number(data.filtered_out_count || 0) - excludedTopicCount)))}}개</span>
     <span>${{safeHtml(sourceLabels.join(' · '))}}</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
     ${{fresh.hint}}

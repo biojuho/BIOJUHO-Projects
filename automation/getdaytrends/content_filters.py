@@ -255,6 +255,10 @@ _POLITICS_TERMS = (
     "박찬대",
     "나경원",
     "여의도 정가",
+    # 같은 날 라운드에서 실제로 통과한 것들. 이름 목록을 쫓는 방식의 한계를 보여주는 사례이기도
+    # 하다 — 새 인물·단체는 계속 생긴다. 대안은 STATE.md의 결정 대기 항목에 적어 두었다.
+    "최민희",
+    "리박스쿨",
 )
 
 _SPORTS_CONTEXT_PATTERNS = (
@@ -283,10 +287,72 @@ _POLITICS_CONTEXT_PATTERNS = (
 )
 
 
+# 성별 갈등 소재. 커뮤니티에서 조회·댓글은 잘 나오지만 X로 옮기면 싸움만 남는다.
+# "한남"은 한남동·한남대교·한남대학교와 겹쳐서 단독으로 넣지 않고 갈등 표현만 잡는다.
+_GENDER_CONFLICT_TERMS = (
+    "페미",
+    "패미",
+    "페미니즘",
+    "페미니스트",
+    "메갈",
+    "워마드",
+    "남혐",
+    "여혐",
+    "한남충",
+    "김치녀",
+    "된장녀",
+    "군무새",
+    "젠더갈등",
+    "젠더 갈등",
+    "성별 갈등",
+    "이대남",
+    "이대녀",
+)
+
+_GENDER_CONFLICT_CONTEXT_PATTERNS = (
+    re.compile(r"(?:남자|여자|남성|여성)\s*(?:vs|대)\s*(?:남자|여자|남성|여성)"),
+    re.compile(r"(?:남녀)\s*(?:갈등|대립|싸움|전쟁)"),
+)
+
+# 애니메이션·만화 소재. "애니"는 애니팡·애니콜·사람 이름과 겹치므로 단독으로 쓰지 않고
+# 뒤에 붙는 말이나 앞뒤 문맥이 애니메이션을 가리킬 때만 잡는다.
+_ANIME_TERMS = (
+    "애니메이션",
+    "애니메이숑",
+    "극장판",
+    "코믹스",
+    "만화책",
+    "웹툰",
+    "오타쿠",
+    "덕후짤",
+    "성우 캐스팅",
+    "신작 애니",
+    "애니 추천",
+    "애니 명장면",
+    "원작 만화",
+    "일본 만화",
+    "만화 원작",
+)
+
+_ANIME_CONTEXT_PATTERNS = (
+    re.compile(r"애니\s*(?:방영|공개|1화|\d+화|시즌|캐릭터|주제가|op|ed|명장면|덕후|보는|봤)"),
+    re.compile(r"(?:tva|ova|극장판)\s*\d*(?:화|기|기작)?"),
+    re.compile(r"(?:작화|성우|원피스|나루토|귀칼|귀멸의 칼날|주술회전|체인소맨)\b"),
+)
+
+
 def excluded_topic_reason(*values: object) -> str | None:
     """Return the factual exclusion bucket for a topic, if any."""
     haystack = " ".join(str(value or "") for value in values).casefold()
     compact = re.sub(r"\s+", " ", haystack)
+    if any(term.casefold() in compact for term in _GENDER_CONFLICT_TERMS):
+        return "성별 갈등 제외"
+    if any(pattern.search(compact) for pattern in _GENDER_CONFLICT_CONTEXT_PATTERNS):
+        return "성별 갈등 제외"
+    if any(term.casefold() in compact for term in _ANIME_TERMS):
+        return "애니·만화 제외"
+    if any(pattern.search(compact) for pattern in _ANIME_CONTEXT_PATTERNS):
+        return "애니·만화 제외"
     if any(term.casefold() in compact for term in _SPORTS_TERMS):
         return "스포츠 제외"
     if any(pattern.search(compact) for pattern in _SPORTS_CONTEXT_PATTERNS):

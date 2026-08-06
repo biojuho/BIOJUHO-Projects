@@ -72,3 +72,27 @@ def test_bing_rss_parser_returns_only_direct_publisher_urls_with_timestamps():
             "discovered_via": "Bing News RSS",
         }
     ]
+
+
+def test_gender_conflict_topics_are_excluded():
+    """조회·댓글은 잘 나오지만 X로 옮기면 싸움만 남는 소재."""
+    assert excluded_topic_reason("패미들 또 시작이네") == "성별 갈등 제외"
+    assert excluded_topic_reason("페미니즘 논쟁 정리글") == "성별 갈등 제외"
+    assert excluded_topic_reason("남녀 갈등 부추기는 기사") == "성별 갈등 제외"
+    assert excluded_topic_reason("이대남 이대녀 표심") == "성별 갈등 제외"
+
+    # "한남"은 지명과 겹친다. 지명까지 걸러 버리면 멀쩡한 글이 사라진다.
+    assert topic_is_allowed("한남동 신상 카페 다녀옴") is True
+    assert topic_is_allowed("한남대교 야경 사진") is True
+
+
+def test_anime_topics_are_excluded_without_swallowing_lookalikes():
+    assert excluded_topic_reason("극장판 개봉 첫날 후기") == "애니·만화 제외"
+    assert excluded_topic_reason("신작 애니 추천 좀") == "애니·만화 제외"
+    assert excluded_topic_reason("애니 1화 보는데 작화 미쳤다") == "애니·만화 제외"
+    assert excluded_topic_reason("웹툰 원작 드라마 캐스팅") == "애니·만화 제외"
+    assert excluded_topic_reason("귀멸의 칼날 신작 소식") == "애니·만화 제외"
+
+    # "애니"가 들어가도 애니메이션이 아닌 말들.
+    assert topic_is_allowed("애니팡 신기록 세웠다") is True
+    assert topic_is_allowed("애니콜 시절 광고 기억나냐") is True
