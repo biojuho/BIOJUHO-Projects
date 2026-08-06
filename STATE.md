@@ -19,8 +19,9 @@
 
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
-| 0002 og:description 2차 판정 | **Codex** | 진행 중 | `handoffs/0002-og-description-second-pass.md` — 제목만 보는 판정의 한계를 넘는다. 요청 예산(refresh당 8건·도메인당 2초) 엄수 |
-| 0004 교차 확산 감지 되살리기 | **Qwen** | 진행 중 | `handoffs/0004-cross-community-detection.md` — 한국어 조사 정규화 + 클러스터 키 안정화 |
+| 0002 og:description 2차 판정 | **Codex** | **완료·검수 대기** | 워크트리 og-second-pass에 커밋 `19dd88c`. 검증에서 live 1→3, OG 요청 4/8. 935 passed. **main 병합 시 주의** — 워크트리가 오늘 main 커밋 셋을 모른 채 `test_kernel_screen.py`를 고쳤다 |
+| 0004 교차 확산 감지 | **Codex**(재배정 2026-08-07) | OPEN | Qwen이 0005로 옮겨가 비었다. Codex가 방금 `fast_viral_collector.py`를 만졌으므로 연속성 있게 이어받는다 |
+| 0007 제외 필터 오탐 | **Grok** | OPEN(2026-08-07 발행) | `handoffs/0007-exclusion-filter-false-positives.md` — `content_filters.py`만 건드려 셋과 겹치지 않는다 |
 | 0005 낙차 판정을 구조로 | **Qwen** | 착수(2026-08-07 05:5x) | `handoffs/0005-gap-detection-by-structure.md` — 재현율 2/20 → 8/20. **`kernel_screen.py`만 건드린다** — 0002·0004가 쓰는 `fast_viral_collector.py`와 겹치지 않게 범위를 잘랐다. cross-community 워크트리를 main으로 fast-forward한 뒤 배정 |
 | 0006 jamnanda 어그리게이터 | — | **대기(선행조건 있음)** | `handoffs/0006-jamnanda-aggregator.md` — 클리앙·82cook·딴지 확보. **0005 DONE + `fast_viral_collector.py`가 빌 때까지 집지 않는다.** jamnanda는 메트릭을 안 주므로 직접 소스가 아니라 IssueLink와 같은 어그리게이터 경로여야 한다 |
 
