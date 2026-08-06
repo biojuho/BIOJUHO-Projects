@@ -217,6 +217,13 @@ _HTML = """<!DOCTYPE html>
   .reference-live-bar{{display:grid;grid-template-columns:2fr .7fr auto;gap:10px;margin-bottom:10px}}
   .reference-live-status{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px;margin-bottom:12px;color:#94a3b8;font-size:.76rem}}
   .live-dot{{width:8px;height:8px;border-radius:999px;background:#ef4444;box-shadow:0 0 0 5px rgba(239,68,68,.12);animation:pulse 2s infinite}}
+  /* 수집이 멈춰도 점이 계속 뛰면 살아 있는 것처럼 보인다. 신선도 등급에 맞춰 끈다. */
+  .live-dot.is-warn{{background:#f59e0b;box-shadow:0 0 0 5px rgba(245,158,11,.12);animation:none}}
+  .live-dot.is-stale{{background:#94a3b8;box-shadow:0 0 0 5px rgba(148,163,184,.12);animation:none}}
+  .freshness{{font-variant-numeric:tabular-nums}}
+  .freshness.is-warn{{color:#b45309;font-weight:600}}
+  .freshness.is-stale{{color:#b91c1c;font-weight:700}}
+  .freshness-hint{{color:#b91c1c}}
   .reference-connector-note{{color:#64748b;font-size:.7rem}}
   .reference-toolbar{{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;margin-bottom:12px}}
   .reference-form{{display:grid;grid-template-columns:1.4fr 2fr 1fr 1fr .7fr;gap:10px;margin-bottom:12px}}
@@ -1380,14 +1387,15 @@ function renderFastViral(data) {{
   const fallbackMode = Boolean(data.fallback_mode);
   const exclusions = data.excluded_topic_counts || {{}};
   const excludedTotal = Object.values(exclusions).reduce((sum, value) => sum + Number(value || 0), 0);
-  const refreshed = data.refreshed_at ? new Date(data.refreshed_at).toLocaleString('ko-KR') : '-';
+  const fresh = freshnessParts(data);
   status.innerHTML = `
-    <span class="live-dot"></span>
+    <span class="live-dot${{fresh.dotClass}}"></span>
     <strong>${{items.length}}개 커뮤니티 원문</strong>
     <span class="fast-viral-early">${{safeHtml(String(data.community_source_count || 0))}}개 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
     <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/4곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
     <span>스포츠·정치·증시·실적·부동산 ${{safeHtml(String(excludedTotal))}}건 제외</span>
-    <span>갱신 ${{safeHtml(refreshed)}}</span>
+    <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
+    ${{fresh.hint}}
   `;
   if (!items.length) {{
     const errors = Array.isArray(data.errors) && data.errors.length ? ` (${{safeHtml(data.errors.join(', '))}})` : '';
@@ -1465,13 +1473,31 @@ function safeExternalUrl(value) {{
   return normalized.startsWith('https://') || normalized.startsWith('http://') ? safeHtml(url) : '#';
 }}
 
+// 신선도 판정은 서버(freshness.py)가 한다. 여기서는 등급을 화면 상태로만 옮긴다 —
+// 임계를 두 곳에 두면 화면과 서버 판단이 갈린다.
+function freshnessParts(data) {{
+  const info = (data && data.freshness) || {{}};
+  const level = ['fresh', 'warn', 'stale'].includes(info.level) ? info.level : 'unknown';
+  const dotClass = level === 'fresh' ? '' : (level === 'warn' ? ' is-warn' : ' is-stale');
+  const textClass = level === 'warn' ? ' is-warn' : (level === 'stale' ? ' is-stale' : '');
+  const clock = data && data.refreshed_at
+    ? new Date(data.refreshed_at).toLocaleTimeString('ko-KR', {{ hour: '2-digit', minute: '2-digit' }})
+    : '';
+  const label = info.label || '-';
+  const text = clock ? `${{label}} (${{clock}})` : label;
+  const hint = level === 'stale'
+    ? '<span class="freshness-hint">수집 멈춤 — 대시보드 탭을 닫으면 자동 갱신이 서지 않습니다</span>'
+    : '';
+  return {{ dotClass, textClass, text, hint }};
+}}
+
 function renderXRadar(data) {{
   const container = document.getElementById('x-radar-list');
   const status = document.getElementById('x-radar-status');
   if (!container || !status) return;
   const items = Array.isArray(data.items) ? data.items : [];
   const sourceHealth = data.source_health || {{}};
-  const refreshed = data.refreshed_at ? new Date(data.refreshed_at).toLocaleString('ko-KR') : '-';
+  const fresh = freshnessParts(data);
   const sourceLabels = [
     sourceHealth.google_trends ? 'Google 실시간 검색 연결' : 'Google 실시간 검색 미응답',
     sourceHealth.public_x_trends ? '공개 X 트렌드 연결' : '공개 X 트렌드 미응답',
@@ -1487,12 +1513,13 @@ function renderXRadar(data) {{
     ? `<span class="reference-connector-note">일부 소스 오류 ${{data.errors.length}}건</span>`
     : '';
   status.innerHTML = `
-    <span class="live-dot"></span>
+    <span class="live-dot${{fresh.dotClass}}"></span>
     <strong>${{items.length}}개 원문 소재</strong>
     <span>X 노출 적합도 순 · X 네이티브 ${{safeHtml(String(data.x_native_count || 0))}}개</span>
     <span>스포츠·정치·증시·실적·부동산 ${{safeHtml(String(excludedTopicCount))}}개 제외 · 기타 근거 부족 ${{safeHtml(String(Math.max(0, Number(data.filtered_out_count || 0) - excludedTopicCount)))}}개</span>
     <span>${{safeHtml(sourceLabels.join(' · '))}}</span>
-    <span>갱신 ${{safeHtml(refreshed)}}</span>
+    <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
+    ${{fresh.hint}}
     ${{errorText}}
   `;
 

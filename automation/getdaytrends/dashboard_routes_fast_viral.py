@@ -6,6 +6,11 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Query
 
+try:
+    from .freshness import attach_freshness
+except ImportError:  # 스크립트로 직접 실행할 때
+    from freshness import attach_freshness
+
 if TYPE_CHECKING:
     try:
         from .fast_viral_collector import FastViralCollector
@@ -30,7 +35,7 @@ def _fast_viral_collector() -> FastViralCollector:
 
 @router.get("")
 def get_fast_viral():
-    return _fast_viral_collector().snapshot()
+    return attach_freshness(_fast_viral_collector().snapshot(), "fast_viral")
 
 
 @router.post("/refresh")

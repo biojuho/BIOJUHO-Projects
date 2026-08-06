@@ -7,6 +7,11 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+try:
+    from .freshness import attach_freshness
+except ImportError:  # 스크립트로 직접 실행할 때
+    from freshness import attach_freshness
+
 if TYPE_CHECKING:
     try:
         from .x_opportunity_radar import XOpportunityRadar
@@ -48,7 +53,9 @@ def _x_radar() -> XOpportunityRadar:
 
 @router.get("")
 def get_x_radar():
-    return _x_radar().snapshot()
+    # 수집이 멈춰도 화면은 마지막 스냅샷을 계속 보여준다. 얼마나 묵었는지를
+    # 함께 실어 보내야 프론트가 라이브 표시를 껐다 켤 수 있다.
+    return attach_freshness(_x_radar().snapshot(), "x_radar")
 
 
 @router.post("/refresh")
