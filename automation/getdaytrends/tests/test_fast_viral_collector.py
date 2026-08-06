@@ -299,3 +299,25 @@ class TestAggregatorQuota:
     def test_empty_page_asks_for_nothing(self, monkeypatch):
         monkeypatch.delenv("GETDAYTRENDS_AGGREGATOR_SHARE", raising=False)
         assert aggregator_quota(0, any_direct_ok=True) == 0
+
+
+class TestBrandSafety:
+    """2026-08-06 직접 소스를 넷으로 늘리자 성인성·화장실 유머가 화면에 올라왔다."""
+
+    def test_blocks_explicit_titles(self):
+        assert _is_brand_safe_title("첫경험인 남친에게 69자세 시킨 여친") is False
+        assert _is_brand_safe_title("노브라로 출근한 썰 푼다") is False
+
+    def test_blocks_toilet_humor_by_context(self):
+        assert _is_brand_safe_title("밤송이로 똥을 닦았지요 성님") is False
+        assert _is_brand_safe_title("전립선염 치료 받고 수치스러웠다는 사람") is False
+        assert _is_brand_safe_title("엘리베이터에서 방귀 뀌고 도망감") is False
+
+    def test_keeps_ordinary_titles_that_merely_share_a_syllable(self):
+        # 단어 하나로 자르면 멀쩡한 글이 사라진다.
+        assert _is_brand_safe_title("똥손인데 요리 도전해봤다") is True
+        assert _is_brand_safe_title("똥차 팔고 새 차 뽑은 후기") is True
+        assert _is_brand_safe_title("첫 경험담 아니고 첫 출근 이야기입니다") is True
+
+    def test_still_rejects_too_short_titles(self):
+        assert _is_brand_safe_title("ㅋㅋㅋ") is False

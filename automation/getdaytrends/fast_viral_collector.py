@@ -76,6 +76,27 @@ _BLOCKED_TITLE_MARKERS = (
     "ㅊㅈ",
     "유부녀 눈나",
     "노출녀",
+    # 2026-08-06: 직접 소스를 넷으로 늘리자 성인성·화장실 유머가 화면에 올라왔다.
+    # X에 올릴 소재를 고르는 자리라 여기서 끊는다. 단어 하나로 판단할 수 있는 것만 둔다.
+    "69자세",
+    "첫경험",
+    "성관계",
+    "섹스",
+    "야동",
+    "자위",
+    "성인용품",
+    "노브라",
+    "몸매 甲",
+    "가슴 성형",
+)
+
+# 단어 하나로는 못 거르는 것들. "똥손"·"똥차"·"오줌소태 병원"까지 걸리면 필터가 무뎌지므로
+# 배설 소재로 읽히는 문맥일 때만 막는다.
+_BLOCKED_TITLE_PATTERNS = (
+    re.compile(r"똥\s*(?:을|싸|싼|쌌|닦|묻|치우|밟)"),
+    re.compile(r"(?:대변|소변|오줌)\s*(?:을|보|싸|묻|테러)"),
+    re.compile(r"방귀\s*(?:뀌|끼|냄새|테러)"),
+    re.compile(r"(?:전립선|치질|항문)\s*(?:염|수술|치료|검사)"),
 )
 _COMMUNITY_LABELS = {
     "82cook": "82cook",
@@ -456,7 +477,11 @@ async def _resolve_community_origins(session: httpx.AsyncClient, items: list[dic
 
 def _is_brand_safe_title(title: str) -> bool:
     normalized = title.casefold()
-    return len(re.sub(r"\W", "", title)) >= 6 and not any(marker.casefold() in normalized for marker in _BLOCKED_TITLE_MARKERS)
+    if len(re.sub(r"\W", "", title)) < 6:
+        return False
+    if any(marker.casefold() in normalized for marker in _BLOCKED_TITLE_MARKERS):
+        return False
+    return not any(pattern.search(normalized) for pattern in _BLOCKED_TITLE_PATTERNS)
 
 
 def _velocity_score(
