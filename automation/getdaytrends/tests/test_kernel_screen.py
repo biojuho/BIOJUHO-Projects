@@ -122,10 +122,27 @@ class TestGapTypes:
         r = screen_material("엄마가 뜻밖에 꺼낸 한마디")
         assert r["axis"] == "live_gap"
 
+    # ── 0005 구조 패턴 ──────────────────────────────────────────────
+    # 검수 결과: 초기 6종 중 4종(상태 변환·시간 과잉·관계-신체·기대-평가)이
+    # 정답지 항목을 겨냥한 형태소 나열이거나 평범한 문장을 사는 축으로 새게 해서 제거.
+    # 순수 구조(조사 반복, 어미)로 된 2종만 남김.
+
+    def test_target_shift(self):
+        # ⑤ 대상 전환: 감정·행위의 대상이 도중에 바뀔 때 (조사 '에게' 반복)
+        r = screen_material("엄마에게 전화했다가 친구에게 고민을 털어놓았다")
+        assert r["axis"] == "live_gap"
+        assert any("대상 전환" in s for s in r["signals"])
+        # 반례: 대상이 하나면 dead_flat
+        assert screen_material("친구에게 전화했다")["axis"] != "live_gap"
+
     def test_ordinary_sentence_is_not_forced_into_a_gap(self):
         # 낙차 패턴이 너무 넓으면 전부 사는 축이 되어 선별이 무의미해진다.
         assert screen_material("오늘 점심 뭐 먹을지 고민 중")["axis"] == "dead_flat"
         assert screen_material("복도에 실외기 설치 완료")["axis"] == "dead_flat"
+        # 0005 검수에서 발견된 새는 문장들 — 승진·가족 맞이·성장 서사는 낙차가 아니다.
+        assert screen_material("신입이 대리가 됐다")["axis"] != "live_gap"
+        assert screen_material("강아지가 우리 가족이 된 날")["axis"] != "live_gap"
+        assert screen_material("아이가 어른이 되면 알게 되는 것")["axis"] != "live_gap"
 
 
 class TestShortInput:
