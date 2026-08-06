@@ -19,6 +19,7 @@ from bs4 import BeautifulSoup
 try:
     from .content_filters import excluded_topic_reason
     from .kernel_screen import screen_material, sort_by_kernel
+    from .og_enrich import OgEnrichmentReport, fetch_og_descriptions
     from .source_backoff import SourceBackoff
     from .direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from .exposure_observation_tracker import ExposureObservationTracker
@@ -26,6 +27,7 @@ try:
 except ImportError:
     from content_filters import excluded_topic_reason
     from kernel_screen import screen_material, sort_by_kernel
+    from og_enrich import OgEnrichmentReport, fetch_og_descriptions
     from source_backoff import SourceBackoff
     from direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from exposure_observation_tracker import ExposureObservationTracker
@@ -605,6 +607,59 @@ def _snapshot_item_key(item: dict[str, Any]) -> str:
     return f"{str(item.get('community_source') or 'fmkorea').casefold()}:{item.get('id')}"
 
 
+async def _apply_og_second_pass(
+    items: list[dict[str, Any]],
+    *,
+    source_backoff: SourceBackoff,
+    fetcher: Any | None = None,
+) -> dict[str, object]:
+    """Apply OG only to final candidates whose title has no decisive signal.
+
+    Descriptions live only long enough to call ``screen_material``. They are
+    removed from the transient report before this function returns and are
+    never attached to an item or snapshot.
+    """
+    candidates: list[tuple[dict[str, Any], str]] = []
+    source_keys: dict[str, str] = {}
+    for item in items:
+        screen = item.get("kernel_screen")
+        if not isinstance(screen, dict):
+            screen = screen_material(item.get("title", ""), community_label=item.get("community_label"))
+            item["kernel_screen"] = screen
+        if screen.get("axis") not in {"dead_flat", "unknown"}:
+            continue
+        if item.get("link_kind") != "publisher_original":
+            continue
+        url = str(item.get("source_url") or "").strip()
+        if not url:
+            continue
+        candidates.append((item, url))
+        source_keys[url] = str(item.get("community_source") or "unknown")
+
+    if not candidates:
+        return OgEnrichmentReport().public_summary()
+
+    fetch = fetcher or fetch_og_descriptions
+    report = await fetch(
+        [url for _, url in candidates],
+        source_keys=source_keys,
+        source_backoff=source_backoff,
+    )
+    for item, url in candidates:
+        description = report.descriptions.get(url)
+        if not description:
+            continue
+        item["kernel_screen"] = screen_material(
+            item.get("title", ""),
+            community_label=item.get("community_label"),
+            summary=description,
+        )
+
+    public_summary = report.public_summary()
+    report.descriptions.clear()
+    return public_summary
+
+
 class FastViralCollector:
     """Poll direct community listings and rank brand-safe early movers."""
 
@@ -985,6 +1040,15 @@ class FastViralCollector:
                         item.get("title", ""), community_label=item.get("community_label")
                     )
             displayed = sort_by_kernel(qualified)[:limit]
+            # 0002: 제목만으로 약하게 판정된 소재는 본문(og:description)을 한 번 더 본다.
+            og_enrichment = await _apply_og_second_pass(
+                displayed,
+                source_backoff=self._backoff,
+            )
+            # 2차 판정이 축을 바꿀 수 있으므로 여기서 한 번 더 정렬한다. 이게 없으면
+            # 본문을 보고 사는 축으로 올라온 소재가 화면 맨 아래에 남는다 — 0002가
+            # 판정을 고쳐 놓고도 순서에는 반영되지 않는 셈이 된다.
+            displayed = sort_by_kernel(displayed)
             self._snapshot = {
                 "available": bool(displayed),
                 "items": displayed,
@@ -1012,6 +1076,7 @@ class FastViralCollector:
                     "aagag": False,
                 },
                 "errors": errors,
+                "og_enrichment": og_enrichment,
                 "notice": (
                     "직접 커뮤니티 수집이 모두 제한 중입니다. IssueLink에서 확인한 원문만 표시하며 선행으로 계산하지 않습니다."
                     if fallback_mode

@@ -1,9 +1,9 @@
 # 핸드오프 0002 — og:description 2차 판정으로 소재 선별 정확도 올리기
 
-- **상태:** OPEN
+- **상태:** DONE
 - **기획자:** Claude
 - **추천 실행자:** Codex (파서·네트워크 작업 경험)
-- **실행자:** (비어 있음)
+- **실행자:** Codex
 - **작성일:** 2026-08-06
 
 ## 목표
@@ -65,5 +65,24 @@
 ## 반환 (실행자가 채운다)
 
 - 결과:
+  - `og_enrich.py`를 추가해 `<head>` 최대 256 KiB까지만 스트리밍하고 `og:description`만
+    판정 입력으로 반환한다. 설명 원문은 snapshot·로그·API에 저장/표시하지 않는다.
+  - 최종 후보 중 제목 판정이 `dead_flat`/`unknown`인 원문 링크만 처리한다. 한 refresh의 실제
+    요청은 하드 상한 8건, 동일 도메인 시작 간격은 최소 2초이며, 차단·연결 실패는 재시도 없이
+    `SourceBackoff`로 물러난다. 더쿠·오늘의유머와 robots/접근 차단 소스는 요청 전에 건너뛴다.
+  - 실 URL 5건 검증: 개드립 2건(OG 성공 1·태그 없음 1), 루리웹 2건(성공 2),
+    뽐뿌 1건(정상 302를 추적하지 않아 실패). 본문/OG 문구는 출력하지 않고 결과·글자 수만 확인했다.
+  - 8010 서버 재기동 후 실제 refresh: 추가 OG 요청 5/8건(성공 4·HTTP 406 1), 요청 전 스킵
+    5건(무메타 3·robots/접근 차단 2). `kernel_summary.live`는 이전 1에서 3으로 증가했고,
+    그중 뽐뿌 1건은 OG 2차 판정으로 `live_wrong`이 됐다.
+  - 전체 회귀 `935 passed, 7 skipped`; 신규 안전·통합 대상 테스트 `67 passed`.
 - 실행한 명령:
+  - `.venv/bin/python -m pytest automation/getdaytrends/tests/test_og_enrich.py automation/getdaytrends/tests/test_kernel_screen.py automation/getdaytrends/tests/test_fast_viral_collector.py -q`
+  - `.venv/bin/python -m pytest automation/getdaytrends/tests -q`
+  - 투명 User-Agent로 robots.txt와 실제 목록을 확인한 뒤 `fetch_og_descriptions(..., max_requests=5)` 실검증
+  - `../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010`
+  - `curl -sS -X POST 'http://127.0.0.1:8010/api/fast-viral/refresh?limit=12'`
 - 남은 것:
+  - 코드 수용 게이트는 모두 통과. 기존 환경의 7개 skip은 유지했다.
+  - 보배드림 OG는 투명 User-Agent에 HTTP 406, 82cook은 연결 실패 상태라 우회하지 않고 백오프한다.
+    push는 하지 않는다.
