@@ -16,6 +16,7 @@ from fast_viral_collector import (  # noqa: E402
     _parse_count,
     _select_diverse_community_items,
     _velocity_score,
+    passes_spread_gate,
     parse_fmkorea_latest,
     parse_issuelink_community_items,
     parse_issuelink_fmkorea_ids,
@@ -321,3 +322,38 @@ class TestBrandSafety:
 
     def test_still_rejects_too_short_titles(self):
         assert _is_brand_safe_title("ㅋㅋㅋ") is False
+
+
+class TestSpreadGate:
+    """확산 게이트가 커널 판정을 이기지 않는가.
+
+    2026-08-07 새벽 실측(수집 292건)에서 필터를 통과한 77건 중 사는 축은 6건뿐이었는데
+    그 6건 중 3건이 확산 게이트에서 다시 떨어졌다. 아래 세 건은 그때 실제로 떨어진 값이다.
+    """
+
+    def test_live_axis_material_survives_without_spread(self):
+        # 조회 318·댓글 4·추천 4로 34점. 통과선 35점과 1점 차로 떨어졌던 군 부대 절도 고발 건.
+        item = {"views": 318, "comments": 4, "votes": 4}
+        assert passes_spread_gate(item, score=34, live_axis=True) is True
+
+    def test_live_axis_survives_when_the_source_hides_comments(self):
+        # 뽐뿌 자유게시판은 댓글을 아예 주지 않는다. 조회 1,887이어도 engagement 배점 40점을
+        # 구조적으로 못 받아 30점에 묶였다. 소스가 노출하는 지표가 판정을 이겨서는 안 된다.
+        item = {"views": 1887, "comments": 0, "votes": 1}
+        assert passes_spread_gate(item, score=30, live_axis=True) is True
+
+    def test_dead_axis_still_needs_real_spread(self):
+        # 면제는 사는 축에만 준다. 풀어 주면 죽는 축 64건이 그대로 화면을 채운다.
+        item = {"views": 1887, "comments": 0, "votes": 1}
+        assert passes_spread_gate(item, score=30, live_axis=False) is False
+        assert passes_spread_gate(item, score=55, live_axis=False) is True
+
+    def test_dead_axis_without_view_counts_uses_the_reaction_path(self):
+        # 개드립처럼 조회를 주지 않는 소스는 댓글+추천으로 판단한다.
+        item = {"views": 0, "comments": 13, "votes": 21}
+        assert passes_spread_gate(item, score=45, live_axis=False) is True
+        assert passes_spread_gate(item, score=44, live_axis=False) is False
+
+    def test_dead_axis_rejects_a_high_score_with_no_traction_at_all(self):
+        item = {"views": 0, "comments": 1, "votes": 1}
+        assert passes_spread_gate(item, score=90, live_axis=False) is False

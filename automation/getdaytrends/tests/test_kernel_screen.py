@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from kernel_screen import attach_kernel_screen, screen_material  # noqa: E402
+from kernel_screen import attach_kernel_screen, screen_material, sort_by_kernel  # noqa: E402
 
 
 class TestLiveAxes:
@@ -190,3 +190,40 @@ class TestKernelSorting:
         items = [{"title": "복도에 실외기 설치 완료"}, {"title": "팀장이 회식비를 떠넘김"}]
         out = attach_kernel_screen({"items": items}, sort=False)["items"]
         assert out[0]["title"] == "복도에 실외기 설치 완료"
+
+
+class TestSelectionUsesTheVerdictNotJustTheScore:
+    """자를 때도 커널을 보는가.
+
+    2026-08-07 새벽, 게이트에는 판정이 들어가 있는데 마지막 자르기가 점수 순이라
+    통과한 사는 축 소재가 화면 직전에 다시 잘렸다. 확산이 덜 붙어 점수가 낮다는 것이
+    사는 축 소재의 정의라, 점수로 자르는 한 이 소재는 구조적으로 화면에 오지 못한다.
+    """
+
+    def test_a_low_scoring_live_item_outranks_a_high_scoring_dead_one(self):
+        # 실측값: 군 부대 절도 고발 39점(사는 축)이 티웨이 유니폼 54점(죽는 축)보다 앞이어야 한다.
+        items = [
+            {"title": "방금 공개된 티웨이항공 승무원 신규 유니폼.jpg", "x_exposure_score": 54},
+            {"title": "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다", "x_exposure_score": 39},
+        ]
+        out = sort_by_kernel(attach_kernel_screen({"items": items}, sort=False)["items"])
+        assert out[0]["x_exposure_score"] == 39
+
+    def test_cutting_to_a_limit_keeps_the_live_material(self):
+        # 자리가 둘뿐일 때 점수 순으로 자르면 사는 축이 전멸한다.
+        items = [
+            {"title": "달 月자가 들어가는 예쁜 한자 단어 알려주세요.jpg", "x_exposure_score": 79},
+            {"title": "스파6.. 어제 다운받고 처음 해봤다", "x_exposure_score": 78},
+            {"title": "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다", "x_exposure_score": 39},
+        ]
+        screened = attach_kernel_screen({"items": items}, sort=False)["items"]
+        kept = sort_by_kernel(screened)[:2]
+        assert any("연쇄 절도" in item["title"] for item in kept)
+
+    def test_score_still_orders_items_that_share_an_axis(self):
+        items = [
+            {"title": "달 月자가 들어가는 예쁜 한자 단어 알려주세요.jpg", "x_exposure_score": 40},
+            {"title": "스파6.. 어제 다운받고 처음 해봤다", "x_exposure_score": 80},
+        ]
+        out = sort_by_kernel(attach_kernel_screen({"items": items}, sort=False)["items"])
+        assert out[0]["x_exposure_score"] == 80

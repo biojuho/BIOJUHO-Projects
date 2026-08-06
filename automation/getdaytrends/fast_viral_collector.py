@@ -18,14 +18,14 @@ from bs4 import BeautifulSoup
 
 try:
     from .content_filters import excluded_topic_reason
-    from .kernel_screen import screen_material
+    from .kernel_screen import screen_material, sort_by_kernel
     from .source_backoff import SourceBackoff
     from .direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from .exposure_observation_tracker import ExposureObservationTracker
     from .lead_time_tracker import LeadTimeTracker
 except ImportError:
     from content_filters import excluded_topic_reason
-    from kernel_screen import screen_material
+    from kernel_screen import screen_material, sort_by_kernel
     from source_backoff import SourceBackoff
     from direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from exposure_observation_tracker import ExposureObservationTracker
@@ -91,6 +91,30 @@ def has_min_traction(item: dict[str, Any]) -> bool:
     comments = int(item.get("comments") or 0)
     votes = int(item.get("votes") or 0)
     return views >= _DIRECT_MIN_VIEWS_DEFAULT or comments >= _DIRECT_MIN_COMMENTS_DEFAULT or votes >= 10
+
+
+def passes_spread_gate(item: dict[str, Any], *, score: int, live_axis: bool) -> bool:
+    """확산이 붙기 시작했는가. 사는 축 소재는 이 게이트를 면제받는다.
+
+    사는 축(가해자 명확·낙차)은 X에서 판정이 붙는 소재라 조회가 늦게 온다. 예전에는
+    임계만 낮춰(55→35) 통과시켰는데, 35점도 확산을 요구하는 숫자라 의도가 절반만
+    구현돼 있었다 — 2026-08-07 새벽 실측에서 사는 축 6건 중 3건이 여기서 떨어졌고
+    그중 하나는 통과선과 1점 차였다(34점, 군 부대 절도 고발).
+
+    게다가 배점 40점을 차지하는 engagement는 댓글·추천으로만 매겨지는데 뽐뿌
+    자유게시판은 댓글을 아예 주지 않는다. 그래서 조회 1,887인 글이 30점에 묶였다.
+    `has_min_traction`은 이 편식을 이미 알고 하나만 넘으면 받아 주는데, 정작 점수는
+    그대로 벌하고 있었다. 소스가 무엇을 노출하느냐가 커널 판정을 이겨서는 안 된다.
+
+    나이·트랙션·브랜드 세이프티는 이 함수 앞의 게이트가 이미 지킨다. 여기서 푸는 것은
+    확산 하나뿐이고, 정렬은 여전히 점수 순이라 구제된 소재는 아래에 붙는다.
+    """
+    if live_axis:
+        return True
+    views = int(item.get("views") or 0)
+    if views > 0:
+        return score >= 55 and views >= 80
+    return score >= 45 and int(item.get("comments") or 0) + int(item.get("votes") or 0) >= 5
 
 
 def aggregator_quota(limit: int, *, any_direct_ok: bool) -> int:
@@ -807,11 +831,7 @@ class FastViralCollector:
                 screen = screen_material(item["title"], community_label=item.get("community_label"))
                 item["kernel_screen"] = screen
                 live_axis = str(screen.get("axis", "")).startswith("live")
-                if item["views"] > 0:
-                    qualified_signal = score >= (35 if live_axis else 55) and item["views"] >= 80
-                else:
-                    qualified_signal = score >= (28 if live_axis else 45) and item["comments"] + item["votes"] >= 5
-                if not qualified_signal:
+                if not passes_spread_gate(item, score=score, live_axis=live_axis):
                     continue
                 cross_source_count = int(item.get("cross_community_source_count") or 1)
                 cross_boost = min(15, max(0, cross_source_count - 1) * 8)
@@ -930,9 +950,9 @@ class FastViralCollector:
                     item["observation_delta"] = observation
                 selected_issue_items = _select_diverse_community_items(allowed_issue_items, quota)
                 if selected_issue_items:
-                    # 확보한 자리만큼 직접 목록을 점수 낮은 쪽부터 덜어낸다.
-                    qualified.sort(key=lambda item: item.get("x_exposure_score", 0), reverse=True)
-                    qualified = qualified[: max(0, limit - len(selected_issue_items))]
+                    # 확보한 자리만큼 직접 목록을 덜어낸다. 점수 순으로만 자르면 확산이 덜 붙은
+                    # 사는 축 소재가 가장 먼저 사라지므로, 여기서도 커널 축을 1차 키로 둔다.
+                    qualified = sort_by_kernel(qualified)[: max(0, limit - len(selected_issue_items))]
                 async with httpx.AsyncClient(headers=headers, follow_redirects=False) as redirect_session:
                     resolved_originals = await _resolve_community_origins(redirect_session, selected_issue_items)
                 for item in selected_issue_items:
@@ -954,8 +974,17 @@ class FastViralCollector:
             if direct_observations:
                 self._save_current(now, direct_observations)
             self.exposure_tracker.save(now=now)
-            qualified.sort(key=lambda item: item.get("x_exposure_score", 0), reverse=True)
-            displayed = qualified[:limit]
+            # 자를 때도 커널을 본다. 게이트에는 판정을 들였는데(passes_spread_gate) 마지막
+            # 자르기가 점수 순이라, 통과시킨 사는 축 소재가 여기서 다시 잘리고 있었다 —
+            # 확산이 덜 붙어 점수가 낮다는 것이 사는 축 소재의 정의라 언제나 맨 아래로 간다.
+            # 2026-08-07 실측: 게이트만 면제했을 때 화면의 사는 축은 여전히 2건이었다.
+            # IssueLink 경유 항목은 아직 판정이 없으니 여기서 붙여 같은 잣대로 겨루게 한다.
+            for item in qualified:
+                if "kernel_screen" not in item:
+                    item["kernel_screen"] = screen_material(
+                        item.get("title", ""), community_label=item.get("community_label")
+                    )
+            displayed = sort_by_kernel(qualified)[:limit]
             self._snapshot = {
                 "available": bool(displayed),
                 "items": displayed,
