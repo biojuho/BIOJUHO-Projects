@@ -179,6 +179,66 @@ _HTML = """<!DOCTYPE html>
   .chip-low{{background:rgba(239,68,68,.15);color:#ef4444}}
   .tag{{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.68rem;background:rgba(99,102,241,.15);color:#818cf8}}
 
+  /* ── X opportunity radar ── */
+  .x-radar-panel{{margin:16px 28px 14px;border-color:rgba(239,68,68,.28);background:linear-gradient(145deg,#151525,#1b1523)}}
+  .x-radar-intro{{color:#cbd5e1;font-size:.82rem;line-height:1.55;margin:-4px 0 14px}}
+  .x-radar-controls{{display:grid;grid-template-columns:2fr .6fr auto;gap:10px;margin-bottom:10px}}
+  .x-radar-status{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px;margin-bottom:12px;color:#94a3b8;font-size:.76rem}}
+  .x-radar-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+  .x-radar-card{{background:#0f172a;border:1px solid rgba(239,68,68,.16);border-radius:12px;padding:16px}}
+  .x-radar-card-top{{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}}
+  .x-radar-keyword{{font-size:1.05rem;font-weight:800;color:#f8fafc;line-height:1.35}}
+  .x-radar-score{{min-width:58px;text-align:center;border-radius:12px;padding:8px 10px;background:rgba(239,68,68,.13);color:#fca5a5;font-size:1.05rem;font-weight:800}}
+  .x-radar-score small{{display:block;font-size:.58rem;color:#94a3b8;font-weight:600;margin-top:2px}}
+  .x-radar-reasons{{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}}
+  .x-radar-reason{{padding:3px 7px;border-radius:999px;background:rgba(245,158,11,.11);color:#fbbf24;font-size:.69rem}}
+  .x-radar-sources{{display:grid;gap:8px;margin-top:12px}}
+  .x-radar-source{{display:block;text-decoration:none;background:rgba(15,23,42,.85);border:1px solid rgba(148,163,184,.12);border-radius:9px;padding:10px 11px;transition:border-color .15s,transform .15s}}
+  .x-radar-source:hover{{border-color:rgba(99,102,241,.42);transform:translateY(-1px)}}
+  .x-radar-source-name{{font-size:.68rem;color:#818cf8;margin-bottom:4px}}
+  .x-radar-source-title{{font-size:.79rem;color:#e2e8f0;line-height:1.45}}
+  .x-radar-actions{{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}}
+  .x-radar-link{{display:inline-flex;align-items:center;text-decoration:none;border-radius:9px;padding:8px 11px;background:rgba(99,102,241,.13);border:1px solid rgba(99,102,241,.18);color:#c7d2fe;font-size:.73rem;font-weight:700}}
+  .x-radar-empty{{color:#94a3b8;font-size:.8rem;padding:14px}}
+  @media(max-width:1000px){{.x-radar-controls,.x-radar-grid{{grid-template-columns:1fr}}}}
+
+  /* ── Direct community early detector ── */
+  .fast-viral-panel{{margin:16px 28px 14px;border-color:rgba(34,197,94,.28);background:linear-gradient(145deg,#101c1b,#132025)}}
+  .fast-viral-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}}
+  .fast-viral-card{{background:#0f172a;border:1px solid rgba(34,197,94,.16);border-radius:12px;padding:15px}}
+  .fast-viral-score{{min-width:58px;text-align:center;border-radius:12px;padding:8px 10px;background:rgba(34,197,94,.13);color:#86efac;font-size:1.05rem;font-weight:800}}
+  .fast-viral-score small{{display:block;font-size:.58rem;color:#94a3b8;font-weight:600;margin-top:2px}}
+  .fast-viral-early{{color:#86efac;font-weight:700}}
+  @media(max-width:1200px){{.fast-viral-grid{{grid-template-columns:1fr 1fr}}}}
+  @media(max-width:800px){{.fast-viral-grid{{grid-template-columns:1fr}}}}
+
+  /* ── Reference library ── */
+  .reference-panel{{margin:16px 28px 14px}}
+  .reference-live-bar{{display:grid;grid-template-columns:2fr .7fr auto;gap:10px;margin-bottom:10px}}
+  .reference-live-status{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px;margin-bottom:12px;color:#94a3b8;font-size:.76rem}}
+  .live-dot{{width:8px;height:8px;border-radius:999px;background:#ef4444;box-shadow:0 0 0 5px rgba(239,68,68,.12);animation:pulse 2s infinite}}
+  .reference-connector-note{{color:#64748b;font-size:.7rem}}
+  .reference-toolbar{{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;margin-bottom:12px}}
+  .reference-form{{display:grid;grid-template-columns:1.4fr 2fr 1fr 1fr .7fr;gap:10px;margin-bottom:12px}}
+  .reference-summary{{grid-column:1 / -2;min-height:68px;resize:vertical}}
+  .reference-stats{{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px}}
+  .reference-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+  .reference-card{{background:#0f172a;border:1px solid rgba(99,102,241,.12);border-radius:12px;padding:15px}}
+  .reference-card-top{{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}}
+  .reference-title{{font-size:.95rem;color:#f8fafc;font-weight:700;line-height:1.4}}
+  .reference-title a{{color:inherit;text-decoration:none}}
+  .reference-title a:hover{{color:#a5b4fc}}
+  .reference-copy{{margin-top:10px;color:#cbd5e1;font-size:.78rem;line-height:1.55;white-space:pre-wrap}}
+  .reference-details{{margin-top:10px;color:#94a3b8;font-size:.76rem}}
+  .reference-details summary{{cursor:pointer;color:#a5b4fc}}
+  .reference-actions{{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}}
+  .reference-memo{{width:100%;min-height:64px;margin-top:10px;resize:vertical}}
+  @media(max-width:1000px){{
+    .reference-live-bar,.reference-toolbar,.reference-form{{grid-template-columns:1fr}}
+    .reference-summary{{grid-column:auto}}
+    .reference-grid{{grid-template-columns:1fr}}
+  }}
+
   /* ── Skeleton loading ── */
   .skeleton{{background:linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}}
   @keyframes shimmer{{0%{{background-position:200% 0}}100%{{background-position:-200% 0}}}}
@@ -205,6 +265,112 @@ _HTML = """<!DOCTYPE html>
   <div id="status-pill" class="status-pill st-idle">⏳ 로딩중</div>
 </header>
 <div id="dashboard-warning-banner" class="dashboard-warning-banner" role="status" aria-live="polite"></div>
+
+<!-- Direct Community Early Detector -->
+<section class="panel fast-viral-panel" aria-labelledby="fast-viral-title">
+  <h3 id="fast-viral-title">🚨 커뮤니티 바이럴 조기감지</h3>
+  <p class="x-radar-intro">개드립·더쿠 HOT·루리웹 베스트·FMKorea를 직접 확인하고, 연결 제한이나 후보 부족 때는 IssueLink의 다른 커뮤니티 원문으로 보완합니다. 댓글·조회·추천·교차확산으로 X 노출 적합도를 계산하며 선행시간은 두 최초 감지 시각이 모두 있을 때만 표시합니다.</p>
+  <div class="x-radar-controls">
+    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산과 성인성 제목은 제외합니다. AAGAG는 robots 정책에 따라 자동 수집하지 않습니다.</div>
+    <select id="fast-viral-limit" class="tap-input" aria-label="조기 후보 표시 개수">
+      <option value="6">상위 6개</option>
+      <option value="12" selected>상위 12개</option>
+      <option value="20">상위 20개</option>
+    </select>
+    <button id="fast-viral-refresh" type="button" class="tap-btn" onclick="refreshFastViral(false)">지금 직접 확인</button>
+  </div>
+  <div id="fast-viral-status" class="x-radar-status" aria-live="polite">
+    <span class="live-dot"></span><span>다중 커뮤니티 원문·최초 감지 시각 확인 준비 중</span>
+  </div>
+  <div id="fast-viral-list" class="fast-viral-grid">
+    <div class="skeleton sk-block" style="height:190px"></div>
+    <div class="skeleton sk-block" style="height:190px"></div>
+    <div class="skeleton sk-block" style="height:190px"></div>
+  </div>
+</section>
+
+<!-- X Breaking / Viral Source Radar -->
+<section class="panel x-radar-panel" aria-labelledby="x-radar-title">
+  <h3 id="x-radar-title">⚡ X 속보·바이럴 원문 레이더</h3>
+  <p class="x-radar-intro">독립 원문·Threads 교차 근거가 있는 주제와, 공개 X 상위 5위 반복 또는 연속 순위 상승이 확인된 X 네이티브 단어를 분리해 표시합니다. 공개 X는 90초 캐시·2분 자동 갱신이며 수동 확인은 캐시를 우회합니다. 스포츠·정치·증시·종목·기업 실적·부동산은 표시하지 않으며 자동 문안 생성이나 게시 기능은 없습니다.</p>
+  <div class="x-radar-controls">
+    <input id="x-radar-focus" class="tap-input" maxlength="500" placeholder="관심 분야 선택 입력 — 예: AI, 사건, 크리에이터 (비워두면 전체)">
+    <select id="x-radar-limit" class="tap-input" aria-label="표시 개수">
+      <option value="10">상위 10개</option>
+      <option value="20" selected>상위 20개</option>
+      <option value="30">상위 30개</option>
+    </select>
+    <button id="x-radar-refresh" type="button" class="tap-btn" onclick="refreshXRadar(false)">지금 새로 확인</button>
+  </div>
+  <div id="x-radar-status" class="x-radar-status" aria-live="polite">
+    <span class="live-dot"></span><span>Google 실시간 검색과 공개 X 트렌드 연결 준비 중</span>
+  </div>
+  <div id="x-radar-list" class="x-radar-grid">
+    <div class="skeleton sk-block" style="height:220px"></div>
+    <div class="skeleton sk-block" style="height:220px"></div>
+  </div>
+</section>
+
+<!-- Live Creator Reference Radar -->
+<section class="panel reference-panel" aria-labelledby="reference-library-title">
+  <h3 id="reference-library-title">🔴 LIVE 크리에이터 레퍼런스 레이더</h3>
+  <div class="reference-live-bar">
+    <input id="reference-live-keywords" class="tap-input" value="AI 콘텐츠, 유튜브 성장, 콘텐츠 마케팅" maxlength="500" aria-label="라이브 수집 키워드">
+    <select id="reference-live-limit" class="tap-input" aria-label="키워드당 수집 개수">
+      <option value="3">키워드당 3개</option>
+      <option value="5" selected>키워드당 5개</option>
+      <option value="8">키워드당 8개</option>
+    </select>
+    <button id="reference-live-refresh" type="button" class="tap-btn" onclick="refreshLiveReferences(false)">지금 라이브 수집</button>
+  </div>
+  <div id="reference-live-status" class="reference-live-status" aria-live="polite">
+    <span class="live-dot"></span><span>YouTube 공개 메타데이터 연결 준비 중</span>
+    <span class="reference-connector-note">Instagram · TikTok · Threads · X는 공식 API 연결 전까지 비활성</span>
+  </div>
+  <div class="reference-toolbar">
+    <input id="reference-query" class="tap-input" placeholder="키워드·제목·대본·메모 검색" oninput="loadReferenceLibrary()">
+    <select id="reference-platform-filter" class="tap-input" onchange="loadReferenceLibrary()">
+      <option value="">모든 플랫폼</option>
+      <option value="youtube">YouTube</option>
+      <option value="instagram">Instagram</option>
+      <option value="tiktok">TikTok</option>
+      <option value="threads">Threads</option>
+      <option value="x">X</option>
+      <option value="other">기타</option>
+    </select>
+    <select id="reference-state-filter" class="tap-input" onchange="loadReferenceLibrary()">
+      <option value="">전체 상태</option>
+      <option value="saved">즐겨찾기</option>
+      <option value="unread">안 읽음</option>
+      <option value="recommended">추천 80+</option>
+    </select>
+    <button type="button" class="tap-btn tap-btn-ghost" onclick="loadReferenceLibrary()">목록 새로고침</button>
+  </div>
+  <details class="reference-details">
+    <summary>URL로 직접 레퍼런스 추가</summary>
+    <form id="reference-form" class="reference-form" onsubmit="createReference(event)" style="margin-top:12px">
+      <input id="reference-title" class="tap-input" required maxlength="240" placeholder="콘텐츠 제목">
+      <input id="reference-url" class="tap-input" required type="url" maxlength="2048" placeholder="https:// 원본 URL">
+      <input id="reference-keyword" class="tap-input" maxlength="160" placeholder="수집 키워드">
+      <select id="reference-platform" class="tap-input" required>
+        <option value="youtube">YouTube</option>
+        <option value="instagram">Instagram</option>
+        <option value="tiktok">TikTok</option>
+        <option value="threads">Threads</option>
+        <option value="x">X</option>
+        <option value="other">기타</option>
+      </select>
+      <input id="reference-score" class="tap-input" type="number" min="0" max="100" value="80" aria-label="추천 점수">
+      <textarea id="reference-summary" class="tap-input reference-summary" maxlength="20000" placeholder="핵심 요약이나 적용 아이디어"></textarea>
+      <button type="submit" class="tap-btn">레퍼런스 추가</button>
+    </form>
+  </details>
+  <div id="reference-stats" class="reference-stats" aria-live="polite"></div>
+  <div id="reference-list" class="reference-grid">
+    <div class="skeleton sk-block" style="height:170px"></div>
+    <div class="skeleton sk-block" style="height:170px"></div>
+  </div>
+</section>
 
 <!-- KPI Cards -->
 <div class="kpi-grid" id="kpi-grid">
@@ -1205,6 +1371,402 @@ async function loadTapDealRoom() {{
   }}
 }}
 
+function renderFastViral(data) {{
+  const container = document.getElementById('fast-viral-list');
+  const status = document.getElementById('fast-viral-status');
+  if (!container || !status) return;
+  const items = Array.isArray(data.items) ? data.items : [];
+  const sourceHealth = data.source_health || {{}};
+  const fallbackMode = Boolean(data.fallback_mode);
+  const exclusions = data.excluded_topic_counts || {{}};
+  const excludedTotal = Object.values(exclusions).reduce((sum, value) => sum + Number(value || 0), 0);
+  const refreshed = data.refreshed_at ? new Date(data.refreshed_at).toLocaleString('ko-KR') : '-';
+  status.innerHTML = `
+    <span class="live-dot"></span>
+    <strong>${{items.length}}개 커뮤니티 원문</strong>
+    <span class="fast-viral-early">${{safeHtml(String(data.community_source_count || 0))}}개 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
+    <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/4곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
+    <span>스포츠·정치·증시·실적·부동산 ${{safeHtml(String(excludedTotal))}}건 제외</span>
+    <span>갱신 ${{safeHtml(refreshed)}}</span>
+  `;
+  if (!items.length) {{
+    const errors = Array.isArray(data.errors) && data.errors.length ? ` (${{safeHtml(data.errors.join(', '))}})` : '';
+    container.innerHTML = `<div class="x-radar-empty">현재 속도·안전 게이트를 통과한 조기 후보가 없습니다.${{errors}} 2분 뒤 다시 확인합니다.</div>`;
+    return;
+  }}
+  container.innerHTML = items.map((item, index) => {{
+    const firstSeen = item.first_seen_at ? new Date(item.first_seen_at).toLocaleTimeString('ko-KR', {{hour:'2-digit', minute:'2-digit', second:'2-digit'}}) : '이번 수집에서 확인';
+    const leadLabel = item.lead_status === 'measured'
+      ? `실측 선행 ${{safeHtml(String(item.lead_minutes))}}분`
+      : (item.lead_status === 'awaiting_aggregator' ? 'IssueLink 등장 대기' : (item.lead_status === 'same_poll' ? '동일 수집 주기 감지' : 'IssueLink 최초 감지'));
+    const scoreBlock = Number.isFinite(item.x_exposure_score)
+      ? `<div class="fast-viral-score">${{safeHtml(String(item.x_exposure_score))}}<small>X 적합도</small></div>`
+      : '<div class="fast-viral-score"><small>집계 확인</small></div>';
+    const exposureReasons = (item.exposure_reasons || [])
+      .map(reason => `<span class="x-radar-reason">${{safeHtml(reason)}}</span>`)
+      .join('');
+    const confidenceLabel = ({{high: '높음', medium: '중간', low: '낮음'}})[item.exposure_confidence] || '미산정';
+    const originLabel = item.link_kind === 'publisher_original' ? '원문' : '원문 이동';
+    return `
+      <article class="fast-viral-card">
+        <div class="x-radar-card-top">
+          <div>
+            <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(item.community_label || item.community_source || '커뮤니티')}} · 최초 감지 ${{safeHtml(firstSeen)}} · ${{safeHtml(leadLabel)}} · 근거 신뢰도 ${{safeHtml(confidenceLabel)}} · ${{safeHtml(item.score_version || '기존 점수')}}</div>
+            <div class="x-radar-keyword"><a href="${{safeExternalUrl(item.source_url)}}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">${{safeHtml(item.title)}} ↗</a></div>
+          </div>
+          ${{scoreBlock}}
+        </div>
+        <div class="x-radar-reasons">
+          ${{exposureReasons}}
+          ${{item.views ? `<span class="x-radar-reason">조회 ${{safeHtml(Number(item.views).toLocaleString())}}</span>` : ''}}
+          ${{item.views_per_minute != null ? `<span class="x-radar-reason">분당 ${{safeHtml(String(item.views_per_minute))}}</span>` : ''}}
+          <span class="x-radar-reason">댓글 ${{safeHtml(String(item.comments || 0))}}</span>
+          ${{item.votes ? `<span class="x-radar-reason">추천 ${{safeHtml(String(item.votes))}}</span>` : ''}}
+          <span class="x-radar-reason">${{safeHtml(item.issuelink_status || '')}}</span>
+        </div>
+        <div class="x-radar-actions">
+          <a class="x-radar-link" href="${{safeExternalUrl(item.source_url)}}" target="_blank" rel="noopener noreferrer">${{safeHtml(item.community_label || '커뮤니티')}} ${{originLabel}} ↗</a>
+          <a class="x-radar-link" href="${{safeExternalUrl(item.x_search_url)}}" target="_blank" rel="noopener noreferrer">X 검색 ↗</a>
+          <a class="x-radar-link" href="${{safeExternalUrl(item.threads_search_url)}}" target="_blank" rel="noopener noreferrer">Threads 검색 ↗</a>
+        </div>
+      </article>
+    `;
+  }}).join('');
+}}
+
+async function refreshFastViral(silent = false) {{
+  const button = document.getElementById('fast-viral-refresh');
+  const status = document.getElementById('fast-viral-status');
+  if (!button || !status) return;
+  button.disabled = true;
+  status.innerHTML = '<span class="live-dot"></span><span>여러 커뮤니티 원문과 실제 최초 감지 시각을 확인하고 있습니다…</span>';
+  try {{
+    const limit = Number(document.getElementById('fast-viral-limit')?.value || 12);
+    const response = await fetch(`/api/fast-viral/refresh?limit=${{limit}}`, {{ method: 'POST' }});
+    if (!response.ok) throw new Error('fast_viral_refresh_failed');
+    const data = await response.json();
+    renderFastViral(data);
+    if (!silent) toast(`조기 후보 ${{(data.items || []).length}}개를 확인했습니다.`);
+  }} catch (error) {{
+    status.innerHTML = '<span class="live-dot"></span><span>커뮤니티 조기감지 실패 — 잠시 후 다시 시도해 주세요.</span>';
+  }} finally {{
+    button.disabled = false;
+  }}
+}}
+
+function getXRadarFocusKeywords() {{
+  const raw = document.getElementById('x-radar-focus')?.value || '';
+  return raw.split(',').map(value => value.trim()).filter(Boolean).slice(0, 8);
+}}
+
+function safeExternalUrl(value) {{
+  const url = String(value || '');
+  const normalized = url.toLowerCase();
+  return normalized.startsWith('https://') || normalized.startsWith('http://') ? safeHtml(url) : '#';
+}}
+
+function renderXRadar(data) {{
+  const container = document.getElementById('x-radar-list');
+  const status = document.getElementById('x-radar-status');
+  if (!container || !status) return;
+  const items = Array.isArray(data.items) ? data.items : [];
+  const sourceHealth = data.source_health || {{}};
+  const refreshed = data.refreshed_at ? new Date(data.refreshed_at).toLocaleString('ko-KR') : '-';
+  const sourceLabels = [
+    sourceHealth.google_trends ? 'Google 실시간 검색 연결' : 'Google 실시간 검색 미응답',
+    sourceHealth.public_x_trends ? '공개 X 트렌드 연결' : '공개 X 트렌드 미응답',
+    sourceHealth.publisher_news_origins ? '게시사 원문·시각 확대 연결' : '게시사 원문 확대 미응답',
+    sourceHealth.threads_api ? 'Threads 공식 검색 연결' : 'Threads 수동 검색 링크',
+  ];
+  const exclusions = data.filter_summary || {{}};
+  const excludedTopicCount = Number(exclusions['스포츠 제외'] || 0)
+    + Number(exclusions['정치 제외'] || 0)
+    + Number(exclusions['증시·실적 제외'] || 0)
+    + Number(exclusions['부동산 제외'] || 0);
+  const errorText = (data.errors || []).length
+    ? `<span class="reference-connector-note">일부 소스 오류 ${{data.errors.length}}건</span>`
+    : '';
+  status.innerHTML = `
+    <span class="live-dot"></span>
+    <strong>${{items.length}}개 원문 소재</strong>
+    <span>X 노출 적합도 순 · X 네이티브 ${{safeHtml(String(data.x_native_count || 0))}}개</span>
+    <span>스포츠·정치·증시·실적·부동산 ${{safeHtml(String(excludedTopicCount))}}개 제외 · 기타 근거 부족 ${{safeHtml(String(Math.max(0, Number(data.filtered_out_count || 0) - excludedTopicCount)))}}개</span>
+    <span>${{safeHtml(sourceLabels.join(' · '))}}</span>
+    <span>갱신 ${{safeHtml(refreshed)}}</span>
+    ${{errorText}}
+  `;
+
+  if (!items.length) {{
+    container.innerHTML = '<div class="x-radar-empty">현재 소재성 게이트를 통과한 주제가 없습니다. 독립 원문 또는 Threads 교차 근거가 생기면 표시됩니다.</div>';
+    return;
+  }}
+
+  container.innerHTML = items.map((item, index) => {{
+    const sourceLinks = (item.news_items || [])
+      .filter(article => article && article.url)
+      .slice(0, 6)
+      .map(article => `
+        <a class="x-radar-source" href="${{safeExternalUrl(article.url)}}" target="_blank" rel="noopener noreferrer">
+          <div class="x-radar-source-name">${{article.is_first_report ? '수집 원문 중 최초 · ' : ''}}${{safeHtml(article.source || '언론사 원문')}}${{article.published_at ? ' · ' + safeHtml(new Date(article.published_at).toLocaleString('ko-KR')) : ''}} · 원문 열기 ↗</div>
+          <div class="x-radar-source-title">${{safeHtml(article.title || item.keyword)}}</div>
+        </a>
+      `).join('');
+    const reasons = [...(item.exposure_signals || []), ...(item.reasons || [])]
+      .filter((reason, reasonIndex, allReasons) => allReasons.indexOf(reason) === reasonIndex)
+      .map(reason => `<span class="x-radar-reason">${{safeHtml(reason)}}</span>`).join('');
+    const threadsLinks = (item.threads_posts || [])
+      .filter(post => post && post.permalink)
+      .slice(0, 3)
+      .map(post => `
+        <a class="x-radar-source" href="${{safeExternalUrl(post.permalink)}}" target="_blank" rel="noopener noreferrer">
+          <div class="x-radar-source-name">Threads · @${{safeHtml(post.username || '작성자')}} · 원문 열기 ↗</div>
+          <div class="x-radar-source-title">${{safeHtml(post.text || item.keyword)}}</div>
+        </a>
+      `).join('');
+    const ageLabel = Number.isFinite(item.age_minutes) ? `${{item.age_minutes}}분 전` : '현재 트렌드';
+    const confidenceLabel = ({{high: '높음', medium: '중간', low: '낮음'}})[item.exposure_confidence] || '미산정';
+    const originals = sourceLinks + threadsLinks || (item.qualification_mode === 'x_native_history'
+      ? '<div class="reference-connector-note">뉴스 맥락 미확인 — 공개 X 트렌드 원문 페이지와 X 실시간 검색에서 확인하세요.</div>'
+      : '<div class="reference-connector-note">연결된 원문 없음 — X·Threads 검색에서 맥락을 확인하세요.</div>');
+    return `
+      <article class="x-radar-card">
+        <div class="x-radar-card-top">
+          <div>
+            <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(item.lane)}} · ${{safeHtml(ageLabel)}}</div>
+            <div class="x-radar-keyword">${{safeHtml(item.keyword)}}</div>
+            <div class="tap-meta" style="margin-top:8px">
+              <span class="tap-chip">${{safeHtml(item.category)}}</span>
+              <span class="tap-chip">검색량 ${{safeHtml(item.volume || 'N/A')}}</span>
+              <span class="tap-chip">${{safeHtml((item.sources || []).join(' + '))}}</span>
+              <span class="tap-chip">근거 신뢰도 ${{safeHtml(confidenceLabel)}} · ${{safeHtml(item.score_version || '기존 점수')}}</span>
+            </div>
+          </div>
+          <div class="x-radar-score">${{safeHtml(String(item.x_exposure_score ?? item.materiality_score ?? item.opportunity_score))}}<small>X 적합도</small></div>
+        </div>
+        <div class="x-radar-reasons">${{reasons}}</div>
+        <div class="x-radar-sources">${{originals}}</div>
+        <div class="x-radar-actions">
+          <a class="x-radar-link" href="${{safeExternalUrl(item.x_search_url)}}" target="_blank" rel="noopener noreferrer">X 실시간 검색 ↗</a>
+          <a class="x-radar-link" href="${{safeExternalUrl(item.threads_search_url)}}" target="_blank" rel="noopener noreferrer">Threads 검색 ↗</a>
+          ${{item.trend_url ? `<a class="x-radar-link" href="${{safeExternalUrl(item.trend_url)}}" target="_blank" rel="noopener noreferrer">트렌드 출처 ↗</a>` : ''}}
+        </div>
+      </article>
+    `;
+  }}).join('');
+}}
+
+async function refreshXRadar(silent = false) {{
+  const button = document.getElementById('x-radar-refresh');
+  const status = document.getElementById('x-radar-status');
+  if (!button || !status) return;
+  button.disabled = true;
+  status.innerHTML = '<span class="live-dot"></span><span>최신 검색 급등과 공개 X 트렌드에서 원문을 확인하고 있습니다…</span>';
+  try {{
+    const response = await fetch('/api/x-radar/refresh', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{
+        country: 'korea',
+        limit: Number(document.getElementById('x-radar-limit')?.value || 20),
+        focus_keywords: getXRadarFocusKeywords(),
+        force_refresh: !silent,
+      }}),
+    }});
+    if (!response.ok) throw new Error('x_radar_refresh_failed');
+    const data = await response.json();
+    renderXRadar(data);
+    if (!silent) toast(`원문 소재 ${{(data.items || []).length}}개를 새로 확인했습니다.`);
+  }} catch (error) {{
+    status.innerHTML = '<span class="live-dot"></span><span>원문 레이더 갱신 실패 — 잠시 후 다시 시도해 주세요.</span>';
+  }} finally {{
+    button.disabled = false;
+  }}
+}}
+
+function getLiveReferenceKeywords() {{
+  const raw = document.getElementById('reference-live-keywords')?.value || '';
+  return raw.split(',').map(value => value.trim()).filter(Boolean).slice(0, 5);
+}}
+
+async function refreshLiveReferences(silent = false) {{
+  const button = document.getElementById('reference-live-refresh');
+  const status = document.getElementById('reference-live-status');
+  if (!button || !status) return;
+  button.disabled = true;
+  status.innerHTML = '<span class="live-dot"></span><span>YouTube에서 최신 콘텐츠를 수집하고 있습니다…</span>';
+  try {{
+    const response = await fetch('/api/reference-library/live/refresh', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{
+        keywords: getLiveReferenceKeywords(),
+        per_keyword: Number(document.getElementById('reference-live-limit')?.value || 5),
+      }}),
+    }});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || 'live_refresh_failed');
+    const refreshedAt = data.refreshed_at ? new Date(data.refreshed_at).toLocaleTimeString('ko-KR') : '방금';
+    const errorText = (data.errors || []).length
+      ? `<span class="reference-connector-note">일부 오류 ${{data.errors.length}}건</span>`
+      : '';
+    status.innerHTML = `
+      <span class="live-dot"></span>
+      <strong>YouTube LIVE</strong>
+      <span>${{data.collected || 0}}개 확인 · 신규 ${{data.created || 0}} · 갱신 ${{data.updated || 0}} · ${{refreshedAt}}</span>
+      ${{errorText}}
+      <span class="reference-connector-note">Instagram · TikTok · Threads · X는 공식 API 필요</span>
+    `;
+    await loadReferenceLibrary();
+    if (!silent) toast(`라이브 콘텐츠 ${{data.collected || 0}}개를 반영했습니다.`);
+  }} catch (error) {{
+    status.innerHTML = `
+      <span class="live-dot"></span>
+      <span>라이브 수집 실패: ${{safeHtml(error.message || '연결 오류')}}</span>
+      <span class="reference-connector-note">잠시 후 다시 시도해 주세요.</span>
+    `;
+    if (!silent) toast('라이브 수집에 실패했습니다.');
+  }} finally {{
+    button.disabled = false;
+  }}
+}}
+
+async function loadReferenceLibrary() {{
+  const container = document.getElementById('reference-list');
+  const statsContainer = document.getElementById('reference-stats');
+  if (!container || !statsContainer) return;
+
+  const params = new URLSearchParams();
+  const query = document.getElementById('reference-query')?.value.trim() || '';
+  const platform = document.getElementById('reference-platform-filter')?.value || '';
+  const state = document.getElementById('reference-state-filter')?.value || '';
+  if (query) params.set('q', query);
+  if (platform) params.set('platform', platform);
+  if (state === 'saved') params.set('saved', 'true');
+  if (state === 'unread') params.set('read', 'false');
+  if (state === 'recommended') params.set('min_score', '80');
+
+  try {{
+    const [listResponse, statsResponse] = await Promise.all([
+      fetch(`/api/reference-library?${{params.toString()}}`),
+      fetch('/api/reference-library/stats'),
+    ]);
+    if (!listResponse.ok || !statsResponse.ok) throw new Error('reference_library_unavailable');
+    const data = await listResponse.json();
+    const stats = await statsResponse.json();
+    const platformStats = Object.entries(stats.by_platform || {{}})
+      .map(([name, count]) => `<span class="tap-chip">${{safeHtml(name)}} ${{count}}</span>`)
+      .join('');
+    statsContainer.innerHTML = `
+      <span class="tap-chip">전체 ${{stats.total || 0}}</span>
+      <span class="tap-chip">즐겨찾기 ${{stats.saved || 0}}</span>
+      <span class="tap-chip">안 읽음 ${{stats.unread || 0}}</span>
+      <span class="tap-chip">추천 ${{stats.recommended || 0}}</span>
+      ${{platformStats}}
+    `;
+
+    const items = data.items || [];
+    if (!items.length) {{
+      container.innerHTML = `
+        <div class="reference-card">
+          <div class="reference-title">아직 맞는 레퍼런스가 없습니다.</div>
+          <div class="reference-copy">원본 URL과 제목을 추가하면 추천 점수 순으로 정리됩니다.</div>
+        </div>
+      `;
+      return;
+    }}
+
+    container.innerHTML = items.map(item => {{
+      const scoreClass = item.recommendation_score >= 80 ? 'chip-high' : (item.recommendation_score >= 60 ? 'chip-mid' : 'chip-low');
+      const preview = item.summary || item.caption || item.translated_text || '요약을 아직 기록하지 않았습니다.';
+      const transcriptBlock = item.transcript
+        ? `<div class="reference-copy"><strong>대본</strong>\n${{safeHtml(item.transcript)}}</div>`
+        : '';
+      const translationBlock = item.translated_text
+        ? `<div class="reference-copy"><strong>번역</strong>\n${{safeHtml(item.translated_text)}}</div>`
+        : '';
+      return `
+        <article class="reference-card">
+          <div class="reference-card-top">
+            <div>
+              <div class="reference-title"><a href="${{safeHtml(item.source_url)}}" target="_blank" rel="noopener noreferrer">${{safeHtml(item.title)}}</a></div>
+              <div class="tap-meta" style="margin-top:8px">
+                <span class="tap-chip">${{safeHtml(item.platform)}}</span>
+                <span class="tap-chip">${{safeHtml(item.content_format || 'other')}}</span>
+                ${{item.keyword ? `<span class="tap-chip">${{safeHtml(item.keyword)}}</span>` : ''}}
+              </div>
+            </div>
+            <span class="chip ${{scoreClass}}">${{item.recommendation_score}}</span>
+          </div>
+          <div class="reference-copy">${{safeHtml(preview)}}</div>
+          <details class="reference-details">
+            <summary>대본·번역·분석 보기</summary>
+            ${{transcriptBlock}}
+            ${{translationBlock}}
+          </details>
+          <textarea id="reference-memo-${{item.id}}" class="tap-input reference-memo" maxlength="10000" placeholder="적용 아이디어 메모">${{safeHtml(item.memo || '')}}</textarea>
+          <div class="reference-actions">
+            <button type="button" class="tap-btn tap-btn-ghost" onclick="patchReference('${{item.id}}', {{saved:${{!item.saved}}}})">${{item.saved ? '★ 즐겨찾기 해제' : '☆ 즐겨찾기'}}</button>
+            <button type="button" class="tap-btn tap-btn-ghost" onclick="patchReference('${{item.id}}', {{read:${{!item.read}}}})">${{item.read ? '읽지 않음' : '읽음 처리'}}</button>
+            <button type="button" class="tap-btn tap-btn-ghost" onclick="saveReferenceMemo('${{item.id}}')">메모 저장</button>
+          </div>
+        </article>
+      `;
+    }}).join('');
+  }} catch (error) {{
+    container.innerHTML = `
+      <div class="reference-card">
+        <div class="reference-title">레퍼런스 라이브러리를 불러오지 못했습니다.</div>
+        <div class="reference-copy">로컬 저장 파일 상태를 확인해 주세요.</div>
+      </div>
+    `;
+  }}
+}}
+
+async function createReference(event) {{
+  event.preventDefault();
+  const payload = {{
+    title: document.getElementById('reference-title').value,
+    source_url: document.getElementById('reference-url').value,
+    keyword: document.getElementById('reference-keyword').value,
+    platform: document.getElementById('reference-platform').value,
+    recommendation_score: Number(document.getElementById('reference-score').value || 0),
+    summary: document.getElementById('reference-summary').value,
+  }};
+  const response = await fetch('/api/reference-library', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify(payload),
+  }});
+  if (!response.ok) {{
+    const detail = await response.json().catch(() => ({{}}));
+    toast(detail.detail || '레퍼런스를 추가하지 못했습니다.');
+    return;
+  }}
+  document.getElementById('reference-form').reset();
+  document.getElementById('reference-score').value = '80';
+  toast('레퍼런스를 추가했습니다.');
+  await loadReferenceLibrary();
+}}
+
+async function patchReference(itemId, payload) {{
+  const response = await fetch(`/api/reference-library/${{itemId}}`, {{
+    method: 'PATCH',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify(payload),
+  }});
+  if (!response.ok) {{
+    toast('레퍼런스 상태를 저장하지 못했습니다.');
+    return;
+  }}
+  await loadReferenceLibrary();
+}}
+
+async function saveReferenceMemo(itemId) {{
+  const memo = document.getElementById(`reference-memo-${{itemId}}`)?.value || '';
+  await patchReference(itemId, {{ memo }});
+  toast('메모를 저장했습니다.');
+}}
+
 function setTapDispatchBusy(isBusy) {{
   ['tap-dispatch-btn', 'tap-dry-run-btn', 'tap-refresh-btn'].forEach(id => {{
     const btn = document.getElementById(id);
@@ -1449,7 +2011,8 @@ async function dispatchTapAlerts(dryRun = false) {{
 async function init() {{
   renderTapPresetStrip();
   handleTapCheckoutStateFromUrl();
-  await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts()]);
+  await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts(), loadReferenceLibrary()]);
+  await Promise.all([refreshFastViral(true), refreshXRadar(true), refreshLiveReferences(true)]);
   toast('✅ 대시보드 로드 완료');
 }}
 init();
@@ -1457,10 +2020,12 @@ init();
 // Auto-refresh: pipeline status & logs 30s, full data 5min
 setInterval(() => {{ loadPipeline(); loadLogs(); }}, 30000);
 setInterval(async () => {{
-  await Promise.all([loadStats(), loadTimeline(), loadCategories(), loadSourceQuality(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts()]);
+  await Promise.all([loadStats(), loadTimeline(), loadCategories(), loadSourceQuality(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts(), loadReferenceLibrary()]);
   toast('🔄 데이터 갱신 완료');
 }}, 300000);
+setInterval(() => refreshLiveReferences(true), 600000);
+setInterval(() => refreshXRadar(true), 120000);
+setInterval(() => refreshFastViral(true), 120000);
 </script>
 </body>
 </html>"""
-

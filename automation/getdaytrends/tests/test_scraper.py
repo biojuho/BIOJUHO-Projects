@@ -9,6 +9,7 @@ from models import RawTrend, TrendSource
 from scraper import (
     _FETCH_CACHE,
     _FETCH_CACHE_TTL,
+    _async_fetch_getdaytrends,
     _async_fetch_google_trends_rss,
     _is_korean_trend,
     _is_similar_keyword,
@@ -147,8 +148,96 @@ class TestFetchCache(unittest.TestCase):
         cached_at, _ = _FETCH_CACHE["us"]
         self.assertGreater(_time.time() - cached_at, _FETCH_CACHE_TTL)
 
+    def test_x_cache_ttl_is_ninety_seconds(self):
+        self.assertEqual(_FETCH_CACHE_TTL, 90)
+
+
+class TestGetDayTrendsRefreshContract(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        _FETCH_CACHE.clear()
+
+    def tearDown(self):
+        _FETCH_CACHE.clear()
+
+    async def test_regular_refresh_reuses_recent_cache(self):
+        import time as _time
+
+        cached = [RawTrend(name="기존 X 단어", source=TrendSource.GETDAYTRENDS)]
+        _FETCH_CACHE["korea"] = (_time.time(), cached)
+        session = MagicMock()
+        session.get = AsyncMock()
+
+        result = await _async_fetch_getdaytrends(session, "korea", 20)
+
+        self.assertEqual(result[0].name, "기존 X 단어")
+        self.assertTrue(result[0].extra["_getdaytrends_sample_id"].startswith("korea:"))
+        session.get.assert_not_awaited()
+
+    async def test_manual_force_refresh_bypasses_recent_cache(self):
+        import time as _time
+
+        _FETCH_CACHE["korea"] = (
+            _time.time(),
+            [RawTrend(name="기존 X 단어", source=TrendSource.GETDAYTRENDS)],
+        )
+        request = httpx.Request("GET", "https://getdaytrends.com/korea/")
+        response = httpx.Response(
+            200,
+            text='<table class="trends"><tbody><tr><td class="main"><a href="/korea/trend/new/">새 X 단어</a></td></tr></tbody></table>',
+            request=request,
+        )
+        session = MagicMock()
+        session.get = AsyncMock(return_value=response)
+
+        result = await _async_fetch_getdaytrends(session, "korea", 20, force_refresh=True)
+
+        self.assertEqual(result[0].name, "새 X 단어")
+        session.get.assert_awaited_once()
+
+    async def test_failed_force_refresh_uses_last_observed_cache(self):
+        import time as _time
+
+        _FETCH_CACHE["korea"] = (
+            _time.time(),
+            [RawTrend(name="마지막 확인 단어", source=TrendSource.GETDAYTRENDS)],
+        )
+        request = httpx.Request("GET", "https://getdaytrends.com/korea/")
+        session = MagicMock()
+        session.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out", request=request))
+
+        result = await _async_fetch_getdaytrends(session, "korea", 20, force_refresh=True)
+
+        self.assertEqual(result[0].name, "마지막 확인 단어")
+
 
 class TestGoogleTrendsRssResilience(unittest.IsolatedAsyncioTestCase):
+    async def test_preserves_direct_news_source_urls(self):
+        request = httpx.Request("GET", "https://trends.google.com/trending/rss?geo=KR")
+        response = httpx.Response(
+            200,
+            text="""<?xml version="1.0" encoding="UTF-8"?>
+            <rss xmlns:ht="https://trends.google.com/trending/rss"><channel><item>
+              <title>속보 키워드</title><ht:approx_traffic>5000+</ht:approx_traffic>
+              <link>https://trends.google.com/trending/rss?geo=KR</link>
+              <pubDate>Wed, 5 Aug 2026 01:40:00 -0700</pubDate>
+              <ht:news_item>
+                <ht:news_item_title>직접 확인할 기사</ht:news_item_title>
+                <ht:news_item_url>https://news.example.com/original</ht:news_item_url>
+                <ht:news_item_source>테스트뉴스</ht:news_item_source>
+              </ht:news_item>
+            </item></channel></rss>""",
+            request=request,
+        )
+        session = MagicMock()
+        session.get = AsyncMock(return_value=response)
+
+        trends = await _async_fetch_google_trends_rss(session, "korea", limit=5)
+
+        self.assertEqual(
+            trends[0].extra["news_items"],
+            [{"title": "직접 확인할 기사", "url": "https://news.example.com/original", "source": "테스트뉴스"}],
+        )
+
     async def test_returns_empty_on_http_status_error(self):
         request = httpx.Request("GET", "https://trends.google.com/trending/rss?geo=US")
         response = httpx.Response(

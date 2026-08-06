@@ -11,7 +11,8 @@ import asyncio
 import re
 import time
 import xml.etree.ElementTree as ET
-from datetime import UTC
+from contextlib import suppress
+from datetime import UTC, datetime
 
 import httpx
 from loguru import logger as log
@@ -39,10 +40,23 @@ _COMMON_HEADERS = {
 _DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=6.0)
 _SHORT_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 
-# Phase 3: getdaytrends.com 수집 결과 1시간 메모리 캐시
+# X 네이티브 급등을 놓치지 않도록 짧은 메모리 캐시만 사용한다.
 # { country_slug: (fetched_at_unix, [RawTrend, ...]) }
 _FETCH_CACHE: dict[str, tuple[float, list[RawTrend]]] = {}
-_FETCH_CACHE_TTL = 3600  # 1시간 (초)
+_FETCH_CACHE_TTL = 90
+
+
+def _mark_getdaytrends_sample(
+    trends: list[RawTrend],
+    *,
+    cache_key: str,
+    fetched_at: float,
+) -> list[RawTrend]:
+    """Attach a stable upstream sample id so cache reuse is not a new observation."""
+    sample_id = f"{cache_key}:{fetched_at:.6f}"
+    for trend in trends:
+        trend.extra["_getdaytrends_sample_id"] = sample_id
+    return trends
 
 
 # [v6.1] RSS pubDate 파싱 헬퍼
@@ -101,23 +115,33 @@ def _parse_volume_text(text: str) -> int:
 # ══════════════════════════════════════════════════════
 
 
-async def _async_fetch_getdaytrends(session: httpx.AsyncClient, country_slug: str, limit: int = 50) -> list[RawTrend]:
+async def _async_fetch_getdaytrends(
+    session: httpx.AsyncClient,
+    country_slug: str,
+    limit: int = 50,
+    *,
+    force_refresh: bool = False,
+) -> list[RawTrend]:
     """getdaytrends.com에서 트렌드 수집 (비동기)."""
     from bs4 import BeautifulSoup
 
     base_url = "https://getdaytrends.com"
     url = f"{base_url}/{country_slug}/" if country_slug else f"{base_url}/"
 
-    # Phase 3: 캐시 히트 확인 (1시간 TTL)
+    # 자동 갱신은 90초 캐시를 공유하고, 사용자 수동 갱신은 새 요청을 보낸다.
     cache_key = country_slug or "global"
     cached = _FETCH_CACHE.get(cache_key)
-    if cached:
+    if cached and not force_refresh:
         cached_at, cached_trends = cached
         if time.time() - cached_at < _FETCH_CACHE_TTL:
             log.info(
                 f"[수집 캐시] getdaytrends.com 재사용: {len(cached_trends)}개 ({cache_key}, {int(time.time() - cached_at)}초 전)"
             )
-            return cached_trends[:limit]
+            return _mark_getdaytrends_sample(
+                cached_trends[:limit],
+                cache_key=cache_key,
+                fetched_at=cached_at,
+            )
 
     try:
         resp = await session.get(url, headers=_COMMON_HEADERS, timeout=_DEFAULT_TIMEOUT)
@@ -164,23 +188,49 @@ async def _async_fetch_getdaytrends(session: httpx.AsyncClient, country_slug: st
                 break
 
         if not trends:
-            log.warning("getdaytrends.com 파싱 실패. 대체 트렌드 사용.")
+            log.warning("getdaytrends.com 파싱 실패. 이전 관측 또는 대체 트렌드 사용.")
+            if cached:
+                return _mark_getdaytrends_sample(
+                    list(cached[1][:limit]),
+                    cache_key=cache_key,
+                    fetched_at=cached[0],
+                )
             return _fallback_trends()
 
         # Phase 3: 캐시 저장
-        _FETCH_CACHE[cache_key] = (time.time(), trends)
+        fetched_at = time.time()
+        _FETCH_CACHE[cache_key] = (fetched_at, trends)
+        _mark_getdaytrends_sample(trends, cache_key=cache_key, fetched_at=fetched_at)
         log.info(f"getdaytrends.com 수집 완료: {len(trends)}개 ({country_slug or 'global'})")
         return trends
 
     except httpx.HTTPStatusError as e:
         status_code = e.response.status_code if e.response is not None else "unknown"
         log.error(f"getdaytrends.com HTTP error ({status_code}): {e}")
+        if cached:
+            return _mark_getdaytrends_sample(
+                list(cached[1][:limit]),
+                cache_key=cache_key,
+                fetched_at=cached[0],
+            )
         return _fallback_trends()
     except httpx.RequestError as e:
         log.error(f"getdaytrends.com request failed: {type(e).__name__}: {e}")
+        if cached:
+            return _mark_getdaytrends_sample(
+                list(cached[1][:limit]),
+                cache_key=cache_key,
+                fetched_at=cached[0],
+            )
         return _fallback_trends()
     except Exception as e:
         log.error(f"getdaytrends.com 수집 실패: {e}")
+        if cached:
+            return _mark_getdaytrends_sample(
+                list(cached[1][:limit]),
+                cache_key=cache_key,
+                fetched_at=cached[0],
+            )
         return _fallback_trends()
 
 
@@ -277,11 +327,23 @@ async def _async_fetch_google_trends_rss(
             link = link_el.text.strip() if link_el is not None and link_el.text else ""
 
             # [가능 시] 발행 시점 파싱
+            news_headlines = []
             news_items = []
-            for news_item in item.findall("ht:news_item", ns)[:2]:
+            for news_item in item.findall("ht:news_item", ns)[:3]:
                 news_title = news_item.find("ht:news_item_title", ns)
-                if news_title is not None and news_title.text:
-                    news_items.append(news_title.text.strip())
+                news_url = news_item.find("ht:news_item_url", ns)
+                news_source = news_item.find("ht:news_item_source", ns)
+                if news_title is None or not news_title.text:
+                    continue
+                title_text = news_title.text.strip()
+                news_headlines.append(title_text)
+                news_items.append(
+                    {
+                        "title": title_text,
+                        "url": news_url.text.strip() if news_url is not None and news_url.text else "",
+                        "source": news_source.text.strip() if news_source is not None and news_source.text else "",
+                    }
+                )
 
             # [v6.1] pubDate 파싱
             pub_date_el = item.find("pubDate")
@@ -295,7 +357,7 @@ async def _async_fetch_google_trends_rss(
                     volume_numeric=_parse_volume_text(volume_text.replace("+", "").replace(",", "")),
                     link=link,
                     country=country_slug or "global",
-                    extra={"news_headlines": news_items},
+                    extra={"news_headlines": news_headlines, "news_items": news_items},
                     published_at=published_at,
                 )
             )
@@ -337,10 +399,9 @@ def _is_similar_keyword(new_keyword: str, existing: set[str]) -> bool:
     for kw in existing:
         kw_lower = kw.lower().strip()
         # 길이가 3자 이상인 경우만 부분 매칭 (너무 짧으면 오탐)
-        if len(new_lower) >= 3 and len(kw_lower) >= 3:
-            if new_lower in kw_lower or kw_lower in new_lower:
-                log.debug(f"  유사 키워드 감지: '{new_keyword}' ≈ '{kw}'")
-                return True
+        if len(new_lower) >= 3 and len(kw_lower) >= 3 and (new_lower in kw_lower or kw_lower in new_lower):
+            log.debug(f"  유사 키워드 감지: '{new_keyword}' ≈ '{kw}'")
+            return True
     return False
 
 
@@ -411,10 +472,8 @@ async def _async_fetch_youtube_trending(
             stats_el = entry.find("yt:statistics", ns)
             view_count = 0
             if stats_el is not None:
-                try:
+                with suppress(ValueError):
                     view_count = int(stats_el.get("viewCount", "0"))
-                except ValueError:
-                    pass
 
             trends.append(
                 RawTrend(

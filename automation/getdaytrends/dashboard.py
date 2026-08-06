@@ -23,6 +23,7 @@ import json
 import logging
 import re
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Awaitable, Callable
 from urllib.parse import quote_plus
 
@@ -90,6 +91,23 @@ except ImportError:
     from dashboard_html import get_dashboard_html
 
 try:
+    from .dashboard_routes_fast_viral import init_fast_viral_router, router as fast_viral_router
+    from .dashboard_routes_reference import init_reference_router, router as reference_router
+    from .dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
+    from .fast_viral_collector import FastViralCollector
+    from .live_reference_collector import YouTubeLiveReferenceCollector
+    from .reference_library import ReferenceLibraryStore
+    from .x_opportunity_radar import XOpportunityRadar
+except ImportError:
+    from dashboard_routes_fast_viral import init_fast_viral_router, router as fast_viral_router
+    from dashboard_routes_reference import init_reference_router, router as reference_router
+    from dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
+    from fast_viral_collector import FastViralCollector
+    from live_reference_collector import YouTubeLiveReferenceCollector
+    from reference_library import ReferenceLibraryStore
+    from x_opportunity_radar import XOpportunityRadar
+
+try:
     from .stripe_helpers import (
         _stripe_amount_divisor,
         _format_stripe_price_anchor,
@@ -127,6 +145,22 @@ except ImportError:
 
 _config = AppConfig.from_env()
 logger = logging.getLogger(__name__)
+_reference_store = ReferenceLibraryStore(Path(__file__).resolve().parent / "data" / "reference_library.json")
+_reference_collector = YouTubeLiveReferenceCollector(_reference_store)
+init_reference_router(_reference_store, _reference_collector)
+app.include_router(reference_router)
+_x_opportunity_radar = XOpportunityRadar(
+    observation_path=Path(__file__).resolve().parent / "data" / "x_exposure_observations.json"
+)
+init_x_radar_router(_x_opportunity_radar)
+app.include_router(x_radar_router)
+_fast_viral_collector = FastViralCollector(Path(__file__).resolve().parent / "data" / "fast_viral_snapshot.json")
+init_fast_viral_router(_fast_viral_collector)
+app.include_router(fast_viral_router)
+
+
+def _dashboard_base_dir() -> Path:
+    return Path(getattr(_config, "base_dir", Path(__file__).resolve().parent))
 
 # 파이프라인 상태 추적 (인메모리)
 _pipeline_status: dict = {
@@ -520,14 +554,20 @@ async def api_category_stats(days: int = Query(7, ge=1, le=90)):
     async def _load_category_stats(conn):
         cursor = await conn.execute(
             """SELECT
-                      COALESCE(category, '기타') AS category,
+                      COALESCE(NULLIF(cf.category, ''), '기타') AS category,
                       COUNT(*) AS count,
-                      ROUND(AVG(viral_potential), 1) AS avg_score,
-                      MAX(viral_potential) AS max_score,
-                      MIN(viral_potential) AS min_score
-               FROM trends
-               WHERE scored_at >= ?
-               GROUP BY COALESCE(category, '기타')
+                      ROUND(AVG(t.viral_potential), 1) AS avg_score,
+                      MAX(t.viral_potential) AS max_score,
+                      MIN(t.viral_potential) AS min_score
+               FROM trends t
+               LEFT JOIN (
+                   SELECT keyword, MAX(category) AS category
+                   FROM content_feedback
+                   WHERE category <> ''
+                   GROUP BY keyword
+               ) cf ON cf.keyword = t.keyword
+               WHERE t.scored_at >= ?
+               GROUP BY COALESCE(NULLIF(cf.category, ''), '기타')
                ORDER BY count DESC""",
             (cutoff,),
         )
@@ -587,7 +627,7 @@ async def api_logs(limit: int = Query(50, ge=1, le=200)):
         pass
 
     # 2. Fallback to local log file
-    log_path = _config.base_dir / "tweet_bot.log"
+    log_path = _dashboard_base_dir() / "tweet_bot.log"
     if log_path.exists():
         try:
             with open(log_path, encoding="utf-8") as f:
@@ -602,7 +642,7 @@ async def api_logs(limit: int = Query(50, ge=1, le=200)):
 @app.get("/api/ab_test")
 def api_ab_test():
     """A/B 테스트 결과 실제 데이터 반환 (DailyNews)."""
-    ab_test_file = _config.base_dir.parent / "DailyNews" / "output" / "ab_test_economy_kr_v2.json"
+    ab_test_file = _dashboard_base_dir().parent / "DailyNews" / "output" / "ab_test_economy_kr_v2.json"
     try:
         if ab_test_file.exists():
             with open(ab_test_file, encoding="utf-8") as f:
