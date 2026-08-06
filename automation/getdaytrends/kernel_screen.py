@@ -62,6 +62,8 @@ _GAP_PATTERNS = (
     (re.compile(r"(?:도시락|간식|커피|물|화장지).{0,14}(?:공짜|무료|무제한|다 주|퍼줌|퍼준)"), "규모-생활 격차"),
     # ④ 관계-의미 역전 — 가까운 관계에서 예상과 반대 행동이 나올 때
     (re.compile(r"(?:엄마|아빠|아들|딸|남편|아내|사장|팀장|선생|담임).{0,16}(?:뜻밖|의외|반대로|처음으로|몰래)"), "관계-의미 역전"),
+    # ⑤ 대상 전환 — 감정·행위의 대상이 도중에 바뀔 때 (0005 구조 패턴)
+    (re.compile(r"\S+에게.{2,30}\S+에게"), "대상 전환"),
 )
 
 # ── 5-1절 죽는 축① : 쌍방 논쟁형 (독자 판단이 갈림) ───────────────────────
@@ -152,6 +154,9 @@ def screen_material(title: str, *, community_label: str | None = None) -> dict[s
         signals.append(f"가해 역할 '{actors[0]}' + 행위 '{wrongs[0]}'")
         confidence = "medium"
     elif gaps:
+        # 0005: 구조적 낙차 패턴을 actors-only 판정 전에 확인한다.
+        # "친구와이프 임신했는데 배 만진 사람"처럼 _ACTOR_TERMS("친구")에 걸려
+        # unknown으로 새는 것을 방지한다. actors+wrongs(사는 축①)은 여전히 우선.
         axis = "live_gap"
         signals.append(f"낙차 신호 '{gaps[0]}'")
         confidence = "low"
