@@ -8,8 +8,8 @@
 - **별칭:** BIOJUHO-Projects, getdaytrends, 겟데이트렌드, 실시간 트렌드 조사, X 트렌드 레이더, 커뮤니티 원문 레이더, 바이럴 조기 탐지
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
-- **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-06 기준 801 passed · 7 skipped — Kiwipiepy·Scrapling 미설치)
-- **갱신:** 2026-08-06 · by Claude
+- **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-06 기준 935 passed · 7 skipped)
+- **갱신:** 2026-08-06 · by Codex
 
 > **수집은 서버가 돌린다(2026-08-06부터).** 5분 주기·09~24시(KST)·레인당 하루 200회 상한.
 > 브라우저 탭이 열려 있어 방금 갱신됐으면 서버는 건너뛴다. 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`,
@@ -19,7 +19,6 @@
 
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
-| 0002 og:description 2차 판정 | (미배정) | OPEN | `handoffs/0002-og-description-second-pass.md` — 제목만 보는 판정의 한계를 넘는다. 요청 예산(refresh당 8건·도메인당 2초) 엄수 |
 | 0003 사연 게시판 확장·82cook 처리 | (미배정) | OPEN | `handoffs/0003-source-boards-and-82cook.md` — 보배드림 freeb/national/strange, 뽐뿌 freeboard 병행, 82cook 차단 대응 결정 |
 | 0004 교차 확산 감지 되살리기 | (미배정) | OPEN | `handoffs/0004-cross-community-detection.md` — 한국어 조사 정규화 + 클러스터 키 안정화 |
 
@@ -67,19 +66,22 @@
 집으면 커널 기준으로는 잘못 고른다.
 
 - 커널 정본: `~/Desktop/보류/X/reference/hook-kernel-v1.4.md`
-- 판정은 제목 한 줄만 본 휴리스틱이다. 근거(`signals`)를 함께 보여주니 원문을 열어 뒤집을 것.
+- 판정은 제목을 먼저 보고, 신호가 약한 최종 후보에만 원문의 `og:description`으로 2차 판정한다.
+  OG 문구는 저장·표시하지 않고 근거(`signals`)만 남기므로 사람이 원문을 열어 뒤집을 것.
 - **경계:** 이 프로젝트는 판정 표시까지만 한다. 문안 생성·게시는 여기서 하지 않는다.
 
 ## 운영 메모
 
-- **8010 서버는 2026-08-06 15:26에 새 코드로 재기동**했다(스케줄러 가동 확인, 로그는 `automation/getdaytrends/logs/dashboard-8010.log`). 이제 브라우저를 닫아도 5분마다 수집이 이어진다. 코드를 고친 뒤에는 재시작해야 반영된다(`--reload` 없이 돌린다).
+- **8010 서버는 2026-08-06 19:53에 og 2차 판정 코드로 재기동**했다. 실제 refresh에서 OG 5/8건,
+  `kernel_summary.live` 1→3을 확인했다. 이제 브라우저를 닫아도 5분마다 수집이 이어진다.
+  코드를 고친 뒤에는 재시작해야 반영된다(`--reload` 없이 돌린다).
 - 상태를 빨리 보려면 `curl -s http://127.0.0.1:8010/api/collection-scheduler`.
 
 ## 최근 마감 3건
 
-- 2026-08-06 · 공개 X 90초 캐시·수동 우회·2분 자동 갱신, 동일 표본 중복 관측 방지, 개드립·더쿠 HOT·루리웹 베스트 직접 수집, X 네이티브 급등 레인 (테스트 801)
-- 2026-08-06 · Orca 협업 검토 반영 — 시간 감쇠·공개 X 순위·교차출처 클러스터·관측 증가량·점수 버전·근거 신뢰도 적용 (테스트 790)
-- 2026-08-06 · 커뮤니티·X 원문 레이더에 부동산·정치 제외 추가, 스포츠 누락 표현 보강, 라이브 금지어 0건 (테스트 783)
+- 2026-08-06 · og:description 2차 판정 — 최종 약한 후보만 최대 8건, 도메인 2초 간격, robots 허용표·백오프·본문 비보존 적용. 실 refresh OG 5건, live 1→3 (테스트 935)
+- 2026-08-06 · 남은 개선을 실행 핸드오프 3건(0002~0004)으로 발행하고 요청 예산·robots·의존성 금지 게이트 명시
+- 2026-08-06 · 멀티에이전트 진단 반영 — 커널 게이트 선행, 오탐 12종 제거, 점수·소스키·다양성·SourceBackoff 보완 (테스트 921)
 
 ## 이 프로젝트 경계
 

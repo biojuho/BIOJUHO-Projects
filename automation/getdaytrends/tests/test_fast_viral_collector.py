@@ -4,9 +4,12 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fast_viral_collector import (  # noqa: E402
+    _apply_og_second_pass,
     _annotate_community_clusters,
     _looks_blocked,
     aggregator_quota,
@@ -21,6 +24,8 @@ from fast_viral_collector import (  # noqa: E402
     parse_issuelink_fmkorea_ids,
     parse_issuelink_fmkorea_items,
 )
+from og_enrich import OgEnrichmentReport, OgRequestEvent  # noqa: E402
+from source_backoff import SourceBackoff  # noqa: E402
 
 
 def test_parse_fmkorea_latest_preserves_direct_metrics_and_url():
@@ -101,6 +106,46 @@ def test_velocity_score_rewards_fresh_pre_aggregator_growth():
     assert score >= 70
     assert rate == 200
     assert _parse_count("1.2만") == 12_000
+
+
+@pytest.mark.asyncio
+async def test_og_second_pass_only_reads_weak_final_candidates_and_never_stores_text():
+    weak_url = "https://www.dogdrip.net/dogdrip/123"
+    strong_url = "https://www.dogdrip.net/dogdrip/456"
+    items = [
+        {
+            "title": "결혼식에서 있었던 이야기",
+            "source_url": weak_url,
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+        },
+        {
+            "title": "팀장이 회식비를 떠넘김",
+            "source_url": strong_url,
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+        },
+    ]
+
+    async def fake_fetcher(urls, **kwargs):
+        assert list(urls) == [weak_url]
+        return OgEnrichmentReport(
+            descriptions={weak_url: "남편이 축의금을 몰래 가로채고 거짓말했다"},
+            events=[OgRequestEvent(host="www.dogdrip.net", status=200, outcome="enriched")],
+        )
+
+    summary = await _apply_og_second_pass(
+        items,
+        source_backoff=SourceBackoff(),
+        fetcher=fake_fetcher,
+    )
+
+    assert items[0]["kernel_screen"]["axis"] == "live_wrong"
+    assert items[1]["kernel_screen"]["axis"] == "live_wrong"
+    assert all("description" not in key for item in items for key in item)
+    assert summary["requested_count"] == 1
+    assert summary["enriched_count"] == 1
+    assert "축의금" not in repr(summary)
 
 
 def test_direct_signal_score_supports_sources_without_view_counts():

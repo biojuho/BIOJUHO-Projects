@@ -29,13 +29,14 @@ _ACTOR_TERMS = (
     "손님", "고객", "진상", "이웃", "윗집", "아랫집", "집주인", "세입자",
     "기사", "택배", "점주", "원장", "교수", "담임", "학부모", "친구", "지인",
     "남친", "여친", "전남친", "전여친", "엄마", "아빠", "부모", "오빠", "누나", "형", "동생",
+    "와이프", "유부남", "유부녀",
 )
 
 _WRONGDOING_TERMS = (
     "갑질", "떠넘", "뺏", "강요", "무시", "방치", "폭언", "욕설", "협박", "바가지",
     "몰래", "무단", "속이", "속였", "거짓말", "잠수", "먹튀", "안 준", "안 줬", "안줌",
     "밀린", "체불", "미지급", "손절", "차별", "부당", "억지", "진상짓", "새치기",
-    "떼먹", "떼어먹", "안 갚", "안갚", "미납", "가로채", "빼돌",
+    "떼먹", "떼어먹", "안 갚", "안갚", "미납", "가로채", "빼돌", "외도", "바람핀", "바람피운",
 )
 
 # ── 5-1절 사는 축② : 가해자 없는 강한 낙차 ────────────────────────────────
@@ -104,7 +105,7 @@ def _hits(text: str, terms: tuple[str, ...]) -> list[str]:
     return [t for t in terms if t.casefold() in text]
 
 
-def screen_material(title: str, *, community_label: str | None = None) -> dict[str, Any]:
+def _screen_material_text(title: str, *, community_label: str | None = None) -> dict[str, Any]:
     """제목 한 줄로 커널 소재 축을 근사한다. 확정이 아니라 선별 보조다."""
     raw = " ".join(str(title or "").split())
     text = raw.casefold()
@@ -184,6 +185,62 @@ def screen_material(title: str, *, community_label: str | None = None) -> dict[s
     }
 
 
+def screen_material(
+    title: str,
+    *,
+    community_label: str | None = None,
+    summary: str | None = None,
+) -> dict[str, Any]:
+    """근사 판정하되, 제목이 약할 때만 원문 OG 요약으로 2차 판정한다.
+
+    ``summary``는 응답이나 저장소에 싣지 않는다. 판정이 바뀌면 원문에서 확인한
+    근거라는 사실만 signals에 남긴다. 제목 전용 호출은 기존과 완전히 동일하다.
+    """
+    title_result = _screen_material_text(title, community_label=community_label)
+    normalized_summary = " ".join(str(summary or "").split())
+    if not normalized_summary or title_result["axis"] not in {"dead_flat", "unknown"}:
+        return title_result
+
+    # OG 요약에서만 동의어를 정규화한다. 제목 규칙을 넓혀 기존 판정을
+    # 조용히 바꾸지 않고,
+    # 핸드오프의 실제 누락 사례("바람핀 ... 와이프")를 2차 입력에서만 읽는다.
+    summary_for_screen = normalized_summary.replace("와이프", "아내")
+    summary_for_screen = re.sub(r"바람(?:핀|피운|피우는|났다|난)?", "외도", summary_for_screen)
+    combined = f"{title} {summary_for_screen}".strip()
+    second_result = _screen_material_text(combined, community_label=community_label)
+    summary_wrongs = _hits(summary_for_screen.casefold(), _WRONGDOING_TERMS)
+    named_warning = bool(
+        re.search(r"[A-Za-z]{2,}", str(title or ""))
+        and re.search(r"(?:하지|타지|먹지|사지|쓰지|가지)\s*마세요|(?:주의|조심)", str(title or ""))
+    )
+    if summary_wrongs and named_warning and second_result["axis"] in {"dead_flat", "unknown"}:
+        second_result["axis"] = "live_wrong"
+        second_result["axis_label"] = AXIS_LABELS["live_wrong"]
+        second_result["signals"] = [
+            "원문 첫 문단에서 명명된 경고 대상과 피해 행위 확인",
+            f"피해 행위 '{summary_wrongs[0]}'",
+        ]
+        second_result["confidence"] = "medium"
+    if second_result == title_result:
+        return title_result
+
+    evidence_by_axis = {
+        "live_wrong": "원문 첫 문단에서 가해 역할과 행위 확인",
+        "live_gap": "원문 첫 문단에서 낙차·반전 확인",
+        "dead_debate": "원문 첫 문단에서 쌍방 논쟁 구조 확인",
+        "dead_flat": "원문 첫 문단에도 가해·낙차 신호 없음",
+        "unknown": "원문 첫 문단까지 봐도 소재 축 불명확",
+    }
+    if not second_result["signals"] or not second_result["signals"][0].startswith("원문 첫 문단"):
+        second_result["signals"] = [
+            evidence_by_axis[second_result["axis"]],
+            *second_result["signals"],
+        ]
+    if second_result["verify_first"] and not title_result["verify_first"]:
+        second_result["signals"].append("원문 첫 문단에서 검증 필요 정보 확인")
+    return second_result
+
+
 # 정렬 우선순위. 보류(unknown)를 죽는 축보다 위에 두는 이유는, 모르는 것을 버리는 것보다
 # 사람이 원문을 열어 확인하게 하는 편이 낫기 때문이다.
 _AXIS_RANK = {"live_wrong": 0, "live_gap": 1, "unknown": 2, "dead_debate": 3, "dead_flat": 4}
@@ -230,9 +287,13 @@ def attach_kernel_screen(
             screened.append(item)
             continue
         copy = dict(item)
-        copy["kernel_screen"] = screen_material(
-            copy.get(title_field, ""), community_label=copy.get("community_label")
-        )
+        existing_screen = copy.get("kernel_screen")
+        if isinstance(existing_screen, dict) and existing_screen.get("axis") in AXIS_LABELS:
+            copy["kernel_screen"] = dict(existing_screen)
+        else:
+            copy["kernel_screen"] = screen_material(
+                copy.get(title_field, ""), community_label=copy.get("community_label")
+            )
         screened.append(copy)
     if sort:
         screened = sort_by_kernel(screened)

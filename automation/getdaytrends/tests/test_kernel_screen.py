@@ -99,6 +99,57 @@ class TestAttach:
         assert out["items"][-1] is None
         assert out["items"][0]["kernel_screen"]["axis"] == "dead_debate"
 
+    def test_attach_preserves_a_second_pass_screen(self):
+        second_pass = screen_material(
+            "결혼식에서 있었던 이야기",
+            summary="남편이 축의금을 몰래 가로채고도 거짓말했다",
+        )
+        out = attach_kernel_screen(
+            {"items": [{"title": "결혼식에서 있었던 이야기", "kernel_screen": second_pass}]}
+        )
+        assert out["items"][0]["kernel_screen"] == second_pass
+        assert out["kernel_summary"]["live"] == 1
+
+
+class TestOgSecondPass:
+    def test_summary_can_rescue_a_title_with_no_material_signal(self):
+        title = "결혼식에서 있었던 이야기"
+        assert screen_material(title)["axis"] == "dead_flat"
+
+        result = screen_material(
+            title,
+            summary="남편이 축의금을 몰래 가로채고도 거짓말했다",
+        )
+
+        assert result["axis"] == "live_wrong"
+        assert result["signals"][0] == "원문 첫 문단에서 가해 역할과 행위 확인"
+
+    def test_existing_title_signal_is_not_overridden_by_summary(self):
+        result = screen_material(
+            "팀장이 갑질한 거 맞나요?",
+            summary="팀장이 회식비를 떠넘기고 폭언했다",
+        )
+        assert result["axis"] == "dead_debate"
+        assert not any("원문 첫 문단" in signal for signal in result["signals"])
+
+    def test_real_infidelity_example_is_read_only_on_the_second_pass(self):
+        title = "50대 유부남과 바람핀 30대 와이프"
+        assert screen_material(title)["axis"] == "live_wrong"
+
+    def test_named_warning_needs_confirming_wrongdoing_from_the_summary(self):
+        title = "KTX 자유석 타지 마세요"
+        assert screen_material(title)["axis"] == "dead_flat"
+        result = screen_material(title, summary="예약 내역을 몰래 가로채는 문제가 확인됐습니다")
+        assert result["axis"] == "live_wrong"
+        assert result["signals"][0] == "원문 첫 문단에서 명명된 경고 대상과 피해 행위 확인"
+
+    def test_named_warning_without_summary_wrongdoing_stays_flat(self):
+        result = screen_material(
+            "KTX 자유석 타지 마세요",
+            summary="좌석 이용 방법을 설명합니다",
+        )
+        assert result["axis"] == "dead_flat"
+
 
 class TestGapTypes:
     """커널 1-3절 낙차 4종. 처음에는 ①만 구현해 상위 게시물 2건을 놓쳤다."""
