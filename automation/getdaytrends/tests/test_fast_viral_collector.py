@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from fast_viral_collector import (  # noqa: E402
     _annotate_community_clusters,
     _looks_blocked,
+    aggregator_quota,
     _community_x_exposure_assessment,
     _direct_signal_score,
     _is_brand_safe_title,
@@ -259,3 +260,42 @@ def test_diverse_selection_does_not_leave_seats_empty_with_one_source():
     picked = _select_diverse_community_items(items, 3)
 
     assert [item["title"] for item in picked] == ["fm0", "fm1", "fm2"]
+
+
+class TestAggregatorQuota:
+    """화면에서 애그리게이터에 내어 주는 자리 수.
+
+    올리면 커뮤니티 종류가 늘고, 내리면 조회·추천 지표가 있는 직접 항목이 늘어난다.
+    """
+
+    def test_default_share_is_half_the_page(self, monkeypatch):
+        monkeypatch.delenv("GETDAYTRENDS_AGGREGATOR_SHARE", raising=False)
+        assert aggregator_quota(12, any_direct_ok=True) == 6
+
+    def test_direct_outage_hands_the_whole_page_over(self, monkeypatch):
+        monkeypatch.delenv("GETDAYTRENDS_AGGREGATOR_SHARE", raising=False)
+        assert aggregator_quota(12, any_direct_ok=False) == 12
+
+    def test_share_is_configurable(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_AGGREGATOR_SHARE", "0.75")
+        assert aggregator_quota(12, any_direct_ok=True) == 9
+        monkeypatch.setenv("GETDAYTRENDS_AGGREGATOR_SHARE", "0.25")
+        assert aggregator_quota(12, any_direct_ok=True) == 3
+
+    def test_direct_items_always_keep_at_least_one_seat(self, monkeypatch):
+        # 1.0을 넣어도 직접 목록이 통째로 사라지지는 않는다.
+        monkeypatch.setenv("GETDAYTRENDS_AGGREGATOR_SHARE", "1.0")
+        assert aggregator_quota(12, any_direct_ok=True) == 11
+
+    def test_aggregator_always_keeps_at_least_one_seat(self, monkeypatch):
+        # 0을 넣어도 애그리게이터가 통째로 사라지지는 않는다 — 그러면 확대한 의미가 없다.
+        monkeypatch.setenv("GETDAYTRENDS_AGGREGATOR_SHARE", "0")
+        assert aggregator_quota(12, any_direct_ok=True) == 1
+
+    def test_garbage_value_falls_back_to_default(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_AGGREGATOR_SHARE", "절반")
+        assert aggregator_quota(12, any_direct_ok=True) == 6
+
+    def test_empty_page_asks_for_nothing(self, monkeypatch):
+        monkeypatch.delenv("GETDAYTRENDS_AGGREGATOR_SHARE", raising=False)
+        assert aggregator_quota(0, any_direct_ok=True) == 0

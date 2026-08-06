@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import math
+import os
 import re
 from collections import Counter
 from datetime import UTC, datetime, timedelta, timezone
@@ -32,6 +33,38 @@ if TYPE_CHECKING:
 FMKOREA_HUMOR_URL = "https://www.fmkorea.com/humor?category=486622"
 ISSUELINK_URL = "https://www.issuelink.co.kr/"
 _KST = timezone(timedelta(hours=9))
+
+# 화면에서 애그리게이터(IssueLink) 경유 항목에 내어 주는 비율.
+#
+# 올릴수록 커뮤니티 종류가 늘고(클리앙·인벤·뽐뿌·SLR·82cook처럼 직접 수집하지 않는 곳),
+# 내릴수록 지표가 튼튼한 항목이 늘어난다 — 애그리게이터 항목은 조회·추천 수치가 없고
+# 댓글 수와 교차 노출만으로 점수를 매기기 때문이다. 0.5는 그 사이의 기본값이다.
+# `.env`의 GETDAYTRENDS_AGGREGATOR_SHARE로 조정한다.
+_AGGREGATOR_SHARE_DEFAULT = 0.5
+_AGGREGATOR_SHARE_MIN = 0.1
+_AGGREGATOR_SHARE_MAX = 0.9
+
+
+def _aggregator_share() -> float:
+    raw = os.getenv("GETDAYTRENDS_AGGREGATOR_SHARE")
+    if raw is None or not raw.strip():
+        return _AGGREGATOR_SHARE_DEFAULT
+    try:
+        value = float(raw.strip())
+    except ValueError:
+        return _AGGREGATOR_SHARE_DEFAULT
+    # 0이나 1을 그대로 받으면 한쪽 신호가 통째로 사라진다. 양끝을 남겨 둔다.
+    return min(_AGGREGATOR_SHARE_MAX, max(_AGGREGATOR_SHARE_MIN, value))
+
+
+def aggregator_quota(limit: int, *, any_direct_ok: bool) -> int:
+    """이번 화면에서 애그리게이터 경유 항목에 줄 자리 수."""
+    if limit <= 0:
+        return 0
+    if not any_direct_ok:
+        # 직접 목록이 전부 죽었으면 애그리게이터가 화면을 지킨다.
+        return limit
+    return max(1, min(limit - 1, round(limit * _aggregator_share())))
 _COMMUNITY_EXPOSURE_SCORE_VERSION = "community-exposure-v2"
 _BLOCKED_TITLE_MARKERS = (
     "ㅇㅎ",
@@ -728,8 +761,7 @@ class FastViralCollector:
             # 애그리게이터 몫을 미리 떼어 둔다. 예전에는 직접 목록이 자리를 다 채우면
             # IssueLink를 아예 보지 않았는데, 그러면 클리앙·인벤·뽐뿌·82cook처럼 직접
             # 수집이 막혔거나 붙이지 않은 커뮤니티가 영영 화면에 오르지 못한다.
-            # 직접 목록이 전부 죽은 경우에는 종전대로 애그리게이터가 전부 채운다.
-            aggregator_quota = limit if not any_direct_ok else max(1, limit // 3)
+            quota = aggregator_quota(limit, any_direct_ok=any_direct_ok)
             if issue_items:
                 allowed_issue_items: list[dict[str, Any]] = []
                 for item in issue_items:
@@ -782,7 +814,7 @@ class FastViralCollector:
                     item["exposure_coverage"] = exposure_coverage
                     item["observed_at"] = observation["observed_at"]
                     item["observation_delta"] = observation
-                selected_issue_items = _select_diverse_community_items(allowed_issue_items, aggregator_quota)
+                selected_issue_items = _select_diverse_community_items(allowed_issue_items, quota)
                 if selected_issue_items:
                     # 확보한 자리만큼 직접 목록을 점수 낮은 쪽부터 덜어낸다.
                     qualified.sort(key=lambda item: item.get("x_exposure_score", 0), reverse=True)
