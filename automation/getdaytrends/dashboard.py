@@ -1,17 +1,17 @@
-"""# ── TAP Router ─────────────────────────────────
-init_tap_router(
-    config=_config,
-    get_conn_fn=_get_conn,
-    close_conn_fn=_close_conn,
-    run_db_json_fn=_run_db_json_with_fallback,
-    alert_queue_fallback=_tap_alert_queue_fallback,
-    deal_room_fallback=_tap_deal_room_fallback,
-    funnel_fallback=_tap_deal_room_funnel_fallback,
-    checkout_summary_fallback=_tap_checkout_summary_fallback,
-)
-app.include_router(tap_router)
-
-
+"""# ── TAP Router ─────────────────────────────────
+init_tap_router(
+    config=_config,
+    get_conn_fn=_get_conn,
+    close_conn_fn=_close_conn,
+    run_db_json_fn=_run_db_json_with_fallback,
+    alert_queue_fallback=_tap_alert_queue_fallback,
+    deal_room_fallback=_tap_deal_room_fallback,
+    funnel_fallback=_tap_deal_room_funnel_fallback,
+    checkout_summary_fallback=_tap_checkout_summary_fallback,
+)
+app.include_router(tap_router)
+
+
 
 getdaytrends v5.0 - Pro Dashboard
 FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소스 품질 모니터링, LLM 비용 추적.
@@ -22,6 +22,7 @@ FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소�
 import json
 import logging
 import re
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -91,6 +92,7 @@ except ImportError:
     from dashboard_html import get_dashboard_html
 
 try:
+    from .collection_scheduler import CollectionScheduler, Lane
     from .dashboard_routes_fast_viral import init_fast_viral_router, router as fast_viral_router
     from .dashboard_routes_reference import init_reference_router, router as reference_router
     from .dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
@@ -99,6 +101,7 @@ try:
     from .reference_library import ReferenceLibraryStore
     from .x_opportunity_radar import XOpportunityRadar
 except ImportError:
+    from collection_scheduler import CollectionScheduler, Lane
     from dashboard_routes_fast_viral import init_fast_viral_router, router as fast_viral_router
     from dashboard_routes_reference import init_reference_router, router as reference_router
     from dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
@@ -136,7 +139,40 @@ except ImportError:
         _extract_tap_purchase_from_stripe_event,
     )
 
-app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION)
+_collection_scheduler: CollectionScheduler | None = None
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """수집을 브라우저 탭에서 떼어 낸다.
+
+    지금까지 자동 갱신은 대시보드 페이지의 setInterval에서만 돌았고, 탭을 닫으면
+    관측이 끊겼다. 여기서 같은 일을 서버가 이어받되 가동 시간대·주기·일일 상한으로
+    묶는다(collection_scheduler.py). 브라우저가 이미 갱신 중이면 서버는 건너뛴다.
+    """
+    global _collection_scheduler
+    _collection_scheduler = CollectionScheduler(
+        [
+            Lane(
+                name="x_radar",
+                snapshot=_x_opportunity_radar.snapshot,
+                refresh=lambda: _x_opportunity_radar.refresh(country="korea", limit=20),
+            ),
+            Lane(
+                name="fast_viral",
+                snapshot=_fast_viral_collector.snapshot,
+                refresh=lambda: _fast_viral_collector.refresh(limit=12),
+            ),
+        ]
+    )
+    _collection_scheduler.start()
+    try:
+        yield
+    finally:
+        await _collection_scheduler.stop()
+
+
+app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION, lifespan=_lifespan)
 
 try:
     from .dashboard_routes_tap import router as tap_router, init_tap_router
@@ -450,6 +486,14 @@ async def api_runs(limit: int = Query(20, ge=1, le=100)):
         return [dict(r) for r in rows]
 
     return await _run_db_json_with_fallback("api_runs", _load_runs, [])
+
+
+@app.get("/api/collection-scheduler")
+def api_collection_scheduler():
+    """서버측 수집 스케줄러 상태 — 가동 여부·주기·오늘 호출 수·마지막 판정 이유."""
+    if _collection_scheduler is None:
+        return {"enabled": False, "running": False, "lanes": {}, "detail": "scheduler not initialized"}
+    return _collection_scheduler.status()
 
 
 @app.get("/api/pipeline_status")

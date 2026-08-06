@@ -86,6 +86,17 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture(autouse=True)
+def _disable_collection_scheduler(monkeypatch):
+    """테스트가 앱을 띄울 때 서버 수집이 실제로 나가지 않게 한다.
+
+    TestClient는 lifespan을 실행하므로, 끄지 않으면 테스트를 돌릴 때마다 외부
+    사이트로 수집 요청이 나간다. 스케줄러 자체 테스트는 SchedulerConfig를 직접
+    만들어 쓰므로 이 스위치의 영향을 받지 않는다.
+    """
+    monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_ENABLED", "false")
+
+
+@pytest.fixture(autouse=True)
 def _force_workspace_temp(monkeypatch):
     """Keep getdaytrends temp files inside the workspace on Windows."""
     previous_tempdir = tempfile.tempdir
