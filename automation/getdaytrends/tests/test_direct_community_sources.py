@@ -7,6 +7,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from direct_community_sources import (  # noqa: E402
+    DIRECT_COMMUNITY_SOURCES,
+    parse_bobaedream_best,
+    parse_direct_community_source,
     parse_dogdrip_latest,
     parse_ruliweb_best,
     parse_theqoo_hot,
@@ -84,3 +87,77 @@ def test_parse_ruliweb_best_reads_original_metrics_without_rank_text():
     assert item["views"] == 15_563
     assert item["votes"] == 46
     assert item["comments"] == 69
+
+
+def test_parse_bobaedream_best_reads_full_category_and_metrics():
+    html = """
+    <table><tr itemscope="" itemtype="http://schema.org/Article">
+      <td class="category" title="신유머/이슈/움짤"><a href="/list.php?code=strange">신유머/이..</a></td>
+      <td class="pl14">
+        <a class="bsubject" href="/view?code=best&amp;No=1018692&amp;vdate=" title="지금 퍼지는 목격담">지금 퍼지는 목격담</a>
+        <a href="/view?code=best&amp;No=1018692&amp;vdate=&amp;cmt=1"><span class="Comment">(<strong class="totreply">13</strong>)</span></a>
+      </td>
+      <td class="author02"><span class="author">글쓴이</span></td>
+      <td class="date">09:03</td>
+      <td class="recomm">60</td>
+      <td class="count">4,889</td>
+    </tr></table>
+    """
+
+    assert parse_bobaedream_best(html, now=NOW) == [
+        {
+            "id": "1018692",
+            "title": "지금 퍼지는 목격담",
+            # 목록 글자는 "신유머/이.."로 잘려 나오므로 title 속성의 전체 이름을 쓴다.
+            "category": "신유머/이슈/움짤",
+            "community_source": "bobaedream",
+            "community_label": "보배드림",
+            "source_url": "https://www.bobaedream.co.kr/view?code=best&No=1018692&vdate=",
+            "link_kind": "publisher_original",
+            # 목록 시각은 KST다. NOW(UTC 00:10)는 KST 09:10이므로 09:03은 7분 전이다.
+            "published_label": "09:03",
+            "age_minutes": 7,
+            "views": 4_889,
+            "votes": 60,
+            "comments": 13,
+            "source_position": 0,
+            "signal_source": "직접 목록",
+        }
+    ]
+
+
+def test_parse_bobaedream_best_skips_duplicates_and_non_best_links():
+    html = """
+    <table>
+      <tr><td class="pl14"><a class="bsubject" href="/view?code=freeb&amp;No=999">베스트 아닌 글</a></td></tr>
+      <tr><td class="pl14"><a class="bsubject" href="/view?code=best&amp;No=555">첫 등장</a></td><td class="date">23:50</td></tr>
+      <tr><td class="pl14"><a class="bsubject" href="/view?code=best&amp;No=555&amp;cmt=1">같은 글 다른 링크</a></td></tr>
+      <tr><td class="pl14"><a class="bsubject" href="/view?code=best&amp;No=556"></a></td></tr>
+    </table>
+    """
+
+    items = parse_bobaedream_best(html, now=NOW)
+
+    # 베스트가 아닌 글, 같은 글의 댓글 링크, 제목이 빈 행은 모두 빠진다.
+    assert [item["id"] for item in items] == ["555"]
+    # 23:50은 KST 09:10 기준으로 미래이므로 전날 23:50으로 읽는다 — 9시간 20분 전.
+    assert items[0]["age_minutes"] == 560
+
+
+def test_parse_bobaedream_best_falls_back_when_category_title_missing():
+    html = """
+    <table><tr>
+      <td class="category"><a href="/list.php?code=strange">자유게시판</a></td>
+      <td class="pl14"><a class="bsubject" href="/view?code=best&amp;No=777">제목</a></td>
+    </tr></table>
+    """
+
+    assert parse_bobaedream_best(html, now=NOW)[0]["category"] == "자유게시판"
+
+
+def test_bobaedream_is_registered_as_a_direct_source():
+    keys = {source["key"] for source in DIRECT_COMMUNITY_SOURCES}
+    assert "bobaedream" in keys
+    # 등록만 하고 파서를 빠뜨리면 수집이 조용히 0건이 된다.
+    for source in DIRECT_COMMUNITY_SOURCES:
+        assert parse_direct_community_source(source["key"], "<html></html>") == []

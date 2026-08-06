@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fast_viral_collector import (  # noqa: E402
     _annotate_community_clusters,
+    _looks_blocked,
     _community_x_exposure_assessment,
     _direct_signal_score,
     _is_brand_safe_title,
@@ -193,3 +194,38 @@ def test_community_exposure_score_rewards_measured_spread_growth():
     assert any("새 출처 +1" in reason for reason in reasons)
     assert confidence == "high"
     assert coverage == 1.0
+
+
+class _FakeResponse:
+    """차단 판별용 최소 응답 스텁."""
+
+    def __init__(self, status_code=200, text=""):
+        self.status_code = status_code
+        self.text = text
+
+
+def test_looks_blocked_detects_refusal_status_codes():
+    # 사이트가 자동 접근을 거부한 것이지 우리가 잘못 파싱한 게 아니다.
+    for status in (401, 403, 429, 430, 451):
+        assert _looks_blocked(_FakeResponse(status_code=status)) is True
+
+
+def test_looks_blocked_detects_interstitial_bodies_returned_with_200():
+    # 일부 사이트는 200으로 안내 페이지를 돌려준다.
+    assert _looks_blocked(_FakeResponse(text="<title>에펨코리아 보안 시스템</title>")) is True
+    assert _looks_blocked(_FakeResponse(text="<title>Just a moment...</title>")) is True
+
+
+def test_looks_blocked_passes_normal_listing_pages():
+    assert _looks_blocked(_FakeResponse(text="<html><li class='li'>목록</li></html>")) is False
+
+
+def test_looks_blocked_survives_unreadable_body():
+    class Broken:
+        status_code = 200
+
+        @property
+        def text(self):
+            raise UnicodeDecodeError("utf-8", b"", 0, 1, "broken")
+
+    assert _looks_blocked(Broken()) is False

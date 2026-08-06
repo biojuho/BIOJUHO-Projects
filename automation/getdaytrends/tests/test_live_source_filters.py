@@ -33,6 +33,22 @@ def test_topic_filter_excludes_requested_topics_without_broad_false_positive():
     assert topic_is_allowed("도심 정전으로 지하철 운행 중단") is True
 
 
+def test_political_nicknames_are_excluded_even_from_humor_boards():
+    """커뮤니티는 정당·정치인을 줄임말과 별칭으로 부른다.
+
+    2026-08-06 보배드림을 붙이자 "국짐이 정청래편인척"이 유머게시판 글로 통과했다.
+    게시판 카테고리로는 거를 수 없어(정치 유머가 유머게시판에 올라온다) 표기를 넓혔다.
+    """
+    assert excluded_topic_reason("국짐이 정청래편인척") == "정치 제외"
+    assert excluded_topic_reason("이준석 홍준표 설전 정리") == "정치 제외"
+    assert excluded_topic_reason("오세훈 시장 신년 인터뷰") == "정치 제외"
+    assert excluded_topic_reason("더불어민주당 새 지도부 구성") == "정치 제외"
+
+    # 일상 화제까지 끌려 들어가면 필터가 무뎌진다.
+    assert topic_is_allowed("동네 시장에서 산 붕어빵 후기") is True
+    assert topic_is_allowed("국밥집 사장님이 준 서비스") is True
+
+
 def test_bing_rss_parser_returns_only_direct_publisher_urls_with_timestamps():
     raw = """<?xml version="1.0" encoding="UTF-8"?>
     <rss xmlns:News="https://example.test/news"><channel>

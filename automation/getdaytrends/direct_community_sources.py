@@ -32,6 +32,14 @@ DIRECT_COMMUNITY_SOURCES = (
         "label": "루리웹",
         "url": "https://bbs.ruliweb.com/best/humor",
     },
+    # robots.txt가 `User-agent: * / Allow: /`로 전체 허용인 것을 2026-08-06에 확인하고 추가했다.
+    # 자동차·시사 비중이 커서 기존 제외 필터(스포츠·정치·증시·실적·부동산)에 걸리는 글이 다른
+    # 세 곳보다 많다 — 그건 필터가 처리하고, 여기서는 목록만 그대로 읽는다.
+    {
+        "key": "bobaedream",
+        "label": "보배드림",
+        "url": "https://www.bobaedream.co.kr/list?code=best",
+    },
 )
 
 
@@ -237,10 +245,63 @@ def parse_ruliweb_best(html: str, *, now: datetime | None = None) -> list[dict[s
     return items
 
 
+def parse_bobaedream_best(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    reference = now or datetime.now(UTC)
+    soup = BeautifulSoup(html, "html.parser")
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for position, row in enumerate(soup.select("tr")):
+        link = row.select_one('a.bsubject[href*="code=best"]')
+        href = str(link.get("href") or "") if link else ""
+        match = re.search(r"[?&]No=(\d+)", href)
+        if link is None or match is None or match.group(1) in seen:
+            continue
+        post_id = match.group(1)
+        title = " ".join(link.get_text(" ", strip=True).split())
+        if not title:
+            continue
+        seen.add(post_id)
+        time_node = row.select_one("td.date")
+        published_label = " ".join(time_node.get_text(" ", strip=True).split()) if time_node else ""
+        category_node = row.select_one("td.category")
+        # 목록의 카테고리 글자는 "신유머/이.."처럼 잘려 나온다. title 속성에 전체 이름이 있다.
+        category = ""
+        if category_node is not None:
+            category = " ".join(str(category_node.get("title") or "").split()) or " ".join(
+                category_node.get_text(" ", strip=True).split()
+            )
+        items.append(
+            _base_item(
+                source="bobaedream",
+                label="보배드림",
+                post_id=post_id,
+                title=title,
+                url=urljoin("https://www.bobaedream.co.kr", href),
+                category=category or "보배드림 베스트",
+                published_label=published_label,
+                age_minutes=_age_minutes(published_label, reference),
+                views=_parse_count((row.select_one("td.count") or row).get_text(" ", strip=True))
+                if row.select_one("td.count")
+                else 0,
+                votes=_parse_count((row.select_one("td.recomm") or row).get_text(" ", strip=True))
+                if row.select_one("td.recomm")
+                else 0,
+                comments=_parse_count(
+                    (row.select_one("strong.totreply") or row).get_text(" ", strip=True)
+                )
+                if row.select_one("strong.totreply")
+                else 0,
+                position=position,
+            )
+        )
+    return items
+
+
 _PARSERS = {
     "dogdrip": parse_dogdrip_latest,
     "theqoo": parse_theqoo_hot,
     "ruliweb": parse_ruliweb_best,
+    "bobaedream": parse_bobaedream_best,
 }
 
 

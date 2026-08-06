@@ -276,9 +276,9 @@ _HTML = """<!DOCTYPE html>
 <!-- Direct Community Early Detector -->
 <section class="panel fast-viral-panel" aria-labelledby="fast-viral-title">
   <h3 id="fast-viral-title">🚨 커뮤니티 바이럴 조기감지</h3>
-  <p class="x-radar-intro">개드립·더쿠 HOT·루리웹 베스트·FMKorea를 직접 확인하고, 연결 제한이나 후보 부족 때는 IssueLink의 다른 커뮤니티 원문으로 보완합니다. 댓글·조회·추천·교차확산으로 X 노출 적합도를 계산하며 선행시간은 두 최초 감지 시각이 모두 있을 때만 표시합니다.</p>
+  <p class="x-radar-intro">개드립·더쿠 HOT·루리웹 베스트·보배드림 베스트를 직접 확인하고, 연결 제한이나 후보 부족 때는 IssueLink의 다른 커뮤니티 원문으로 보완합니다. 댓글·조회·추천·교차확산으로 X 노출 적합도를 계산하며 선행시간은 두 최초 감지 시각이 모두 있을 때만 표시합니다.</p>
   <div class="x-radar-controls">
-    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산과 성인성 제목은 제외합니다. AAGAG는 robots 정책에 따라 자동 수집하지 않습니다.</div>
+    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산과 성인성 제목은 제외합니다. AAGAG는 robots 정책에 따라, FMKorea·클리앙은 사이트가 자동 접근을 차단해 직접 수집하지 않습니다(FMKorea는 IssueLink 경유로만 확인).</div>
     <select id="fast-viral-limit" class="tap-input" aria-label="조기 후보 표시 개수">
       <option value="6">상위 6개</option>
       <option value="12" selected>상위 12개</option>
@@ -1392,7 +1392,7 @@ function renderFastViral(data) {{
     <span class="live-dot${{fresh.dotClass}}"></span>
     <strong>${{items.length}}개 커뮤니티 원문</strong>
     <span class="fast-viral-early">${{safeHtml(String(data.community_source_count || 0))}}개 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
-    <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/4곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
+    <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/${{safeHtml(String(data.direct_source_total || 0))}}곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
     <span>스포츠·정치·증시·실적·부동산 ${{safeHtml(String(excludedTotal))}}건 제외</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
     ${{fresh.hint}}

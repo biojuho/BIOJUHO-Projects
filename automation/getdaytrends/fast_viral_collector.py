@@ -93,6 +93,22 @@ def _post_age_minutes(value: str, now: datetime) -> int | None:
     return max(0, round((local_now - published).total_seconds() / 60))
 
 
+def _looks_blocked(response: Any) -> bool:
+    """사이트가 자동 접근을 거부한 응답인지 판별한다.
+
+    실패를 뭉뚱그리면 "고치면 되는 파싱 버그"로 보인다. 차단은 성격이 다르다 —
+    우리가 물러서야 하는 쪽이라 화면에도 그렇게 적어야 한다.
+    """
+    status = getattr(response, "status_code", 0)
+    if status in {401, 403, 429, 430, 451}:
+        return True
+    try:
+        head = (response.text or "")[:2000]
+    except Exception:
+        return False
+    return any(marker in head for marker in ("보안 시스템", "Just a moment", "cf-browser-verification"))
+
+
 def parse_fmkorea_latest(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
     reference = now or datetime.now(UTC)
     soup = BeautifulSoup(html, "html.parser")
@@ -536,14 +552,21 @@ class FastViralCollector:
             if isinstance(results[0], Exception):
                 errors.append("FMKorea 직접 목록 수집 실패")
             else:
-                try:
-                    results[0].raise_for_status()
-                    fmkorea_items = parse_fmkorea_latest(results[0].text, now=now)
-                    fmkorea_ok = bool(fmkorea_items)
-                    if not fmkorea_items:
-                        errors.append("FMKorea 직접 목록이 비어 있음")
-                except Exception:
-                    errors.append("FMKorea 직접 목록 파싱 실패")
+                # FMKorea는 자동 접근을 보안 시스템으로 막는다(2026-08-06 확인: HTTP 430 +
+                # "에펨코리아 보안 시스템" 페이지, robots.txt도 대부분의 봇에 메인만 허용).
+                # 헤더를 위장해 뚫지 않는다 — AAGAG를 robots 이유로 제외한 것과 같은 기준이다.
+                # 원인을 "파싱 실패"로 뭉개면 고칠 수 있는 버그처럼 보이므로 차단은 따로 적는다.
+                if _looks_blocked(results[0]):
+                    errors.append("FMKorea 자동 접근 차단 — IssueLink 경유로만 확인")
+                else:
+                    try:
+                        results[0].raise_for_status()
+                        fmkorea_items = parse_fmkorea_latest(results[0].text, now=now)
+                        fmkorea_ok = bool(fmkorea_items)
+                        if not fmkorea_items:
+                            errors.append("FMKorea 직접 목록이 비어 있음")
+                    except Exception:
+                        errors.append("FMKorea 직접 목록 파싱 실패")
             if isinstance(results[1], Exception):
                 errors.append("IssueLink 비교 수집 실패")
             else:
@@ -785,6 +808,8 @@ class FastViralCollector:
                 "items": displayed,
                 "total_direct_posts": len(direct_observations),
                 "direct_source_count": sum(1 for healthy in {"fmkorea": fmkorea_ok, **direct_source_health}.values() if healthy),
+                # 분모를 화면에 하드코딩하면 소스를 늘려도 옛 숫자가 남는다. FMKorea 자리를 포함해 보낸다.
+                "direct_source_total": len(DIRECT_COMMUNITY_SOURCES) + 1,
                 "direct_displayed_count": sum(1 for item in displayed if item.get("signal_source") == "직접 목록"),
                 "qualified_count": len(displayed),
                 "before_issuelink_count": sum(1 for item in displayed if item["before_issuelink"]),
