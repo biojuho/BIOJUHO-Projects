@@ -57,6 +57,38 @@ def _aggregator_share() -> float:
     return min(_AGGREGATOR_SHARE_MAX, max(_AGGREGATOR_SHARE_MIN, value))
 
 
+# 직접 목록에서 후보로 받아들일 나이 상한과 최소 반응.
+#
+# 2026-08-06까지 상한이 45분이었다. 조기 탐지에는 맞지만, 그 결과 화면에는 조회 0·댓글 몇 개인
+# "아직 아무도 안 본 글"만 올라왔다. X에 올릴 소재를 고르는 자리에서는 쓸 게 없다는 뜻이다.
+# 신속성은 "뜨기 시작한 걸 남보다 먼저"이지 "아무도 안 본 걸 먼저"가 아니다 — 반응이 0이면
+# 뜰 글인지 아닌지 판단할 근거 자체가 없다.
+# 그래서 상한을 넓혀 반응이 쌓일 시간을 주되, 최소 반응을 통과한 것만 후보로 삼는다.
+_DIRECT_MAX_AGE_DEFAULT = 360  # 6시간
+_DIRECT_MIN_VIEWS_DEFAULT = 300
+_DIRECT_MIN_COMMENTS_DEFAULT = 5
+
+
+def _direct_max_age_minutes() -> int:
+    raw = os.getenv("GETDAYTRENDS_DIRECT_MAX_AGE_MINUTES")
+    try:
+        return max(10, int((raw or "").strip())) if raw and raw.strip() else _DIRECT_MAX_AGE_DEFAULT
+    except ValueError:
+        return _DIRECT_MAX_AGE_DEFAULT
+
+
+def has_min_traction(item: dict[str, Any]) -> bool:
+    """반응이 시작된 글인가. 조회·댓글·추천 중 하나만 넘으면 통과한다.
+
+    소스마다 노출하는 지표가 다르다 — 개드립은 조회를 안 주고, 뽐뿌는 댓글을 안 준다.
+    셋 다 요구하면 소스별로 편식하게 되므로 하나라도 넘으면 받는다.
+    """
+    views = int(item.get("views") or 0)
+    comments = int(item.get("comments") or 0)
+    votes = int(item.get("votes") or 0)
+    return views >= _DIRECT_MIN_VIEWS_DEFAULT or comments >= _DIRECT_MIN_COMMENTS_DEFAULT or votes >= 10
+
+
 def aggregator_quota(limit: int, *, any_direct_ok: bool) -> int:
     """이번 화면에서 애그리게이터 경유 항목에 줄 자리 수."""
     if limit <= 0:
@@ -694,7 +726,12 @@ class FastViralCollector:
                 if exclusion:
                     excluded_topics[exclusion] += 1
                     continue
-                if age is None or age > 45 or not _is_brand_safe_title(item["title"]):
+                if (
+                    age is None
+                    or age > _direct_max_age_minutes()
+                    or not has_min_traction(item)
+                    or not _is_brand_safe_title(item["title"])
+                ):
                     blocked_count += 1
                     continue
                 source_key = str(item.get("community_source") or "fmkorea")

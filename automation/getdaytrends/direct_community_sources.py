@@ -53,7 +53,7 @@ DIRECT_COMMUNITY_SOURCES = (
     {
         "key": "ppomppu",
         "label": "뽐뿌",
-        "url": "https://www.ppomppu.co.kr/zboard/zboard.php?id=freeboard",
+        "url": "https://www.ppomppu.co.kr/hot.php",
     },
     {
         "key": "todayhumor",
