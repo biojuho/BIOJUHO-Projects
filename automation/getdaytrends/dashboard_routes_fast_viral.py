@@ -40,4 +40,5 @@ def get_fast_viral():
 
 @router.post("/refresh")
 async def refresh_fast_viral(limit: int = Query(default=12, ge=5, le=30)):
-    return await _fast_viral_collector().refresh(limit=limit)
+    # GET 스냅샷과 같은 이유로 여기에도 싣는다 — 화면이 렌더링하는 건 이 응답이다.
+    return attach_freshness(await _fast_viral_collector().refresh(limit=limit), "fast_viral")

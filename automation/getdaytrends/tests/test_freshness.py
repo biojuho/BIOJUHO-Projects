@@ -121,6 +121,13 @@ class TestLaneWiring:
         assert attach_freshness({}, "x_radar", now=NOW)["freshness"]["level"] == "unknown"
 
 
+def _async_returning(value):
+    async def _call(*_args, **_kwargs):
+        return value
+
+    return _call
+
+
 @pytest.fixture
 def client():
     try:
@@ -173,6 +180,40 @@ class TestRouteWiring:
 
         assert response.status_code == 200
         assert response.json()["freshness"]["level"] == "stale"
+
+    def test_x_radar_refresh_response_carries_freshness(self, client):
+        # 화면은 GET 스냅샷이 아니라 이 POST 응답을 렌더링한다. 여기가 비면
+        # 방금 수집한 직후에도 배지가 "-"로 나온다(2026-08-06에 실제로 그랬다).
+        import dashboard_routes_x_radar
+
+        previous = dashboard_routes_x_radar._radar
+        payload = {"available": True, "items": [], "refreshed_at": datetime.now(timezone.utc).isoformat()}
+        dashboard_routes_x_radar.init_x_radar_router(
+            SimpleNamespace(snapshot=lambda: payload, refresh=_async_returning(payload))
+        )
+        try:
+            response = client.post("/api/x-radar/refresh", json={"country": "korea", "limit": 10})
+        finally:
+            dashboard_routes_x_radar._radar = previous
+
+        assert response.status_code == 200
+        assert response.json()["freshness"]["level"] == "fresh"
+
+    def test_fast_viral_refresh_response_carries_freshness(self, client):
+        import dashboard_routes_fast_viral
+
+        previous = dashboard_routes_fast_viral._collector
+        payload = {"available": True, "items": [], "refreshed_at": datetime.now(timezone.utc).isoformat()}
+        dashboard_routes_fast_viral.init_fast_viral_router(
+            SimpleNamespace(snapshot=lambda: payload, refresh=_async_returning(payload))
+        )
+        try:
+            response = client.post("/api/fast-viral/refresh?limit=12")
+        finally:
+            dashboard_routes_fast_viral._collector = previous
+
+        assert response.status_code == 200
+        assert response.json()["freshness"]["level"] == "fresh"
 
     def test_dashboard_page_renders_freshness_ui(self, client):
         # 서버가 등급을 실어 보내도 화면이 쓰지 않으면 소용없다.

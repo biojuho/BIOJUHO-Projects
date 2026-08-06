@@ -60,9 +60,12 @@ def get_x_radar():
 
 @router.post("/refresh")
 async def refresh_x_radar(payload: XRadarRefreshRequest):
-    return await _x_radar().refresh(
+    # 화면은 이 응답을 그대로 렌더링한다(GET 스냅샷을 다시 부르지 않는다).
+    # 여기에 freshness를 싣지 않으면 방금 수집한 직후에도 배지가 비어 버린다.
+    result = await _x_radar().refresh(
         country=payload.country,
         limit=payload.limit,
         focus_keywords=payload.focus_keywords,
         force_refresh=payload.force_refresh,
     )
+    return attach_freshness(result, "x_radar")
