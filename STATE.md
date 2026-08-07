@@ -9,7 +9,7 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-06 기준 801 passed · 7 skipped — Kiwipiepy·Scrapling 미설치)
-- **갱신:** 2026-08-07 · by Grok (0007)
+- **갱신:** 2026-08-07 · by Grok (0012)
 
 > **수집은 서버가 돌린다(2026-08-06부터).** 5분 주기·09~24시(KST)·레인당 하루 200회 상한.
 > 브라우저 탭이 열려 있어 방금 갱신됐으면 서버는 건너뛴다. 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`,
@@ -17,15 +17,18 @@
 
 ## 지금 진행 중
 
+> **0012 DONE (Grok, story-boards).** 쌍 0.6→0.9%. docs/lead-time-pairing-2026-08-07.md
+
+> **0010 DONE (Grok).** 리드타임 1차. 상세 docs/lead-time-evidence-2026-08-07.md (story-boards 브랜치).
 > **2026-08-07 병합 완료 3건.** 0002(Codex, OG 2차 판정 `f3de282`) · 0005(Qwen, 낙차 구조 패턴 `62920ad`, 재현율 3/20) · 0007(Grok, 스포츠 오탐 `2ba630a`). 통합 후 953 passed, 화면 사는 축 3건→7건.
 
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
-| 0004 교차 확산 감지 | **Codex** | **DONE** | 조사 정규화·순서 독립 클러스터 키·근거 보존 회귀 완료. 957 passed·7 skipped, 저장된 실제 응답에서 교차 확산 6건 |
+| 0004 교차 확산 감지 | **Codex** | **CLAIMED·보완 진행** | 동일 클러스터 한 자리 병합·교차 소스 근거 유지, 여자친구/여친·충격 표현 정규화, 고유 클러스터 수 전후 검증 |
 | 0008 본문 판정을 자르기 앞으로 | **Codex** | **DONE·값 없음** | 실측: 후보 17·선택 8·요청 6·OG 4, 축 변경 0·신규 진입 0. 중단 기준에 따라 코드 전량 되돌림 |
-| 0009 본문 판정의 어휘 치환 판별 | **Qwen** | OPEN(2026-08-07 발행) | `handoffs/0009-body-verdict-without-word-swaps.md` — `kernel_screen.py`만. "와이프→아내"·"바람→외도"가 정규화인지 겨냥인지 판별 기준 3개로 가른다 |
-| 0010 리드타임 지표 실증 | **Grok** | OPEN(2026-08-07 발행) | `handoffs/0010-lead-time-evidence.md` — 이 프로젝트의 존재 이유. `lead_time_tracker.py` + 분석. 음수 비율 필수, 표본 10건 미만이면 결론 금지 |
-| 0006 jamnanda 어그리게이터 | — | OPEN(착수 가능) | 0005·0004·0008 선행조건이 모두 풀렸고 `fast_viral_collector.py`가 비었다 |
+| 0009 본문 판정의 어휘 치환 판별 | **Qwen** | 진행 중 | `handoffs/0009-body-verdict-without-word-swaps.md` — `kernel_screen.py`만. "와이프→아내"·"바람→외도"가 정규화인지 겨냥인지 판별 기준 3개로 가른다 |
+| 0011 "이유"·"근황" 좁히기 | **Qwen** | OPEN(0009 다음) | `handoffs/0011-two-words-make-two-thirds.md` — 사는 축 26건 중 두 어휘가 17건(64%)이고 08:5x 화면에서는 **상위 6건 전부**가 이 둘이었다. X 정답지에서는 각 1건뿐 |
+| 0006 jamnanda 어그리게이터 | — | 대기 | 선행조건 중 0005는 풀렸다. `fast_viral_collector.py`가 0004·0008로 계속 차 있어 그 뒤로 미룬다 |
 > **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
 **Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
 `og-second-pass`(Codex) · `story-boards`(Grok, 0003 완료) · `cross-community`(Qwen).
@@ -42,7 +45,7 @@
 1. ~~수집 상시화~~ — 완료(`collection_scheduler.py`). 서버가 5분 주기로 이어받는다.
 2. ~~신선도 상시 표시~~ — 완료(`handoffs/0001` DONE, `freshness.py`).
 3. **스킵된 테스트 2종 해소.** `test_korean_nlp.py`가 Kiwipiepy 미설치로, `test_news_scraper.py`가 Scrapling 미설치로 스킵된다. 한국어 형태소는 트렌드 분류·금지어 필터 품질에 직결되므로 Kiwipiepy가 우선이다. `~/Desktop/Joopark`에 Kiwi 0.23.2를 정확 버전 고정해 로컬 전용(외부 전송 0건)으로 쓴 선례가 있다.
-4. **리드타임 지표 실증.** 이제 관측이 연속으로 쌓이므로, 며칠 뒤 "얼마나 일찍 잡았는지"를 실제 수치로 확인한다. 이 프로젝트의 존재 이유라 이 숫자가 나와야 다음 개선 방향이 정해진다. 하루 이틀 데이터가 모인 뒤 착수한다.
+4. ~~리드타임 지표 실증~~ — **1차 완료(0010).** 중앙 +80분·음수 3.4%·쌍 0.6%. docs/lead-time-evidence-2026-08-07.md
 
 ## 사용자 결정 대기
 
