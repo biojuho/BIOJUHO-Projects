@@ -25,6 +25,7 @@
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
 | 0011 "이유"·"근황" 좁히기 | **Qwen** | 진행 중 | `handoffs/0011-two-words-make-two-thirds.md` — 사는 축 26건 중 두 어휘가 17건(64%)이고 08:5x 화면에서는 **상위 6건 전부**가 이 둘이었다. 8010 실측 화면에 이미 "'근황'만으로는 낙차를 확정할 수 없음"이 뜨는 걸 확인했으나 **커밋 대기 중** |
+| 0013 노출 vs 저장 검증 | **Grok** | OPEN(2026-08-07 발행) | `handoffs/0013-verify-reach-vs-save.md` — 기획자가 X에서 관찰한 "노출과 저장은 반대로 간다"를 검증하거나 기각한다. **코드 수정 없음, 판정까지.** 기각되면 후속 개선안은 진행하지 않는다 |
 | 0006 jamnanda 어그리게이터 | — | **OPEN(착수 가능)** | 0004·0008이 끝나 `fast_viral_collector.py` 선행조건이 풀렸다. `handoffs/0006-jamnanda-aggregator.md` — jamnanda는 메트릭을 안 주므로 IssueLink와 같은 어그리게이터 경로여야 한다 |
 > **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
 **Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
