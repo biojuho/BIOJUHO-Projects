@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lead_time_tracker import (  # noqa: E402
     LeadTimeTracker,
     load_lead_time_store,
+    normalize_lead_identity,
     summarize_lead_time_store,
 )
 
@@ -93,4 +94,59 @@ def test_summarize_includes_negative_leads_and_does_not_require_write(tmp_path):
     assert summary["signed_lead"]["positive_count"] == 1
     assert summary["signed_lead"]["median_minutes"] == 0.0  # (+60 and -60)
     assert summary["evidence_grade"] == "insufficient"  # paired n < 10
+
+
+def test_normalize_pairs_ppomppu_composite_without_title_guessing():
+    """IssueLink freeboard IDs are composites; native no= is the real post id."""
+    assert normalize_lead_identity("ppomppu", "468400010070329") == ("ppomppu", "10070329")
+    assert normalize_lead_identity("ppomppu_freeboard", "10070329") == ("ppomppu", "10070329")
+    assert normalize_lead_identity("bobae", "300003426651") == ("bobae", "3426651")
+    assert normalize_lead_identity("bobae_strange", "6968435") == ("bobae", "6968435")
+    # Unproven composites stay untouched — do not invent pairs.
+    assert normalize_lead_identity("ppomppu", "315600000725388") == ("ppomppu", "315600000725388")
+
+
+def test_summarize_normalized_pairing_raises_pair_count_from_raw_split(tmp_path):
+    payload = {
+        "version": 1,
+        "items": {
+            "ppomppu_freeboard:10070329": {
+                "community_source": "ppomppu_freeboard",
+                "post_id": "10070329",
+                "direct_first_seen_at": "2026-08-07T00:00:00+00:00",
+                "aggregator_first_seen_at": None,
+            },
+            "ppomppu:468400010070329": {
+                "community_source": "ppomppu",
+                "post_id": "468400010070329",
+                "direct_first_seen_at": None,
+                "aggregator_first_seen_at": "2026-08-07T00:40:00+00:00",
+            },
+        },
+    }
+    raw = summarize_lead_time_store(payload, normalize_identities=False)
+    norm = summarize_lead_time_store(payload, normalize_identities=True)
+    assert raw["paired_count"] == 0
+    assert norm["paired_count"] == 1
+    assert norm["signed_lead"]["median_minutes"] == 40.0
+    assert norm["by_source"][0]["community_source"] == "ppomppu"
+
+
+def test_tracker_records_composite_aggregator_against_native_direct(tmp_path):
+    tracker = LeadTimeTracker(tmp_path / "lead.json")
+    start = datetime(2026, 8, 7, 12, 0, tzinfo=UTC)
+    tracker.record_observations(
+        [{"id": "10070329", "community_source": "ppomppu_freeboard"}],
+        [],
+        observed_at=start,
+    )
+    tracker.record_observations(
+        [],
+        [{"id": "468400010070329", "community_source": "ppomppu"}],
+        observed_at=start + timedelta(minutes=15),
+    )
+    measured = tracker.metrics_for({"id": "10070329", "community_source": "ppomppu_freeboard"})
+    assert measured["lead_status"] == "measured"
+    assert measured["lead_minutes"] == 15.0
+    assert measured["lead_identity"] == "ppomppu:10070329"
 
