@@ -206,14 +206,9 @@ def screen_material(
     if not normalized_summary or title_result["axis"] not in {"dead_flat", "unknown"}:
         return title_result
 
-    # OG 요약에서만 동의어를 정규화한다. 제목 규칙을 넓혀 기존 판정을
-    # 조용히 바꾸지 않고,
-    # 핸드오프의 실제 누락 사례("바람핀 ... 와이프")를 2차 입력에서만 읽는다.
-    summary_for_screen = normalized_summary.replace("와이프", "아내")
-    summary_for_screen = re.sub(r"바람(?:핀|피운|피우는|났다|난)?", "외도", summary_for_screen)
-    combined = f"{title} {summary_for_screen}".strip()
+    combined = f"{title} {normalized_summary}".strip()
     second_result = _screen_material_text(combined, community_label=community_label)
-    summary_wrongs = _hits(summary_for_screen.casefold(), _WRONGDOING_TERMS)
+    summary_wrongs = _hits(normalized_summary.casefold(), _WRONGDOING_TERMS)
     named_warning = bool(
         re.search(r"[A-Za-z]{2,}", str(title or ""))
         and re.search(r"(?:하지|타지|먹지|사지|쓰지|가지)\s*마세요|(?:주의|조심)", str(title or ""))
