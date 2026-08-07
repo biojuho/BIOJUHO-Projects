@@ -1,9 +1,9 @@
 # 핸드오프 0008 — 본문 2차 판정을 자르기 뒤가 아니라 앞에서 돌린다
 
-- **상태:** OPEN  <!-- OPEN → CLAIMED → DONE -->
+- **상태:** DONE  <!-- OPEN → CLAIMED → DONE -->
 - **기획자:** Claude Code
 - **추천 실행자:** Codex (0002를 만든 쪽 · 0004를 끝낸 뒤)
-- **실행자:** —
+- **실행자:** Codex
 - **작성일:** 2026-08-07
 
 > **선행:** `handoffs/0004`가 DONE인 뒤에 집는다. 둘 다 `fast_viral_collector.py`다.
@@ -71,7 +71,7 @@
 ---
 
 ## 반환 섹션 (실행자가 채운다)
-- **결과:**
-- **고른 기준:** 예산 8건을 누구에게 쓰기로 했고 왜인가.
-- **실행한 게이트:** 명령과 종료코드. 5번은 ①②③ 숫자로.
-- **남은 것 / 막힌 곳:**
+- **결과:** 자르기 전 후보 풀에서 OG를 먼저 적용하는 구현과 회귀를 만들었으나, 안전한 1회 실측에서 후보 17건 중 8건을 골라 실제 6건을 요청하고 4건의 OG를 얻었음에도 축 변경 0건·화면 신규 진입 0건이었다. 게이트 5의 중단 기준에 따라 코드·테스트 변경은 전부 되돌렸다. 최종 트리는 0008 전과 동일하다.
+- **고른 기준:** 이미 사는 축과 robots/접근 정책상 금지된 URL을 제외한 뒤 `unknown`을 `dead_flat`보다 먼저, 같은 축은 `x_exposure_score`가 높은 순으로 세우고 커뮤니티별 라운드로빈을 적용했다. 제목 정보가 가장 부족하면서 현재 자르기 경계에 가까운 후보에 예산을 쓰고 한 소스 쏠림을 막기 위한 기준이었다.
+- **실행한 게이트:** 후보 구현에서 `.venv/bin/python -m pytest automation/getdaytrends/tests/test_fast_viral_collector.py automation/getdaytrends/tests/test_og_enrich.py automation/getdaytrends/tests/test_kernel_screen.py -q` → 85 passed·exit 0; `.venv/bin/python -m pytest automation/getdaytrends/tests -q` → 962 passed·7 skipped·exit 0; 식별 UA를 쓰고 FMKorea 금지 경로를 로컬 차단한 임시 실 refresh → 예산 8, 선택 8, 요청 6, OG 추출 4, 축 변경 0, 신규 진입 0·exit 0. 비교 기준은 병합 직후 실측 ①요청 2 ②축 변경 확인 1(KTX) ③신규 진입 0, 후보 구현은 ①6 ②0 ③0. 되돌린 최종 트리에서 전체 테스트 재실행 → 957 passed·7 skipped·exit 0; `git diff --check` → exit 0.
+- **남은 것 / 막힌 곳:** 현재 표본에서는 자르기 앞으로 옮기는 것만으로 값이 없었다. 0009처럼 본문 판정 규칙 자체가 바뀐 뒤 축 변경 후보가 실제로 늘면 다시 평가할 수 있으나, 그 전에는 기존의 `커널 판정 → 자르기 → OG → 재정렬`을 유지한다.
