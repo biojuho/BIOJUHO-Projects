@@ -3,11 +3,32 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from statistics import median
 from typing import Any
+
+
+# Direct collectors sometimes use board-specific keys; IssueLink uses one slug.
+# These aliases only collapse *the same community*, never cross-community titles.
+_SOURCE_ALIASES = {
+    "ppomppu_freeboard": "ppomppu",
+    "bobaedream": "bobae",
+    "bobae_freeb": "bobae",
+    "bobae_national": "bobae",
+    "bobae_strange": "bobae",
+    "cook82": "82cook",
+}
+
+# IssueLink encodes some publisher IDs as opaque composites. Redirect checks
+# (2026-08-07) showed freeboard posts map as:
+#   468400010070329 → https://www.ppomppu.co.kr/...&no=10070329
+#   300003426651    → https://www.bobaedream.co.kr/view?code=freeb&No=3426651
+_PPOMPPU_COMPOSITE = re.compile(r"^(?:46840)(\d{10})$")
+_BOBAE_FREEB_COMPOSITE = re.compile(r"^(?:30000)(\d{7})$")
+_BOBAE_BEST_COMPOSITE = re.compile(r"^(?:40000)(\d{7})$")
 
 
 def _parse_iso(value: object) -> datetime | None:
@@ -22,6 +43,34 @@ def _parse_iso(value: object) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
+def normalize_lead_identity(source: object, post_id: object) -> tuple[str, str]:
+    """Map a raw (source, id) to the identity used for lead pairing.
+
+    Only applies deterministic ID/slug transforms proven by redirect or alias.
+    Does not fuzzy-match titles — false pairs would invent fake early detection.
+    """
+    src = str(source or "unknown").casefold().strip()
+    pid = str(post_id or "").strip()
+    src = _SOURCE_ALIASES.get(src, src)
+
+    if src == "ppomppu":
+        match = _PPOMPPU_COMPOSITE.fullmatch(pid)
+        if match:
+            # Keep freeboard native numbers without leading zeros.
+            pid = str(int(match.group(1)))
+    elif src == "bobae":
+        match = _BOBAE_FREEB_COMPOSITE.fullmatch(pid) or _BOBAE_BEST_COMPOSITE.fullmatch(pid)
+        if match:
+            pid = match.group(1)
+
+    return src, pid
+
+
+def lead_key(source: object, post_id: object) -> str:
+    src, pid = normalize_lead_identity(source, post_id)
+    return f"{src}:{pid}"
+
+
 def load_lead_time_store(path: Path) -> dict[str, Any]:
     """Read a lead-time store without mutating it."""
     try:
@@ -33,29 +82,48 @@ def load_lead_time_store(path: Path) -> dict[str, Any]:
     return payload
 
 
-def summarize_lead_time_store(payload: dict[str, Any]) -> dict[str, Any]:
-    """Aggregate evidence from a stored observation file.
+def _merge_records_by_identity(items: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Collapse raw store rows that refer to the same post after normalization."""
+    merged: dict[str, dict[str, Any]] = {}
+    for raw_key, record in items.items():
+        if not isinstance(record, dict):
+            continue
+        source = record.get("community_source") or str(raw_key).split(":", 1)[0]
+        post_id = record.get("post_id") or (
+            str(raw_key).split(":", 1)[1] if ":" in str(raw_key) else ""
+        )
+        key = lead_key(source, post_id)
+        slot = merged.setdefault(
+            key,
+            {
+                "community_source": key.split(":", 1)[0],
+                "post_id": key.split(":", 1)[1] if ":" in key else "",
+                "direct_first_seen_at": None,
+                "aggregator_first_seen_at": None,
+                "raw_keys": [],
+            },
+        )
+        slot["raw_keys"].append(str(raw_key))
+        for field in ("direct_first_seen_at", "aggregator_first_seen_at"):
+            candidate = _parse_iso(record.get(field))
+            current = _parse_iso(slot.get(field))
+            if candidate is None:
+                continue
+            if current is None or candidate < current:
+                slot[field] = candidate.isoformat()
+    return merged
 
-    Definition used here (and by metrics_for when both timestamps exist):
-    lead_minutes = (aggregator_first_seen_at − direct_first_seen_at) in minutes.
-    Positive means we saw the post on a direct community listing before IssueLink;
-    negative means the aggregator had it first (we were late).
 
-    metrics_for only exposes positive leads as lead_minutes. This summary keeps the
-    signed distribution so late detections are not hidden.
-    """
-    items = payload.get("items") if isinstance(payload.get("items"), dict) else {}
+def _summarize_merged(merged: dict[str, dict[str, Any]], *, record_count: int, store_updated_at: Any) -> dict[str, Any]:
     status_counts: Counter[str] = Counter()
     signed_minutes: list[float] = []
     by_source: dict[str, list[float]] = {}
     timestamps: list[datetime] = []
 
-    for key, record in items.items():
-        if not isinstance(record, dict):
-            continue
+    for key, record in merged.items():
         direct_at = _parse_iso(record.get("direct_first_seen_at"))
         aggregator_at = _parse_iso(record.get("aggregator_first_seen_at"))
-        source = str(record.get("community_source") or str(key).split(":", 1)[0] or "unknown")
+        source = str(record.get("community_source") or key.split(":", 1)[0] or "unknown")
         for stamp in (direct_at, aggregator_at):
             if stamp is not None:
                 timestamps.append(stamp)
@@ -99,7 +167,7 @@ def summarize_lead_time_store(payload: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    buckets = Counter()
+    buckets: Counter[str] = Counter()
     for value in signed_minutes:
         if value < -60:
             buckets["lt_-60m"] += 1
@@ -119,14 +187,12 @@ def summarize_lead_time_store(payload: dict[str, Any]) -> dict[str, Any]:
             buckets["gt_180m"] += 1
 
     return {
-        "definition": (
-            "lead_minutes = aggregator_first_seen_at − direct_first_seen_at. "
-            "Positive: direct listing first; negative: IssueLink/aggregator first."
-        ),
-        "store_updated_at": payload.get("updated_at"),
-        "record_count": len(items),
+        "store_updated_at": store_updated_at,
+        "record_count": record_count,
+        "merged_identity_count": len(merged),
         "paired_count": n_both,
-        "pair_rate_pct": _pct(n_both, len(items)),
+        "pair_rate_pct": _pct(n_both, record_count),
+        "pair_rate_vs_merged_pct": _pct(n_both, len(merged)),
         "status_counts": dict(status_counts),
         "time_span_utc": {
             "start": min(timestamps).isoformat() if timestamps else None,
@@ -157,6 +223,52 @@ def summarize_lead_time_store(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def summarize_lead_time_store(
+    payload: dict[str, Any],
+    *,
+    normalize_identities: bool = True,
+) -> dict[str, Any]:
+    """Aggregate evidence from a stored observation file.
+
+    When normalize_identities is True (default), board-specific source keys and
+    IssueLink composite IDs are collapsed so the same post can form a pair.
+    The on-disk store is never modified here.
+    """
+    items = payload.get("items") if isinstance(payload.get("items"), dict) else {}
+    if normalize_identities:
+        merged = _merge_records_by_identity(items)
+        definition = (
+            "lead_minutes = aggregator_first_seen_at − direct_first_seen_at. "
+            "Positive: direct listing first; negative: IssueLink/aggregator first. "
+            "Identities are normalized (slug aliases + proven composite IDs only)."
+        )
+    else:
+        merged = {
+            str(key): {
+                "community_source": (record or {}).get("community_source"),
+                "post_id": (record or {}).get("post_id"),
+                "direct_first_seen_at": (record or {}).get("direct_first_seen_at"),
+                "aggregator_first_seen_at": (record or {}).get("aggregator_first_seen_at"),
+                "raw_keys": [str(key)],
+            }
+            for key, record in items.items()
+            if isinstance(record, dict)
+        }
+        definition = (
+            "lead_minutes = aggregator_first_seen_at − direct_first_seen_at. "
+            "Positive: direct listing first; negative: IssueLink/aggregator first. "
+            "Raw store keys only (no identity normalization)."
+        )
+    summary = _summarize_merged(
+        merged,
+        record_count=len(items),
+        store_updated_at=payload.get("updated_at"),
+    )
+    summary["definition"] = definition
+    summary["normalize_identities"] = normalize_identities
+    return summary
+
+
 class LeadTimeTracker:
     """Record observation timestamps without inferring unseen publication times."""
 
@@ -169,8 +281,7 @@ class LeadTimeTracker:
 
     @staticmethod
     def _key(item: dict[str, Any]) -> str:
-        source = str(item.get("community_source") or "fmkorea").casefold()
-        return f"{source}:{item.get('id')}"
+        return lead_key(item.get("community_source") or "fmkorea", item.get("id"))
 
     def _save(self) -> None:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,9 +289,9 @@ class LeadTimeTracker:
         temp_path.write_text(json.dumps(self._state, ensure_ascii=False, indent=2), encoding="utf-8")
         temp_path.replace(self.state_path)
 
-    def summarize(self) -> dict[str, Any]:
+    def summarize(self, *, normalize_identities: bool = True) -> dict[str, Any]:
         """Read-only aggregate of the current in-memory store."""
-        return summarize_lead_time_store(self._state)
+        return summarize_lead_time_store(self._state, normalize_identities=normalize_identities)
 
     def record_observations(
         self,
@@ -198,15 +309,24 @@ class LeadTimeTracker:
         changed = False
 
         for key in direct_keys | aggregator_keys:
+            item = item_by_key[key]
+            source, post_id = normalize_lead_identity(
+                item.get("community_source") or "fmkorea", item.get("id")
+            )
             record = records.setdefault(
                 key,
                 {
-                    "community_source": str(item_by_key[key].get("community_source") or "fmkorea"),
-                    "post_id": str(item_by_key[key].get("id") or ""),
+                    "community_source": source,
+                    "post_id": post_id,
                     "direct_first_seen_at": None,
                     "aggregator_first_seen_at": None,
                 },
             )
+            # Keep canonical fields even if an older raw row is revisited.
+            if record.get("community_source") != source or record.get("post_id") != post_id:
+                record["community_source"] = source
+                record["post_id"] = post_id
+                changed = True
             if key in direct_keys and not record.get("direct_first_seen_at"):
                 record["direct_first_seen_at"] = timestamp
                 changed = True
@@ -235,14 +355,38 @@ class LeadTimeTracker:
         self._state["items"] = {key: record for key, record, _ in kept[:5000]}
 
     def metrics_for(self, item: dict[str, Any]) -> dict[str, Any]:
-        record = self._state.get("items", {}).get(self._key(item), {})
-        direct_raw = record.get("direct_first_seen_at")
-        aggregator_raw = record.get("aggregator_first_seen_at")
+        # Prefer the normalized key; also merge any legacy raw rows that collapse to it.
+        key = self._key(item)
+        records = self._state.get("items", {})
+        candidates = [records[key]] if key in records else []
+        source, post_id = normalize_lead_identity(
+            item.get("community_source") or "fmkorea", item.get("id")
+        )
+        for raw_key, record in records.items():
+            if raw_key == key or not isinstance(record, dict):
+                continue
+            raw_source = record.get("community_source") or str(raw_key).split(":", 1)[0]
+            raw_id = record.get("post_id") or (
+                str(raw_key).split(":", 1)[1] if ":" in str(raw_key) else ""
+            )
+            if lead_key(raw_source, raw_id) == key:
+                candidates.append(record)
+
+        direct_raw = None
+        aggregator_raw = None
+        for record in candidates:
+            d = record.get("direct_first_seen_at")
+            a = record.get("aggregator_first_seen_at")
+            if d and (direct_raw is None or str(d) < str(direct_raw)):
+                direct_raw = d
+            if a and (aggregator_raw is None or str(a) < str(aggregator_raw)):
+                aggregator_raw = a
+
         lead_seconds: int | None = None
         status = "unmeasured"
         if direct_raw and aggregator_raw:
-            direct_at = datetime.fromisoformat(direct_raw)
-            aggregator_at = datetime.fromisoformat(aggregator_raw)
+            direct_at = datetime.fromisoformat(str(direct_raw))
+            aggregator_at = datetime.fromisoformat(str(aggregator_raw))
             delta = round((aggregator_at - direct_at).total_seconds())
             if delta > 0:
                 lead_seconds = delta
@@ -263,4 +407,5 @@ class LeadTimeTracker:
             "lead_seconds": lead_seconds,
             "lead_minutes": round(lead_seconds / 60, 1) if lead_seconds is not None else None,
             "lead_status": status,
+            "lead_identity": f"{source}:{post_id}",
         }
