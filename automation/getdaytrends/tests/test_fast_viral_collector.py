@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from fast_viral_collector import (  # noqa: E402
     _apply_og_second_pass,
     _annotate_community_clusters,
+    _community_titles_match,
     _looks_blocked,
     aggregator_quota,
     _community_x_exposure_assessment,
@@ -217,6 +218,61 @@ def test_community_exposure_score_rewards_observed_cross_community_spread():
     assert cross_confidence == "medium"
     assert single_confidence == "low"
     assert items[0]["community_cluster_key"] == items[1]["community_cluster_key"]
+
+
+def test_community_titles_match_after_korean_particle_normalization():
+    assert _community_titles_match(
+        "편의점 알바가 진상 손님한테 한 말",
+        "편의점 알바 진상 손님 응대 레전드",
+    )
+
+
+def test_community_titles_do_not_overmatch_on_two_generic_subjects():
+    assert not _community_titles_match(
+        "편의점 알바가 신제품 음료 공개",
+        "편의점 알바 진상 손님 응대 레전드",
+    )
+
+
+def test_community_cluster_key_is_independent_of_member_order():
+    first = [
+        {"id": "1", "title": "편의점 알바가 진상 손님한테 한 말", "community_source": "fmkorea"},
+        {"id": "2", "title": "편의점 알바 진상 손님 응대 레전드", "community_source": "theqoo"},
+    ]
+    reversed_members = [dict(item) for item in reversed(first)]
+
+    _annotate_community_clusters(first)
+    _annotate_community_clusters(reversed_members)
+
+    assert first[0]["community_cluster_key"] == first[1]["community_cluster_key"]
+    assert {item["community_cluster_key"] for item in first} == {
+        item["community_cluster_key"] for item in reversed_members
+    }
+
+
+def test_community_annotation_preserves_kernel_and_exposure_evidence():
+    kernel_screen = {"axis": "live_wrong", "signals": ["가해 역할 + 행위"]}
+    exposure_reasons = ["분당 조회 12.0", "IssueLink 선행 감지"]
+    items = [
+        {
+            "id": "1",
+            "title": "편의점 알바가 진상 손님한테 한 말",
+            "community_source": "fmkorea",
+            "kernel_screen": kernel_screen,
+            "exposure_reasons": exposure_reasons,
+        },
+        {
+            "id": "2",
+            "title": "편의점 알바 진상 손님 응대 레전드",
+            "community_source": "theqoo",
+        },
+    ]
+
+    _annotate_community_clusters(items)
+
+    assert items[0]["kernel_screen"] == kernel_screen
+    assert items[0]["exposure_reasons"] == exposure_reasons
+    assert items[0]["cross_community_source_count"] == 2
 
 
 def test_community_exposure_score_rewards_measured_spread_growth():

@@ -1,9 +1,9 @@
 # 핸드오프 0004 — 교차 확산 감지 되살리기 (한국어 조사 정규화 + 클러스터 키 안정화)
 
-- **상태:** OPEN
+- **상태:** DONE
 - **기획자:** Claude
 - **추천 실행자:** MiMo 또는 Codex (한국어 텍스트 처리)
-- **실행자:** (비어 있음)
+- **실행자:** Codex
 - **작성일:** 2026-08-06
 
 ## 목표
@@ -74,6 +74,6 @@ X 소재 판별에 가장 믿을 만한 신호가 교차 확산이다. 코드에
 
 ## 반환 (실행자가 채운다)
 
-- 결과:
-- 실행한 명령:
-- 남은 것:
+- 결과: 한국어 조사 접미사를 의존성 없이 정규화하고 Jaccard 0.5를 유지했다. 입력 순서에 흔들리던 대표 글 기반 묶음을 제목 쌍의 연결 성분으로 바꾸고, 구성원 공통 토큰 기반 키로 안정화했다. 같은 사건/과매칭 방지/구성원 순서/커널 `signals`·`exposure_reasons` 보존 회귀 4종을 추가했다. 전체 테스트는 957 passed·7 skipped. 저장된 실제 레이더 응답 12건에 새 클러스터러를 적용했을 때 `cross_community_source_count >= 2`는 6건이었다.
+- 실행한 명령: `git merge main --ff-only`; `.venv/bin/python -m pytest automation/getdaytrends/tests/test_fast_viral_collector.py automation/getdaytrends/tests/test_kernel_screen.py -q` (기준 69 passed); `.venv/bin/python -m pytest automation/getdaytrends/tests/test_fast_viral_collector.py automation/getdaytrends/tests/test_kernel_screen.py automation/getdaytrends/tests/test_og_enrich.py -q` (80 passed); `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (957 passed·7 skipped); `curl -sS http://127.0.0.1:8010/api/fast-viral | PYTHONPATH=automation/getdaytrends .venv/bin/python ...` (실응답 재클러스터링 6건); `git diff --check`.
+- 남은 것: 0004 범위에는 없음. 새 외부 refresh는 `STATE.md`에 별건으로 기록된 브라우저 위장 UA가 아직 남아 있어 실행하지 않았고, 이미 저장된 실제 API 응답만 읽어 검증했다.

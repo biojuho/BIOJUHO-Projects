@@ -404,6 +404,38 @@ _GENERIC_COMMUNITY_TOKENS = {
     "공개",
     "영상",
 }
+_KOREAN_COMMUNITY_SUFFIXES = (
+    # 긴 복합 조사부터 본다. 두 번까지 반복하면 `손님한테는`, `서울에서도`도
+    # 각각 `손님`, `서울`로 모이면서 형태소 분석기 의존성은 늘리지 않는다.
+    "에게서",
+    "한테서",
+    "으로",
+    "에서",
+    "에게",
+    "한테",
+    "께서",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "이랑",
+    "에는",
+    "에도",
+    "이라도",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "에",
+    "로",
+    "의",
+    "도",
+    "만",
+    "와",
+    "과",
+)
 _VIRAL_EVENT_MARKERS = (
     "단독",
     "속보",
@@ -419,12 +451,33 @@ _VIRAL_EVENT_MARKERS = (
 )
 
 
+def _normalize_community_token(token: str) -> str:
+    """Approximate Korean particle normalization without a morphology dependency."""
+
+    if not re.fullmatch(r"[가-힣]+", token):
+        return token
+    normalized = token
+    for _ in range(2):
+        stripped = next(
+            (
+                normalized[: -len(suffix)]
+                for suffix in _KOREAN_COMMUNITY_SUFFIXES
+                if normalized.endswith(suffix) and len(normalized) - len(suffix) >= 2
+            ),
+            None,
+        )
+        if stripped is None:
+            break
+        normalized = stripped
+    return normalized
+
+
 def _community_title_tokens(title: str) -> set[str]:
     cleaned = re.sub(r"\.(?:jpg|jpeg|png|gif|mp4)\b", " ", title.casefold())
     return {
-        token
+        normalized
         for token in re.findall(r"[0-9a-z가-힣]{2,}", cleaned)
-        if token not in _GENERIC_COMMUNITY_TOKENS
+        if (normalized := _normalize_community_token(token)) not in _GENERIC_COMMUNITY_TOKENS
     }
 
 
@@ -438,27 +491,60 @@ def _community_titles_match(left: str, right: str) -> bool:
     if len(left_tokens) < 2 or len(right_tokens) < 2:
         return False
     overlap = len(left_tokens & right_tokens)
+    # 조사 정규화 뒤 실제 예시가 4/7로 통과한다. 0.5보다 낮추면 짧은 제목 두 개가
+    # 흔한 명사 두 개만 공유해도 같은 사건으로 묶이므로 기존 임계값을 유지한다.
     return overlap / len(left_tokens | right_tokens) >= 0.5
 
 
-def _annotate_community_clusters(items: list[dict[str, Any]]) -> None:
-    clusters: list[list[dict[str, Any]]] = []
-    for item in items:
-        cluster = next(
-            (group for group in clusters if _community_titles_match(item["title"], group[0]["title"])),
-            None,
+def _community_cluster_key(cluster: list[dict[str, Any]]) -> str:
+    token_sets = [_community_title_tokens(str(item.get("title") or "")) for item in cluster]
+    nonempty_sets = [tokens for tokens in token_sets if tokens]
+    common_tokens = set.intersection(*nonempty_sets) if nonempty_sets else set()
+    if len(common_tokens) >= 2:
+        # 대표 글이나 DOM 순서가 바뀌어도 같은 사건의 공통 핵은 남는다.
+        signature = "tokens\x1f" + "\x1f".join(sorted(common_tokens))
+    else:
+        # 공통 핵이 너무 짧으면 다른 사건끼리 같은 키를 쓰지 않도록 구성원 전체를 쓴다.
+        # 정렬했기 때문에 이 경로도 구성원 순서에는 무관하다.
+        member_signatures = sorted(
+            " ".join(sorted(tokens))
+            or re.sub(r"[\W_]+", "", str(item.get("title") or ""), flags=re.UNICODE).casefold()
+            for item, tokens in zip(cluster, token_sets, strict=True)
         )
-        if cluster is None:
-            clusters.append([item])
-        else:
-            cluster.append(item)
+        signature = "members\x1e" + "\x1e".join(member_signatures)
+    return hashlib.sha256(signature.encode("utf-8")).hexdigest()[:16]
+
+
+def _annotate_community_clusters(items: list[dict[str, Any]]) -> None:
+    # 첫 항목을 대표로 삼는 탐욕 묶음은 DOM 순서에 따라 구성 자체가 달라진다.
+    # 모든 제목 쌍의 연결 성분을 구해 입력 순서와 무관한 클러스터를 만든다.
+    parents = list(range(len(items)))
+
+    def find(index: int) -> int:
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(left_index: int, right_index: int) -> None:
+        left_root = find(left_index)
+        right_root = find(right_index)
+        if left_root != right_root:
+            parents[max(left_root, right_root)] = min(left_root, right_root)
+
+    for left_index, left in enumerate(items):
+        for right_index in range(left_index + 1, len(items)):
+            if _community_titles_match(str(left.get("title") or ""), str(items[right_index].get("title") or "")):
+                union(left_index, right_index)
+
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for index, item in enumerate(items):
+        grouped.setdefault(find(index), []).append(item)
+    clusters = sorted(grouped.values(), key=_community_cluster_key)
+
     for cluster_id, cluster in enumerate(clusters, start=1):
         sources = sorted({str(item["community_source"]) for item in cluster})
-        representative_tokens = sorted(_community_title_tokens(cluster[0]["title"]))
-        representative = " ".join(representative_tokens) or re.sub(
-            r"[\W_]+", "", cluster[0]["title"], flags=re.UNICODE
-        ).casefold()
-        cluster_key = hashlib.sha256(representative.encode("utf-8")).hexdigest()[:16]
+        cluster_key = _community_cluster_key(cluster)
         for item in cluster:
             item["community_cluster_id"] = cluster_id
             item["community_cluster_key"] = cluster_key
