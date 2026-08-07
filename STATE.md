@@ -24,10 +24,10 @@
 
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
-| 0004 교차 확산 감지 | **Codex** | 진행 중 | 0002 병합 확인을 기다리다 재개. `fast_viral_collector.py` 독점 |
+| 0004 교차 확산 감지 | **Codex** | 진행 중 | 0002 병합(`f3de282`) 확인 후 재개. `fast_viral_collector.py` 독점. **핸드오프 파일은 아직 OPEN·실행자 공란** — 집을 때 CLAIMED로 바꾸지 않았다 |
 | 0008 본문 판정을 자르기 앞으로 | **Codex** | OPEN(0004 다음) | `handoffs/0008-og-before-the-cut.md` — 2차 판정이 자른 뒤에만 돌아 본문으로 살아날 소재가 화면 진입을 못 한다. 예산 8건·2초 간격은 늘리지 않는다 |
-| 0009 본문 판정의 어휘 치환 판별 | **Qwen** | OPEN(2026-08-07 발행) | `handoffs/0009-body-verdict-without-word-swaps.md` — `kernel_screen.py`만. "와이프→아내"·"바람→외도"가 정규화인지 겨냥인지 판별 기준 3개로 가른다 |
-| 0010 리드타임 실증 | **Grok** | **DONE** | 쌍 29·중앙 +80분·음수 3.4%. docs/lead-time-evidence-2026-08-07.md |
+| 0009 본문 판정의 어휘 치환 판별 | **Qwen** | 진행 중 | `handoffs/0009-body-verdict-without-word-swaps.md` — `kernel_screen.py`만. "와이프→아내"·"바람→외도"가 정규화인지 겨냥인지 판별 기준 3개로 가른다 |
+| 0011 "이유"·"근황" 좁히기 | **Qwen** | OPEN(0009 다음) | `handoffs/0011-two-words-make-two-thirds.md` — 사는 축 26건 중 두 어휘가 17건(64%)이고 08:5x 화면에서는 **상위 6건 전부**가 이 둘이었다. X 정답지에서는 각 1건뿐 |
 | 0006 jamnanda 어그리게이터 | — | 대기 | 선행조건 중 0005는 풀렸다. `fast_viral_collector.py`가 0004·0008로 계속 차 있어 그 뒤로 미룬다 |
 > **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
 **Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
