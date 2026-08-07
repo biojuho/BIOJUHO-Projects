@@ -9,13 +9,15 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-06 기준 801 passed · 7 skipped — Kiwipiepy·Scrapling 미설치)
-- **갱신:** 2026-08-07 · by Grok (0007)
+- **갱신:** 2026-08-07 · by Grok (0010)
 
 > **수집은 서버가 돌린다(2026-08-06부터).** 5분 주기·09~24시(KST)·레인당 하루 200회 상한.
 > 브라우저 탭이 열려 있어 방금 갱신됐으면 서버는 건너뛴다. 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`,
 > 상태는 `GET /api/collection-scheduler`. 화면의 라이브 점과 "N분 전" 배지가 실제 신선도를 따른다.
 
 ## 지금 진행 중
+
+> **0010 DONE (Grok, 2026-08-07).** 리드타임 1차 실증. 쌍 29·중앙 +80분·음수 3.4%·미쌍 99.4%. 원본 비파괴.
 
 > **0007 DONE (Grok, 2026-08-07).** 스포츠 `대회…우승` 오탐 수정. `content_filters.py`만. pytest 938.
 
@@ -42,7 +44,7 @@
 1. ~~수집 상시화~~ — 완료(`collection_scheduler.py`). 서버가 5분 주기로 이어받는다.
 2. ~~신선도 상시 표시~~ — 완료(`handoffs/0001` DONE, `freshness.py`).
 3. **스킵된 테스트 2종 해소.** `test_korean_nlp.py`가 Kiwipiepy 미설치로, `test_news_scraper.py`가 Scrapling 미설치로 스킵된다. 한국어 형태소는 트렌드 분류·금지어 필터 품질에 직결되므로 Kiwipiepy가 우선이다. `~/Desktop/Joopark`에 Kiwi 0.23.2를 정확 버전 고정해 로컬 전용(외부 전송 0건)으로 쓴 선례가 있다.
-4. **리드타임 지표 실증.** 이제 관측이 연속으로 쌓이므로, 며칠 뒤 "얼마나 일찍 잡았는지"를 실제 수치로 확인한다. 이 프로젝트의 존재 이유라 이 숫자가 나와야 다음 개선 방향이 정해진다. 하루 이틀 데이터가 모인 뒤 착수한다.
+4. ~~리드타임 지표 실증~~ — **1차 완료(0010, 2026-08-07).** 정의: aggregator−direct 관측시각(분). 표본: 저장 4.7k·쌍 29(0.6%)·~26h. 중앙값 **+80분**, 음수 **3.4%**. 병목은 늦은 탐지가 아니라 미쌍. 상세 `docs/lead-time-evidence-2026-08-07.md`. 재측정: `python scripts/report_lead_time_evidence.py data/viral_lead_times.json`.
 
 ## 사용자 결정 대기
 
