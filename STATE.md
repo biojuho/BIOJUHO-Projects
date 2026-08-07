@@ -9,13 +9,15 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-07 기준 967 passed · 7 skipped — Kiwipiepy·Scrapling 미설치)
-- **갱신:** 2026-08-07 · by Codex (0004 보완)
+- **갱신:** 2026-08-07 · by Grok (0013)
 
 > **수집은 서버가 돌린다(2026-08-06부터).** 5분 주기·09~24시(KST)·레인당 하루 200회 상한.
 > 브라우저 탭이 열려 있어 방금 갱신됐으면 서버는 건너뛴다. 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`,
 > 상태는 `GET /api/collection-scheduler`. 화면의 라이브 점과 "N분 전" 배지가 실제 신선도를 따른다.
 
 ## 지금 진행 중
+
+> **0013 DONE (Grok).** 노출↔저장 반비례 주장 → **판단 불가**. 후속 저장 축 안 함. docs/x-reach-vs-save-verification-2026-08-07.md
 
 > **0012 DONE (Grok, story-boards).** 쌍 0.6→0.9%. docs/lead-time-pairing-2026-08-07.md
 
