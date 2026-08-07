@@ -170,6 +170,8 @@ def test_dashboard_exposes_reference_library_ui(client):
     assert "Threads 검색" in response.text
     assert "커뮤니티 바이럴 조기감지" in response.text
     assert "/api/fast-viral/refresh" in response.text
+    assert "community_cluster_count" in response.text
+    assert "cross_community_labels" in response.text
 
 
 def test_fast_viral_refresh_endpoint(client):

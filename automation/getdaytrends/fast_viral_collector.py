@@ -359,6 +359,9 @@ def parse_issuelink_community_items(html: str) -> list[dict[str, Any]]:
 
 
 def _select_diverse_community_items(items: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    # 같은 사건이 여러 소스에 걸린 것은 강한 신호이지 여러 자리를 쓸 이유가 아니다.
+    # 대표 한 건에 교차 소스를 합친 뒤 라운드로빈해야 빈 자리가 다음 소재로 채워진다.
+    items = _collapse_community_clusters(items)
     buckets: dict[str, list[dict[str, Any]]] = {}
     for item in items:
         buckets.setdefault(item["community_source"], []).append(item)
@@ -390,6 +393,64 @@ def _select_diverse_community_items(items: list[dict[str, Any]], limit: int) -> 
         reverse=True,
     )
     return selected
+
+
+def _collapse_community_clusters(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return one representative per cluster while retaining spread evidence."""
+
+    groups: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    for index, item in enumerate(items):
+        cluster_key = str(item.get("community_cluster_key") or f"__item__:{index}")
+        if cluster_key not in groups:
+            order.append(cluster_key)
+        groups.setdefault(cluster_key, []).append(item)
+
+    collapsed: list[dict[str, Any]] = []
+    for cluster_key in order:
+        members = groups[cluster_key]
+        representative = dict(sort_by_kernel(members)[0])
+        sources = sorted(
+            {
+                str(source)
+                for member in members
+                for source in [
+                    str(member.get("community_source") or ""),
+                    *(member.get("cross_community_sources") or []),
+                ]
+                if source
+            }
+        )
+        representative["cross_community_sources"] = sources
+        representative["cross_community_labels"] = [
+            _COMMUNITY_LABELS.get(source, source) for source in sources
+        ]
+        representative["cross_community_source_count"] = len(sources)
+        representative["community_mentions"] = max(
+            len(members),
+            *(int(member.get("community_mentions") or 1) for member in members),
+        )
+        collapsed.append(representative)
+    return collapsed
+
+
+def _select_unique_community_items(items: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Keep the IssueLink lane but spend at most one display seat per cluster."""
+
+    collapsed = _collapse_community_clusters(items)
+    issue_items = [item for item in collapsed if item.get("signal_source") == "IssueLink"]
+    direct_items = [item for item in collapsed if item.get("signal_source") != "IssueLink"]
+    direct_slots = max(0, limit - len(issue_items))
+    return sort_by_kernel([*sort_by_kernel(direct_items)[:direct_slots], *issue_items])[:limit]
+
+
+def _unique_community_cluster_count(items: list[dict[str, Any]]) -> int:
+    return len(
+        {
+            str(item.get("community_cluster_key") or f"__item__:{index}")
+            for index, item in enumerate(items)
+        }
+    )
 
 
 _GENERIC_COMMUNITY_TOKENS = {
@@ -474,6 +535,10 @@ def _normalize_community_token(token: str) -> str:
 
 def _community_title_tokens(title: str) -> set[str]:
     cleaned = re.sub(r"\.(?:jpg|jpeg|png|gif|mp4)\b", " ", title.casefold())
+    # 커뮤니티마다 줄여 쓰거나 띄어 쓰는 흔한 표기만 좁게 통일한다. 충격 표현은 사건
+    # 식별력이 낮아 이미 generic 토큰이므로 `충격받은/충격 먹은`을 같은 토큰으로 만든다.
+    cleaned = re.sub(r"여자\s*친구", "여친", cleaned)
+    cleaned = re.sub(r"충격\s*(?:을\s*)?(?:받|먹)[가-힣]*", "충격", cleaned)
     return {
         normalized
         for token in re.findall(r"[0-9a-z가-힣]{2,}", cleaned)
@@ -543,14 +608,40 @@ def _annotate_community_clusters(items: list[dict[str, Any]]) -> None:
     clusters = sorted(grouped.values(), key=_community_cluster_key)
 
     for cluster_id, cluster in enumerate(clusters, start=1):
-        sources = sorted({str(item["community_source"]) for item in cluster})
-        cluster_key = _community_cluster_key(cluster)
+        # 앞 단계에서 이미 여러 원문을 대표 한 건으로 접었을 수 있다. 이 함수가 레인
+        # 병합 뒤 다시 호출돼도 그 교차 확산 근거를 단일 대표 출처로 되돌리지 않는다.
+        sources = sorted(
+            {
+                str(source)
+                for item in cluster
+                for source in [
+                    str(item.get("community_source") or ""),
+                    *(item.get("cross_community_sources") or []),
+                ]
+                if source
+            }
+        )
+        source_labels = [_COMMUNITY_LABELS.get(source, source) for source in sources]
+        existing_keys = {
+            str(item.get("community_cluster_key") or "") for item in cluster
+        } - {""}
+        cluster_key = (
+            next(iter(existing_keys))
+            if len(existing_keys) == 1
+            and all(item.get("community_cluster_key") for item in cluster)
+            else _community_cluster_key(cluster)
+        )
+        community_mentions = max(
+            len(cluster),
+            *(int(item.get("community_mentions") or 1) for item in cluster),
+        )
         for item in cluster:
             item["community_cluster_id"] = cluster_id
             item["community_cluster_key"] = cluster_key
-            item["community_mentions"] = len(cluster)
+            item["community_mentions"] = community_mentions
             item["cross_community_source_count"] = len(sources)
             item["cross_community_sources"] = sources
+            item["cross_community_labels"] = source_labels
 
 
 def _community_x_exposure_assessment(
@@ -1090,10 +1181,6 @@ class FastViralCollector:
                     item["observed_at"] = observation["observed_at"]
                     item["observation_delta"] = observation
                 selected_issue_items = _select_diverse_community_items(allowed_issue_items, quota)
-                if selected_issue_items:
-                    # 확보한 자리만큼 직접 목록을 덜어낸다. 점수 순으로만 자르면 확산이 덜 붙은
-                    # 사는 축 소재가 가장 먼저 사라지므로, 여기서도 커널 축을 1차 키로 둔다.
-                    qualified = sort_by_kernel(qualified)[: max(0, limit - len(selected_issue_items))]
                 async with httpx.AsyncClient(headers=headers, follow_redirects=False) as redirect_session:
                     resolved_originals = await _resolve_community_origins(redirect_session, selected_issue_items)
                 for item in selected_issue_items:
@@ -1120,12 +1207,15 @@ class FastViralCollector:
             # 확산이 덜 붙어 점수가 낮다는 것이 사는 축 소재의 정의라 언제나 맨 아래로 간다.
             # 2026-08-07 실측: 게이트만 면제했을 때 화면의 사는 축은 여전히 2건이었다.
             # IssueLink 경유 항목은 아직 판정이 없으니 여기서 붙여 같은 잣대로 겨루게 한다.
+            # 직접·IssueLink 풀을 합친 뒤 다시 묶어, 서로 다른 레인에서 잡힌 같은 사건도
+            # 한 자리에 합치고 확보한 자리는 다음 고유 소재로 채운다.
+            _annotate_community_clusters(qualified)
             for item in qualified:
                 if "kernel_screen" not in item:
                     item["kernel_screen"] = screen_material(
                         item.get("title", ""), community_label=item.get("community_label")
                     )
-            displayed = sort_by_kernel(qualified)[:limit]
+            displayed = _select_unique_community_items(qualified, limit)
             # 0002: 제목만으로 약하게 판정된 소재는 본문(og:description)을 한 번 더 본다.
             og_enrichment = await _apply_og_second_pass(
                 displayed,
@@ -1145,11 +1235,12 @@ class FastViralCollector:
                 "direct_displayed_count": sum(1 for item in displayed if item.get("signal_source") == "직접 목록"),
                 "qualified_count": len(displayed),
                 "before_issuelink_count": sum(1 for item in displayed if item["before_issuelink"]),
-                "filtered_count": max(0, len(direct_observations) - sum(1 for item in qualified if item.get("signal_source") == "직접 목록")),
+                "filtered_count": max(0, len(direct_observations) - sum(1 for item in displayed if item.get("signal_source") == "직접 목록")),
                 "brand_safety_blocked_count": blocked_count,
                 "excluded_topic_counts": dict(excluded_topics),
                 "fallback_mode": fallback_mode,
                 "community_source_count": len({item.get("community_source") for item in displayed}),
+                "community_cluster_count": _unique_community_cluster_count(displayed),
                 "resolved_original_count": resolved_originals,
                 "measured_lead_count": sum(1 for item in displayed if item.get("lead_status") == "measured"),
                 "refreshed_at": now.isoformat(),

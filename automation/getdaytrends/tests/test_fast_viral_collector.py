@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from fast_viral_collector import (  # noqa: E402
     _apply_og_second_pass,
     _annotate_community_clusters,
+    _collapse_community_clusters,
     _community_titles_match,
     _looks_blocked,
     aggregator_quota,
@@ -19,6 +20,8 @@ from fast_viral_collector import (  # noqa: E402
     _is_brand_safe_title,
     _parse_count,
     _select_diverse_community_items,
+    _select_unique_community_items,
+    _unique_community_cluster_count,
     _velocity_score,
     passes_spread_gate,
     parse_fmkorea_latest,
@@ -232,6 +235,175 @@ def test_community_titles_do_not_overmatch_on_two_generic_subjects():
         "편의점 알바가 신제품 음료 공개",
         "편의점 알바 진상 손님 응대 레전드",
     )
+
+
+def test_community_titles_match_colloquial_relationship_and_shock_variants():
+    items = [
+        {
+            "id": "1",
+            "title": "여자친구 본가 갔다가 충격받은 의사.jpg",
+            "community_source": "ppomppu",
+        },
+        {
+            "id": "2",
+            "title": "여친 본가 갔다가 충격 먹은 의사",
+            "community_source": "bobae",
+        },
+    ]
+
+    _annotate_community_clusters(items)
+
+    assert items[0]["community_cluster_key"] == items[1]["community_cluster_key"]
+    assert items[0]["cross_community_source_count"] == 2
+    assert items[0]["cross_community_labels"] == ["보배드림 베스트", "뽐뿌 HOT"]
+
+
+def test_colloquial_normalization_does_not_merge_different_visits_to_the_same_home():
+    assert not _community_titles_match(
+        "여자친구 본가에서 처음 먹은 저녁 메뉴",
+        "여친 본가 갔다가 충격 먹은 의사",
+    )
+
+
+def test_cluster_collapse_keeps_one_representative_and_all_spread_evidence():
+    items = [
+        {
+            "title": "일본 음식을 한입 먹고 버린 한국인.jpg",
+            "community_source": "humoruniv",
+            "community_cluster_key": "same-event",
+            "cross_community_sources": ["humoruniv", "inven"],
+            "community_mentions": 2,
+            "x_exposure_score": 90,
+            "kernel_screen": {"axis": "dead_flat"},
+        },
+        {
+            "title": "일본 음식을 한입 먹고 버린 한국인",
+            "community_source": "inven",
+            "community_cluster_key": "same-event",
+            "cross_community_sources": ["humoruniv", "inven"],
+            "community_mentions": 2,
+            "x_exposure_score": 40,
+            "kernel_screen": {"axis": "live_wrong"},
+        },
+    ]
+
+    collapsed = _collapse_community_clusters(items)
+
+    assert len(collapsed) == 1
+    assert collapsed[0]["community_source"] == "inven"
+    assert collapsed[0]["cross_community_source_count"] == 2
+    assert collapsed[0]["cross_community_sources"] == ["humoruniv", "inven"]
+    assert collapsed[0]["cross_community_labels"] == ["웃긴대학", "인벤"]
+    assert collapsed[0]["community_mentions"] == 2
+
+
+def test_reannotation_preserves_collapsed_cross_community_evidence():
+    items = [
+        {
+            "title": "일본 음식을 한입 먹고 버린 한국인.jpg",
+            "community_source": "humoruniv",
+            "community_cluster_key": "a22c433b2ec6899b",
+            "cross_community_sources": ["humoruniv", "inven"],
+            "community_mentions": 2,
+        }
+    ]
+
+    _annotate_community_clusters(items)
+
+    assert items[0]["community_cluster_key"] == "a22c433b2ec6899b"
+    assert items[0]["cross_community_source_count"] == 2
+    assert items[0]["cross_community_sources"] == ["humoruniv", "inven"]
+    assert items[0]["cross_community_labels"] == ["웃긴대학", "인벤"]
+    assert items[0]["community_mentions"] == 2
+
+
+def test_diverse_selection_spends_one_seat_per_cluster_and_fills_the_saved_seat():
+    items = [
+        {
+            "title": "같은 사건 A",
+            "community_source": "humoruniv",
+            "community_cluster_key": "same-event",
+            "x_exposure_score": 90,
+            "comments": 10,
+            "source_position": 0,
+        },
+        {
+            "title": "같은 사건 B",
+            "community_source": "inven",
+            "community_cluster_key": "same-event",
+            "x_exposure_score": 80,
+            "comments": 9,
+            "source_position": 1,
+        },
+        {
+            "title": "다른 소재 하나",
+            "community_source": "ppomppu",
+            "community_cluster_key": "other-one",
+            "x_exposure_score": 70,
+            "comments": 8,
+            "source_position": 2,
+        },
+        {
+            "title": "다른 소재 둘",
+            "community_source": "bobae",
+            "community_cluster_key": "other-two",
+            "x_exposure_score": 60,
+            "comments": 7,
+            "source_position": 3,
+        },
+    ]
+
+    selected = _select_diverse_community_items(items, 3)
+
+    assert len(selected) == 3
+    assert _unique_community_cluster_count(selected) == 3
+    assert sum(item["community_cluster_key"] == "same-event" for item in selected) == 1
+
+
+def test_final_selection_keeps_unique_clusters_and_the_issuelink_lane():
+    items = [
+        {
+            "title": "직접 중복",
+            "community_source": "inven",
+            "community_cluster_key": "same-event",
+            "signal_source": "직접 목록",
+            "x_exposure_score": 90,
+        },
+        {
+            "title": "IssueLink 중복",
+            "community_source": "humoruniv",
+            "community_cluster_key": "same-event",
+            "signal_source": "IssueLink",
+            "x_exposure_score": 80,
+        },
+        {
+            "title": "직접 고유 1",
+            "community_source": "bobae",
+            "community_cluster_key": "direct-one",
+            "signal_source": "직접 목록",
+            "x_exposure_score": 70,
+        },
+        {
+            "title": "직접 고유 2",
+            "community_source": "ppomppu",
+            "community_cluster_key": "direct-two",
+            "signal_source": "직접 목록",
+            "x_exposure_score": 60,
+        },
+        {
+            "title": "IssueLink 고유",
+            "community_source": "theqoo",
+            "community_cluster_key": "issue-one",
+            "signal_source": "IssueLink",
+            "x_exposure_score": 50,
+        },
+    ]
+
+    selected = _select_unique_community_items(items, 3)
+
+    assert len(selected) == 3
+    assert _unique_community_cluster_count(selected) == 3
+    assert any(item["signal_source"] == "IssueLink" for item in selected)
 
 
 def test_community_cluster_key_is_independent_of_member_order():

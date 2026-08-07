@@ -77,3 +77,16 @@ X 소재 판별에 가장 믿을 만한 신호가 교차 확산이다. 코드에
 - 결과: 한국어 조사 접미사를 의존성 없이 정규화하고 Jaccard 0.5를 유지했다. 입력 순서에 흔들리던 대표 글 기반 묶음을 제목 쌍의 연결 성분으로 바꾸고, 구성원 공통 토큰 기반 키로 안정화했다. 같은 사건/과매칭 방지/구성원 순서/커널 `signals`·`exposure_reasons` 보존 회귀 4종을 추가했다. 전체 테스트는 957 passed·7 skipped. 저장된 실제 레이더 응답 12건에 새 클러스터러를 적용했을 때 `cross_community_source_count >= 2`는 6건이었다.
 - 실행한 명령: `git merge main --ff-only`; `.venv/bin/python -m pytest automation/getdaytrends/tests/test_fast_viral_collector.py automation/getdaytrends/tests/test_kernel_screen.py -q` (기준 69 passed); `.venv/bin/python -m pytest automation/getdaytrends/tests/test_fast_viral_collector.py automation/getdaytrends/tests/test_kernel_screen.py automation/getdaytrends/tests/test_og_enrich.py -q` (80 passed); `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (957 passed·7 skipped); `curl -sS http://127.0.0.1:8010/api/fast-viral | PYTHONPATH=automation/getdaytrends .venv/bin/python ...` (실응답 재클러스터링 6건); `git diff --check`.
 - 남은 것: 0004 범위에는 없음. 새 외부 refresh는 `STATE.md`에 별건으로 기록된 브라우저 위장 UA가 아직 남아 있어 실행하지 않았고, 이미 저장된 실제 API 응답만 읽어 검증했다.
+
+## 보완 요청 (2026-08-07)
+
+- 같은 `community_cluster_key` 항목은 화면 한 자리로 합치되 `cross_community_sources`와 교차 확산 점수·근거를 대표 항목에 유지한다.
+- `여자친구/여친`, `충격받은/충격 먹은` 표기 차이인 동일 글을 같은 클러스터로 정규화한다.
+- 과잉 병합 방지를 위해 화면 항목 수와 고유 클러스터 수를 전후 실측한다. 자리를 아끼면서 소재 종류까지 줄면 실패다.
+
+## 보완 반환 (실행자가 채운다)
+
+- 결과: 같은 클러스터를 `sort_by_kernel`로 고른 대표 한 건에 합쳐 한 자리만 쓰고, 합쳐진 `cross_community_sources`·한글 라벨·출처 수·언급 수를 유지했다. 직접 목록과 IssueLink를 합친 뒤에도 재클러스터링이 이 근거를 덮어쓰지 않도록 보존 회귀를 추가했다. 화면에는 `N곳 동시 · 커뮤니티명…` 배지와 고유 소재 수를 노출한다. `여자친구→여친`, `충격받은/충격 먹은→충격(일반 토큰 제외)`을 좁게 정규화했고, 무관한 본가 방문 문장은 묶이지 않는 반례를 고정했다. 점수 배점과 `커널 판정 → 자르기 → OG → 재정렬` 순서는 바꾸지 않았으며 OG의 `kernel_screen`·`signals`와 기존 `exposure_reasons`도 덮어쓰지 않는다.
+- 고유 클러스터 수 전후: 보완 직전 08:03 API 화면 12건은 **11개(중복 자리 1)**였고, 보완 후 08:12 refresh 화면 12건은 **12개(중복 자리 0)**였다. 소재 종류가 줄지 않고 1개 늘었다. 최종 실측에서 두 대상 모두 한 건씩만 표시되면서 뽐뿌+보배드림, 웃긴대학+인벤의 `cross_community_source_count=2`와 전체 소스·라벨을 보존했다. 화면의 교차 확산 대표 항목은 2건이었다.
+- 실행한 명령: `git merge main --ff-only`(브랜치가 갈라져 중단) 후 `git merge main` 및 충돌 2건 수동 병합(merge `cb1f2bb`); `.venv/bin/python -m pytest automation/getdaytrends/tests/test_fast_viral_collector.py automation/getdaytrends/tests/test_reference_library.py automation/getdaytrends/tests/test_kernel_screen.py -q` (92 passed); 식별 UA와 FMKorea 차단 경로 로컬 430 대체를 쓴 임시 `FastViralCollector.refresh(limit=12)` 실측(본문 비저장·비출력, OG 1/8건·동일 도메인 반복 0건); `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (967 passed·7 skipped); `git diff --check`.
+- 남은 것: 0004 범위에는 없음. 이 워크트리 커밋을 main에 병합하고 상시 8010 서버를 재시작하는 일은 사용자 통합 단계에 남긴다. push는 하지 않는다.

@@ -8,8 +8,8 @@
 - **별칭:** BIOJUHO-Projects, getdaytrends, 겟데이트렌드, 실시간 트렌드 조사, X 트렌드 레이더, 커뮤니티 원문 레이더, 바이럴 조기 탐지
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
-- **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-06 기준 801 passed · 7 skipped — Kiwipiepy·Scrapling 미설치)
-- **갱신:** 2026-08-07 · by Grok (0012)
+- **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-07 기준 967 passed · 7 skipped — Kiwipiepy·Scrapling 미설치)
+- **갱신:** 2026-08-07 · by Codex (0004 보완)
 
 > **수집은 서버가 돌린다(2026-08-06부터).** 5분 주기·09~24시(KST)·레인당 하루 200회 상한.
 > 브라우저 탭이 열려 있어 방금 갱신됐으면 서버는 건너뛴다. 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`,
@@ -24,11 +24,11 @@
 
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
-| 0004 교차 확산 감지 | **Codex** | **CLAIMED·보완 진행** | 동일 클러스터 한 자리 병합·교차 소스 근거 유지, 여자친구/여친·충격 표현 정규화, 고유 클러스터 수 전후 검증 |
+| 0004 교차 확산 감지 | **Codex** | **DONE·보완 완료** | 동일 클러스터 한 자리 병합·교차 소스 근거 보존. 실측 12자리의 고유 클러스터 11→12, 중복 자리 1→0 |
 | 0008 본문 판정을 자르기 앞으로 | **Codex** | **DONE·값 없음** | 실측: 후보 17·선택 8·요청 6·OG 4, 축 변경 0·신규 진입 0. 중단 기준에 따라 코드 전량 되돌림 |
 | 0009 본문 판정의 어휘 치환 판별 | **Qwen** | 진행 중 | `handoffs/0009-body-verdict-without-word-swaps.md` — `kernel_screen.py`만. "와이프→아내"·"바람→외도"가 정규화인지 겨냥인지 판별 기준 3개로 가른다 |
 | 0011 "이유"·"근황" 좁히기 | **Qwen** | OPEN(0009 다음) | `handoffs/0011-two-words-make-two-thirds.md` — 사는 축 26건 중 두 어휘가 17건(64%)이고 08:5x 화면에서는 **상위 6건 전부**가 이 둘이었다. X 정답지에서는 각 1건뿐 |
-| 0006 jamnanda 어그리게이터 | — | 대기 | 선행조건 중 0005는 풀렸다. `fast_viral_collector.py`가 0004·0008로 계속 차 있어 그 뒤로 미룬다 |
+| 0006 jamnanda 어그리게이터 | — | OPEN(착수 가능) | 0004·0008이 끝나 `fast_viral_collector.py` 선행조건이 풀렸다. `handoffs/0006-jamnanda-aggregator.md`를 먼저 읽는다 |
 > **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
 **Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
 `og-second-pass`(Codex) · `story-boards`(Grok, 0003 완료) · `cross-community`(Qwen).

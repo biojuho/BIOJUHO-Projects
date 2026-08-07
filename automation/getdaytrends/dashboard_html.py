@@ -1398,7 +1398,7 @@ function renderFastViral(data) {{
   status.innerHTML = `
     <span class="live-dot${{fresh.dotClass}}"></span>
     <strong>${{items.length}}개 커뮤니티 원문</strong>
-    <span class="fast-viral-early">${{safeHtml(String(data.community_source_count || 0))}}개 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
+    <span class="fast-viral-early">${{safeHtml(String(data.community_cluster_count || items.length))}}개 소재 · ${{safeHtml(String(data.community_source_count || 0))}}개 대표 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
     <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/${{safeHtml(String(data.direct_source_total || 0))}}곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
     <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTotal))}}건</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
@@ -1427,6 +1427,12 @@ function renderFastViral(data) {{
     const exposureReasons = (item.exposure_reasons || [])
       .map(reason => `<span class="x-radar-reason">${{safeHtml(reason)}}</span>`)
       .join('');
+    const crossSourceLabels = Array.isArray(item.cross_community_labels)
+      ? item.cross_community_labels
+      : (Array.isArray(item.cross_community_sources) ? item.cross_community_sources : []);
+    const crossSpread = Number(item.cross_community_source_count || 0) >= 2
+      ? `<span class="x-radar-reason">${{safeHtml(String(item.cross_community_source_count))}}곳 동시 · ${{safeHtml(crossSourceLabels.join(' · '))}}</span>`
+      : '';
     const confidenceLabel = ({{high: '높음', medium: '중간', low: '낮음'}})[item.exposure_confidence] || '미산정';
     const originLabel = item.link_kind === 'publisher_original' ? '원문' : '원문 이동';
     return `
@@ -1441,6 +1447,7 @@ function renderFastViral(data) {{
         </div>
         <div class="x-radar-reasons">
           ${{exposureReasons}}
+          ${{crossSpread}}
           ${{item.views ? `<span class="x-radar-reason">조회 ${{safeHtml(Number(item.views).toLocaleString())}}</span>` : ''}}
           ${{item.views_per_minute != null ? `<span class="x-radar-reason">분당 ${{safeHtml(String(item.views_per_minute))}}</span>` : ''}}
           <span class="x-radar-reason">댓글 ${{safeHtml(String(item.comments || 0))}}</span>
