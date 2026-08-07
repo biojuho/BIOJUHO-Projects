@@ -17,6 +17,8 @@
 
 ## 지금 진행 중
 
+> **0012 DONE (Grok, story-boards).** 쌍 0.6→0.9%. docs/lead-time-pairing-2026-08-07.md
+
 > **0010 DONE (Grok).** 리드타임 1차. 상세 docs/lead-time-evidence-2026-08-07.md (story-boards 브랜치).
 > **2026-08-07 병합 완료 3건.** 0002(Codex, OG 2차 판정 `f3de282`) · 0005(Qwen, 낙차 구조 패턴 `62920ad`, 재현율 3/20) · 0007(Grok, 스포츠 오탐 `2ba630a`). 통합 후 953 passed, 화면 사는 축 3건→7건.
 

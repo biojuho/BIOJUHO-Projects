@@ -1,9 +1,9 @@
 # 핸드오프 0012 — 리드타임이 99.4%의 경우 측정 자체가 안 된다
 
-- **상태:** OPEN  <!-- OPEN → CLAIMED → DONE -->
+- **상태:** DONE  <!-- OPEN → CLAIMED → DONE -->
 - **기획자:** Claude Code
 - **추천 실행자:** Grok (0010에서 이 문제를 찾아낸 쪽)
-- **실행자:** —
+- **실행자:** Grok
 - **작성일:** 2026-08-07
 
 ## 목표
@@ -81,8 +81,13 @@
 ---
 
 ## 반환 섹션 (실행자가 채운다)
-- **왜 쌍이 안 만들어졌나:** 확인한 가설과 데이터.
-- **결과:** 무엇을 고쳤는가. 쌍 비율 0.6% → ?%.
-- **중앙값·음수 비율:** 흔들렸는가. 흔들렸다면 왜.
-- **실행한 게이트:** 명령과 종료코드. sha256 포함.
-- **남은 것 / 막힌 곳:** 특히 `fast_viral_collector.py`에 있어야 할 수정이 있다면 여기에.
+- **왜 쌍이 안 만들어졌나:**
+  1. **ruliweb·theqoo** — IssueLink에도 자주 나오고 **같은 숫자 id**를 씀 → 쌍 성립. “그 둘만 올라와서”와 “키 형태가 맞아서” **둘 다**.
+  2. **ppomppu** — IssueLink에 실제로 올라오는데(agg 21) 쌍 0. 원인: IssueLink id가 `468400010070329` 형태 합성 ID이고 직접 수집은 `no=10070329`. 리다이렉트로 동일 글 확인. 추가로 freeboard 소스키 `ppomppu_freeboard` vs IssueLink `ppomppu`.
+  3. **bobae** — freeb 합성 `30000`+No, 보드별 소스키 분절. 소량 복구.
+  4. **dogdrip 등** — 저장 기준 aggregator 0건 → **키 문제가 아니라 IssueLink 미출현**.
+  제목 유사 매칭은 쓰지 않음.
+- **결과:** `lead_time_tracker`에 식별자 정규화(슬러그 별칭 + 검증된 합성 ID). summarize raw/normalized 비교, record/metrics도 동일 키. **fast_viral_collector 미수정.** 쌍 **0.6%(29) → 0.9%(44)**. 문서 `docs/lead-time-pairing-2026-08-07.md`.
+- **중앙값·음수 비율:** 중앙 **+80 → +74.3**(스윙 5.7분, 게이트 30분 통과). 음수 **3.4% → 4.5%**. 양수 89.7%→90.9%. 새로 생긴 15쌍은 합성 ID 디코드·키 병합(제목 추정 아님).
+- **실행한 게이트:** `pytest …/tests -q` → **957 passed, 7 skipped, exit 0**. report exit 0·median_gate_pass True. 원본 sha256 전후 동일 `aaebe76151e010652ecb0005b9a0abd88b3373dbc8b3918a9be84c2d81f14ac4`.
+- **남은 것 / 막힌 곳:** 화면 `before_issuelink`·중복 제거용 **`_snapshot_item_key`는 여전히 raw** — 같은 정규화를 collector에 넣으면 점수·표시도 정합되나 Codex 점유라 **여기서 멈춤**. todayhumor 6 vs 8자리·ppomppu 타 prefix(`31560`…)는 미검증. 미쌍 대다수는 여전히 IssueLink 미출현.
