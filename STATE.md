@@ -22,10 +22,10 @@
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
 | 0004 교차 확산 감지 | **Codex** | **DONE** | 조사 정규화·순서 독립 클러스터 키·근거 보존 회귀 완료. 957 passed·7 skipped, 저장된 실제 응답에서 교차 확산 6건 |
-| 0008 본문 판정을 자르기 앞으로 | **Codex** | OPEN(0004 다음) | `handoffs/0008-og-before-the-cut.md` — 2차 판정이 자른 뒤에만 돌아 본문으로 살아날 소재가 화면 진입을 못 한다. 예산 8건·2초 간격은 늘리지 않는다 |
+| 0008 본문 판정을 자르기 앞으로 | **Codex** | **DONE·값 없음** | 실측: 후보 17·선택 8·요청 6·OG 4, 축 변경 0·신규 진입 0. 중단 기준에 따라 코드 전량 되돌림 |
 | 0009 본문 판정의 어휘 치환 판별 | **Qwen** | OPEN(2026-08-07 발행) | `handoffs/0009-body-verdict-without-word-swaps.md` — `kernel_screen.py`만. "와이프→아내"·"바람→외도"가 정규화인지 겨냥인지 판별 기준 3개로 가른다 |
 | 0010 리드타임 지표 실증 | **Grok** | OPEN(2026-08-07 발행) | `handoffs/0010-lead-time-evidence.md` — 이 프로젝트의 존재 이유. `lead_time_tracker.py` + 분석. 음수 비율 필수, 표본 10건 미만이면 결론 금지 |
-| 0006 jamnanda 어그리게이터 | — | 대기 | 선행조건 중 0005는 풀렸다. `fast_viral_collector.py`가 0004·0008로 계속 차 있어 그 뒤로 미룬다 |
+| 0006 jamnanda 어그리게이터 | — | OPEN(착수 가능) | 0005·0004·0008 선행조건이 모두 풀렸고 `fast_viral_collector.py`가 비었다 |
 > **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
 **Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
 `og-second-pass`(Codex) · `story-boards`(Grok, 0003 완료) · `cross-community`(Qwen).
