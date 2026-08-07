@@ -17,15 +17,15 @@
 
 ## 지금 진행 중
 
-> **0007 DONE (Grok, 2026-08-07).** 스포츠 `대회…우승` 오탐 수정. `content_filters.py`만. pytest 938.
+> **2026-08-07 병합 완료 3건.** 0002(Codex, OG 2차 판정 `f3de282`) · 0005(Qwen, 낙차 구조 패턴 `62920ad`, 재현율 3/20) · 0007(Grok, 스포츠 오탐 `2ba630a`). 통합 후 953 passed, 화면 사는 축 3건→7건.
 
 | 스레드 | 담당 | 상태 | 다음 액션 |
 |--------|------|------|-----------|
-| 0002 og:description 2차 판정 | **Codex** | **완료·검수 대기** | 워크트리 og-second-pass에 커밋 `19dd88c`. 검증에서 live 1→3, OG 요청 4/8. 935 passed. **main 병합 시 주의** — 워크트리가 오늘 main 커밋 셋을 모른 채 `test_kernel_screen.py`를 고쳤다 |
-| 0004 교차 확산 감지 | **Codex**(재배정 2026-08-07) | OPEN | Qwen이 0005로 옮겨가 비었다. Codex가 방금 `fast_viral_collector.py`를 만졌으므로 연속성 있게 이어받는다 |
-| 0007 제외 필터 오탐 | **Grok** | **DONE** | story-boards 커밋 대기. 요리 대회 스포츠 오탐 수정 · content_filters만 · 938 passed |
-| 0005 낙차 판정을 구조로 | **Qwen** | **DONE** | 재현율 2/20 → **3/20**. 1차에서 7/20을 냈으나 검수에서 누수 확인 후 반려 — 과적합·과확장 5종을 걷어내고 순수 구조 1종(대상 전환)만 남겼다. 정밀도 가드에 새던 문장 3개 추가. **목표 8/20에 못 미친 것은 의도한 결과다** — 새는 판정보다 놓치는 판정이 낫다 |
-| 0006 jamnanda 어그리게이터 | — | **대기(선행조건 있음)** | `handoffs/0006-jamnanda-aggregator.md` — 클리앙·82cook·딴지 확보. **0005 DONE + `fast_viral_collector.py`가 빌 때까지 집지 않는다.** jamnanda는 메트릭을 안 주므로 직접 소스가 아니라 IssueLink와 같은 어그리게이터 경로여야 한다 |
+| 0004 교차 확산 감지 | **Codex** | 진행 중 | 0002 병합 확인을 기다리다 재개. `fast_viral_collector.py` 독점 |
+| 0008 본문 판정을 자르기 앞으로 | **Codex** | OPEN(0004 다음) | `handoffs/0008-og-before-the-cut.md` — 2차 판정이 자른 뒤에만 돌아 본문으로 살아날 소재가 화면 진입을 못 한다. 예산 8건·2초 간격은 늘리지 않는다 |
+| 0009 본문 판정의 어휘 치환 판별 | **Qwen** | OPEN(2026-08-07 발행) | `handoffs/0009-body-verdict-without-word-swaps.md` — `kernel_screen.py`만. "와이프→아내"·"바람→외도"가 정규화인지 겨냥인지 판별 기준 3개로 가른다 |
+| 0010 리드타임 지표 실증 | **Grok** | OPEN(2026-08-07 발행) | `handoffs/0010-lead-time-evidence.md` — 이 프로젝트의 존재 이유. `lead_time_tracker.py` + 분석. 음수 비율 필수, 표본 10건 미만이면 결론 금지 |
+| 0006 jamnanda 어그리게이터 | — | 대기 | 선행조건 중 0005는 풀렸다. `fast_viral_collector.py`가 0004·0008로 계속 차 있어 그 뒤로 미룬다 |
 > **0003 DONE (Grok, story-boards 워크트리).** 보배 freeb/national/strange·뽐뿌 freeboard 병행, 82cook 직접 수집 제외(443 거부→IssueLink만). pytest 923. 코드는 `biojuho/story-boards`에 있음 — main 병합 전 8010 재기동 대기.
 **Orca 워크트리(2026-08-06 배정):** `~/orca/workspaces/BIOJUHO-Projects/` 아래
 `og-second-pass`(Codex) · `story-boards`(Grok, 0003 완료) · `cross-community`(Qwen).
