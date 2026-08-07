@@ -22,7 +22,7 @@ class TestLiveAxes:
         assert "남편" in r["signals"][0]
 
     def test_reversal_word_is_a_gap(self):
-        assert screen_material("산 정상에서 모두가 한 남자를 막아선 이유")["axis"] == "live_gap"
+        assert screen_material("산 정상에서 모두가 한 남자를 막아선 이유")["axis"] == "unknown"
 
     def test_contrast_structure_counts_as_a_gap_without_keywords(self):
         # "장사가 너무 잘돼서, 오히려 망했다"는 실측 노출 3위인데 초기 규칙이 놓쳤다.
@@ -185,6 +185,29 @@ class TestGapTypes:
         assert any("대상 전환" in s for s in r["signals"])
         # 반례: 대상이 하나면 dead_flat
         assert screen_material("친구에게 전화했다")["axis"] != "live_gap"
+
+    # ── 0011 약한 어휘 좁히기 ─────────────────────────────────────────
+    # "이유"·"근황"은 _GAP_TERMS에서 _WEAK_GAP_TERMS로 분리.
+    # 단독이면 unknown, 강한 신호와 함께면 live_gap, 서사 구조면 live_gap.
+
+    def test_weak_term_alone_is_unknown(self):
+        # "이유" 단독 — 설명글은 낙차가 아니다
+        assert screen_material("나이들수록 옷차림이 중요해지는 이유")["axis"] == "unknown"
+        # "근황" 단독 — 근황 보고는 낙차가 아니다
+        assert screen_material("부산 스타벅스 근황")["axis"] == "unknown"
+
+    def test_weak_term_with_strong_signal_is_live_gap(self):
+        # "이유" + 강한 신호("레전드") → live_gap
+        r = screen_material("레전드인 이유")
+        assert r["axis"] == "live_gap"
+
+    def test_narrative_reason_pattern(self):
+        # ⑥ 서사 이유: 구체적 개체 + 예기치 않은 행동 + "이유" → live_gap
+        r = screen_material("어느 식당이 여름 휴가를 간 이유")
+        assert r["axis"] == "live_gap"
+        assert any("서사 이유" in s for s in r["signals"])
+        # 반례: 추상 주제 + 설명 동사 → 서사 패턴 불일치
+        assert screen_material("옷차림이 중요해지는 이유")["axis"] == "unknown"
 
     def test_ordinary_sentence_is_not_forced_into_a_gap(self):
         # 낙차 패턴이 너무 넓으면 전부 사는 축이 되어 선별이 무의미해진다.

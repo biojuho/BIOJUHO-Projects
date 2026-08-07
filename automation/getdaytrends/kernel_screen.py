@@ -41,13 +41,18 @@ _WRONGDOING_TERMS = (
 
 # ── 5-1절 사는 축② : 가해자 없는 강한 낙차 ────────────────────────────────
 _GAP_TERMS = (
-    "알고 보니", "알고보니", "반전", "뜻밖", "사실은", "정체", "이유", "결말", "근황",
+    "알고 보니", "알고보니", "반전", "뜻밖", "사실은", "정체", "결말",
     "충격", "소름", "레전드", "기적", "실화", "이럴 수가", "예상 밖", "예상밖",
     # 역접이 곧 낙차다. 2026-08-06에 "장사가 너무 잘돼서, 오히려 망했다"(노출 3위)를
     # 낙차 없음으로 오판해 추가했다.
     "오히려", "도리어", "인데도", "줄 알았는데", "줄알았는데", "그런데 정작", "했는데 정작",
     "안 했는데", "했더니", "하자마자",
 )
+
+# 0011: "이유"·"근황"은 단독이면낙차가 아니다 — 설명글이나 근황 보고가 사는 축 64%를 만든다.
+# 강한 신호가 없을 때 이 두 어휘만 있으면 unknown으로 내려 원문을 열게 한다.
+# 단, 구체적 개체가 예기치 않은 행동을 했을 때의 "이유"는 서사 구조로 포착한다.
+_WEAK_GAP_TERMS = ("이유", "근황")
 
 # 커널 1-3절이 정의한 낙차 4종을 구조로 잡는다. 어휘가 없어도 두 요소가 부딪히면 낙차다.
 # 처음에는 ①만 구현해서 "오만석 A+ 안 준다"(노출 4위) "JYP 도시락 공짜"(5위)를 놓쳤다.
@@ -65,6 +70,10 @@ _GAP_PATTERNS = (
     (re.compile(r"(?:엄마|아빠|아들|딸|남편|아내|사장|팀장|선생|담임).{0,16}(?:뜻밖|의외|반대로|처음으로|몰래)"), "관계-의미 역전"),
     # ⑤ 대상 전환 — 감정·행위의 대상이 도중에 바뀔 때 (0005 구조 패턴)
     (re.compile(r"\S+에게.{2,30}\S+에게"), "대상 전환"),
+    # ⑥ 서사 이유 — 구체적 개체가 예기치 않은 행동을 했을 때의 "이유" (0011)
+    # "식당이 휴가를 간 이유"는 낙차, "옷차림이 중요해지는 이유"는 설명글.
+    # 추상 동사(중요해지다, 늘다, 줄다 등)는 제외해서 설명글을 걸러낸다.
+    (re.compile(r"(?:식당|가게|회사|카페|편의점|병원|학교|스타벅스|맥도날드).{2,25}(?:간|접은|닫은|그둔|바뀐)\s*이유"), "서사 이유"),
 )
 
 # ── 5-1절 죽는 축① : 쌍방 논쟁형 (독자 판단이 갈림) ───────────────────────
@@ -139,7 +148,7 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
     debate_q = [p for p in _DEBATE_PATTERNS if p.search(raw)]
     actors = _hits(text, _ACTOR_TERMS)
     wrongs = _hits(text, _WRONGDOING_TERMS)
-    gaps = _hits(text, _GAP_TERMS) + [name for p, name in _GAP_PATTERNS if p.search(text)]
+    gaps = _hits(text, _GAP_TERMS + _WEAK_GAP_TERMS) + [name for p, name in _GAP_PATTERNS if p.search(text)]
 
     # 판정 순서가 곧 우선순위다. 가해자와 논쟁 신호가 함께 있으면 논쟁이 이긴다 —
     # 독자 판단이 갈리는 순간 인용 방향이 모이지 않기 때문이다.
@@ -155,12 +164,19 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
         signals.append(f"가해 역할 '{actors[0]}' + 행위 '{wrongs[0]}'")
         confidence = "medium"
     elif gaps:
-        # 0005: 구조적 낙차 패턴을 actors-only 판정 전에 확인한다.
-        # "친구와이프 임신했는데 배 만진 사람"처럼 _ACTOR_TERMS("친구")에 걸려
-        # unknown으로 새는 것을 방지한다. actors+wrongs(사는 축①)은 여전히 우선.
-        axis = "live_gap"
-        signals.append(f"낙차 신호 '{gaps[0]}'")
-        confidence = "low"
+        # 0011: 약한 어휘("이유"·"근황")만 있고 강한 신호가 없으면 unknown.
+        # "식당이 휴가를 간 이유"는 _GAP_PATTERNS의 서사 이유(⑥)가 먼저 잡아
+        # strong_gaps에 들어가므로 live_gap 유지. "옷차림이 중요해지는 이유"는
+        # 강한 신호 없고 서사 패턴도 안 맞아 unknown으로 내려간다.
+        strong_gaps = [g for g in gaps if g not in _WEAK_GAP_TERMS]
+        if strong_gaps:
+            axis = "live_gap"
+            signals.append(f"낙차 신호 '{strong_gaps[0]}'")
+            confidence = "low"
+        else:
+            axis = "unknown"
+            signals.append(f"'{gaps[0]}'만으로는 낙차를 확정할 수 없음 — 원문에서 확인")
+            confidence = "low"
     elif actors:
         axis = "unknown"
         signals.append(f"역할 '{actors[0]}'은 있으나 행위가 드러나지 않음")
