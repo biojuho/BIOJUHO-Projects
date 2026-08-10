@@ -11,7 +11,7 @@ eval-set.tsv 에서 사람이 채운 label 행만 써서 정치 축의 필터 �
   - 잘못 막은 항목(label=not_politics & verdict=block) 목록
   - unclear 는 분모에서 빼고 따로 센다
 
-표본이 30건 미만이면 비율을 내지 않고 n<30 으로 표시한다.
+각 지표의 실제 분모가 30건 미만이면 그 비율만 내지 않는다.
 라벨이 한 건도 없으면 "라벨 없음"을 알리고 죽지 않는다.
 
 이 측정이 잴 수 있는 것과 없는 것은 README.md 에 적어 두었다.
@@ -76,6 +76,9 @@ def _metrics(rows: list[dict[str, str]]) -> dict:
     missed = []   # politics & allow  — 놓침
     blocked = []  # not_politics & block — 잘못 막음
     unclear = 0
+    weighted = {"true_positive": 0.0, "false_negative": 0.0, "false_positive": 0.0, "true_negative": 0.0}
+    weight_rows = {"allow": 0, "block": 0}
+    invalid_weight = False
 
     for r in rows:
         label = r["label"]
@@ -83,22 +86,56 @@ def _metrics(rows: list[dict[str, str]]) -> dict:
         if label == "unclear":
             unclear += 1
             continue
+        if verdict not in {"allow", "block"}:
+            continue
         is_politics = label == "politics"
         is_block = verdict == "block"
+        weight: float | None = None
+        raw_weight = (r.get("sample_weight") or "").strip()
+        if raw_weight:
+            try:
+                parsed_weight = float(raw_weight)
+                if parsed_weight > 0:
+                    weight = parsed_weight
+                else:
+                    invalid_weight = True
+            except ValueError:
+                invalid_weight = True
+        else:
+            invalid_weight = True
+        if weight is not None:
+            weight_rows[verdict] += 1
         if is_politics and is_block:
             tp += 1
+            if weight is not None:
+                weighted["true_positive"] += weight
         elif is_politics and not is_block:
             fn += 1
+            if weight is not None:
+                weighted["false_negative"] += weight
             missed.append(r)
         elif (not is_politics) and is_block:
             fp += 1
+            if weight is not None:
+                weighted["false_positive"] += weight
             blocked.append(r)
         else:  # not_politics & allow
             tn += 1
+            if weight is not None:
+                weighted["true_negative"] += weight
 
     politics_total = tp + fn
     predicted_block = tp + fp
+    predicted_allow = fn + tn
     decided = tp + fn + fp + tn  # unclear 제외
+    has_shadow_weights = (
+        not invalid_weight
+        and decided > 0
+        and weight_rows["allow"] == predicted_allow
+        and weight_rows["block"] == predicted_block
+        and predicted_allow > 0
+        and predicted_block > 0
+    )
 
     metrics = {
         "labeled_count": len(rows),
@@ -112,19 +149,53 @@ def _metrics(rows: list[dict[str, str]]) -> dict:
         },
         "politics_total": politics_total,
         "predicted_block_total": predicted_block,
+        "predicted_allow_total": predicted_allow,
+        "weighted_confusion": weighted if has_shadow_weights else None,
+        "uses_sample_weight": has_shadow_weights,
         "missed": [_brief(r) for r in missed],
         "wrongly_blocked": [_brief(r) for r in blocked],
     }
 
-    # 비율은 표본이 충분할 때만. 30 미만이면 내지 않는다.
-    if decided >= MIN_SAMPLE_FOR_RATIO:
-        metrics["recall"] = (tp / politics_total) if politics_total else None
-        metrics["precision"] = (tp / predicted_block) if predicted_block else None
-        metrics["sample_sufficient"] = True
+    metric_status: dict[str, str] = {}
+    if predicted_block >= MIN_SAMPLE_FOR_RATIO:
+        if has_shadow_weights:
+            block_weight = weighted["true_positive"] + weighted["false_positive"]
+            metrics["precision"] = weighted["true_positive"] / block_weight
+        else:
+            metrics["precision"] = tp / predicted_block
+        metric_status["precision"] = "ok"
     else:
-        metrics["recall"] = None
         metrics["precision"] = None
-        metrics["sample_sufficient"] = False
+        metric_status["precision"] = "block_n<30"
+
+    if predicted_allow >= MIN_SAMPLE_FOR_RATIO:
+        if has_shadow_weights:
+            allow_weight = weighted["false_negative"] + weighted["true_negative"]
+            metrics["allow_politics_leak_rate"] = weighted["false_negative"] / allow_weight
+        else:
+            metrics["allow_politics_leak_rate"] = fn / predicted_allow
+        metric_status["allow_politics_leak_rate"] = "ok"
+    else:
+        metrics["allow_politics_leak_rate"] = None
+        metric_status["allow_politics_leak_rate"] = "allow_n<30"
+
+    is_shadow = any("sample_weight" in row for row in rows)
+    if politics_total < MIN_SAMPLE_FOR_RATIO:
+        metrics["recall"] = None
+        metric_status["recall"] = "politics_n<30"
+    elif is_shadow and not has_shadow_weights:
+        metrics["recall"] = None
+        metric_status["recall"] = "missing_or_invalid_sample_weight"
+    elif has_shadow_weights:
+        politics_weight = weighted["true_positive"] + weighted["false_negative"]
+        metrics["recall"] = weighted["true_positive"] / politics_weight
+        metric_status["recall"] = "ok"
+    else:
+        metrics["recall"] = tp / politics_total
+        metric_status["recall"] = "ok_unweighted_legacy"
+
+    metrics["metric_status"] = metric_status
+    metrics["sample_sufficient"] = all(status.startswith("ok") for status in metric_status.values())
     return metrics
 
 
@@ -160,16 +231,27 @@ def _print_human(m: dict) -> None:
     print()
     print(f"실제 정치(politics): {m['politics_total']}건")
     print(f"필터가 막은 건수:    {m['predicted_block_total']}건")
+    print(f"필터가 허용한 건수:  {m['predicted_allow_total']}건")
     print()
 
-    if m["sample_sufficient"]:
+    if m["recall"] is not None:
         print(f"재현율(recall)    = 맞게 막은 정치 ÷ 실제 정치 = {_fmt_ratio(m['recall'])}  (낮을수록 많이 놓침)")
-        if m["precision"] is None:
-            print("정밀도(precision) = N/A (필터가 막은 것이 없음 — 과잉 차단을 잴 수 없음)")
-        else:
-            print(f"정밀도(precision) = 맞게 막은 것 ÷ 필터가 막은 것 = {_fmt_ratio(m['precision'])}  (낮을수록 과잉 차단)")
     else:
-        print(f"n<30 (판정 대상 {m['decided_count']}건) — 비율을 내지 않는다. 위 혼동행렬의 건수만 볼 것.")
+        print(f"재현율(recall)    = — ({m['metric_status']['recall']})")
+    if m["precision"] is not None:
+        print(f"정밀도(precision) = 맞게 막은 것 ÷ 필터가 막은 것 = {_fmt_ratio(m['precision'])}  (낮을수록 과잉 차단)")
+    else:
+        print(f"정밀도(precision) = — ({m['metric_status']['precision']})")
+    if m["allow_politics_leak_rate"] is not None:
+        print(
+            "allow 정치 누출률 = 놓친 정치 ÷ 필터가 허용한 것 = "
+            f"{_fmt_ratio(m['allow_politics_leak_rate'])}  (높을수록 많이 놓침)"
+        )
+    else:
+        print(
+            "allow 정치 누출률 = — "
+            f"({m['metric_status']['allow_politics_leak_rate']})"
+        )
 
     print()
     print(f"놓친 정치(label=politics & verdict=allow): {len(m['missed'])}건 — 사전 확장의 입력")
@@ -187,9 +269,11 @@ def _print_human(m: dict) -> None:
         print("  (없음)")
 
     print()
-    print("주의: 이 표본은 이미 업스트림 게이트를 통과해 화면에 뜬 것들이다.")
-    print("      걸러진(차단) 항목은 제목과 함께 노출되지 않아 표본에 담기지 않는다.")
-    print("      따라서 과잉 차단(FP·정밀도)은 이 측정만으로는 잴 수 없다.")
+    if m["uses_sample_weight"]:
+        print("주의: shadow 층화 표본의 혼동행렬 건수는 원표본 수이고, 비율은 sample_weight를 적용했다.")
+    else:
+        print("주의: 기존 eval-set은 업스트림 통과 표본이라 과잉 차단과 모집단 재현율을 대표하지 못한다.")
+    print("      한 사람 라벨만으로는 라벨 신뢰도와 평가자 일치도를 알 수 없다.")
 
 
 def main(argv: list[str] | None = None) -> int:

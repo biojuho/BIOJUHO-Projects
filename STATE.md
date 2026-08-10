@@ -9,7 +9,7 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-07 기준 967 passed · 7 skipped — Kiwipiepy·Scrapling 미설치)
-- **갱신:** 2026-08-11 · by Codex 기획 (0033 평가셋 15→35행 누적 · 기존 15행 동일 · 신규 20행 무라벨 · 977 passed/8 skipped · 사람 라벨 대기)
+- **갱신:** 2026-08-11 · by Codex 기획·실행 (0035 차단표본 shadow 저장·결정론적 층화 추출·분모별 지표 게이트 완료 · 987 passed/8 skipped · 8010 재기동 전 미반영)
 - **이전 갱신:** 2026-08-07 · by Grok (0013)
 
 > **수집은 서버가 돌린다(2026-08-06부터).** 5분 주기·09~24시(KST)·레인당 하루 200회 상한.
@@ -18,9 +18,16 @@
 
 ## 지금 진행 중
 
-> **0033 평가셋 사람 라벨 대기.** `automation/getdaytrends/filter_eval/eval-set.tsv`는 35행이며
-> `label`은 전부 공란이다. 현재 판정은 allow 34·block 1이고 신규 20행은 전부 allow라,
-> 이 표본으로는 놓친 정치(FN) 진단만 가능하다. 차단 제목 표본 없이 FP·정밀도를 결론 내리지 않는다.
+> **0035 구현 완료, 운영 반영·사람 라벨 대기.** 필터 직전 direct·IssueLink·x-radar 후보의
+> allow·block 판정을 정책 SHA-256별 로컬 SQLite에 남기고, 고정 기간·seed·verdict quota로
+> 결정론적 층화 TSV를 내보낼 수 있다. 정밀도는 block 유효 라벨 30건, allow 정치 누출률은
+> allow 유효 라벨 30건, 가중 재현율은 두 층 가중치와 실제 정치 30건이 있어야만 출력한다.
+> 실행 중인 8010은 재기동 금지 계약 때문에 아직 이 코드를 읽지 않았으므로 shadow DB 수집도
+> 시작되지 않았다. 승인된 재기동 뒤 고정 기간 관측 → TSV 추출 → 사람 라벨 순서로 진행한다.
+
+> **0033 기존 평가셋 사람 라벨 대기.** `automation/getdaytrends/filter_eval/eval-set.tsv`는 35행,
+> SHA-256 `473290b49e6a34eb2e6519c5bb9c15c6ce73605cde8b9a5197043c49c8220abc`이며 label은 전부 공란이다.
+> allow 34·block 1인 업스트림 통과 표본이라 shadow 표본과 합치지 않고 FN 진단에만 쓴다.
 
 > **0013 DONE (Grok).** 노출↔저장 반비례 주장 → **판단 불가**. 후속 저장 축 안 함. docs/x-reach-vs-save-verification-2026-08-07.md
 

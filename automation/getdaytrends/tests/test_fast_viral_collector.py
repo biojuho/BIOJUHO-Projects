@@ -8,7 +8,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import fast_viral_collector as fast_module  # noqa: E402
 from fast_viral_collector import (  # noqa: E402
+    FastViralCollector,
     _cooling_signal,
     _direct_max_age_minutes,
     _apply_og_second_pass,
@@ -645,6 +647,151 @@ class TestBrandSafety:
 
     def test_still_rejects_too_short_titles(self):
         assert _is_brand_safe_title("ㅋㅋㅋ") is False
+
+
+@pytest.mark.asyncio
+async def test_collector_shadow_records_direct_and_issuelink_without_product_or_request_changes(
+    monkeypatch, tmp_path
+):
+    direct_items = [
+        {
+            "id": "101",
+            "title": "회사에서 신제품을 공개한 뒤 생긴 일",
+            "category": "유머",
+            "source_url": "https://www.fmkorea.com/101",
+            "published_label": "",
+            "age_minutes": 10,
+            "views": 10_000,
+            "votes": 100,
+            "comments": 50,
+        },
+        {
+            "id": "102",
+            "title": "국회 새 법안 처리 논의",
+            "category": "시사",
+            "source_url": "https://www.fmkorea.com/102",
+            "published_label": "",
+            "age_minutes": 10,
+            "views": 10_000,
+            "votes": 100,
+            "comments": 50,
+        },
+    ]
+    issue_items = [
+        {
+            "id": "201",
+            "title": "편의점 신제품을 먹고 놀란 손님 이야기",
+            "category": "IssueLink 집계 확인",
+            "community_source": "clien",
+            "community_label": "클리앙",
+            "source_url": "https://www.issuelink.co.kr/community/go/clien/201",
+            "aggregator_url": "https://www.issuelink.co.kr/community/go/clien/201",
+            "link_kind": "redirect_pending",
+            "published_label": "",
+            "age_minutes": None,
+            "views": 0,
+            "votes": 0,
+            "comments": 20,
+            "source_position": 0,
+        },
+        {
+            "id": "202",
+            "title": "시의회 예산안 표결",
+            "category": "IssueLink 집계 확인",
+            "community_source": "inven",
+            "community_label": "인벤",
+            "source_url": "https://www.issuelink.co.kr/community/go/inven/202",
+            "aggregator_url": "https://www.issuelink.co.kr/community/go/inven/202",
+            "link_kind": "redirect_pending",
+            "published_label": "",
+            "age_minutes": None,
+            "views": 0,
+            "votes": 0,
+            "comments": 20,
+            "source_position": 1,
+        },
+    ]
+
+    class FakeResponse:
+        status_code = 200
+        text = "<html></html>"
+
+        def raise_for_status(self):
+            return None
+
+    request_calls = 0
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, **kwargs):
+            nonlocal request_calls
+            request_calls += 1
+            return FakeResponse()
+
+    async def no_resolve(session, items):
+        return 0
+
+    async def no_og(items, **kwargs):
+        return {}
+
+    monkeypatch.setattr(fast_module, "DIRECT_COMMUNITY_SOURCES", ())
+    monkeypatch.setattr(fast_module.httpx, "AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr(fast_module, "parse_fmkorea_latest", lambda html, now: [dict(x) for x in direct_items])
+    monkeypatch.setattr(fast_module, "parse_issuelink_fmkorea_ids", lambda html: {"999"})
+    monkeypatch.setattr(fast_module, "parse_issuelink_community_items", lambda html: [dict(x) for x in issue_items])
+    monkeypatch.setattr(fast_module, "_resolve_community_origins", no_resolve)
+    monkeypatch.setattr(fast_module, "_apply_og_second_pass", no_og)
+
+    class RecordingStore:
+        def __init__(self):
+            self.rows = []
+
+        def record(self, **candidate):
+            self.rows.append(candidate)
+            return True
+
+    class ExplodingStore:
+        def record(self, **candidate):
+            raise RuntimeError("forced shadow failure")
+
+    def projection(data):
+        return {
+            "items": [(item["id"], item["title"], item["signal_source"]) for item in data["items"]],
+            "excluded_topic_counts": data["excluded_topic_counts"],
+            "qualified_count": data["qualified_count"],
+            "source_health": data["source_health"],
+        }
+
+    baseline = await FastViralCollector(tmp_path / "baseline.json").refresh(limit=5)
+    baseline_calls = request_calls
+    request_calls = 0
+    store = RecordingStore()
+    measured = await FastViralCollector(
+        tmp_path / "measured.json", filter_shadow_store=store
+    ).refresh(limit=5)
+    measured_calls = request_calls
+    request_calls = 0
+    failed = await FastViralCollector(
+        tmp_path / "failed.json", filter_shadow_store=ExplodingStore()
+    ).refresh(limit=5)
+
+    assert projection(measured) == projection(baseline)
+    assert projection(failed) == projection(baseline)
+    assert baseline_calls == measured_calls == request_calls == 2
+    assert {(row["source"], row["filter_verdict"]) for row in store.rows} == {
+        ("fast-viral:direct", "allow"),
+        ("fast-viral:direct", "block"),
+        ("fast-viral:issuelink", "allow"),
+        ("fast-viral:issuelink", "block"),
+    }
 
 
 class TestSpreadGate:

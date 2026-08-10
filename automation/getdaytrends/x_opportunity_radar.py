@@ -19,6 +19,7 @@ try:
     from .collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from .content_filters import excluded_topic_reason
     from .exposure_observation_tracker import ExposureObservationTracker
+    from .filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
     from .models import RawTrend
     from .news_origin_collector import fetch_bing_news_origins
     from .threads_signal_collector import ThreadsSignalCollector
@@ -26,6 +27,7 @@ except ImportError:
     from collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from content_filters import excluded_topic_reason
     from exposure_observation_tracker import ExposureObservationTracker
+    from filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
     from models import RawTrend
     from news_origin_collector import fetch_bing_news_origins
     from threads_signal_collector import ThreadsSignalCollector
@@ -439,12 +441,14 @@ class XOpportunityRadar:
         threads_collector: ThreadsSignalCollector | None = None,
         news_fetcher: NewsFetcher | None = fetch_bing_news_origins,
         observation_path: Path | None = None,
+        filter_shadow_store: FilterShadowStore | None = None,
     ):
         self.google_fetcher = google_fetcher
         self.x_fetcher = x_fetcher
         self.threads_collector = threads_collector or ThreadsSignalCollector()
         self.news_fetcher = news_fetcher
         self.exposure_tracker = ExposureObservationTracker(observation_path)
+        self.filter_shadow_store = filter_shadow_store
         self._refresh_lock = asyncio.Lock()
         self._snapshot: dict[str, Any] = {
             "available": False,
@@ -550,6 +554,17 @@ class XOpportunityRadar:
                 google = candidate.get("google")
                 headlines = list((google.extra or {}).get("news_headlines", [])) if google else []
                 candidate["excluded_topic_reason"] = excluded_topic_reason(candidate["keyword"], *headlines)
+                keyword = candidate["keyword"]
+                record_filter_candidate_fail_open(
+                    self.filter_shadow_store,
+                    source="x-radar",
+                    candidate_id=hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
+                    title=keyword,
+                    extra_text=" ".join(headlines),
+                    filter_verdict="block" if candidate["excluded_topic_reason"] else "allow",
+                    filter_reason=candidate["excluded_topic_reason"] or "",
+                    observed_at=now,
+                )
 
             eligible_candidates = [
                 candidate for candidate in candidates.values() if not candidate.get("excluded_topic_reason")

@@ -23,6 +23,7 @@ try:
     from .source_backoff import SourceBackoff
     from .direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from .exposure_observation_tracker import ExposureObservationTracker
+    from .filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
     from .lead_time_tracker import LeadTimeTracker
 except ImportError:
     from content_filters import excluded_topic_reason
@@ -31,6 +32,7 @@ except ImportError:
     from source_backoff import SourceBackoff
     from direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
     from exposure_observation_tracker import ExposureObservationTracker
+    from filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
     from lead_time_tracker import LeadTimeTracker
 
 if TYPE_CHECKING:
@@ -932,8 +934,13 @@ async def _apply_og_second_pass(
 class FastViralCollector:
     """Poll direct community listings and rank brand-safe early movers."""
 
-    def __init__(self, snapshot_path: Path):
+    def __init__(
+        self,
+        snapshot_path: Path,
+        filter_shadow_store: FilterShadowStore | None = None,
+    ):
         self.snapshot_path = snapshot_path
+        self.filter_shadow_store = filter_shadow_store
         self.lead_tracker = LeadTimeTracker(snapshot_path.with_name("viral_lead_times.json"))
         self.exposure_tracker = ExposureObservationTracker(
             snapshot_path.with_name("community_exposure_observations.json"),
@@ -1110,6 +1117,16 @@ class FastViralCollector:
             for item in direct_observations:
                 age = item.get("age_minutes")
                 exclusion = excluded_topic_reason(item["title"], item.get("category"))
+                record_filter_candidate_fail_open(
+                    self.filter_shadow_store,
+                    source="fast-viral:direct",
+                    candidate_id=_snapshot_item_key(item),
+                    title=item["title"],
+                    extra_text=item.get("category") or "",
+                    filter_verdict="block" if exclusion else "allow",
+                    filter_reason=exclusion or "",
+                    observed_at=now,
+                )
                 if exclusion:
                     excluded_topics[exclusion] += 1
                     continue
@@ -1236,6 +1253,16 @@ class FastViralCollector:
                         continue
                     # 라벨은 출처지 주제가 아니다. 넣으면 MLB파크가 "mlb"에 걸려 전량 사라진다.
                     exclusion = excluded_topic_reason(item["title"])
+                    record_filter_candidate_fail_open(
+                        self.filter_shadow_store,
+                        source="fast-viral:issuelink",
+                        candidate_id=_snapshot_item_key(item),
+                        title=item["title"],
+                        extra_text="",
+                        filter_verdict="block" if exclusion else "allow",
+                        filter_reason=exclusion or "",
+                        observed_at=now,
+                    )
                     if exclusion:
                         excluded_topics[exclusion] += 1
                         continue

@@ -97,6 +97,7 @@ try:
     from .dashboard_routes_reference import init_reference_router, router as reference_router
     from .dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
     from .fast_viral_collector import FastViralCollector
+    from .filter_eval.shadow_store import FilterShadowStore
     from .live_reference_collector import YouTubeLiveReferenceCollector
     from .reference_library import ReferenceLibraryStore
     from .x_opportunity_radar import XOpportunityRadar
@@ -106,6 +107,7 @@ except ImportError:
     from dashboard_routes_reference import init_reference_router, router as reference_router
     from dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
     from fast_viral_collector import FastViralCollector
+    from filter_eval.shadow_store import FilterShadowStore
     from live_reference_collector import YouTubeLiveReferenceCollector
     from reference_library import ReferenceLibraryStore
     from x_opportunity_radar import XOpportunityRadar
@@ -181,16 +183,21 @@ except ImportError:
 
 _config = AppConfig.from_env()
 logger = logging.getLogger(__name__)
+_filter_shadow_store = FilterShadowStore()
 _reference_store = ReferenceLibraryStore(Path(__file__).resolve().parent / "data" / "reference_library.json")
 _reference_collector = YouTubeLiveReferenceCollector(_reference_store)
 init_reference_router(_reference_store, _reference_collector)
 app.include_router(reference_router)
 _x_opportunity_radar = XOpportunityRadar(
-    observation_path=Path(__file__).resolve().parent / "data" / "x_exposure_observations.json"
+    observation_path=Path(__file__).resolve().parent / "data" / "x_exposure_observations.json",
+    filter_shadow_store=_filter_shadow_store,
 )
 init_x_radar_router(_x_opportunity_radar)
 app.include_router(x_radar_router)
-_fast_viral_collector = FastViralCollector(Path(__file__).resolve().parent / "data" / "fast_viral_snapshot.json")
+_fast_viral_collector = FastViralCollector(
+    Path(__file__).resolve().parent / "data" / "fast_viral_snapshot.json",
+    filter_shadow_store=_filter_shadow_store,
+)
 init_fast_viral_router(_fast_viral_collector)
 app.include_router(fast_viral_router)
 
