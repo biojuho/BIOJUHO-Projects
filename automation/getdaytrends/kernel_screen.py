@@ -124,6 +124,8 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
         return {
             "axis": "unknown",
             "axis_label": AXIS_LABELS["unknown"],
+            "person": False,
+            "person_terms": [],
             "verify_first": False,
             "tone_clash": False,
             "signals": [],
@@ -199,6 +201,8 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
     return {
         "axis": axis,
         "axis_label": AXIS_LABELS[axis],
+        "person": bool(actors),
+        "person_terms": actors[:3],
         "verify_first": bool(verify),
         "tone_clash": bool(tone),
         "signals": signals,
@@ -219,7 +223,16 @@ def screen_material(
     """
     title_result = _screen_material_text(title, community_label=community_label)
     normalized_summary = " ".join(str(summary or "").split())
-    if not normalized_summary or title_result["axis"] not in {"dead_flat", "unknown"}:
+    if not normalized_summary:
+        return title_result
+    if title_result["axis"] not in {"dead_flat", "unknown"}:
+        summary_actors = _hits(normalized_summary.casefold(), _ACTOR_TERMS)
+        if not title_result["person"] and summary_actors:
+            result = dict(title_result)
+            result["person"] = True
+            result["person_terms"] = summary_actors[:3]
+            result["person_source"] = "summary"
+            return result
         return title_result
 
     combined = f"{title} {normalized_summary}".strip()
@@ -237,7 +250,19 @@ def screen_material(
             f"피해 행위 '{summary_wrongs[0]}'",
         ]
         second_result["confidence"] = "medium"
-    if second_result == title_result:
+    # person은 기존 5축과 독립이다. 요약에서 person만 새로 잡혔다고 기존 signals까지
+    # "원문 확인"으로 바뀌면 병기가 아니라 판정 변경이 되므로, 기존 필드만 대조한다.
+    legacy_fields = (
+        "axis", "axis_label", "verify_first", "tone_clash", "signals", "confidence",
+    )
+    legacy_result_changed = any(
+        second_result[field] != title_result[field] for field in legacy_fields
+    )
+    person_from_summary = not title_result["person"] and second_result["person"]
+    if not legacy_result_changed:
+        if person_from_summary:
+            second_result["person_source"] = "summary"
+            return second_result
         return title_result
 
     evidence_by_axis = {
@@ -254,6 +279,8 @@ def screen_material(
         ]
     if second_result["verify_first"] and not title_result["verify_first"]:
         second_result["signals"].append("원문 첫 문단에서 검증 필요 정보 확인")
+    if person_from_summary:
+        second_result["person_source"] = "summary"
     return second_result
 
 
@@ -263,7 +290,7 @@ _AXIS_RANK = {"live_wrong": 0, "live_gap": 1, "unknown": 2, "dead_debate": 3, "d
 
 
 def sort_by_kernel(items: list[Any]) -> list[Any]:
-    """커널 축을 1차 키, 적합도 점수를 2차 키로 정렬한다.
+    """person, 식음 여부, 커널 축, 적합도 점수 순으로 정렬한다.
 
     **이것이 금지 목록 추격을 대체하는 지점이다.**
 
@@ -276,15 +303,23 @@ def sort_by_kernel(items: list[Any]) -> list[Any]:
     필터는 최후 방어선으로 남기고, 선별은 여기서 한다.
     """
 
-    def key(item: Any) -> tuple[int, float]:
+    # person은 "잘 퍼진다"는 신호가 아니다. 관측에서 하위 25% 진입 감소만 남았고
+    # 상위 10% 진입 효과는 없었다(p=1.000). 기존 축과 병기해 비교할 1차 키로만 쓴다.
+    def key(item: Any) -> tuple[int, int, int, float]:
         if not isinstance(item, dict):
-            return (9, 0.0)
-        axis = (item.get("kernel_screen") or {}).get("axis", "unknown")
+            return (9, 9, 9, 0.0)
+        kernel = item.get("kernel_screen") or {}
+        axis = kernel.get("axis", "unknown")
         try:
             score = float(item.get("x_exposure_score") or 0)
         except (TypeError, ValueError):
             score = 0.0
-        return (_AXIS_RANK.get(axis, 2), -score)
+        return (
+            0 if kernel.get("person") is True else 1,
+            1 if item.get("cooling") is True else 0,
+            _AXIS_RANK.get(axis, 2),
+            -score,
+        )
 
     return sorted(items, key=key)
 
@@ -305,7 +340,14 @@ def attach_kernel_screen(
         copy = dict(item)
         existing_screen = copy.get("kernel_screen")
         if isinstance(existing_screen, dict) and existing_screen.get("axis") in AXIS_LABELS:
-            copy["kernel_screen"] = dict(existing_screen)
+            screen = dict(existing_screen)
+            if "person" not in screen or "person_terms" not in screen:
+                title_screen = _screen_material_text(
+                    copy.get(title_field, ""), community_label=copy.get("community_label")
+                )
+                screen.setdefault("person", title_screen["person"])
+                screen.setdefault("person_terms", title_screen["person_terms"])
+            copy["kernel_screen"] = screen
         else:
             copy["kernel_screen"] = screen_material(
                 copy.get(title_field, ""), community_label=copy.get("community_label")
@@ -319,5 +361,6 @@ def attach_kernel_screen(
         "live": sum(1 for i in screened if isinstance(i, dict) and i.get("kernel_screen", {}).get("axis", "").startswith("live")),
         "dead": sum(1 for i in screened if isinstance(i, dict) and i.get("kernel_screen", {}).get("axis", "").startswith("dead")),
         "verify_first": sum(1 for i in screened if isinstance(i, dict) and i.get("kernel_screen", {}).get("verify_first")),
+        "person_count": sum(1 for i in screened if isinstance(i, dict) and i.get("kernel_screen", {}).get("person") is True),
     }
     return enriched

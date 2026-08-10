@@ -70,7 +70,9 @@ def _aggregator_share() -> float:
 # 신속성은 "뜨기 시작한 걸 남보다 먼저"이지 "아무도 안 본 걸 먼저"가 아니다 — 반응이 0이면
 # 뜰 글인지 아닌지 판단할 근거 자체가 없다.
 # 그래서 상한을 넓혀 반응이 쌓일 시간을 주되, 최소 반응을 통과한 것만 후보로 삼는다.
-_DIRECT_MAX_AGE_DEFAULT = 360  # 6시간
+# 0034 관측 4,639건에서는 마지막 댓글 증가 시점의 90%가 117분이었다. 120분은 이 관찰에
+# 맞춘 기본값일 뿐이며, 후보 수를 보면서 환경변수로 되돌릴 수 있는 구조는 유지한다.
+_DIRECT_MAX_AGE_DEFAULT = 120  # 2시간
 _DIRECT_MIN_VIEWS_DEFAULT = 300
 _DIRECT_MIN_COMMENTS_DEFAULT = 5
 
@@ -784,6 +786,96 @@ def _snapshot_item_key(item: dict[str, Any]) -> str:
     return f"{str(item.get('community_source') or 'fmkorea').casefold()}:{item.get('id')}"
 
 
+def _cooling_signal(
+    series: list[dict[str, Any]],
+    *,
+    now: datetime,
+    current_views: Any = 0,
+    current_comments: Any = 0,
+) -> dict[str, bool | int | None]:
+    """Return observed stagnation without guessing from sparse or absent metrics."""
+
+    def number(value: Any) -> float | None:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        return float(value)
+
+    views = number(current_views) or 0.0
+    comments = number(current_comments) or 0.0
+    if views <= 0 and comments <= 0:
+        return {"cooling": None, "last_growth_minutes": None}
+
+    points = [point for point in series if isinstance(point, dict)]
+    if len(points) < 3:
+        return {"cooling": None, "last_growth_minutes": None}
+
+    recent = points[-3:]
+    metric = "comments" if all(number(point.get("comments")) is not None for point in recent) else "mentions"
+    if not all(number(point.get(metric)) is not None for point in recent):
+        return {"cooling": None, "last_growth_minutes": None}
+
+    observed: list[tuple[datetime, float]] = []
+    for point in points:
+        value = number(point.get(metric))
+        if value is None:
+            continue
+        try:
+            observed_at = datetime.fromisoformat(str(point.get("observed_at"))).astimezone(UTC)
+        except (TypeError, ValueError):
+            continue
+        observed.append((observed_at, value))
+    if len(observed) < 3:
+        return {"cooling": None, "last_growth_minutes": None}
+
+    recent_values = [number(point.get(metric)) for point in recent]
+    cooling = bool(
+        recent_values[1] <= recent_values[0]
+        and recent_values[2] <= recent_values[1]
+    )
+    last_growth_at = observed[0][0]
+    for (before_at, before), (after_at, after) in zip(observed, observed[1:], strict=False):
+        del before_at
+        if after > before:
+            last_growth_at = after_at
+    reference = now.astimezone(UTC)
+    last_growth_minutes = max(0, int((reference - last_growth_at).total_seconds() // 60))
+    return {"cooling": cooling, "last_growth_minutes": last_growth_minutes}
+
+
+def _cooling_for_tracker(
+    tracker: ExposureObservationTracker,
+    key: str,
+    *,
+    item: dict[str, Any],
+    now: datetime,
+) -> dict[str, bool | int | None]:
+    state = getattr(tracker, "_state", {})
+    series_by_key = state.get("series", {}) if isinstance(state, dict) else {}
+    series = series_by_key.get(key, []) if isinstance(series_by_key, dict) else []
+    return _cooling_signal(
+        series if isinstance(series, list) else [],
+        now=now,
+        current_views=item.get("views"),
+        current_comments=item.get("comments"),
+    )
+
+
+def _community_post_meta(
+    item: dict[str, Any], *, screen: dict[str, Any]
+) -> dict[str, Any]:
+    kernel_person = screen.get("person")
+    return {
+        "title": item.get("title"),
+        "community_source": item.get("community_source"),
+        "community_label": item.get("community_label"),
+        "source_url": item.get("source_url"),
+        "category": item.get("category"),
+        "kernel_axis": screen.get("axis"),
+        # 0030 이전 판정 객체와도 함께 돌 수 있어야 한다. 필드가 없으면 null로 남긴다.
+        "kernel_person": kernel_person if isinstance(kernel_person, bool) else None,
+    }
+
+
 async def _apply_og_second_pass(
     items: list[dict[str, Any]],
     *,
@@ -844,7 +936,8 @@ class FastViralCollector:
         self.snapshot_path = snapshot_path
         self.lead_tracker = LeadTimeTracker(snapshot_path.with_name("viral_lead_times.json"))
         self.exposure_tracker = ExposureObservationTracker(
-            snapshot_path.with_name("community_exposure_observations.json")
+            snapshot_path.with_name("community_exposure_observations.json"),
+            post_meta_path=snapshot_path.with_name("community_post_meta.json"),
         )
         self._refresh_lock = asyncio.Lock()
         self._last_attempt_at: datetime | None = None
@@ -1029,8 +1122,11 @@ class FastViralCollector:
                     blocked_count += 1
                     continue
                 source_key = str(item.get("community_source") or "fmkorea")
+                screen = screen_material(item["title"], community_label=item.get("community_label"))
+                item["kernel_screen"] = screen
+                observation_key = f"community:direct:{source_key}:{item['id']}"
                 observation = self.exposure_tracker.record(
-                    f"community:direct:{source_key}:{item['id']}",
+                    observation_key,
                     {
                         "original_count": 1,
                         "source_count": 1,
@@ -1039,6 +1135,13 @@ class FastViralCollector:
                     },
                     observed_at=now,
                     score_version=_COMMUNITY_EXPOSURE_SCORE_VERSION,
+                    post_meta=_community_post_meta(item, screen=screen),
+                )
+                cooling = _cooling_for_tracker(
+                    self.exposure_tracker,
+                    observation_key,
+                    item=item,
+                    now=now,
                 )
                 previous_item = previous_items.get(_snapshot_item_key(item), {})
                 if not previous_item and source_key == "fmkorea":
@@ -1060,8 +1163,6 @@ class FastViralCollector:
                 # 라우터에서 판정을 붙였기 때문에, 판정은 표시 순서만 바꾸고 무엇을 남길지에는
                 # 아무 영향이 없었다. 사는 축(가해자 명확·낙차)은 확산이 덜 붙었어도 통과시킨다 —
                 # X에서 판정이 붙는 소재는 조회가 늦게 오기 때문이다.
-                screen = screen_material(item["title"], community_label=item.get("community_label"))
-                item["kernel_screen"] = screen
                 live_axis = str(screen.get("axis", "")).startswith("live")
                 if not passes_spread_gate(item, score=score, live_axis=live_axis):
                     continue
@@ -1091,6 +1192,7 @@ class FastViralCollector:
                         "exposure_coverage": 1.0 if previous_item else 0.92,
                         "observed_at": observation["observed_at"],
                         "observation_delta": observation,
+                        **cooling,
                         "views_per_minute": round(effective_rate, 1) if effective_rate is not None else None,
                         "delta_views_per_minute": round(delta_rate, 1),
                         "before_issuelink": before_issuelink,
@@ -1143,6 +1245,7 @@ class FastViralCollector:
                     allowed_issue_items.append(item)
                 _annotate_community_clusters(allowed_issue_items)
                 observations_by_cluster: dict[str, dict[str, Any]] = {}
+                cooling_by_cluster: dict[str, dict[str, bool | int | None]] = {}
                 for item in allowed_issue_items:
                     cluster_key = str(item["community_cluster_key"])
                     if cluster_key in observations_by_cluster:
@@ -1152,8 +1255,15 @@ class FastViralCollector:
                         for candidate in allowed_issue_items
                         if candidate.get("community_cluster_key") == cluster_key
                     ]
+                    representative = cluster[0]
+                    screen = screen_material(
+                        representative["title"],
+                        community_label=representative.get("community_label"),
+                    )
+                    representative["kernel_screen"] = screen
+                    observation_key = f"community:cluster:{cluster_key}"
                     observations_by_cluster[cluster_key] = self.exposure_tracker.record(
-                        f"community:cluster:{cluster_key}",
+                        observation_key,
                         {
                             "original_count": len(cluster),
                             "source_count": len({candidate["community_source"] for candidate in cluster}),
@@ -1162,9 +1272,17 @@ class FastViralCollector:
                         },
                         observed_at=now,
                         score_version=_COMMUNITY_EXPOSURE_SCORE_VERSION,
+                        post_meta=_community_post_meta(representative, screen=screen),
+                    )
+                    cooling_by_cluster[cluster_key] = _cooling_for_tracker(
+                        self.exposure_tracker,
+                        observation_key,
+                        item=representative,
+                        now=now,
                     )
                 for item in allowed_issue_items:
-                    observation = observations_by_cluster[str(item["community_cluster_key"])]
+                    cluster_key = str(item["community_cluster_key"])
+                    observation = observations_by_cluster[cluster_key]
                     (
                         exposure_score,
                         exposure_breakdown,
@@ -1180,6 +1298,7 @@ class FastViralCollector:
                     item["exposure_coverage"] = exposure_coverage
                     item["observed_at"] = observation["observed_at"]
                     item["observation_delta"] = observation
+                    item.update(cooling_by_cluster[cluster_key])
                 selected_issue_items = _select_diverse_community_items(allowed_issue_items, quota)
                 async with httpx.AsyncClient(headers=headers, follow_redirects=False) as redirect_session:
                     resolved_originals = await _resolve_community_origins(redirect_session, selected_issue_items)
@@ -1241,6 +1360,7 @@ class FastViralCollector:
                 "fallback_mode": fallback_mode,
                 "community_source_count": len({item.get("community_source") for item in displayed}),
                 "community_cluster_count": _unique_community_cluster_count(displayed),
+                "cooling_count": sum(1 for item in displayed if item.get("cooling") is True),
                 "resolved_original_count": resolved_originals,
                 "measured_lead_count": sum(1 for item in displayed if item.get("lead_status") == "measured"),
                 "refreshed_at": now.isoformat(),

@@ -6,7 +6,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from content_filters import excluded_topic_reason, topic_is_allowed  # noqa: E402
+from content_filters import (  # noqa: E402
+    _POLITICS_TERMS,
+    excluded_topic_reason,
+    topic_is_allowed,
+)
+from dashboard_html import get_dashboard_html  # noqa: E402
 from news_origin_collector import parse_bing_news_rss  # noqa: E402
 
 
@@ -51,6 +56,95 @@ def test_political_nicknames_are_excluded_even_from_humor_boards():
     # 일상 화제까지 끌려 들어가면 필터가 무뎌진다.
     assert topic_is_allowed("동네 시장에서 산 붕어빵 후기") is True
     assert topic_is_allowed("국밥집 사장님이 준 서비스") is True
+
+
+def test_political_roles_institutions_and_actions_are_excluded():
+    requested_terms = (
+        "선관위",
+        "선거관리위원회",
+        "시의회",
+        "도의회",
+        "구의회",
+        "군의회",
+        "국회의장",
+        "상임위",
+        "국정감사장",
+        "청와대",
+        "정부여당",
+        "야권",
+        "여권",
+        "정계",
+        "여야",
+        "장관",
+        "차관",
+        "교육감",
+        "군수",
+        "구청장",
+        "국회부의장",
+        "당대변인",
+        "대변인",
+        "의원실",
+        "보좌관",
+        "지지율",
+        "공약",
+        "발의",
+        "개헌",
+        "국정운영",
+        "정책토론",
+        "여론조사",
+        "규탄대회",
+        "장외집회",
+        "대정부질문",
+    )
+
+    for term in requested_terms:
+        assert excluded_topic_reason(f"{term} 관련 소식") == "정치 제외", term
+
+    assert excluded_topic_reason("충격적인 선관위 근황") == "정치 제외"
+    assert excluded_topic_reason("당진시의회") == "정치 제외"
+
+
+def test_politics_expansion_avoids_broad_terms_and_preserves_boundary_verdicts():
+    for forbidden_term in ("시장", "대표", "위원장", "후보", "의회"):
+        assert forbidden_term not in _POLITICS_TERMS
+    assert _POLITICS_TERMS.count("선거") == 1
+
+    # 이 8문장의 변경 전 판정을 그대로 잠근다. 세 문장은 다른 기존 버킷 또는 기존
+    # 정치어 "선거"로 이미 제외되므로, 이번 확장이 새 오탐을 만들지 않는지가 게이트다.
+    expected_reasons = {
+        "동네 재래시장에서 파는 호떡": None,
+        "주식시장이 오늘 급락했다": "증시·실적 제외",
+        "회사 대표가 회식에서 한 말": None,
+        "아파트 입주자대표회의 공지": None,
+        "학교 학생회장 선거 후일담": "정치 제외",
+        "동호회 회장 뽑는 날": None,
+        "드라마 대사가 화제": None,
+        "축구 국가대표 발탁": "스포츠 제외",
+    }
+    for title, expected_reason in expected_reasons.items():
+        assert excluded_topic_reason(title) == expected_reason, title
+
+
+def test_nonpolitical_exclusion_buckets_keep_their_reasons():
+    expected_reasons = {
+        "프로야구 경기 결과": "스포츠 제외",
+        "코스피 장중 급락": "증시·실적 제외",
+        "서울 아파트 실거래가 상승": "부동산 제외",
+        "남녀 갈등 부추기는 기사": "성별 갈등 제외",
+        "신작 애니 추천 좀": "애니·만화 제외",
+        "네이버멤버십 이용권 할인": "핫딜·판촉 제외",
+    }
+    for title, expected_reason in expected_reasons.items():
+        assert excluded_topic_reason(title) == expected_reason, title
+
+
+def test_dashboard_discloses_keyword_filter_limitations():
+    html = get_dashboard_html("0032-test")
+
+    assert html.count("목록에 없는 새 표현은 통과할 수 있습니다.") == 2
+    assert html.count("화면에 뜬 것이 곧 안전하다는 뜻은 아닙니다.") == 2
+    assert "성인성 제목은 제외합니다" not in html
+    assert "애니/만화는 표시하지 않으며" not in html
 
 
 def test_bing_rss_parser_returns_only_direct_publisher_urls_with_timestamps():

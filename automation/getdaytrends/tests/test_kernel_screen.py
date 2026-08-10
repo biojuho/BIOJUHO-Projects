@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from dashboard_html import get_dashboard_html  # noqa: E402
 from kernel_screen import attach_kernel_screen, screen_material, sort_by_kernel  # noqa: E402
 
 
@@ -74,6 +75,51 @@ class TestUnknown:
         r = screen_material("")
         assert r["axis"] == "unknown"
         assert r["signals"] == []
+        assert r["person"] is False
+        assert r["person_terms"] == []
+
+
+class TestPersonAxis:
+    def test_actor_terms_are_reported_without_changing_the_existing_axis(self):
+        r = screen_material("팀장이랑 점심 먹은 이야기입니다만")
+        assert r["axis"] == "unknown"
+        assert r["person"] is True
+        assert r["person_terms"] == ["팀장"]
+        assert "person_source" not in r
+
+    def test_person_is_independent_from_a_dead_debate_axis(self):
+        r = screen_material("팀장이 갑질한 거 맞나요?")
+        assert r["axis"] == "dead_debate"
+        assert r["person"] is True
+
+    def test_person_terms_are_capped_at_three(self):
+        r = screen_material("남편 아내 팀장 사장 친구가 모인 자리")
+        assert r["person"] is True
+        assert r["person_terms"] == ["남편", "아내", "팀장"]
+
+    def test_summary_can_add_only_person_without_changing_legacy_fields(self):
+        title = "옷차림이 중요해지는 이유"
+        title_only = screen_material(title)
+        result = screen_material(title, summary="팀장과 점심을 먹었다")
+
+        for field in ("axis", "axis_label", "verify_first", "tone_clash", "signals", "confidence"):
+            assert result[field] == title_only[field]
+        assert title_only["person"] is False
+        assert result["person"] is True
+        assert result["person_terms"] == ["팀장"]
+        assert result["person_source"] == "summary"
+
+    def test_summary_can_add_person_when_the_title_axis_is_already_decided(self):
+        title = "장사가 너무 잘돼서 오히려 망했다"
+        title_only = screen_material(title)
+        result = screen_material(title, summary="팀장이 운영 과정을 설명했다")
+
+        for field in ("axis", "axis_label", "verify_first", "tone_clash", "signals", "confidence"):
+            assert result[field] == title_only[field]
+        assert result["axis"] == "live_gap"
+        assert result["person"] is True
+        assert result["person_terms"] == ["팀장"]
+        assert result["person_source"] == "summary"
 
 
 class TestAttach:
@@ -84,7 +130,7 @@ class TestAttach:
         assert "kernel_screen" not in payload["items"][0]
         assert out["items"][0]["kernel_screen"]["axis"] == "live_wrong"
         assert out["items"][1]["kernel_screen"]["axis"] == "dead_debate"
-        assert out["kernel_summary"] == {"live": 1, "dead": 1, "verify_first": 0}
+        assert out["kernel_summary"] == {"live": 1, "dead": 1, "verify_first": 0, "person_count": 1}
 
     def test_attach_reads_alternate_title_field(self):
         # X 레이더는 제목이 keyword 필드에 있다.
@@ -109,6 +155,25 @@ class TestAttach:
         )
         assert out["items"][0]["kernel_screen"] == second_pass
         assert out["kernel_summary"]["live"] == 1
+
+    def test_attach_backfills_person_on_a_legacy_screen_without_changing_it(self):
+        legacy_screen = {
+            "axis": "unknown",
+            "axis_label": "원문 확인 필요",
+            "verify_first": False,
+            "tone_clash": False,
+            "signals": ["역할 '남편'은 있으나 행위가 드러나지 않음"],
+            "confidence": "low",
+        }
+        out = attach_kernel_screen(
+            {"items": [{"title": "남편과 점심", "kernel_screen": legacy_screen}]}, sort=False
+        )
+        result = out["items"][0]["kernel_screen"]
+
+        for field, value in legacy_screen.items():
+            assert result[field] == value
+        assert result["person"] is True
+        assert result["person_terms"] == ["남편"]
 
 
 class TestOgSecondPass:
@@ -256,6 +321,63 @@ class TestKernelSorting:
         out = attach_kernel_screen({"items": items})["items"]
         assert out[0]["x_exposure_score"] == 80
 
+    def test_person_is_the_first_key_before_the_existing_axis_rank(self):
+        items = [
+            {"title": "장사가 너무 잘돼서 오히려 망했다", "x_exposure_score": 90},
+            {"title": "남편이 이러는 거 맞나요?", "x_exposure_score": 10},
+        ]
+        out = attach_kernel_screen({"items": items})["items"]
+
+        assert out[0]["kernel_screen"]["person"] is True
+        assert out[0]["kernel_screen"]["axis"] == "dead_debate"
+
+    def test_cooling_is_second_key_and_none_stays_with_fresh_items(self):
+        items = [
+            {
+                "title": "식었지만 사람이 있는 항목",
+                "kernel_screen": {"person": True, "axis": "live_wrong"},
+                "cooling": True,
+                "x_exposure_score": 99,
+            },
+            {
+                "title": "관측 부족인 사람 항목",
+                "kernel_screen": {"person": True, "axis": "unknown"},
+                "cooling": None,
+                "x_exposure_score": 20,
+            },
+            {
+                "title": "증가 중인 사람 항목",
+                "kernel_screen": {"person": True, "axis": "dead_flat"},
+                "cooling": False,
+                "x_exposure_score": 10,
+            },
+            {
+                "title": "사람 없는 증가 항목",
+                "kernel_screen": {"person": False, "axis": "live_wrong"},
+                "cooling": False,
+                "x_exposure_score": 100,
+            },
+        ]
+
+        out = sort_by_kernel(items)
+
+        assert [item["title"] for item in out] == [
+            "관측 부족인 사람 항목",
+            "증가 중인 사람 항목",
+            "식었지만 사람이 있는 항목",
+            "사람 없는 증가 항목",
+        ]
+
+    def test_existing_axis_and_score_order_remain_within_the_same_person_value(self):
+        items = [
+            {"title": "복도에 실외기 설치 완료", "x_exposure_score": 90},
+            {"title": "장사가 너무 잘돼서 오히려 망했다", "x_exposure_score": 20},
+            {"title": "공짜 커피를 받았더니 돈을 요구했다", "x_exposure_score": 80},
+        ]
+        out = attach_kernel_screen({"items": items})["items"]
+
+        assert [item["x_exposure_score"] for item in out] == [80, 20, 90]
+
     def test_unknown_outranks_dead(self):
         # 모르는 것을 버리는 것보다 사람이 원문을 열어 보게 하는 편이 낫다.
         items = [
@@ -318,3 +440,17 @@ class TestSelectionUsesTheVerdictNotJustTheScore:
         ]
         out = sort_by_kernel(attach_kernel_screen({"items": items}, sort=False)["items"])
         assert out[0]["x_exposure_score"] == 80
+
+
+class TestDashboardPersonAxis:
+    def test_person_badge_summary_count_and_client_sort_are_present(self):
+        html = get_dashboard_html("test")
+
+        assert "사람 있음" in html
+        assert "person_count" in html
+        assert "person_source === 'summary'" in html
+        assert "safeHtml(personTerm)" in html
+        assert "if (pa !== pb) return pa ? -1 : 1;" in html
+        assert "식은 것" in html
+        assert "식음 · ${safeHtml(String(item.last_growth_minutes))}분째 정체" in html
+        assert "if (ca !== cb) return ca ? 1 : -1;" in html

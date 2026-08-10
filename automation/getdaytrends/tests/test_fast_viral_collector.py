@@ -1,7 +1,7 @@
 """Tests for the direct-community early viral collector."""
 
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -9,6 +9,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fast_viral_collector import (  # noqa: E402
+    _cooling_signal,
+    _direct_max_age_minutes,
     _apply_og_second_pass,
     _annotate_community_clusters,
     _collapse_community_clusters,
@@ -111,6 +113,54 @@ def test_velocity_score_rewards_fresh_pre_aggregator_growth():
     assert score >= 70
     assert rate == 200
     assert _parse_count("1.2만") == 12_000
+
+
+def test_direct_age_window_defaults_to_120_minutes_but_keeps_env_override(monkeypatch):
+    monkeypatch.delenv("GETDAYTRENDS_DIRECT_MAX_AGE_MINUTES", raising=False)
+    assert _direct_max_age_minutes() == 120
+
+    monkeypatch.setenv("GETDAYTRENDS_DIRECT_MAX_AGE_MINUTES", "360")
+    assert _direct_max_age_minutes() == 360
+
+
+def test_cooling_signal_observes_four_required_series_shapes():
+    start = datetime(2026, 8, 10, 0, 0, tzinfo=UTC)
+
+    def points(values, *, field="comments"):
+        return [
+            {"observed_at": (start + timedelta(minutes=index * 10)).isoformat(), field: value}
+            for index, value in enumerate(values)
+        ]
+
+    growing = _cooling_signal(
+        points([1, 2, 3], field="mentions"),
+        now=start + timedelta(minutes=20),
+        current_views=100,
+        current_comments=0,
+    )
+    stalled = _cooling_signal(
+        points([1, 4, 4, 4]),
+        now=start + timedelta(minutes=30),
+        current_views=100,
+        current_comments=4,
+    )
+    sparse = _cooling_signal(
+        points([1, 2]),
+        now=start + timedelta(minutes=10),
+        current_views=100,
+        current_comments=2,
+    )
+    no_metrics = _cooling_signal(
+        points([0, 0, 0]),
+        now=start + timedelta(minutes=20),
+        current_views=0,
+        current_comments=0,
+    )
+
+    assert growing == {"cooling": False, "last_growth_minutes": 0}
+    assert stalled == {"cooling": True, "last_growth_minutes": 20}
+    assert sparse == {"cooling": None, "last_growth_minutes": None}
+    assert no_metrics == {"cooling": None, "last_growth_minutes": None}
 
 
 @pytest.mark.asyncio

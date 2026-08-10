@@ -229,6 +229,7 @@ _HTML = """<!DOCTYPE html>
   .kernel-badge.is-live{{background:rgba(34,197,94,.14);color:#15803d}}
   .kernel-badge.is-dead{{background:rgba(148,163,184,.16);color:#64748b}}
   .kernel-badge.is-unknown{{background:rgba(59,130,246,.12);color:#1d4ed8}}
+  .kernel-badge.is-person{{margin-right:4px;background:rgba(14,165,233,.13);color:#0369a1}}
   .kernel-flag{{margin-left:4px;padding:2px 6px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(239,68,68,.12);color:#b91c1c}}
   .kernel-why{{display:block;margin-top:3px;font-size:11px;color:#94a3b8}}
   .reference-connector-note{{color:#64748b;font-size:.7rem}}
@@ -285,7 +286,7 @@ _HTML = """<!DOCTYPE html>
   <h3 id="fast-viral-title">🚨 커뮤니티 바이럴 조기감지</h3>
   <p class="x-radar-intro">개드립·더쿠 HOT·루리웹 베스트·보배드림 베스트를 직접 확인하고, 연결 제한이나 후보 부족 때는 IssueLink의 다른 커뮤니티 원문으로 보완합니다. 댓글·조회·추천·교차확산으로 X 노출 적합도를 계산하며 선행시간은 두 최초 감지 시각이 모두 있을 때만 표시합니다.</p>
   <div class="x-radar-controls">
-    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화와 성인성 제목은 제외합니다. AAGAG는 robots 정책에 따라, FMKorea·클리앙은 사이트가 자동 접근을 차단해 직접 수집하지 않습니다(FMKorea는 IssueLink 경유로만 확인).</div>
+    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화와 성인성 제목을 키워드로 걸러내지만, 목록에 없는 새 표현은 통과할 수 있습니다. 화면에 뜬 것이 곧 안전하다는 뜻은 아닙니다. AAGAG는 robots 정책에 따라, FMKorea·클리앙은 사이트가 자동 접근을 차단해 직접 수집하지 않습니다(FMKorea는 IssueLink 경유로만 확인).</div>
     <select id="fast-viral-limit" class="tap-input" aria-label="조기 후보 표시 개수">
       <option value="6">상위 6개</option>
       <option value="12" selected>상위 12개</option>
@@ -306,7 +307,7 @@ _HTML = """<!DOCTYPE html>
 <!-- X Breaking / Viral Source Radar -->
 <section class="panel x-radar-panel" aria-labelledby="x-radar-title">
   <h3 id="x-radar-title">⚡ X 속보·바이럴 원문 레이더</h3>
-  <p class="x-radar-intro">독립 원문·Threads 교차 근거가 있는 주제와, 공개 X 상위 5위 반복 또는 연속 순위 상승이 확인된 X 네이티브 단어를 분리해 표시합니다. 공개 X는 90초 캐시·2분 자동 갱신이며 수동 확인은 캐시를 우회합니다. 스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화는 표시하지 않으며 자동 문안 생성이나 게시 기능은 없습니다.</p>
+  <p class="x-radar-intro">독립 원문·Threads 교차 근거가 있는 주제와, 공개 X 상위 5위 반복 또는 연속 순위 상승이 확인된 X 네이티브 단어를 분리해 표시합니다. 공개 X는 90초 캐시·2분 자동 갱신이며 수동 확인은 캐시를 우회합니다. 스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화는 키워드로 걸러내지만, 목록에 없는 새 표현은 통과할 수 있습니다. 화면에 뜬 것이 곧 안전하다는 뜻은 아닙니다. 자동 문안 생성이나 게시 기능은 없습니다.</p>
   <div class="x-radar-controls">
     <input id="x-radar-focus" class="tap-input" maxlength="500" placeholder="관심 분야 선택 입력 — 예: AI, 사건, 크리에이터 (비워두면 전체)">
     <select id="x-radar-limit" class="tap-input" aria-label="표시 개수">
@@ -1399,6 +1400,7 @@ function renderFastViral(data) {{
     <span class="live-dot${{fresh.dotClass}}"></span>
     <strong>${{items.length}}개 커뮤니티 원문</strong>
     <span class="fast-viral-early">${{safeHtml(String(data.community_cluster_count || items.length))}}개 소재 · ${{safeHtml(String(data.community_source_count || 0))}}개 대표 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
+    <span>식은 것 ${{safeHtml(String(data.cooling_count || 0))}}건</span>
     <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/${{safeHtml(String(data.direct_source_total || 0))}}곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
     <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTotal))}}건</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
@@ -1433,6 +1435,9 @@ function renderFastViral(data) {{
     const crossSpread = Number(item.cross_community_source_count || 0) >= 2
       ? `<span class="x-radar-reason">${{safeHtml(String(item.cross_community_source_count))}}곳 동시 · ${{safeHtml(crossSourceLabels.join(' · '))}}</span>`
       : '';
+    const coolingChip = item.cooling === true
+      ? `<span class="x-radar-reason">식음 · ${{safeHtml(String(item.last_growth_minutes))}}분째 정체</span>`
+      : '';
     const confidenceLabel = ({{high: '높음', medium: '중간', low: '낮음'}})[item.exposure_confidence] || '미산정';
     const originLabel = item.link_kind === 'publisher_original' ? '원문' : '원문 이동';
     return `
@@ -1448,6 +1453,7 @@ function renderFastViral(data) {{
         <div class="x-radar-reasons">
           ${{exposureReasons}}
           ${{crossSpread}}
+          ${{coolingChip}}
           ${{item.views ? `<span class="x-radar-reason">조회 ${{safeHtml(Number(item.views).toLocaleString())}}</span>` : ''}}
           ${{item.views_per_minute != null ? `<span class="x-radar-reason">분당 ${{safeHtml(String(item.views_per_minute))}}</span>` : ''}}
           <span class="x-radar-reason">댓글 ${{safeHtml(String(item.comments || 0))}}</span>
@@ -1506,6 +1512,12 @@ function applySortMode(items) {{
     return list.sort((a, b) => Number(b.x_exposure_score || 0) - Number(a.x_exposure_score || 0));
   }}
   return list.sort((a, b) => {{
+    const pa = (a.kernel_screen || {{}}).person === true;
+    const pb = (b.kernel_screen || {{}}).person === true;
+    if (pa !== pb) return pa ? -1 : 1;
+    const ca = a.cooling === true;
+    const cb = b.cooling === true;
+    if (ca !== cb) return ca ? 1 : -1;
     const ra = KERNEL_AXIS_RANK[(a.kernel_screen || {{}}).axis] ?? 2;
     const rb = KERNEL_AXIS_RANK[(b.kernel_screen || {{}}).axis] ?? 2;
     if (ra !== rb) return ra - rb;
@@ -1524,7 +1536,8 @@ function kernelSummary(data) {{
   const k = (data && data.kernel_summary) || null;
   if (!k) return '';
   const verify = k.verify_first ? ` · 검증 먼저 ${{k.verify_first}}` : '';
-  return `<span class="kernel-badge is-live">쓸 만함 ${{k.live}}</span><span class="kernel-badge is-dead">거를 것 ${{k.dead}}${{verify}}</span>`;
+  const person = `<span class="kernel-badge is-person">사람 있음 ${{safeHtml(String(k.person_count || 0))}}</span>`;
+  return `${{person}}<span class="kernel-badge is-live">쓸 만함 ${{k.live}}</span><span class="kernel-badge is-dead">거를 것 ${{k.dead}}${{verify}}</span>`;
 }}
 
 // 커널 소재 판정 배지. 판정은 서버(kernel_screen.py)가 하고 여기서는 표시만 한다.
@@ -1537,7 +1550,12 @@ function kernelBadge(item) {{
     + (k.tone_clash ? '<span class="kernel-flag">계정 톤 충돌</span>' : '');
   const why = Array.isArray(k.signals) && k.signals.length
     ? `<span class="kernel-why">${{safeHtml(k.signals.join(' · '))}}</span>` : '';
-  return `<span class="kernel-badge ${{tone}}">${{safeHtml(k.axis_label || '')}}</span>${{flags}}${{why}}`;
+  const personTerm = Array.isArray(k.person_terms) && k.person_terms.length ? k.person_terms[0] : '';
+  const personSource = k.person_source === 'summary' ? ' (요약)' : '';
+  const person = k.person === true
+    ? `<span class="kernel-badge is-person">사람 있음${{personTerm ? ` · ${{safeHtml(personTerm)}}` : ''}}${{personSource}}</span>`
+    : '';
+  return `${{person}}<span class="kernel-badge ${{tone}}">${{safeHtml(k.axis_label || '')}}</span>${{flags}}${{why}}`;
 }}
 
 // 신선도 판정은 서버(freshness.py)가 한다. 여기서는 등급을 화면 상태로만 옮긴다 —
