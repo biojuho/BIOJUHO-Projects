@@ -2,6 +2,7 @@
 
 import json
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -312,21 +313,22 @@ async def test_category_stats_uses_content_feedback_not_missing_trends_column(tm
     import aiosqlite
     import dashboard
 
+    recent_at = (datetime.now() - timedelta(hours=1)).isoformat()
     conn = await aiosqlite.connect(tmp_path / "dashboard.db")
     conn.row_factory = aiosqlite.Row
     await dashboard.init_db(conn)
     cursor = await conn.execute(
         "INSERT INTO runs(run_uuid, started_at, country) VALUES (?, ?, ?)",
-        ("live-test", "2026-08-05T00:00:00", "korea"),
+        ("live-test", recent_at, "korea"),
     )
     run_id = cursor.lastrowid
     await conn.execute(
         "INSERT INTO trends(run_id, keyword, viral_potential, scored_at) VALUES (?, ?, ?, ?)",
-        (run_id, "AI 콘텐츠", 91, "2026-08-05T00:00:00"),
+        (run_id, "AI 콘텐츠", 91, recent_at),
     )
     await conn.execute(
         "INSERT INTO content_feedback(keyword, category, created_at) VALUES (?, ?, ?)",
-        ("AI 콘텐츠", "테크", "2026-08-05T00:00:00"),
+        ("AI 콘텐츠", "테크", recent_at),
     )
     await conn.commit()
 
