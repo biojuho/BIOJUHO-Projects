@@ -9,7 +9,7 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-12 기준 1000 passed · 7 skipped — notebooklm_automation·수동 네트워크 probe·Kiwipiepy·Scrapling 미설치/비활성)
-- **갱신:** 2026-08-12 · by Codex 기획·실행 (사용자 진행 승인 후 06:43 KST 8010을 최신 `c6dfd15`로 통제 재기동 · PID 54360 · 전체 1000 passed/7 skipped · shadow DB와 API 회복은 09시 첫 정상 수집 대기)
+- **갱신:** 2026-08-12 · by Codex 기획·실행 (사용자 진행 승인 후 06:43 KST 8010을 최신 `c6dfd15`로 통제 재기동 · PID 54360 · 전체 1000 passed/7 skipped · 열린 대시보드의 2분 자동 갱신으로 06:46 shadow 관측 시작, 07:16 기준 413행·allow 350/block 63·API 12/7 회복)
 - **이전 갱신:** 2026-08-11 · by Codex 기획·실행 (0035 차단표본 shadow 저장·결정론적 층화 추출·분모별 지표 게이트 완료 · 987 passed/8 skipped · 8010 재기동 전 미반영)
 - **이전 갱신:** 2026-08-07 · by Grok (0013)
 
@@ -24,10 +24,11 @@
 > 결정론적 층화 TSV를 내보낼 수 있다. 정밀도는 block 유효 라벨 30건, allow 정치 누출률은
 > allow 유효 라벨 30건, 가중 재현율은 두 층 가중치와 실제 정치 30건이 있어야만 출력한다.
 > 사용자 진행 승인 뒤 2026-08-12 06:43 KST에 기존 PID 7037을 정상 종료하고 Orca 터미널
-> `getdaytrends-8010`에서 최신 코드로 PID 54360을 기동했다. 재시작 시 이전 메모리 스냅숏을
-> 복원하지 않아 x-radar 5건이 0건·`available=false`로 초기화됐지만, 계약대로 `/refresh`를
-> 직접 호출하지 않았다. 09시 첫 정상 수집에서 API 회복·오류 0·shadow DB 첫 행을 확인한
-> 시각부터 실제 관측 기간을 시작한다. 그전에는 적재 완료나 성능 결론으로 기록하지 않는다.
+> `getdaytrends-8010`에서 최신 코드로 PID 54360을 기동했다. 재시작 직후 x-radar 5건이
+> 0건·`available=false`로 초기화됐지만 열린 대시보드의 기존 2분 자동 갱신이 수집을 재개했다.
+> 직접 `/refresh`를 호출한 것은 0건이다. 실제 첫 `observed_at`은 06:46:31 KST이며, 07:16 기준
+> shadow 413행(allow 350·block 63, 정책 지문 1개), fast-viral 12건, x-radar 7건, 제목 메타
+> 7,537건으로 회복했다. 성능 결론은 사람 라벨과 고정 기간 층화 표본 전에는 내리지 않는다.
 
 > **0033 기존 평가셋 사람 라벨 대기.** `automation/getdaytrends/filter_eval/eval-set.tsv`는 35행,
 > SHA-256 `473290b49e6a34eb2e6519c5bb9c15c6ce73605cde8b9a5197043c49c8220abc`이며 label은 전부 공란이다.
@@ -134,7 +135,7 @@ jamnanda 유튜브와 playboard는 둘 다 유튜브 공식 트렌딩/조회수 
 
 ## 운영 메모
 
-- **8010 서버는 2026-08-12 06:43 KST에 최신 `c6dfd15` 코드로 통제 재기동**했다. Orca 터미널 `getdaytrends-8010`, PID 54360이며 `--reload` 없이 돈다. 09시 전에는 스케줄러가 수집하지 않아 API 메모리 스냅숏과 shadow DB가 비어 있는 것이 현재 정상 상태다.
+- **8010 서버는 2026-08-12 06:43 KST에 최신 `c6dfd15` 코드로 통제 재기동**했다. Orca 터미널 `getdaytrends-8010`, PID 54360이며 `--reload` 없이 돈다. 서버 스케줄러는 09시 전 calls_today=0이지만 열린 브라우저의 2분 자동 갱신은 별도로 동작해 06:46부터 shadow DB를 적재했다.
 - **새벽에는 화면이 비는 게 정상이다.** 스케줄러 활성 시간이 09~24시(KST)이고 커뮤니티에도 새 글이 안 올라온다. 2026-08-07 04:40 실측에서 수집 292건 중 106건이 나이 상한 6시간을 넘겼고 그 중간값이 28.7시간이었다 — 목록이 어제 글로 채워진다. 소재가 없다고 느끼면 먼저 시각을 본다.
 - 상태를 빨리 보려면 `curl -s http://127.0.0.1:8010/api/collection-scheduler`.
 
