@@ -9,7 +9,7 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-12 기준 1000 passed · 7 skipped — notebooklm_automation·수동 네트워크 probe·Kiwipiepy·Scrapling 미설치/비활성)
-- **갱신:** 2026-08-12 · by Codex 기획·실행 (사용자 진행 승인 후 06:43 KST 8010을 최신 `c6dfd15`로 통제 재기동 · PID 54360 · 전체 1000 passed/7 skipped · 열린 대시보드의 2분 자동 갱신으로 06:46 shadow 관측 시작, 07:16 기준 413행·allow 350/block 63·API 12/7 회복)
+- **갱신:** 2026-08-12 · by Codex 기획·실행 (09:33 기존 `cross-community` 워크트리·PID 54360 소실을 확인하고 보존 커밋 `4d06b1e`에서 `cross-community-recovered`를 복구 · PID 56188 · 09:57 스케줄러 두 레인 calls 2/2·오류 0·API 12/9 · 새 shadow 497행, allow 433/block 64 · 옛 비추적 런타임 데이터는 복구 불가)
 - **이전 갱신:** 2026-08-11 · by Codex 기획·실행 (0035 차단표본 shadow 저장·결정론적 층화 추출·분모별 지표 게이트 완료 · 987 passed/8 skipped · 8010 재기동 전 미반영)
 - **이전 갱신:** 2026-08-07 · by Grok (0013)
 
@@ -19,16 +19,20 @@
 
 ## 지금 진행 중
 
-> **0035 구현·운영 코드 반영 완료, 첫 적재·사람 라벨 대기.** 필터 직전 direct·IssueLink·x-radar 후보의
+> **0035 구현·운영 코드 반영 완료, 관측 연속성 단절·사람 라벨 대기.** 필터 직전 direct·IssueLink·x-radar 후보의
 > allow·block 판정을 정책 SHA-256별 로컬 SQLite에 남기고, 고정 기간·seed·verdict quota로
 > 결정론적 층화 TSV를 내보낼 수 있다. 정밀도는 block 유효 라벨 30건, allow 정치 누출률은
 > allow 유효 라벨 30건, 가중 재현율은 두 층 가중치와 실제 정치 30건이 있어야만 출력한다.
 > 사용자 진행 승인 뒤 2026-08-12 06:43 KST에 기존 PID 7037을 정상 종료하고 Orca 터미널
 > `getdaytrends-8010`에서 최신 코드로 PID 54360을 기동했다. 재시작 직후 x-radar 5건이
 > 0건·`available=false`로 초기화됐지만 열린 대시보드의 기존 2분 자동 갱신이 수집을 재개했다.
-> 직접 `/refresh`를 호출한 것은 0건이다. 실제 첫 `observed_at`은 06:46:31 KST이며, 07:16 기준
-> shadow 413행(allow 350·block 63, 정책 지문 1개), fast-viral 12건, x-radar 7건, 제목 메타
-> 7,537건으로 회복했다. 성능 결론은 사람 라벨과 고정 기간 층화 표본 전에는 내리지 않는다.
+> 직접 `/refresh`를 호출한 것은 0건이다. 첫 관측 구간은 06:46:31 KST부터 시작해 07:20에
+> shadow 433행까지 확인했으나, 09:33 기존 워크트리가 사라지면서 gitignore 대상 SQLite와 제목
+> 메타가 함께 소실됐다. 삭제 주체·원인은 확인 불가이며 Trash·Spotlight 검색에서도 옛 DB를 찾지
+> 못했다. 커밋 `4d06b1e`에서 `cross-community-recovered`를 만들고 09:40 PID 56188로 복구했으며,
+> 09:57 기준 스케줄러 두 레인 calls 2/2·오류 0, fast-viral 12건, x-radar 9건, 새 제목 메타 193건,
+> 새 shadow 497행(allow 433·block 64, 정책 지문 1개)이다. 06:46 구간과 09:40 이후 구간은 하나의
+> 연속 관측으로 합치지 않는다. 성능 결론은 사람 라벨과 고정 기간 층화 표본 전에는 내리지 않는다.
 
 > **0033 기존 평가셋 사람 라벨 대기.** `automation/getdaytrends/filter_eval/eval-set.tsv`는 35행,
 > SHA-256 `473290b49e6a34eb2e6519c5bb9c15c6ce73605cde8b9a5197043c49c8220abc`이며 label은 전부 공란이다.
@@ -135,7 +139,7 @@ jamnanda 유튜브와 playboard는 둘 다 유튜브 공식 트렌딩/조회수 
 
 ## 운영 메모
 
-- **8010 서버는 2026-08-12 06:43 KST에 최신 `c6dfd15` 코드로 통제 재기동**했다. Orca 터미널 `getdaytrends-8010`, PID 54360이며 `--reload` 없이 돈다. 서버 스케줄러는 09시 전 calls_today=0이지만 열린 브라우저의 2분 자동 갱신은 별도로 동작해 06:46부터 shadow DB를 적재했다.
+- **8010 서버는 2026-08-12 09:40 KST에 복구 워크트리에서 재기동**했다. Orca 터미널 `getdaytrends-8010-recovered`, PID 56188이며 `--reload` 없이 돈다. 09:57 실측에서 스케줄러 두 레인은 calls_today 2/2·오류 0이다. 09:33 사라진 이전 워크트리의 비추적 런타임 데이터는 복구되지 않았으므로 관측 시작은 새 DB의 09:40:08 KST로 다시 기록한다.
 - **새벽에는 화면이 비는 게 정상이다.** 스케줄러 활성 시간이 09~24시(KST)이고 커뮤니티에도 새 글이 안 올라온다. 2026-08-07 04:40 실측에서 수집 292건 중 106건이 나이 상한 6시간을 넘겼고 그 중간값이 28.7시간이었다 — 목록이 어제 글로 채워진다. 소재가 없다고 느끼면 먼저 시각을 본다.
 - 상태를 빨리 보려면 `curl -s http://127.0.0.1:8010/api/collection-scheduler`.
 

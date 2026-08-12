@@ -5,7 +5,7 @@
 
 ## Backlog (미완료)
 
-- [ ] **[safe_auto] 0035 09시 서버 스케줄러 확인** — API 회복·shadow 첫 적재는 열린 대시보드 자동 갱신으로 확인했다. 09:05 이후 `GET /api/collection-scheduler`에서 두 레인 `calls_today>=1`, `last_error=null`, `consecutive_errors=0`만 읽기 전용으로 확인. `/refresh` 직접 호출 금지.
+- [ ] **[safe_auto] 0035 런타임 데이터 영속성 보강안 발주** — gitignore 대상 shadow SQLite·제목 메타가 워크트리 제거와 함께 소실됐다. 기존 파일 복구를 가장하지 말고 외부 데이터 경로·백업·복원 게이트를 별도 핸드오프로 설계한 뒤 구현. 09:40 이후 새 관측과 06:46~07:20 집계 기록은 합치지 않음.
 - [ ] **[needs_human] 0033 평가셋 라벨** — `filter_eval/eval-set.tsv` 35행에 `politics/not_politics/unclear`, `labeled_by`, `labeled_at`을 사람이 기록한 뒤 `eval_filter.py` 실행. 기존 평가셋과 shadow 표본은 합치지 않음.
 - [ ] **새 CI 게이트 첫 PR 실기동 확인** — GitHub Actions 실제 PR run URL이 생기면 merge 차단 동작 최종 확인
 - [ ] **X 수동 발행**: Economy_Global 최종 문안 + posting 이미지 → X 게시 후 URL 기록
