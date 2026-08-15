@@ -209,6 +209,29 @@ def test_deal_posts_are_excluded_after_adding_ppomppu_hot():
     assert topic_is_allowed("사장이 알바비 떼먹은 이야기") is True
 
 
+def test_pro_japanese_variants_are_excluded_not_only_compounds():
+    """친일파·"친일 청산"만 막고 어간 친일이 누수하면 같은 이슈가 토큰 차이로 통과한다.
+
+    2026-08-14 공급 진단 실측: shadow 10,825건에서 친일이 포함된 행은 allow 119 /
+    block 190. 목록에 친일파만 있어 "친일 매국노"·"친일 성향"·"친일청산"(붙여쓰기)이
+    전부 통과했다. 친일은 2음절 합성어라 친일파처럼 통째로만 넣으면 변형마다 뚫린다.
+    """
+    assert excluded_topic_reason("친일 매국노 후손 논란") == "정치 제외"
+    assert excluded_topic_reason("친일 성향이 진짜 중에 진짜인 이유") == "정치 제외"
+    assert excluded_topic_reason("적극적 친일 가담자 기록도 확인") == "정치 제외"
+    assert excluded_topic_reason("친일 인명사전 등재되나") == "정치 제외"
+    assert excluded_topic_reason("반민특위 친일청산 실패의 역사") == "정치 제외"
+
+    # 이미 막고 있던 표현은 이번 변경 뒤에도 그대로 막혀야 한다.
+    assert excluded_topic_reason("친일파 재산 환수하겠다!") == "정치 제외"
+    assert excluded_topic_reason("친일 청산 실패의 역사는 현재진행형") == "정치 제외"
+    assert excluded_topic_reason("역사 왜곡 논란 정리") == "정치 제외"
+
+    # 친일이 낱말 경계(공백) 너머에 있는 일상 표현은 끌려 들어가지 않는다.
+    assert topic_is_allowed("친구랑 일요일에 간 서점") is True
+    assert topic_is_allowed("이사 첫날 무친 일정 탓에 정신없었다") is True
+
+
 def test_cooking_and_school_contests_are_not_sports():
     """'대회…우승'만으로 스포츠 제외하면 요리·교내 대회 사연이 조용히 사라진다.
 
