@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 try:
     from .breaking_news_observer import BreakingNewsObserver
+    from .collectors.daum_realtime import _async_fetch_daum_realtime
+    from .collectors.news_rankings import _async_fetch_news_rankings
     from .collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from .content_filters import excluded_topic_reason
     from .exposure_observation_tracker import ExposureObservationTracker
@@ -28,6 +30,8 @@ try:
     from .threads_signal_collector import ThreadsSignalCollector
 except ImportError:
     from breaking_news_observer import BreakingNewsObserver
+    from collectors.daum_realtime import _async_fetch_daum_realtime
+    from collectors.news_rankings import _async_fetch_news_rankings
     from collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from content_filters import excluded_topic_reason
     from exposure_observation_tracker import ExposureObservationTracker
@@ -39,11 +43,25 @@ except ImportError:
 
 TrendFetcher = Callable[[httpx.AsyncClient, str, int], Awaitable[list[RawTrend]]]
 NewsFetcher = Callable[[httpx.AsyncClient, str, int], Awaitable[list[dict[str, Any]]]]
+RankingFetcher = Callable[[httpx.AsyncClient, int], Awaitable[list[dict[str, Any]]]]
+DaumFetcher = Callable[[httpx.AsyncClient, int], Awaitable[tuple[str | None, list[dict[str, Any]]]]]
 
 _FALLBACK_X_TOPICS = {"주말 계획", "점심 메뉴", "날씨", "커피", "퇴근"}
 _X_EXPOSURE_SCORE_VERSION = "x-exposure-v3"
 _NEWS_AGGREGATOR_DOMAINS = ("v.daum.net", "news.nate.com", "news.zum.com", "msn.com")
 _NEWS_AGGREGATOR_SOURCES = {"daum", "nate", "zum", "msn"}
+_SPAM_REASON_PREFIX = "스팸·불법광고 패턴"
+_SPAM_TREND_PATTERNS: tuple[tuple[str, str], ...] = (
+    (r"\b라인\s*[a-z0-9_]{2,}", "연락처 유도(라인 ID)"),
+    (r"\bqq\s*\d{2,}", "연락처 유도(QQ ID)"),
+    (r"\b카톡\s*(연락|문의|상담|가능|[a-z0-9_]{2,})", "연락처 유도(카톡)"),
+    (r"\b빠른\s*이동\b", "연락처 유도(빠른이동)"),
+    (r"\b(출장|만남)\b.*\b(만남|출장)\b", "출장·만남 광고"),
+    (
+        r"\b(무직자\s*대출|작업\s*대출|소액\s*결제|대출\s*(가능|상담|문의|진행중|한도)|후불\s*(결제|폰|유심))\b",
+        "대출·후불 광고",
+    ),
+)
 _CATEGORY_TERMS = {
     "생활·경제": ("지원금", "물가", "소비자", "공공요금"),
     "테크·AI": ("ai", "인공지능", "테슬라", "반도체", "하이닉스", "오픈ai", "구글", "애플", "로봇"),
@@ -190,6 +208,215 @@ def _breaking_lane_items(raw_candidates: object, now: datetime, *, limit: int) -
     return items
 
 
+def _spam_trend_reason(keyword: str) -> str | None:
+    """X 트렌드 단어에 대한 소스 품질 스팸 판정.
+
+    안전 게이트(HARD_SAFETY_PATTERNS)가 아니라 후보 구성 단계의 품질
+    필터다. 실측된 광고 형태만 죽인다: 연락처 유도(라인·QQ·카톡 ID),
+    출장·만남 조합, 빠른이동, 대출·후불 광고. 「군인 가능」 같은
+    무맥락 단어는 여기서 죽이면 안 된다(오탐).
+    """
+    text = re.sub(r"\s+", " ", str(keyword or "")).strip()
+    if not text:
+        return None
+    for pattern, label in _SPAM_TREND_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE):
+            return f"{_SPAM_REASON_PREFIX}({label})"
+    return None
+
+
+def _rank_status_display(status: int) -> str:
+    if status == 0:
+        return "신규 진입"
+    if status > 0:
+        return f"{status}계단 상승"
+    return "1계단 하락" if status == -1 else f"{-status}계단 하락"
+
+
+def _daum_trend_items(
+    raw_items: list[dict[str, Any]],
+    now: datetime,
+    *,
+    filter_shadow_store: FilterShadowStore | None = None,
+    excluded_reasons: Counter[str] | None = None,
+) -> list[dict[str, Any]]:
+    """다음 실시간 트렌드(1순위 소스)를 점수 없는 후보로 정규화한다.
+
+    `status`(순위 변동)가 「왜 지금 뜨는가」 신호다. 순위 순서는 그대로
+    보존하고 점수는 만들지 않는다.
+    """
+    items: list[dict[str, Any]] = []
+    seen_keys: set[str] = set()
+    for raw in raw_items:
+        keyword = str(raw.get("keyword") or "").strip()
+        status = raw.get("status")
+        if not keyword or not isinstance(status, int):
+            continue
+        key = _normalize_keyword(keyword)
+        if not key or key in seen_keys:
+            continue
+        seen_keys.add(key)
+        reason = excluded_topic_reason(keyword)
+        record_filter_candidate_fail_open(
+            filter_shadow_store,
+            source="x-radar",
+            candidate_id=hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
+            title=keyword,
+            extra_text="다음 실시간 트렌드",
+            filter_verdict="block" if reason else "allow",
+            filter_reason=reason or "",
+            observed_at=now,
+        )
+        if reason:
+            if excluded_reasons is not None:
+                excluded_reasons[reason] += 1
+            continue
+        url = str(raw.get("url") or "").strip()
+        if urlparse(url).scheme not in {"http", "https"}:
+            url = ""
+        display_rank = raw.get("display_rank")
+        if not isinstance(display_rank, int):
+            display_rank = raw.get("rank")
+        observed_at = now.astimezone(UTC).isoformat()
+        items.append(
+            {
+                "id": hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
+                "keyword": keyword,
+                "lane": "다음 실시간 트렌드",
+                "category": _topic_category(keyword, []),
+                "qualification_mode": "daum_realtime_trend",
+                "context_level": "source_direct",
+                "materiality_pass": True,
+                "observed_at": observed_at,
+                "source": "다음 실시간 트렌드",
+                "publisher": "",
+                "sources": ["다음 실시간 트렌드"],
+                "rank": display_rank,
+                "rank_status": status,
+                "rank_status_display": _rank_status_display(status),
+                "source_published_at": None,
+                "first_seen_at": None,
+                "age_minutes": None,
+                "age_basis": "unknown",
+                "age_display": "미상",
+                "source_url": url,
+                "volume": "N/A",
+                "volume_numeric": 0,
+                "news_headlines": [],
+                "news_items": [],
+                "first_report": None,
+                "threads_posts": [],
+                "threads_author_count": 0,
+                "x_signal_keywords": [],
+                "x_search_url": "",
+                "updated_at": str(raw.get("updated_at") or ""),
+                "reasons": [f"다음 실시간 트렌드 {display_rank}위 · {_rank_status_display(status)}"],
+            }
+        )
+    return items
+
+
+def _news_ranking_items(
+    raw_items: list[dict[str, Any]],
+    now: datetime,
+    *,
+    filter_shadow_store: FilterShadowStore | None = None,
+    excluded_reasons: Counter[str] | None = None,
+) -> list[dict[str, Any]]:
+    """뉴스 랭킹 원문을 점수 없는 후보로 정규화한다. 순서는 그대로 보존한다."""
+    items: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    for raw in raw_items:
+        title = str(raw.get("title") or "").strip()
+        url = str(raw.get("url") or "").strip()
+        source = str(raw.get("source") or "").strip() or "뉴스 랭킹"
+        publisher = str(raw.get("publisher") or "").strip()
+        rank = raw.get("rank")
+        if not title or not url or urlparse(url).scheme not in {"http", "https"}:
+            continue
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        reason = excluded_topic_reason(title)
+        record_filter_candidate_fail_open(
+            filter_shadow_store,
+            source="x-radar",
+            candidate_id=hashlib.sha256(title.casefold().encode("utf-8")).hexdigest()[:16],
+            title=title,
+            extra_text=f"{source} {publisher}".strip(),
+            filter_verdict="block" if reason else "allow",
+            filter_reason=reason or "",
+            observed_at=now,
+        )
+        if reason:
+            if excluded_reasons is not None:
+                excluded_reasons[reason] += 1
+            continue
+        observed_at = now.astimezone(UTC).isoformat()
+        item = {
+            "id": hashlib.sha256(title.casefold().encode("utf-8")).hexdigest()[:16],
+            "keyword": title,
+            "lane": "뉴스 랭킹",
+            "category": _topic_category(title, [title]),
+            "qualification_mode": "news_ranking",
+            "context_level": "source_direct",
+            "materiality_pass": True,
+            "observed_at": observed_at,
+            "source": source,
+            "publisher": publisher,
+            "sources": [source],
+            "rank": rank,
+            "source_published_at": None,
+            "first_seen_at": None,
+            "age_minutes": None,
+            "age_basis": "unknown",
+            "age_display": "미상",
+            "source_url": url,
+            "volume": "N/A",
+            "volume_numeric": 0,
+            "news_headlines": [title],
+            "news_items": [{"title": title, "url": url, "source": publisher or source}],
+            "first_report": None,
+            "threads_posts": [],
+            "threads_author_count": 0,
+            "x_signal_keywords": [],
+            "x_search_url": "",
+            "reasons": [f"{source} {rank}위"],
+        }
+        items.append(item)
+    return items
+
+
+def _attach_x_signals_to_rankings(
+    x_trends: list[RawTrend],
+    target_items: list[dict[str, Any]],
+    *,
+    spam_reason_by_rank: dict[int, str] | None = None,
+) -> set[int]:
+    """같은 사건의 X 트렌드 단어를 랭킹 문장에 「X에서도 뜨고 있음」으로 묶는다.
+
+    매칭은 제목 대비 단어 일치율 0.55 이상(기존 원문 정합 규칙과 동일)이며
+    한 단어는 최상위 랭킹 항목 하나에만 붙는다. 매칭된 X 단어의 인덱스를
+    돌려줘 후보 구성에서 제외한다.
+    """
+    matched_ranks: set[int] = set()
+    for x_rank, trend in enumerate(x_trends):
+        for item in target_items:
+            if _title_keyword_relevance(trend.name, str(item.get("keyword") or "")) >= 0.55:
+                signals = item.setdefault("x_signal_keywords", [])
+                signal: dict[str, Any] = {"keyword": trend.name, "x_rank": x_rank}
+                spam_reason = (spam_reason_by_rank or {}).get(x_rank)
+                if spam_reason:
+                    signal["spam_likely_reason"] = spam_reason
+                signals.append(signal)
+                item["sources"].append("공개 X 트렌드")
+                item["reasons"].append(f"X에서도 뜨고 있음: {trend.name}({x_rank + 1}위)")
+                item["x_search_url"] = f"https://x.com/search?q={quote(trend.name)}&src=typed_query&f=live"
+                matched_ranks.add(x_rank)
+                break
+    return matched_ranks
+
+
 def _freshness_points(age_minutes: int | None, *, x_native: bool) -> int:
     if age_minutes is None:
         return 26 if x_native else 8
@@ -284,7 +511,9 @@ def _merge_news_items(
     expanded_items: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     items = _valid_news_items([*trend_items, *expanded_items])
-    items.sort(key=lambda item: (_news_timestamp(item) is None, _news_timestamp(item) or datetime.max.replace(tzinfo=UTC)))
+    items.sort(
+        key=lambda item: (_news_timestamp(item) is None, _news_timestamp(item) or datetime.max.replace(tzinfo=UTC))
+    )
     timestamped = [item for item in items if _news_timestamp(item) is not None]
     if timestamped:
         timestamped[0]["is_first_report"] = True
@@ -325,8 +554,7 @@ def _coherent_news_items(keyword: str, news_items: list[dict[str, Any]]) -> list
     return [
         item
         for item in news_items
-        if not item.get("discovered_via")
-        or _title_keyword_relevance(keyword, str(item.get("title") or "")) >= 0.55
+        if not item.get("discovered_via") or _title_keyword_relevance(keyword, str(item.get("title") or "")) >= 0.55
     ]
 
 
@@ -361,9 +589,7 @@ def _materiality_assessment(
     coherent_news = _coherent_news_items(candidate["keyword"], news_items)
     source_count = _independent_source_count(coherent_news)
     title_match_count = sum(
-        1
-        for item in news_items
-        if _title_keyword_relevance(candidate["keyword"], str(item.get("title") or "")) >= 0.55
+        1 for item in news_items if _title_keyword_relevance(candidate["keyword"], str(item.get("title") or "")) >= 0.55
     )
     threads_authors = _threads_author_count(threads_posts)
     evidence_score = min(
@@ -435,9 +661,7 @@ def _x_exposure_assessment(
 
     source_velocity = min(12, coherent_sources * 4) + min(8, recent_news * 2)
     cross_platform = (7 if google and x_trend else 0) + min(8, threads_authors * 3)
-    relevance_values = [
-        _title_keyword_relevance(keyword, str(item.get("title") or "")) for item in news_items[:8]
-    ]
+    relevance_values = [_title_keyword_relevance(keyword, str(item.get("title") or "")) for item in news_items[:8]]
     clarity = round(10 * (sum(relevance_values) / len(relevance_values))) if relevance_values else 0
     observed = observation or {}
     observed_growth = min(
@@ -567,6 +791,8 @@ class XOpportunityRadar:
         x_fetcher: TrendFetcher = _async_fetch_getdaytrends,
         threads_collector: ThreadsSignalCollector | None = None,
         news_fetcher: NewsFetcher | None = fetch_bing_news_origins,
+        news_ranking_fetcher: RankingFetcher | None = None,
+        daum_realtime_fetcher: DaumFetcher | None = None,
         observation_path: Path | None = None,
         filter_shadow_store: FilterShadowStore | None = None,
         breaking_news_observer: BreakingNewsObserver | None = None,
@@ -575,6 +801,8 @@ class XOpportunityRadar:
         self.x_fetcher = x_fetcher
         self.threads_collector = threads_collector or ThreadsSignalCollector()
         self.news_fetcher = news_fetcher
+        self.news_ranking_fetcher = news_ranking_fetcher
+        self.daum_realtime_fetcher = daum_realtime_fetcher
         self.exposure_tracker = ExposureObservationTracker(observation_path)
         self.filter_shadow_store = filter_shadow_store
         self.breaking_news_observer: BreakingNewsObserver | None
@@ -599,6 +827,8 @@ class XOpportunityRadar:
             "source_health": {
                 "google_trends": False,
                 "public_x_trends": False,
+                "daum_realtime": False,
+                "news_rankings": False,
                 "threads_api": self.threads_collector.available,
                 "publisher_news_origins": False,
                 "google_news_rss": False,
@@ -606,6 +836,17 @@ class XOpportunityRadar:
                 "kma_weather": False,
             },
             "breaking_news_observation": {"enabled": self.breaking_news_observer is not None},
+            "news_ranking_count": 0,
+            "news_ranking_raw_count": 0,
+            "news_ranking_filter_summary": {},
+            "daum_trend_count": 0,
+            "daum_raw_count": 0,
+            "daum_updated_at": None,
+            "daum_trend_filter_summary": {},
+            "observed_only_count": 0,
+            "observed_only_items": [],
+            "spam_flagged_count": 0,
+            "spam_flagged_items": [],
             "errors": [],
         }
 
@@ -625,6 +866,19 @@ class XOpportunityRadar:
 
         async with self._refresh_lock:
             async with httpx.AsyncClient(follow_redirects=True) as session:
+                is_production_fetchers = (
+                    self.google_fetcher is _async_fetch_google_trends_rss
+                    and self.x_fetcher is _async_fetch_getdaytrends
+                )
+                ranking_fetcher = self.news_ranking_fetcher
+                daum_fetcher = self.daum_realtime_fetcher
+                if is_production_fetchers and ranking_fetcher is None:
+                    # 대시보드는 두 생산 fetcher를 쓰므로 랭킹 lane을 자동으로 켠다.
+                    # 단위 테스트의 커스텀 fetcher 세션은 자동으로 꺼져 hermetical을 유지한다.
+                    ranking_fetcher = _async_fetch_news_rankings
+                if is_production_fetchers and daum_fetcher is None:
+                    # 1순위 소스도 같은 생산 조건에서 자동으로 켠다.
+                    daum_fetcher = _async_fetch_daum_realtime
                 if self.x_fetcher is _async_fetch_getdaytrends:
                     x_request = self.x_fetcher(
                         session,
@@ -634,19 +888,43 @@ class XOpportunityRadar:
                     )
                 else:
                     x_request = self.x_fetcher(session, country, max(limit, 20))
-                google_result, x_result = await asyncio.gather(
+                gather_tasks: list[Awaitable[object]] = [
                     self.google_fetcher(session, country, max(limit, 20)),
                     x_request,
-                    return_exceptions=True,
-                )
+                ]
+                result_index: dict[str, int | None] = {"ranking": None, "daum": None}
+                if ranking_fetcher is not None:
+                    result_index["ranking"] = len(gather_tasks)
+                    gather_tasks.append(ranking_fetcher(session, max(limit, 20)))
+                if daum_fetcher is not None:
+                    result_index["daum"] = len(gather_tasks)
+                    gather_tasks.append(daum_fetcher(session, max(limit, 20)))
+                gathered = await asyncio.gather(*gather_tasks, return_exceptions=True)
+                google_result, x_result = gathered[0], gathered[1]
+                ranking_result = gathered[result_index["ranking"]] if result_index["ranking"] is not None else []
+                daum_result = gathered[result_index["daum"]] if result_index["daum"] is not None else (None, [])
 
             errors: list[str] = []
             google_trends: list[RawTrend] = []
             x_trends: list[RawTrend] = []
+            ranking_raw: list[dict[str, Any]] = []
+            daum_updated_at: str | None = None
+            daum_raw: list[dict[str, Any]] = []
             if isinstance(google_result, Exception):
                 errors.append(f"Google Trends: {str(google_result)[:180]}")
             else:
                 google_trends = list(google_result)
+            if isinstance(ranking_result, Exception):
+                errors.append(f"뉴스 랭킹 수집: {str(ranking_result)[:180]}")
+            elif ranking_fetcher is not None:
+                ranking_raw = [item for item in ranking_result if isinstance(item, dict)]
+            if isinstance(daum_result, Exception):
+                errors.append(f"다음 실시간 트렌드: {str(daum_result)[:180]}")
+            elif daum_fetcher is not None:
+                if isinstance(daum_result, tuple) and len(daum_result) == 2:
+                    daum_updated_at, daum_raw = daum_result
+                elif isinstance(daum_result, list):
+                    daum_raw = daum_result
             if isinstance(x_result, Exception):
                 errors.append(f"공개 X 트렌드: {str(x_result)[:180]}")
             else:
@@ -656,7 +934,36 @@ class XOpportunityRadar:
                     if item.name not in _FALLBACK_X_TOPICS and item.link.startswith("https://getdaytrends.com/")
                 ]
 
+            # 교차 확인(3번 강등)이 스팸의 1차 방어선이다. 패턴은 보조 —
+            # 목록을 추격하지 않고, 판정된 단어에 라벨만 달아둔다.
+            spam_flagged: list[dict[str, Any]] = []
+            spam_reason_by_rank: dict[int, str] = {}
+            for x_rank, trend in enumerate(x_trends):
+                reason = _spam_trend_reason(trend.name)
+                if reason:
+                    spam_flagged.append({"keyword": trend.name, "x_rank": x_rank, "reason": reason})
+                    spam_reason_by_rank[x_rank] = reason
+
             now = _utc_now()
+            daum_excluded_reasons: Counter[str] = Counter()
+            daum_items = _daum_trend_items(
+                daum_raw,
+                now,
+                filter_shadow_store=self.filter_shadow_store,
+                excluded_reasons=daum_excluded_reasons,
+            )
+            ranking_excluded_reasons: Counter[str] = Counter()
+            ranking_items = _news_ranking_items(
+                ranking_raw,
+                now,
+                filter_shadow_store=self.filter_shadow_store,
+                excluded_reasons=ranking_excluded_reasons,
+            )
+            matched_x_ranks = _attach_x_signals_to_rankings(
+                x_trends,
+                [*daum_items, *ranking_items],
+                spam_reason_by_rank=spam_reason_by_rank,
+            )
             x_sample_id = next(
                 (
                     str((trend.extra or {}).get("_getdaytrends_sample_id") or "")
@@ -680,6 +987,8 @@ class XOpportunityRadar:
                     "age_minutes": _age_minutes(trend.published_at, now),
                 }
             for rank, trend in enumerate(x_trends):
+                if rank in matched_x_ranks:
+                    continue
                 key = _similar_key(trend.name, candidates) or _normalize_keyword(trend.name)
                 if not key:
                     continue
@@ -788,11 +1097,16 @@ class XOpportunityRadar:
                     errors.append(f"게시사 원문 확대 일부 실패 ({news_errors}건)")
 
             items: list[dict[str, Any]] = []
+            observed_only_items: list[dict[str, Any]] = []
             filtered_reasons: Counter[str] = Counter()
             previous_native_keywords = {
                 _normalize_keyword(str(item.get("keyword") or ""))
                 for item in self._snapshot.get("items", [])
                 if item.get("qualification_mode") == "x_native_history"
+            }
+            previous_native_keywords |= {
+                _normalize_keyword(str(item.get("keyword") or ""))
+                for item in self._snapshot.get("observed_only_items", [])
             }
             for candidate in candidates.values():
                 if candidate.get("excluded_topic_reason"):
@@ -844,8 +1158,7 @@ class XOpportunityRadar:
                     and _normalize_keyword(keyword) in previous_native_keywords
                 )
                 x_native_pass = bool(
-                    not materiality_pass
-                    and (_x_native_gate(candidate, observation, now) or cached_native_replay)
+                    not materiality_pass and (_x_native_gate(candidate, observation, now) or cached_native_replay)
                 )
                 if not materiality_pass and not x_native_pass:
                     filtered_reasons[gate_reason] += 1
@@ -889,59 +1202,75 @@ class XOpportunityRadar:
                     else (x_trend.link if x_trend else (google.link if google else "")),
                 )
                 first_report = next((article for article in news_items if article.get("is_first_report")), None)
-                items.append(
-                    {
-                        "id": hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
-                        "keyword": keyword,
-                        "materiality_score": score,
-                        "opportunity_score": score,
-                        "x_exposure_score": x_exposure_score,
-                        "exposure_breakdown": exposure_breakdown,
-                        "exposure_signals": exposure_signals,
-                        "score_version": _X_EXPOSURE_SCORE_VERSION,
-                        "exposure_confidence": exposure_confidence,
-                        "exposure_coverage": exposure_coverage,
-                        "observed_at": observation["observed_at"],
-                        "observation_delta": observation,
-                        "materiality_pass": True,
-                        "qualification_mode": "x_native_history" if x_native_pass else "cross_source_evidence",
-                        "context_level": "low" if x_native_pass else "verified",
-                        "lane": lane,
-                        "category": category,
-                        "volume": google.volume if google else "N/A",
-                        "volume_numeric": google.volume_numeric if google else 0,
-                        "age_minutes": candidate.get("age_minutes"),
-                        "age_basis": candidate["age_basis"],
-                        "age_display": age_display,
-                        "first_seen_at": candidate["first_seen_at"],
-                        "source_published_at": (
-                            source_published_at.astimezone(UTC).isoformat()
-                            if source_published_at is not None
-                            else None
-                        ),
-                        "sources": [
-                            source
-                            for source, present in (
-                                ("Google Trends", bool(google)),
-                                ("공개 X 트렌드", bool(x_trend)),
-                                ("Threads", bool(threads_posts)),
-                            )
-                            if present
-                        ],
-                        "news_headlines": headlines,
-                        "news_items": news_items,
-                        "first_report": first_report,
-                        "threads_posts": threads_posts,
-                        "threads_author_count": _threads_author_count(threads_posts),
-                        "reasons": reasons,
-                        "published_at": google.published_at.isoformat() if google and google.published_at else None,
-                        "source_url": primary_url,
-                        "trend_url": google.link if google and google.link else (x_trend.link if x_trend else ""),
-                        "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
-                        "threads_search_url": f"https://www.threads.com/search?q={encoded}",
-                        "news_search_url": f"https://news.google.com/search?q={encoded}&hl=ko&gl=KR&ceid=KR%3Ako",
-                    }
-                )
+                item = {
+                    "id": hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
+                    "keyword": keyword,
+                    "materiality_score": score,
+                    "opportunity_score": score,
+                    "x_exposure_score": x_exposure_score,
+                    "exposure_breakdown": exposure_breakdown,
+                    "exposure_signals": exposure_signals,
+                    "score_version": _X_EXPOSURE_SCORE_VERSION,
+                    "exposure_confidence": exposure_confidence,
+                    "exposure_coverage": exposure_coverage,
+                    "observed_at": observation["observed_at"],
+                    "observation_delta": observation,
+                    "materiality_pass": True,
+                    "qualification_mode": "x_native_history" if x_native_pass else "cross_source_evidence",
+                    "context_level": "low" if x_native_pass else "verified",
+                    "lane": lane,
+                    "category": category,
+                    "volume": google.volume if google else "N/A",
+                    "volume_numeric": google.volume_numeric if google else 0,
+                    "age_minutes": candidate.get("age_minutes"),
+                    "age_basis": candidate["age_basis"],
+                    "age_display": age_display,
+                    "first_seen_at": candidate["first_seen_at"],
+                    "source_published_at": (
+                        source_published_at.astimezone(UTC).isoformat() if source_published_at is not None else None
+                    ),
+                    "sources": [
+                        source
+                        for source, present in (
+                            ("Google Trends", bool(google)),
+                            ("공개 X 트렌드", bool(x_trend)),
+                            ("Threads", bool(threads_posts)),
+                        )
+                        if present
+                    ],
+                    "news_headlines": headlines,
+                    "news_items": news_items,
+                    "first_report": first_report,
+                    "threads_posts": threads_posts,
+                    "threads_author_count": _threads_author_count(threads_posts),
+                    "reasons": reasons,
+                    "published_at": google.published_at.isoformat() if google and google.published_at else None,
+                    "source_url": primary_url,
+                    "trend_url": google.link if google and google.link else (x_trend.link if x_trend else ""),
+                    "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
+                    "threads_search_url": f"https://www.threads.com/search?q={encoded}",
+                    "news_search_url": f"https://news.google.com/search?q={encoded}&hl=ko&gl=KR&ceid=KR%3Ako",
+                }
+                if item["context_level"] == "low" and not headlines and not first_report:
+                    # 「왜 후보인가」가 없는 항목은 지우지 않고 관측만 칸으로 강등한다.
+                    filtered_reasons["맥락 없음 관측만 강등"] += 1
+                    observed_only_items.append(
+                        {
+                            "id": item["id"],
+                            "keyword": keyword,
+                            "x_rank": candidate.get("x_rank"),
+                            "observed_at": item["observed_at"],
+                            "context_level": "low",
+                            "news_headlines": [],
+                            "first_report": None,
+                            "demotion_reason": "뉴스 맥락 없음(다음 트렌드·랭킹 문장 매칭 없음, 제목·최초 보도 없음)",
+                            "spam_likely_reason": spam_reason_by_rank.get(candidate.get("x_rank")),
+                            "trend_url": item["trend_url"],
+                            "x_search_url": item["x_search_url"],
+                        }
+                    )
+                    continue
+                items.append(item)
 
             items.sort(
                 key=lambda item: (
@@ -952,11 +1281,18 @@ class XOpportunityRadar:
                 reverse=True,
             )
             legacy_items = items[:limit]
-            visible_items = [*legacy_items, *breaking_items]
+            visible_items = [
+                *daum_items,
+                *ranking_items,
+                *legacy_items,
+                *breaking_items,
+            ]
             self.exposure_tracker.save(now=now)
             source_health = {
                 "google_trends": bool(google_trends),
                 "public_x_trends": bool(x_trends),
+                "daum_realtime": bool(daum_items),
+                "news_rankings": bool(ranking_items),
                 "threads_api": self.threads_collector.available,
                 "publisher_news_origins": news_origin_ok,
             }
@@ -969,18 +1305,25 @@ class XOpportunityRadar:
                 ("kma_weather", "kma-weather"),
             ):
                 source_status = breaking_sources.get(source_key)
-                source_health[response_key] = bool(
-                    isinstance(source_status, dict) and source_status.get("available")
-                )
+                source_health[response_key] = bool(isinstance(source_status, dict) and source_status.get("available"))
             if not google_trends:
                 errors.append("Google Trends 결과 없음")
             if not x_trends:
                 errors.append("공개 X 트렌드 결과 없음")
+            if daum_fetcher is not None and not daum_raw:
+                errors.append("다음 실시간 트렌드 결과 없음")
             self._snapshot = {
                 "available": bool(visible_items),
                 "country": country,
                 "items": visible_items,
                 "total_candidates": len(candidates),
+                "news_ranking_count": len(ranking_items),
+                "news_ranking_raw_count": len(ranking_raw),
+                "news_ranking_filter_summary": dict(ranking_excluded_reasons),
+                "daum_trend_count": len(daum_items),
+                "daum_raw_count": len(daum_raw),
+                "daum_updated_at": daum_updated_at,
+                "daum_trend_filter_summary": dict(daum_excluded_reasons),
                 "qualified_candidates": len(items),
                 "breaking_news_count": len(breaking_items),
                 "filtered_out_count": len(candidates) - len(items),
@@ -988,6 +1331,10 @@ class XOpportunityRadar:
                 "strict_materiality": True,
                 "x_native_count": sum(1 for item in items if item.get("qualification_mode") == "x_native_history"),
                 "expanded_news_count": expanded_news_count,
+                "observed_only_count": len(observed_only_items),
+                "observed_only_items": observed_only_items,
+                "spam_flagged_count": len(spam_flagged),
+                "spam_flagged_items": spam_flagged,
                 "breaking_news_observation": breaking_news_observation,
                 "x_cache_ttl_seconds": 90,
                 "force_refresh_requested": bool(force_refresh),
@@ -1001,6 +1348,6 @@ class XOpportunityRadar:
                 "refreshed_at": now.isoformat(),
                 "source_health": source_health,
                 "errors": errors,
-                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 뉴스 근거 없는 X 상위권 반복·상승 단어는 저신뢰도 X 네이티브 급등으로 분리하고, 연합뉴스·기상청 직접 발표는 점수 없는 별도 lane으로 병기합니다.",
+                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 다음 실시간 트렌드(순위 변동 포함)·네이트/줌 뉴스 랭킹을 점수 없는 후보로 앞세우고, X 트렌드 단어는 같은 사건의 후보에 「X에서도 뜨고 있음」 신호로 붙입니다. 맥락 없는 X 단어는 관측만 칸으로 강등하며 연합뉴스·기상청 직접 발표는 별도 lane으로 병기합니다.",
             }
             return self.snapshot()

@@ -9,7 +9,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from models import RawTrend, TrendSource  # noqa: E402
-from x_opportunity_radar import XOpportunityRadar, _x_exposure_assessment  # noqa: E402
+from x_opportunity_radar import (  # noqa: E402
+    XOpportunityRadar,
+    _spam_trend_reason,
+    _x_exposure_assessment,
+)
 
 
 @pytest.mark.asyncio
@@ -88,9 +92,7 @@ def test_x_exposure_score_uses_continuous_time_decay_and_public_x_rank():
     }
 
     fresh_score, fresh_breakdown, _, _, _ = _x_exposure_assessment(base, news_items, [], now)
-    old_score, old_breakdown, _, _, _ = _x_exposure_assessment(
-        {**base, "age_minutes": 360}, news_items, [], now
-    )
+    old_score, old_breakdown, _, _, _ = _x_exposure_assessment({**base, "age_minutes": 360}, news_items, [], now)
     x_score, x_breakdown, _, _, _ = _x_exposure_assessment(
         {**base, "x": RawTrend(name="도심 정전", source=TrendSource.GETDAYTRENDS), "x_rank": 0},
         news_items,
@@ -118,9 +120,7 @@ def test_x_exposure_score_marks_unknown_time_low_confidence_and_rewards_observed
         {"title": "도심 정전 복구 중", "url": "https://two.example/power", "source": "두뉴스"},
     ]
 
-    base_score, base_breakdown, _, confidence, coverage = _x_exposure_assessment(
-        candidate, news_items, [], now
-    )
+    base_score, base_breakdown, _, confidence, coverage = _x_exposure_assessment(candidate, news_items, [], now)
     growth_score, growth_breakdown, signals, _, _ = _x_exposure_assessment(
         candidate,
         news_items,
@@ -180,7 +180,7 @@ async def test_radar_filters_ranked_x_noise_without_context_sources():
 
 
 @pytest.mark.asyncio
-async def test_radar_promotes_repeated_top_x_phrase_to_low_context_native_lane(tmp_path):
+async def test_radar_demotes_repeated_contextless_x_phrase_to_observed_only(tmp_path):
     async def google_fetcher(session, country, limit):
         return []
 
@@ -203,25 +203,21 @@ async def test_radar_promotes_repeated_top_x_phrase_to_low_context_native_lane(t
     second = await radar.refresh(limit=10)
 
     assert first["items"] == []
-    assert len(second["items"]) == 1
-    item = second["items"][0]
-    assert item["lane"] == "X 네이티브 급등"
-    assert item["qualification_mode"] == "x_native_history"
-    assert item["context_level"] == "low"
-    assert item["exposure_confidence"] == "low"
-    assert item["age_minutes"] is not None
-    assert item["age_basis"] == "first_seen_at"
-    assert item["first_seen_at"] is not None
-    assert item["source_published_at"] is None
-    assert item["news_items"] == []
-    assert item["source_url"] == "https://getdaytrends.com/korea/trend/native-phrase/"
-    assert second["x_native_count"] == 1
-    assert "suggested_hook" not in item
-    assert "recommended_format" not in item
+    assert second["items"] == []
+    assert second["x_native_count"] == 0
+    assert second["observed_only_count"] == 1
+    observed = second["observed_only_items"][0]
+    assert observed["keyword"] == "드림주들 모브"
+    assert observed["context_level"] == "low"
+    assert observed["news_headlines"] == []
+    assert observed["first_report"] is None
+    assert observed["x_rank"] == 0
+    assert observed["spam_likely_reason"] is None
+    assert observed["trend_url"] == "https://getdaytrends.com/korea/trend/native-phrase/"
 
 
 @pytest.mark.asyncio
-async def test_radar_cache_sample_neither_promotes_nor_hides_verified_native_phrase(tmp_path):
+async def test_radar_cache_sample_replay_demotes_contextless_phrase_to_observed_only(tmp_path):
     async def google_fetcher(session, country, limit):
         return []
 
@@ -251,11 +247,12 @@ async def test_radar_cache_sample_neither_promotes_nor_hides_verified_native_phr
 
     assert first["items"] == []
     assert repeated["items"] == []
-    assert len(fresh["items"]) == 1
-    assert fresh["items"][0]["observation_delta"]["sample_advanced"] is True
-    assert len(replay["items"]) == 1
-    assert replay["items"][0]["observation_delta"]["sample_advanced"] is False
-    assert "반복 관측에 미포함" in replay["items"][0]["exposure_signals"][1]
+    assert fresh["items"] == []
+    assert fresh["observed_only_count"] == 1
+    assert fresh["observed_only_items"][0]["keyword"] == "캐시 확인 문구"
+    assert replay["items"] == []
+    assert replay["observed_only_count"] == 1
+    assert replay["observed_only_items"][0]["keyword"] == "캐시 확인 문구"
 
 
 @pytest.mark.asyncio
@@ -470,9 +467,7 @@ async def test_radar_expands_timestamped_originals_and_marks_earliest_observed()
                 published_at=datetime.now(UTC) - timedelta(minutes=10),
                 extra={
                     "news_headlines": ["도심 정전 발생"],
-                    "news_items": [
-                        {"title": "도심 정전 발생", "url": "https://one.example/power", "source": "원뉴스"}
-                    ],
+                    "news_items": [{"title": "도심 정전 발생", "url": "https://one.example/power", "source": "원뉴스"}],
                 },
             )
         ]
@@ -509,3 +504,249 @@ async def test_radar_expands_timestamped_originals_and_marks_earliest_observed()
     assert item["first_report"]["source"] == "세뉴스"
     assert item["first_report"]["first_report_scope"] == "수집 원문 중 최초"
     assert "urgency" not in item
+
+
+def test_spam_trend_reason_matches_measured_samples_and_spares_non_spam():
+    flagged = [
+        "빠른이동 연락",
+        "라인 qq750",
+        "전국 출장 만남 진행중",
+        "무직자대출 진행",
+        "후불 유심",
+    ]
+    for keyword in flagged:
+        assert _spam_trend_reason(keyword), f"스팸으로 판정돼야 함: {keyword!r}"
+    spared = [
+        "군인 가능",
+        "오하욘사",
+        "테슬라 로드스터",
+        "대출 금리",
+        "온라인 게임",
+        "카톡 대화",
+        "라인프렌즈",
+    ]
+    for keyword in spared:
+        assert _spam_trend_reason(keyword) is None, f"오탐이면 안 됨: {keyword!r}"
+
+
+@pytest.mark.asyncio
+async def test_radar_news_ranking_items_keep_rank_order_and_carry_title_link_source():
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return []
+
+    async def ranking_fetcher(session, limit):
+        return [
+            {
+                "title": "주차비 10분에 1만원…식당 사장님, 8만원 받아내",
+                "url": "https://news.example.com/parking",
+                "source": "네이트 뉴스 랭킹",
+                "publisher": "테스트신문",
+                "rank": 8,
+            },
+            {
+                "title": "공중부양까지…테슬라 로드스터, 이번엔 뜰까",
+                "url": "https://news.example.com/roadster",
+                "source": "줌 뉴스",
+                "publisher": "테스트일보",
+                "rank": 1,
+            },
+        ]
+
+    data = await XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        news_ranking_fetcher=ranking_fetcher,
+    ).refresh(limit=10)
+
+    assert data["news_ranking_count"] == 2
+    items = data["items"]
+    assert [item["keyword"] for item in items] == [
+        "주차비 10분에 1만원…식당 사장님, 8만원 받아내",
+        "공중부양까지…테슬라 로드스터, 이번엔 뜰까",
+    ]
+    first = items[0]
+    assert first["lane"] == "뉴스 랭킹"
+    assert first["qualification_mode"] == "news_ranking"
+    assert first["source"] == "네이트 뉴스 랭킹"
+    assert first["publisher"] == "테스트신문"
+    assert first["rank"] == 8
+    assert first["source_url"] == "https://news.example.com/parking"
+    assert first["news_headlines"] == ["주차비 10분에 1만원…식당 사장님, 8만원 받아내"]
+    assert first["news_items"] == [
+        {
+            "title": "주차비 10분에 1만원…식당 사장님, 8만원 받아내",
+            "url": "https://news.example.com/parking",
+            "source": "테스트신문",
+        }
+    ]
+    assert first["x_signal_keywords"] == []
+    assert "materiality_score" not in first
+    assert "opportunity_score" not in first
+    assert "x_exposure_score" not in first
+
+
+@pytest.mark.asyncio
+async def test_radar_daum_trend_items_lead_and_carry_rank_status_without_scores():
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return []
+
+    async def daum_fetcher(session, limit):
+        return (
+            "2026-08-16T17:30:01.801+09:00",
+            [
+                {
+                    "keyword": "이동하 소진 결혼",
+                    "rank": 2,
+                    "display_rank": 1,
+                    "status": -1,
+                    "url": "https://search.daum.net/search?q=%EC%9D%B4%EB%8F%99%ED%95%98",
+                    "source": "다음 실시간 트렌드",
+                    "updated_at": "2026-08-16T17:30:01.801+09:00",
+                },
+                {
+                    "keyword": "윤가이 장기하 연애",
+                    "rank": 6,
+                    "display_rank": 2,
+                    "status": 0,
+                    "url": "https://search.daum.net/search?q=%EA%B9%80%ED%83%9C%ED%98%B8",
+                    "source": "다음 실시간 트렌드",
+                    "updated_at": "2026-08-16T17:30:01.801+09:00",
+                },
+                {
+                    "keyword": "김태호 개헌 논의",
+                    "rank": 9,
+                    "display_rank": 3,
+                    "status": 1,
+                    "url": "https://search.daum.net/search?q=%EA%B9%80%ED%83%9C%ED%98%B8",
+                    "source": "다음 실시간 트렌드",
+                    "updated_at": "2026-08-16T17:30:01.801+09:00",
+                },
+            ],
+        )
+
+    data = await XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        daum_realtime_fetcher=daum_fetcher,
+    ).refresh(limit=10)
+
+    assert data["daum_trend_count"] == 2
+    assert data["daum_raw_count"] == 3
+    assert data["daum_trend_filter_summary"] == {"정치 제외": 1}
+    assert data["daum_updated_at"] == "2026-08-16T17:30:01.801+09:00"
+    assert data["items"][0]["keyword"] == "이동하 소진 결혼"
+    assert data["items"][0]["lane"] == "다음 실시간 트렌드"
+    assert data["items"][0]["qualification_mode"] == "daum_realtime_trend"
+    assert data["items"][0]["context_level"] == "source_direct"
+    assert data["items"][0]["rank"] == 1
+    assert data["items"][0]["rank_status"] == -1
+    assert data["items"][0]["rank_status_display"] == "1계단 하락"
+    assert data["items"][1]["keyword"] == "윤가이 장기하 연애"
+    assert data["items"][1]["rank_status"] == 0
+    assert data["items"][1]["rank_status_display"] == "신규 진입"
+    assert "materiality_score" not in data["items"][0]
+    assert "x_exposure_score" not in data["items"][0]
+
+
+@pytest.mark.asyncio
+async def test_radar_attaches_matching_x_word_and_demotes_unmatched():
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return [
+            RawTrend(
+                name="테슬라 로드스터",
+                source=TrendSource.GETDAYTRENDS,
+                link="https://getdaytrends.com/korea/trend/roadster/",
+            ),
+            RawTrend(
+                name="군인 가능",
+                source=TrendSource.GETDAYTRENDS,
+                link="https://getdaytrends.com/korea/trend/soldier/",
+            ),
+        ]
+
+    async def ranking_fetcher(session, limit):
+        return [
+            {
+                "title": "공중부양까지…테슬라 로드스터, 이번엔 뜰까",
+                "url": "https://news.example.com/roadster",
+                "source": "줌 뉴스",
+                "publisher": "테스트일보",
+                "rank": 1,
+            }
+        ]
+
+    radar = XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        news_ranking_fetcher=ranking_fetcher,
+        observation_path=None,
+    )
+    first = await radar.refresh(limit=10)
+    second = await radar.refresh(limit=10)
+
+    assert [item["keyword"] for item in second["items"]] == ["공중부양까지…테슬라 로드스터, 이번엔 뜰까"]
+    item = second["items"][0]
+    assert item["x_signal_keywords"] == [{"keyword": "테슬라 로드스터", "x_rank": 0}]
+    assert "공개 X 트렌드" in item["sources"]
+    assert any("X에서도 뜨고 있음" in reason for reason in item["reasons"])
+    assert item["x_search_url"].startswith("https://x.com/search?q=")
+    observed = second["observed_only_items"]
+    assert [entry["keyword"] for entry in observed] == ["군인 가능"]
+    assert observed[0]["x_rank"] == 1
+    assert observed[0]["spam_likely_reason"] is None
+    assert [item["keyword"] for item in first["items"]] == ["공중부양까지…테슬라 로드스터, 이번엔 뜰까"]
+    assert second["filtered_out_count"] == 1
+    assert second["filter_summary"] == {"맥락 없음 관측만 강등": 1}
+
+
+@pytest.mark.asyncio
+async def test_radar_spam_x_words_never_become_candidates_and_are_flagged_only():
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return [
+            RawTrend(
+                name="라인 qq750",
+                source=TrendSource.GETDAYTRENDS,
+                link="https://getdaytrends.com/korea/trend/spam/",
+            ),
+            RawTrend(
+                name="군인 가능",
+                source=TrendSource.GETDAYTRENDS,
+                link="https://getdaytrends.com/korea/trend/soldier/",
+            ),
+        ]
+
+    radar = XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        observation_path=None,
+    )
+    first = await radar.refresh(limit=10)
+    second = await radar.refresh(limit=10)
+
+    assert first["items"] == []
+    assert second["items"] == []
+    assert second["spam_flagged_count"] == 1
+    assert second["spam_flagged_items"] == [
+        {"keyword": "라인 qq750", "x_rank": 0, "reason": second["spam_flagged_items"][0]["reason"]}
+    ]
+    assert second["spam_flagged_items"][0]["reason"].startswith("스팸·불법광고 패턴")
+    observed = {entry["keyword"]: entry for entry in second["observed_only_items"]}
+    assert set(observed) == {"라인 qq750", "군인 가능"}
+    assert observed["라인 qq750"]["spam_likely_reason"].startswith("스팸·불법광고 패턴")
+    assert observed["군인 가능"]["spam_likely_reason"] is None
