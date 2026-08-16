@@ -16,6 +16,7 @@ from urllib.parse import quote, urlparse
 import httpx
 
 try:
+    from .breaking_news_observer import BreakingNewsObserver
     from .collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from .content_filters import excluded_topic_reason
     from .exposure_observation_tracker import ExposureObservationTracker
@@ -24,6 +25,7 @@ try:
     from .news_origin_collector import fetch_bing_news_origins
     from .threads_signal_collector import ThreadsSignalCollector
 except ImportError:
+    from breaking_news_observer import BreakingNewsObserver
     from collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from content_filters import excluded_topic_reason
     from exposure_observation_tracker import ExposureObservationTracker
@@ -442,6 +444,7 @@ class XOpportunityRadar:
         news_fetcher: NewsFetcher | None = fetch_bing_news_origins,
         observation_path: Path | None = None,
         filter_shadow_store: FilterShadowStore | None = None,
+        breaking_news_observer: BreakingNewsObserver | None = None,
     ):
         self.google_fetcher = google_fetcher
         self.x_fetcher = x_fetcher
@@ -449,6 +452,20 @@ class XOpportunityRadar:
         self.news_fetcher = news_fetcher
         self.exposure_tracker = ExposureObservationTracker(observation_path)
         self.filter_shadow_store = filter_shadow_store
+        self.breaking_news_observer: BreakingNewsObserver | None
+        if breaking_news_observer is not None:
+            self.breaking_news_observer = breaking_news_observer
+        elif (
+            filter_shadow_store is not None
+            and google_fetcher is _async_fetch_google_trends_rss
+            and x_fetcher is _async_fetch_getdaytrends
+        ):
+            self.breaking_news_observer = BreakingNewsObserver(filter_shadow_store)
+        else:
+            # Unit/custom fetchers remain hermetic unless the observer is
+            # explicitly injected.  The dashboard uses both production
+            # fetchers and therefore enables this lane automatically.
+            self.breaking_news_observer = None
         self._refresh_lock = asyncio.Lock()
         self._snapshot: dict[str, Any] = {
             "available": False,
@@ -459,7 +476,11 @@ class XOpportunityRadar:
                 "public_x_trends": False,
                 "threads_api": self.threads_collector.available,
                 "publisher_news_origins": False,
+                "google_news_rss": False,
+                "yonhap_rss": False,
+                "kma_weather": False,
             },
+            "breaking_news_observation": {"enabled": self.breaking_news_observer is not None},
             "errors": [],
         }
 
@@ -549,6 +570,22 @@ class XOpportunityRadar:
                 )
                 candidate["x"] = trend
                 candidate["x_rank"] = rank
+
+            breaking_news_observation: dict[str, Any] = {
+                "enabled": self.breaking_news_observer is not None,
+                "available": False,
+                "sources": {},
+            }
+            if self.breaking_news_observer is not None:
+                try:
+                    breaking_news_observation = await self.breaking_news_observer.observe(
+                        (candidate["keyword"] for candidate in candidates.values()),
+                        observed_at=now,
+                    )
+                except Exception:
+                    # This lane is measurement-only and must never affect the
+                    # existing radar response path.
+                    errors.append("L0/L1 shadow 관찰 실패")
 
             for candidate in candidates.values():
                 google = candidate.get("google")
@@ -773,6 +810,18 @@ class XOpportunityRadar:
                 "threads_api": self.threads_collector.available,
                 "publisher_news_origins": news_origin_ok,
             }
+            breaking_sources = breaking_news_observation.get("sources")
+            if not isinstance(breaking_sources, dict):
+                breaking_sources = {}
+            for response_key, source_key in (
+                ("google_news_rss", "google-news-rss"),
+                ("yonhap_rss", "yonhap-rss"),
+                ("kma_weather", "kma-weather"),
+            ):
+                source_status = breaking_sources.get(source_key)
+                source_health[response_key] = bool(
+                    isinstance(source_status, dict) and source_status.get("available")
+                )
             if not google_trends:
                 errors.append("Google Trends 결과 없음")
             if not x_trends:
@@ -788,6 +837,7 @@ class XOpportunityRadar:
                 "strict_materiality": True,
                 "x_native_count": sum(1 for item in items if item.get("qualification_mode") == "x_native_history"),
                 "expanded_news_count": expanded_news_count,
+                "breaking_news_observation": breaking_news_observation,
                 "x_cache_ttl_seconds": 90,
                 "force_refresh_requested": bool(force_refresh),
                 "capabilities": {
