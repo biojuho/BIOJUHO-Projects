@@ -30,6 +30,35 @@ _ACTOR_TERMS = (
     "기사", "택배", "점주", "원장", "교수", "담임", "학부모", "친구", "지인",
     "남친", "여친", "전남친", "전여친", "엄마", "아빠", "부모", "오빠", "누나", "형", "동생",
     "와이프", "유부남", "유부녀",
+    # 0070(2026-08-16): 관계·직함 확장. 헤더 실측에서 제목에 관계·직함이 있는데
+    # person=False였던 3건("군인 가능"·"대구 선생님들 이리 와봐요"·"하영 증조모 … 딸?")을
+    # 메운다. person은 이 계정에서 유일하게 검정을 통과한 축이라 놓침은 곧 후보 감소다.
+    # shadow 13,800 unique 제목 전수 스캔에서 아래 어휘가 사람 아닌 낱말의 하위문자열로
+    # 등장한 경우는 0건이었다. 딸·아들·손자·이모·교사는 경계 누수(딸기·알아들·손자병법·
+    # 이모티콘·반면교사)가 있어 _ACTOR_BOUNDARY_PATTERNS 쪽에 둔다. 손주는 야구선수
+    # 손주영과 충돌해 넣지 않았다(손자·손녀가 증손자·증손녀까지 덮는다).
+    "할머니", "할아버지", "증조모", "증조부", "조카", "손녀", "삼촌", "고모", "숙모",
+    "선생", "군인", "장교", "훈련병",
+)
+
+# 0070: 경계가 필요한 관계어. 한국어는 띄어쓰기가 불안정해 순수 부분문자열로 넣으면
+# 사람 아닌 낱말이 함께 걸린다(0048의 친일 어간 사례와 같은 원리, 방향은 반대).
+# 배제 집합은 shadow 13,800 unique 제목에서 해당 어휘의 등장 맥락을 전수 열람해 정했다.
+# - 딸: 딸기·딸리다(딸려·딸린)·딸배·딸치다·딸잽이·"번호 딸까"·딸랑·딸맨은 사람이 아니고,
+#   앞글자 리(리딸)도 사람이 아니다. 딸딸이는 두 번째 딸이 뒤에 '이'가 와서 lookahead만
+#   골라내지지 않는다 — lookbehind((?<!딸))로 앞 딸도 함께 막는다.
+# - 아들: 알아들다·받아들이다 안의 "아들"만 사람이 아니다(각 4건·4건). 어근이
+#   알+아들·받+아들로 붙어 있어 lookbehind는 한 글자(알·받)로 본다. 수양아들·
+#   친아들 같은 실제 형태는 앞글자가 달라 그대로 잡힌다.
+# - 손자: 손자병법(책)은 손자(孫子)라도 관계어가 아니다.
+# - 이모: 이모티콘·이모지·이모션.
+# - 교사: 반면교사(관용구). 살인교사 류의 敎唆 감각은 코퍼스에 0건이었다.
+_ACTOR_BOUNDARY_PATTERNS = (
+    (re.compile(r"(?<![리딸])딸(?!기|리|린|딸|배|치|잽|까|랑|맨|깍|꾹)"), "딸"),
+    (re.compile(r"(?<!알)(?<!받)아들"), "아들"),
+    (re.compile(r"손자(?!병)"), "손자"),
+    (re.compile(r"이모(?!티|지|션)"), "이모"),
+    (re.compile(r"(?<!반면)교사"), "교사"),
 )
 
 _WRONGDOING_TERMS = (
@@ -116,6 +145,18 @@ def _hits(text: str, terms: tuple[str, ...]) -> list[str]:
     return [t for t in terms if t.casefold() in text]
 
 
+def _actor_hits(text: str) -> list[str]:
+    """person 어휘 = 부분문자열 사전 + 경계 패턴을 합친다(중복 제거, 사전 순서 우선).
+
+    text는 호출 쪽에서 이미 casefold한 값이다(제목·요약 두 경로 모두 그렇다).
+    """
+    hits = _hits(text, _ACTOR_TERMS)
+    for pattern, term in _ACTOR_BOUNDARY_PATTERNS:
+        if term not in hits and pattern.search(text):
+            hits.append(term)
+    return hits
+
+
 def _screen_material_text(title: str, *, community_label: str | None = None) -> dict[str, Any]:
     """제목 한 줄로 커널 소재 축을 근사한다. 확정이 아니라 선별 보조다."""
     raw = " ".join(str(title or "").split())
@@ -148,7 +189,7 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
 
     debate = _hits(text, _DEBATE_TERMS)
     debate_q = [p for p in _DEBATE_PATTERNS if p.search(raw)]
-    actors = _hits(text, _ACTOR_TERMS)
+    actors = _actor_hits(text)
     wrongs = _hits(text, _WRONGDOING_TERMS)
     gaps = _hits(text, _GAP_TERMS + _WEAK_GAP_TERMS) + [name for p, name in _GAP_PATTERNS if p.search(text)]
 
@@ -226,7 +267,7 @@ def screen_material(
     if not normalized_summary:
         return title_result
     if title_result["axis"] not in {"dead_flat", "unknown"}:
-        summary_actors = _hits(normalized_summary.casefold(), _ACTOR_TERMS)
+        summary_actors = _actor_hits(normalized_summary.casefold())
         if not title_result["person"] and summary_actors:
             result = dict(title_result)
             result["person"] = True

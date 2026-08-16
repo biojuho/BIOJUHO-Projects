@@ -127,6 +127,94 @@ class TestPersonAxis:
         assert result["person_source"] == "summary"
 
 
+class TestPersonRecall0070:
+    """0070 핸드오프: 관계·직함이 있는데 person=False였던 실측 놓침을 고정한다.
+
+    2026-08-16 헤더 실측 — 8010 응답 40건 중 제목에 관계·직함이 있는 5건에서 3건을
+    놓쳤다(전부 person_terms=[]). person은 이 계정에서 유일하게 검정을 통과한 축이라
+    놓침은 곧 후보 감소다. 동시에 정밀도를 지킨다 — 경계 어휘(딸·아들·손자·이모·교사)는
+    사람 아닌 낱말(딸기·알아들·손자병법·이모티콘·반면교사)을 걸러야 한다.
+    """
+
+    def test_the_three_measured_misses_are_now_person(self):
+        r = screen_material("군인 가능")
+        assert r["person"] is True
+        assert r["person_terms"] == ["군인"]
+
+        r = screen_material("대구 선생님들 이리 와봐요")
+        assert r["person"] is True
+        assert r["person_terms"] == ["선생"]
+
+        r = screen_material("'하영 증조모 일본 총독부 대장 딸?' 궁중 연구서 기록에 또다시 들썩")
+        assert r["person"] is True
+        assert "증조모" in r["person_terms"]
+        assert "딸" in r["person_terms"]
+
+    def test_kinship_family_terms_cover_the_corpus_shapes(self):
+        # shadow 코퍼스 실측 형태(증손자·증손녀·외숙모·친할머니 같은 붙여쓰기 포함).
+        cases = [
+            ("하영 증조부 친일파 의혹에 '위험한 발상'", "증조부"),
+            ("증조할아버지가 어떤 사람인지 아시나요", "할아버지"),
+            ("친할머니랑 단 둘이 호캉스 하러 갔다", "할머니"),
+            ("칼 든 조카, 유죄?…대법이 뒤집었다", "조카"),
+            ("친일파 증손녀 하영 근황", "손녀"),
+            ("이완용 증손자 돈벼락", "손자"),
+            ("성추행 폭로당한 삼촌이 가위로 위협해", "삼촌"),
+            ("고모네 가서 대형사고 친 남자", "고모"),
+            ("엄마 무시하는 외숙모 이번 추석 복수해야하나요", "숙모"),
+            ("덩치 큰 이모가 조카랑 있었던 일", "이모"),
+            ("촬영한 교사, 담임 배제되고 경찰 신고 당해", "교사"),
+        ]
+        for title, term in cases:
+            r = screen_material(title)
+            assert r["person"] is True, title
+            assert term in r["person_terms"], title
+
+    def test_boundary_terms_do_not_leak_into_non_person_words(self):
+        # shadow 13,800 unique 제목 전수 열람에서 나온 사람 아닌 형태 전부.
+        non_person = [
+            "3년전 돼지바 딸기쨈 막고라서 기분나쁨",      # 딸기
+            "역량이 딸리는 작곡가",                        # 딸리다
+            "대욕탕 딸린 일본 온천에 갔다",                # 딸린
+            "스노트 라이토 딸딸이 무죄설의 황당 전말",      # 딸딸이
+            "딸배 새끼들 서식처",                          # 딸배
+            "오늘 딸치다 펑펑 울었다",                      # 딸치다
+            "용산딸잽이님 신청곡",                          # 딸잽이
+            "번호 딸까 말까 고민된다",                      # 따다 → 딸까
+            "이게 딸랑 사과 한마디",                        # 딸랑
+            "보배딸맨님 신청곡",                            # 딸맨
+            "많은 3.3 리딸을 해왔지만",                     # 리딸
+            "제주어로 인사했더니 못 알아들은 관광객",      # 알아들다
+            # (코퍼스 실측형 "못 알아들은 사장님"은 '사장'이 기존 사전 어휘라
+            #  person=True가 나는 게 정상 — 알아들 경계만 격리해 확인한다.)
+            "남자들은 왜 말을 못알아들을까요",              # 알아들다
+            "불리한 역사는 편집해 사실로 받아들이면 참사",  # 받아들이다
+            "트럼프도 읽었다는 손자병법",                   # 손자병법
+            "카카오톡 이모티콘 최강자",                     # 이모티콘
+            "반면교사 역사도 안 읽어요?",                   # 반면교사
+        ]
+        for title in non_person:
+            assert screen_material(title)["person"] is False, title
+
+    def test_boundary_terms_still_catch_real_kinship(self):
+        person = [
+            "아픈 부모 늘 돌봐주던 아들, 화재로 사망",
+            "엄마 때문에 분노한 아들",
+            "장윤주의 9살 딸 리사가 그렸다",
+            "딸을 건드린 새아빠",
+            "친일파 손자 레전드",
+            "우리 딸 키우며 배운 것들",
+        ]
+        for title in person:
+            assert screen_material(title)["person"] is True, title
+
+    def test_broad_tokens_remain_outside_the_dictionary(self):
+        # 0070 금지사항: 「사람」·「씨」 같은 광범위 토큰으로 전건 person을 만들지 않는다.
+        assert screen_material("사람들이 많더라")["person"] is False
+        assert screen_material("김씨가 많은 동네")["person"] is False
+        assert screen_material("온 국민이 충격에 빠졌다")["person"] is False
+
+
 class TestAttach:
     def test_attach_adds_screen_and_summary_without_mutating(self):
         payload = {"items": [{"title": "팀장이 회식비 떠넘김"}, {"title": "이거 맞나요?"}]}
