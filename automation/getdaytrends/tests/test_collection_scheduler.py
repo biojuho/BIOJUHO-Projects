@@ -309,3 +309,205 @@ class TestStatusRoute:
         # conftest가 테스트 중에는 스케줄러를 꺼 둔다 — 그 상태가 그대로 보여야 한다.
         assert body["enabled"] is False
         assert body["running"] is False
+
+
+async def _noop():
+    pass
+
+
+class TestPerLaneActiveHours:
+    """핸드오프 0065 — lane별 활동 시간.
+
+    커뮤니티 lane(기본 09-24)과 L0/L1(24시간)의 경계 시각 다섯 개 판정을 고정한다.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "label, hour, minute, community_collects",
+        [
+            ("08:59", 8, 59, False),
+            ("09:00", 9, 0, True),
+            ("23:59", 23, 59, True),
+            ("00:00", 0, 0, False),
+            ("03:00", 3, 0, False),
+        ],
+    )
+    async def test_boundary_times_per_lane(self, label, hour, minute, community_collects):
+        now = at_kst(hour, minute)
+        collected: list[str] = []
+
+        async def refresh(name: str):
+            collected.append(name)
+
+        community = Lane(
+            "x_radar",
+            lambda: {"refreshed_at": ago(now, hours=6)},
+            lambda: refresh("x_radar"),
+        )
+        breaking = Lane(
+            "kma-weather",
+            lambda: {"refreshed_at": ago(now, hours=6)},
+            lambda: refresh("kma-weather"),
+        )
+        scheduler = CollectionScheduler([community, breaking], CONFIG, clock=lambda: now)
+
+        reasons = await scheduler.tick()
+
+        assert ("x_radar" in collected) is community_collects, label
+        assert "kma-weather" in collected, label
+        if community_collects:
+            assert reasons["x_radar"] == "due", label
+        else:
+            assert reasons["x_radar"] == "outside_active_hours", label
+        assert reasons["kma-weather"] == "due", label
+
+        lanes = scheduler.status()["lanes"]
+        assert lanes["x_radar"]["active_hours"] == "09-24"
+        assert lanes["kma-weather"]["active_hours"] == "00-24"
+
+    @pytest.mark.asyncio
+    async def test_community_lane_keeps_current_window(self):
+        # 회귀 방향: 커뮤니티 lane의 활동 시간은 현행 09-24 그대로다.
+        lane = Lane("fast_viral", lambda: {}, _noop)
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: at_kst(3, 0))
+
+        assert scheduler.status()["lanes"]["fast_viral"]["active_hours"] == "09-24"
+        reasons = await scheduler.tick()
+        assert reasons["fast_viral"] == "outside_active_hours"
+        assert scheduler.status()["lanes"]["fast_viral"]["calls_today"] == 0
+
+    @pytest.mark.asyncio
+    async def test_lane_field_override_wins(self):
+        lane = Lane("x_radar", lambda: {}, _noop, active_start_hour=0, active_end_hour=0)
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: at_kst(3, 0))
+
+        assert scheduler.status()["lanes"]["x_radar"]["active_hours"] == "00-24"
+        assert (await scheduler.tick())["x_radar"] == "never_collected"
+
+    @pytest.mark.asyncio
+    async def test_env_override_per_lane(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_START_HOUR", "0")
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_END_HOUR", "0")
+        lane = Lane("x_radar", lambda: {}, _noop)
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: at_kst(3, 0))
+
+        assert scheduler.status()["lanes"]["x_radar"]["active_hours"] == "00-24"
+        assert (await scheduler.tick())["x_radar"] == "never_collected"
+
+    @pytest.mark.asyncio
+    async def test_env_garbage_falls_back_to_lane_default(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_START_HOUR", "새벽")
+        lane = Lane("x_radar", lambda: {}, _noop)
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: at_kst(3, 0))
+
+        assert scheduler.status()["lanes"]["x_radar"]["active_hours"] == "09-24"
+
+    @pytest.mark.parametrize("name", ["kma-weather", "yonhap-rss", "kma_weather", "yonhap_rss"])
+    def test_l0_l1_names_default_to_always_on(self, name):
+        scheduler = CollectionScheduler([Lane(name, lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(3, 0))
+        assert scheduler.status()["lanes"][name]["active_hours"] == "00-24"
+
+    @pytest.mark.parametrize("name", ["x_radar", "fast_viral", "weather"])
+    def test_other_names_keep_default_window(self, name):
+        scheduler = CollectionScheduler([Lane(name, lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(3, 0))
+        assert scheduler.status()["lanes"][name]["active_hours"] == "09-24"
+
+
+class TestPerLaneDailyCap:
+    """핸드오프 0065 — 전역 200을 lane별 상한으로 배분해 독식을 막는다."""
+
+    @pytest.mark.asyncio
+    async def test_default_cap_is_equal_share_of_global(self):
+        lanes = [Lane("a", lambda: {}, _noop), Lane("b", lambda: {}, _noop)]
+        scheduler = CollectionScheduler(lanes, CONFIG, clock=lambda: at_kst(14))
+
+        status = scheduler.status()["lanes"]
+        assert status["a"]["daily_call_cap"] == 100
+        assert status["b"]["daily_call_cap"] == 100
+        assert status["a"]["daily_call_cap"] + status["b"]["daily_call_cap"] == CONFIG.daily_call_cap
+
+    @pytest.mark.asyncio
+    async def test_single_lane_keeps_global_cap(self):
+        scheduler = CollectionScheduler([Lane("x", lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["x"]["daily_call_cap"] == CONFIG.daily_call_cap
+
+    @pytest.mark.asyncio
+    async def test_four_lanes_split_global_cap(self):
+        lanes = [Lane(f"lane{i}", lambda: {}, _noop) for i in range(4)]
+        scheduler = CollectionScheduler(lanes, CONFIG, clock=lambda: at_kst(14))
+
+        caps = [state["daily_call_cap"] for state in scheduler.status()["lanes"].values()]
+        assert caps == [50, 50, 50, 50]
+        assert sum(caps) == CONFIG.daily_call_cap
+
+    @pytest.mark.asyncio
+    async def test_one_lane_cannot_monopolize_global_cap(self):
+        now = at_kst(14)
+        collected: dict[str, int] = {}
+
+        async def refresh(name: str):
+            collected[name] = collected.get(name, 0) + 1
+
+        lanes = [
+            Lane("a", lambda: {"refreshed_at": ago(now, hours=1)}, lambda: refresh("a")),
+            Lane("b", lambda: {"refreshed_at": ago(now, hours=1)}, lambda: refresh("b")),
+        ]
+        scheduler = CollectionScheduler(lanes, CONFIG, clock=lambda: now)
+
+        for _ in range(120):
+            await scheduler.tick()
+
+        status = scheduler.status()["lanes"]
+        assert collected["a"] == 100 < CONFIG.daily_call_cap
+        assert collected["b"] == 100 < CONFIG.daily_call_cap
+        assert status["a"]["last_reason"] == "cap_reached"
+        assert status["b"]["last_reason"] == "cap_reached"
+        assert collected["a"] + collected["b"] == CONFIG.daily_call_cap
+
+    def test_decide_respects_lane_cap_not_global(self):
+        now = at_kst(14)
+        result = decide(
+            now_utc=now,
+            last_refreshed_at=ago(now, hours=1),
+            calls_today=100,
+            config=CONFIG,
+            daily_call_cap=100,
+        )
+        assert not result.collect
+        assert result.reason == "cap_reached"
+
+        # lane 상한이 전역 200 미만이면 199회로도 막힌다 — 200을 독식할 수 없다.
+        result = decide(
+            now_utc=now,
+            last_refreshed_at=ago(now, hours=1),
+            calls_today=199,
+            config=CONFIG,
+            daily_call_cap=100,
+        )
+        assert not result.collect
+        assert result.reason == "cap_reached"
+
+    def test_lane_cap_of_zero_blocks_immediately(self):
+        now = at_kst(14)
+        result = decide(
+            now_utc=now,
+            last_refreshed_at=ago(now, hours=1),
+            calls_today=0,
+            config=CONFIG,
+            daily_call_cap=0,
+        )
+        assert not result.collect
+        assert result.reason == "cap_reached"
+
+    @pytest.mark.asyncio
+    async def test_env_override_cap(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_DAILY_CAP", "30")
+        scheduler = CollectionScheduler([Lane("x_radar", lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["x_radar"]["daily_call_cap"] == 30
+
+    @pytest.mark.asyncio
+    async def test_lane_field_cap_wins_over_env(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_DAILY_CAP", "30")
+        lane = Lane("x_radar", lambda: {}, _noop, daily_call_cap=5)
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["x_radar"]["daily_call_cap"] == 5

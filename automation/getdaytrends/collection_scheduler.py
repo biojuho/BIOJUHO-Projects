@@ -6,11 +6,23 @@
 
 그렇다고 24시간 쉬지 않고 외부에 요청을 보내면 곤란하므로 네 겹으로 묶는다.
 
-1. **가동 시간대** — 기본 09~24시(KST). 새벽에는 아예 돌지 않는다.
+1. **가동 시간대** — 기본 09~24시(KST). lane별로 덮어쓸 수 있고, L0(기상청)·L1(연합뉴스)
+   lane만 24시간 가동을 기본으로 연다(핸드오프 0065).
 2. **주기** — 기본 5분. 브라우저가 하던 2분보다 느슨하다.
-3. **일일 상한** — 레인당 기본 200회. 넘으면 자정까지 멈춘다.
+3. **일일 상한** — 기본은 전역 `daily_call_cap=200`을 lane 수로 균등 배분한 lane별 상한.
+   lane 하나가 200을 통째로 쓰지 못하게 묶고, lane별로 환경변수·Lane 필드로 덮어쓸 수 있다.
 4. **중복 회피** — 마지막 갱신이 주기보다 최근이면 건너뛴다. 브라우저가 열려 있어
    이미 수집 중이면 서버는 요청을 보태지 않는다.
+
+lane별 설정은 셋 중 앞선 것이 이긴다:
+
+1. `Lane(active_start_hour=…, active_end_hour=…, daily_call_cap=…)` — 코드에서 직접 지정
+2. 환경변수 `GETDAYTRENDS_SCHEDULER_<LANE>_START_HOUR` · `_END_HOUR` · `_DAILY_CAP`
+   (lane 이름의 `-`는 `_`로 바꾸고 대문자로 읽는다. 예: `kma-weather` → `KMA_WEATHER`)
+3. 이름 기본값 — `kma-weather`·`yonhap-rss`(0063 shadow 소스 키, `_` 표기도 동일 취급)는
+   24시간, 그 밖은 전역 `active_start_hour`~`active_end_hour`와 전역 상한의 균등 배분
+
+`start == end`는 24시간 가동을 뜻한다(0-0이면 하루 종일).
 
 `decide()`는 부작용이 없는 순수 함수다. 판정과 루프를 나눠 둔 덕분에 시간대·상한·
 자정 넘김 같은 경계를 시계를 기다리지 않고 테스트할 수 있다.
@@ -57,6 +69,40 @@ def _env_bool(name: str, fallback: bool) -> bool:
     return raw.strip().lower() not in {"0", "false", "no", "off"}
 
 
+def _lane_env_var(lane_name: str, key: str) -> str:
+    lane_key = lane_name.strip().upper().replace("-", "_")
+    return f"GETDAYTRENDS_SCHEDULER_{lane_key}_{key}"
+
+
+def _lane_env_int(lane_name: str, key: str) -> int | None:
+    raw = os.getenv(_lane_env_var(lane_name, key))
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return int(raw.strip())
+    except ValueError:
+        logger.warning(
+            "%s=%r 을 정수로 읽을 수 없어 무시합니다",
+            _lane_env_var(lane_name, key),
+            raw,
+        )
+        return None
+
+
+# 핸드오프 0065 — L0(기상청)·L1(연합뉴스) lane은 API·RSS라 호출이 싸고 「2시간 이내
+# 속보 탐지」 계약의 1차 소스다. 이 둘만 24시간 가동을 기본으로 연다. 이름은 0063
+# shadow 관측의 소스 키를 쓰고, '-'와 '_' 표기는 같게 정규화해 맞춘다.
+_ALWAYS_ON_LANE_NAMES = frozenset({"kma-weather", "yonhap-rss"})
+
+
+def _lane_name_key(name: str) -> str:
+    return name.strip().lower().replace("_", "-")
+
+
+def _lane_defaults_to_always_on(name: str) -> bool:
+    return _lane_name_key(name) in _ALWAYS_ON_LANE_NAMES
+
+
 @dataclass(frozen=True)
 class SchedulerConfig:
     enabled: bool = True
@@ -84,9 +130,16 @@ class SchedulerConfig:
     def local_now(self, now_utc: datetime) -> datetime:
         return now_utc.astimezone(self.tz)
 
-    def is_active_hour(self, now_utc: datetime) -> bool:
+    def is_active_hour(
+        self,
+        now_utc: datetime,
+        start_hour: int | None = None,
+        end_hour: int | None = None,
+    ) -> bool:
+        """가동 시간대 판정. start/end를 주면 전역 대신 그 값으로 판정한다."""
         hour = self.local_now(now_utc).hour
-        start, end = self.active_start_hour, self.active_end_hour
+        start = self.active_start_hour if start_hour is None else start_hour
+        end = self.active_end_hour if end_hour is None else end_hour
         if start == end:
             return True  # 24시간 가동
         if start < end:
@@ -107,13 +160,20 @@ def decide(
     last_refreshed_at: Any,
     calls_today: int,
     config: SchedulerConfig,
+    active_start_hour: int | None = None,
+    active_end_hour: int | None = None,
+    daily_call_cap: int | None = None,
 ) -> Decision:
-    """이번 틱에 이 레인을 수집할지 판정한다(부작용 없음)."""
+    """이번 틱에 이 레인을 수집할지 판정한다(부작용 없음).
+
+    활동 시간·일일 상한 인자를 주면 lane별 값으로, 주지 않으면 전역 설정으로 판정한다.
+    """
+    cap = config.daily_call_cap if daily_call_cap is None else daily_call_cap
     if not config.enabled:
         return Decision(False, "disabled")
-    if calls_today >= config.daily_call_cap:
+    if calls_today >= cap:
         return Decision(False, "cap_reached")
-    if not config.is_active_hour(now_utc):
+    if not config.is_active_hour(now_utc, active_start_hour, active_end_hour):
         return Decision(False, "outside_active_hours")
 
     parsed = _parse_timestamp(last_refreshed_at)
@@ -132,11 +192,19 @@ def decide(
 
 @dataclass
 class Lane:
-    """수집 대상 한 갈래. 스냅샷에서 마지막 시각을 읽고, refresh로 한 번 수집한다."""
+    """수집 대상 한 갈래. 스냅샷에서 마지막 시각을 읽고, refresh로 한 번 수집한다.
+
+    활동 시간·일일 상한은 lane별로 덮어쓸 수 있다. None이면 환경변수
+    (`GETDAYTRENDS_SCHEDULER_<LANE>_START_HOUR` 등) → 이름 기본값·전역 설정 순으로
+    읽는다(모듈 docstring의 우선순위 참고).
+    """
 
     name: str
     snapshot: Callable[[], dict[str, Any]]
     refresh: Callable[[], Awaitable[Any]]
+    active_start_hour: int | None = None
+    active_end_hour: int | None = None
+    daily_call_cap: int | None = None
 
 
 @dataclass
@@ -147,6 +215,21 @@ class LaneState:
     last_reason: str = "not_started"
     last_error: str | None = None
     consecutive_errors: int = 0
+
+
+@dataclass(frozen=True)
+class LaneSchedule:
+    """lane 하나에 실제로 적용되는 활동 시간과 일일 상한."""
+
+    active_start_hour: int
+    active_end_hour: int
+    daily_call_cap: int
+
+    @property
+    def active_hours_label(self) -> str:
+        if self.active_start_hour == self.active_end_hour:
+            return "00-24"  # 24시간 가동
+        return f"{self.active_start_hour:02d}-{self.active_end_hour:02d}"
 
 
 class CollectionScheduler:
@@ -161,8 +244,45 @@ class CollectionScheduler:
         self.lanes = lanes
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._states: dict[str, LaneState] = {lane.name: LaneState() for lane in lanes}
+        self._lane_schedules: dict[str, LaneSchedule] = {
+            lane.name: self._resolve_lane_schedule(lane) for lane in lanes
+        }
         self._task: asyncio.Task | None = None
         self._stopping = asyncio.Event()
+
+    def _resolve_lane_schedule(self, lane: Lane) -> LaneSchedule:
+        if _lane_defaults_to_always_on(lane.name):
+            default_start, default_end = 0, 0
+        else:
+            default_start = self.config.active_start_hour
+            default_end = self.config.active_end_hour
+        env_start = _lane_env_int(lane.name, "START_HOUR")
+        env_end = _lane_env_int(lane.name, "END_HOUR")
+        env_cap = _lane_env_int(lane.name, "DAILY_CAP")
+        default_share = self.config.daily_call_cap // max(1, len(self.lanes))
+        return LaneSchedule(
+            active_start_hour=(
+                lane.active_start_hour
+                if lane.active_start_hour is not None
+                else env_start
+                if env_start is not None
+                else default_start
+            ),
+            active_end_hour=(
+                lane.active_end_hour
+                if lane.active_end_hour is not None
+                else env_end
+                if env_end is not None
+                else default_end
+            ),
+            daily_call_cap=(
+                lane.daily_call_cap
+                if lane.daily_call_cap is not None
+                else env_cap
+                if env_cap is not None
+                else default_share
+            ),
+        )
 
     # ── 상태 ──────────────────────────────────────────────────────────────
     def status(self) -> dict[str, Any]:
@@ -182,6 +302,8 @@ class CollectionScheduler:
                     "last_reason": state.last_reason,
                     "last_error": state.last_error,
                     "consecutive_errors": state.consecutive_errors,
+                    "active_hours": self._lane_schedules[name].active_hours_label,
+                    "daily_call_cap": self._lane_schedules[name].daily_call_cap,
                 }
                 for name, state in self._states.items()
             },
@@ -211,6 +333,9 @@ class CollectionScheduler:
                 last_refreshed_at=snapshot.get("refreshed_at"),
                 calls_today=state.calls_today,
                 config=self.config,
+                active_start_hour=self._lane_schedules[lane.name].active_start_hour,
+                active_end_hour=self._lane_schedules[lane.name].active_end_hour,
+                daily_call_cap=self._lane_schedules[lane.name].daily_call_cap,
             )
             state.last_reason = decision.reason
             reasons[lane.name] = decision.reason
@@ -235,13 +360,15 @@ class CollectionScheduler:
 
     # ── 루프 ──────────────────────────────────────────────────────────────
     async def _run(self) -> None:
+        lanes_desc = ", ".join(
+            f"{name}={schedule.active_hours_label}(하루 {schedule.daily_call_cap}회)"
+            for name, schedule in self._lane_schedules.items()
+        )
         logger.info(
-            "[scheduler] 수집 스케줄러 시작 — %s초 주기, %02d~%02d시(UTC%+d), 레인당 하루 %d회",
+            "[scheduler] 수집 스케줄러 시작 — %s초 주기(UTC%+d), lane: %s",
             self.config.interval_seconds,
-            self.config.active_start_hour,
-            self.config.active_end_hour,
             self.config.tz_offset_hours,
-            self.config.daily_call_cap,
+            lanes_desc or "(없음)",
         )
         try:
             while not self._stopping.is_set():
