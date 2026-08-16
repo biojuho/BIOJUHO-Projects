@@ -136,6 +136,7 @@ class BreakingNewsObserver:
                             "source": item.source,
                             "source_label": source_label,
                             "source_url": item.source_url,
+                            "summary": item.summary,
                             "source_published_at": (
                                 _utc(item.published_at).isoformat() if item.published_at is not None else None
                             ),

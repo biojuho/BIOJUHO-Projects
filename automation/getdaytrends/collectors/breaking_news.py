@@ -68,6 +68,7 @@ class BreakingNewsItem:
     extra_text: str
     published_at: datetime | None
     source_url: str = ""
+    summary: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +150,7 @@ def _parse_rss_payload(
         link = _one_line(element.findtext("link"))
         publisher = _one_line(element.findtext("source"))
         description = _plain_text(element.findtext("description"), limit=400)
+        summary = description
         extra_text = _one_line(" · ".join(value for value in (context, publisher, description) if value))[:600]
         identity = link or f"{title}|{published.isoformat()}"
         parsed.append(
@@ -160,6 +162,7 @@ def _parse_rss_payload(
                     extra_text=extra_text,
                     published_at=published,
                     source_url=link,
+                    summary=summary,
                 ),
                 age_minutes=age,
             )
@@ -401,6 +404,22 @@ def _kma_title(operation: str, item: dict[str, Any]) -> tuple[str, str]:
     return title[:500], f"operation={operation}" + (f" · {detail}" if detail else "")
 
 
+_KMA_MSG_BODY_KEYS = ("t6", "t7", "other")
+_KMA_EMPTY_BODY_MARKERS = {"o 없음", "없음"}
+
+
+def _kma_summary(operation: str, item: dict[str, Any]) -> str:
+    """Return the announcement body of a ``getWthrWrnMsg`` item, or an empty string."""
+    if operation != "getWthrWrnMsg":
+        return ""
+    parts: list[str] = []
+    for key in _KMA_MSG_BODY_KEYS:
+        value = _plain_text(item.get(key))
+        if value and value.casefold() not in _KMA_EMPTY_BODY_MARKERS:
+            parts.append(value)
+    return " · ".join(parts)[:600]
+
+
 def _kma_response_items(payload: dict[str, Any]) -> tuple[bool, list[dict[str, Any]]]:
     response = payload.get("response")
     if not isinstance(response, dict):
@@ -492,6 +511,7 @@ class KmaWeatherAdapter:
                     if age > _MAX_AGE_MINUTES:
                         continue
                 title, extra_text = _kma_title(operation, raw_item)
+                summary = _kma_summary(operation, raw_item)
                 canonical = json.dumps(raw_item, ensure_ascii=False, sort_keys=True, default=str)
                 source = f"kma:{operation}"
                 candidate = BreakingNewsItem(
@@ -500,6 +520,7 @@ class KmaWeatherAdapter:
                     title=title,
                     extra_text=extra_text[:600],
                     published_at=published_at,
+                    summary=summary,
                 )
                 results.setdefault(candidate.candidate_id, candidate)
 

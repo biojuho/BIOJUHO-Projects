@@ -70,6 +70,7 @@ async def test_yonhap_filters_each_pubdate_at_120_minutes():
             {
                 "title": "30분 기사",
                 "link": "https://www.yna.co.kr/a/30",
+                "description": '그는 &quot;속보&quot;라고 &apos;말했다&apos; &amp; &lt;b&gt;강조&lt;/b&gt;',
                 "pub_date": format_datetime(now - timedelta(minutes=30)),
             },
             {
@@ -94,6 +95,8 @@ async def test_yonhap_filters_each_pubdate_at_120_minutes():
 
     assert result.available is True
     assert [item.title for item in result.results] == ["30분 기사", "120분 경계 기사"]
+    assert result.results[0].summary == '그는 "속보"라고 \'말했다\' & 강조'
+    assert result.results[1].summary == ""
     assert result.metrics() == {
         "available": True,
         "result_count": 2,
@@ -103,6 +106,30 @@ async def test_yonhap_filters_each_pubdate_at_120_minutes():
         "within_120_count": 2,
         "error": "",
     }
+
+
+@pytest.mark.asyncio
+async def test_rss_item_without_description_keeps_summary_empty_not_title():
+    now = datetime(2026, 8, 16, tzinfo=UTC)
+    payload = _rss(
+        [
+            {
+                "title": "제목만 있는 기사",
+                "link": "https://www.yna.co.kr/a/no-description",
+                "pub_date": format_datetime(now - timedelta(minutes=10)),
+            }
+        ]
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=payload)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await fetch_yonhap_breaking(client, observed_at=now)
+
+    assert [item.title for item in result.results] == ["제목만 있는 기사"]
+    assert result.results[0].summary == ""
+    assert result.results[0].summary != result.results[0].title
 
 
 @pytest.mark.asyncio
@@ -208,6 +235,58 @@ async def test_kma_calls_exact_four_operations_without_reencoding_key():
     assert len(result.results) == 4
     assert result.sample_ages_minutes == (30.0, 30.0, 30.0, 30.0)
     assert dict(result.operation_status) == {operation: True for operation in KMA_OPERATIONS}
+
+
+@pytest.mark.asyncio
+async def test_kma_wthr_wrn_msg_body_becomes_summary_and_other_operations_stay_empty():
+    observed_at = datetime(2026, 8, 16, 0, 0, tzinfo=UTC)
+
+    def fake_request(url: str, timeout: float):
+        operation = urllib.parse.urlparse(url).path.rsplit("/", 1)[-1]
+        if operation == "getWthrWrnMsg":
+            raw = [
+                {
+                    "tmFc": "202608160830",
+                    "t6": "o 호우주의보 : 서울\r\no 강풍주의보 : 부산",
+                    "t7": "(1) 호우 예비특보\r\no 08월 16일 밤 : 경기남부",
+                    "other": "<유의 사항>\r\no 산사태에 유의",
+                },
+                {
+                    "tmFc": "202608160845",
+                    "t6": "",
+                    "t7": "",
+                    "other": "o 없음",
+                },
+            ]
+        else:
+            raw = [
+                {
+                    "tmFc": "202608160830",
+                    "area": "서울",
+                    "warnVar": "호우",
+                }
+            ]
+        return {
+            "response": {
+                "header": {"resultCode": "00", "resultMsg": "NORMAL_SERVICE"},
+                "body": {"items": {"item": raw}},
+            }
+        }
+
+    result = await KmaWeatherAdapter(
+        key_loader=lambda: "fake%2Bkey%3D",
+        request_json=fake_request,
+    ).collect(observed_at=observed_at)
+
+    msg_items = [item for item in result.results if item.source == "kma:getWthrWrnMsg"]
+    list_items = [item for item in result.results if item.source == "kma:getWthrWrnList"]
+    assert len(msg_items) == 2
+    assert msg_items[0].summary.startswith("o 호우주의보 : 서울 o 강풍주의보 : 부산 ·")
+    assert "호우 예비특보" in msg_items[0].summary
+    assert "산사태에 유의" in msg_items[0].summary
+    assert msg_items[1].summary == ""
+    assert msg_items[1].title == "[기상청 기상특보 통보문]"
+    assert all(item.summary == "" for item in list_items)
 
 
 @pytest.mark.asyncio
@@ -335,6 +414,7 @@ async def test_observer_exposes_only_allowed_yonhap_and_kma_product_candidates()
                     extra_text="",
                     published_at=published,
                     source_url="https://www.yna.co.kr/view/allowed",
+                    summary="(서울=연합뉴스) 테스트 요약 문장",
                 ),
                 BreakingNewsItem(
                     source="yonhap-rss",
@@ -359,6 +439,7 @@ async def test_observer_exposes_only_allowed_yonhap_and_kma_product_candidates()
                         title="[기상청 기상특보 목록] 서울 호우",
                         extra_text="operation=getWthrWrnList",
                         published_at=None,
+                        summary="통보문 본문 예시",
                     ),
                 ),
             )
@@ -379,6 +460,7 @@ async def test_observer_exposes_only_allowed_yonhap_and_kma_product_candidates()
             "source": "yonhap-rss",
             "source_label": "연합뉴스",
             "source_url": "https://www.yna.co.kr/view/allowed",
+            "summary": "(서울=연합뉴스) 테스트 요약 문장",
             "source_published_at": published.isoformat(),
         },
         {
@@ -387,6 +469,7 @@ async def test_observer_exposes_only_allowed_yonhap_and_kma_product_candidates()
             "source": "kma:getWthrWrnList",
             "source_label": "기상청",
             "source_url": "",
+            "summary": "통보문 본문 예시",
             "source_published_at": None,
         },
     ]
