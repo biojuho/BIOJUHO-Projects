@@ -11,9 +11,12 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import dashboard_routes_x_radar as x_radar_routes  # noqa: E402
 from breaking_news_observer import BreakingNewsObserver  # noqa: E402
 from collectors.breaking_news import (  # noqa: E402
     KMA_OPERATIONS,
@@ -23,10 +26,11 @@ from collectors.breaking_news import (  # noqa: E402
     fetch_google_news_breaking,
     fetch_yonhap_breaking,
 )
+from dashboard_routes_x_radar import _with_explicit_age  # noqa: E402
 from filter_eval.shadow_store import FilterShadowStore  # noqa: E402
 from filter_eval.source_time_shadow import SOURCE_PUBLISHED_AT_COLUMN  # noqa: E402
 from models import RawTrend, TrendSource  # noqa: E402
-from x_opportunity_radar import XOpportunityRadar  # noqa: E402
+from x_opportunity_radar import XOpportunityRadar, _breaking_lane_items  # noqa: E402
 
 
 def _rss(items: list[dict[str, str]]) -> bytes:
@@ -299,7 +303,255 @@ async def test_observer_adds_source_time_only_to_new_rows_and_preserves_old_samp
 
 
 @pytest.mark.asyncio
-async def test_radar_observer_is_shadow_only_and_exposes_source_health():
+async def test_observer_exposes_only_allowed_yonhap_and_kma_product_candidates():
+    now = datetime(2026, 8, 16, tzinfo=UTC)
+    published = now - timedelta(minutes=15)
+
+    async def fake_google(client, keywords, *, observed_at):
+        return AdapterResult(
+            source="google-news-rss",
+            available=True,
+            results=(
+                BreakingNewsItem(
+                    source="google-news-rss",
+                    candidate_id="google-control",
+                    title="AI 신제품 공개",
+                    extra_text="",
+                    published_at=published,
+                    source_url="https://news.google.com/control",
+                ),
+            ),
+        )
+
+    async def fake_yonhap(client, *, observed_at):
+        return AdapterResult(
+            source="yonhap-rss",
+            available=True,
+            results=(
+                BreakingNewsItem(
+                    source="yonhap-rss",
+                    candidate_id="yonhap-allowed",
+                    title="신기술 공개 속보",
+                    extra_text="",
+                    published_at=published,
+                    source_url="https://www.yna.co.kr/view/allowed",
+                ),
+                BreakingNewsItem(
+                    source="yonhap-rss",
+                    candidate_id="yonhap-blocked",
+                    title="국회 새 법안 논의",
+                    extra_text="",
+                    published_at=published,
+                    source_url="https://www.yna.co.kr/view/blocked",
+                ),
+            ),
+        )
+
+    class FakeKma:
+        async def collect(self, *, observed_at):
+            return AdapterResult(
+                source="kma-weather",
+                available=True,
+                results=(
+                    BreakingNewsItem(
+                        source="kma:getWthrWrnList",
+                        candidate_id="kma-allowed",
+                        title="[기상청 기상특보 목록] 서울 호우",
+                        extra_text="operation=getWthrWrnList",
+                        published_at=None,
+                    ),
+                ),
+            )
+
+    summary = await BreakingNewsObserver(
+        None,
+        google_fetcher=fake_google,
+        yonhap_fetcher=fake_yonhap,
+        kma_adapter=FakeKma(),
+    ).observe(["AI"], observed_at=now)
+
+    assert summary["verdicts"] == {"allow": 3, "block": 1}
+    assert summary["product_candidate_count"] == 2
+    assert summary["product_candidates"] == [
+        {
+            "id": "yonhap-allowed",
+            "keyword": "신기술 공개 속보",
+            "source": "yonhap-rss",
+            "source_label": "연합뉴스",
+            "source_url": "https://www.yna.co.kr/view/allowed",
+            "source_published_at": published.isoformat(),
+        },
+        {
+            "id": "kma-allowed",
+            "keyword": "[기상청 기상특보 목록] 서울 호우",
+            "source": "kma:getWthrWrnList",
+            "source_label": "기상청",
+            "source_url": "",
+            "source_published_at": None,
+        },
+    ]
+    assert all("detection_delay_minutes" not in item for item in summary["product_candidates"])
+
+
+@pytest.mark.asyncio
+async def test_radar_appends_unscored_breaking_lane_without_changing_legacy_ids():
+    published = datetime.now(UTC) - timedelta(minutes=15)
+
+    async def google_fetcher(session, country, limit):
+        return [
+            RawTrend(
+                name="AI 신제품",
+                source=TrendSource.GOOGLE_TRENDS,
+                volume_numeric=10_000,
+                published_at=datetime.now(UTC) - timedelta(minutes=10),
+                extra={
+                    "news_headlines": ["AI 신제품 공개"],
+                    "news_items": [
+                        {"title": "AI 신제품 공개", "url": "https://one.example/ai", "source": "원뉴스"},
+                        {"title": "AI 신제품 반응", "url": "https://two.example/ai", "source": "두뉴스"},
+                    ],
+                },
+            )
+        ]
+
+    async def x_fetcher(session, country, limit):
+        return []
+
+    class FakeObserver:
+        async def observe(self, keywords, *, observed_at):
+            return {
+                "enabled": True,
+                "available": True,
+                "sources": {},
+                "product_candidates": [
+                    {
+                        "id": "yonhap-live",
+                        "keyword": "연합뉴스 직접 속보",
+                        "source": "yonhap-rss",
+                        "source_url": "https://www.yna.co.kr/view/live",
+                        "source_published_at": published.isoformat(),
+                    },
+                    {
+                        "id": "kma-unknown-time",
+                        "keyword": "[기상청 현재 특보 현황] 서울",
+                        "source": "kma:getPwnStatus",
+                        "source_url": "",
+                        "source_published_at": None,
+                    },
+                ],
+            }
+
+    baseline = await XOpportunityRadar(google_fetcher, x_fetcher, news_fetcher=None).refresh(limit=10)
+    measured = await XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        breaking_news_observer=FakeObserver(),
+    ).refresh(limit=10)
+
+    baseline_ids = [item["id"] for item in baseline["items"]]
+    legacy_ids = [item["id"] for item in measured["items"] if item["lane"] != "속보·공적발표"]
+    assert legacy_ids == baseline_ids
+    breaking_items = [item for item in measured["items"] if item["lane"] == "속보·공적발표"]
+    assert [item["id"] for item in breaking_items] == ["yonhap-live", "kma-unknown-time"]
+    assert measured["breaking_news_count"] == 2
+    assert "product_candidates" not in measured["breaking_news_observation"]
+
+    yonhap, kma = breaking_items
+    assert yonhap["source_published_at"] == published.isoformat()
+    assert 14.9 <= yonhap["detection_delay_minutes"] <= 15.1
+    assert yonhap["age_basis"] == "source_published_at"
+    assert yonhap["age_minutes"] == 15
+    assert yonhap["source_url"] == "https://www.yna.co.kr/view/live"
+    assert "x_exposure_score" not in yonhap
+    assert "opportunity_score" not in yonhap
+    assert kma["source_published_at"] is None
+    assert kma["detection_delay_minutes"] is None
+    assert kma["age_minutes"] is None
+    assert kma["age_basis"] == "unknown"
+    assert kma["age_display"] == "미상"
+
+
+def test_route_marks_unknown_age_explicitly_without_mutating_snapshot():
+    snapshot = {
+        "items": [
+            {"id": "known", "age_minutes": 12, "age_basis": "first_seen_at"},
+            {"id": "unknown", "age_minutes": None},
+        ]
+    }
+
+    response = _with_explicit_age(snapshot)
+
+    assert response["items"][0]["age_display"] == "12분"
+    assert response["items"][0]["age_basis"] == "first_seen_at"
+    assert response["items"][1]["age_minutes"] is None
+    assert response["items"][1]["age_basis"] == "unknown"
+    assert response["items"][1]["age_display"] == "미상"
+    assert "age_display" not in snapshot["items"][0]
+
+
+def test_breaking_lane_limit_interleaves_sources_without_scoring():
+    now = datetime(2026, 8, 16, tzinfo=UTC)
+    raw = [
+        {
+            "id": f"yonhap-{index}",
+            "keyword": f"연합뉴스 속보 {index}",
+            "source": "yonhap-rss",
+            "source_published_at": (now - timedelta(minutes=index + 1)).isoformat(),
+        }
+        for index in range(6)
+    ]
+    raw.append(
+        {
+            "id": "kma-0",
+            "keyword": "기상청 특보",
+            "source": "kma:getWthrWrnList",
+            "source_published_at": (now - timedelta(minutes=3)).isoformat(),
+        }
+    )
+
+    items = _breaking_lane_items(raw, now, limit=5)
+
+    assert [item["id"] for item in items] == ["yonhap-0", "kma-0", "yonhap-1", "yonhap-2", "yonhap-3"]
+    assert all("x_exposure_score" not in item and "opportunity_score" not in item for item in items)
+
+
+def test_get_route_exposes_breaking_source_time_and_derived_delay(monkeypatch):
+    class StubRadar:
+        @staticmethod
+        def snapshot():
+            return {
+                "items": [
+                    {
+                        "id": "breaking-route",
+                        "keyword": "연합뉴스 직접 속보",
+                        "lane": "속보·공적발표",
+                        "age_minutes": 15,
+                        "age_basis": "source_published_at",
+                        "source_published_at": "2026-08-16T01:00:00+00:00",
+                        "detection_delay_minutes": 15.0,
+                    }
+                ],
+                "refreshed_at": "2026-08-16T01:15:00+00:00",
+            }
+
+    monkeypatch.setattr(x_radar_routes, "_radar", StubRadar())
+    app = FastAPI()
+    app.include_router(x_radar_routes.router)
+
+    response = TestClient(app).get("/api/x-radar")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["lane"] == "속보·공적발표"
+    assert item["source_published_at"] == "2026-08-16T01:00:00+00:00"
+    assert item["detection_delay_minutes"] == 15.0
+    assert item["age_basis"] == "source_published_at"
+    assert item["age_display"] == "15분"
+
+
+@pytest.mark.asyncio
+async def test_radar_observer_without_product_candidates_only_exposes_source_health():
     async def google_fetcher(session, country, limit):
         return [
             RawTrend(

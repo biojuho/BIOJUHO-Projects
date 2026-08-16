@@ -1,9 +1,9 @@
-"""L0/L1 breaking-news adapters used only for shadow observation.
+"""L0/L1 breaking-news adapters for observation and an additive product lane.
 
 The adapters return timestamped candidates and source-health metadata.  They do
-not score, rank, publish, or mutate product snapshots.  RSS entries are filtered
-item-by-item at 120 minutes; the unfiltered timestamp ages remain available for
-the Google News/Yonhap comparison ledger.
+not score, rank, or publish.  RSS entries are filtered item-by-item at 120
+minutes; the unfiltered timestamp ages remain available for the Google
+News/Yonhap comparison ledger.
 """
 
 from __future__ import annotations
@@ -67,6 +67,7 @@ class BreakingNewsItem:
     title: str
     extra_text: str
     published_at: datetime | None
+    source_url: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +159,7 @@ def _parse_rss_payload(
                     title=title,
                     extra_text=extra_text,
                     published_at=published,
+                    source_url=link,
                 ),
                 age_minutes=age,
             )

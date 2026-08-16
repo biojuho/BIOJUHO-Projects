@@ -1,4 +1,4 @@
-"""Detect L0/L1 candidates and write only shadow observations."""
+"""Detect L0/L1 candidates for shadow measurement and an additive product lane."""
 
 from __future__ import annotations
 
@@ -57,8 +57,16 @@ def _utc(value: datetime) -> datetime:
     return timestamp.astimezone(UTC)
 
 
+def _product_source_label(source: str) -> str:
+    if source == "yonhap-rss":
+        return "연합뉴스"
+    if source.startswith("kma:"):
+        return "기상청"
+    return ""
+
+
 class BreakingNewsObserver:
-    """Run the approved adapters without adding candidates to product ranking."""
+    """Run approved adapters without merging their candidates into product ranking."""
 
     def __init__(
         self,
@@ -101,6 +109,7 @@ class BreakingNewsObserver:
 
         verdicts: Counter[str] = Counter()
         inserted_count = 0
+        product_candidates: list[dict[str, object]] = []
         for result in results:
             for item in result.results:
                 filter_reason = excluded_topic_reason(item.title, item.extra_text) or ""
@@ -118,6 +127,20 @@ class BreakingNewsObserver:
                     source_published_at=item.published_at,
                 )
                 inserted_count += int(inserted)
+                source_label = _product_source_label(item.source)
+                if verdict == "allow" and source_label:
+                    product_candidates.append(
+                        {
+                            "id": item.candidate_id,
+                            "keyword": item.title,
+                            "source": item.source,
+                            "source_label": source_label,
+                            "source_url": item.source_url,
+                            "source_published_at": (
+                                _utc(item.published_at).isoformat() if item.published_at is not None else None
+                            ),
+                        }
+                    )
 
         source_metrics: dict[str, dict[str, object]] = {}
         for result in results:
@@ -137,6 +160,8 @@ class BreakingNewsObserver:
             "detected_count": sum(len(result.results) for result in results),
             "recorded_count": inserted_count,
             "verdicts": dict(verdicts),
+            "product_candidate_count": len(product_candidates),
+            "product_candidates": product_candidates,
             "sources": source_metrics,
         }
 

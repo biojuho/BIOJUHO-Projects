@@ -59,6 +59,10 @@ async def test_radar_returns_direct_originals_without_generated_copy():
     assert item["exposure_signals"][0] == "주제 일치 원문 2/2건"
     assert item["score_version"] == "x-exposure-v3"
     assert item["exposure_confidence"] == "high"
+    assert item["age_minutes"] is not None
+    assert item["age_basis"] == "source_published_at"
+    assert item["source_published_at"] is not None
+    assert item["first_seen_at"] is not None
     assert "focus_match" not in item["exposure_breakdown"]
     assert "suggested_hook" not in item
     assert "recommended_format" not in item
@@ -205,6 +209,10 @@ async def test_radar_promotes_repeated_top_x_phrase_to_low_context_native_lane(t
     assert item["qualification_mode"] == "x_native_history"
     assert item["context_level"] == "low"
     assert item["exposure_confidence"] == "low"
+    assert item["age_minutes"] is not None
+    assert item["age_basis"] == "first_seen_at"
+    assert item["first_seen_at"] is not None
+    assert item["source_published_at"] is None
     assert item["news_items"] == []
     assert item["source_url"] == "https://getdaytrends.com/korea/trend/native-phrase/"
     assert second["x_native_count"] == 1

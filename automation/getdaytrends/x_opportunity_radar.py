@@ -9,11 +9,13 @@ import re
 from collections import Counter
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote, urlparse
 
 import httpx
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 try:
     from .breaking_news_observer import BreakingNewsObserver
@@ -63,6 +65,129 @@ def _age_minutes(published_at: datetime | None, now: datetime) -> int | None:
         return None
     normalized = published_at if published_at.tzinfo else published_at.replace(tzinfo=UTC)
     return max(0, round((now - normalized.astimezone(UTC)).total_seconds() / 60))
+
+
+def _timestamp(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value or ""))
+        except (TypeError, ValueError):
+            return None
+    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).astimezone(UTC)
+
+
+def _first_seen_at(
+    tracker: ExposureObservationTracker,
+    key: str,
+    now: datetime,
+) -> str | None:
+    """Return the earliest retained observation without inventing damaged history."""
+    state = getattr(tracker, "_state", None)
+    series_by_key = state.get("series") if isinstance(state, dict) else None
+    if not isinstance(series_by_key, dict):
+        return None
+    points = series_by_key.get(key)
+    if points is None or points == []:
+        return now.astimezone(UTC).isoformat()
+    if not isinstance(points, list) or not isinstance(points[0], dict):
+        return None
+    first_point = points[0]
+    parsed = _timestamp(first_point.get("first_seen_at") or first_point.get("observed_at"))
+    if parsed is None or parsed > now.astimezone(UTC):
+        return None
+    return parsed.isoformat()
+
+
+def _age_fields(
+    *,
+    source_published_at: datetime | None,
+    first_seen_at: str | None,
+    now: datetime,
+) -> tuple[int | None, str, str]:
+    if source_published_at is not None:
+        age = _age_minutes(source_published_at, now)
+        basis = "source_published_at"
+    else:
+        first_seen = _timestamp(first_seen_at)
+        age = _age_minutes(first_seen, now) if first_seen is not None and first_seen <= now else None
+        basis = "first_seen_at" if age is not None else "unknown"
+    return age, basis, f"{age}분" if age is not None else "미상"
+
+
+def _breaking_lane_items(raw_candidates: object, now: datetime, *, limit: int) -> list[dict[str, Any]]:
+    if not isinstance(raw_candidates, list):
+        return []
+    by_source: dict[str, list[dict[str, Any]]] = {"yonhap-rss": [], "kma": []}
+    seen_ids: set[str] = set()
+    for raw in raw_candidates:
+        if not isinstance(raw, dict):
+            continue
+        candidate_id = str(raw.get("id") or "").strip()
+        keyword = str(raw.get("keyword") or "").strip()
+        source = str(raw.get("source") or "").strip()
+        if (
+            not candidate_id
+            or candidate_id in seen_ids
+            or not keyword
+            or (source != "yonhap-rss" and not source.startswith("kma:"))
+        ):
+            continue
+        seen_ids.add(candidate_id)
+        source_label = "연합뉴스" if source == "yonhap-rss" else "기상청"
+        published_at = _timestamp(raw.get("source_published_at"))
+        source_published_at = published_at.isoformat() if published_at is not None else None
+        delay = None
+        if published_at is not None:
+            delay = round(max(0.0, (now.astimezone(UTC) - published_at).total_seconds() / 60), 1)
+        age_minutes, age_basis, age_display = _age_fields(
+            source_published_at=published_at,
+            first_seen_at=None,
+            now=now,
+        )
+        source_url = str(raw.get("source_url") or "").strip()
+        if source_url and urlparse(source_url).scheme not in {"http", "https"}:
+            source_url = ""
+        source_group = "yonhap-rss" if source == "yonhap-rss" else "kma"
+        by_source[source_group].append(
+            {
+                "id": candidate_id,
+                "keyword": keyword,
+                "lane": "속보·공적발표",
+                "category": "공적 발표",
+                "qualification_mode": "public_source_breaking",
+                "context_level": "source_direct",
+                "materiality_pass": True,
+                "observed_at": now.astimezone(UTC).isoformat(),
+                "source": source,
+                "sources": [source_label],
+                "source_published_at": source_published_at,
+                "detection_delay_minutes": delay,
+                "detection_delay_display": f"{delay:.1f}분" if delay is not None else "미상",
+                "first_seen_at": None,
+                "age_minutes": age_minutes,
+                "age_basis": age_basis,
+                "age_display": age_display,
+                "source_url": source_url,
+                "volume": "N/A",
+                "volume_numeric": 0,
+                "news_headlines": [],
+                "news_items": [],
+                "threads_posts": [],
+                "threads_author_count": 0,
+                "reasons": [f"{source_label} 직접 발표 · 기존 점수열과 분리"],
+            }
+        )
+    items: list[dict[str, Any]] = []
+    for index in range(max(len(values) for values in by_source.values())):
+        for source_group in ("yonhap-rss", "kma"):
+            source_items = by_source[source_group]
+            if index < len(source_items):
+                items.append(source_items[index])
+                if len(items) >= limit:
+                    return items
+    return items
 
 
 def _freshness_points(age_minutes: int | None, *, x_native: bool) -> int:
@@ -576,16 +701,19 @@ class XOpportunityRadar:
                 "available": False,
                 "sources": {},
             }
+            breaking_product_candidates: object = []
             if self.breaking_news_observer is not None:
                 try:
                     breaking_news_observation = await self.breaking_news_observer.observe(
                         (candidate["keyword"] for candidate in candidates.values()),
                         observed_at=now,
                     )
+                    breaking_product_candidates = breaking_news_observation.pop("product_candidates", [])
                 except Exception:
-                    # This lane is measurement-only and must never affect the
-                    # existing radar response path.
+                    # The additive lane must never affect the existing radar
+                    # response path when its observer fails.
                     errors.append("L0/L1 shadow 관찰 실패")
+            breaking_items = _breaking_lane_items(breaking_product_candidates, now, limit=limit)
 
             for candidate in candidates.values():
                 google = candidate.get("google")
@@ -678,8 +806,10 @@ class XOpportunityRadar:
                 news_items = _merge_news_items(trend_news_items, list(candidate.get("expanded_news_items", [])))
                 threads_posts = list(candidate.get("threads_posts", []))
                 coherent_news = _coherent_news_items(keyword, news_items)
+                observation_key = f"x:{_normalize_keyword(keyword)}"
+                first_seen_at = _first_seen_at(self.exposure_tracker, observation_key, now)
                 observation = self.exposure_tracker.record(
-                    f"x:{_normalize_keyword(keyword)}",
+                    observation_key,
                     {
                         "x_rank": candidate.get("x_rank"),
                         "original_count": len(coherent_news),
@@ -687,10 +817,20 @@ class XOpportunityRadar:
                         "threads_authors": _threads_author_count(threads_posts),
                         "volume": google.volume_numeric if google else 0,
                         "sample_id": x_sample_id if x_trend else None,
+                        "first_seen_at": first_seen_at,
                     },
                     observed_at=now,
                     score_version=_X_EXPOSURE_SCORE_VERSION,
                 )
+                source_published_at = _timestamp(google.published_at) if google and google.published_at else None
+                age_minutes, age_basis, age_display = _age_fields(
+                    source_published_at=source_published_at,
+                    first_seen_at=first_seen_at,
+                    now=now,
+                )
+                candidate["age_minutes"] = age_minutes
+                candidate["age_basis"] = age_basis
+                candidate["first_seen_at"] = first_seen_at
                 lane = _lane(candidate)
                 score, reasons, materiality_pass, gate_reason = _materiality_assessment(
                     candidate,
@@ -771,6 +911,14 @@ class XOpportunityRadar:
                         "volume": google.volume if google else "N/A",
                         "volume_numeric": google.volume_numeric if google else 0,
                         "age_minutes": candidate.get("age_minutes"),
+                        "age_basis": candidate["age_basis"],
+                        "age_display": age_display,
+                        "first_seen_at": candidate["first_seen_at"],
+                        "source_published_at": (
+                            source_published_at.astimezone(UTC).isoformat()
+                            if source_published_at is not None
+                            else None
+                        ),
                         "sources": [
                             source
                             for source, present in (
@@ -803,6 +951,8 @@ class XOpportunityRadar:
                 ),
                 reverse=True,
             )
+            legacy_items = items[:limit]
+            visible_items = [*legacy_items, *breaking_items]
             self.exposure_tracker.save(now=now)
             source_health = {
                 "google_trends": bool(google_trends),
@@ -827,11 +977,12 @@ class XOpportunityRadar:
             if not x_trends:
                 errors.append("공개 X 트렌드 결과 없음")
             self._snapshot = {
-                "available": bool(items),
+                "available": bool(visible_items),
                 "country": country,
-                "items": items[:limit],
+                "items": visible_items,
                 "total_candidates": len(candidates),
                 "qualified_candidates": len(items),
+                "breaking_news_count": len(breaking_items),
                 "filtered_out_count": len(candidates) - len(items),
                 "filter_summary": dict(filtered_reasons),
                 "strict_materiality": True,
@@ -850,6 +1001,6 @@ class XOpportunityRadar:
                 "refreshed_at": now.isoformat(),
                 "source_health": source_health,
                 "errors": errors,
-                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 뉴스 근거 없는 X 상위권 반복·상승 단어는 저신뢰도 X 네이티브 급등으로 분리합니다.",
+                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 뉴스 근거 없는 X 상위권 반복·상승 단어는 저신뢰도 X 네이티브 급등으로 분리하고, 연합뉴스·기상청 직접 발표는 점수 없는 별도 lane으로 병기합니다.",
             }
             return self.snapshot()

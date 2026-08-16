@@ -53,11 +53,38 @@ def _x_radar() -> XOpportunityRadar:
     return _radar
 
 
+def _with_explicit_age(payload: dict[str, object]) -> dict[str, object]:
+    """Copy response items and make unknown age visible instead of guessing it."""
+    response = dict(payload)
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list):
+        return response
+    items: list[dict[str, object]] = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            continue
+        item = dict(raw)
+        age = item.get("age_minutes")
+        has_age = isinstance(age, (int, float)) and not isinstance(age, bool)
+        item["age_basis"] = str(item.get("age_basis") or "unknown")
+        item["age_display"] = f"{age:g}분" if has_age else "미상"
+        if not has_age:
+            item["age_minutes"] = None
+        items.append(item)
+    response["items"] = items
+    return response
+
+
+def _render_x_radar(payload: dict[str, object]) -> dict[str, object]:
+    visible = _with_explicit_age(payload)
+    return attach_kernel_screen(attach_freshness(visible, "x_radar"), title_field="keyword")
+
+
 @router.get("")
 def get_x_radar():
     # 수집이 멈춰도 화면은 마지막 스냅샷을 계속 보여준다. 얼마나 묵었는지를
     # 함께 실어 보내야 프론트가 라이브 표시를 껐다 켤 수 있다.
-    return attach_kernel_screen(attach_freshness(_x_radar().snapshot(), "x_radar"), title_field="keyword")
+    return _render_x_radar(_x_radar().snapshot())
 
 
 @router.post("/refresh")
@@ -70,4 +97,4 @@ async def refresh_x_radar(payload: XRadarRefreshRequest):
         focus_keywords=payload.focus_keywords,
         force_refresh=payload.force_refresh,
     )
-    return attach_kernel_screen(attach_freshness(result, "x_radar"), title_field="keyword")
+    return _render_x_radar(result)
