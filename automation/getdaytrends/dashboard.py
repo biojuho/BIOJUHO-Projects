@@ -100,6 +100,7 @@ try:
     from .filter_eval.shadow_store import FilterShadowStore
     from .live_reference_collector import YouTubeLiveReferenceCollector
     from .reference_library import ReferenceLibraryStore
+    from .runtime_paths import RuntimeWriterLock, initialize_runtime_segment, resolve_runtime_paths
     from .x_opportunity_radar import XOpportunityRadar
 except ImportError:
     from collection_scheduler import CollectionScheduler, Lane
@@ -110,6 +111,11 @@ except ImportError:
     from filter_eval.shadow_store import FilterShadowStore
     from live_reference_collector import YouTubeLiveReferenceCollector
     from reference_library import ReferenceLibraryStore
+    from runtime_paths import (  # type: ignore[no-redef]
+        RuntimeWriterLock,
+        initialize_runtime_segment,
+        resolve_runtime_paths,
+    )
     from x_opportunity_radar import XOpportunityRadar
 
 try:
@@ -142,6 +148,48 @@ except ImportError:
     )
 
 _collection_scheduler: CollectionScheduler | None = None
+_runtime_paths = resolve_runtime_paths()
+_breaking_news_lane_state: dict[str, object] = {"refreshed_at": None}
+
+
+def _breaking_news_lane_snapshot() -> dict[str, object]:
+    snapshot = dict(_breaking_news_lane_state)
+    radar_snapshot = _x_opportunity_radar.snapshot()
+    radar_observation = radar_snapshot.get("breaking_news_observation")
+    radar_observed_at = (
+        radar_observation.get("observed_at") if isinstance(radar_observation, dict) else None
+    )
+    observed_times = [
+        value
+        for value in (snapshot.get("refreshed_at"), radar_observed_at)
+        if isinstance(value, str) and value
+    ]
+    snapshot["refreshed_at"] = max(observed_times, default=None)
+    return snapshot
+
+
+async def _refresh_breaking_news_lane() -> dict[str, object]:
+    global _breaking_news_lane_state
+    observer = _x_opportunity_radar.breaking_news_observer
+    if observer is None:
+        _breaking_news_lane_state = {
+            "enabled": False,
+            "available": False,
+            "refreshed_at": None,
+        }
+        return dict(_breaking_news_lane_state)
+
+    radar_snapshot = _x_opportunity_radar.snapshot()
+    radar_items = radar_snapshot.get("items")
+    keywords = tuple(
+        str(item.get("keyword") or "").strip()
+        for item in (radar_items if isinstance(radar_items, list) else [])
+        if isinstance(item, dict)
+        if item.get("lane") != "속보·공적발표" and str(item.get("keyword") or "").strip()
+    )
+    result = await observer.observe(keywords)
+    _breaking_news_lane_state = {**result, "refreshed_at": result.get("observed_at")}
+    return dict(_breaking_news_lane_state)
 
 
 @asynccontextmanager
@@ -153,25 +201,40 @@ async def _lifespan(_app: FastAPI):
     묶는다(collection_scheduler.py). 브라우저가 이미 갱신 중이면 서버는 건너뛴다.
     """
     global _collection_scheduler
-    _collection_scheduler = CollectionScheduler(
-        [
-            Lane(
-                name="x_radar",
-                snapshot=_x_opportunity_radar.snapshot,
-                refresh=lambda: _x_opportunity_radar.refresh(country="korea", limit=20),
-            ),
-            Lane(
-                name="fast_viral",
-                snapshot=_fast_viral_collector.snapshot,
-                refresh=lambda: _fast_viral_collector.refresh(limit=12),
-            ),
-        ]
-    )
-    _collection_scheduler.start()
+    writer_lock = RuntimeWriterLock(_runtime_paths.writer_lock) if _runtime_paths.configured else None
     try:
+        if writer_lock is not None:
+            writer_lock.acquire()
+            initialize_runtime_segment(_runtime_paths)
+        _collection_scheduler = CollectionScheduler(
+            [
+                Lane(
+                    name="x_radar",
+                    snapshot=_x_opportunity_radar.snapshot,
+                    refresh=lambda: _x_opportunity_radar.refresh(country="korea", limit=20),
+                ),
+                Lane(
+                    name="fast_viral",
+                    snapshot=_fast_viral_collector.snapshot,
+                    refresh=lambda: _fast_viral_collector.refresh(limit=12),
+                ),
+                Lane(
+                    name="breaking_news",
+                    kind="api",
+                    snapshot=_breaking_news_lane_snapshot,
+                    refresh=_refresh_breaking_news_lane,
+                    active_start_hour=0,
+                    active_end_hour=0,
+                ),
+            ]
+        )
+        _collection_scheduler.start()
         yield
     finally:
-        await _collection_scheduler.stop()
+        if _collection_scheduler is not None:
+            await _collection_scheduler.stop()
+        if writer_lock is not None:
+            writer_lock.release()
 
 
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION, lifespan=_lifespan)
@@ -184,22 +247,27 @@ except ImportError:
 _config = AppConfig.from_env()
 logger = logging.getLogger(__name__)
 _filter_shadow_store = FilterShadowStore()
-_reference_store = ReferenceLibraryStore(Path(__file__).resolve().parent / "data" / "reference_library.json")
+_reference_store = ReferenceLibraryStore(_runtime_paths.reference_library)
 _reference_collector = YouTubeLiveReferenceCollector(_reference_store)
 init_reference_router(_reference_store, _reference_collector)
 app.include_router(reference_router)
 _x_opportunity_radar = XOpportunityRadar(
-    observation_path=Path(__file__).resolve().parent / "data" / "x_exposure_observations.json",
+    observation_path=_runtime_paths.x_exposure_observations,
     filter_shadow_store=_filter_shadow_store,
 )
 init_x_radar_router(_x_opportunity_radar)
 app.include_router(x_radar_router)
 _fast_viral_collector = FastViralCollector(
-    Path(__file__).resolve().parent / "data" / "fast_viral_snapshot.json",
+    _runtime_paths.fast_viral_snapshot,
     filter_shadow_store=_filter_shadow_store,
 )
 init_fast_viral_router(_fast_viral_collector)
 app.include_router(fast_viral_router)
+try:
+    from .runtime_identity import runtime_identity_router
+except ImportError:
+    from runtime_identity import runtime_identity_router
+app.include_router(runtime_identity_router)
 
 
 def _dashboard_base_dir() -> Path:
