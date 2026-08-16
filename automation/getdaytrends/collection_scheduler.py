@@ -9,18 +9,22 @@
 1. **가동 시간대** — 기본 09~24시(KST). lane별로 덮어쓸 수 있고, L0(기상청)·L1(연합뉴스)
    lane만 24시간 가동을 기본으로 연다(핸드오프 0065).
 2. **주기** — 기본 5분. 브라우저가 하던 2분보다 느슨하다.
-3. **일일 상한** — 기본은 전역 `daily_call_cap=200`을 lane 수로 균등 배분한 lane별 상한.
-   lane 하나가 200을 통째로 쓰지 못하게 묶고, lane별로 환경변수·Lane 필드로 덮어쓸 수 있다.
+3. **일일 상한** — `scrape` lane(기본값)들만 전역 `daily_call_cap=200`을 lane 수로 균등
+   배분해 쓴다. `api` lane은 전역 예산 밖에서 자기 상한(기본 300)을 갖는다.
+   lane별로 환경변수·Lane 필드로 덮어쓸 수 있다.
 4. **중복 회피** — 마지막 갱신이 주기보다 최근이면 건너뛴다. 브라우저가 열려 있어
    이미 수집 중이면 서버는 요청을 보태지 않는다.
 
 lane별 설정은 셋 중 앞선 것이 이긴다:
 
-1. `Lane(active_start_hour=…, active_end_hour=…, daily_call_cap=…)` — 코드에서 직접 지정
+1. `Lane(kind=…, active_start_hour=…, active_end_hour=…, daily_call_cap=…)` — 코드에서 직접
+   지정. `kind`는 `"scrape"`/`"api"` 둘 중 하나고 **기본은 `"scrape"`**다 — 모르는 lane을
+   싸게 취급하면 위험하므로 안전한 쪽이 기본이다. `api` lane은 전역 예산에 들어가지 않는다.
 2. 환경변수 `GETDAYTRENDS_SCHEDULER_<LANE>_START_HOUR` · `_END_HOUR` · `_DAILY_CAP`
    (lane 이름의 `-`는 `_`로 바꾸고 대문자로 읽는다. 예: `kma-weather` → `KMA_WEATHER`)
 3. 이름 기본값 — `kma-weather`·`yonhap-rss`(0063 shadow 소스 키, `_` 표기도 동일 취급)는
-   24시간, 그 밖은 전역 `active_start_hour`~`active_end_hour`와 전역 상한의 균등 배분
+   24시간, 그 밖은 전역 `active_start_hour`~`active_end_hour`. 상한 기본값은 `scrape`가
+   전역 상한의 균등 배분, `api`가 300이다.
 
 `start == end`는 24시간 가동을 뜻한다(0-0이면 하루 종일).
 
@@ -48,6 +52,7 @@ DEFAULT_INTERVAL_SECONDS = 300
 DEFAULT_ACTIVE_START_HOUR = 9
 DEFAULT_ACTIVE_END_HOUR = 24
 DEFAULT_DAILY_CALL_CAP = 200
+DEFAULT_API_DAILY_CALL_CAP = 300  # api lane은 전역 예산 밖 자기 상한 (헤더 판정 2026-08-16)
 DEFAULT_TZ_OFFSET_HOURS = 9  # KST
 
 
@@ -101,6 +106,11 @@ def _lane_name_key(name: str) -> str:
 
 def _lane_defaults_to_always_on(name: str) -> bool:
     return _lane_name_key(name) in _ALWAYS_ON_LANE_NAMES
+
+
+def _lane_kind(lane: Lane) -> str:
+    """lane 종류. 명시하지 않거나 api가 아니면 안전한 쪽인 scrape로 취급한다."""
+    return "api" if (lane.kind or "scrape").strip().lower() == "api" else "scrape"
 
 
 @dataclass(frozen=True)
@@ -202,6 +212,7 @@ class Lane:
     name: str
     snapshot: Callable[[], dict[str, Any]]
     refresh: Callable[[], Awaitable[Any]]
+    kind: str = "scrape"
     active_start_hour: int | None = None
     active_end_hour: int | None = None
     daily_call_cap: int | None = None
@@ -224,6 +235,7 @@ class LaneSchedule:
     active_start_hour: int
     active_end_hour: int
     daily_call_cap: int
+    kind: str = "scrape"
 
     @property
     def active_hours_label(self) -> str:
@@ -244,13 +256,16 @@ class CollectionScheduler:
         self.lanes = lanes
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._states: dict[str, LaneState] = {lane.name: LaneState() for lane in lanes}
+        scrape_count = sum(1 for lane in lanes if _lane_kind(lane) == "scrape")
+        scrape_share = self.config.daily_call_cap // max(1, scrape_count)
         self._lane_schedules: dict[str, LaneSchedule] = {
-            lane.name: self._resolve_lane_schedule(lane) for lane in lanes
+            lane.name: self._resolve_lane_schedule(lane, scrape_share) for lane in lanes
         }
         self._task: asyncio.Task | None = None
         self._stopping = asyncio.Event()
 
-    def _resolve_lane_schedule(self, lane: Lane) -> LaneSchedule:
+    def _resolve_lane_schedule(self, lane: Lane, scrape_share: int) -> LaneSchedule:
+        kind = _lane_kind(lane)
         if _lane_defaults_to_always_on(lane.name):
             default_start, default_end = 0, 0
         else:
@@ -259,7 +274,7 @@ class CollectionScheduler:
         env_start = _lane_env_int(lane.name, "START_HOUR")
         env_end = _lane_env_int(lane.name, "END_HOUR")
         env_cap = _lane_env_int(lane.name, "DAILY_CAP")
-        default_share = self.config.daily_call_cap // max(1, len(self.lanes))
+        default_cap = scrape_share if kind == "scrape" else DEFAULT_API_DAILY_CALL_CAP
         return LaneSchedule(
             active_start_hour=(
                 lane.active_start_hour
@@ -280,8 +295,9 @@ class CollectionScheduler:
                 if lane.daily_call_cap is not None
                 else env_cap
                 if env_cap is not None
-                else default_share
+                else default_cap
             ),
+            kind=kind,
         )
 
     # ── 상태 ──────────────────────────────────────────────────────────────
@@ -302,6 +318,7 @@ class CollectionScheduler:
                     "last_reason": state.last_reason,
                     "last_error": state.last_error,
                     "consecutive_errors": state.consecutive_errors,
+                    "kind": self._lane_schedules[name].kind,
                     "active_hours": self._lane_schedules[name].active_hours_label,
                     "daily_call_cap": self._lane_schedules[name].daily_call_cap,
                 }
@@ -361,7 +378,7 @@ class CollectionScheduler:
     # ── 루프 ──────────────────────────────────────────────────────────────
     async def _run(self) -> None:
         lanes_desc = ", ".join(
-            f"{name}={schedule.active_hours_label}(하루 {schedule.daily_call_cap}회)"
+            f"{name}[{schedule.kind}]={schedule.active_hours_label}(하루 {schedule.daily_call_cap}회)"
             for name, schedule in self._lane_schedules.items()
         )
         logger.info(

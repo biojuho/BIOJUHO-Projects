@@ -511,3 +511,101 @@ class TestPerLaneDailyCap:
         lane = Lane("x_radar", lambda: {}, _noop, daily_call_cap=5)
         scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: at_kst(14))
         assert scheduler.status()["lanes"]["x_radar"]["daily_call_cap"] == 5
+
+
+class TestScrapeApiBudgetSplit:
+    """헤더 판정(2026-08-16) — 전역 200은 scrape lane끼리, api lane은 전역 밖 자기 상한 300."""
+
+    @pytest.mark.asyncio
+    async def test_scrape_split_and_api_default_300(self):
+        lanes = [
+            Lane("s1", lambda: {}, _noop),
+            Lane("s2", lambda: {}, _noop),
+            Lane("a1", lambda: {}, _noop, kind="api"),
+            Lane("a2", lambda: {}, _noop, kind="api"),
+        ]
+        scheduler = CollectionScheduler(lanes, CONFIG, clock=lambda: at_kst(14))
+
+        status = scheduler.status()["lanes"]
+        assert status["s1"]["kind"] == "scrape"
+        assert status["s2"]["kind"] == "scrape"
+        assert status["s1"]["daily_call_cap"] == 100
+        assert status["s2"]["daily_call_cap"] == 100
+        assert status["a1"]["kind"] == "api"
+        assert status["a2"]["kind"] == "api"
+        assert status["a1"]["daily_call_cap"] == 300
+        assert status["a2"]["daily_call_cap"] == 300
+        assert status["s1"]["daily_call_cap"] + status["s2"]["daily_call_cap"] == CONFIG.daily_call_cap
+
+    @pytest.mark.asyncio
+    async def test_api_consumption_does_not_shrink_scrape_budget(self):
+        now = at_kst(14)
+        collected: dict[str, int] = {}
+
+        async def refresh(name: str):
+            collected[name] = collected.get(name, 0) + 1
+
+        def make(name: str, kind: str) -> Lane:
+            return Lane(name, lambda: {"refreshed_at": ago(now, hours=1)}, lambda: refresh(name), kind=kind)
+
+        scheduler = CollectionScheduler(
+            [make("s1", "scrape"), make("s2", "scrape"), make("a1", "api"), make("a2", "api")],
+            CONFIG,
+            clock=lambda: now,
+        )
+
+        for _ in range(288):
+            await scheduler.tick()
+
+        # 24시간(288틱)을 채워도 api lane은 자기 상한 300 안이고,
+        # scrape lane 예산(각 100)은 한 푼도 줄지 않았다.
+        assert collected["a1"] == 288
+        assert collected["a2"] == 288
+        assert collected["s1"] == 100
+        assert collected["s2"] == 100
+        status = scheduler.status()["lanes"]
+        assert status["s1"]["daily_call_cap"] == 100
+        assert status["s2"]["daily_call_cap"] == 100
+
+        # 300은 실상한이다 — 도달하면 멈춘다(무한이 아니다).
+        for _ in range(12):
+            await scheduler.tick()
+        assert collected["a1"] == 300
+        assert collected["a2"] == 300
+        reasons = await scheduler.tick()
+        assert reasons["a1"] == "cap_reached"
+        assert reasons["a2"] == "cap_reached"
+
+    @pytest.mark.asyncio
+    async def test_unspecified_kind_defaults_to_scrape(self):
+        lanes = [Lane("u1", lambda: {}, _noop), Lane("u2", lambda: {}, _noop)]
+        scheduler = CollectionScheduler(lanes, CONFIG, clock=lambda: at_kst(14))
+
+        status = scheduler.status()["lanes"]
+        assert status["u1"]["kind"] == "scrape"
+        assert status["u2"]["kind"] == "scrape"
+        # api 기본값 300이 아니라 전역 200을 나눈 100/100이다.
+        assert status["u1"]["daily_call_cap"] == 100
+        assert status["u2"]["daily_call_cap"] == 100
+
+    @pytest.mark.asyncio
+    async def test_kind_normalization_and_unknown_kind_is_scrape(self):
+        scheduler = CollectionScheduler(
+            [
+                Lane("upper", lambda: {}, _noop, kind="API"),
+                Lane("weird", lambda: {}, _noop, kind="모름"),
+            ],
+            CONFIG,
+            clock=lambda: at_kst(14),
+        )
+
+        status = scheduler.status()["lanes"]
+        assert status["upper"]["kind"] == "api"
+        assert status["upper"]["daily_call_cap"] == 300
+        assert status["weird"]["kind"] == "scrape"
+
+    @pytest.mark.asyncio
+    async def test_api_cap_env_override(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_A1_DAILY_CAP", "500")
+        scheduler = CollectionScheduler([Lane("a1", lambda: {}, _noop, kind="api")], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["a1"]["daily_call_cap"] == 500
