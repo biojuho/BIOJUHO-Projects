@@ -13,7 +13,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dashboard_html import get_dashboard_html  # noqa: E402
-from kernel_screen import attach_kernel_screen, screen_material, sort_by_kernel  # noqa: E402
+from kernel_screen import (  # noqa: E402
+    attach_kernel_screen,
+    screen_material,
+    sort_by_kernel,
+    sort_by_kernel_legacy_axis,
+)
 
 
 class TestLiveAxes:
@@ -368,7 +373,7 @@ class TestKernelSorting:
             "사람 없는 증가 항목",
         ]
 
-    def test_existing_axis_and_score_order_remain_within_the_same_person_value(self):
+    def test_score_orders_items_within_the_same_person_value(self):
         items = [
             {"title": "복도에 실외기 설치 완료", "x_exposure_score": 90},
             {"title": "장사가 너무 잘돼서 오히려 망했다", "x_exposure_score": 20},
@@ -376,19 +381,21 @@ class TestKernelSorting:
         ]
         out = attach_kernel_screen({"items": items})["items"]
 
-        assert [item["x_exposure_score"] for item in out] == [80, 20, 90]
+        # 0062 핸드오프: 생산 정렬에서 _AXIS_RANK가 빠져 점수 내림차순 [90, 80, 20]으로 정렬된다.
+        assert [item["x_exposure_score"] for item in out] == [90, 80, 20]
 
-    def test_unknown_outranks_dead(self):
-        # 모르는 것을 버리는 것보다 사람이 원문을 열어 보게 하는 편이 낫다.
+    def test_legacy_axis_sort_unknown_outranks_dead(self):
+        # 2026-08-08 이전 레거시 축 정렬: unknown (rank 2)이 dead (rank 4)보다 앞선다.
         items = [
             {"title": "얘들아 다들 이거 합쳐봐", "x_exposure_score": 90},
             {"title": "김혜수", "x_exposure_score": 10},
         ]
-        out = attach_kernel_screen({"items": items})["items"]
+        screened = attach_kernel_screen({"items": items}, sort=False)["items"]
+        out = sort_by_kernel_legacy_axis(screened)
         assert out[0]["title"] == "김혜수"
 
-    def test_leaked_filter_items_do_not_reach_the_top(self):
-        # 오늘 실제로 제외 필터를 빠져나간 제목들. 커널 정렬에서는 전부 아래로 간다.
+    def test_legacy_axis_sort_leaked_filter_items_do_not_reach_the_top(self):
+        # 2026-08-08 이전 레거시 축 정렬: 사는 축(live_wrong rank 0)이 unknown(rank 2) 및 dead보다 앞선다.
         leaked = [
             "국짐이 정청래편인척",
             "요즘 애니회사들, 유부녀를 판다.jpg",
@@ -396,8 +403,23 @@ class TestKernelSorting:
         ]
         items = [{"title": t, "x_exposure_score": 95} for t in leaked]
         items.append({"title": "남편이 친정 용돈을 뺏어감", "x_exposure_score": 20})
-        out = attach_kernel_screen({"items": items})["items"]
+        screened = attach_kernel_screen({"items": items}, sort=False)["items"]
+        out = sort_by_kernel_legacy_axis(screened)
         assert out[0]["title"] == "남편이 친정 용돈을 뺏어감"
+
+    def test_production_sort_orders_by_person_then_score(self):
+        # 0062 핸드오프 생산 정렬: person 유무(1차) -> cooling(2차) -> score 내림차순(3차).
+        items = [
+            {"title": "일반 소재 고득점", "kernel_screen": {"person": False}, "cooling": False, "x_exposure_score": 95},
+            {"title": "인물 소재 저득점", "kernel_screen": {"person": True}, "cooling": False, "x_exposure_score": 20},
+            {"title": "인물 소재 고득점", "kernel_screen": {"person": True}, "cooling": False, "x_exposure_score": 80},
+        ]
+        out = sort_by_kernel(items)
+        assert [item["title"] for item in out] == [
+            "인물 소재 고득점",
+            "인물 소재 저득점",
+            "일반 소재 고득점",
+        ]
 
     def test_sorting_can_be_turned_off(self):
         items = [{"title": "복도에 실외기 설치 완료"}, {"title": "팀장이 회식비를 떠넘김"}]
@@ -405,33 +427,80 @@ class TestKernelSorting:
         assert out[0]["title"] == "복도에 실외기 설치 완료"
 
 
+class TestSortByKernelFixedSamples:
+    """0062 핸드오프: _AXIS_RANK 제거 전후 고정 표본 회귀 테스트.
+
+    나중에 정렬 방식을 되돌리거나 비교할 수 있도록 제거 전(legacy)과 제거 후(production)
+    정렬 결과를 동일한 고정 표본에 대해 검증한다.
+    """
+
+    SAMPLE_ITEMS = [
+        {"title": "방금 공개된 티웨이항공 승무원 신규 유니폼.jpg", "x_exposure_score": 54, "cooling": False},
+        {"title": "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다", "x_exposure_score": 39, "cooling": False},
+        {"title": "복도에 실외기 설치 완료", "x_exposure_score": 90, "cooling": False},
+        {"title": "장사가 너무 잘돼서 오히려 망했다", "x_exposure_score": 20, "cooling": False},
+        {"title": "공짜 커피를 받았더니 돈을 요구했다", "x_exposure_score": 80, "cooling": False},
+        {"title": "식었지만 사람이 있는 항목", "x_exposure_score": 95, "cooling": True, "kernel_screen": {"person": True, "axis": "unknown"}},
+    ]
+
+    def test_sort_by_kernel_legacy_axis_fixed_sample(self):
+        screened = attach_kernel_screen({"items": self.SAMPLE_ITEMS}, sort=False)["items"]
+        legacy_out = sort_by_kernel_legacy_axis(screened)
+
+        # 레거시 정렬 순서: person -> cooling -> _AXIS_RANK -> score
+        # 1. person=True (식었지만 사람이 있는 항목)
+        # 2. live_gap (공짜 커피 80 -> 연쇄 절도 39 -> 장사 20)
+        # 3. dead_flat (복도 실외기 90 -> 티웨이항공 54)
+        assert [item["title"] for item in legacy_out] == [
+            "식었지만 사람이 있는 항목",
+            "공짜 커피를 받았더니 돈을 요구했다",
+            "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다",
+            "장사가 너무 잘돼서 오히려 망했다",
+            "복도에 실외기 설치 완료",
+            "방금 공개된 티웨이항공 승무원 신규 유니폼.jpg",
+        ]
+
+    def test_sort_by_kernel_production_fixed_sample(self):
+        screened = attach_kernel_screen({"items": self.SAMPLE_ITEMS}, sort=False)["items"]
+        prod_out = sort_by_kernel(screened)
+
+        # 생산 정렬 순서: person -> cooling -> score
+        # 1. person=True (식었지만 사람이 있는 항목, score 95)
+        # 2. person=False, cooling=False (score 내림차순: 90 -> 80 -> 54 -> 39 -> 20)
+        assert [item["title"] for item in prod_out] == [
+            "식었지만 사람이 있는 항목",
+            "복도에 실외기 설치 완료",
+            "공짜 커피를 받았더니 돈을 요구했다",
+            "방금 공개된 티웨이항공 승무원 신규 유니폼.jpg",
+            "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다",
+            "장사가 너무 잘돼서 오히려 망했다",
+        ]
+
+
 class TestSelectionUsesTheVerdictNotJustTheScore:
     """자를 때도 커널을 보는가.
 
     2026-08-07 새벽, 게이트에는 판정이 들어가 있는데 마지막 자르기가 점수 순이라
-    통과한 사는 축 소재가 화면 직전에 다시 잘렸다. 확산이 덜 붙어 점수가 낮다는 것이
-    사는 축 소재의 정의라, 점수로 자르는 한 이 소재는 구조적으로 화면에 오지 못한다.
+    통과한 사는 축 소재가 화면 직전에 다시 잘렸다.
+    2026-08-08 실측에서 live_wrong/live_gap 축이 기각된 이후, 생산 정렬은
+    person 1차 키 + 점수 순으로 동작하며, 레거시 연구 재현은 sort_by_kernel_legacy_axis에서 검증한다.
     """
 
-    def test_a_low_scoring_live_item_outranks_a_high_scoring_dead_one(self):
-        # 실측값: 군 부대 절도 고발 39점(사는 축)이 티웨이 유니폼 54점(죽는 축)보다 앞이어야 한다.
+    def test_legacy_axis_sort_a_low_scoring_live_item_outranks_a_high_scoring_dead_one(self):
+        items = [
+            {"title": "방금 공개된 티웨이항공 승무원 신규 유니폼.jpg", "x_exposure_score": 54},
+            {"title": "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다", "x_exposure_score": 39},
+        ]
+        out = sort_by_kernel_legacy_axis(attach_kernel_screen({"items": items}, sort=False)["items"])
+        assert out[0]["x_exposure_score"] == 39
+
+    def test_production_sort_orders_by_score_when_person_status_is_equal(self):
         items = [
             {"title": "방금 공개된 티웨이항공 승무원 신규 유니폼.jpg", "x_exposure_score": 54},
             {"title": "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다", "x_exposure_score": 39},
         ]
         out = sort_by_kernel(attach_kernel_screen({"items": items}, sort=False)["items"])
-        assert out[0]["x_exposure_score"] == 39
-
-    def test_cutting_to_a_limit_keeps_the_live_material(self):
-        # 자리가 둘뿐일 때 점수 순으로 자르면 사는 축이 전멸한다.
-        items = [
-            {"title": "달 月자가 들어가는 예쁜 한자 단어 알려주세요.jpg", "x_exposure_score": 79},
-            {"title": "스파6.. 어제 다운받고 처음 해봤다", "x_exposure_score": 78},
-            {"title": "휴대폰 반납했더니 1,500만 원이 결제. 부대 내 연쇄 절도 고발합니다", "x_exposure_score": 39},
-        ]
-        screened = attach_kernel_screen({"items": items}, sort=False)["items"]
-        kept = sort_by_kernel(screened)[:2]
-        assert any("연쇄 절도" in item["title"] for item in kept)
+        assert out[0]["x_exposure_score"] == 54
 
     def test_score_still_orders_items_that_share_an_axis(self):
         items = [
@@ -454,3 +523,4 @@ class TestDashboardPersonAxis:
         assert "식은 것" in html
         assert "식음 · ${safeHtml(String(item.last_growth_minutes))}분째 정체" in html
         assert "if (ca !== cb) return ca ? 1 : -1;" in html
+        assert "Number(b.x_exposure_score || 0) - Number(a.x_exposure_score || 0)" in html

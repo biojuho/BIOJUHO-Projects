@@ -284,27 +284,14 @@ def screen_material(
     return second_result
 
 
-# 정렬 우선순위. 보류(unknown)를 죽는 축보다 위에 두는 이유는, 모르는 것을 버리는 것보다
-# 사람이 원문을 열어 확인하게 하는 편이 낫기 때문이다.
+# 정렬 우선순위 상수. 연구 재현용으로 보존한다.
+# 2026-08-08 실측에서 live_wrong/live_gap/dead_debate/dead_flat 네 축이 기각되어
+# 생산 정렬에서는 사용하지 않는다.
 _AXIS_RANK = {"live_wrong": 0, "live_gap": 1, "unknown": 2, "dead_debate": 3, "dead_flat": 4}
 
 
-def sort_by_kernel(items: list[Any]) -> list[Any]:
-    """person, 식음 여부, 커널 축, 적합도 점수 순으로 정렬한다.
-
-    **이것이 금지 목록 추격을 대체하는 지점이다.**
-
-    제외 필터(정치·스포츠·애니·성인성)는 금지 목록이라 새 표현이 나올 때마다 뚫린다 —
-    2026-08-06 하루에만 네 갈래에서 누수가 나왔다("국짐", "애니회사", "이임생", "성접대").
-    단어를 계속 쫓는 건 끝이 없다.
-
-    그런데 그날 누수된 9건을 커널로 판정하면 **사는 축이 0건**이다(죽는 축 7 · 보류 2).
-    금지 목록이 뚫려도 허용 기준(가해자 명확·낙차)을 통과하지 못하면 화면 위로 오지 못한다.
-    필터는 최후 방어선으로 남기고, 선별은 여기서 한다.
-    """
-
-    # person은 "잘 퍼진다"는 신호가 아니다. 관측에서 하위 25% 진입 감소만 남았고
-    # 상위 10% 진입 효과는 없었다(p=1.000). 기존 축과 병기해 비교할 1차 키로만 쓴다.
+def sort_by_kernel_legacy_axis(items: list[Any]) -> list[Any]:
+    """연구 재현용: 2026-08-08 이전 _AXIS_RANK를 3차 키로 쓰던 정렬."""
     def key(item: Any) -> tuple[int, int, int, float]:
         if not isinstance(item, dict):
             return (9, 9, 9, 0.0)
@@ -318,6 +305,33 @@ def sort_by_kernel(items: list[Any]) -> list[Any]:
             0 if kernel.get("person") is True else 1,
             1 if item.get("cooling") is True else 0,
             _AXIS_RANK.get(axis, 2),
+            -score,
+        )
+
+    return sorted(items, key=key)
+
+
+def sort_by_kernel(items: list[Any]) -> list[Any]:
+    """person, 식음 여부, 적합도 점수 순으로 정렬한다.
+
+    2026-08-16 0062 핸드오프: 검정 통과 근거가 없는 _AXIS_RANK를 생산 정렬에서 제거함.
+    남는 정렬 키:
+    1차: person 여부 (True가 앞)
+    2차: cooling 여부 (False(0)가 앞, True(1)가 뒤)
+    3차: x_exposure_score 점수 (내림차순, 큰 값이 앞)
+    동점 시: stable sort (입력 원래 순서 보존)
+    """
+    def key(item: Any) -> tuple[int, int, float]:
+        if not isinstance(item, dict):
+            return (9, 9, 0.0)
+        kernel = item.get("kernel_screen") or {}
+        try:
+            score = float(item.get("x_exposure_score") or 0)
+        except (TypeError, ValueError):
+            score = 0.0
+        return (
+            0 if kernel.get("person") is True else 1,
+            1 if item.get("cooling") is True else 0,
             -score,
         )
 

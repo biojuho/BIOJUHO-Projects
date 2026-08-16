@@ -1501,9 +1501,10 @@ function safeExternalUrl(value) {{
   return normalized.startsWith('https://') || normalized.startsWith('http://') ? safeHtml(url) : '#';
 }}
 
-// 정렬 토글. 기본은 커널 축 우선(서버가 그렇게 보낸다).
+// 정렬 토글. 기본은 소재(person/cooling/score) 우선(서버가 그렇게 보낸다).
 // 속도순은 "지금 뜨는 것"을 놓치지 않기 위한 되돌리기 경로다.
 let fastViralSortMode = 'kernel';
+// 연구 재현용 상수 (생산 정렬에서는 미사용)
 const KERNEL_AXIS_RANK = {{ live_wrong: 0, live_gap: 1, unknown: 2, dead_debate: 3, dead_flat: 4 }};
 
 function applySortMode(items) {{
@@ -1518,9 +1519,6 @@ function applySortMode(items) {{
     const ca = a.cooling === true;
     const cb = b.cooling === true;
     if (ca !== cb) return ca ? 1 : -1;
-    const ra = KERNEL_AXIS_RANK[(a.kernel_screen || {{}}).axis] ?? 2;
-    const rb = KERNEL_AXIS_RANK[(b.kernel_screen || {{}}).axis] ?? 2;
-    if (ra !== rb) return ra - rb;
     return Number(b.x_exposure_score || 0) - Number(a.x_exposure_score || 0);
   }});
 }}
