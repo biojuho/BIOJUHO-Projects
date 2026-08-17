@@ -135,6 +135,109 @@ def _age_minutes(label: str, now: datetime) -> int | None:
     return None
 
 
+# 목록 페이지에 실제로 있는 표식만 본다. 모르면 unknown — text 로 추정하지 않는다.
+_ATTACHMENT_VIDEO = "video"
+_ATTACHMENT_IMAGE = "image"
+_ATTACHMENT_TEXT = "text"
+_ATTACHMENT_UNKNOWN = "unknown"
+_TITLE_VIDEO_SUFFIX_RE = re.compile(r"\.(mp4|webm|mov|avi|mkv|wmv)\b", re.IGNORECASE)
+_TITLE_IMAGE_SUFFIX_RE = re.compile(r"\.(jpe?g|png|gif|bmp|webp)\b", re.IGNORECASE)
+_BOBAE_IMAGE_ICON_RE = re.compile(r"/(?:jpe?g|png|gif|bmp|webp)\.gif(?:\?|$)", re.IGNORECASE)
+_BOBAE_VIDEO_ICON_RE = re.compile(r"/(?:vod|movie|mp4|avi|wmv)\.gif(?:\?|$)", re.IGNORECASE)
+_PPOMPPU_VIDEO_LABEL_RE = re.compile(r"동영상")
+_PPOMPPU_IMAGE_LABEL_RE = re.compile(r"이미지")
+_PPOMPPU_REAL_THUMB_RE = re.compile(r"/_thumb/", re.IGNORECASE)
+_PPOMPPU_NOIMAGE_RE = re.compile(r"noimage", re.IGNORECASE)
+
+
+def _kind_from_title_suffix(title: str) -> str | None:
+    """제목 접미 .mp4 / .jpg 등은 커뮤니티가 스스로 붙이는 첨부 표식이다."""
+    if _TITLE_VIDEO_SUFFIX_RE.search(title):
+        return _ATTACHMENT_VIDEO
+    if _TITLE_IMAGE_SUFFIX_RE.search(title):
+        return _ATTACHMENT_IMAGE
+    return None
+
+
+def _resolve_attachment_kind(*candidates: str | None) -> str:
+    """여러 신호가 있으면 video 가 image 보다 앞선다. 아는 값만 채택하고 모르면 unknown."""
+    kinds = [kind for kind in candidates if kind in {_ATTACHMENT_VIDEO, _ATTACHMENT_IMAGE, _ATTACHMENT_TEXT}]
+    if _ATTACHMENT_VIDEO in kinds:
+        return _ATTACHMENT_VIDEO
+    if _ATTACHMENT_IMAGE in kinds:
+        return _ATTACHMENT_IMAGE
+    if _ATTACHMENT_TEXT in kinds:
+        return _ATTACHMENT_TEXT
+    return _ATTACHMENT_UNKNOWN
+
+
+def _attachment_fields(kind: str, *, video_url: str = "") -> dict[str, str]:
+    return {
+        "attachment_kind": kind,
+        "video_url": video_url if kind == _ATTACHMENT_VIDEO and video_url else "",
+    }
+
+
+def _dogdrip_attachment_kind(row: Any) -> str | None:
+    if row.select_one("i.fa-play-circle, i.overlay-icon.fa-play-circle"):
+        return _ATTACHMENT_VIDEO
+    if row.select_one("img.webzine-thumbnail"):
+        return _ATTACHMENT_IMAGE
+    return None
+
+
+def _theqoo_attachment_kind(row: Any) -> str | None:
+    if row.select_one("i.fa-youtube"):
+        return _ATTACHMENT_VIDEO
+    if row.select_one("i.fa-images"):
+        return _ATTACHMENT_IMAGE
+    return None
+
+
+def _bobaedream_attachment_kind(row: Any) -> str | None:
+    """첨부파일 아이콘 src 의 파일명이 종류다. unknown.gif 는 사이트가 모른다고 한 것이라 unknown."""
+    icons = row.select("td.pl14 img.jpg, td.pl14 img[alt='첨부파일']")
+    if not icons:
+        return None
+    kinds: list[str] = []
+    for icon in icons:
+        src = str(icon.get("src") or "")
+        if _BOBAE_VIDEO_ICON_RE.search(src):
+            kinds.append(_ATTACHMENT_VIDEO)
+        elif _BOBAE_IMAGE_ICON_RE.search(src):
+            kinds.append(_ATTACHMENT_IMAGE)
+    if _ATTACHMENT_VIDEO in kinds:
+        return _ATTACHMENT_VIDEO
+    if _ATTACHMENT_IMAGE in kinds:
+        return _ATTACHMENT_IMAGE
+    return None
+
+
+def _ppomppu_attachment_kind(row: Any) -> str | None:
+    """freeboard 는 icon alt/title 의 '이미지'·'동영상'. hot.php 는 실제 썸네일 src."""
+    for icon in row.select("img.baseList-img"):
+        label = f"{icon.get('alt') or ''} {icon.get('title') or ''}"
+        if _PPOMPPU_VIDEO_LABEL_RE.search(label):
+            return _ATTACHMENT_VIDEO
+        if _PPOMPPU_IMAGE_LABEL_RE.search(label):
+            return _ATTACHMENT_IMAGE
+    for img in row.find_all("img"):
+        src = str(img.get("src") or "")
+        if _PPOMPPU_NOIMAGE_RE.search(src):
+            continue
+        if _PPOMPPU_REAL_THUMB_RE.search(src):
+            return _ATTACHMENT_IMAGE
+    return None
+
+
+def _todayhumor_attachment_kind(row: Any) -> str | None:
+    if row.select_one('img[src*="list_icon_movie"], img[src*="list_icon_vod"]'):
+        return _ATTACHMENT_VIDEO
+    if row.select_one('img[src*="list_icon_photo"]'):
+        return _ATTACHMENT_IMAGE
+    return None
+
+
 def _base_item(
     *,
     source: str,
@@ -149,8 +252,10 @@ def _base_item(
     votes: int,
     comments: int,
     position: int,
+    attachment_kind: str = _ATTACHMENT_UNKNOWN,
+    video_url: str = "",
 ) -> dict[str, Any]:
-    return {
+    item = {
         "id": post_id,
         "title": title,
         "category": category,
@@ -166,6 +271,8 @@ def _base_item(
         "source_position": position,
         "signal_source": "직접 목록",
     }
+    item.update(_attachment_fields(attachment_kind, video_url=video_url))
+    return item
 
 
 def parse_dogdrip_latest(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
@@ -202,6 +309,9 @@ def parse_dogdrip_latest(html: str, *, now: datetime | None = None) -> list[dict
                 votes=max(vote_values, default=0),
                 comments=_parse_count(comment_node.get_text(" ", strip=True)) if comment_node else 0,
                 position=position,
+                attachment_kind=_resolve_attachment_kind(
+                    _dogdrip_attachment_kind(row), _kind_from_title_suffix(title)
+                ),
             )
         )
     return items
@@ -248,6 +358,9 @@ def parse_theqoo_hot(html: str, *, now: datetime | None = None) -> list[dict[str
                 if row.select_one("a.replyNum")
                 else 0,
                 position=position,
+                attachment_kind=_resolve_attachment_kind(
+                    _theqoo_attachment_kind(row), _kind_from_title_suffix(title)
+                ),
             )
         )
     return items
@@ -294,6 +407,7 @@ def parse_ruliweb_best(html: str, *, now: datetime | None = None) -> list[dict[s
                 if link.select_one("span.num_reply")
                 else 0,
                 position=position,
+                attachment_kind=_resolve_attachment_kind(_kind_from_title_suffix(title)),
             )
         )
     return items
@@ -367,6 +481,9 @@ def parse_bobaedream_board(
                 if row.select_one("strong.totreply")
                 else 0,
                 position=position,
+                attachment_kind=_resolve_attachment_kind(
+                    _bobaedream_attachment_kind(row), _kind_from_title_suffix(title)
+                ),
             )
         )
     return items
@@ -457,6 +574,7 @@ def parse_82cook_free(html: str, *, now: datetime | None = None) -> list[dict[st
                 if row.select_one("td.title em")
                 else 0,
                 position=position,
+                attachment_kind=_resolve_attachment_kind(_kind_from_title_suffix(title)),
             )
         )
     return items
@@ -538,6 +656,9 @@ def parse_ppomppu_list(
                 votes=votes,
                 comments=comments,
                 position=position,
+                attachment_kind=_resolve_attachment_kind(
+                    _ppomppu_attachment_kind(row), _kind_from_title_suffix(title)
+                ),
             )
         )
     return items
@@ -604,6 +725,9 @@ def parse_todayhumor_best(html: str, *, now: datetime | None = None) -> list[dic
                 else 0,
                 comments=_parse_count(comment_node.get_text(" ", strip=True)) if comment_node else 0,
                 position=position,
+                attachment_kind=_resolve_attachment_kind(
+                    _todayhumor_attachment_kind(row), _kind_from_title_suffix(title)
+                ),
             )
         )
     return items

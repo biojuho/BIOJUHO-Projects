@@ -53,6 +53,8 @@ def test_parse_dogdrip_latest_keeps_original_url_and_observed_metrics():
             "comments": 12,
             "source_position": 0,
             "signal_source": "직접 목록",
+            "attachment_kind": "unknown",
+            "video_url": "",
         }
     ]
 
@@ -129,6 +131,8 @@ def test_parse_bobaedream_best_reads_full_category_and_metrics():
             "comments": 13,
             "source_position": 0,
             "signal_source": "직접 목록",
+            "attachment_kind": "unknown",
+            "video_url": "",
         }
     ]
 
@@ -366,3 +370,244 @@ def test_all_registered_sources_have_a_parser():
         assert parse_direct_community_source(source["key"], "<html></html>") == []
     # 파서 자체는 재개용으로 남겨 둔다.
     assert parse_direct_community_source("82cook", "<html></html>") == []
+
+
+# --- 첨부 형태. 목록에 있는 표식만 읽고, 없으면 unknown. text 로 추정하지 않는다. ---
+
+_LEGACY_ITEM_KEYS = {
+    "id",
+    "title",
+    "category",
+    "community_source",
+    "community_label",
+    "source_url",
+    "link_kind",
+    "published_label",
+    "age_minutes",
+    "views",
+    "votes",
+    "comments",
+    "source_position",
+    "signal_source",
+}
+
+
+def test_attachment_fields_are_pure_additions_on_existing_fixtures():
+    html = """
+    <ul><li class="ed webzine">
+      <h5 class="title"><a class="ed title-link" data-document-srl="717603215"
+        href="/dogdrip/717603215?page=1">지금 빠르게 퍼지는 목격담</a>
+        <span class="ed text-primary text-xxsmall">12</span></h5>
+      <div class="list-meta"><span><span class="text-primary">34</span></span>
+        <span class="text-muted">7 분 전</span></div>
+    </li></ul>
+    """
+    item = parse_dogdrip_latest(html, now=NOW)[0]
+    assert set(item) - _LEGACY_ITEM_KEYS == {"attachment_kind", "video_url"}
+    assert item["id"] == "717603215"
+    assert item["title"] == "지금 빠르게 퍼지는 목격담"
+    assert item["source_url"] == "https://www.dogdrip.net/dogdrip/717603215?page=1"
+    assert item["views"] == 0
+    assert item["votes"] == 34
+    assert item["comments"] == 12
+
+
+def test_dogdrip_play_circle_is_video_and_thumbnail_is_image():
+    html = """
+    <ul>
+      <li class="ed webzine">
+        <div class="icon-container">
+          <img class="ed webzine-thumbnail" src="/files/thumbnails/1/100x100.crop.jpg"/>
+          <i class="overlay-icon fas fa-play-circle"></i>
+        </div>
+        <a class="ed title-link" data-document-srl="1" href="/dogdrip/1">길거리 싸움</a>
+      </li>
+      <li class="ed webzine">
+        <div class="icon-container">
+          <img class="ed webzine-thumbnail" src="/files/thumbnails/2/100x100.crop.jpg"/>
+        </div>
+        <a class="ed title-link" data-document-srl="2" href="/dogdrip/2">보물상자.jpg</a>
+      </li>
+      <li class="ed webzine">
+        <a class="ed title-link" data-document-srl="3" href="/dogdrip/3">표식 없는 글</a>
+      </li>
+    </ul>
+    """
+    items = parse_dogdrip_latest(html, now=NOW)
+    assert [item["id"] for item in items] == ["1", "2", "3"]
+    assert items[0]["attachment_kind"] == "video"
+    assert items[0]["video_url"] == ""
+    assert items[1]["attachment_kind"] == "image"
+    assert items[2]["attachment_kind"] == "unknown"
+
+
+def test_theqoo_images_and_youtube_icons_and_absence_is_unknown():
+    html = """
+    <table>
+      <tr>
+        <td class="title"><a href="/hot/11">영수증.twt</a><i class="fas fa-images"></i></td>
+      </tr>
+      <tr>
+        <td class="title"><a href="/hot/22">유튜브 퍼온 글</a><i class="fab fa-youtube"></i></td>
+      </tr>
+      <tr>
+        <td class="title"><a href="/hot/33">아이콘 없는 뉴스</a></td>
+      </tr>
+    </table>
+    """
+    items = parse_theqoo_hot(html, now=NOW)
+    assert [item["attachment_kind"] for item in items] == ["image", "video", "unknown"]
+    assert items[1]["video_url"] == ""
+
+
+def test_ruliweb_title_suffix_is_the_only_listing_marker():
+    html = """
+    <table>
+      <tr class="table_body">
+        <td class="subject"><a class="subject_link" href="/best/board/300143/read/1">
+          <strong class="text_over">장면.jpg</strong></a></td>
+      </tr>
+      <tr class="table_body">
+        <td class="subject"><a class="subject_link" href="/best/board/300143/read/2">
+          <strong class="text_over">살아남는 영상</strong></a></td>
+      </tr>
+    </table>
+    """
+    items = parse_ruliweb_best(html, now=NOW)
+    assert items[0]["attachment_kind"] == "image"
+    # 제목에 '영상' 글자가 있어도 목록 표식이 아니면 unknown. 추정 금지.
+    assert items[1]["attachment_kind"] == "unknown"
+
+
+def test_bobaedream_attach_icon_src_distinguishes_image_video_unknown():
+    html = """
+    <table>
+      <tr>
+        <td class="pl14">
+          <a class="bsubject" href="/view?code=best&amp;No=1">사진글</a>
+          <img alt="첨부파일" class="jpg" src="//image.bobaedream.co.kr/newimg/jpg.gif"/>
+        </td>
+      </tr>
+      <tr>
+        <td class="pl14">
+          <a class="bsubject" href="/view?code=best&amp;No=2">영상글</a>
+          <img alt="첨부파일" class="jpg" src="//image.bobaedream.co.kr/newimg/vod.gif"/>
+        </td>
+      </tr>
+      <tr>
+        <td class="pl14">
+          <a class="bsubject" href="/view?code=best&amp;No=3">사이트도 모름</a>
+          <img alt="첨부파일" class="jpg" src="//image.bobaedream.co.kr/newimg/unknown.gif"/>
+        </td>
+      </tr>
+      <tr>
+        <td class="pl14">
+          <a class="bsubject" href="/view?code=best&amp;No=4">아이콘 없음</a>
+        </td>
+      </tr>
+    </table>
+    """
+    items = parse_bobaedream_best(html, now=NOW)
+    assert [item["id"] for item in items] == ["1", "2", "3", "4"]
+    assert [item["attachment_kind"] for item in items] == ["image", "video", "unknown", "unknown"]
+    assert items[1]["source_url"].endswith("No=2")
+    assert items[1]["video_url"] == ""
+
+
+def test_ppomppu_freeboard_reads_image_and_video_labels_not_mobile():
+    html = """
+    <table>
+      <tr class="baseList">
+        <td><img class="baseList-img" src="/images/icon_04.png" alt="이미지"/>
+          <a class="baseList-title" href="view.php?id=freeboard&amp;no=1"><span>사진</span></a></td>
+      </tr>
+      <tr class="baseList">
+        <td><img class="baseList-img" src="/images/icon_03.png" alt="동영상"/>
+          <a class="baseList-title" href="view.php?id=freeboard&amp;no=2"><span>영상</span></a></td>
+      </tr>
+      <tr class="baseList">
+        <td><img class="baseList-img" src="/images/icon_02.png" title="모바일"/>
+          <a class="baseList-title" href="view.php?id=freeboard&amp;no=3"><span>모바일만</span></a></td>
+      </tr>
+    </table>
+    """
+    items = parse_ppomppu_free(html, now=NOW)
+    assert [item["attachment_kind"] for item in items] == ["image", "video", "unknown"]
+
+
+def test_ppomppu_hot_real_thumb_is_image_noimage_is_unknown():
+    html = """
+    <table>
+      <tr class="baseList">
+        <td><a class="baseList-title" href="/zboard/zboard.php?id=freeboard&amp;no=1">썸네일 있는 글</a>
+          <img src="//img.ppomppu.co.kr/zboard/data/_thumb/freeboard/3/small_1.jpg"/></td>
+        <td class="board_date">09:05:01</td>
+      </tr>
+      <tr class="baseList">
+        <td><a class="baseList-title" href="/zboard/zboard.php?id=freeboard&amp;no=2">빈 썸네일</a>
+          <img src="//static.ppomppu.co.kr/www/img/noimage/noimage_60x50.jpg"/></td>
+        <td class="board_date">09:05:01</td>
+      </tr>
+    </table>
+    """
+    items = parse_ppomppu_hot(html, now=NOW)
+    assert items[0]["attachment_kind"] == "image"
+    assert items[1]["attachment_kind"] == "unknown"
+
+
+def test_todayhumor_photo_icon_is_image_and_missing_icon_is_unknown():
+    html = """
+    <table>
+      <tr class="view">
+        <td class="subject"><a href="/board/view.php?table=bestofbest&amp;no=1">사진글</a>
+          <img src="//www.todayhumor.co.kr/board/images/list_icon_photo.gif"/></td>
+      </tr>
+      <tr class="view">
+        <td class="subject"><a href="/board/view.php?table=bestofbest&amp;no=2">아이콘 없음</a></td>
+      </tr>
+    </table>
+    """
+    items = parse_todayhumor_best(html, now=NOW)
+    assert items[0]["attachment_kind"] == "image"
+    assert items[1]["attachment_kind"] == "unknown"
+
+
+def test_82cook_photolink_is_not_an_attachment_marker():
+    # photolink 는 글 번호 칸의 클래스일 뿐 사진 표식이 아니다.
+    html = """
+    <table>
+      <tr>
+        <td class="numbers"><a class="photolink" href="read.php?bn=15&amp;num=1">1834406</a></td>
+        <td class="title"><a href="read.php?bn=15&amp;num=1">장원영은 외모로는 깔 수가 없는 단계네요</a></td>
+        <td class="regdate numbers" title="2026-08-06 09:03:20"> 09:03:20</td>
+        <td class="numbers">42</td>
+      </tr>
+    </table>
+    """
+    item = parse_82cook_free(html, now=NOW)[0]
+    assert item["attachment_kind"] == "unknown"
+
+
+def test_title_video_suffix_is_video_even_without_site_icon():
+    html = """
+    <table><tr class="table_body">
+      <td class="subject"><a class="subject_link" href="/best/board/300143/read/9">
+        <strong class="text_over">현장.mp4</strong></a></td>
+    </tr></table>
+    """
+    item = parse_ruliweb_best(html, now=NOW)[0]
+    assert item["attachment_kind"] == "video"
+    assert item["video_url"] == ""
+    assert item["source_url"].endswith("/read/9")
+
+
+def test_absence_of_marker_is_unknown_not_text():
+    # 표식이 없다고 text 로 채우면 오늘 반복해 잡은 '모르는 것을 아는 것으로 적기'다.
+    html = """
+    <table><tr>
+      <td class="pl14"><a class="bsubject" href="/view?code=best&amp;No=88">의견글</a></td>
+    </tr></table>
+    """
+    item = parse_bobaedream_best(html, now=NOW)[0]
+    assert item["attachment_kind"] == "unknown"
+    assert item["attachment_kind"] != "text"
