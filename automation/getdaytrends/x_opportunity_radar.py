@@ -78,6 +78,13 @@ def _normalize_keyword(value: str) -> str:
     return re.sub(r"[\W_]+", "", value, flags=re.UNICODE).casefold()
 
 
+_HANGUL_PATTERN = re.compile(r"[가-힣]")
+
+
+def _has_hangul(text: str) -> bool:
+    return bool(_HANGUL_PATTERN.search(str(text or "")))
+
+
 def _age_minutes(published_at: datetime | None, now: datetime) -> int | None:
     if published_at is None:
         return None
@@ -172,6 +179,9 @@ def _breaking_lane_items(raw_candidates: object, now: datetime, *, limit: int) -
             {
                 "id": candidate_id,
                 "keyword": keyword,
+                # 0072: 상류(0069)가 실은 원문 단을 통과시킨다. 없으면 빈 문자열이고
+                # 제목(keyword)을 복사해 만들지 않는다 — 요약 생성 금지 규칙 그대로.
+                "summary": str(raw.get("summary") or "").strip(),
                 "lane": "속보·공적발표",
                 "category": "공적 발표",
                 "qualification_mode": "public_source_breaking",
@@ -225,9 +235,34 @@ def _spam_trend_reason(keyword: str) -> str | None:
     return None
 
 
-def _rank_status_display(status: int) -> str:
-    if status == 0:
+def _parse_daum_rank_status(value: object) -> int | str | None:
+    """다음 실시간 트렌드 status 실물 부호화(0072 실측).
+
+    실물 JSON은 `"new"`·`"-12"`·`"0"` 같은 문자열이고 수집기가 숫자는
+    int로 정규해 준다. 신규 진입을 뜻하는 값은 0이 아니라 `"new"`다 —
+    0068 브리프의 «0=신규» 기재가 틀렸고(0071 반증), 0은 변동 없음이다.
+    `"new"`는 계단 수와 섞이지 않도록 문자열 그대로 보존한다.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value or "").strip().casefold()
+    if not text:
+        return None
+    if text == "new":
+        return "new"
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def _rank_status_display(status: int | str) -> str:
+    if status == "new":
         return "신규 진입"
+    if status == 0:
+        return "순위 변동 없음"
     if status > 0:
         return f"{status}계단 상승"
     return "1계단 하락" if status == -1 else f"{-status}계단 하락"
@@ -249,8 +284,8 @@ def _daum_trend_items(
     seen_keys: set[str] = set()
     for raw in raw_items:
         keyword = str(raw.get("keyword") or "").strip()
-        status = raw.get("status")
-        if not keyword or not isinstance(status, int):
+        status = _parse_daum_rank_status(raw.get("status"))
+        if not keyword or status is None:
             continue
         key = _normalize_keyword(keyword)
         if not key or key in seen_keys:
@@ -353,6 +388,16 @@ def _news_ranking_items(
                 excluded_reasons[reason] += 1
             continue
         observed_at = now.astimezone(UTC).isoformat()
+        # 0072: 랭킹 raw는 게시시각(source_published_at·first_seen_at)을 실어 주는데
+        # 화이트리스트가 버려서 «미상»으로 내보냈다. 맥락이니 통과시킨다.
+        source_published = _timestamp(raw.get("source_published_at") or raw.get("published_at"))
+        source_published_at = source_published.isoformat() if source_published is not None else None
+        first_seen_at = str(raw.get("first_seen_at") or "").strip() or None
+        age_minutes, age_basis, age_display = _age_fields(
+            source_published_at=source_published,
+            first_seen_at=first_seen_at,
+            now=now,
+        )
         item = {
             "id": hashlib.sha256(title.casefold().encode("utf-8")).hexdigest()[:16],
             "keyword": title,
@@ -366,11 +411,11 @@ def _news_ranking_items(
             "publisher": publisher,
             "sources": [source],
             "rank": rank,
-            "source_published_at": None,
-            "first_seen_at": None,
-            "age_minutes": None,
-            "age_basis": "unknown",
-            "age_display": "미상",
+            "source_published_at": source_published_at,
+            "first_seen_at": first_seen_at,
+            "age_minutes": age_minutes,
+            "age_basis": age_basis,
+            "age_display": age_display,
             "source_url": url,
             "volume": "N/A",
             "volume_numeric": 0,
@@ -551,10 +596,18 @@ def _title_keyword_relevance(keyword: str, title: str) -> float:
 
 
 def _coherent_news_items(keyword: str, news_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """한국어 시장 후보의 교차 확인은 한국어 기사로만 한다(0071 반증 «elle»).
+
+    한국어 트렌드 «elle»가 프랑스어 대명사로 프랑스어 기사 3건에 매칭돼
+    verified가 됐다. 이 레이더의 후보는 전부 한국 시장 키워드이므로 교차
+    확인에 세는 기사 제목에는 한글이 있어야 한다. discovered_via 우대
+    경로(트렌드 첨부 원문)도 같은 언어 검사를 통과해야 한다.
+    """
     return [
         item
         for item in news_items
-        if not item.get("discovered_via") or _title_keyword_relevance(keyword, str(item.get("title") or "")) >= 0.55
+        if _has_hangul(str(item.get("title") or ""))
+        and (not item.get("discovered_via") or _title_keyword_relevance(keyword, str(item.get("title") or "")) >= 0.55)
     ]
 
 
@@ -907,6 +960,7 @@ class XOpportunityRadar:
             errors: list[str] = []
             google_trends: list[RawTrend] = []
             x_trends: list[RawTrend] = []
+            x_fallback_count = 0
             ranking_raw: list[dict[str, Any]] = []
             daum_updated_at: str | None = None
             daum_raw: list[dict[str, Any]] = []
@@ -933,6 +987,14 @@ class XOpportunityRadar:
                     for item in x_result
                     if item.name not in _FALLBACK_X_TOPICS and item.link.startswith("https://getdaytrends.com/")
                 ]
+                # 0072: fallback은 이름 목록 우연 일치가 아니라 표식으로 감지한다.
+                # `_FALLBACK_X_TOPICS`는 sources.py의 `_fallback_trends()`와 다른
+                # 파일·레인이 관리해 내용이 어긋나도 조용히 지나쳐 왔다.
+                x_fallback_count = sum(
+                    1
+                    for item in x_result
+                    if (item.extra or {}).get("_is_fallback") or (item.extra or {}).get("is_fallback")
+                )
 
             # 교차 확인(3번 강등)이 스팸의 1차 방어선이다. 패턴은 보조 —
             # 목록을 추격하지 않고, 판정된 단어에 라벨만 달아둔다.
@@ -1290,7 +1352,11 @@ class XOpportunityRadar:
             self.exposure_tracker.save(now=now)
             source_health = {
                 "google_trends": bool(google_trends),
-                "public_x_trends": bool(x_trends),
+                # 0072: 항목 수가 아니라 «원천에서 왔다는 표식이 있는 항목»으로 판정한다.
+                # `_getdaytrends_sample_id`는 실제 수집에만 붙고 fallback에는 없으며,
+                # 주입 fetcher는 x_sample_id가 custom: 로 지정된다. fallback이 이름을
+                # 바꿔 살아남아도 표식이 없으면 false다(fail-closed).
+                "public_x_trends": bool(x_trends) and bool(x_sample_id),
                 "daum_realtime": bool(daum_items),
                 "news_rankings": bool(ranking_items),
                 "threads_api": self.threads_collector.available,
@@ -1308,8 +1374,15 @@ class XOpportunityRadar:
                 source_health[response_key] = bool(isinstance(source_status, dict) and source_status.get("available"))
             if not google_trends:
                 errors.append("Google Trends 결과 없음")
+            # 0072: fallback 발동을 화면·응답에 보이게 한다. 사용자는 로그를 안 본다.
+            if x_fallback_count:
+                errors.append(
+                    f"공개 X 트렌드: 원천 수집 실패로 fallback {x_fallback_count}건이 대체 반환됨(원천 항목 0)"
+                )
             if not x_trends:
                 errors.append("공개 X 트렌드 결과 없음")
+            elif not x_sample_id:
+                errors.append("공개 X 트렌드: 원천 표식(_getdaytrends_sample_id) 없는 항목만 감지 — health 미반영")
             if daum_fetcher is not None and not daum_raw:
                 errors.append("다음 실시간 트렌드 결과 없음")
             self._snapshot = {

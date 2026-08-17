@@ -9,8 +9,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from models import RawTrend, TrendSource  # noqa: E402
+import x_opportunity_radar as radar_module  # noqa: E402
 from x_opportunity_radar import (  # noqa: E402
     XOpportunityRadar,
+    _breaking_lane_items,
+    _coherent_news_items,
+    _daum_trend_items,
+    _materiality_assessment,
+    _news_ranking_items,
     _spam_trend_reason,
     _x_exposure_assessment,
 )
@@ -651,7 +657,8 @@ async def test_radar_daum_trend_items_lead_and_carry_rank_status_without_scores(
     assert data["items"][0]["rank_status_display"] == "1계단 하락"
     assert data["items"][1]["keyword"] == "윤가이 장기하 연애"
     assert data["items"][1]["rank_status"] == 0
-    assert data["items"][1]["rank_status_display"] == "신규 진입"
+    # 0072 실측: 신규 진입은 "new" 문자열이고 0은 변동 없음이다(0068의 «0=신규» 정정).
+    assert data["items"][1]["rank_status_display"] == "순위 변동 없음"
     assert "materiality_score" not in data["items"][0]
     assert "x_exposure_score" not in data["items"][0]
 
@@ -750,3 +757,212 @@ async def test_radar_spam_x_words_never_become_candidates_and_are_flagged_only()
     assert set(observed) == {"라인 qq750", "군인 가능"}
     assert observed["라인 qq750"]["spam_likely_reason"].startswith("스팸·불법광고 패턴")
     assert observed["군인 가능"]["spam_likely_reason"] is None
+
+
+# --- 0072: summary 통과·status 실물 부호화·언어 검사·health 원천 판정 ---
+
+
+def test_breaking_lane_items_pass_summary_through_without_title_copy():
+    now = datetime(2026, 8, 17, 9, 0, tzinfo=UTC)
+    raw_candidates = [
+        {
+            "id": "yna-1",
+            "keyword": "호우주의보 발표",
+            "source": "yonhap-rss",
+            "source_url": "https://www.yna.co.kr/a/1",
+            "summary": "(춘천=연합뉴스) 기상청은 호우주의보를 발효한다고 밝혔다.",
+            "source_published_at": "2026-08-17T08:50:00+00:00",
+        },
+        {"id": "kma-1", "keyword": "태풍 특보", "source": "kma:typ", "summary": ""},
+        {"id": "yna-2", "keyword": "에볼라 확산", "source": "yonhap-rss"},
+    ]
+
+    items = _breaking_lane_items(raw_candidates, now, limit=10)
+
+    assert [item["summary"] for item in items] == [
+        "(춘천=연합뉴스) 기상청은 호우주의보를 발효한다고 밝혔다.",
+        "",
+        "",
+    ]
+    # 요약이 없다고 제목을 복사해 만들지 않는다(생성 금지 규칙).
+    assert all(item["summary"] != item["keyword"] for item in items)
+    assert [item["id"] for item in items] == ["yna-1", "kma-1", "yna-2"]
+
+
+def test_daum_trend_items_recognize_new_string_and_label_zero_as_no_change():
+    now = datetime(2026, 8, 17, 9, 40, tzinfo=UTC)
+    raw_items = [
+        {"keyword": "삼성전자 실명제 전환", "rank": 6, "display_rank": 3, "status": "new", "url": ""},
+        {"keyword": "마르코 배정남 난투극", "rank": 1, "display_rank": 1, "status": 0, "url": ""},
+        {"keyword": "인니 강진", "rank": 18, "display_rank": 8, "status": "-7", "url": ""},
+        {"keyword": "상태 없음", "rank": 20, "display_rank": 9},
+    ]
+
+    items = _daum_trend_items(raw_items, now)
+
+    # "new"는 문자열 그대로 신규 진입으로 인식한다(기존 isinstance(int)는 드롭했다).
+    assert [item["keyword"] for item in items] == [
+        "삼성전자 실명제 전환",
+        "마르코 배정남 난투극",
+        "인니 강진",
+    ]
+    assert items[0]["rank_status"] == "new"
+    assert items[0]["rank_status_display"] == "신규 진입"
+    assert items[1]["rank_status"] == 0
+    assert items[1]["rank_status_display"] == "순위 변동 없음"
+    assert items[2]["rank_status"] == -7
+    assert items[2]["rank_status_display"] == "7계단 하락"
+
+
+def test_coherent_news_items_blocks_foreign_language_crosscheck_and_keeps_korean():
+    french_items = [
+        {"title": "Elle est présidente du conseil", "url": "https://fr.example/1", "source": "Le Paper"},
+        {"title": "Elle a annoncé sa démission", "url": "https://fr.example/2", "source": "Le Paper"},
+        {"title": "Pour elle, la réponse est claire", "url": "https://fr.example/3", "source": "Le Paper"},
+    ]
+
+    # 0071 반증 재현: 한국어 트렌드 «elle»가 프랑스어 대명사에 매칭되던 것을 차단.
+    assert _coherent_news_items("elle", french_items) == []
+    # discovered_via 우대 경로(트렌드 첨부 원문)도 언어 검사를 통과해야 한다.
+    attached_french = [{"title": "Elle est là", "url": "https://fr.example/4", "source": "Le Paper"}]
+    assert _coherent_news_items("elle", attached_french) == []
+
+    # 정상 한국어 매칭은 살아 있다.
+    korean_items = [
+        {"title": "엘르(elle) 커버 모델 발탁", "url": "https://kr.example/1", "source": "테스트뉴스"},
+        {"title": "elle 협업 컬렉션 공개", "url": "https://kr.example/2", "source": "테스트경제"},
+    ]
+    assert _coherent_news_items("elle", korean_items) == korean_items
+
+
+def test_materiality_no_longer_verifies_korean_trend_on_foreign_articles():
+    candidate = {
+        "keyword": "elle",
+        "google": RawTrend(name="elle", source=TrendSource.GOOGLE_TRENDS, volume_numeric=5_000),
+        "x": None,
+        "x_rank": None,
+        "age_minutes": 30,
+    }
+    french_items = [
+        {
+            "title": f"Elle est {word} dans la région",
+            "url": f"https://fr.example/{index}",
+            "source": f"Le Paper {index}",
+            "discovered_via": "bing",
+        }
+        for index, word in enumerate(["présente", "annoncée", "attendue"], start=1)
+    ]
+
+    _, _, materiality_pass, gate_reason = _materiality_assessment(candidate, [], french_items, [])
+
+    assert materiality_pass is False
+    assert gate_reason == "주제 일치 원문·Threads 교차 근거 부족"
+
+
+def test_news_ranking_items_carry_source_published_context_instead_of_unknown():
+    now = datetime(2026, 8, 17, 9, 40, tzinfo=UTC)
+    raw_items = [
+        {
+            "title": "주차비 10분에 1만원…식당 사장님, 8만원 받아내",
+            "url": "https://news.nate.com/view/1",
+            "source": "네이트 뉴스 랭킹",
+            "publisher": "테스트신문",
+            "rank": 8,
+            "source_published_at": "2026-08-17T00:00:00+09:00",
+            "first_seen_at": "2026-08-17T09:00:00+00:00",
+        },
+        {
+            "title": "공중부양까지…테슬라 로드스터, 이번엔 뜰까",
+            "url": "https://news.zum.com/view/2",
+            "source": "줌 뉴스",
+            "publisher": "테스트일보",
+            "rank": 1,
+        },
+    ]
+
+    items = _news_ranking_items(raw_items, now)
+
+    first, second = items
+    assert first["source_published_at"] == "2026-08-16T15:00:00+00:00"
+    assert first["age_basis"] == "source_published_at"
+    assert first["age_minutes"] == 1120
+    assert first["age_display"] == "1120분"
+    assert second["source_published_at"] is None
+    assert second["age_basis"] == "unknown"
+    assert second["age_display"] == "미상"
+
+
+@pytest.mark.asyncio
+async def test_radar_x_fallback_marks_health_false_and_reports_error(monkeypatch, tmp_path):
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def fallback_x_fetcher(session, country, limit, force_refresh=False):
+        # 실물 _fallback_trends() 모양: 이름 5개·빈 링크·_is_fallback 표식.
+        return [
+            RawTrend(
+                name=name,
+                source=TrendSource.GETDAYTRENDS,
+                extra={"_is_fallback": True, "fallback_reason": "http_status_error"},
+            )
+            for name in ("주말 계획", "점심 메뉴", "날씨", "커피", "퇴근")
+        ]
+
+    monkeypatch.setattr(radar_module, "_async_fetch_getdaytrends", fallback_x_fetcher)
+    radar = XOpportunityRadar(
+        google_fetcher,
+        fallback_x_fetcher,
+        news_fetcher=None,
+        observation_path=tmp_path / "x-fallback-observations.json",
+    )
+
+    data = await radar.refresh(limit=10)
+
+    assert data["source_health"]["public_x_trends"] is False
+    assert any("fallback" in error for error in data["errors"])
+    assert data["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_radar_x_markerless_production_items_do_not_count_as_healthy(monkeypatch):
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def drifted_x_fetcher(session, country, limit, force_refresh=False):
+        # 이름이 바뀐 fallback이 이름 필터를 뚫어도 원천 표식이 없으면 실패로 판정.
+        return [
+            RawTrend(
+                name="우산 권장",
+                source=TrendSource.GETDAYTRENDS,
+                link="https://getdaytrends.com/korea/trend/umbrella/",
+            )
+        ]
+
+    monkeypatch.setattr(radar_module, "_async_fetch_getdaytrends", drifted_x_fetcher)
+    radar = XOpportunityRadar(google_fetcher, drifted_x_fetcher, news_fetcher=None)
+
+    data = await radar.refresh(limit=10)
+
+    assert data["source_health"]["public_x_trends"] is False
+    assert any("표식" in error for error in data["errors"])
+
+
+@pytest.mark.asyncio
+async def test_radar_x_health_stays_true_for_source_sample_marker():
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return [
+            RawTrend(
+                name="운명의 포켓몬",
+                source=TrendSource.GETDAYTRENDS,
+                link="https://getdaytrends.com/korea/trend/fate/",
+                extra={"_getdaytrends_sample_id": "korea:1786959468.24"},
+            )
+        ]
+
+    data = await XOpportunityRadar(google_fetcher, x_fetcher, news_fetcher=None).refresh(limit=10)
+
+    assert data["source_health"]["public_x_trends"] is True
+    assert not any("표식" in error or "fallback" in error for error in data["errors"])
