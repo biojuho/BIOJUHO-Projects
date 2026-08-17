@@ -185,3 +185,118 @@ def test_async_news_rankings_keeps_both_portals_when_nate_fills_limit():
         "줌 제목 1",
         "줌 제목 2",
     ]
+
+
+def test_nate_and_zum_timestamp_and_ranking_tracking():
+    from collectors.news_rankings import _reset_ranking_history
+
+    _reset_ranking_history()
+    # 1회차 파싱
+    items1 = _parse_nate_ranking_html(_NATE_HTML, limit=10, now_iso="2026-08-17T09:00:00+00:00")
+    assert items1[0]["source_published_at"] == "2026-08-16T00:00:00+09:00"
+    assert items1[0]["age_basis"] == "source_published_at"
+    assert items1[0]["first_seen_at"] == "2026-08-17T09:00:00+00:00"
+    assert items1[0]["is_new"] is True
+    assert items1[0]["rank_change"] is None
+    assert items1[0]["status"] == "new"
+
+    # 2회차 파싱: 같은 URL이지만 순위가 6위 -> 2위로 상승
+    nate_html_round2 = """\
+    <html><body>
+    <div class="postRankSubjectList">
+      <dl class="mduRank rank2"><dt><em>2</em></dt></dl>
+      <div class="mlt01">
+        <a href="//news.nate.com/view/20260816n02007?mid=n1006" class="lt1">
+          <h2 class="tit">인천 아파트서 6살 아이 추락해 사망</h2>
+        </a><span class="medium">연합뉴스<em>2026-08-16</em></span>
+      </div>
+    </div>
+    </body></html>
+    """
+    items2 = _parse_nate_ranking_html(nate_html_round2, limit=10, now_iso="2026-08-17T09:10:00+00:00")
+    assert len(items2) == 1
+    # 1회차에서 6위였던 기사가 2위로 상승 -> diff = 6 - 2 = +4
+    assert items2[0]["is_new"] is False
+    assert items2[0]["rank_change"] == 4
+    assert items2[0]["status"] == "+4"
+    assert items2[0]["first_seen_at"] == "2026-08-17T09:00:00+00:00"
+    assert items2[0]["observed_at"] == "2026-08-17T09:10:00+00:00"
+
+
+def test_zum_parser_extracts_published_at_from_url():
+    from collectors.news_rankings import _reset_ranking_history
+
+    _reset_ranking_history()
+    zum_html = """\
+    <a class="item" href="https://www.ytn.co.kr/_ln/0104_202608171048529458">
+      <h2 class="title">트럼프 "한미 연합훈련 축소"</h2>
+    </a><span class="media">YTN</span>
+    """
+    items = _parse_zum_news_html(zum_html, limit=10)
+    assert len(items) == 1
+    assert items[0]["source_published_at"] == "2026-08-17T10:48:52+09:00"
+    assert items[0]["age_basis"] == "source_published_at"
+    assert items[0]["is_new"] is True
+
+
+def test_daum_parser_handles_new_status_and_timestamps():
+    from collectors.daum_realtime import _reset_daum_history
+
+    _reset_daum_history()
+    daum_html_with_new = """\
+    <html><body>
+    <script>
+    window.__x = {"slot":{"attributes":{"landingUrl":"https://search.daum.net/search?q="},
+    "contents":{"data":{"updatedAt":"2026-08-17T18:29:15.478+09:00","keywords":[
+    {"keyword":"삼성전자 실명제","rank":6,"displayRank":3,"status":"new"},
+    {"keyword":"인니 강진","rank":10,"displayRank":4,"status":"-6"},
+    {"keyword":"마르코 배정남","rank":1,"displayRank":1,"status":"0"}
+    ]}}};
+    </script>
+    </body></html>
+    """
+    updated_at, items = _parse_daum_realtime_html(
+        daum_html_with_new, limit=10, now_iso="2026-08-17T09:30:00+00:00"
+    )
+    assert updated_at == "2026-08-17T18:29:15.478+09:00"
+    assert len(items) == 3
+    # "new" status 항목이 누락 없이 파싱됨
+    assert items[0]["keyword"] == "삼성전자 실명제"
+    assert items[0]["status"] == "new"
+    assert items[0]["raw_status"] == "new"
+    assert items[0]["is_new"] is True
+    assert items[0]["source_published_at"] == "2026-08-17T18:29:15.478+09:00"
+    assert items[0]["first_seen_at"] == "2026-08-17T09:30:00+00:00"
+    assert items[0]["age_basis"] == "source_published_at"
+
+    # "-6" status 항목
+    assert items[1]["keyword"] == "인니 강진"
+    assert items[1]["status"] == -6
+    assert items[1]["raw_status"] == "-6"
+
+    # "0" status 항목
+    assert items[2]["keyword"] == "마르코 배정남"
+    assert items[2]["status"] == 0
+    assert items[2]["raw_status"] == "0"
+
+
+def test_sources_fallback_explicit_indicator_bidirectional():
+    from collectors.sources import _fallback_trends
+    from models import RawTrend, TrendSource
+
+    # 1. Fallback인 경우 표식 부착 확인
+    fallback_items = _fallback_trends(reason="simulated_failure")
+    assert len(fallback_items) == 5
+    for item in fallback_items:
+        assert item.extra.get("is_fallback") is True
+        assert item.extra.get("fallback_reason") == "simulated_failure"
+        assert item.extra.get("_is_fallback") is True
+
+    # 2. 정상 수집된 RawTrend인 경우 표식 없음 (양방향 검증)
+    normal_item = RawTrend(
+        name="정상 트렌드",
+        source=TrendSource.GETDAYTRENDS,
+        volume="10K",
+    )
+    assert normal_item.extra.get("is_fallback") is not True
+    assert "fallback_reason" not in normal_item.extra

@@ -195,7 +195,7 @@ async def _async_fetch_getdaytrends(
                     cache_key=cache_key,
                     fetched_at=cached[0],
                 )
-            return _fallback_trends()
+            return _fallback_trends(reason="getdaytrends_empty_parse")
 
         # Phase 3: 캐시 저장
         fetched_at = time.time()
@@ -213,7 +213,7 @@ async def _async_fetch_getdaytrends(
                 cache_key=cache_key,
                 fetched_at=cached[0],
             )
-        return _fallback_trends()
+        return _fallback_trends(reason=f"getdaytrends_http_error_{status_code}")
     except httpx.RequestError as e:
         log.error(f"getdaytrends.com request failed: {type(e).__name__}: {e}")
         if cached:
@@ -222,7 +222,7 @@ async def _async_fetch_getdaytrends(
                 cache_key=cache_key,
                 fetched_at=cached[0],
             )
-        return _fallback_trends()
+        return _fallback_trends(reason=f"getdaytrends_request_error_{type(e).__name__}")
     except Exception as e:
         log.error(f"getdaytrends.com 수집 실패: {e}")
         if cached:
@@ -231,7 +231,7 @@ async def _async_fetch_getdaytrends(
                 cache_key=cache_key,
                 fetched_at=cached[0],
             )
-        return _fallback_trends()
+        return _fallback_trends(reason=f"getdaytrends_exception_{type(e).__name__}")
 
 
 def fetch_getdaytrends(country_slug: str, limit: int = 50) -> list[RawTrend]:
@@ -245,10 +245,21 @@ async def _async_fetch_getdaytrends_standalone(country_slug: str, limit: int = 5
         return await _async_fetch_getdaytrends(session, country_slug, limit)
 
 
-def _fallback_trends() -> list[RawTrend]:
-    """스크래핑 실패 시 대체 주제."""
+def _fallback_trends(reason: str = "upstream_failure") -> list[RawTrend]:
+    """스크래핑 실패 시 대체 주제. 가짜 fallback 표식을 붙여 실패를 드러낸다."""
     fallbacks = ["주말 계획", "점심 메뉴", "날씨", "커피", "퇴근"]
-    return [RawTrend(name=t, source=TrendSource.GETDAYTRENDS) for t in fallbacks]
+    return [
+        RawTrend(
+            name=t,
+            source=TrendSource.GETDAYTRENDS,
+            extra={
+                "is_fallback": True,
+                "fallback_reason": reason,
+                "_is_fallback": True,
+            },
+        )
+        for t in fallbacks
+    ]
 
 
 # ══════════════════════════════════════════════════════

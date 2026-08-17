@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -23,8 +24,33 @@ DAUM_REALTIME_URL = "https://www.daum.net/"
 _DEFAULT_LANDING_URL = "https://search.daum.net/search?w=tot&DA=RT1&rtmaxcoll=AIO,NNS,DNS&q="
 _UPDATED_AT_RE = re.compile(r'"updatedAt":"([^"]+)"')
 _LANDING_URL_RE = re.compile(r'"landingUrl":"((?:[^"\\]|\\.)*)"')
-_KEYWORD_RE = re.compile(r'"keyword":"((?:[^"\\]|\\.)*)","rank":(\d+),"displayRank":(\d+),"status":"(-?\d+)"')
+_KEYWORD_RE = re.compile(r'"keyword":"((?:[^"\\]|\\.)*)","rank":(\d+),"displayRank":(\d+),"status":"([^"\\]*)"')
 _KEYWORDS_WINDOW = 20_000
+
+# 다음 키워드 최초 관측 시각 추적
+# { keyword: {"first_seen_at": str, "last_seen_at": str} }
+_DAUM_HISTORY: dict[str, dict[str, Any]] = {}
+
+
+def _reset_daum_history() -> None:
+    """테스트 및 세션 초기화용."""
+    _DAUM_HISTORY.clear()
+
+
+def _track_daum_keyword(keyword: str, now_iso: str | None = None) -> dict[str, Any]:
+    """다음 트렌드 키워드의 최초 관측 시각을 추적한다."""
+    now_str = now_iso or datetime.now(UTC).isoformat()
+    if keyword not in _DAUM_HISTORY:
+        _DAUM_HISTORY[keyword] = {
+            "first_seen_at": now_str,
+            "last_seen_at": now_str,
+        }
+        return {"first_seen_at": now_str, "is_new_seen": True}
+
+    prev = _DAUM_HISTORY[keyword]
+    first_seen_at = prev["first_seen_at"]
+    prev["last_seen_at"] = now_str
+    return {"first_seen_at": first_seen_at, "is_new_seen": False}
 
 
 def _unescape_json_string(value: str) -> str:
@@ -35,7 +61,9 @@ def _unescape_json_string(value: str) -> str:
         return value
 
 
-def _parse_daum_realtime_html(text: str, *, limit: int) -> tuple[str | None, list[dict[str, Any]]]:
+def _parse_daum_realtime_html(
+    text: str, *, limit: int, now_iso: str | None = None
+) -> tuple[str | None, list[dict[str, Any]]]:
     updated_match = _UPDATED_AT_RE.search(text)
     updated_at = updated_match.group(1) if updated_match else None
     keywords_start = text.find('"keywords"')
@@ -45,19 +73,40 @@ def _parse_daum_realtime_html(text: str, *, limit: int) -> tuple[str | None, lis
     landing_url = _unescape_json_string(landing_matches[-1]) if landing_matches else _DEFAULT_LANDING_URL
     window = text[keywords_start : keywords_start + _KEYWORDS_WINDOW]
     items: list[dict[str, Any]] = []
+    current_time_iso = now_iso or datetime.now(UTC).isoformat()
+
     for match in _KEYWORD_RE.finditer(window):
         keyword = _unescape_json_string(match.group(1)).strip()
         if not keyword:
             continue
+        raw_status = match.group(4)
+        # 정수로 변환 가능하면 int(-6, 0, 2 등), "new" 등 문자열이면 문자열 그대로
+        status_val: int | str
+        try:
+            status_val = int(raw_status)
+        except ValueError:
+            status_val = raw_status
+
+        tracking = _track_daum_keyword(keyword, now_iso=current_time_iso)
+        first_seen_at = tracking["first_seen_at"]
+        age_basis = "source_published_at" if updated_at else ("first_seen_at" if first_seen_at else "unknown")
+        is_new = (raw_status == "new") or tracking["is_new_seen"]
+
         items.append(
             {
                 "keyword": keyword,
                 "rank": int(match.group(2)),
                 "display_rank": int(match.group(3)),
-                "status": int(match.group(4)),
+                "status": status_val,
+                "raw_status": raw_status,
                 "url": f"{landing_url}{quote(keyword)}",
                 "source": "다음 실시간 트렌드",
                 "updated_at": updated_at,
+                "source_published_at": updated_at,
+                "first_seen_at": first_seen_at,
+                "observed_at": current_time_iso,
+                "age_basis": age_basis,
+                "is_new": is_new,
             }
         )
         if len(items) >= limit:

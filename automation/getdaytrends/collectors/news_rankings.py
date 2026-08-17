@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
 
@@ -17,6 +18,7 @@ _BROWSER_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 )
 _DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=6.0)
+_KST = timezone(timedelta(hours=9))
 
 NATE_NEWS_RANKING_URL = "https://news.nate.com/rank/interest?sc=all&p=day"
 ZUM_NEWS_RANKING_URL = "https://news.zum.com/"
@@ -33,6 +35,116 @@ _ZUM_ANCHOR_RE = re.compile(r'<a[^>]+href="([^"]+)"[^>]*>', re.S)
 _ZUM_MEDIA_RE = re.compile(r'<span class="media">(.*?)</span>', re.S)
 _TAG_RE = re.compile(r"<[^>]+>")
 _COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+
+# 순위 변화 및 최초 관측 시각 추적 스냅샷
+# { key: {"first_seen_at": str, "last_rank": int, "last_seen_at": str} }
+_RANKING_HISTORY: dict[str, dict[str, Any]] = {}
+
+
+def _reset_ranking_history() -> None:
+    """테스트 및 세션 초기화용."""
+    _RANKING_HISTORY.clear()
+
+
+def _track_ranking_item(item_key: str, rank: int, now_iso: str | None = None) -> dict[str, Any]:
+    """순위 스냅샷을 통해 신규 진입 여부, 순위 변화, 최초 관측 시각을 계산한다."""
+    now_str = now_iso or datetime.now(UTC).isoformat()
+    if item_key not in _RANKING_HISTORY:
+        _RANKING_HISTORY[item_key] = {
+            "first_seen_at": now_str,
+            "last_rank": rank,
+            "last_seen_at": now_str,
+        }
+        return {
+            "first_seen_at": now_str,
+            "is_new": True,
+            "rank_change": None,
+            "status": "new",
+        }
+
+    prev = _RANKING_HISTORY[item_key]
+    first_seen_at = prev["first_seen_at"]
+    last_rank = prev.get("last_rank")
+    if last_rank is not None:
+        diff = last_rank - rank  # 직전 5위 -> 현재 2위면 +3 (3계단 상승)
+        status_str = f"+{diff}" if diff > 0 else str(diff)
+        rank_change = diff
+        is_new = False
+    else:
+        rank_change = None
+        status_str = "new"
+        is_new = True
+
+    prev["last_rank"] = rank
+    prev["last_seen_at"] = now_str
+    return {
+        "first_seen_at": first_seen_at,
+        "is_new": is_new,
+        "rank_change": rank_change,
+        "status": status_str,
+    }
+
+
+def _extract_nate_published_at(medium_raw: str, url: str) -> str | None:
+    """네이트 medium 태그(날짜) 또는 기사 URL에서 발표 시각을 추출한다."""
+    m_date = re.search(
+        r"(\d{4})[-./](\d{1,2})[-./](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?",
+        medium_raw,
+    )
+    if m_date:
+        try:
+            year, month, day = int(m_date.group(1)), int(m_date.group(2)), int(m_date.group(3))
+            hour = int(m_date.group(4)) if m_date.group(4) else 0
+            minute = int(m_date.group(5)) if m_date.group(5) else 0
+            second = int(m_date.group(6)) if m_date.group(6) else 0
+            return datetime(year, month, day, hour, minute, second, tzinfo=_KST).isoformat()
+        except ValueError:
+            pass
+
+    m_url = re.search(r"/view/(\d{4})(\d{2})(\d{2})", url)
+    if m_url:
+        try:
+            year, month, day = int(m_url.group(1)), int(m_url.group(2)), int(m_url.group(3))
+            return datetime(year, month, day, 0, 0, 0, tzinfo=_KST).isoformat()
+        except ValueError:
+            pass
+    return None
+
+
+def _extract_zum_published_at(url: str, tail_raw: str = "") -> str | None:
+    """줌 뉴스 링크 URL 또는 본문 주변에서 발표 시각을 추출한다."""
+    m14 = re.search(r"(?:_|[^\d])(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])([0-5]\d)([0-5]\d)", url)
+    if m14:
+        try:
+            dt = datetime(
+                int(m14.group(1)),
+                int(m14.group(2)),
+                int(m14.group(3)),
+                int(m14.group(4)),
+                int(m14.group(5)),
+                int(m14.group(6)),
+                tzinfo=_KST,
+            )
+            return dt.isoformat()
+        except ValueError:
+            pass
+
+    m8 = re.search(r"(?:_|[^\d])(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?:\b|[^\d])", url)
+    if m8:
+        try:
+            dt = datetime(
+                int(m8.group(1)),
+                int(m8.group(2)),
+                int(m8.group(3)),
+                0,
+                0,
+                0,
+                tzinfo=_KST,
+            )
+            return dt.isoformat()
+        except ValueError:
+            pass
+    return None
 
 
 def _decode_body(payload: bytes) -> str:
@@ -68,10 +180,13 @@ def _publisher_token(text: str) -> str:
     return cleaned.split()[0] if cleaned else ""
 
 
-def _parse_nate_ranking_html(text: str, *, limit: int) -> list[dict[str, Any]]:
+def _parse_nate_ranking_html(
+    text: str, *, limit: int, now_iso: str | None = None
+) -> list[dict[str, Any]]:
     """`span.tit`/`h2.tit` 제목과 같은 행의 링크를 문서 순서(=랭킹 순서)로 뽑는다."""
     text = _strip_comments(text)
     items: list[dict[str, Any]] = []
+    current_time_iso = now_iso or datetime.now(UTC).isoformat()
     for anchor_match in _NATE_ITEM_RE.finditer(text):
         rank_text, href, inner = anchor_match.groups()
         url = _absolute_url(href)
@@ -83,16 +198,34 @@ def _parse_nate_ranking_html(text: str, *, limit: int) -> list[dict[str, Any]]:
             continue
         tail = text[anchor_match.end() : anchor_match.end() + 600]
         publisher = ""
+        medium_raw = ""
         medium_match = _NATE_MEDIUM_RE.search(tail)
         if medium_match:
-            publisher = _publisher_token(medium_match.group(1))
+            medium_raw = medium_match.group(1)
+            publisher = _publisher_token(medium_raw)
+
+        rank_val = int(rank_text)
+        published_at = _extract_nate_published_at(medium_raw, url)
+        tracking = _track_ranking_item(url or title, rank_val, now_iso=current_time_iso)
+        first_seen_at = tracking["first_seen_at"]
+
+        age_basis = "source_published_at" if published_at else ("first_seen_at" if first_seen_at else "unknown")
+
         items.append(
             {
                 "title": title,
                 "url": url,
                 "source": "네이트 뉴스 랭킹",
                 "publisher": publisher,
-                "rank": int(rank_text),
+                "rank": rank_val,
+                "source_published_at": published_at,
+                "published_at": published_at,
+                "first_seen_at": first_seen_at,
+                "observed_at": current_time_iso,
+                "age_basis": age_basis,
+                "is_new": tracking["is_new"],
+                "rank_change": tracking["rank_change"],
+                "status": tracking["status"],
             }
         )
         if len(items) >= limit:
@@ -100,10 +233,13 @@ def _parse_nate_ranking_html(text: str, *, limit: int) -> list[dict[str, Any]]:
     return items
 
 
-def _parse_zum_news_html(text: str, *, limit: int) -> list[dict[str, Any]]:
+def _parse_zum_news_html(
+    text: str, *, limit: int, now_iso: str | None = None
+) -> list[dict[str, Any]]:
     """`h2.title` 뉴스 제목과 감싸는 링크·바로 다음 매체명을 뽑는다."""
     text = _strip_comments(text)
     items: list[dict[str, Any]] = []
+    current_time_iso = now_iso or datetime.now(UTC).isoformat()
     for h2_match in _ZUM_H2_RE.finditer(text):
         title = _clean_text(h2_match.group(1))
         if not title:
@@ -115,16 +251,34 @@ def _parse_zum_news_html(text: str, *, limit: int) -> list[dict[str, Any]]:
             continue
         tail = text[h2_match.end() : h2_match.end() + 1200]
         publisher = ""
+        medium_raw = ""
         media_match = _ZUM_MEDIA_RE.search(tail)
         if media_match:
-            publisher = _publisher_token(media_match.group(1))
+            medium_raw = media_match.group(1)
+            publisher = _publisher_token(medium_raw)
+
+        rank_val = len(items) + 1
+        published_at = _extract_zum_published_at(url, tail)
+        tracking = _track_ranking_item(url or title, rank_val, now_iso=current_time_iso)
+        first_seen_at = tracking["first_seen_at"]
+
+        age_basis = "source_published_at" if published_at else ("first_seen_at" if first_seen_at else "unknown")
+
         items.append(
             {
                 "title": title,
                 "url": url,
                 "source": "줌 뉴스",
                 "publisher": publisher,
-                "rank": len(items) + 1,
+                "rank": rank_val,
+                "source_published_at": published_at,
+                "published_at": published_at,
+                "first_seen_at": first_seen_at,
+                "observed_at": current_time_iso,
+                "age_basis": age_basis,
+                "is_new": tracking["is_new"],
+                "rank_change": tracking["rank_change"],
+                "status": tracking["status"],
             }
         )
         if len(items) >= limit:
