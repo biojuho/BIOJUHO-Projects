@@ -313,6 +313,18 @@ def _daum_trend_items(
         if not isinstance(display_rank, int):
             display_rank = raw.get("rank")
         observed_at = now.astimezone(UTC).isoformat()
+        # 0077: 수집기의 `updatedAt`(=`source_published_at`으로 복제돼 온다)는 트렌드
+        # «목록»의 갱신 시각이다 — 한 번 불러온 키워드 전부가 같은 값을 공유하므로
+        # 개별 사건의 발표 시각이 아니다. 발표 시각으로 쓰면 며칠 된 트렌드도 방금
+        # 발표된 것처럼 보인다(0064 규약 위반). 항목별 시각 신호는 이 파이프라인이
+        # 그 키워드를 처음 본 `first_seen_at`뿐이므로 관측 시각으로 싣는다.
+        # 목록 갱신 시각 자체는 아래 `updated_at`에 이미 표시돼 있다.
+        first_seen_at = str(raw.get("first_seen_at") or "").strip() or None
+        age_minutes, age_basis, age_display = _age_fields(
+            source_published_at=None,
+            first_seen_at=first_seen_at,
+            now=now,
+        )
         items.append(
             {
                 "id": hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
@@ -329,11 +341,13 @@ def _daum_trend_items(
                 "rank": display_rank,
                 "rank_status": status,
                 "rank_status_display": _rank_status_display(status),
+                # 0077: 수집기의 키워드 이력 판정(신규 관측)을 사실 그대로 통과시킨다.
+                "is_new": raw.get("is_new") is True,
                 "source_published_at": None,
-                "first_seen_at": None,
-                "age_minutes": None,
-                "age_basis": "unknown",
-                "age_display": "미상",
+                "first_seen_at": first_seen_at,
+                "age_minutes": age_minutes,
+                "age_basis": age_basis,
+                "age_display": age_display,
                 "source_url": url,
                 "volume": "N/A",
                 "volume_numeric": 0,
@@ -398,6 +412,22 @@ def _news_ranking_items(
             first_seen_at=first_seen_at,
             now=now,
         )
+        # 0077: 수집기(0073)가 순위 스냅샷으로 계산해 실어 주는 신호를 통과시킨다.
+        # 신규 진입·계단 수는 사실이고 점수로 환산하지 않는다(0053). 프로세스 첫
+        # 스냅샷에서는 전항이 신규 관측(is_new=True, rank_change=None)으로 나오는
+        # 것이 수집기 이력의 정직한 초기 상태다.
+        rank_change_raw = raw.get("rank_change")
+        rank_change = (
+            rank_change_raw
+            if isinstance(rank_change_raw, int) and not isinstance(rank_change_raw, bool)
+            else None
+        )
+        status_raw = raw.get("status")
+        rank_status = (
+            str(status_raw).strip()
+            if isinstance(status_raw, (int, str)) and not isinstance(status_raw, bool)
+            else None
+        )
         item = {
             "id": hashlib.sha256(title.casefold().encode("utf-8")).hexdigest()[:16],
             "keyword": title,
@@ -411,6 +441,9 @@ def _news_ranking_items(
             "publisher": publisher,
             "sources": [source],
             "rank": rank,
+            "is_new": raw.get("is_new") is True,
+            "rank_change": rank_change,
+            "rank_status": rank_status,
             "source_published_at": source_published_at,
             "first_seen_at": first_seen_at,
             "age_minutes": age_minutes,

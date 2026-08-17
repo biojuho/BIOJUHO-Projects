@@ -892,6 +892,100 @@ def test_news_ranking_items_carry_source_published_context_instead_of_unknown():
     assert second["age_display"] == "미상"
 
 
+def test_daum_trend_items_carry_first_seen_age_not_list_updated_at():
+    """0077: updatedAt은 목록 갱신 시각이라 발표 시각으로 안 쓰고 관측 시각으로 싣는다."""
+    now = datetime(2026, 8, 17, 10, 0, tzinfo=UTC)
+    list_updated = "2026-08-17T18:59:59.801+09:00"
+    raw_items = [
+        {
+            "keyword": "이동하 소진 결혼",
+            "rank": 1,
+            "display_rank": 1,
+            "status": -1,
+            "url": "",
+            "updated_at": list_updated,
+            # 수집기는 updatedAt을 source_published_at으로 복제해 실어 온다(0073).
+            "source_published_at": list_updated,
+            "first_seen_at": "2026-08-17T09:30:00+00:00",
+            "is_new": False,
+        },
+        {
+            "keyword": "윤가이 장기하 연애",
+            "rank": 2,
+            "display_rank": 2,
+            "status": 0,
+            "url": "",
+            "updated_at": list_updated,
+            "source_published_at": list_updated,
+            "first_seen_at": "2026-08-17T09:45:00+00:00",
+            "is_new": True,
+        },
+        # first_seen_at 없는 주입 fetcher 입력 — 모르면 unknown이지 현재 시각으로 메우지 않는다.
+        {"keyword": "에스파 콘서트 굿즈", "rank": 9, "display_rank": 3, "status": 1, "url": ""},
+    ]
+
+    items = _daum_trend_items(raw_items, now)
+
+    first, second, third = items
+    # 발표 시각을 주장하지 않는다 — 목록 갱신 시각은 발표 시각이 아니다(0077 판단).
+    assert first["source_published_at"] is None
+    assert first["first_seen_at"] == "2026-08-17T09:30:00+00:00"
+    assert first["age_basis"] == "first_seen_at"
+    assert first["age_minutes"] == 30
+    assert first["age_display"] == "30분"
+    assert first["is_new"] is False
+    assert second["is_new"] is True
+    assert second["age_basis"] == "first_seen_at"
+    assert second["age_minutes"] == 15
+    assert third["age_basis"] == "unknown"
+    assert third["age_minutes"] is None
+    assert third["age_display"] == "미상"
+    assert third["first_seen_at"] is None
+    # 목록 갱신 시각은 표시용 메타데이터로 그대로 남는다.
+    assert all(item["updated_at"] == list_updated for item in items[:2])
+
+
+def test_news_ranking_items_carry_rank_change_signals_without_scores():
+    """0077: 수집기의 is_new·rank_change·status를 사실 그대로 싣는다(점수 환산 금지)."""
+    now = datetime(2026, 8, 17, 10, 0, tzinfo=UTC)
+    raw_items = [
+        {
+            "title": "주차비 10분에 1만원…식당 사장님, 8만원 받아내",
+            "url": "https://news.nate.com/view/1",
+            "source": "네이트 뉴스 랭킹",
+            "publisher": "테스트신문",
+            "rank": 8,
+            "is_new": False,
+            "rank_change": 3,
+            "status": "+3",
+        },
+        {
+            "title": "공중부양까지…테슬라 로드스터, 이번엔 뜰까",
+            "url": "https://news.zum.com/view/2",
+            "source": "줌 뉴스",
+            "publisher": "테스트일보",
+            "rank": 1,
+            "is_new": True,
+            "rank_change": None,
+            "status": "new",
+        },
+    ]
+
+    items = _news_ranking_items(raw_items, now)
+
+    first, second = items
+    assert first["is_new"] is False
+    assert first["rank_change"] == 3
+    assert first["rank_status"] == "+3"
+    assert second["is_new"] is True
+    assert second["rank_change"] is None
+    assert second["rank_status"] == "new"
+    # 사실 신호일 뿐 점수로 환산하지 않는다(0053).
+    assert "materiality_score" not in first
+    assert "x_exposure_score" not in first
+    assert "opportunity_score" not in first
+
+
 @pytest.mark.asyncio
 async def test_radar_x_fallback_marks_health_false_and_reports_error(monkeypatch, tmp_path):
     async def google_fetcher(session, country, limit):
