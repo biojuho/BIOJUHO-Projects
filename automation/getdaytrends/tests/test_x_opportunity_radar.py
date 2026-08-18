@@ -17,6 +17,7 @@ from x_opportunity_radar import (  # noqa: E402
     _daum_trend_items,
     _materiality_assessment,
     _news_ranking_items,
+    _reddit_items,
     _spam_trend_reason,
     _x_exposure_assessment,
 )
@@ -1060,3 +1061,198 @@ async def test_radar_x_health_stays_true_for_source_sample_marker():
 
     assert data["source_health"]["public_x_trends"] is True
     assert not any("표식" in error or "fallback" in error for error in data["errors"])
+
+
+# --- 0079: Reddit 핫 포스트 수집기 연결 및 첨부/시각/언어 규약 검증 ---
+
+
+def test_reddit_items_carry_subreddit_time_attachment_and_language():
+    """0079: Reddit 항목은 시각(created_utc)·첨부 형태(video/image/text)·언어를 실어 보내며 점수화하지 않는다."""
+    now = datetime(2026, 8, 18, 10, 0, tzinfo=UTC)
+    raw_items = [
+        {
+            "id": "abc123",
+            "title": "Dramatic school CCTV footage shows heroic rescue",
+            "url": "https://v.redd.it/abc12345/DASH_720.mp4",
+            "permalink": "/r/PublicFreakout/comments/abc123/dramatic_school_cctv/",
+            "subreddit": "PublicFreakout",
+            "author": "redditor1",
+            "votes": 15420,
+            "comments": 890,
+            "source_published_at": "2026-08-18T09:30:00+00:00",
+            "attachment_kind": "video",
+            "video_url": "https://v.redd.it/abc12345/DASH_720.mp4",
+            "language": "en",
+            "is_korean": False,
+        },
+        {
+            "id": "def456",
+            "title": "한국 길거리 음식 반응 모음",
+            "url": "https://i.redd.it/def45678.jpg",
+            "permalink": "/r/mildlyinteresting/comments/def456/korean_street_food/",
+            "subreddit": "mildlyinteresting",
+            "author": "redditor2",
+            "votes": 3400,
+            "comments": 210,
+            "source_published_at": None,
+            "first_seen_at": "2026-08-18T09:45:00+00:00",
+            "attachment_kind": "image",
+            "video_url": "",
+            "language": "ko",
+            "is_korean": True,
+        },
+    ]
+
+    items = _reddit_items(raw_items, now)
+
+    assert len(items) == 2
+    first, second = items[0], items[1]
+
+    # 첫째: 비디오 첨부, 영문, 발표시각 기준 age
+    assert first["id"] == "abc123"
+    assert first["keyword"] == "Dramatic school CCTV footage shows heroic rescue"
+    assert first["lane"] == "Reddit 핫 포스트"
+    assert first["qualification_mode"] == "reddit_hot_post"
+    assert first["subreddit"] == "PublicFreakout"
+    assert first["source"] == "Reddit (r/PublicFreakout)"
+    assert first["publisher"] == "r/PublicFreakout"
+    assert first["attachment_kind"] == "video"
+    assert first["video_url"] == "https://v.redd.it/abc12345/DASH_720.mp4"
+    assert first["language"] == "en"
+    assert first["is_korean"] is False
+    assert first["votes"] == 15420
+    assert first["comments"] == 890
+    assert first["age_basis"] == "source_published_at"
+    assert first["age_minutes"] == 30
+    assert first["age_display"] == "30분"
+    assert "materiality_score" not in first
+    assert "x_exposure_score" not in first
+    assert "opportunity_score" not in first
+
+    # 둘째: 이미지 첨부, 국문, first_seen_at 기준 age
+    assert second["id"] == "def456"
+    assert second["attachment_kind"] == "image"
+    assert second["video_url"] == ""
+    assert second["language"] == "ko"
+    assert second["is_korean"] is True
+    assert second["age_basis"] == "first_seen_at"
+    assert second["age_minutes"] == 15
+    assert second["age_display"] == "15분"
+
+
+@pytest.mark.asyncio
+async def test_radar_reddit_lane_integration_preserves_existing_lanes():
+    """0079: Reddit lane을 병기해도 기존 lane(다음, 랭킹, legacy) 항목의 id와 건수는 전혀 변하지 않는다."""
+    async def google_fetcher(session, country, limit):
+        return [
+            RawTrend(
+                name="AI 신제품",
+                source=TrendSource.GOOGLE_TRENDS,
+                volume="50000+",
+                volume_numeric=50_000,
+                link="https://trends.google.com/ai",
+                published_at=datetime.now(UTC) - timedelta(minutes=20),
+                extra={
+                    "news_headlines": ["AI 신제품 공개"],
+                    "news_items": [
+                        {"title": "AI 신제품 공개", "url": "https://news.example.com/ai", "source": "테스트뉴스"}
+                    ],
+                },
+            )
+        ]
+
+    async def x_fetcher(session, country, limit):
+        return []
+
+    async def daum_fetcher(session, limit):
+        return (
+            "2026-08-18T10:00:00+09:00",
+            [
+                {
+                    "keyword": "다음 실시간 1위",
+                    "rank": 1,
+                    "display_rank": 1,
+                    "status": "new",
+                    "url": "https://search.daum.net/1",
+                    "source": "다음 실시간 트렌드",
+                    "first_seen_at": "2026-08-18T00:50:00+00:00",
+                }
+            ],
+        )
+
+    async def ranking_fetcher(session, limit):
+        return [
+            {
+                "title": "뉴스 랭킹 1위 기사",
+                "url": "https://news.nate.com/rank/1",
+                "source": "네이트 뉴스 랭킹",
+                "publisher": "테스트일보",
+                "rank": 1,
+                "first_seen_at": "2026-08-18T00:40:00+00:00",
+            }
+        ]
+
+    async def reddit_fetcher(session, limit):
+        return [
+            {
+                "id": "reddit_viral_1",
+                "title": "Shocking viral video from intersection",
+                "url": "https://v.redd.it/sample.mp4",
+                "permalink": "/r/videos/comments/sample/",
+                "subreddit": "videos",
+                "author": "video_poster",
+                "votes": 8500,
+                "comments": 420,
+                "source_published_at": "2026-08-18T00:30:00+00:00",
+                "attachment_kind": "video",
+                "video_url": "https://v.redd.it/sample.mp4",
+                "language": "en",
+                "is_korean": False,
+            }
+        ]
+
+    # 1. Reddit 없는 기준선 radar
+    baseline_radar = XOpportunityRadar(
+        google_fetcher=google_fetcher,
+        x_fetcher=x_fetcher,
+        news_fetcher=None,
+        news_ranking_fetcher=ranking_fetcher,
+        daum_realtime_fetcher=daum_fetcher,
+    )
+    baseline_data = await baseline_radar.refresh(limit=10)
+
+    # 2. Reddit 포함 radar
+    reddit_radar = XOpportunityRadar(
+        google_fetcher=google_fetcher,
+        x_fetcher=x_fetcher,
+        news_fetcher=None,
+        news_ranking_fetcher=ranking_fetcher,
+        daum_realtime_fetcher=daum_fetcher,
+        reddit_fetcher=reddit_fetcher,
+    )
+    reddit_data = await reddit_radar.refresh(limit=10)
+
+    # 기존 lane 건수 및 id 대조 검증: 기존 항목들은 한 글자도 변하지 않음
+    baseline_items = baseline_data["items"]
+    reddit_items = reddit_data["items"]
+
+    assert len(reddit_items) == len(baseline_items) + 1
+    assert [item["id"] for item in reddit_items[:len(baseline_items)]] == [item["id"] for item in baseline_items]
+    assert [item["keyword"] for item in reddit_items[:len(baseline_items)]] == [item["keyword"] for item in baseline_items]
+
+    # Reddit 항목 검증
+    last_item = reddit_items[-1]
+    assert last_item["id"] == "reddit_viral_1"
+    assert last_item["lane"] == "Reddit 핫 포스트"
+    assert last_item["attachment_kind"] == "video"
+    assert last_item["video_url"] == "https://v.redd.it/sample.mp4"
+    assert last_item["language"] == "en"
+    assert last_item["votes"] == 8500
+    assert last_item["comments"] == 420
+
+    # Snapshot 상태 검증
+    assert reddit_data["reddit_count"] == 1
+    assert reddit_data["reddit_raw_count"] == 1
+    assert reddit_data["source_health"]["reddit"] is True
+    assert baseline_data["source_health"].get("reddit", False) is False
+

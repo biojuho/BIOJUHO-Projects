@@ -21,6 +21,7 @@ try:
     from .breaking_news_observer import BreakingNewsObserver
     from .collectors.daum_realtime import _async_fetch_daum_realtime
     from .collectors.news_rankings import _async_fetch_news_rankings
+    from .collectors.reddit import _async_fetch_reddit_hot
     from .collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from .content_filters import excluded_topic_reason
     from .exposure_observation_tracker import ExposureObservationTracker
@@ -32,6 +33,7 @@ except ImportError:
     from breaking_news_observer import BreakingNewsObserver
     from collectors.daum_realtime import _async_fetch_daum_realtime
     from collectors.news_rankings import _async_fetch_news_rankings
+    from collectors.reddit import _async_fetch_reddit_hot
     from collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
     from content_filters import excluded_topic_reason
     from exposure_observation_tracker import ExposureObservationTracker
@@ -45,6 +47,7 @@ TrendFetcher = Callable[[httpx.AsyncClient, str, int], Awaitable[list[RawTrend]]
 NewsFetcher = Callable[[httpx.AsyncClient, str, int], Awaitable[list[dict[str, Any]]]]
 RankingFetcher = Callable[[httpx.AsyncClient, int], Awaitable[list[dict[str, Any]]]]
 DaumFetcher = Callable[[httpx.AsyncClient, int], Awaitable[tuple[str | None, list[dict[str, Any]]]]]
+RedditFetcher = Callable[[httpx.AsyncClient, int], Awaitable[list[dict[str, Any]]]]
 
 _FALLBACK_X_TOPICS = {"주말 계획", "점심 메뉴", "날씨", "커피", "퇴근"}
 _X_EXPOSURE_SCORE_VERSION = "x-exposure-v3"
@@ -465,6 +468,125 @@ def _news_ranking_items(
     return items
 
 
+def _reddit_items(
+    raw_items: list[dict[str, Any]],
+    now: datetime,
+    *,
+    filter_shadow_store: FilterShadowStore | None = None,
+    excluded_reasons: Counter[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Reddit 핫 포스트를 점수 없는 후보로 정규화한다.
+
+    시각은 created_utc로부터 source_published_at으로 변환하고(모르면 unknown),
+    첨부 형태(video/image/text/unknown, video_url)를 실어 보낸다.
+    점수로 환산하지 않고 추천수·댓글수를 사실 필드로 유지한다(0053 규약).
+    """
+    items: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for raw in raw_items:
+        title = str(raw.get("title") or raw.get("keyword") or "").strip()
+        url = str(raw.get("url") or raw.get("source_url") or "").strip()
+        item_id = str(raw.get("id") or "").strip()
+        if not title:
+            continue
+        if not item_id:
+            item_id = hashlib.sha256(title.casefold().encode("utf-8")).hexdigest()[:16]
+        if item_id in seen_ids:
+            continue
+        seen_ids.add(item_id)
+
+        # 0079: 한국어 계정에 쓸 수 있는가를 스스로 판정하지 않고, 후보로 올리되 언어 필드로만 표시.
+        reason = excluded_topic_reason(title)
+        record_filter_candidate_fail_open(
+            filter_shadow_store,
+            source="x-radar",
+            candidate_id=item_id,
+            title=title,
+            extra_text=f"Reddit {raw.get('subreddit') or ''}".strip(),
+            filter_verdict="block" if reason else "allow",
+            filter_reason=reason or "",
+            observed_at=now,
+        )
+        if reason:
+            if excluded_reasons is not None:
+                excluded_reasons[reason] += 1
+            continue
+
+        observed_at = now.astimezone(UTC).isoformat()
+        source_published = _timestamp(raw.get("source_published_at") or raw.get("published_at"))
+        source_published_at = source_published.isoformat() if source_published is not None else None
+        first_seen_at = str(raw.get("first_seen_at") or "").strip() or None
+        age_minutes, age_basis, age_display = _age_fields(
+            source_published_at=source_published,
+            first_seen_at=first_seen_at,
+            now=now,
+        )
+
+        subreddit = str(raw.get("subreddit") or "").strip()
+        source = str(raw.get("source") or (f"Reddit (r/{subreddit})" if subreddit else "Reddit"))
+        publisher = str(raw.get("publisher") or (f"r/{subreddit}" if subreddit else "Reddit"))
+        attachment_kind = str(raw.get("attachment_kind") or "unknown")
+        video_url = str(raw.get("video_url") or "")
+        votes = int(raw.get("votes") or 0)
+        comments = int(raw.get("comments") or 0)
+        is_korean = bool(raw.get("is_korean") if raw.get("is_korean") is not None else _has_hangul(title))
+        language = str(raw.get("language") or ("ko" if is_korean else "en"))
+
+        reasons = list(raw.get("reasons") or [])
+        if not reasons:
+            reasons = [
+                f"r/{subreddit} {votes}upvotes · 댓글 {comments}개"
+                if subreddit
+                else f"Reddit {votes}upvotes · 댓글 {comments}개"
+            ]
+            if attachment_kind == "video":
+                reasons.append("동영상 첨부")
+            elif attachment_kind == "image":
+                reasons.append("이미지 첨부")
+
+        item = {
+            "id": item_id,
+            "keyword": title,
+            "title": title,
+            "lane": "Reddit 핫 포스트",
+            "category": "해외 바이럴",
+            "qualification_mode": "reddit_hot_post",
+            "context_level": "source_direct",
+            "materiality_pass": True,
+            "observed_at": observed_at,
+            "source": source,
+            "publisher": publisher,
+            "sources": [source],
+            "subreddit": subreddit,
+            "author": str(raw.get("author") or ""),
+            "votes": votes,
+            "comments": comments,
+            "source_published_at": source_published_at,
+            "first_seen_at": first_seen_at,
+            "age_minutes": age_minutes,
+            "age_basis": age_basis,
+            "age_display": age_display,
+            "source_url": url,
+            "permalink": str(raw.get("permalink") or ""),
+            "attachment_kind": attachment_kind,
+            "video_url": video_url,
+            "language": language,
+            "is_korean": is_korean,
+            "volume": "N/A",
+            "volume_numeric": 0,
+            "news_headlines": [title],
+            "news_items": [],
+            "first_report": None,
+            "threads_posts": [],
+            "threads_author_count": 0,
+            "x_signal_keywords": [],
+            "x_search_url": "",
+            "reasons": reasons,
+        }
+        items.append(item)
+    return items
+
+
 def _attach_x_signals_to_rankings(
     x_trends: list[RawTrend],
     target_items: list[dict[str, Any]],
@@ -879,6 +1001,7 @@ class XOpportunityRadar:
         news_fetcher: NewsFetcher | None = fetch_bing_news_origins,
         news_ranking_fetcher: RankingFetcher | None = None,
         daum_realtime_fetcher: DaumFetcher | None = None,
+        reddit_fetcher: RedditFetcher | None = None,
         observation_path: Path | None = None,
         filter_shadow_store: FilterShadowStore | None = None,
         breaking_news_observer: BreakingNewsObserver | None = None,
@@ -889,6 +1012,7 @@ class XOpportunityRadar:
         self.news_fetcher = news_fetcher
         self.news_ranking_fetcher = news_ranking_fetcher
         self.daum_realtime_fetcher = daum_realtime_fetcher
+        self.reddit_fetcher = reddit_fetcher
         self.exposure_tracker = ExposureObservationTracker(observation_path)
         self.filter_shadow_store = filter_shadow_store
         self.breaking_news_observer: BreakingNewsObserver | None
@@ -915,6 +1039,7 @@ class XOpportunityRadar:
                 "public_x_trends": False,
                 "daum_realtime": False,
                 "news_rankings": False,
+                "reddit": False,
                 "threads_api": self.threads_collector.available,
                 "publisher_news_origins": False,
                 "google_news_rss": False,
@@ -929,6 +1054,9 @@ class XOpportunityRadar:
             "daum_raw_count": 0,
             "daum_updated_at": None,
             "daum_trend_filter_summary": {},
+            "reddit_count": 0,
+            "reddit_raw_count": 0,
+            "reddit_filter_summary": {},
             "observed_only_count": 0,
             "observed_only_items": [],
             "spam_flagged_count": 0,
@@ -958,6 +1086,7 @@ class XOpportunityRadar:
                 )
                 ranking_fetcher = self.news_ranking_fetcher
                 daum_fetcher = self.daum_realtime_fetcher
+                reddit_fetcher = self.reddit_fetcher
                 if is_production_fetchers and ranking_fetcher is None:
                     # 대시보드는 두 생산 fetcher를 쓰므로 랭킹 lane을 자동으로 켠다.
                     # 단위 테스트의 커스텀 fetcher 세션은 자동으로 꺼져 hermetical을 유지한다.
@@ -965,6 +1094,9 @@ class XOpportunityRadar:
                 if is_production_fetchers and daum_fetcher is None:
                     # 1순위 소스도 같은 생산 조건에서 자동으로 켠다.
                     daum_fetcher = _async_fetch_daum_realtime
+                if is_production_fetchers and reddit_fetcher is None:
+                    # Reddit 핫 포스트도 같은 생산 조건에서 자동으로 켠다.
+                    reddit_fetcher = _async_fetch_reddit_hot
                 if self.x_fetcher is _async_fetch_getdaytrends:
                     x_request = self.x_fetcher(
                         session,
@@ -978,17 +1110,21 @@ class XOpportunityRadar:
                     self.google_fetcher(session, country, max(limit, 20)),
                     x_request,
                 ]
-                result_index: dict[str, int | None] = {"ranking": None, "daum": None}
+                result_index: dict[str, int | None] = {"ranking": None, "daum": None, "reddit": None}
                 if ranking_fetcher is not None:
                     result_index["ranking"] = len(gather_tasks)
                     gather_tasks.append(ranking_fetcher(session, max(limit, 20)))
                 if daum_fetcher is not None:
                     result_index["daum"] = len(gather_tasks)
                     gather_tasks.append(daum_fetcher(session, max(limit, 20)))
+                if reddit_fetcher is not None:
+                    result_index["reddit"] = len(gather_tasks)
+                    gather_tasks.append(reddit_fetcher(session, max(limit, 20)))
                 gathered = await asyncio.gather(*gather_tasks, return_exceptions=True)
                 google_result, x_result = gathered[0], gathered[1]
                 ranking_result = gathered[result_index["ranking"]] if result_index["ranking"] is not None else []
                 daum_result = gathered[result_index["daum"]] if result_index["daum"] is not None else (None, [])
+                reddit_result = gathered[result_index["reddit"]] if result_index["reddit"] is not None else []
 
             errors: list[str] = []
             google_trends: list[RawTrend] = []
@@ -997,6 +1133,7 @@ class XOpportunityRadar:
             ranking_raw: list[dict[str, Any]] = []
             daum_updated_at: str | None = None
             daum_raw: list[dict[str, Any]] = []
+            reddit_raw: list[dict[str, Any]] = []
             if isinstance(google_result, Exception):
                 errors.append(f"Google Trends: {str(google_result)[:180]}")
             else:
@@ -1012,6 +1149,10 @@ class XOpportunityRadar:
                     daum_updated_at, daum_raw = daum_result
                 elif isinstance(daum_result, list):
                     daum_raw = daum_result
+            if isinstance(reddit_result, Exception):
+                errors.append(f"Reddit 핫 포스트 수집: {str(reddit_result)[:180]}")
+            elif reddit_fetcher is not None:
+                reddit_raw = [item for item in reddit_result if isinstance(item, dict)]
             if isinstance(x_result, Exception):
                 errors.append(f"공개 X 트렌드: {str(x_result)[:180]}")
             else:
@@ -1376,11 +1517,19 @@ class XOpportunityRadar:
                 reverse=True,
             )
             legacy_items = items[:limit]
+            reddit_excluded_reasons: Counter[str] = Counter()
+            reddit_items = _reddit_items(
+                reddit_raw,
+                now,
+                filter_shadow_store=self.filter_shadow_store,
+                excluded_reasons=reddit_excluded_reasons,
+            )
             visible_items = [
                 *daum_items,
                 *ranking_items,
                 *legacy_items,
                 *breaking_items,
+                *reddit_items,
             ]
             self.exposure_tracker.save(now=now)
             source_health = {
@@ -1392,6 +1541,7 @@ class XOpportunityRadar:
                 "public_x_trends": bool(x_trends) and bool(x_sample_id),
                 "daum_realtime": bool(daum_items),
                 "news_rankings": bool(ranking_items),
+                "reddit": bool(reddit_items),
                 "threads_api": self.threads_collector.available,
                 "publisher_news_origins": news_origin_ok,
             }
@@ -1430,6 +1580,9 @@ class XOpportunityRadar:
                 "daum_raw_count": len(daum_raw),
                 "daum_updated_at": daum_updated_at,
                 "daum_trend_filter_summary": dict(daum_excluded_reasons),
+                "reddit_count": len(reddit_items),
+                "reddit_raw_count": len(reddit_raw),
+                "reddit_filter_summary": dict(reddit_excluded_reasons),
                 "qualified_candidates": len(items),
                 "breaking_news_count": len(breaking_items),
                 "filtered_out_count": len(candidates) - len(items),
@@ -1454,6 +1607,6 @@ class XOpportunityRadar:
                 "refreshed_at": now.isoformat(),
                 "source_health": source_health,
                 "errors": errors,
-                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 다음 실시간 트렌드(순위 변동 포함)·네이트/줌 뉴스 랭킹을 점수 없는 후보로 앞세우고, X 트렌드 단어는 같은 사건의 후보에 「X에서도 뜨고 있음」 신호로 붙입니다. 맥락 없는 X 단어는 관측만 칸으로 강등하며 연합뉴스·기상청 직접 발표는 별도 lane으로 병기합니다.",
+                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 다음 실시간 트렌드(순위 변동 포함)·네이트/줌 뉴스 랭킹·Reddit 핫 포스트를 점수 없는 후보로 앞세우고, X 트렌드 단어는 같은 사건의 후보에 「X에서도 뜨고 있음」 신호로 붙입니다. 맥락 없는 X 단어는 관측만 칸으로 강등하며 연합뉴스·기상청 직접 발표는 별도 lane으로 병기합니다.",
             }
             return self.snapshot()
