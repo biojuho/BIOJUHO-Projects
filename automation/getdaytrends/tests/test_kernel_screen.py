@@ -215,6 +215,119 @@ class TestPersonRecall0070:
         assert screen_material("온 국민이 충격에 빠졌다")["person"] is False
 
 
+class TestPersonNewsAndBoundary0080:
+    """0080: 뉴스 제목의 형 오탐을 막고, 확인된 뉴스 어휘만 정밀하게 넣는다."""
+
+    def test_measured_hyung_false_positives_are_no_longer_person(self):
+        # 헤더 실측 뉴스 ["형"] 단독 표본 + 수용 게이트 ㉮.
+        non_person = [
+            "검찰, '강북 모텔 연쇄살인' 김소영에 사형 구형",
+            "경남교육청, 학교·기관 맞춤형 '계약실무편람' 개정판 발간",
+            "경찰, '수원 공사장 사망' 이랜드건설 현장소장 등 송치",
+            "허위과장,낚시홍보 없는 원조 박리다매",
+            "아군인줄 알았는데 까보니 적군이였음",
+            "서울시, 빅뱅 20주년 기념행사 한강에 대형 스크린 띄운다",
+            "음주 벌금형 두 달만에 또 만취사고 뒤 뺑소니 50대 징역형 집유",
+            "김시우, PGA투어 PO 1차전 준우승…임성재·김주형과 2차전 진출",
+            "정성호 \"형소법 통과돼 역할 많지 않아, 국회서 할일 더 많을것\"",
+            "실체 없는 공포가 삼킨 일상…'아기돼지 삼형제' 비튼 음악극",
+            "축구협회, 대표팀 임시 감독 서류 전형 완료…이번 주 면접 돌입",
+        ]
+        for title in non_person:
+            r = screen_material(title)
+            assert r["person"] is False or "형" not in r["person_terms"], title
+
+        # ㉮ 단문. 공사장·허위과장·아군인줄은 다른 역할어도 없어야 한다.
+        for title in ("사형 구형", "맞춤형", "공사장", "허위과장", "아군인줄"):
+            assert screen_material(title)["person"] is False, title
+
+    def test_real_kinship_hyung_and_relations_survive(self):
+        # ㉰ 과잉 방어로 진짜 관계어를 죽이면 실패.
+        person = [
+            ("형님들이 알려준다", "형"),
+            ("남동생이 먼저 나섰다", "동생"),
+            ("여자친구가 화를 냈다", "친구"),
+            ("38살 형 친구 때문에 미치겠다는 사람", "형"),
+            ("68년생 결혼못한 사촌 큰형님 근황", "형"),
+            ("예비 장모가 예비 사위한테 대놓고 먹어달라고 하는 이유", "사위"),
+            ("장인어른에게 양주 선물하는 Manhwa", "장인"),
+            ("군인 가능", "군인"),
+        ]
+        for title, term in person:
+            r = screen_material(title)
+            assert r["person"] is True, title
+            assert term in r["person_terms"], (title, r["person_terms"])
+
+    def test_corpus_false_compounds_of_moved_terms(self):
+        non_person = [
+            "AD [설치당일지급]_뽐뿌대표 원모어렌탈]_고객추천 1등]_코웨이",
+            "인제군 상하수도사업소, 상수도 고객만족도 '전국 최고'",
+            "고객센터 ARS 특.mp4",
+            "최악의 민영화 사례는 멀리 볼 필요 없이 이웃나라만 봐도 알 수 있음",
+            "롤) 피해지역 이웃돕기에 누구보다도 빠른 프로게이머",
+            "이강인과 알바레스 드디어 만났다",
+            "[기사]7월 대폭락장 만들고 몰락한 '25세 천재'",
+            "블루아카)이번엔 진짜 억울한 나기사 manhwa",
+            "젖니 나온 아기사자.jpeg",
+            "림버스) 행보가 억까 그득한 등장인물",
+            "與 법사위 \"조희대, '김건희 재판지연' 직무유기 책임 묻겠다\"",
+            "16년 만에 부활하는 친일재산조사위",
+            "여제 안세영, 세계선수권 32강 안착",
+            "AD [반값보험료] 운전자보험 상담",
+            "서산 '천하일품' 쌀, 농협쌀 10대 대표브랜드에 선정",
+            "제10대 청송군의회 첫 정례회…예산·조례안 살핀다",
+            "'여름철 극성' 바퀴벌레 잡는다…성동구, 방제설비 80대 운영",
+        ]
+        for title in non_person:
+            assert screen_material(title)["person"] is False, title
+
+    def test_news_vocab_catches_measured_misses(self):
+        cases = [
+            ("[부고] 박영찬(속초경찰서 여성청소년 과장)씨 모친상", "모친"),
+            ("[부고] 김종혁(서울아산병원 산부인과 교수)씨 부친상", "부친"),
+            ("언론인 신건호, '사람을 그리며 세상을 묻다' 출간", "언론인"),
+            ("서울 화곡동서 여고생에 흉기 휘두른 10대 기소…스토킹 혐의 추가", "여고생"),
+            ("끼어들기 차량 홧김에 들이받은 40대 운전자 입건…2명 부상", "운전자"),
+            ("'성남 보복살인' 50대 신상공개 결정…25일 머그샷 공개", "50대"),
+            ("오송참사 유족 \"충북도·청주시, 무단 수집 의료정보 폐기하라\"", "유족"),
+            ("직장인 80% \"기간제 차별 존재\"…출산휴가·육아휴직도 '눈치'", "직장인"),
+            ("원정경기후 복귀 중 교통사고난 차량 불길 속으로 뛰어든 광주FC 선수들", "선수"),
+        ]
+        for title, term in cases:
+            r = screen_material(title)
+            assert r["person"] is True, title
+            assert term in r["person_terms"], (title, r["person_terms"])
+
+    def test_politics_religion_gender_tokens_stay_out(self):
+        from kernel_screen import _ACTOR_TERMS, _ACTOR_BOUNDARY_PATTERNS
+
+        banned = ("의원", "장관", "대통령", "목사", "스님", "신부", "페미", "한남", "여혐")
+        plain = set(_ACTOR_TERMS)
+        boundary = {term for _, term in _ACTOR_BOUNDARY_PATTERNS}
+        for token in banned:
+            assert token not in plain, token
+            assert token not in boundary, token
+
+    def test_empty_lexicon_fails_closed_instead_of_reporting_zero_fps(self):
+        import kernel_screen as ks
+
+        ks.require_actor_lexicon()
+        saved_terms = ks._ACTOR_TERMS
+        saved_patterns = ks._ACTOR_BOUNDARY_PATTERNS
+        try:
+            ks._ACTOR_TERMS = ()
+            ks._ACTOR_BOUNDARY_PATTERNS = ()
+            try:
+                ks.require_actor_lexicon()
+            except RuntimeError as exc:
+                assert "empty" in str(exc)
+            else:
+                raise AssertionError("empty lexicon must not look like zero false positives")
+        finally:
+            ks._ACTOR_TERMS = saved_terms
+            ks._ACTOR_BOUNDARY_PATTERNS = saved_patterns
+
+
 class TestAttach:
     def test_attach_adds_screen_and_summary_without_mutating(self):
         payload = {"items": [{"title": "팀장이 회식비 떠넘김"}, {"title": "이거 맞나요?"}]}
