@@ -1256,3 +1256,28 @@ async def test_radar_reddit_lane_integration_preserves_existing_lanes():
     assert reddit_data["source_health"]["reddit"] is True
     assert baseline_data["source_health"].get("reddit", False) is False
 
+
+@pytest.mark.asyncio
+async def test_radar_reddit_403_lands_in_errors_and_health_false():
+    from collectors.reddit import RedditFetchError
+
+    async def empty_google(session, country, limit):
+        return []
+
+    async def empty_x(session, country, limit):
+        return []
+
+    async def reddit_403(session, limit):
+        raise RedditFetchError(403, "https://www.reddit.com/r/popular/hot.json")
+
+    radar = XOpportunityRadar(
+        google_fetcher=empty_google,
+        x_fetcher=empty_x,
+        news_fetcher=None,
+        reddit_fetcher=reddit_403,
+    )
+    data = await radar.refresh(limit=5)
+    assert data["source_health"]["reddit"] is False
+    assert data["reddit_count"] == 0
+    assert any("403" in err for err in data.get("errors") or [])
+

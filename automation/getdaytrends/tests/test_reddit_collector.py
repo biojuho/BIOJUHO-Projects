@@ -136,3 +136,26 @@ def test_parse_reddit_listing_builds_canonical_dicts():
     assert second["video_url"] == ""
     assert second["language"] == "ko"
     assert second["is_korean"] is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_hot_403_raises_and_user_agent_is_not_a_browser():
+    from collectors.reddit import RedditFetchError, _USER_AGENT, _async_fetch_reddit_hot
+
+    assert "Mozilla" not in _USER_AGENT
+    assert "Chrome" not in _USER_AGENT
+
+    class FakeResp:
+        status_code = 403
+
+        def json(self):
+            return {}
+
+    class FakeSession:
+        async def get(self, url, headers=None, timeout=None):
+            assert headers["User-Agent"] == _USER_AGENT
+            return FakeResp()
+
+    with pytest.raises(RedditFetchError) as caught:
+        await _async_fetch_reddit_hot(FakeSession())
+    assert caught.value.status_code == 403

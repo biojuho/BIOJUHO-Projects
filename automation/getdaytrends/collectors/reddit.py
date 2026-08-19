@@ -16,9 +16,17 @@ except ImportError:
 _SHORT_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 _DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=6.0)
 
-_BROWSER_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-)
+# 브라우저 UA 위장 금지(Reddit Public Content Policy). 403이어도 이 문자열을 바꾸지 않는다.
+_USER_AGENT = "biojuho-x-radar/1.0 (research collector; not a browser)"
+
+
+class RedditFetchError(RuntimeError):
+    """HTTP 실패를 빈 목록으로 접지 않고 상류 errors에 남긴다."""
+
+    def __init__(self, status_code: int, url: str) -> None:
+        self.status_code = status_code
+        self.url = url
+        super().__init__(f"Reddit HTTP {status_code}: {url}")
 
 # 0074 첨부 규약 (direct_community_sources.py와 동일 필드명/값)
 _ATTACHMENT_VIDEO = "video"
@@ -193,18 +201,18 @@ async def _async_fetch_reddit_hot(
 ) -> list[dict[str, Any]]:
     """Reddit 핫 포스트 목록을 수집한다 (비동기)."""
     url = f"https://www.reddit.com/r/{subreddit}/hot.json?limit={limit}"
-    headers = {"User-Agent": _BROWSER_USER_AGENT}
+    headers = {"User-Agent": _USER_AGENT}
 
     try:
         resp = await session.get(url, headers=headers, timeout=_resolve_timeout(timeout or _DEFAULT_TIMEOUT))
-        if resp.status_code != 200:
-            log.debug(f"Reddit 핫 포스트 수집 실패 (status={resp.status_code}): r/{subreddit}")
-            return []
-        data = resp.json()
-        return _parse_reddit_listing(data)
     except Exception as e:
-        log.debug(f"Reddit 핫 포스트 수집 오류 (r/{subreddit}): {e}")
-        return []
+        log.warning(f"Reddit 핫 포스트 수집 오류 (r/{subreddit}): {e}")
+        raise
+    if resp.status_code != 200:
+        log.warning(f"Reddit 핫 포스트 수집 실패 (status={resp.status_code}): r/{subreddit}")
+        raise RedditFetchError(resp.status_code, url)
+    data = resp.json()
+    return _parse_reddit_listing(data)
 
 
 async def _async_fetch_reddit_trends(
@@ -215,10 +223,13 @@ async def _async_fetch_reddit_trends(
     """Reddit 핫 포스트 수집 (비동기, 키워드 검색 기반 하위 호환)."""
     encoded_query = urllib.parse.quote(keyword)
     url = f"https://www.reddit.com/search.json?q={encoded_query}&sort=hot&limit=5&t=day"
-    headers = {"User-Agent": _BROWSER_USER_AGENT}
+    headers = {"User-Agent": _USER_AGENT}
 
     try:
         resp = await session.get(url, headers=headers, timeout=_resolve_timeout(timeout))
+        if resp.status_code != 200:
+            log.warning(f"Reddit 검색 수집 실패 (status={resp.status_code}): {keyword}")
+            raise RedditFetchError(resp.status_code, url)
         data = resp.json()
 
         posts = []
@@ -228,8 +239,10 @@ async def _async_fetch_reddit_trends(
 
         return "\n".join(posts) if posts else "관련 Reddit 게시물 없음"
 
+    except RedditFetchError:
+        raise
     except Exception as e:
-        log.debug(f"Reddit API 오류 ({keyword}): {e}")
+        log.warning(f"Reddit API 오류 ({keyword}): {e}")
         return f"[Reddit 접근 제한] {keyword} 데이터 없음"
 
 
