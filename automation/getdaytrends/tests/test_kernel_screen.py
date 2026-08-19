@@ -362,6 +362,39 @@ class TestAttach:
         assert out["items"][0]["kernel_screen"] == second_pass
         assert out["kernel_summary"]["live"] == 1
 
+    def test_attach_uses_item_summary_when_keyword_has_no_actor(self):
+        # 레이더는 title_field=keyword. 제목에 관계어가 없고 summary에만 있으면 person이 열려야 한다.
+        keyword = "폭염주의보 발표 제08-218호"
+        summary = "모친 병문안을 미룬 채 야외 행사를 강행했다"
+        out = attach_kernel_screen(
+            {"items": [{"keyword": keyword, "summary": summary}]},
+            title_field="keyword",
+            sort=False,
+        )
+        screen = out["items"][0]["kernel_screen"]
+        assert screen["person"] is True
+        assert "모친" in screen["person_terms"]
+        assert screen.get("person_source") == "summary"
+
+    def test_attach_title_only_without_summary_stays_non_person(self):
+        keyword = "폭염주의보 발표 제08-218호"
+        out = attach_kernel_screen(
+            {"items": [{"keyword": keyword}]},
+            title_field="keyword",
+            sort=False,
+        )
+        assert out["items"][0]["kernel_screen"]["person"] is False
+
+    def test_attach_title_only_person_stays_true_without_summary(self):
+        out = attach_kernel_screen(
+            {"items": [{"keyword": "손님이 진상짓하고 잠수"}]},
+            title_field="keyword",
+            sort=False,
+        )
+        screen = out["items"][0]["kernel_screen"]
+        assert screen["person"] is True
+        assert screen.get("person_source") != "summary"
+
     def test_attach_backfills_person_on_a_legacy_screen_without_changing_it(self):
         legacy_screen = {
             "axis": "unknown",

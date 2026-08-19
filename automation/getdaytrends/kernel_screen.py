@@ -468,8 +468,12 @@ def attach_kernel_screen(
                 screen.setdefault("person_terms", title_screen["person_terms"])
             copy["kernel_screen"] = screen
         else:
+            raw_summary = copy.get("summary")
+            summary = raw_summary if isinstance(raw_summary, str) and raw_summary.strip() else None
             copy["kernel_screen"] = screen_material(
-                copy.get(title_field, ""), community_label=copy.get("community_label")
+                copy.get(title_field, ""),
+                community_label=copy.get("community_label"),
+                summary=summary,
             )
         screened.append(copy)
     if sort:
