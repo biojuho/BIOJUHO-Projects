@@ -1631,6 +1631,11 @@ function renderXRadar(data) {{
     const reasons = [...(item.exposure_signals || []), ...(item.reasons || [])]
       .filter((reason, reasonIndex, allReasons) => allReasons.indexOf(reason) === reasonIndex)
       .map(reason => `<span class="x-radar-reason">${{safeHtml(reason)}}</span>`).join('');
+    const xRadarScore = [item.x_exposure_score, item.materiality_score, item.opportunity_score]
+      .find(value => Number.isFinite(value));
+    const xRadarScoreBlock = Number.isFinite(xRadarScore)
+      ? `<div class="x-radar-score">${{safeHtml(String(xRadarScore))}}<small>X 적합도</small></div>`
+      : '<div class="x-radar-score"><small>미산정</small></div>';
     const threadsLinks = (item.threads_posts || [])
       .filter(post => post && post.permalink)
       .slice(0, 3)
@@ -1659,7 +1664,7 @@ function renderXRadar(data) {{
               <span class="tap-chip">근거 신뢰도 ${{safeHtml(confidenceLabel)}} · ${{safeHtml(item.score_version || '기존 점수')}}</span>
             </div>
           </div>
-          <div class="x-radar-score">${{safeHtml(String(item.x_exposure_score ?? item.materiality_score ?? item.opportunity_score))}}<small>X 적합도</small></div>
+          ${{xRadarScoreBlock}}
         </div>
         <div class="x-radar-reasons">${{reasons}}</div>
         <div class="x-radar-sources">${{originals}}</div>
