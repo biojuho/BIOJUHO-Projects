@@ -14,7 +14,7 @@ except ImportError:
     from dotenv import load_dotenv
     load_dotenv()
 
-VERSION = "4.1"
+VERSION = "4.2"
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -453,30 +453,54 @@ class AppConfig:
             alert_threshold=self.alert_threshold,
         )
 
-    @classmethod
-    def from_env(cls) -> "AppConfig":
-        """Load config from env vars. Delegates to config_env_loaders module."""
-        try:
-            from .config_env_loaders import (
-                storage_env, schedule_env, api_keys_env, alerts_env,
-                feature_flags_env, quality_env, scoring_env, platform_env,
-            )
-        except ImportError:
-            from config_env_loaders import (
-                storage_env, schedule_env, api_keys_env, alerts_env,
-                feature_flags_env, quality_env, scoring_env, platform_env,
-            )
-
-        kwargs: dict = {}
-        kwargs.update(storage_env())
-        kwargs.update(schedule_env())
-        kwargs.update(api_keys_env())
-        kwargs.update(alerts_env())
-        kwargs.update(feature_flags_env())
-        kwargs.update(quality_env())
-        kwargs.update(scoring_env())
-        kwargs.update(platform_env())
-        return cls(**kwargs)
+    @classmethod
+
+    def from_env(cls) -> "AppConfig":
+
+        """Load config from env vars. Delegates to config_env_loaders module."""
+
+        try:
+
+            from .config_env_loaders import (
+
+                storage_env, schedule_env, api_keys_env, alerts_env,
+
+                feature_flags_env, quality_env, scoring_env, platform_env,
+
+            )
+
+        except ImportError:
+
+            from config_env_loaders import (
+
+                storage_env, schedule_env, api_keys_env, alerts_env,
+
+                feature_flags_env, quality_env, scoring_env, platform_env,
+
+            )
+
+
+
+        kwargs: dict = {}
+
+        kwargs.update(storage_env())
+
+        kwargs.update(schedule_env())
+
+        kwargs.update(api_keys_env())
+
+        kwargs.update(alerts_env())
+
+        kwargs.update(feature_flags_env())
+
+        kwargs.update(quality_env())
+
+        kwargs.update(scoring_env())
+
+        kwargs.update(platform_env())
+
+        return cls(**kwargs)
+
 
     def validate(self) -> list[str]:
         """????곸씔 癲ル슢?꾤땟戮⑤뭄??袁⑸즵??? ???域밸Ŧ遊얕짆?嶺뚮ㅎ?닻얠쥉異????レ챺??"""

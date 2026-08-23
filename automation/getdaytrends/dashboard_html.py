@@ -230,6 +230,10 @@ _HTML = """<!DOCTYPE html>
   .kernel-badge.is-dead{{background:rgba(148,163,184,.16);color:#64748b}}
   .kernel-badge.is-unknown{{background:rgba(59,130,246,.12);color:#1d4ed8}}
   .kernel-badge.is-person{{margin-right:4px;background:rgba(14,165,233,.13);color:#0369a1}}
+  /* 2026-08-23 v4.2. 답글을 부르는 두 신호. 축(axis)은 «도달»을 재고 이 둘은 «답글»을 잰다 —
+     그래서 축이 회색(dead_debate)인데 이 배지가 켜져 있는 조합이 정상이고, 오히려 노리는 자리다. */
+  .kernel-badge.is-quote{{margin-left:4px;background:rgba(217,119,6,.14);color:#b45309}}
+  .kernel-badge.is-split{{margin-left:4px;background:rgba(219,39,119,.12);color:#be185d}}
   .kernel-flag{{margin-left:4px;padding:2px 6px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(239,68,68,.12);color:#b91c1c}}
   .kernel-why{{display:block;margin-top:3px;font-size:11px;color:#94a3b8}}
   .reference-connector-note{{color:#64748b;font-size:.7rem}}
@@ -1550,10 +1554,15 @@ function kernelBadge(item) {{
     ? `<span class="kernel-why">${{safeHtml(k.signals.join(' · '))}}</span>` : '';
   const personTerm = Array.isArray(k.person_terms) && k.person_terms.length ? k.person_terms[0] : '';
   const personSource = k.person_source === 'summary' ? ' (요약)' : '';
+  // 2026-08-23 v4.2 — 답글 신호 둘. 막지 않고 표시만 한다.
+  const quote = k.quote_line === true
+    ? '<span class="kernel-badge is-quote" title="옮겨 쓸 대사가 제목에 있다 — 따옴표 안이 4자 이상이고 구어체 어미나 호격이다">육성 있음</span>' : '';
+  const split = k.verdict_split === 'Y'
+    ? '<span class="kernel-badge is-split" title="찬반이 갈릴 소재 — 논쟁 신호이거나 가해 역할과 행위가 함께 있다. 답글이 붙는 자리다">판정 갈림</span>' : '';
   const person = k.person === true
     ? `<span class="kernel-badge is-person">사람 있음${{personTerm ? ` · ${{safeHtml(personTerm)}}` : ''}}${{personSource}}</span>`
     : '';
-  return `${{person}}<span class="kernel-badge ${{tone}}">${{safeHtml(k.axis_label || '')}}</span>${{flags}}${{why}}`;
+  return `${{person}}<span class="kernel-badge ${{tone}}">${{safeHtml(k.axis_label || '')}}</span>${{quote}}${{split}}${{flags}}${{why}}`;
 }}
 
 // 신선도 판정은 서버(freshness.py)가 한다. 여기서는 등급을 화면 상태로만 옮긴다 —
