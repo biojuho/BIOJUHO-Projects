@@ -191,6 +191,25 @@ def test_anime_topics_are_excluded_without_swallowing_lookalikes():
     # "웹툰"은 2026-08-06에 제외 목록에서 뺐다 — "웹툰 작가 지망생이 겪은 갑질" 같은
     # 사연을 통째로 잘라내고 있었다. 웹툰 화제 자체는 X 소재로 유효하다.
     assert topic_is_allowed("웹툰 작가 지망생이 겪은 갑질") is True
+
+
+def test_romanized_comic_terms_are_excluded_but_korean_story_words_survive():
+    """2026-08-23 사용자 지시 「레이더에 manhwa도 안 나오게」.
+
+    가르는 축은 «만화라는 소재»가 아니라 «소비 검색어인가»다. 로마자 표기가 그
+    대리변수다 — 한국어 트렌드에서 manhwa/manga 는 읽을 것을 찾는 검색이지 사연이
+    아니다. 반대로 한글 «웹툰»·«만화방»에는 노동·갑질·창업 사연이 붙으므로 살린다.
+    (처음 구현에서 웹툰을 다시 넣었다가 위 테스트가 2026-08-06 결정을 되돌리는 것을
+    잡아냈다. 그 되돌림을 다시 막기 위해 아래 통과 케이스를 함께 못 박는다.)
+    """
+    for blocked in ("manhwa 추천 좀", "Manhwa 신작 순위", "manga 번역본",
+                    "manhua 사이트", "donghua 추천", "doujin 이벤트"):
+        assert excluded_topic_reason(blocked) == "애니·만화 제외", blocked
+
+    for allowed in ("웹툰 작가 지망생이 겪은 갑질", "만화방 알바하다 겪은 일",
+                    "만화카페 창업 후기", "망가진 우산 버리는 법",
+                    "만화 같은 역전승", "mangan 가격 급등"):
+        assert topic_is_allowed(allowed) is True, allowed
     assert excluded_topic_reason("귀멸의 칼날 신작 소식") == "애니·만화 제외"
 
     # "애니"가 들어가도 애니메이션이 아닌 말들.
