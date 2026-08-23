@@ -758,3 +758,48 @@ class TestDashboardPersonAxis:
         assert "식음 · ${safeHtml(String(item.last_growth_minutes))}분째 정체" in html
         assert "if (ca !== cb) return ca ? 1 : -1;" in html
         assert "Number(b.x_exposure_score || 0) - Number(a.x_exposure_score || 0)" in html
+
+
+def test_quote_line_needs_speech_not_just_quotation_marks():
+    """2026-08-23. 따옴표만으로는 육성을 못 가른다.
+
+    홀드아웃 19건에서 «따옴표만» 규칙의 정밀도가 65.5%→28.6%로 반토막 났다.
+    서울시 보도자료의 행사명·정책명·브랜드명이 전부 따옴표를 쓰기 때문이다.
+    안쪽이 «말»인지(4자 이상 + 구어체 어미 또는 호격·1인칭)를 한 번 더 봐야 한다.
+    """
+    from kernel_screen import has_quote_line
+
+    for spoken in (
+        '"나잇값 좀 하세요 원장님"…무단결근 인턴, 당일 퇴사 통보',
+        '"OO카페 알바 일상 보실래요?"…프랜차이즈 직원 SNS, 어디까지 허용?',
+        '"연차를 왜 써요?"…휴가 몰빵하던 직장인들 돌변한 이유',
+        '"안세영 이럴 수가…실수가 많아졌어" 세계연맹 해설자도 놀랐다',
+    ):
+        assert has_quote_line(spoken) is True, spoken
+
+    for label_only in (
+        "60세 이상 '서울시 시니어 일자리박람회' 참가자 모집",
+        "대중교통 이용…서울시 '푸른하늘의 날' 캠페인",
+        "[AI픽] KT, '모두의 AI' 풀스택 승부",
+        "서울시, 모아타운 '쾌속통합' 추진",
+        "해남 규모 3.1 지진",
+    ):
+        assert has_quote_line(label_only) is False, label_only
+
+
+def test_verdict_split_is_a_gauge_not_a_gate():
+    """verdict_split 은 «답글»을 재고 axis 는 «도달»을 잰다 — 서로 다른 결과다.
+
+    커널 실측에서 논쟁 축은 도달 예측에 기각돼 dead_debate 로 낮게 매겨진다.
+    같은 소재가 답글에는 좋을 수 있다(2026-08-23 계정 실측 — 답글율 1위 글의
+    노출이 2,800이었다). 그래서 이 필드는 축도 정렬도 바꾸지 않는다.
+    """
+    debated = screen_material("프랜차이즈 직원 SNS, 어디까지 허용?")
+    assert debated["verdict_split"] == "Y"
+    assert debated["axis"] == "dead_debate"  # 축은 그대로 낮다 — 덮어쓰지 않는다
+
+    flat = screen_material("해남 규모 3.1 지진")
+    assert flat["verdict_split"] == "?"
+
+    # 가해 역할 + 행위 조합도 판정이 갈린다
+    assert screen_material("무단결근 인턴에게 당일 퇴사 통보받은 원장")["verdict_split"] == "Y"

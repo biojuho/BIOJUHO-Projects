@@ -183,6 +183,18 @@ _VERIFY_PATTERNS = (
 )
 
 # ── 7절 계정 분기 : @biojuho는 저장형·해석형만 ────────────────────────────
+# ── 육성 한 줄 (2026-08-23) ────────────────────────────────────────────────
+# 제목의 따옴표가 «옮겨 쓸 수 있는 발화»인지 본다. 따옴표만으로는 못 가른다 —
+# 2026-08-23 홀드아웃 19건에서 «따옴표만» 규칙의 정밀도가 65.5%→28.6%로 반토막 났다.
+# 서울시 보도자료의 행사명('푸른하늘의 날')·정책명('쾌속통합')·브랜드('모두의 AI')가
+# 전부 따옴표를 쓰기 때문이다. 그래서 안쪽이 «말»인지를 어미·호격으로 한 번 더 본다.
+# 그 2차 조건을 붙이면 같은 홀드아웃에서 정밀도·재현율이 둘 다 100%가 됐다(n=19, 양성 2).
+_QUOTE_RE = re.compile(r"[\"“”'‘’]([^\"“”'‘’]{1,60})[\"“”'‘’]")
+_QUOTE_ENDING_RE = re.compile(
+    r"(요|다|냐|까|임|음|하자|어|네|지|야|죠|군|걸|나|래|든|거든|잖아)[?!.…~]*$"
+)
+_QUOTE_VOCATIVE_RE = re.compile(r"(님|왜|어디|우리|저희|제가|내가)")
+
 _TONE_CLASH_TERMS = ("ㅅㅂ", "ㅈ같", "개쳐", "미친", "실화냐", "레전드", "핵")
 _TONE_CLASH_PATTERNS = (re.compile(r"[?？]{2,}"), re.compile(r"[ㅋㅎ]{3,}"))
 
@@ -193,6 +205,21 @@ AXIS_LABELS = {
     "dead_flat": "죽는 축② 낙차 약함",
     "unknown": "원문 확인 필요",
 }
+
+
+def has_quote_line(title: str) -> bool:
+    """옮겨 쓸 수 있는 육성 한 줄이 제목에 있는가.
+
+    따옴표 안이 4자 이상이고, 구어체 종결어미로 끝나거나 호격·1인칭이 들어 있어야 한다.
+    행사명·정책명·브랜드명은 이 조건에서 걸러진다.
+    """
+    for m in _QUOTE_RE.finditer(str(title or "")):
+        inner = m.group(1).strip()
+        if len(inner) >= 4 and (
+            _QUOTE_ENDING_RE.search(inner) or _QUOTE_VOCATIVE_RE.search(inner)
+        ):
+            return True
+    return False
 
 
 def _hits(text: str, terms: tuple[str, ...]) -> list[str]:
@@ -233,6 +260,8 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
             "person_terms": [],
             "verify_first": False,
             "tone_clash": False,
+            "quote_line": False,
+            "verdict_split": "?",
             "signals": [],
             "confidence": "low",
         }
@@ -303,6 +332,15 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
     if tone:
         signals.append(f"@biojuho 톤 충돌 '{tone[0]}'")
 
+    # 2026-08-23. 아래 둘은 «표시»지 «제외»가 아니다. 축(axis)도 정렬도 바꾸지 않는다.
+    # 규칙이 아직 약해서 막으면 소재가 소리 없이 사라진다.
+    #
+    # verdict_split 이 dead_debate 축과 어긋나 보이는 것은 모순이 아니다.
+    # 축은 «도달»을 재고(커널 실측에서 논쟁 축은 도달 예측에 기각됐다)
+    # 이 필드는 «답글»을 잰다. 2026-08-23 실측 — 계정 안에서 답글율 1위 글의
+    # 노출이 2,800이다. 답글 처방과 도달 처방은 같은 처방이 아니다.
+    verdict_split = "Y" if (debate or debate_q or (actors and wrongs)) else "?"
+
     return {
         "axis": axis,
         "axis_label": AXIS_LABELS[axis],
@@ -310,6 +348,8 @@ def _screen_material_text(title: str, *, community_label: str | None = None) -> 
         "person_terms": actors[:3],
         "verify_first": bool(verify),
         "tone_clash": bool(tone),
+        "quote_line": has_quote_line(raw),
+        "verdict_split": verdict_split,
         "signals": signals,
         "confidence": confidence,
     }
