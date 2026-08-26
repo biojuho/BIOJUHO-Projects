@@ -264,6 +264,11 @@ _fast_viral_collector = FastViralCollector(
 init_fast_viral_router(_fast_viral_collector)
 app.include_router(fast_viral_router)
 try:
+    from .dashboard_routes_video_queue import router as video_queue_router
+except ImportError:
+    from dashboard_routes_video_queue import router as video_queue_router
+app.include_router(video_queue_router)
+try:
     from .runtime_identity import runtime_identity_router
 except ImportError:
     from runtime_identity import runtime_identity_router

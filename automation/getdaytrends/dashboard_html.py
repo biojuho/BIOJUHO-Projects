@@ -212,6 +212,20 @@ _HTML = """<!DOCTYPE html>
   @media(max-width:1200px){{.fast-viral-grid{{grid-template-columns:1fr 1fr}}}}
   @media(max-width:800px){{.fast-viral-grid{{grid-template-columns:1fr}}}}
 
+  /* ── External video material queue (read-only snapshot) ── */
+  .video-queue-panel{{margin:16px 28px 14px;border-color:rgba(245,158,11,.28);background:linear-gradient(145deg,#1a1608,#1d1a10)}}
+  .video-queue-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+  .video-queue-card{{background:#0f172a;border:1px solid rgba(245,158,11,.16);border-radius:12px;padding:15px}}
+  .video-queue-score{{min-width:58px;text-align:center;border-radius:12px;padding:8px 10px;background:rgba(245,158,11,.13);color:#fcd34d;font-size:1.05rem;font-weight:800}}
+  .video-queue-score small{{display:block;font-size:.58rem;color:#94a3b8;font-weight:600;margin-top:2px}}
+  .video-queue-line{{margin-top:8px;color:#cbd5e1;font-size:.78rem;line-height:1.55}}
+  .video-queue-alert{{margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:.78rem;line-height:1.5;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fbbf24}}
+  .video-queue-alert.is-stale{{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#fca5a5}}
+  .video-queue-blocked{{margin-top:12px;display:grid;gap:6px}}
+  .video-queue-blocked-item{{padding:8px 11px;border-radius:9px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.18);color:#cbd5e1;font-size:.75rem;line-height:1.5}}
+  .video-queue-blocked-reason{{color:#fbbf24;font-weight:600}}
+  @media(max-width:1000px){{.video-queue-grid{{grid-template-columns:1fr}}}}
+
   /* ── Reference library ── */
   .reference-panel{{margin:16px 28px 14px}}
   .reference-live-bar{{display:grid;grid-template-columns:2fr .7fr auto;gap:10px;margin-bottom:10px}}
@@ -306,6 +320,21 @@ _HTML = """<!DOCTYPE html>
     <div class="skeleton sk-block" style="height:190px"></div>
     <div class="skeleton sk-block" style="height:190px"></div>
   </div>
+</section>
+
+<!-- External Video Material Queue (read-only snapshot from another workspace) -->
+<section class="panel video-queue-panel" aria-labelledby="video-queue-title">
+  <h3 id="video-queue-title">🎬 사건 소재 영상 큐</h3>
+  <p class="x-radar-intro">다른 작업 저장소가 고정 경로에 내주는 영상 후보 스냅샷을 읽기만 합니다. 이 큐는 X에 바로 올릴 미디어 공급원이 아니라 사건 소재 감지용입니다 — 지금까지 확인한 23건 전수에서 재업로드 가능한 영상은 0건이었습니다. 저작권·이용조건은 건별로 직접 확인해야 하며, 이 칸은 원문 링크와 근거를 보여 주는 것까지만 합니다.</p>
+  <div id="video-queue-status" class="x-radar-status" aria-live="polite">
+    <span class="live-dot"></span><span>영상 큐 스냅샷 확인 준비 중</span>
+  </div>
+  <div id="video-queue-alerts"></div>
+  <div id="video-queue-list" class="video-queue-grid">
+    <div class="skeleton sk-block" style="height:150px"></div>
+    <div class="skeleton sk-block" style="height:150px"></div>
+  </div>
+  <div id="video-queue-blocked" class="video-queue-blocked"></div>
 </section>
 
 <!-- X Breaking / Viral Source Radar -->
@@ -1494,6 +1523,136 @@ async function refreshFastViral(silent = false) {{
   }}
 }}
 
+// 영상 큐는 이 대시보드가 수집하지 않는다 — 상대 저장소가 파일로 내주는 스냅샷을
+// 읽기만 한다. 그래서 refresh 버튼이 없고, 상태 줄은 "무엇이 들어 있는가"를 말한다.
+function videoQueuePickNumber(data, keys) {{
+  for (const key of keys) {{
+    const value = data[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }}
+  return null;
+}}
+
+function renderVideoQueue(data) {{
+  const container = document.getElementById('video-queue-list');
+  const status = document.getElementById('video-queue-status');
+  const alerts = document.getElementById('video-queue-alerts');
+  const blockedBox = document.getElementById('video-queue-blocked');
+  if (!container || !status || !alerts) return;
+  if (data.available === false) {{
+    const reason = data.reason === 'unreadable_file' || data.reason === 'unexpected_format'
+      ? '파일이 있지만 읽을 수 없습니다'
+      : '아직 생성되지 않았습니다';
+    status.innerHTML = `
+      <span class="live-dot is-stale"></span>
+      <strong>영상 큐 없음</strong>
+      <span>${{safeHtml(reason)}} — 상대 저장소의 회차 산출(make video-queue-json)을 기다립니다</span>
+    `;
+    alerts.innerHTML = '';
+    container.innerHTML = '<div class="x-radar-empty">영상 큐 JSON이 고정 경로에 아직 없습니다. 상대 저장소가 파일을 쓰면 이 칸이 채워집니다.</div>';
+    if (blockedBox) blockedBox.innerHTML = '';
+    return;
+  }}
+  const videos = Array.isArray(data.videos) ? data.videos : [];
+  const blocked = Array.isArray(data.safety_blocked)
+    ? data.safety_blocked
+    : (Array.isArray(data.blocked) ? data.blocked : []);
+  // 산출 쪽(video_candidates.py build_dashboard_json)은 집계를 counts 객체에 담는다.
+  // 스키마가 바뀌어도 숫자가 조용히 "미상"으로 빠지지 않게 두 단계로 찾는다.
+  const counts = (data.counts && typeof data.counts === 'object') ? data.counts : {{}};
+  const videoCount = videoQueuePickNumber(counts, ['confirmed_videos', 'video_count']) ?? videos.length;
+  const total = videoQueuePickNumber(counts, ['total_candidates'])
+    ?? videoQueuePickNumber(data, ['total_candidates', 'candidates_total', 'total']);
+  const blockedCount = videoQueuePickNumber(counts, ['safety_blocked'])
+    ?? videoQueuePickNumber(data, ['safety_blocked_count', 'blocked_count'])
+    ?? blocked.length;
+  const opened = videoQueuePickNumber(counts, ['opened'])
+    ?? videoQueuePickNumber(data, ['opened_count', 'opened']);
+  const deadCount = videoQueuePickNumber(counts, ['dead_links'])
+    ?? videoQueuePickNumber(data, ['dead_count', 'dead_link_count']);
+  const unknownCount = videoQueuePickNumber(counts, ['unknown'])
+    ?? videoQueuePickNumber(data, ['unknown_count', 'undecidable_count']);
+  const maxAge = videoQueuePickNumber(data, ['max_age_minutes', 'max_age', 'max_age_min']);
+  const fresh = freshnessParts(data);
+  const windowLabel = maxAge == null
+    ? '결과 창 미상 — 스냅샷에 창 정보가 없습니다'
+    : `최대 ${{safeHtml(String(maxAge))}}분(${{safeHtml(String(Math.round(maxAge / 60)))}}시간) 안에 올라온 글만 본 결과`;
+  status.innerHTML = `
+    <span class="live-dot${{fresh.dotClass}}"></span>
+    <strong>영상 확정 ${{safeHtml(String(videoCount))}}건</strong>
+    <span>후보 ${{safeHtml(total == null ? '미상' : String(total))}} · 열람 ${{safeHtml(opened == null ? '미상' : String(opened))}} · 죽은 링크 ${{safeHtml(deadCount == null ? '미상' : String(deadCount))}} · 판정 불가 ${{safeHtml(unknownCount == null ? '미상' : String(unknownCount))}}</span>
+    <span>안전 게이트 차단 ${{safeHtml(String(blockedCount))}}건 — 아래에 사유까지 표시</span>
+    <span>${{windowLabel}}</span>
+    <span class="freshness${{fresh.textClass}}">스냅샷 생성 ${{safeHtml(fresh.text)}}</span>
+  `;
+  // 눈에 띄어야 하는 경고는 상태 줄이 아니라 패널 몸통에 띄운다.
+  const alertParts = [];
+  if (fresh.dotClass === ' is-stale') {{
+    alertParts.push(`<div class="video-queue-alert is-stale">⚠ 스냅샷이 ${{safeHtml(fresh.text)}} 것입니다 — 창(최대 3시간)을 벗어난 데이터일 수 있으니 최신 회차 산출이 필요합니다.</div>`);
+  }} else if (fresh.dotClass === ' is-warn') {{
+    alertParts.push(`<div class="video-queue-alert">⚠ 스냅샷이 ${{safeHtml(fresh.text)}} 것입니다 — 창 안의 소재가 이미 X에 퍼졌을 수 있습니다.</div>`);
+  }}
+  if (!videoCount) {{
+    alertParts.push('<div class="video-queue-alert">⚠ 영상 확정이 0건입니다 — 열람은 됐는데 전부 판정 보류라면 판정 단계가 고장 났을 수 있습니다. 원본 큐 보고서와 대조해 주세요.</div>');
+  }}
+  alerts.innerHTML = alertParts.join('');
+  container.innerHTML = videos.length ? videos.map((item, index) => {{
+    const ageLabel = item.age_minutes != null ? `${{safeHtml(String(item.age_minutes))}}분 전 게시` : '게시 시각 미상';
+    const vpmLabel = Number.isFinite(item.views_per_minute) ? String(item.views_per_minute) : '—';
+    const viewsLabel = item.views != null ? Number(item.views).toLocaleString() : null;
+    const durationLabel = item.duration_sec != null ? `${{safeHtml(String(item.duration_sec))}}초` : null;
+    const evidence = item.video_evidence ? `<span class="x-radar-reason">근거 ${{safeHtml(String(item.video_evidence))}}</span>` : '';
+    const line = item.content_line ? `<div class="video-queue-line">${{safeHtml(String(item.content_line))}}</div>` : '';
+    return `
+      <article class="video-queue-card">
+        <div class="x-radar-card-top">
+          <div>
+            <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(String(item.source || '출처 미상'))}} · ${{safeHtml(ageLabel)}}</div>
+            <div class="x-radar-keyword"><a href="${{safeExternalUrl(item.url)}}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">${{safeHtml(String(item.title || '제목 미상'))}} ↗</a></div>
+          </div>
+          <div class="video-queue-score">${{safeHtml(vpmLabel)}}<small>분당 조회</small></div>
+        </div>
+        ${{line}}
+        <div class="x-radar-reasons">
+          ${{evidence}}
+          ${{viewsLabel ? `<span class="x-radar-reason">누적 조회 ${{safeHtml(viewsLabel)}}</span>` : ''}}
+          ${{durationLabel ? `<span class="x-radar-reason">길이 ${{safeHtml(durationLabel)}}</span>` : ''}}
+        </div>
+        <div class="x-radar-actions">
+          <a class="x-radar-link" href="${{safeExternalUrl(item.url)}}" target="_blank" rel="noopener noreferrer">원문 ↗</a>
+          <a class="x-radar-link" href="${{safeExternalUrl(item.x_search_url)}}" target="_blank" rel="noopener noreferrer">X 검색 ↗</a>
+        </div>
+      </article>
+    `;
+  }}).join('') : '<div class="x-radar-empty">이번 회차에 영상으로 확정된 소재가 없습니다.</div>';
+  // 안전 게이트에 걸린 후보는 조용히 사라지지 않는다 — 사유째로 남긴다.
+  if (blockedBox) {{
+    blockedBox.innerHTML = blocked.length ? [
+      `<div class="reference-connector-note">안전 게이트 차단 ${{safeHtml(String(blocked.length))}}건</div>`,
+      ...blocked.map(item => {{
+        const reasons = Array.isArray(item.reasons)
+          ? item.reasons
+          : (Array.isArray(item.safety_reasons) ? item.safety_reasons : []);
+        const reasonLabel = reasons.length
+          ? reasons.map(reason => safeHtml(String(reason))).join(' · ')
+          : '사유 미상';
+        return `<div class="video-queue-blocked-item"><a href="${{safeExternalUrl(item.url)}}" target="_blank" rel="noopener noreferrer" style="color:inherit">${{safeHtml(String(item.title || '제목 미상'))}}</a> — <span class="video-queue-blocked-reason">${{reasonLabel}}</span></div>`;
+      }}),
+    ].join('') : '';
+  }}
+}}
+
+async function loadVideoQueue() {{
+  try {{
+    const response = await fetch('/api/video-queue');
+    if (!response.ok) throw new Error('video_queue_fetch_failed');
+    renderVideoQueue(await response.json());
+  }} catch (error) {{
+    const status = document.getElementById('video-queue-status');
+    if (status) status.innerHTML = '<span class="live-dot is-stale"></span><span>영상 큐 확인 실패 — 잠시 후 다시 시도합니다.</span>';
+  }}
+}}
+
 function getXRadarFocusKeywords() {{
   const raw = document.getElementById('x-radar-focus')?.value || '';
   return raw.split(',').map(value => value.trim()).filter(Boolean).slice(0, 8);
@@ -2136,6 +2295,7 @@ async function init() {{
   handleTapCheckoutStateFromUrl();
   await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts(), loadReferenceLibrary()]);
   await Promise.all([refreshFastViral(true), refreshXRadar(true), refreshLiveReferences(true)]);
+  await loadVideoQueue();
   toast('✅ 대시보드 로드 완료');
 }}
 init();
@@ -2149,6 +2309,7 @@ setInterval(async () => {{
 setInterval(() => refreshLiveReferences(true), 600000);
 setInterval(() => refreshXRadar(true), 120000);
 setInterval(() => refreshFastViral(true), 120000);
+setInterval(() => loadVideoQueue(), 120000);
 </script>
 </body>
 </html>"""
