@@ -194,6 +194,12 @@ def check_npm_build(rel_path: str) -> dict:
     if not full_path.exists():
         return {"ok": False, "message": f"MISSING {rel_path}"}
 
+    # Environments without installed node deps (e.g. the Pipeline Watcher CI
+    # job installs Python only) cannot run vite; real builds are covered by
+    # agriguard-ci.yml.
+    if not (full_path / "node_modules").exists():
+        return {"ok": True, "message": "SKIP build dry-run (node_modules not installed)"}
+
     try:
         npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
         proc = subprocess.run(

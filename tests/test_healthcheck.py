@@ -36,3 +36,33 @@ def test_npm_build_failure_reports_command_not_found(monkeypatch, tmp_path: Path
     expected = {"ok": False, "message": "FAILED build dry-run: sh: vite: command not found"}
     if result != expected:
         raise AssertionError(result)
+
+
+def test_npm_build_skips_when_node_modules_absent(monkeypatch, tmp_path: Path) -> None:
+    """node_modules 없는 환경(Python-only CI)에서는 ok=True로 조기 반환."""
+    healthcheck = load_healthcheck_module()
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    monkeypatch.setattr(healthcheck, "WORKSPACE", tmp_path)
+
+    result = healthcheck.check_npm_build("frontend")
+
+    if not result["ok"]:
+        raise AssertionError(f"Expected ok=True, got: {result}")
+    if "SKIP" not in result["message"]:
+        raise AssertionError(f"Expected 'SKIP' in message, got: {result['message']}")
+    if "node_modules" not in result["message"]:
+        raise AssertionError(f"Expected 'node_modules' in message, got: {result['message']}")
+
+
+def test_npm_build_missing_package_dir(monkeypatch, tmp_path: Path) -> None:
+    """package dir 없으면 ok=False 반환."""
+    healthcheck = load_healthcheck_module()
+    monkeypatch.setattr(healthcheck, "WORKSPACE", tmp_path)
+
+    result = healthcheck.check_npm_build("nonexistent-app")
+
+    if result["ok"]:
+        raise AssertionError(f"Expected ok=False, got: {result}")
+    if "MISSING" not in result["message"]:
+        raise AssertionError(f"Expected 'MISSING' in message, got: {result['message']}")
