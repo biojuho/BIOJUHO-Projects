@@ -200,7 +200,16 @@ _HTML = """<!DOCTYPE html>
   .x-radar-actions{{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}}
   .x-radar-link{{display:inline-flex;align-items:center;text-decoration:none;border-radius:9px;padding:8px 11px;background:rgba(99,102,241,.13);border:1px solid rgba(99,102,241,.18);color:#c7d2fe;font-size:.73rem;font-weight:700}}
   .x-radar-empty{{color:#94a3b8;font-size:.8rem;padding:14px}}
-  @media(max-width:1000px){{.x-radar-controls,.x-radar-grid{{grid-template-columns:1fr}}}}
+  .x-radar-section{{margin-bottom:18px}}
+  .x-radar-section:last-child{{margin-bottom:0}}
+  .x-radar-section-head{{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(148,163,184,.14)}}
+  .x-radar-section-head strong{{color:#f8fafc;font-size:.95rem}}
+  .reference-live-queue{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 16px}}
+  .reference-live-card{{background:#0f172a;border:1px solid rgba(239,68,68,.16);border-radius:12px;padding:15px}}
+  .reference-live-alert{{border:1px solid rgba(245,158,11,.35);background:rgba(245,158,11,.08);color:#fcd34d;border-radius:9px;padding:9px 11px;font-size:.78rem;margin:8px 0}}
+  .reference-live-new{{padding:2px 8px;border-radius:999px;background:rgba(34,197,94,.15);color:#86efac;font-size:.68rem;font-weight:700}}
+  .reference-live-repeat{{padding:2px 8px;border-radius:999px;background:rgba(148,163,184,.14);color:#94a3b8;font-size:.68rem;font-weight:700}}
+  @media(max-width:1000px){{.x-radar-controls,.x-radar-grid,.reference-live-queue{{grid-template-columns:1fr}}}}
 
   /* ── Direct community early detector ── */
   .fast-viral-panel{{margin:16px 28px 14px;border-color:rgba(34,197,94,.28);background:linear-gradient(145deg,#101c1b,#132025)}}
@@ -302,15 +311,15 @@ _HTML = """<!DOCTYPE html>
 <!-- Direct Community Early Detector -->
 <section class="panel fast-viral-panel" aria-labelledby="fast-viral-title">
   <h3 id="fast-viral-title">🚨 커뮤니티 바이럴 조기감지</h3>
-  <p class="x-radar-intro">개드립·더쿠 HOT·루리웹 베스트·보배드림 베스트를 직접 확인하고, 연결 제한이나 후보 부족 때는 IssueLink의 다른 커뮤니티 원문으로 보완합니다. 댓글·조회·추천·교차확산으로 X 노출 적합도를 계산하며 선행시간은 두 최초 감지 시각이 모두 있을 때만 표시합니다.</p>
+  <p class="x-radar-intro">국내 직접 커뮤니티와 국내 커뮤니티 보완 신호(IssueLink)만 24시간 5분 간격으로 확인합니다. 댓글·조회·추천·교차확산으로 X 노출 적합도를 계산하며, 해외 커뮤니티 소스는 이 칸에서 수집하지 않습니다.</p>
   <div class="x-radar-controls">
-    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화와 성인성 제목을 키워드로 걸러내지만, 목록에 없는 새 표현은 통과할 수 있습니다. 화면에 뜬 것이 곧 안전하다는 뜻은 아닙니다. AAGAG는 robots 정책에 따라, FMKorea·클리앙은 사이트가 자동 접근을 차단해 직접 수집하지 않습니다(FMKorea는 IssueLink 경유로만 확인).</div>
+    <div class="reference-connector-note">스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화와 성인성 제목을 키워드로 걸러내지만, 목록에 없는 새 표현은 통과할 수 있습니다. 화면에 뜬 것이 곧 안전하다는 뜻은 아닙니다. 각 회차의 국내 소스 연결 상태와 오류는 아래 분모에 반영되며, 막힌 소스는 백오프 후 재시도합니다.</div>
     <select id="fast-viral-limit" class="tap-input" aria-label="조기 후보 표시 개수">
       <option value="6">상위 6개</option>
       <option value="12" selected>상위 12개</option>
       <option value="20">상위 20개</option>
     </select>
-    <button id="fast-viral-refresh" type="button" class="tap-btn" onclick="refreshFastViral(false)">지금 직접 확인</button>
+    <button id="fast-viral-refresh" type="button" class="tap-btn" onclick="refreshFastViral()">지금 직접 확인</button>
   </div>
   <div id="fast-viral-status" class="x-radar-status" aria-live="polite">
     <span class="live-dot"></span><span>다중 커뮤니티 원문·최초 감지 시각 확인 준비 중</span>
@@ -322,10 +331,10 @@ _HTML = """<!DOCTYPE html>
   </div>
 </section>
 
-<!-- External Video Material Queue (read-only snapshot from another workspace) -->
+<!-- Auto-produced video material queue (fixed JSON boundary between workspaces) -->
 <section class="panel video-queue-panel" aria-labelledby="video-queue-title">
   <h3 id="video-queue-title">🎬 사건 소재 영상 큐</h3>
-  <p class="x-radar-intro">다른 작업 저장소가 고정 경로에 내주는 영상 후보 스냅샷을 읽기만 합니다. 이 큐는 X에 바로 올릴 미디어 공급원이 아니라 사건 소재 감지용입니다 — 지금까지 확인한 23건 전수에서 재업로드 가능한 영상은 0건이었습니다. 저작권·이용조건은 건별로 직접 확인해야 하며, 이 칸은 원문 링크와 근거를 보여 주는 것까지만 합니다.</p>
+  <p class="x-radar-intro">서버가 5분마다 국내 커뮤니티 본문과 Mastodon·PeerTube 공개 영상 메타를 함께 갱신합니다. 미디어 파일은 받지 않고 사건 소재·반응·원문 링크만 모읍니다. 이 칸은 개인용 조기감지 큐이며 자동 게시 기능은 없습니다.</p>
   <div id="video-queue-status" class="x-radar-status" aria-live="polite">
     <span class="live-dot"></span><span>영상 큐 스냅샷 확인 준비 중</span>
   </div>
@@ -340,7 +349,7 @@ _HTML = """<!DOCTYPE html>
 <!-- X Breaking / Viral Source Radar -->
 <section class="panel x-radar-panel" aria-labelledby="x-radar-title">
   <h3 id="x-radar-title">⚡ X 속보·바이럴 원문 레이더</h3>
-  <p class="x-radar-intro">독립 원문·Threads 교차 근거가 있는 주제와, 공개 X 상위 5위 반복 또는 연속 순위 상승이 확인된 X 네이티브 단어를 분리해 표시합니다. 공개 X는 90초 캐시·2분 자동 갱신이며 수동 확인은 캐시를 우회합니다. 스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화는 키워드로 걸러내지만, 목록에 없는 새 표현은 통과할 수 있습니다. 화면에 뜬 것이 곧 안전하다는 뜻은 아닙니다. 자동 문안 생성이나 게시 기능은 없습니다.</p>
+  <p class="x-radar-intro">서버가 24시간 120초 주기로 수집하고, 이 화면은 마지막 스냅샷을 GET으로만 확인합니다 — 수동 「지금 새로 확인」만 강제 수집을 호출합니다. 「지금 속보」는 긴급 증거가 있는 직접 원문, 「최신 뉴스」는 비긴급 최신 원문, 「오늘 이슈」는 랭킹·검색 교차 근거, 「X 네이티브」는 공개 X 상위 5위 반복 또는 연속 순위 상승이 확인된 단어만 각각 올립니다. 뉴스 랭킹은 게시 360분 상한 초과를 걷어내고 게시 시각 미상은 칸 아래로 강등합니다. 스포츠·정치·증시·종목·기업 실적·부동산·성별 갈등·애니/만화는 키워드로 걸러내지만, 목록에 없는 새 표현은 통과할 수 있습니다. 화면에 뜬 것이 곧 안전하다는 뜻은 아닙니다. 자동 문안 생성이나 게시 기능은 없습니다.</p>
   <div class="x-radar-controls">
     <input id="x-radar-focus" class="tap-input" maxlength="500" placeholder="관심 분야 선택 입력 — 예: AI, 사건, 크리에이터 (비워두면 전체)">
     <select id="x-radar-limit" class="tap-input" aria-label="표시 개수">
@@ -348,7 +357,7 @@ _HTML = """<!DOCTYPE html>
       <option value="20" selected>상위 20개</option>
       <option value="30">상위 30개</option>
     </select>
-    <button id="x-radar-refresh" type="button" class="tap-btn" onclick="refreshXRadar(false)">지금 새로 확인</button>
+    <button id="x-radar-refresh" type="button" class="tap-btn" onclick="refreshXRadar()">지금 새로 확인</button>
   </div>
   <div id="x-radar-status" class="x-radar-status" aria-live="polite">
     <span class="live-dot"></span><span>Google 실시간 검색과 공개 X 트렌드 연결 준비 중</span>
@@ -362,6 +371,7 @@ _HTML = """<!DOCTYPE html>
 <!-- Live Creator Reference Radar -->
 <section class="panel reference-panel" aria-labelledby="reference-library-title">
   <h3 id="reference-library-title">🔴 LIVE 크리에이터 레퍼런스 레이더</h3>
+  <p class="x-radar-intro">「현재 큐」는 서버가 24시간 30분 주기로 모으는 최근 14일 영상만 보여주는 제작 참고 큐입니다 — 게시시각·시간당 조회·반응·길이·형식·추천 이유·신규/반복을 표시하고 썸네일은 받지 않습니다. 자동 갱신은 GET 상태 확인만 하고, 수동 버튼만 실제 수집을 호출합니다. 아래 「레퍼런스 라이브러리」는 직접 저장하는 영구 자료로, 현재 큐와 섞이지 않습니다.</p>
   <div class="reference-live-bar">
     <input id="reference-live-keywords" class="tap-input" value="AI 콘텐츠, 유튜브 성장, 콘텐츠 마케팅" maxlength="500" aria-label="라이브 수집 키워드">
     <select id="reference-live-limit" class="tap-input" aria-label="키워드당 수집 개수">
@@ -369,12 +379,18 @@ _HTML = """<!DOCTYPE html>
       <option value="5" selected>키워드당 5개</option>
       <option value="8">키워드당 8개</option>
     </select>
-    <button id="reference-live-refresh" type="button" class="tap-btn" onclick="refreshLiveReferences(false)">지금 라이브 수집</button>
+    <button id="reference-live-refresh" type="button" class="tap-btn" onclick="refreshLiveReferences()">지금 라이브 수집</button>
   </div>
   <div id="reference-live-status" class="reference-live-status" aria-live="polite">
     <span class="live-dot"></span><span>YouTube 공개 메타데이터 연결 준비 중</span>
     <span class="reference-connector-note">Instagram · TikTok · Threads · X는 공식 API 연결 전까지 비활성</span>
   </div>
+  <div id="reference-live-alerts"></div>
+  <div id="reference-live-queue" class="reference-live-queue" aria-live="polite">
+    <div class="skeleton sk-block" style="height:150px"></div>
+    <div class="skeleton sk-block" style="height:150px"></div>
+  </div>
+  <div class="x-radar-section-head"><strong>📚 레퍼런스 라이브러리</strong><span class="reference-connector-note">직접 추가·저장하는 영구 자료 — 현재 큐와 별도</span></div>
   <div class="reference-toolbar">
     <input id="reference-query" class="tap-input" placeholder="키워드·제목·대본·메모 검색" oninput="loadReferenceLibrary()">
     <select id="reference-platform-filter" class="tap-input" onchange="loadReferenceLibrary()">
@@ -1435,6 +1451,7 @@ function renderFastViral(data) {{
     <span class="fast-viral-early">${{safeHtml(String(data.community_cluster_count || items.length))}}개 소재 · ${{safeHtml(String(data.community_source_count || 0))}}개 대표 출처 · 실측 선행 ${{safeHtml(String(data.measured_lead_count || 0))}}건</span>
     <span>식은 것 ${{safeHtml(String(data.cooling_count || 0))}}건</span>
     <span>직접 목록 ${{safeHtml(String(data.direct_source_count || 0))}}/${{safeHtml(String(data.direct_source_total || 0))}}곳 연결 · 직접 표시 ${{safeHtml(String(data.direct_displayed_count || 0))}}건 · 원문 이동 ${{safeHtml(String(data.resolved_original_count || 0))}}건</span>
+    <span>국내 전용 · 해외 커뮤니티 수집 안 함 · 5분 자동 갱신</span>
     <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTotal))}}건</span>
     <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
     ${{kernelSummary(data)}}
@@ -1448,14 +1465,14 @@ function renderFastViral(data) {{
   }});
   if (!items.length) {{
     const errors = Array.isArray(data.errors) && data.errors.length ? ` (${{safeHtml(data.errors.join(', '))}})` : '';
-    container.innerHTML = `<div class="x-radar-empty">현재 속도·안전 게이트를 통과한 조기 후보가 없습니다.${{errors}} 2분 뒤 다시 확인합니다.</div>`;
+    container.innerHTML = `<div class="x-radar-empty">현재 속도·안전 게이트를 통과한 조기 후보가 없습니다.${{errors}} 5분 안에 자동으로 다시 확인합니다.</div>`;
     return;
   }}
   container.innerHTML = items.map((item, index) => {{
     const firstSeen = item.first_seen_at ? new Date(item.first_seen_at).toLocaleTimeString('ko-KR', {{hour:'2-digit', minute:'2-digit', second:'2-digit'}}) : '이번 수집에서 확인';
     const leadLabel = item.lead_status === 'measured'
       ? `실측 선행 ${{safeHtml(String(item.lead_minutes))}}분`
-      : (item.lead_status === 'awaiting_aggregator' ? 'IssueLink 등장 대기' : (item.lead_status === 'same_poll' ? '동일 수집 주기 감지' : 'IssueLink 최초 감지'));
+      : (item.lead_status === 'not_applicable' ? '선행 비교 비대상' : (item.lead_status === 'awaiting_aggregator' ? 'IssueLink 등장 대기' : (item.lead_status === 'same_poll' ? '동일 수집 주기 감지' : 'IssueLink 최초 감지')));
     const scoreBlock = Number.isFinite(item.x_exposure_score)
       ? `<div class="fast-viral-score">${{safeHtml(String(item.x_exposure_score))}}<small>X 적합도</small></div>`
       : '<div class="fast-viral-score"><small>집계 확인</small></div>';
@@ -1503,28 +1520,41 @@ function renderFastViral(data) {{
   }}).join('');
 }}
 
-async function refreshFastViral(silent = false) {{
+// 자동 경로는 서버 스냅샷을 GET으로만 읽는다(수집은 서버 스케줄러 몫).
+async function loadFastViral() {{
+  const status = document.getElementById('fast-viral-status');
+  try {{
+    const response = await fetch('/api/fast-viral');
+    if (!response.ok) throw new Error('fast_viral_fetch_failed');
+    renderFastViral(await response.json());
+  }} catch (error) {{
+    if (status) status.innerHTML = '<span class="live-dot is-stale"></span><span>커뮤니티 조기감지 확인 실패 — 잠시 후 자동으로 다시 확인합니다.</span>';
+  }}
+}}
+
+// 수동 버튼만 실제 강제 수집(POST)을 호출한다.
+async function refreshFastViral() {{
   const button = document.getElementById('fast-viral-refresh');
   const status = document.getElementById('fast-viral-status');
   if (!button || !status) return;
   button.disabled = true;
-  status.innerHTML = '<span class="live-dot"></span><span>여러 커뮤니티 원문과 실제 최초 감지 시각을 확인하고 있습니다…</span>';
+  status.innerHTML = '<span class="live-dot"></span><span>국내 직접 커뮤니티 원문과 국내 보완 신호를 수집하고 있습니다…</span>';
   try {{
     const limit = Number(document.getElementById('fast-viral-limit')?.value || 12);
     const response = await fetch(`/api/fast-viral/refresh?limit=${{limit}}`, {{ method: 'POST' }});
     if (!response.ok) throw new Error('fast_viral_refresh_failed');
     const data = await response.json();
     renderFastViral(data);
-    if (!silent) toast(`조기 후보 ${{(data.items || []).length}}개를 확인했습니다.`);
+    toast(`조기 후보 ${{(data.items || []).length}}개를 새로 수집했습니다.`);
   }} catch (error) {{
-    status.innerHTML = '<span class="live-dot"></span><span>커뮤니티 조기감지 실패 — 잠시 후 다시 시도해 주세요.</span>';
+    status.innerHTML = '<span class="live-dot"></span><span>커뮤니티 조기감지 강제 수집 실패 — 잠시 후 다시 시도해 주세요.</span>';
   }} finally {{
     button.disabled = false;
   }}
 }}
 
-// 영상 큐는 이 대시보드가 수집하지 않는다 — 상대 저장소가 파일로 내주는 스냅샷을
-// 읽기만 한다. 그래서 refresh 버튼이 없고, 상태 줄은 "무엇이 들어 있는가"를 말한다.
+// 영상 큐 생산은 서버 스케줄러가 5분마다 브램블 CLI를 실행해 맡는다. 이 화면은
+// 원자 교체된 스냅샷만 읽으므로 별도 수동 버튼 없이 상태·소스 오류를 표시한다.
 function videoQueuePickNumber(data, keys) {{
   for (const key of keys) {{
     const value = data[key];
@@ -1546,10 +1576,10 @@ function renderVideoQueue(data) {{
     status.innerHTML = `
       <span class="live-dot is-stale"></span>
       <strong>영상 큐 없음</strong>
-      <span>${{safeHtml(reason)}} — 상대 저장소의 회차 산출(make video-queue-json)을 기다립니다</span>
+      <span>${{safeHtml(reason)}} — 5분 자동 생산기의 첫 회차 또는 재시도를 기다립니다</span>
     `;
     alerts.innerHTML = '';
-    container.innerHTML = '<div class="x-radar-empty">영상 큐 JSON이 고정 경로에 아직 없습니다. 상대 저장소가 파일을 쓰면 이 칸이 채워집니다.</div>';
+    container.innerHTML = '<div class="x-radar-empty">영상 큐 JSON이 아직 없습니다. 자동 생산기가 원자적으로 새 스냅샷을 쓰면 이 칸이 채워집니다.</div>';
     if (blockedBox) blockedBox.innerHTML = '';
     return;
   }}
@@ -1574,6 +1604,12 @@ function renderVideoQueue(data) {{
     ?? videoQueuePickNumber(data, ['unknown_count', 'undecidable_count']);
   const maxAge = videoQueuePickNumber(data, ['max_age_minutes', 'max_age', 'max_age_min']);
   const fresh = freshnessParts(data);
+  const sourceHealth = Array.isArray(data.source_health) ? data.source_health : [];
+  const healthySources = sourceHealth.filter(row => row && ['ok', 'partial'].includes(String(row.status))).length;
+  const sourceErrors = Array.isArray(data.errors) ? data.errors : [];
+  const sourceSummary = sourceHealth.length
+    ? `글로벌 공개 영상 소스 ${{healthySources}}/${{sourceHealth.length}} 정상`
+    : '글로벌 공개 영상 소스 상태 미측정';
   const windowLabel = maxAge == null
     ? '결과 창 미상 — 스냅샷에 창 정보가 없습니다'
     : `최대 ${{safeHtml(String(maxAge))}}분(${{safeHtml(String(Math.round(maxAge / 60)))}}시간) 안에 올라온 글만 본 결과`;
@@ -1582,15 +1618,20 @@ function renderVideoQueue(data) {{
     <strong>영상 확정 ${{safeHtml(String(videoCount))}}건</strong>
     <span>후보 ${{safeHtml(total == null ? '미상' : String(total))}} · 열람 ${{safeHtml(opened == null ? '미상' : String(opened))}} · 죽은 링크 ${{safeHtml(deadCount == null ? '미상' : String(deadCount))}} · 판정 불가 ${{safeHtml(unknownCount == null ? '미상' : String(unknownCount))}}</span>
     <span>안전 게이트 차단 ${{safeHtml(String(blockedCount))}}건 — 아래에 사유까지 표시</span>
+    <span>${{safeHtml(sourceSummary)}} · 서버 5분 자동 갱신</span>
     <span>${{windowLabel}}</span>
     <span class="freshness${{fresh.textClass}}">스냅샷 생성 ${{safeHtml(fresh.text)}}</span>
   `;
   // 눈에 띄어야 하는 경고는 상태 줄이 아니라 패널 몸통에 띄운다.
   const alertParts = [];
   if (fresh.dotClass === ' is-stale') {{
-    alertParts.push(`<div class="video-queue-alert is-stale">⚠ 스냅샷이 ${{safeHtml(fresh.text)}} 것입니다 — 창(최대 3시간)을 벗어난 데이터일 수 있으니 최신 회차 산출이 필요합니다.</div>`);
+    alertParts.push(`<div class="video-queue-alert is-stale">⚠ 스냅샷이 ${{safeHtml(fresh.text)}} 것입니다 — 자동 생산기가 30분 이상 성공하지 못했습니다.</div>`);
   }} else if (fresh.dotClass === ' is-warn') {{
-    alertParts.push(`<div class="video-queue-alert">⚠ 스냅샷이 ${{safeHtml(fresh.text)}} 것입니다 — 창 안의 소재가 이미 X에 퍼졌을 수 있습니다.</div>`);
+    alertParts.push(`<div class="video-queue-alert">⚠ 스냅샷이 ${{safeHtml(fresh.text)}} 것입니다 — 자동 갱신 세 회차 이상 지연됐습니다.</div>`);
+  }}
+  if (sourceErrors.length) {{
+    const failedLabels = sourceErrors.slice(0, 3).map(error => safeHtml(String(error.source || error.family || '소스 미상'))).join(' · ');
+    alertParts.push(`<div class="video-queue-alert">일부 글로벌 영상 소스 실패: ${{failedLabels}} — 정상 소스 결과는 그대로 표시합니다.</div>`);
   }}
   if (!videoCount) {{
     alertParts.push('<div class="video-queue-alert">⚠ 영상 확정이 0건입니다 — 열람은 됐는데 전부 판정 보류라면 판정 단계가 고장 났을 수 있습니다. 원본 큐 보고서와 대조해 주세요.</div>');
@@ -1598,28 +1639,38 @@ function renderVideoQueue(data) {{
   alerts.innerHTML = alertParts.join('');
   container.innerHTML = videos.length ? videos.map((item, index) => {{
     const ageLabel = item.age_minutes != null ? `${{safeHtml(String(item.age_minutes))}}분 전 게시` : '게시 시각 미상';
-    const vpmLabel = Number.isFinite(item.views_per_minute) ? String(item.views_per_minute) : '—';
+    const hasVelocity = Number.isFinite(item.views_per_minute);
+    const hasReactions = Number.isFinite(item.reaction_count);
+    const scoreLabel = hasVelocity ? String(item.views_per_minute) : (hasReactions ? Number(item.reaction_count).toLocaleString() : '—');
+    const scoreUnit = hasVelocity ? '분당 조회' : (hasReactions ? '공개 반응' : '속도 미측정');
     const viewsLabel = item.views != null ? Number(item.views).toLocaleString() : null;
+    const reactionLabel = hasReactions ? Number(item.reaction_count).toLocaleString() : null;
     const durationLabel = item.duration_sec != null ? `${{safeHtml(String(item.duration_sec))}}초` : null;
     const evidence = item.video_evidence ? `<span class="x-radar-reason">근거 ${{safeHtml(String(item.video_evidence))}}</span>` : '';
     const line = item.content_line ? `<div class="video-queue-line">${{safeHtml(String(item.content_line))}}</div>` : '';
+    const sourceMeta = [item.region, item.language, item.media_type].filter(Boolean).map(value => safeHtml(String(value))).join(' · ');
+    const rightsLabel = item.rights_mode === 'link_only' ? '원문 링크만' : (item.rights_mode ? String(item.rights_mode) : null);
+    const canonicalUrl = item.canonical_url || item.url;
     return `
       <article class="video-queue-card">
         <div class="x-radar-card-top">
           <div>
             <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(String(item.source || '출처 미상'))}} · ${{safeHtml(ageLabel)}}</div>
-            <div class="x-radar-keyword"><a href="${{safeExternalUrl(item.url)}}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">${{safeHtml(String(item.title || '제목 미상'))}} ↗</a></div>
+            <div class="x-radar-keyword"><a href="${{safeExternalUrl(canonicalUrl)}}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">${{safeHtml(String(item.title || '제목 미상'))}} ↗</a></div>
+            ${{sourceMeta ? `<div class="reference-connector-note">${{sourceMeta}}</div>` : ''}}
           </div>
-          <div class="video-queue-score">${{safeHtml(vpmLabel)}}<small>분당 조회</small></div>
+          <div class="video-queue-score">${{safeHtml(scoreLabel)}}<small>${{safeHtml(scoreUnit)}}</small></div>
         </div>
         ${{line}}
         <div class="x-radar-reasons">
           ${{evidence}}
           ${{viewsLabel ? `<span class="x-radar-reason">누적 조회 ${{safeHtml(viewsLabel)}}</span>` : ''}}
+          ${{reactionLabel ? `<span class="x-radar-reason">공개 반응 ${{safeHtml(reactionLabel)}}</span>` : ''}}
           ${{durationLabel ? `<span class="x-radar-reason">길이 ${{safeHtml(durationLabel)}}</span>` : ''}}
+          ${{rightsLabel ? `<span class="x-radar-reason">${{safeHtml(rightsLabel)}}</span>` : ''}}
         </div>
         <div class="x-radar-actions">
-          <a class="x-radar-link" href="${{safeExternalUrl(item.url)}}" target="_blank" rel="noopener noreferrer">원문 ↗</a>
+          <a class="x-radar-link" href="${{safeExternalUrl(canonicalUrl)}}" target="_blank" rel="noopener noreferrer">원문 ↗</a>
           <a class="x-radar-link" href="${{safeExternalUrl(item.x_search_url)}}" target="_blank" rel="noopener noreferrer">X 검색 ↗</a>
         </div>
       </article>
@@ -1731,22 +1782,118 @@ function freshnessParts(data) {{
   const level = ['fresh', 'warn', 'stale'].includes(info.level) ? info.level : 'unknown';
   const dotClass = level === 'fresh' ? '' : (level === 'warn' ? ' is-warn' : ' is-stale');
   const textClass = level === 'warn' ? ' is-warn' : (level === 'stale' ? ' is-stale' : '');
-  const clock = data && data.refreshed_at
-    ? new Date(data.refreshed_at).toLocaleTimeString('ko-KR', {{ hour: '2-digit', minute: '2-digit' }})
+  const freshnessClock = data && (data.last_success_at || data.refreshed_at);
+  const clock = freshnessClock
+    ? new Date(freshnessClock).toLocaleTimeString('ko-KR', {{ hour: '2-digit', minute: '2-digit' }})
     : '';
   const label = info.label || '-';
   const text = clock ? `${{label}} (${{clock}})` : label;
   const hint = level === 'stale'
-    ? '<span class="freshness-hint">수집 멈춤 — 대시보드 탭을 닫으면 자동 갱신이 서지 않습니다</span>'
+    ? '<span class="freshness-hint">수집 멈춤 — 서버 스케줄러 상태를 확인하세요 (/api/collection-scheduler)</span>'
     : '';
   return {{ dotClass, textClass, text, hint }};
+}}
+
+// 0099: 한 `items` 배열 섞어 보기를 끝낸다. 긴급도·근거가 다른 네 갈래는
+// 각각의 섹션으로 렌더링한다 — 사람이 다시 전부 읽지 않아도 되게.
+function xRadarCardHtml(item, index) {{
+  const sourceLinks = (item.news_items || [])
+    .filter(article => article && article.url)
+    .slice(0, 6)
+    .map(article => `
+      <a class="x-radar-source" href="${{safeExternalUrl(article.url)}}" target="_blank" rel="noopener noreferrer">
+        <div class="x-radar-source-name">${{article.is_first_report ? '수집 원문 중 최초 · ' : ''}}${{safeHtml(article.source || '언론사 원문')}}${{article.published_at ? ' · ' + safeHtml(new Date(article.published_at).toLocaleString('ko-KR')) : ''}} · 원문 열기 ↗</div>
+        <div class="x-radar-source-title">${{safeHtml(article.title || item.keyword)}}</div>
+      </a>
+    `).join('');
+  // 기상청·연합뉴스 직접 원문과 랭킹/Reddit 항목은 news_items 배열이
+  // 비어 있을 수 있다. source_url을 카드 안에 반드시 노출해야 "원문 없음"
+  // 오표시와 빈 X 링크만 남는 일을 막는다.
+  const directSourceLink = !sourceLinks && item.source_url
+    ? `
+      <a class="x-radar-source" href="${{safeExternalUrl(item.source_url)}}" target="_blank" rel="noopener noreferrer">
+        <div class="x-radar-source-name">${{safeHtml((item.sources || [item.source || '직접 원문'])[0])}} · 원문 열기 ↗</div>
+        <div class="x-radar-source-title">${{safeHtml(item.title || item.keyword)}}</div>
+      </a>
+    `
+    : '';
+  const reasons = [...(item.exposure_signals || []), ...(item.reasons || [])]
+    .filter((reason, reasonIndex, allReasons) => allReasons.indexOf(reason) === reasonIndex)
+    .map(reason => `<span class="x-radar-reason">${{safeHtml(reason)}}</span>`).join('');
+  const urgencyBadge = item.urgency_evidence
+    ? `<span class="x-radar-reason">${{safeHtml(item.urgency_evidence)}}</span>`
+    : '';
+  const xRadarScore = [item.x_exposure_score, item.materiality_score, item.opportunity_score]
+    .find(value => Number.isFinite(value));
+  const xRadarScoreBlock = Number.isFinite(xRadarScore)
+    ? `<div class="x-radar-score">${{safeHtml(String(xRadarScore))}}<small>X 적합도</small></div>`
+    : '<div class="x-radar-score"><small>미산정</small></div>';
+  const threadsLinks = (item.threads_posts || [])
+    .filter(post => post && post.permalink)
+    .slice(0, 3)
+    .map(post => `
+      <a class="x-radar-source" href="${{safeExternalUrl(post.permalink)}}" target="_blank" rel="noopener noreferrer">
+        <div class="x-radar-source-name">Threads · @${{safeHtml(post.username || '작성자')}} · 원문 열기 ↗</div>
+        <div class="x-radar-source-title">${{safeHtml(post.text || item.keyword)}}</div>
+      </a>
+    `).join('');
+  const ageLabel = item.age_display || '미상';
+  const confidenceLabel = ({{high: '높음', medium: '중간', low: '낮음'}})[item.exposure_confidence] || '미산정';
+  const originals = sourceLinks + directSourceLink + threadsLinks || (item.qualification_mode === 'x_native_history'
+    ? '<div class="reference-connector-note">뉴스 맥락 미확인 — 공개 X 트렌드 원문 페이지와 X 실시간 검색에서 확인하세요.</div>'
+    : '<div class="reference-connector-note">연결된 원문 없음 — X·Threads 검색에서 맥락을 확인하세요.</div>');
+  return `
+    <article class="x-radar-card">
+      <div class="x-radar-card-top">
+        <div>
+          <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(item.lane)}} · ${{safeHtml(ageLabel)}}</div>
+          <div class="x-radar-keyword">${{safeHtml(item.keyword)}}</div>
+          <div>${{kernelBadge(item)}}</div>
+          <div class="tap-meta" style="margin-top:8px">
+            <span class="tap-chip">${{safeHtml(item.category)}}</span>
+            <span class="tap-chip">검색량 ${{safeHtml(item.volume || 'N/A')}}</span>
+            <span class="tap-chip">${{safeHtml((item.sources || []).join(' + '))}}</span>
+            <span class="tap-chip">근거 신뢰도 ${{safeHtml(confidenceLabel)}} · ${{safeHtml(item.score_version || '기존 점수')}}</span>
+          </div>
+        </div>
+        ${{xRadarScoreBlock}}
+      </div>
+      <div class="x-radar-reasons">${{urgencyBadge}}${{reasons}}</div>
+      <div class="x-radar-sources">${{originals}}</div>
+      <div class="x-radar-actions">
+        ${{item.x_search_url ? `<a class="x-radar-link" href="${{safeExternalUrl(item.x_search_url)}}" target="_blank" rel="noopener noreferrer">X 실시간 검색 ↗</a>` : ''}}
+        ${{item.threads_search_url ? `<a class="x-radar-link" href="${{safeExternalUrl(item.threads_search_url)}}" target="_blank" rel="noopener noreferrer">Threads 검색 ↗</a>` : ''}}
+        ${{item.trend_url ? `<a class="x-radar-link" href="${{safeExternalUrl(item.trend_url)}}" target="_blank" rel="noopener noreferrer">트렌드 출처 ↗</a>` : ''}}
+      </div>
+    </article>
+  `;
+}}
+
+function xRadarSectionHtml(title, note, items, emptyText) {{
+  const list = Array.isArray(items) ? items : [];
+  const cards = list.length
+    ? `<div class="x-radar-grid">${{list.map((item, index) => xRadarCardHtml(item, index)).join('')}}</div>`
+    : `<div class="x-radar-empty">${{safeHtml(emptyText)}}</div>`;
+  return `
+    <div class="x-radar-section">
+      <div class="x-radar-section-head">
+        <strong>${{safeHtml(title)}}</strong>
+        <span class="reference-connector-note">${{list.length}}개 · ${{safeHtml(note)}}</span>
+      </div>
+      ${{cards}}
+    </div>
+  `;
 }}
 
 function renderXRadar(data) {{
   const container = document.getElementById('x-radar-list');
   const status = document.getElementById('x-radar-status');
   if (!container || !status) return;
-  const items = Array.isArray(data.items) ? data.items : [];
+  const breakingNow = Array.isArray(data.breaking_now_items) ? data.breaking_now_items : [];
+  const latestNews = Array.isArray(data.latest_news_items) ? data.latest_news_items : [];
+  const todayIssue = Array.isArray(data.today_issue_items) ? data.today_issue_items : [];
+  const xNative = Array.isArray(data.x_native_items) ? data.x_native_items : [];
+  const total = breakingNow.length + latestNews.length + todayIssue.length + xNative.length;
   const sourceHealth = data.source_health || {{}};
   const fresh = freshnessParts(data);
   const sourceLabels = [
@@ -1763,86 +1910,49 @@ function renderXRadar(data) {{
     : '';
   status.innerHTML = `
     <span class="live-dot${{fresh.dotClass}}"></span>
-    <strong>${{items.length}}개 원문 소재</strong>
-    <span>X 노출 적합도 순 · X 네이티브 ${{safeHtml(String(data.x_native_count || 0))}}개</span>
+    <strong>${{total}}개 원문 소재</strong>
+    <span>지금 속보 ${{safeHtml(String(data.breaking_now_count ?? breakingNow.length))}} · 최신 뉴스 ${{safeHtml(String(data.latest_news_count ?? latestNews.length))}} · 오늘 이슈 ${{safeHtml(String(data.today_issue_count ?? todayIssue.length))}} · X 네이티브 ${{safeHtml(String(data.x_native_count ?? xNative.length))}}</span>
+    <span>lane 겹침 정리 ${{safeHtml(String(data.cross_lane_dedupe_count || 0))}}건 · 랭킹 시각 미상 강등 ${{safeHtml(String(data.news_ranking_demoted_count || 0))}}건</span>
     <span>제외 소재(스포츠·정치·증시·실적·부동산·성별갈등·애니) ${{safeHtml(String(excludedTopicCount))}}개 · 기타 근거 부족 ${{safeHtml(String(Math.max(0, Number(data.filtered_out_count || 0) - excludedTopicCount)))}}개</span>
     <span>${{safeHtml(sourceLabels.join(' · '))}}</span>
-    <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}}</span>
+    <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}} · 서버 자동 수집, 화면은 GET 확인</span>
     ${{fresh.hint}}
     ${{errorText}}
   `;
 
-  if (!items.length) {{
+  if (!total) {{
     container.innerHTML = '<div class="x-radar-empty">현재 소재성 게이트를 통과한 주제가 없습니다. 독립 원문 또는 Threads 교차 근거가 생기면 표시됩니다.</div>';
     return;
   }}
 
-  container.innerHTML = items.map((item, index) => {{
-    const sourceLinks = (item.news_items || [])
-      .filter(article => article && article.url)
-      .slice(0, 6)
-      .map(article => `
-        <a class="x-radar-source" href="${{safeExternalUrl(article.url)}}" target="_blank" rel="noopener noreferrer">
-          <div class="x-radar-source-name">${{article.is_first_report ? '수집 원문 중 최초 · ' : ''}}${{safeHtml(article.source || '언론사 원문')}}${{article.published_at ? ' · ' + safeHtml(new Date(article.published_at).toLocaleString('ko-KR')) : ''}} · 원문 열기 ↗</div>
-          <div class="x-radar-source-title">${{safeHtml(article.title || item.keyword)}}</div>
-        </a>
-      `).join('');
-    const reasons = [...(item.exposure_signals || []), ...(item.reasons || [])]
-      .filter((reason, reasonIndex, allReasons) => allReasons.indexOf(reason) === reasonIndex)
-      .map(reason => `<span class="x-radar-reason">${{safeHtml(reason)}}</span>`).join('');
-    const xRadarScore = [item.x_exposure_score, item.materiality_score, item.opportunity_score]
-      .find(value => Number.isFinite(value));
-    const xRadarScoreBlock = Number.isFinite(xRadarScore)
-      ? `<div class="x-radar-score">${{safeHtml(String(xRadarScore))}}<small>X 적합도</small></div>`
-      : '<div class="x-radar-score"><small>미산정</small></div>';
-    const threadsLinks = (item.threads_posts || [])
-      .filter(post => post && post.permalink)
-      .slice(0, 3)
-      .map(post => `
-        <a class="x-radar-source" href="${{safeExternalUrl(post.permalink)}}" target="_blank" rel="noopener noreferrer">
-          <div class="x-radar-source-name">Threads · @${{safeHtml(post.username || '작성자')}} · 원문 열기 ↗</div>
-          <div class="x-radar-source-title">${{safeHtml(post.text || item.keyword)}}</div>
-        </a>
-      `).join('');
-    const ageLabel = Number.isFinite(item.age_minutes) ? `${{item.age_minutes}}분 전` : '현재 트렌드';
-    const confidenceLabel = ({{high: '높음', medium: '중간', low: '낮음'}})[item.exposure_confidence] || '미산정';
-    const originals = sourceLinks + threadsLinks || (item.qualification_mode === 'x_native_history'
-      ? '<div class="reference-connector-note">뉴스 맥락 미확인 — 공개 X 트렌드 원문 페이지와 X 실시간 검색에서 확인하세요.</div>'
-      : '<div class="reference-connector-note">연결된 원문 없음 — X·Threads 검색에서 맥락을 확인하세요.</div>');
-    return `
-      <article class="x-radar-card">
-        <div class="x-radar-card-top">
-          <div>
-            <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(item.lane)}} · ${{safeHtml(ageLabel)}}</div>
-            <div class="x-radar-keyword">${{safeHtml(item.keyword)}}</div>
-            <div>${{kernelBadge(item)}}</div>
-            <div class="tap-meta" style="margin-top:8px">
-              <span class="tap-chip">${{safeHtml(item.category)}}</span>
-              <span class="tap-chip">검색량 ${{safeHtml(item.volume || 'N/A')}}</span>
-              <span class="tap-chip">${{safeHtml((item.sources || []).join(' + '))}}</span>
-              <span class="tap-chip">근거 신뢰도 ${{safeHtml(confidenceLabel)}} · ${{safeHtml(item.score_version || '기존 점수')}}</span>
-            </div>
-          </div>
-          ${{xRadarScoreBlock}}
-        </div>
-        <div class="x-radar-reasons">${{reasons}}</div>
-        <div class="x-radar-sources">${{originals}}</div>
-        <div class="x-radar-actions">
-          <a class="x-radar-link" href="${{safeExternalUrl(item.x_search_url)}}" target="_blank" rel="noopener noreferrer">X 실시간 검색 ↗</a>
-          <a class="x-radar-link" href="${{safeExternalUrl(item.threads_search_url)}}" target="_blank" rel="noopener noreferrer">Threads 검색 ↗</a>
-          ${{item.trend_url ? `<a class="x-radar-link" href="${{safeExternalUrl(item.trend_url)}}" target="_blank" rel="noopener noreferrer">트렌드 출처 ↗</a>` : ''}}
-        </div>
-      </article>
-    `;
-  }}).join('');
+  container.innerHTML = [
+    xRadarSectionHtml('🚨 지금 속보', '긴급 증거가 있는 직접 원문만', breakingNow, '지금 긴급 증거가 있는 속보 원문이 없습니다.'),
+    xRadarSectionHtml('📰 최신 뉴스', '비긴급 최신 원문 — 속보가 아닌 최근 게시', latestNews, '최근 수집된 비긴급 뉴스 원문이 없습니다.'),
+    xRadarSectionHtml('📈 오늘 이슈', '랭킹·검색 급등 교차 근거 — 게시 360분 상한 적용', todayIssue, '오늘 교차 근거가 확인된 이슈가 없습니다.'),
+    xRadarSectionHtml('𝕏 X 네이티브', '공개 X 상위 5위 반복 또는 연속 상승', xNative, '반복·상승이 확인된 X 네이티브 단어가 없습니다.'),
+  ].join('');
 }}
 
-async function refreshXRadar(silent = false) {{
+// 자동 경로(첫 로드·setInterval)는 서버가 모아 둔 스냅샷을 GET으로만 읽는다.
+// 수집은 서버 스케줄러 몫이라 탭이 외부 호출을 보태지 않는다.
+async function loadXRadar() {{
+  const status = document.getElementById('x-radar-status');
+  try {{
+    const response = await fetch('/api/x-radar');
+    if (!response.ok) throw new Error('x_radar_fetch_failed');
+    renderXRadar(await response.json());
+  }} catch (error) {{
+    if (status) status.innerHTML = '<span class="live-dot is-stale"></span><span>원문 레이더 확인 실패 — 잠시 후 자동으로 다시 확인합니다.</span>';
+  }}
+}}
+
+// 수동 버튼만 실제 강제 수집(POST)을 호출한다.
+async function refreshXRadar() {{
   const button = document.getElementById('x-radar-refresh');
   const status = document.getElementById('x-radar-status');
   if (!button || !status) return;
   button.disabled = true;
-  status.innerHTML = '<span class="live-dot"></span><span>최신 검색 급등과 공개 X 트렌드에서 원문을 확인하고 있습니다…</span>';
+  status.innerHTML = '<span class="live-dot"></span><span>최신 검색 급등과 공개 X 트렌드에서 원문을 직접 수집하고 있습니다…</span>';
   try {{
     const response = await fetch('/api/x-radar/refresh', {{
       method: 'POST',
@@ -1851,15 +1961,15 @@ async function refreshXRadar(silent = false) {{
         country: 'korea',
         limit: Number(document.getElementById('x-radar-limit')?.value || 20),
         focus_keywords: getXRadarFocusKeywords(),
-        force_refresh: !silent,
+        force_refresh: true,
       }}),
     }});
     if (!response.ok) throw new Error('x_radar_refresh_failed');
     const data = await response.json();
     renderXRadar(data);
-    if (!silent) toast(`원문 소재 ${{(data.items || []).length}}개를 새로 확인했습니다.`);
+    toast(`원문 소재 ${{(data.items || []).length}}개를 새로 수집했습니다.`);
   }} catch (error) {{
-    status.innerHTML = '<span class="live-dot"></span><span>원문 레이더 갱신 실패 — 잠시 후 다시 시도해 주세요.</span>';
+    status.innerHTML = '<span class="live-dot"></span><span>원문 레이더 강제 수집 실패 — 잠시 후 다시 시도해 주세요.</span>';
   }} finally {{
     button.disabled = false;
   }}
@@ -1870,12 +1980,101 @@ function getLiveReferenceKeywords() {{
   return raw.split(',').map(value => value.trim()).filter(Boolean).slice(0, 5);
 }}
 
-async function refreshLiveReferences(silent = false) {{
+// 현재 회차 큐는 영구 저장 라이브러리와 섞지 않고 이 섹션에만 그린다.
+// 썸네일 바이트는 받지 않는다 — 공개 메타데이터와 링크만 표시한다.
+function renderLiveReferences(data) {{
+  const queue = document.getElementById('reference-live-queue');
+  const status = document.getElementById('reference-live-status');
+  const alerts = document.getElementById('reference-live-alerts');
+  if (!queue || !status) return;
+  const items = Array.isArray(data.items) ? data.items : [];
+  const fresh = freshnessParts(data);
+  const errors = Array.isArray(data.errors) ? data.errors : [];
+  const errorText = errors.length
+    ? `<span class="reference-connector-note">일부 오류 ${{errors.length}}건</span>`
+    : '';
+  const lastSuccessText = data.last_success_at
+    ? new Date(data.last_success_at).toLocaleString('ko-KR')
+    : '아직 없음';
+  status.innerHTML = `
+    <span class="live-dot${{fresh.dotClass}}"></span>
+    <strong>현재 큐 ${{items.length}}개</strong>
+    <span>신규 ${{safeHtml(String(data.new_count || 0))}} · 반복 ${{safeHtml(String(data.repeat_count || 0))}} · 최근 ${{safeHtml(String(data.recent_days || 14))}}일 밖 ${{safeHtml(String(data.excluded_old_count || 0))}}개 제외</span>
+    <span>서버 30분 자동 수집 · 자동 갱신은 GET 확인만</span>
+    <span class="freshness${{fresh.textClass}}">갱신 ${{safeHtml(fresh.text)}} · 마지막 성공 ${{safeHtml(lastSuccessText)}}</span>
+    ${{fresh.hint}}
+    ${{errorText}}
+    <span class="reference-connector-note">Instagram · TikTok · Threads · X는 공식 API 필요</span>
+  `;
+  const alertParts = [];
+  if (data.is_stale === true) {{
+    alertParts.push(`<div class="reference-live-alert">⚠ 이번 회차 수집이 전면 실패해서 마지막 정상 결과를 표시 중입니다 — 마지막 성공 ${{safeHtml(lastSuccessText)}}</div>`);
+  }}
+  if (data.available === false) {{
+    alertParts.push('<div class="reference-live-alert">YouTube 공개 메타데이터 수집기가 비활성입니다 — 서버에 yt-dlp가 설치돼 있는지 확인하세요.</div>');
+  }}
+  if (errors.length) {{
+    alertParts.push(`<div class="reference-live-alert">키워드 일부 실패: ${{safeHtml(errors.slice(0, 3).join(' · '))}} — 남은 키워드 결과는 그대로 표시합니다.</div>`);
+  }}
+  if (alerts) alerts.innerHTML = alertParts.join('');
+
+  if (!items.length) {{
+    queue.innerHTML = '<div class="x-radar-empty">아직 현재 큐가 없습니다. 서버가 첫 수집을 마치거나 수동 「지금 라이브 수집」을 누르면 최근 14일 영상이 여기에 표시됩니다.</div>';
+    return;
+  }}
+  queue.innerHTML = items.map((item, index) => {{
+    const formatLabel = item.content_format === 'short' ? '쇼츠' : (item.content_format === 'long' ? '롱폼' : '형식 미상');
+    const ageLabel = item.recency_verified
+      ? `게시 ${{safeHtml(item.age_text || '미상')}}`
+      : '게시시각 미확인 — 최신성 미검증';
+    const vphLabel = Number.isFinite(item.views_per_hour)
+      ? Number(item.views_per_hour).toLocaleString()
+      : '미측정';
+    const newBadge = item.is_new === true
+      ? '<span class="reference-live-new">신규</span>'
+      : '<span class="reference-live-repeat">반복</span>';
+    return `
+      <article class="reference-live-card">
+        <div class="x-radar-card-top">
+          <div>
+            <div class="reference-connector-note">#${{index + 1}} · ${{safeHtml(item.channel || '채널 미상')}} · ${{ageLabel}} ${{newBadge}}</div>
+            <div class="x-radar-keyword"><a href="${{safeExternalUrl(item.source_url)}}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">${{safeHtml(item.title || '제목 미상')}} ↗</a></div>
+          </div>
+          <div class="x-radar-score">${{safeHtml(String(item.recommendation_score ?? '—'))}}<small>추천 점수</small></div>
+        </div>
+        <div class="x-radar-reasons">
+          <span class="x-radar-reason">${{safeHtml(formatLabel)}} · 길이 ${{safeHtml(item.duration_formatted || '미상')}}</span>
+          <span class="x-radar-reason">조회 ${{safeHtml(Number(item.view_count || 0).toLocaleString())}}</span>
+          <span class="x-radar-reason">시간당 ${{safeHtml(vphLabel)}}</span>
+          <span class="x-radar-reason">좋아요 ${{safeHtml(Number(item.likes || 0).toLocaleString())}} · 댓글 ${{safeHtml(Number(item.comments || 0).toLocaleString())}}</span>
+          <span class="x-radar-reason">주제 일치 ${{safeHtml(String(item.topic_relevance ?? '미상'))}}</span>
+          ${{item.keyword ? `<span class="x-radar-reason">키워드 ${{safeHtml(item.keyword)}}</span>` : ''}}
+        </div>
+        ${{item.recommendation_reason ? `<div class="reference-connector-note">추천 이유: ${{safeHtml(item.recommendation_reason)}}</div>` : ''}}
+      </article>
+    `;
+  }}).join('');
+}}
+
+// 자동 경로는 서버가 저장한 live 상태를 GET으로만 읽는다.
+async function loadLiveReferences() {{
+  const status = document.getElementById('reference-live-status');
+  try {{
+    const response = await fetch('/api/reference-library/live/status');
+    if (!response.ok) throw new Error('live_status_fetch_failed');
+    renderLiveReferences(await response.json());
+  }} catch (error) {{
+    if (status) status.innerHTML = '<span class="live-dot is-stale"></span><span>YouTube 현재 큐 확인 실패 — 잠시 후 자동으로 다시 확인합니다.</span>';
+  }}
+}}
+
+// 수동 버튼만 실제 강제 수집(POST)을 호출한다.
+async function refreshLiveReferences() {{
   const button = document.getElementById('reference-live-refresh');
   const status = document.getElementById('reference-live-status');
   if (!button || !status) return;
   button.disabled = true;
-  status.innerHTML = '<span class="live-dot"></span><span>YouTube에서 최신 콘텐츠를 수집하고 있습니다…</span>';
+  status.innerHTML = '<span class="live-dot"></span><span>YouTube에서 최신 콘텐츠를 직접 수집하고 있습니다…</span>';
   try {{
     const response = await fetch('/api/reference-library/live/refresh', {{
       method: 'POST',
@@ -1887,26 +2086,15 @@ async function refreshLiveReferences(silent = false) {{
     }});
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || 'live_refresh_failed');
-    const refreshedAt = data.refreshed_at ? new Date(data.refreshed_at).toLocaleTimeString('ko-KR') : '방금';
-    const errorText = (data.errors || []).length
-      ? `<span class="reference-connector-note">일부 오류 ${{data.errors.length}}건</span>`
-      : '';
-    status.innerHTML = `
-      <span class="live-dot"></span>
-      <strong>YouTube LIVE</strong>
-      <span>${{data.collected || 0}}개 확인 · 신규 ${{data.created || 0}} · 갱신 ${{data.updated || 0}} · ${{refreshedAt}}</span>
-      ${{errorText}}
-      <span class="reference-connector-note">Instagram · TikTok · Threads · X는 공식 API 필요</span>
-    `;
-    await loadReferenceLibrary();
-    if (!silent) toast(`라이브 콘텐츠 ${{data.collected || 0}}개를 반영했습니다.`);
+    renderLiveReferences(data);
+    toast(`라이브 콘텐츠 ${{data.collected || 0}}개를 수집했습니다.`);
   }} catch (error) {{
     status.innerHTML = `
       <span class="live-dot"></span>
-      <span>라이브 수집 실패: ${{safeHtml(error.message || '연결 오류')}}</span>
+      <span>라이브 강제 수집 실패: ${{safeHtml(error.message || '연결 오류')}}</span>
       <span class="reference-connector-note">잠시 후 다시 시도해 주세요.</span>
     `;
-    if (!silent) toast('라이브 수집에 실패했습니다.');
+    toast('라이브 수집에 실패했습니다.');
   }} finally {{
     button.disabled = false;
   }}
@@ -2294,7 +2482,9 @@ async function init() {{
   renderTapPresetStrip();
   handleTapCheckoutStateFromUrl();
   await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts(), loadReferenceLibrary()]);
-  await Promise.all([refreshFastViral(true), refreshXRadar(true), refreshLiveReferences(true)]);
+  // 수집은 서버 스케줄러가 맡는다. 화면은 첫 로드와 주기 갱신 모두 GET으로
+  // 마지막 스냅샷만 읽는다 — 탭이 열리자마자 외부 수집을 쏘지 않는다.
+  await Promise.all([loadFastViral(), loadXRadar(), loadLiveReferences()]);
   await loadVideoQueue();
   toast('✅ 대시보드 로드 완료');
 }}
@@ -2306,9 +2496,10 @@ setInterval(async () => {{
   await Promise.all([loadStats(), loadTimeline(), loadCategories(), loadSourceQuality(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts(), loadReferenceLibrary()]);
   toast('🔄 데이터 갱신 완료');
 }}, 300000);
-setInterval(() => refreshLiveReferences(true), 600000);
-setInterval(() => refreshXRadar(true), 120000);
-setInterval(() => refreshFastViral(true), 120000);
+// 자동 폴링은 전부 GET — 수동 버튼만 POST로 강제 수집한다.
+setInterval(() => loadLiveReferences(), 300000);
+setInterval(() => loadXRadar(), 120000);
+setInterval(() => loadFastViral(), 120000);
 setInterval(() => loadVideoQueue(), 120000);
 </script>
 </body>

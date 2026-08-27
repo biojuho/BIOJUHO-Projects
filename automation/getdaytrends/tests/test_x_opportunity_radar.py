@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from models import RawTrend, TrendSource  # noqa: E402
 import x_opportunity_radar as radar_module  # noqa: E402
+from models import RawTrend, TrendSource  # noqa: E402
 from x_opportunity_radar import (  # noqa: E402
     XOpportunityRadar,
     _breaking_lane_items,
@@ -162,6 +162,55 @@ async def test_radar_drops_scraper_fallback_topics():
     assert data["available"] is False
     assert data["items"] == []
     assert data["source_health"]["public_x_trends"] is False
+    assert data["last_attempt_at"] is not None
+    assert data["last_success_at"] is None
+    assert data["is_stale"] is True
+
+
+@pytest.mark.asyncio
+async def test_radar_preserves_last_good_items_after_all_sources_fail():
+    fail = False
+
+    async def google_fetcher(session, country, limit):
+        if fail:
+            raise RuntimeError("synthetic google outage")
+        return [
+            RawTrend(
+                name="AI 신제품",
+                source=TrendSource.GOOGLE_TRENDS,
+                volume="50000+",
+                volume_numeric=50_000,
+                link="https://trends.google.com/ai",
+                published_at=datetime.now(UTC) - timedelta(minutes=10),
+                extra={
+                    "news_headlines": ["AI 신제품 공개", "AI 신제품 업계 반응"],
+                    "news_items": [
+                        {"title": "AI 신제품 공개", "url": "https://one.example/ai", "source": "원뉴스"},
+                        {"title": "AI 신제품 업계 반응", "url": "https://two.example/ai", "source": "두뉴스"},
+                    ],
+                },
+            )
+        ]
+
+    async def x_fetcher(session, country, limit):
+        if fail:
+            raise RuntimeError("synthetic x outage")
+        return []
+
+    radar = XOpportunityRadar(google_fetcher, x_fetcher, news_fetcher=None)
+    first = await radar.refresh(limit=10)
+    fail = True
+    second = await radar.refresh(limit=10)
+
+    assert first["items"]
+    assert first["last_success_at"] is not None
+    assert first["is_stale"] is False
+    assert second["items"] == first["items"]
+    assert second["last_success_at"] == first["last_success_at"]
+    assert second["last_attempt_at"] >= first["last_attempt_at"]
+    assert second["is_stale"] is True
+    assert second["serving_last_good"] is True
+    assert any("synthetic google outage" in error for error in second["errors"])
 
 
 @pytest.mark.asyncio
@@ -1280,4 +1329,3 @@ async def test_radar_reddit_403_lands_in_errors_and_health_false():
     assert data["source_health"]["reddit"] is False
     assert data["reddit_count"] == 0
     assert any("403" in err for err in data.get("errors") or [])
-

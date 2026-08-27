@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 try:
+    from .freshness import attach_freshness
     from .live_reference_collector import DEFAULT_LIVE_KEYWORDS, YouTubeLiveReferenceCollector
     from .reference_library import (
         DuplicateReferenceError,
@@ -14,6 +15,7 @@ try:
         ReferenceLibraryStore,
     )
 except ImportError:
+    from freshness import attach_freshness
     from live_reference_collector import DEFAULT_LIVE_KEYWORDS, YouTubeLiveReferenceCollector
     from reference_library import (
         DuplicateReferenceError,
@@ -60,6 +62,19 @@ def _reference_store() -> ReferenceLibraryStore:
     return _store
 
 
+def _render_live_status(payload: dict) -> dict:
+    """Render freshness from the last successful collection, not the last attempt.
+
+    Older runtime files only have ``refreshed_at``.  Preserve that compatibility,
+    but once ``last_success_at`` exists (including an explicit ``None`` after a
+    failed first attempt), never let a newer failed attempt look fresh.
+    """
+    visible = dict(payload or {})
+    if "last_success_at" not in visible:
+        visible["last_success_at"] = visible.get("refreshed_at")
+    return attach_freshness(visible, "live_reference", field="last_success_at")
+
+
 @router.get("")
 def list_references(
     q: str = Query(default="", max_length=200),
@@ -90,17 +105,21 @@ def reference_stats():
 
 @router.get("/live/status")
 def live_reference_status():
+    # 자동 폴링은 이 GET만 부른다. 서버가 수집 주체를 맡았으므로(0099) 신선도
+    # 판정도 서버가 실어 보낸다 — 화면이 자체 임의로 라이브 여부를 짐작하지 않게.
     payload = _reference_store().get_live_status()
     if _collector is not None:
         payload["capabilities"] = _collector.capabilities()
-    return payload
+    return _render_live_status(payload)
 
 
 @router.post("/live/refresh")
 async def refresh_live_references(payload: LiveRefreshRequest):
     if _collector is None:
         raise HTTPException(status_code=503, detail="live reference collector is not initialized")
-    return await _collector.refresh(payload.keywords, payload.per_keyword)
+    result = await _collector.refresh(payload.keywords, payload.per_keyword)
+    result["capabilities"] = _collector.capabilities()
+    return _render_live_status(result)
 
 
 @router.get("/{item_id}")

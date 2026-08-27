@@ -23,6 +23,7 @@ def test_topic_filter_excludes_requested_topics_without_broad_false_positive():
     assert excluded_topic_reason("이정후 5경기 연속 안타") == "스포츠 제외"
     assert excluded_topic_reason("쇼트트랙 임종언 도핑 징계 위기") == "스포츠 제외"
     assert excluded_topic_reason("롤) 어제 치열한 경기로 1위를 수성한 팀") == "스포츠 제외"
+    assert excluded_topic_reason("The NFL Pro Bowl is being eliminated") == "스포츠 제외"
     assert excluded_topic_reason("코스피 장중 급락") == "증시·실적 제외"
     assert excluded_topic_reason("A사 2분기 영업이익 컨센서스 상회") == "증시·실적 제외"
     assert excluded_topic_reason("서울 아파트 실거래가 상승") == "부동산 제외"
@@ -36,6 +37,19 @@ def test_topic_filter_excludes_requested_topics_without_broad_false_positive():
     assert excluded_topic_reason("경기도 사실상 부도라네요") == "정치 제외"
     assert topic_is_allowed("제주가 폭염 경보를 발령했다") is True
     assert topic_is_allowed("도심 정전으로 지하철 운행 중단") is True
+
+
+def test_global_english_politics_are_excluded_without_matching_everyday_ice_or_president():
+    assert excluded_topic_reason("ICE arrests hit record high") == "정치 제외"
+    assert excluded_topic_reason("Russia-Ukraine war continues") == "정치 제외"
+    assert excluded_topic_reason("Supreme Court mail voting case") == "정치 제외"
+    assert excluded_topic_reason("SC Senate runoff") == "정치 제외"
+    assert excluded_topic_reason("Canada-US trade talks") == "정치 제외"
+    assert excluded_topic_reason("Labour's red lines are unmoveable for political reasons") == "정치 제외"
+    assert excluded_topic_reason("Attorney general bans a sign in public schools") == "정치 제외"
+    assert excluded_topic_reason("Trump's EPA changes data center water rules") == "정치 제외"
+    assert topic_is_allowed("Ice cream truck surprises neighborhood kids") is True
+    assert topic_is_allowed("Company president gives every employee a bicycle") is True
 
 
 def test_political_nicknames_are_excluded_even_from_humor_boards():
@@ -138,6 +152,21 @@ def test_nonpolitical_exclusion_buckets_keep_their_reasons():
         assert excluded_topic_reason(title) == expected_reason, title
 
 
+def test_issuelink_live_leaks_require_a_political_name_or_company_market_context():
+    """실제 2026-08-27 IssueLink 누출은 좁게 막고 일반 회사 이야기는 살린다."""
+    expected_reasons = {
+        "(민형배) ‘모두의 성장‘, 전남광주 반도체로 열겠습니다!": "정치 제외",
+        "엔비디아 올라가는 이유.jpg": "증시·실적 제외",
+        "오늘 하닉매도하면 7~8월 수익 7억찍을듯?ㅎㅎㅎ": "증시·실적 제외",
+        "엔비디아 어닝콜 들어보니 오늘 하닉 폭등각": "증시·실적 제외",
+        "엔비디아 일단 실적은 잘나왔고 지금 컨퍼런스콜 중": "증시·실적 제외",
+    }
+    for title, expected_reason in expected_reasons.items():
+        assert excluded_topic_reason(title) == expected_reason, title
+
+    assert topic_is_allowed("엔비디아 AI가 일자리 창출 중이다") is True
+
+
 def test_dashboard_discloses_keyword_filter_limitations():
     html = get_dashboard_html("0032-test")
 
@@ -188,6 +217,7 @@ def test_anime_topics_are_excluded_without_swallowing_lookalikes():
     assert excluded_topic_reason("극장판 개봉 첫날 후기") == "애니·만화 제외"
     assert excluded_topic_reason("신작 애니 추천 좀") == "애니·만화 제외"
     assert excluded_topic_reason("애니 1화 보는데 작화 미쳤다") == "애니·만화 제외"
+    assert excluded_topic_reason("Lemmy · Comic Strips") == "애니·만화 제외"
     # "웹툰"은 2026-08-06에 제외 목록에서 뺐다 — "웹툰 작가 지망생이 겪은 갑질" 같은
     # 사연을 통째로 잘라내고 있었다. 웹툰 화제 자체는 X 소재로 유효하다.
     assert topic_is_allowed("웹툰 작가 지망생이 겪은 갑질") is True
@@ -265,3 +295,70 @@ def test_cooking_and_school_contests_are_not_sports():
     assert excluded_topic_reason("수영 대회 우승 뒤 은퇴 선언") == "스포츠 제외"
     assert excluded_topic_reason("대회 우승 선수 도핑 적발") == "스포츠 제외"
     assert excluded_topic_reason("PGA 투어 우승 상금 공개") == "스포츠 제외"
+
+
+def test_real_response_leaks_are_blocked_with_exact_reasons():
+    """0099 시작 실측 — 실제 /api/x-radar·shadow store allow 판정으로 새어 나온 표본.
+
+    제목 어휘 목록만으로 검사하면 새 표현이 계속 뚫린다. 이 테스트는 2026-08-27
+    실응답에서 실제로 통과한 표본을 그대로 못 박는다(누출 근거는 반환 파일 참조).
+    """
+    blocked = {
+        # 증시·기업 실적 — 잭슨홀/연준/통화정책/순익/매출/관세.
+        "'통화정책 신호등' 美 잭슨홀 개막…워시 연준의장 첫 시험대": "증시·실적 제외",
+        "보험사 상반기 순익 9조 돌파…투자손익 개선 영향": "증시·실적 제외",
+        "[만나보니] 엔씨 캐주얼 총괄 \"AI 기반 데이터 분석으로 매출 최적화\"": "증시·실적 제외",
+        "엔비디아 2028 매출 70% 증가 전망": "증시·실적 제외",
+        "캐나다 주정부, 대미 무역전쟁 동참…美주류에 50% 관세": "정치 제외",  # '주정부'가 정치 어간
+        # 스포츠 — 구단·리그명 없이 야구 기록어로만 올라온 KBO 표본과 배드민턴·축구.
+        "'0.179 추락 실화?' 삼성, 그래도 만루의 사나이 포기 못 해": "스포츠 제외",
+        "삼성 김영웅 만루포": "스포츠 제외",
+        "무사만루 찬스에서 끝내기 그랜드슬램": "스포츠 제외",
+        "안세영 퍼펙트 우승": "스포츠 제외",
+        "'파격 반삭' 홀란, 변신은 '유죄'…역전승에도 침묵": "스포츠 제외",
+        "국내 유일 돔구장인데 물이 '또' 샌다…약 30명 대파 소동": "스포츠 제외",
+        # 정치 — 정부/대법관 제청/북한/최저임금법/극우 음모론/방지법 처리.
+        "정부 AI 윤리원칙": "정치 제외",
+        "대법관 2명 동시 제청한 조희대…관례 깬 '서면 통보' 파장": "정치 제외",
+        "북한 발사체 발사": "정치 제외",
+        "최저임금법": "정치 제외",
+        "'샌디훅 사건 날조' 극우 음모론자 배상액 88% 깎아준 美법원": "정치 제외",
+        "[백범 탄생 150년] '김구 증손'이 말하는 독립유공자 모욕 방지법 처리해야": "정치 제외",
+        # 부동산 — 시장 반응 동사가 붙은 아파트 기사.
+        "조선소 들어서자 인구 폭발, 산 깎아 지은 아파트…또 철렁": "부동산 제외",
+        # 성별 갈등 — 여초 표현.
+        "요즘 여초에서 많이 퍼진다는 기혼녀 혐오 주작": "성별 갈등 제외",
+        # 애니·만화 — 웹툰 제목.
+        "재혼황후": "애니·만화 제외",
+    }
+    for title, expected_reason in blocked.items():
+        assert excluded_topic_reason(title) == expected_reason, title
+
+
+def test_real_response_controls_survive_the_leak_expansion():
+    """누출 확장의 대조군 — 같은 표면 어휘가 사연에 쓰이면 살아 있어야 한다.
+
+    2026-08-06·08-23 철학 그대로: 블랙리스트는 사연까지 잘라내면 안 된다.
+    특히 '아파트서 불'(화재 사건)·'법원'(재판 사연)·'혐오'(컨셉물)은 이번
+    확장이 실수로 죽이면 안 되는 경계선이다.
+    """
+    allowed = (
+        # 아파트: 사건·사연 표본 (부동산 시장 기사만 막는다).
+        "울산 남구 아파트서 불…4명 연기흡입",
+        "MC몽, 손목에 '아파트한 채' 감고 등장",
+        "[단독] 장미란씨 없었으면 묻혔을 '아파트 청소부 실종' 전말",
+        # 법원: 재판·선고는 유효한 사건 소재 (대법원만 정치로 막는다).
+        "'동료 기장 살해' 김동환 무기징역 선고…법원 '영구 격리 필요'",
+        # 혐오: 컨셉물 표현 (혐오 진영 어휘만 막는다).
+        "(혐오주의) AI로 만든 음식 포스터",
+        # 갈등: 새 vs 고양이 (성별 아님).
+        "새 지켜야 vs 길냥이도 생명…새파·묘파 갈등",
+        # 일상 날씨·전시: 속보가 아니라도 최신 뉴스 lane의 유효 소재.
+        "제주 해안 전역 또 열대야…성산 최저 28.5도",
+        "수어로 빚은 마음부터…갤러리현대 두 전시",
+        # 매출/만루 등 확장 어휘가 없는 일상 사연 대조군.
+        "동네 재래시장에서 파는 호떡",
+        "호텔가, 추석선물 경쟁…와인세트 인기",
+    )
+    for title in allowed:
+        assert topic_is_allowed(title) is True, title

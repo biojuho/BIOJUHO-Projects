@@ -8,16 +8,33 @@
 - **별칭:** BIOJUHO-Projects, getdaytrends, 겟데이트렌드, 실시간 트렌드 조사, X 트렌드 레이더, 커뮤니티 원문 레이더, 바이럴 조기 탐지
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
-- **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-12 기준 1000 passed · 7 skipped — notebooklm_automation·수동 네트워크 probe·Kiwipiepy·Scrapling 미설치/비활성)
-- **갱신:** 2026-08-12 · by Codex 기획·실행 (09:33 기존 `cross-community` 워크트리·PID 54360 소실을 확인하고 보존 커밋 `4d06b1e`에서 `cross-community-recovered`를 복구 · PID 56188 · 09:57 스케줄러 두 레인 calls 2/2·오류 0·API 12/9 · 새 shadow 497행, allow 433/block 64 · 옛 비추적 런타임 데이터는 복구 불가)
+- **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-27 기준 1225 passed · 7 skipped — notebooklm_automation·수동 네트워크 probe·Kiwipiepy·Scrapling 미설치/비활성)
+- **갱신:** 2026-08-27 · by Codex 헤더 | Codex·Agy·GLM·Qwen·MiMo 실행 (0099 서버 소유 수집과 X/YouTube 큐 분리를 운영 반영. X 120초·국내 커뮤니티 300초·YouTube 1800초, 모두 24시간이며 커뮤니티 조기감지는 국내 직접 목록+IssueLink만 쓴다. PID 61078에서 X 121.062초 성공 간격과 YouTube 자동 회차를 확인)
+- **이전 갱신:** 2026-08-27 · by Codex 헤더 | Codex·Agy·GLM·Qwen·MiMo 실행 (0098 글로벌 영상·커뮤니티 확대를 운영 반영. 0099에서 글로벌 커뮤니티는 조기감지 칸에서 제거했고 별도 사건 영상 큐의 공개 링크 메타만 유지)
+- **이전 갱신:** 2026-08-12 · by Codex 헤더·실행 (IssueLink 상대 게시시각을 파싱해 180분 이내만 허용하고 181분 이상·시각 미확인을 제외하는 로컬 구현 완료. 공개 HTML 51건 중 26건 통과·25건 시간 초과, 전체 1029 passed/7 skipped)
+- **이전 갱신:** 2026-08-12 · by Codex 헤더 (0037 단일 데이터 루트·segment manifest·WAL 안전 백업/복원 로컬 구현과 전체 1022 passed/7 skipped·Kiro/Grok 감사 PASS. 단, 헤더가 stale-lock TOCTOU와 backup/target 동일 경로 자기복원 반례 2건을 재현해 운영 수용 HOLD. PID 56188·실제 data·env·`/refresh`는 불변)
+- **이전 갱신:** 2026-08-12 · by Codex 기획·실행 (09:33 기존 `cross-community` 워크트리·PID 54360 소실을 확인하고 보존 커밋 `4d06b1e`에서 `cross-community-recovered`를 복구 · PID 56188 · 09:57 스케줄러 두 레인 calls 2/2·오류 0·API 12/9 · 새 shadow 497행, allow 433/block 64 · 옛 비추적 런타임 데이터는 복구 불가)
 - **이전 갱신:** 2026-08-11 · by Codex 기획·실행 (0035 차단표본 shadow 저장·결정론적 층화 추출·분모별 지표 게이트 완료 · 987 passed/8 skipped · 8010 재기동 전 미반영)
 - **이전 갱신:** 2026-08-07 · by Grok (0013)
 
-> **수집은 서버가 돌린다(2026-08-06부터).** 5분 주기·09~24시(KST)·레인당 하루 200회 상한.
-> 브라우저 탭이 열려 있어 방금 갱신됐으면 서버는 건너뛴다. 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`,
-> 상태는 `GET /api/collection-scheduler`. 화면의 라이브 점과 "N분 전" 배지가 실제 신선도를 따른다.
+> **수집은 서버가 돌린다.** x-radar는 120초·cap 720, fast-viral은 300초·cap 288,
+> YouTube 제작 레퍼런스는 1,800초·cap 48이며 모두 00~24시(KST)다. 사건 영상 큐 생산자는
+> fast-viral 회차 뒤 별도로 돈다. 브라우저가 없어도 수집하며 한 소스 실패는 나머지 회차를 막지 않는다.
+> 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`, 상태는 `GET /api/collection-scheduler`에서 확인한다.
 
 ## 지금 진행 중
+
+> **0099 레이더 운영 안정화 완료.** 커뮤니티 조기감지는 사용자 정정에 따라 국내 직접 목록과
+> IssueLink만 표시한다. 최종 API 12건의 해외 항목·해외 health key는 각각 0이고
+> `foreign_sources_enabled=false`다. X는 지금 속보·최신 뉴스·오늘 이슈·X 네이티브 4칸,
+> YouTube는 최근 14일 current queue와 영구 라이브러리 분리 구조다. 별도 사건 영상 큐는
+> Mastodon·PeerTube 공개 링크 메타를 유지하되 미디어 파일을 받지 않는다. 현재 PID 61078,
+> cwd는 이 저장소의 `automation/getdaytrends`이며 주요 GET API는 모두 200이다.
+
+> **0037의 두 반례는 코드 회귀로 해소됐다.** 경쟁 writer가 바꾼 lock을 지우지 않는 검사와
+> `backup_dir == data_root` 복원 거부 검사가 2026-08-27 각각 통과했고 전체 1189 passed/7 skipped다.
+> 이번 회차는 실제 데이터 루트 이동·백업 복원·env 변경을 하지 않았으며, 현재 서버는 최신 checkout을
+> 읽어 기동했다. 데이터 병합/이관 여부는 0098 수집 확대와 별개다.
 
 > **0035 구현·운영 코드 반영 완료, 관측 연속성 단절·사람 라벨 대기.** 필터 직전 direct·IssueLink·x-radar 후보의
 > allow·block 판정을 정책 SHA-256별 로컬 SQLite에 남기고, 고정 기간·seed·verdict quota로
@@ -139,8 +156,8 @@ jamnanda 유튜브와 playboard는 둘 다 유튜브 공식 트렌딩/조회수 
 
 ## 운영 메모
 
-- **8010 서버는 2026-08-12 09:40 KST에 복구 워크트리에서 재기동**했다. Orca 터미널 `getdaytrends-8010-recovered`, PID 56188이며 `--reload` 없이 돈다. 09:57 실측에서 스케줄러 두 레인은 calls_today 2/2·오류 0이다. 09:33 사라진 이전 워크트리의 비추적 런타임 데이터는 복구되지 않았으므로 관측 시작은 새 DB의 09:40:08 KST로 다시 기록한다.
-- **새벽에는 화면이 비는 게 정상이다.** 스케줄러 활성 시간이 09~24시(KST)이고 커뮤니티에도 새 글이 안 올라온다. 2026-08-07 04:40 실측에서 수집 292건 중 106건이 나이 상한 6시간을 넘겼고 그 중간값이 28.7시간이었다 — 목록이 어제 글로 채워진다. 소재가 없다고 느끼면 먼저 시각을 본다.
+- **8010 서버는 2026-08-27 08:47 KST에 Orca 터미널의 기존 0099 서버 pane에서 최종 재기동**했다. PID 61078·`--reload` 없음·cwd는 이 저장소다. X는 08:47:40.508→08:49:41.570 KST 두 성공의 간격이 121.062초였고, YouTube는 08:52:50 KST 자동 회차에 성공했다.
+- **새벽에도 세 수집 레인과 사건 영상 큐가 돈다.** x-radar·fast-viral·creator-reference가 모두 00~24시다. 최신성 상한을 넘긴 항목을 억지로 채우지 않으므로 후보가 적을 때는 source health와 제외 수를 함께 본다.
 - 상태를 빨리 보려면 `curl -s http://127.0.0.1:8010/api/collection-scheduler`.
 
 ## 최근 마감 3건

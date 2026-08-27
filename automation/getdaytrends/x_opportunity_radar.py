@@ -144,10 +144,102 @@ def _age_fields(
     return age, basis, f"{age}분" if age is not None else "미상"
 
 
-def _breaking_lane_items(raw_candidates: object, now: datetime, *, limit: int) -> list[dict[str, Any]]:
+# 0099: 「최근 게시」와 「긴급 사건」은 다르다. 연합뉴스 RSS의 모든 새 글을
+# 속보로 부르면 칼럼·전시·일상 날씨도 속보처럼 보인다(0099 시작 실측 — 속보
+# 20건 중 긴급 증거가 있는 것은 소수였다). 사건·안전·긴급 증거 어휘가 있는
+# 글만 지금 속보로 올리고 나머지는 «최신 뉴스» lane으로 내려 보낸다.
+_URGENT_EVIDENCE_TERMS = (
+    "사고",
+    "화재",
+    "전소",
+    "소화",
+    "연기흡입",
+    "사망",
+    "숨져",
+    "숨진",
+    "중상",
+    "실종",
+    "구조",
+    "대피",
+    "대피령",
+    "붕괴",
+    "추락",
+    "전복",
+    "폭발",
+    "유출",
+    "누출",
+    "오염",
+    "방사능",
+    "지진",
+    "강진",
+    "태풍",
+    "허리케인",
+    "해일",
+    "산불",
+    "침수",
+    "정전",
+    "확산",
+    "감염",
+    "특보",
+    "주의보",
+    "경보",
+    "긴급",
+    "속보",
+    "총격",
+    "발포",
+    "흉기",
+    "폭행",
+    "살해",
+    "살인",
+    "인질",
+    "협박",
+    "체포",
+    "검거",
+    "구속",
+    "자수",
+    "입건",
+    "탈주",
+    "탈옥",
+    "사라진",
+)
+# 「~에서 불」 표현은 어휘 목록에 넣을 수 없다(불법·불안·불구 등이 붙는다).
+# 뒤에 이어지는 글자로 흔한 합성어를 걸러 낸다(예: 「아파트서 불…4명 연기흡입」).
+_URGENT_EVIDENCE_PATTERNS = (
+    re.compile(r"서\s*불(?![법구안미동행씩나무를이다은는])"),
+    re.compile(r"불이\s*(?:나|터|번지)"),
+)
+
+
+def _breaking_urgency_evidence(keyword: str, summary: str, source: str) -> tuple[str, str]:
+    """후보 하나를 지금 속보(urgent)와 최신 뉴스(latest)로 가른다.
+
+    기상청(kma:*) 4개 연산은 전부 특보·발표 계열이라 안전 증거 그 자체다.
+    연합뉴스는 제목·요약에서 사건·안전·긴급 어휘를 찾고, 증거가 없으면
+    최신 원문으로만 취급한다. 반환값: (urgency, 근거 표시 문구).
+    """
+    if source.startswith("kma:"):
+        return "urgent", "기상청 특보·발표 계열"
+    text = re.sub(r"\s+", " ", f"{keyword} {summary}").strip()
+    for term in _URGENT_EVIDENCE_TERMS:
+        if term in text:
+            return "urgent", f"긴급 증거 «{term}»"
+    for pattern in _URGENT_EVIDENCE_PATTERNS:
+        if pattern.search(text):
+            return "urgent", "긴급 증거 «화재 표현»"
+    return "latest", "긴급 증거 없음 — 최신 원문"
+
+
+def _breaking_lane_items(
+    raw_candidates: object,
+    now: datetime,
+    *,
+    limit: int,
+    excluded_reasons: Counter[str] | None = None,
+) -> list[dict[str, Any]]:
     if not isinstance(raw_candidates, list):
         return []
-    by_source: dict[str, list[dict[str, Any]]] = {"yonhap-rss": [], "kma": []}
+    urgent_items: list[dict[str, Any]] = []
+    latest_items: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     for raw in raw_candidates:
         if not isinstance(raw, dict):
@@ -163,7 +255,16 @@ def _breaking_lane_items(raw_candidates: object, now: datetime, *, limit: int) -
         ):
             continue
         seen_ids.add(candidate_id)
+        summary = str(raw.get("summary") or "").strip()
+        # 0099: 관측 단계에서 이미 걸렀어야 할 금지 주제가 여기까지 새면(관측 우회
+        # 주입·향후 회귀) lane이 스스로 막는다. 사유는 세어 응답에 공개한다.
+        reason = excluded_topic_reason(keyword, summary)
+        if reason:
+            if excluded_reasons is not None:
+                excluded_reasons[reason] += 1
+            continue
         source_label = "연합뉴스" if source == "yonhap-rss" else "기상청"
+        urgency, urgency_evidence = _breaking_urgency_evidence(keyword, summary, source)
         published_at = _timestamp(raw.get("source_published_at"))
         source_published_at = published_at.isoformat() if published_at is not None else None
         delay = None
@@ -177,48 +278,52 @@ def _breaking_lane_items(raw_candidates: object, now: datetime, *, limit: int) -
         source_url = str(raw.get("source_url") or "").strip()
         if source_url and urlparse(source_url).scheme not in {"http", "https"}:
             source_url = ""
-        source_group = "yonhap-rss" if source == "yonhap-rss" else "kma"
-        by_source[source_group].append(
-            {
-                "id": candidate_id,
-                "keyword": keyword,
-                # 0072: 상류(0069)가 실은 원문 단을 통과시킨다. 없으면 빈 문자열이고
-                # 제목(keyword)을 복사해 만들지 않는다 — 요약 생성 금지 규칙 그대로.
-                "summary": str(raw.get("summary") or "").strip(),
-                "lane": "속보·공적발표",
-                "category": "공적 발표",
-                "qualification_mode": "public_source_breaking",
-                "context_level": "source_direct",
-                "materiality_pass": True,
-                "observed_at": now.astimezone(UTC).isoformat(),
-                "source": source,
-                "sources": [source_label],
-                "source_published_at": source_published_at,
-                "detection_delay_minutes": delay,
-                "detection_delay_display": f"{delay:.1f}분" if delay is not None else "미상",
-                "first_seen_at": None,
-                "age_minutes": age_minutes,
-                "age_basis": age_basis,
-                "age_display": age_display,
-                "source_url": source_url,
-                "volume": "N/A",
-                "volume_numeric": 0,
-                "news_headlines": [],
-                "news_items": [],
-                "threads_posts": [],
-                "threads_author_count": 0,
-                "reasons": [f"{source_label} 직접 발표 · 기존 점수열과 분리"],
-            }
-        )
-    items: list[dict[str, Any]] = []
-    for index in range(max(len(values) for values in by_source.values())):
-        for source_group in ("yonhap-rss", "kma"):
-            source_items = by_source[source_group]
-            if index < len(source_items):
-                items.append(source_items[index])
-                if len(items) >= limit:
-                    return items
-    return items
+        item = {
+            "id": candidate_id,
+            "keyword": keyword,
+            # 0072: 상류(0069)가 실은 원문 단을 통과시킨다. 없으면 빈 문자열이고
+            # 제목(keyword)을 복사해 만들지 않는다 — 요약 생성 금지 규칙 그대로.
+            "summary": summary,
+            # 0099: 긴급 증거가 있는 글만 «속보·공적발표»다. dashboard.py가 이 lane
+            # 이름으로 관측 단어 재등록을 막으므로 문자열은 그대로 둔다.
+            "lane": "속보·공적발표" if urgency == "urgent" else "최신 뉴스",
+            "category": "공적 발표" if urgency == "urgent" else "최신 원문",
+            "urgency": urgency,
+            "urgency_evidence": urgency_evidence,
+            "qualification_mode": "public_source_breaking" if urgency == "urgent" else "public_source_latest",
+            "context_level": "source_direct",
+            "materiality_pass": True,
+            "observed_at": now.astimezone(UTC).isoformat(),
+            "source": source,
+            "sources": [source_label],
+            "source_published_at": source_published_at,
+            "detection_delay_minutes": delay,
+            "detection_delay_display": f"{delay:.1f}분" if delay is not None else "미상",
+            "first_seen_at": None,
+            "age_minutes": age_minutes,
+            "age_basis": age_basis,
+            "age_display": age_display,
+            "source_url": source_url,
+            "volume": "N/A",
+            "volume_numeric": 0,
+            "news_headlines": [],
+            "news_items": [],
+            "threads_posts": [],
+            "threads_author_count": 0,
+            "reasons": [
+                f"{source_label} 직접 발표 · {urgency_evidence} · 기존 점수열과 분리",
+            ],
+        }
+        (urgent_items if urgency == "urgent" else latest_items).append(item)
+
+    def _recency_key(item: dict[str, Any]) -> tuple[bool, int]:
+        # 시각을 아는 글이 앞(최신순), 시각 미상은 계층 맨 뒤로 강등한다.
+        age = item["age_minutes"]
+        return (age is None, age if age is not None else 0)
+
+    urgent_items.sort(key=_recency_key)
+    latest_items.sort(key=_recency_key)
+    return [*urgent_items, *latest_items][:limit]
 
 
 def _spam_trend_reason(keyword: str) -> str | None:
@@ -466,6 +571,80 @@ def _news_ranking_items(
         }
         items.append(item)
     return items
+
+
+# 0099: 뉴스 랭킹 lane에는 독립적인 최대 나이가 없어 430분·1,870분 표본이 그대로
+# 통과했다(시작 실측). «오늘 이슈»가 막 지난 글을 말하도록 상한을 둔다. 360분은
+# _freshness_points의 신선도 구간 경계와 같은 값이다.
+_NEWS_RANKING_MAX_AGE_MINUTES = 360
+
+
+def _apply_news_ranking_freshness_policy(
+    items: list[dict[str, Any]],
+    *,
+    excluded_reasons: Counter[str] | None = None,
+) -> tuple[list[dict[str, Any]], int]:
+    """나이 상한 초과 랭킹을 걷어내고, 시각 미상 항목은 lane 하단으로 강등한다.
+
+    `_news_ranking_items`는 순위 순서를 보존하는 순수 정규화기다(0077 규약).
+    나이 정책은 이렇게 refresh() 안에서 별도 계층으로 붙인다. 반환: (정책
+    적용된 목록, 강등된 항목 수). 제거 사유는 excluded_reasons에 합산한다.
+    """
+    fresh: list[dict[str, Any]] = []
+    demoted: list[dict[str, Any]] = []
+    for item in items:
+        age = item.get("age_minutes")
+        if age is not None and age > _NEWS_RANKING_MAX_AGE_MINUTES:
+            if excluded_reasons is not None:
+                excluded_reasons[f"뉴스 랭킹 나이 상한({_NEWS_RANKING_MAX_AGE_MINUTES}분) 초과"] += 1
+            continue
+        if age is None:
+            item["demotion_reason"] = "게시 시각 미상 — lane 하단 강등"
+            if excluded_reasons is not None:
+                excluded_reasons["시각 미상 강등"] += 1
+            demoted.append(item)
+        else:
+            fresh.append(item)
+    return [*fresh, *demoted], len(demoted)
+
+
+# 0099: lane 사이 우선순위 — 같은 URL/정규제목이 여러 lane에 올라오면 강한 근거가
+# 이긴다. 직접 원문(속보) > 최신 뉴스 > 오늘 이슈 > X 네이티브 순서다.
+def _dedupe_items_across_lanes(
+    lane_lists: list[tuple[str, list[dict[str, Any]]]],
+    *,
+    dropped: Counter[str] | None = None,
+) -> set[int]:
+    """우선순위 순으로 훑으며 URL·정규제목 중복 뒤쪽 사본을 버린다.
+
+    반환값은 살아남은 항목의 id() 집합이다(항목 객체 정체성으로 판정). 사본이
+    버려질 때마다 dropped에 «URL 중복(lane명)»·«정규제목 중복(lane명)»으로 센다.
+    """
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
+    survivors: set[int] = set()
+    for lane_name, lane_items in lane_lists:
+        for item in lane_items:
+            url = str(item.get("source_url") or "").strip()
+            title_key = _normalize_keyword(str(item.get("keyword") or ""))
+            duplicate = False
+            if url:
+                if url in seen_urls:
+                    if dropped is not None:
+                        dropped[f"URL 중복({lane_name})"] += 1
+                    duplicate = True
+                else:
+                    seen_urls.add(url)
+            if title_key:
+                if title_key in seen_titles:
+                    if dropped is not None:
+                        dropped[f"정규제목 중복({lane_name})"] += 1
+                    duplicate = True
+                else:
+                    seen_titles.add(title_key)
+            if not duplicate:
+                survivors.add(id(item))
+    return survivors
 
 
 def _reddit_items(
@@ -1034,6 +1213,10 @@ class XOpportunityRadar:
             "available": False,
             "items": [],
             "refreshed_at": None,
+            "last_attempt_at": None,
+            "last_success_at": None,
+            "is_stale": False,
+            "serving_last_good": False,
             "source_health": {
                 "google_trends": False,
                 "public_x_trends": False,
@@ -1050,6 +1233,17 @@ class XOpportunityRadar:
             "news_ranking_count": 0,
             "news_ranking_raw_count": 0,
             "news_ranking_filter_summary": {},
+            "news_ranking_demoted_count": 0,
+            "breaking_now_items": [],
+            "breaking_now_count": 0,
+            "latest_news_items": [],
+            "latest_news_count": 0,
+            "today_issue_items": [],
+            "today_issue_count": 0,
+            "x_native_items": [],
+            "breaking_filter_summary": {},
+            "cross_lane_dedupe_count": 0,
+            "cross_lane_dedupe_summary": {},
             "daum_trend_count": 0,
             "daum_raw_count": 0,
             "daum_updated_at": None,
@@ -1079,6 +1273,7 @@ class XOpportunityRadar:
         limit = min(30, max(5, int(limit)))
 
         async with self._refresh_lock:
+            previous_snapshot = self.snapshot()
             async with httpx.AsyncClient(follow_redirects=True) as session:
                 is_production_fetchers = (
                     self.google_fetcher is _async_fetch_google_trends_rss
@@ -1195,6 +1390,11 @@ class XOpportunityRadar:
                 filter_shadow_store=self.filter_shadow_store,
                 excluded_reasons=ranking_excluded_reasons,
             )
+            # 0099: 나이 상한(360분)과 시각 미상 강등은 정규화 뒤 정책 계층에서.
+            ranking_items, news_ranking_demoted_count = _apply_news_ranking_freshness_policy(
+                ranking_items,
+                excluded_reasons=ranking_excluded_reasons,
+            )
             matched_x_ranks = _attach_x_signals_to_rankings(
                 x_trends,
                 [*daum_items, *ranking_items],
@@ -1258,7 +1458,13 @@ class XOpportunityRadar:
                     # The additive lane must never affect the existing radar
                     # response path when its observer fails.
                     errors.append("L0/L1 shadow 관찰 실패")
-            breaking_items = _breaking_lane_items(breaking_product_candidates, now, limit=limit)
+            breaking_excluded_reasons: Counter[str] = Counter()
+            breaking_items = _breaking_lane_items(
+                breaking_product_candidates,
+                now,
+                limit=limit,
+                excluded_reasons=breaking_excluded_reasons,
+            )
 
             for candidate in candidates.values():
                 google = candidate.get("google")
@@ -1524,12 +1730,35 @@ class XOpportunityRadar:
                 filter_shadow_store=self.filter_shadow_store,
                 excluded_reasons=reddit_excluded_reasons,
             )
+            # 0099: 근거의 성격별 배열 — 지금 속보 / 최신 뉴스 / 오늘 이슈 / X 네이티브.
+            # `items`는 기존 조성 순서를 그대로 유지한다(호환), 새 배열이 소비처다.
+            breaking_now_items = [item for item in breaking_items if item.get("urgency") == "urgent"]
+            latest_news_items = [item for item in breaking_items if item.get("urgency") == "latest"]
+            today_core_items = [*daum_items, *ranking_items, *legacy_items, *reddit_items]
+            x_native_items = [
+                item for item in today_core_items if item.get("qualification_mode") == "x_native_history"
+            ]
+            today_issue_items = [
+                item for item in today_core_items if item.get("qualification_mode") != "x_native_history"
+            ]
+            cross_lane_dedupe_summary: Counter[str] = Counter()
+            dedupe_survivors = _dedupe_items_across_lanes(
+                [
+                    ("지금 속보", breaking_now_items),
+                    ("최신 뉴스", latest_news_items),
+                    ("오늘 이슈", today_issue_items),
+                    ("X 네이티브", x_native_items),
+                ],
+                dropped=cross_lane_dedupe_summary,
+            )
+            breaking_now_items = [item for item in breaking_now_items if id(item) in dedupe_survivors]
+            latest_news_items = [item for item in latest_news_items if id(item) in dedupe_survivors]
+            today_issue_items = [item for item in today_issue_items if id(item) in dedupe_survivors]
+            x_native_items = [item for item in x_native_items if id(item) in dedupe_survivors]
             visible_items = [
-                *daum_items,
-                *ranking_items,
-                *legacy_items,
-                *breaking_items,
-                *reddit_items,
+                item
+                for item in [*daum_items, *ranking_items, *legacy_items, *breaking_items, *reddit_items]
+                if id(item) in dedupe_survivors
             ]
             self.exposure_tracker.save(now=now)
             source_health = {
@@ -1568,7 +1797,8 @@ class XOpportunityRadar:
                 errors.append("공개 X 트렌드: 원천 표식(_getdaytrends_sample_id) 없는 항목만 감지 — health 미반영")
             if daum_fetcher is not None and not daum_raw:
                 errors.append("다음 실시간 트렌드 결과 없음")
-            self._snapshot = {
+            attempt_at = now.isoformat()
+            next_snapshot = {
                 "available": bool(visible_items),
                 "country": country,
                 "items": visible_items,
@@ -1576,6 +1806,7 @@ class XOpportunityRadar:
                 "news_ranking_count": len(ranking_items),
                 "news_ranking_raw_count": len(ranking_raw),
                 "news_ranking_filter_summary": dict(ranking_excluded_reasons),
+                "news_ranking_demoted_count": news_ranking_demoted_count,
                 "daum_trend_count": len(daum_items),
                 "daum_raw_count": len(daum_raw),
                 "daum_updated_at": daum_updated_at,
@@ -1585,10 +1816,22 @@ class XOpportunityRadar:
                 "reddit_filter_summary": dict(reddit_excluded_reasons),
                 "qualified_candidates": len(items),
                 "breaking_news_count": len(breaking_items),
+                # 0099: 긴급도·근거별 분리 배열. breaking_news_count는 호환을 위해
+                # urgent+latest 합계로 유지하고, 세부는 아래 count로 읽는다.
+                "breaking_now_items": breaking_now_items,
+                "breaking_now_count": len(breaking_now_items),
+                "latest_news_items": latest_news_items,
+                "latest_news_count": len(latest_news_items),
+                "today_issue_items": today_issue_items,
+                "today_issue_count": len(today_issue_items),
+                "x_native_items": x_native_items,
+                "breaking_filter_summary": dict(breaking_excluded_reasons),
+                "cross_lane_dedupe_count": sum(cross_lane_dedupe_summary.values()),
+                "cross_lane_dedupe_summary": dict(cross_lane_dedupe_summary),
                 "filtered_out_count": len(candidates) - len(items),
                 "filter_summary": dict(filtered_reasons),
                 "strict_materiality": True,
-                "x_native_count": sum(1 for item in items if item.get("qualification_mode") == "x_native_history"),
+                "x_native_count": len(x_native_items),
                 "expanded_news_count": expanded_news_count,
                 "observed_only_count": len(observed_only_items),
                 "observed_only_items": observed_only_items,
@@ -1604,9 +1847,61 @@ class XOpportunityRadar:
                     }
                 },
                 "focus_keywords": focus,
-                "refreshed_at": now.isoformat(),
+                "refreshed_at": attempt_at,
+                "last_attempt_at": attempt_at,
                 "source_health": source_health,
                 "errors": errors,
-                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 다음 실시간 트렌드(순위 변동 포함)·네이트/줌 뉴스 랭킹·Reddit 핫 포스트를 점수 없는 후보로 앞세우고, X 트렌드 단어는 같은 사건의 후보에 「X에서도 뜨고 있음」 신호로 붙입니다. 맥락 없는 X 단어는 관측만 칸으로 강등하며 연합뉴스·기상청 직접 발표는 별도 lane으로 병기합니다.",
+                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 연합뉴스·기상청 직접 원문은 사건·안전·긴급 증거가 있는 것만 «지금 속보»로 올리고 나머지는 «최신 뉴스» lane에 둡니다. 뉴스 랭킹은 게시 360분 상한을 넘으면 걷어내고 게시 시각 미상은 lane 하단으로 강등합니다. 다음 실시간 트렌드(순위 변동 포함)·뉴스 랭킹·Reddit 핫 포스트를 점수 없는 후보로 앞세우고, X 트렌드 단어는 같은 사건의 후보에 「X에서도 뜨고 있음」 신호로 붙입니다. 맥락 없는 X 단어는 관측만 칸으로 강등합니다. 같은 URL·제목이 여러 lane에 올라오면 강한 근거 쪽만 남깁니다.",
             }
+
+            # A successful cycle means at least one collection source actually
+            # returned usable source data. Capability flags (for example a
+            # configured Threads token) do not count as a successful fetch.
+            collection_succeeded = any(
+                bool(source_health.get(key))
+                for key in (
+                    "google_trends",
+                    "public_x_trends",
+                    "daum_realtime",
+                    "news_rankings",
+                    "reddit",
+                    "publisher_news_origins",
+                    "google_news_rss",
+                    "yonhap_rss",
+                    "kma_weather",
+                )
+            )
+            if collection_succeeded:
+                next_snapshot["last_success_at"] = attempt_at
+                next_snapshot["is_stale"] = False
+                next_snapshot["serving_last_good"] = False
+                self._snapshot = next_snapshot
+                return self.snapshot()
+
+            last_success_at = previous_snapshot.get("last_success_at") or previous_snapshot.get("refreshed_at")
+            if last_success_at:
+                # Keep the arrays/counts from the last successful response, but
+                # expose diagnostics from this failed attempt.  This prevents a
+                # transient all-source outage from blanking the private queue.
+                preserved = dict(previous_snapshot)
+                preserved.update(
+                    {
+                        "last_attempt_at": attempt_at,
+                        "last_success_at": last_success_at,
+                        "is_stale": True,
+                        "serving_last_good": True,
+                        "source_health": source_health,
+                        "errors": errors or ["모든 외부 소스가 결과를 반환하지 않음"],
+                        "force_refresh_requested": bool(force_refresh),
+                    }
+                )
+                self._snapshot = preserved
+                return self.snapshot()
+
+            next_snapshot["last_success_at"] = None
+            next_snapshot["is_stale"] = True
+            next_snapshot["serving_last_good"] = False
+            if not next_snapshot["errors"]:
+                next_snapshot["errors"] = ["모든 외부 소스가 결과를 반환하지 않음"]
+            self._snapshot = next_snapshot
             return self.snapshot()

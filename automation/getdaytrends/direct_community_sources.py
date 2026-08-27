@@ -13,7 +13,6 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-
 _KST = timezone(timedelta(hours=9))
 
 DIRECT_COMMUNITY_SOURCES = (
@@ -55,6 +54,30 @@ DIRECT_COMMUNITY_SOURCES = (
         "label": "보배드림 신유머",
         "url": "https://www.bobaedream.co.kr/list?code=strange",
     },
+    # 2026-08-27 소스 확대(0098-C). 유머 계열보다 사건·영상 밀도가 높은 두 게시판.
+    # accident(교통사고/블박)는 실측 35건 중 video 14·image 13, dica(직찍/특종발견)는
+    # 30건 중 image 25였다. robots는 기존 보배드림과 같은 `User-agent: * / Allow: /`
+    # (2026-08-27 재확인). 목록 구조도 best·freeb와 같은 표라 공통 파서를 그대로 쓴다.
+    {
+        "key": "bobae_accident",
+        "label": "보배드림 사고",
+        "url": "https://www.bobaedream.co.kr/list?code=accident",
+    },
+    {
+        "key": "bobae_dica",
+        "label": "보배드림 직찍",
+        "url": "https://www.bobaedream.co.kr/list?code=dica",
+    },
+    # 클리앙 모두의공원(2026-08-27 추가). robots가 `User-agent: *`에
+    # `Allow:/service/board/`를 준다(검색엔진 외 일반 에이전트 허용 조항).
+    # 우리가 실제로 가져오는 것은 쿼리 없는 목록 URL뿐이고 `Disallow: /*?*`와
+    # 판매(git)/홍보 게시판 조항에는 닿지 않는다. 목록이 서버사이드로 렌더링돼
+    # data-board-sn·전체 타임스탬프가 그대로 온다(2026-08-27 실측 30행).
+    {
+        "key": "clien_park",
+        "label": "클리앙 모두의공원",
+        "url": "https://www.clien.net/service/board/park",
+    },
     # 2026-08-06 소스 확대. 기존 네 곳이 전부 유머 게시판이라 사연·고민 소재가 얇았다.
     # robots를 각각 확인하고 통과한 곳만 붙였다(뽐뿌 Allow:/zboard/, 오늘의유머 Allow:/ +
     # Content-Signal ai-train=no).
@@ -87,6 +110,15 @@ def _parse_count(value: str) -> int:
     return int(match.group(1).replace(",", "")) if match else 0
 
 
+def _parse_compact_count(value: str) -> int:
+    """클리앙 조회수는 천 단위부터 "14.7 k"처럼 쓴다. 이 형태만 먼저 보고 나머지는 위임."""
+    text = " ".join(value.replace("\xa0", " ").split())
+    match = re.fullmatch(r"([\d,.]+)\s*k", text, flags=re.IGNORECASE)
+    if match:
+        return int(float(match.group(1).replace(",", "")) * 1000)
+    return _parse_count(text)
+
+
 def _age_minutes(label: str, now: datetime) -> int | None:
     text = " ".join(label.split())
     relative = re.search(r"(\d+)\s*(분|시간|일)\s*전", text)
@@ -95,6 +127,18 @@ def _age_minutes(label: str, now: datetime) -> int | None:
         return amount * {"분": 1, "시간": 60, "일": 1440}[relative.group(2)]
 
     local_now = now.astimezone(_KST)
+    # 클리앙은 목록 시각 칸에 연·월·일까지 전체 타임스탬프(2026-08-27 05:02)를 싣는다.
+    stamp = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})", text)
+    if stamp:
+        published = datetime(
+            int(stamp.group(1)),
+            int(stamp.group(2)),
+            int(stamp.group(3)),
+            int(stamp.group(4)),
+            int(stamp.group(5)),
+            tzinfo=_KST,
+        )
+        return max(0, round((local_now - published).total_seconds() / 60))
     clock = re.fullmatch(r"(\d{1,2}):(\d{2})", text)
     if clock:
         published = local_now.replace(
@@ -119,7 +163,8 @@ def _age_minutes(label: str, now: datetime) -> int | None:
         return max(0, round((local_now - published).total_seconds() / 60))
 
     # 보배드림 일반 게시판은 오늘이 아니면 "08/05"처럼 월/일만 찍는다(시각 없음 → 그날 00:00).
-    month_day = re.fullmatch(r"(\d{1,2})/(\d{1,2})", text)
+    # 클리앙은 같은 뜻을 대시로 쓴다("07-30").
+    month_day = re.fullmatch(r"(\d{1,2})[/\-](\d{1,2})", text)
     if month_day:
         published = datetime(
             local_now.year,
@@ -533,6 +578,30 @@ def parse_bobaedream_strange(html: str, *, now: datetime | None = None) -> list[
     )
 
 
+def parse_bobaedream_accident(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    """교통사고/블랙박스 게시판. 사건 목격·블박 영상 밀도가 유머 계열보다 높다."""
+    return parse_bobaedream_board(
+        html,
+        board_code="accident",
+        source="bobae_accident",
+        label="보배드림 사고",
+        default_category="보배드림 교통사고/블박",
+        now=now,
+    )
+
+
+def parse_bobaedream_dica(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    """직찍/특종발견 게시판. 현장 직찍 사진·영상 자료가 주를 이룬다."""
+    return parse_bobaedream_board(
+        html,
+        board_code="dica",
+        source="bobae_dica",
+        label="보배드림 직찍",
+        default_category="보배드림 직찍/특종발견",
+        now=now,
+    )
+
+
 def parse_82cook_free(html: str, *, now: datetime | None = None) -> list[dict[str, Any]]:
     reference = now or datetime.now(UTC)
     soup = BeautifulSoup(html, "html.parser")
@@ -733,6 +802,70 @@ def parse_todayhumor_best(html: str, *, now: datetime | None = None) -> list[dic
     return items
 
 
+def parse_clien_board(
+    html: str,
+    *,
+    source: str = "clien_park",
+    label: str = "클리앙 모두의공원",
+    default_category: str = "클리앙 모두의공원",
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """클리앙 목록 파서. 목록이 서버사이드로 렌더링돼 필요한 값이 전부 HTML에 있다.
+
+    공지(div.list_item.notice)와 홍보 자리(#hongboInfoList)는 symph_row 가
+    아니므로 선택자에서 자연히 빠진다. 글번호는 data-board-sn, 댓글 수는
+    data-comment-count 속성에 있고, 시각 칸은 화면 글자("05:02") 안에 전체
+    타임스탬프(2026-08-27 05:02:53)를 span.timestamp 로 숨겨 둔다 — 그쪽이
+    연도까지 확정되므로 초를 잘라 라벨로 쓴다. 목록에 첨부 종류 아이콘이
+    없으므로 attachment_kind 는 제목 접미 표식만으로 판정한다.
+    """
+    reference = now or datetime.now(UTC)
+    soup = BeautifulSoup(html, "html.parser")
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for position, row in enumerate(soup.select("div.list_item.symph_row")):
+        post_id = str(row.get("data-board-sn") or "").strip()
+        link = row.select_one("a.list_subject")
+        if not post_id or link is None or post_id in seen:
+            continue
+        title_node = link.select_one("span.subject_fixed")
+        title = " ".join(str((title_node or link).get("title") or "").split()) or " ".join(
+            (title_node or link).get_text(" ", strip=True).split()
+        )
+        if not title:
+            continue
+        seen.add(post_id)
+        time_node = row.select_one(".list_time .time")
+        stamp_node = time_node.select_one("span.timestamp") if time_node else None
+        stamp = " ".join(stamp_node.get_text(" ", strip=True).split()) if stamp_node else ""
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", stamp):
+            published_label = stamp[:16]
+        else:
+            # 타임스탬프가 없으면 보이는 글자("05:02"·"07-30")를 그대로 쓴다.
+            direct_text = time_node.find(string=True, recursive=False) if time_node else None
+            published_label = " ".join(str(direct_text or "").split())
+        votes_node = row.select_one(".list_symph")
+        hit_node = row.select_one(".list_hit")
+        items.append(
+            _base_item(
+                source=source,
+                label=label,
+                post_id=post_id,
+                title=title,
+                url=urljoin("https://www.clien.net", str(link.get("href") or "")),
+                category=default_category,
+                published_label=published_label,
+                age_minutes=_age_minutes(published_label, reference),
+                views=_parse_compact_count(hit_node.get_text(" ", strip=True)) if hit_node else 0,
+                votes=_parse_compact_count(votes_node.get_text(" ", strip=True)) if votes_node else 0,
+                comments=_parse_count(str(row.get("data-comment-count") or "")),
+                position=position,
+                attachment_kind=_resolve_attachment_kind(_kind_from_title_suffix(title)),
+            )
+        )
+    return items
+
+
 _PARSERS = {
     "dogdrip": parse_dogdrip_latest,
     "theqoo": parse_theqoo_hot,
@@ -741,6 +874,9 @@ _PARSERS = {
     "bobae_freeb": parse_bobaedream_freeb,
     "bobae_national": parse_bobaedream_national,
     "bobae_strange": parse_bobaedream_strange,
+    "bobae_accident": parse_bobaedream_accident,
+    "bobae_dica": parse_bobaedream_dica,
+    "clien_park": parse_clien_board,
     # 82cook은 직접 수집 목록에서 뺐지만 파서·키는 남겨 둔다(IssueLink·재개용).
     "82cook": parse_82cook_free,
     "ppomppu": parse_ppomppu_hot,

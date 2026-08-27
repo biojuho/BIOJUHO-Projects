@@ -7,8 +7,10 @@ import os
 
 try:
     from .db_env import database_url_from_env
+    from .runtime_paths import resolve_runtime_paths
 except ImportError:
     from db_env import database_url_from_env
+    from runtime_paths import resolve_runtime_paths  # type: ignore[no-redef]
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -20,13 +22,19 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 def storage_env() -> dict:
     """Storage 관련 환경변수 로딩."""
+    runtime_paths = resolve_runtime_paths()
+    db_path = (
+        str(runtime_paths.getdaytrends_db)
+        if runtime_paths.configured
+        else os.getenv("DB_PATH", "data/getdaytrends.db")
+    )
     return dict(
         notion_token=os.getenv("NOTION_TOKEN", ""),
         notion_database_id=os.getenv("NOTION_DATABASE_ID", ""),
         google_service_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "credentials.json"),
         google_sheet_id=os.getenv("GOOGLE_SHEET_ID", ""),
         storage_type=os.getenv("STORAGE_TYPE", "notion").lower(),
-        db_path=os.getenv("DB_PATH", "data/getdaytrends.db"),
+        db_path=db_path,
         database_url=database_url_from_env(),
         cache_volume_bucket=int(os.getenv("CACHE_VOLUME_BUCKET", "5000")),
         data_retention_days=int(os.getenv("DATA_RETENTION_DAYS", "90")),

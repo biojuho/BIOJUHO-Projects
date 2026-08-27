@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -85,39 +85,337 @@ def test_store_rejects_duplicate_canonical_url(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_live_collector_creates_and_refreshes_youtube_metadata(tmp_path):
+async def test_live_collector_separates_live_queue_and_populates_detailed_metadata(tmp_path):
     store = ReferenceLibraryStore(tmp_path / "live-library.json")
     collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp")
     collector._search_keyword = AsyncMock(
         return_value=[
             {
                 "id": "live123",
-                "title": "지금 뜨는 AI 콘텐츠",
+                "title": "지금 뜨는 AI 콘텐츠 제작법",
                 "url": "https://www.youtube.com/watch?v=live123",
                 "channel": "라이브 채널",
                 "duration": 58,
-                "view_count": 125_000,
+                "view_count": 120_000,
+                "like_count": 4_500,
+                "comment_count": 320,
+                "timestamp": 1787666400,
+                "description": "AI 콘텐츠 제작과 유튜브 성장 팁을 공유합니다.",
             }
         ]
     )
 
     first = await collector.refresh(["AI 콘텐츠"], per_keyword=3)
     assert first["collected"] == 1
-    assert first["created"] == 1
+    assert first["new_count"] == 1
+    assert first["repeat_count"] == 0
+    assert first["created"] == 0
     assert first["updated"] == 0
-    item = store.list()[0]
-    assert item["content_format"] == "short"
-    assert item["recommendation_score"] >= 80
-    assert "조회수 125,000" in item["caption"]
+    assert first["errors"] == []
+    assert first["is_stale"] is False
+    assert first["last_success_at"] is not None
 
-    store.update(item["id"], ReferenceItemPatch(saved=True, memo="사용자 메모 유지"))
+    # Permanent library items are NOT polluted by auto live search
+    assert len(store.list()) == 0
+    assert len(store.get_live_items()) == 1
+
+    item = first["items"][0]
+    assert item["id"] == "live123"
+    assert item["platform"] == "youtube"
+    assert item["content_format"] == "short"
+    assert item["published_at"] != ""
+    assert item["age_hours"] is not None
+    assert item["age_text"] != ""
+    assert item["views"] == 120_000
+    assert item["views_per_hour"] is not None
+    assert item["likes"] == 4_500
+    assert item["comments"] == 320
+    assert item["duration"] == 58
+    assert item["duration_formatted"] == "0:58"
+    assert item["topic_relevance"] >= 70
+    assert item["recommendation_score"] >= 80
+    assert "급상승" in item["recommendation_reason"] or "반응" in item["recommendation_reason"] or "AI 콘텐츠" in item["recommendation_reason"]
+    assert item["is_new"] is True
+    assert item["status"] == "new"
+
+    # Second refresh with same item: detected as repeat
     second = await collector.refresh(["AI 콘텐츠"], per_keyword=3)
+    assert second["collected"] == 1
+    assert second["new_count"] == 0
+    assert second["repeat_count"] == 1
     assert second["created"] == 0
-    assert second["updated"] == 1
-    refreshed = store.get(item["id"])
-    assert refreshed["saved"] is True
-    assert refreshed["memo"] == "사용자 메모 유지"
-    assert store.get_live_status()["source"] == "youtube"
+    assert second["updated"] == 0
+    assert second["items"][0]["is_new"] is False
+    assert second["items"][0]["status"] == "repeat"
+    assert len(store.list()) == 0
+
+
+@pytest.mark.asyncio
+async def test_live_collector_keyword_failure_isolation(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp")
+
+    async def mock_search(keyword: str, limit: int):
+        if keyword == "실패키워드":
+            raise RuntimeError("Network connection reset by peer")
+        return [
+            {
+                "id": "good456",
+                "title": "성공한 유튜브 성장 전략",
+                "url": "https://www.youtube.com/watch?v=good456",
+                "channel": "성장 채널",
+                "duration": 600,
+                "view_count": 50_000,
+                "timestamp": 1787666400,
+            }
+        ]
+
+    collector._search_keyword = AsyncMock(side_effect=mock_search)
+
+    status = await collector.refresh(["실패키워드", "유튜브 성장"], per_keyword=3)
+    assert status["available"] is True
+    assert status["collected"] == 1
+    assert len(status["items"]) == 1
+    assert status["items"][0]["id"] == "good456"
+    assert len(status["errors"]) == 1
+    assert "실패키워드" in status["errors"][0]
+    assert status["last_success_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_live_collector_transient_full_failure_preserves_last_good_items(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp")
+
+    collector._search_keyword = AsyncMock(
+        return_value=[
+            {
+                "id": "item1",
+                "title": "정상 수집 AI 콘텐츠",
+                "url": "https://www.youtube.com/watch?v=item1",
+                "channel": "정상 채널",
+                "duration": 300,
+                "view_count": 10_000,
+                "timestamp": 1787666400,
+            }
+        ]
+    )
+
+    first = await collector.refresh(["AI 콘텐츠"], per_keyword=3)
+    assert first["collected"] == 1
+    assert first["is_stale"] is False
+    last_success = first["last_success_at"]
+    assert last_success is not None
+
+    # Now simulate a transient full failure (e.g. yt-dlp error on all keywords)
+    collector._search_keyword = AsyncMock(side_effect=RuntimeError("YouTube 429 Too Many Requests"))
+    second = await collector.refresh(["AI 콘텐츠"], per_keyword=3)
+
+    assert second["collected"] == 1
+    assert len(second["items"]) == 1
+    assert second["items"][0]["id"] == "item1"
+    assert second["last_success_at"] == last_success
+    assert second["is_stale"] is True
+    assert len(second["errors"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_live_collector_filters_spam_and_excluded_topics(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp")
+
+    collector._search_keyword = AsyncMock(
+        return_value=[
+            {
+                "id": "spam1",
+                "title": "사설토토 바카라 불법 홍보 영상",
+                "url": "https://www.youtube.com/watch?v=spam1",
+                "channel": "스팸채널",
+                "duration": 60,
+                "view_count": 999_999,
+            },
+            {
+                "id": "clean1",
+                "title": "AI 콘텐츠 기획 완벽 가이드",
+                "url": "https://www.youtube.com/watch?v=clean1",
+                "channel": "정상채널",
+                "duration": 120,
+                "view_count": 5_000,
+                "timestamp": 1787666400,
+            },
+        ]
+    )
+
+    status = await collector.refresh(["AI 콘텐츠"], per_keyword=3)
+    assert status["collected"] == 1
+    assert [item["id"] for item in status["items"]] == ["clean1"]
+
+
+@pytest.mark.asyncio
+async def test_live_collector_enrichment_subprocess_fallback(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp")
+
+    collector._search_keyword = AsyncMock(
+        return_value=[
+            {
+                "id": "flat123",
+                "title": "AI 영상 제작 팁",
+                "url": "https://www.youtube.com/watch?v=flat123",
+                "channel": "채널",
+                "duration": 150,
+                "view_count": 30_000,
+            }
+        ]
+    )
+    # Mock detailed metadata fetch subprocess
+    collector._fetch_detailed_metadata = AsyncMock(
+        return_value={
+            "id": "flat123",
+            "timestamp": 1787666400,
+            "upload_date": "20260825",
+            "like_count": 1200,
+            "comment_count": 85,
+            "tags": ["AI", "영상제작"],
+            "description": "AI 영상 제작 팁 상세 설명",
+        }
+    )
+
+    status = await collector.refresh(["AI 영상"], per_keyword=3)
+    assert status["collected"] == 1
+    item = status["items"][0]
+    assert item["likes"] == 1200
+    assert item["comments"] == 85
+    assert item["published_at"] != ""
+    assert item["topic_relevance"] >= 70
+
+
+@pytest.mark.asyncio
+async def test_live_collector_strictly_excludes_videos_older_than_14_days(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp", recent_days=14)
+
+    collector._search_keyword = AsyncMock(
+        return_value=[
+            {
+                "id": "old_2023",
+                "title": "오래된 유튜브 성장 팁 2023",
+                "url": "https://www.youtube.com/watch?v=old_2023",
+                "channel": "옛날채널",
+                "duration": 600,
+                "view_count": 800_000,
+                "upload_date": "20231029",  # 2023-10-29 (> 24,000 hours old)
+            },
+            {
+                "id": "fresh_2026",
+                "title": "2026 최신 유튜브 성장 전략",
+                "url": "https://www.youtube.com/watch?v=fresh_2026",
+                "channel": "최신채널",
+                "duration": 480,
+                "view_count": 25_000,
+                "timestamp": int(datetime.now(UTC).timestamp()) - 86400,  # 1 day ago (24 hours)
+            },
+        ]
+    )
+
+    status = await collector.refresh(["유튜브 성장"], per_keyword=5)
+    assert status["recent_days"] == 14
+    assert status["max_age_hours"] == 336
+    assert status["excluded_old_count"] == 1
+    assert status["collected"] == 1
+    assert len(status["items"]) == 1
+    assert status["items"][0]["id"] == "fresh_2026"
+    assert status["items"][0]["recency_verified"] is True
+    assert status["items"][0]["age_hours"] <= 336.0
+
+
+@pytest.mark.asyncio
+async def test_live_collector_rejects_loose_search_topics_and_honors_output_limit(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp")
+    now = int(datetime.now(UTC).timestamp())
+    collector._search_keyword = AsyncMock(
+        return_value=[
+            {
+                "id": "cloud_growth",
+                "title": "네오클라우드의 기묘한 성장법",
+                "url": "https://www.youtube.com/watch?v=cloud_growth",
+                "timestamp": now - 3600,
+                "view_count": 500_000,
+            },
+            {
+                "id": "work_life",
+                "title": "사회생활 시작하면 알아야 할 것들",
+                "url": "https://www.youtube.com/watch?v=work_life",
+                "timestamp": now - 7200,
+                "view_count": 400_000,
+            },
+            {
+                "id": "youtube_growth_low",
+                "title": "유튜브 채널 성장 기록",
+                "url": "https://www.youtube.com/watch?v=youtube_growth_low",
+                "timestamp": now - 3600,
+                "view_count": 500,
+            },
+            {
+                "id": "youtube_growth_high",
+                "title": "구독자 늘리는 유튜브 성장 전략",
+                "url": "https://www.youtube.com/watch?v=youtube_growth_high",
+                "timestamp": now - 3600,
+                "view_count": 50_000,
+            },
+        ]
+    )
+
+    status = await collector.refresh(["유튜브 성장"], per_keyword=1)
+
+    assert status["collected"] == 1
+    assert status["excluded_irrelevant_count"] == 2
+    assert status["items"][0]["id"] == "youtube_growth_high"
+    assert status["items"][0]["topic_relevance"] >= 85
+
+
+@pytest.mark.asyncio
+async def test_live_collector_handles_unverified_recency_and_caps_score(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp")
+
+    collector._search_keyword = AsyncMock(
+        return_value=[
+            {
+                "id": "unverified_date",
+                "title": "게시시각을 알 수 없는 AI 콘텐츠 영상",
+                "url": "https://www.youtube.com/watch?v=unverified_date",
+                "channel": "미확인채널",
+                "duration": 50,
+                "view_count": 500_000,
+                # No timestamp or upload_date
+            }
+        ]
+    )
+
+    status = await collector.refresh(["AI 콘텐츠"], per_keyword=3)
+    assert status["collected"] == 1
+    item = status["items"][0]
+    assert item["recency_verified"] is False
+    assert item["age_hours"] is None
+    assert item["age_text"] == "게시시각 미확인"
+    assert item["views_per_hour"] is None
+    # High score prevention (고점 방지): score capped at 45
+    assert item["recommendation_score"] <= 45
+    assert "게시시각 미확인" in item["recommendation_reason"]
+
+
+@pytest.mark.asyncio
+async def test_live_collector_search_query_includes_after_date_and_timeout_cleanup(tmp_path):
+    store = ReferenceLibraryStore(tmp_path / "live-library.json")
+    collector = YouTubeLiveReferenceCollector(store, executable="/fake/yt-dlp", recent_days=14)
+
+    # Test subprocess execution wrapper with timeout cleanup
+    with patch.object(collector, "_safe_run_subprocess", AsyncMock(side_effect=TimeoutError())):
+        with pytest.raises(RuntimeError) as exc_info:
+            await collector._search_keyword("AI 콘텐츠", limit=3, recent_days=14)
+        assert "timed out" in str(exc_info.value)
 
 
 @pytest.fixture
@@ -167,12 +465,66 @@ def test_dashboard_exposes_reference_library_ui(client):
     assert "/api/x-radar/refresh" in response.text
     assert "자동 문안 생성이나 게시 기능은 없습니다" in response.text
     assert "공개 X 상위 5위 반복" in response.text
-    assert "force_refresh: !silent" in response.text
+    # 수동 버튼만 강제 수집 — 캐시 우회는 항상 켜져 있다.
+    assert "force_refresh: true" in response.text
     assert "Threads 검색" in response.text
     assert "커뮤니티 바이럴 조기감지" in response.text
     assert "/api/fast-viral/refresh" in response.text
     assert "community_cluster_count" in response.text
     assert "cross_community_labels" in response.text
+
+
+def test_dashboard_auto_polling_is_get_only_and_queue_is_separate(client):
+    page = client.get("/").text
+
+    # 자동 경로(첫 로드·setInterval)는 세 레인 전부 GET 스냅샷만 읽는다.
+    assert "async function loadXRadar" in page
+    assert "async function loadFastViral" in page
+    assert "async function loadLiveReferences" in page
+    assert "await fetch('/api/x-radar')" in page
+    assert "await fetch('/api/fast-viral')" in page
+    assert "await fetch('/api/reference-library/live/status')" in page
+    assert "setInterval(() => loadXRadar(), 120000)" in page
+    assert "setInterval(() => loadFastViral(), 120000)" in page
+    assert "setInterval(() => loadLiveReferences(), 300000)" in page
+    # 옛 자동 POST 경로는 사라졌다.
+    assert "refreshXRadar(true)" not in page
+    assert "refreshFastViral(true)" not in page
+    assert "refreshLiveReferences(true)" not in page
+
+    # YouTube 현재 큐는 영구 라이브러리 위 별도 섹션에 그린다.
+    assert 'id="reference-live-queue"' in page
+    assert "renderLiveReferences" in page
+    # 썸네일 바이트는 받지 않는다 — 렌더가 유튜브 썸네일 URL을 쓰지 않는다.
+    assert "i.ytimg.com" not in page
+    assert "img.youtube.com" not in page
+    assert "item.thumbnail" not in page
+
+    # 커뮤니티 조기감지 레인은 국내 전용. 별도 사건 영상 큐의 Mastodon·PeerTube
+    # 설명은 그대로 둘 수 있지만, 조기감지의 옛 해외 수집 문구는 없어야 한다.
+    assert "국내 전용 · 해외 커뮤니티 수집 안 함" in page
+    assert "국내 직접 원문과 Mastodon·Bluesky·Lemmy" not in page
+    assert "글로벌 공개 ${safeHtml(String(data.federated_source_count" not in page
+
+
+def test_dashboard_x_radar_ui_shows_four_separate_lanes(client):
+    page = client.get("/").text
+
+    # 응답의 분리 배열 4개가 각각의 섹션으로 렌더링된다.
+    assert "breaking_now_items" in page
+    assert "latest_news_items" in page
+    assert "today_issue_items" in page
+    assert "x_native_items" in page
+    assert "지금 속보" in page
+    assert "최신 뉴스" in page
+    assert "오늘 이슈" in page
+    assert "X 네이티브" in page
+    assert "xRadarSectionHtml" in page
+    # news_items가 비어 있는 기상청·연합뉴스 항목도 직접 원문을 잃지 않는다.
+    assert "directSourceLink" in page
+    assert "item.source_url" in page
+    # freshness의 시계도 마지막 시도가 아니라 마지막 성공을 우선한다.
+    assert "data.last_success_at || data.refreshed_at" in page
 
 
 def test_fast_viral_refresh_endpoint(client):

@@ -101,6 +101,7 @@ try:
     from .live_reference_collector import YouTubeLiveReferenceCollector
     from .reference_library import ReferenceLibraryStore
     from .runtime_paths import RuntimeWriterLock, initialize_runtime_segment, resolve_runtime_paths
+    from .video_queue_producer import VideoQueueProducer
     from .x_opportunity_radar import XOpportunityRadar
 except ImportError:
     from collection_scheduler import CollectionScheduler, Lane
@@ -116,6 +117,7 @@ except ImportError:
         initialize_runtime_segment,
         resolve_runtime_paths,
     )
+    from video_queue_producer import VideoQueueProducer
     from x_opportunity_radar import XOpportunityRadar
 
 try:
@@ -149,47 +151,22 @@ except ImportError:
 
 _collection_scheduler: CollectionScheduler | None = None
 _runtime_paths = resolve_runtime_paths()
-_breaking_news_lane_state: dict[str, object] = {"refreshed_at": None}
+_video_queue_producer = VideoQueueProducer()
 
 
-def _breaking_news_lane_snapshot() -> dict[str, object]:
-    snapshot = dict(_breaking_news_lane_state)
-    radar_snapshot = _x_opportunity_radar.snapshot()
-    radar_observation = radar_snapshot.get("breaking_news_observation")
-    radar_observed_at = (
-        radar_observation.get("observed_at") if isinstance(radar_observation, dict) else None
-    )
-    observed_times = [
-        value
-        for value in (snapshot.get("refreshed_at"), radar_observed_at)
-        if isinstance(value, str) and value
-    ]
-    snapshot["refreshed_at"] = max(observed_times, default=None)
+async def _refresh_fast_viral_lane() -> dict[str, Any]:
+    """Refresh detection first, then its derived video queue without coupling failures.
+
+    The queue is a downstream material view.  If one public site or the bramble
+    subprocess fails, the fresh community snapshot must still be published and
+    the producer keeps the separate error timestamp for the status endpoint.
+    """
+    snapshot = await _fast_viral_collector.refresh(limit=12)
+    try:
+        await _video_queue_producer.refresh()
+    except Exception as exc:
+        logger.warning("[video-queue] automatic refresh failed: %s", exc)
     return snapshot
-
-
-async def _refresh_breaking_news_lane() -> dict[str, object]:
-    global _breaking_news_lane_state
-    observer = _x_opportunity_radar.breaking_news_observer
-    if observer is None:
-        _breaking_news_lane_state = {
-            "enabled": False,
-            "available": False,
-            "refreshed_at": None,
-        }
-        return dict(_breaking_news_lane_state)
-
-    radar_snapshot = _x_opportunity_radar.snapshot()
-    radar_items = radar_snapshot.get("items")
-    keywords = tuple(
-        str(item.get("keyword") or "").strip()
-        for item in (radar_items if isinstance(radar_items, list) else [])
-        if isinstance(item, dict)
-        if item.get("lane") != "속보·공적발표" and str(item.get("keyword") or "").strip()
-    )
-    result = await observer.observe(keywords)
-    _breaking_news_lane_state = {**result, "refreshed_at": result.get("observed_at")}
-    return dict(_breaking_news_lane_state)
 
 
 @asynccontextmanager
@@ -199,6 +176,9 @@ async def _lifespan(_app: FastAPI):
     지금까지 자동 갱신은 대시보드 페이지의 setInterval에서만 돌았고, 탭을 닫으면
     관측이 끊겼다. 여기서 같은 일을 서버가 이어받되 가동 시간대·주기·일일 상한으로
     묶는다(collection_scheduler.py). 브라우저가 이미 갱신 중이면 서버는 건너뛴다.
+
+    속보는 독립 lane을 두지 않는다 — `x_radar` refresh 내부가 breaking observer를
+    이미 호출하므로(0099), 별도 `breaking_news` lane은 같은 수집을 겹치게 할 뿐이다.
     """
     global _collection_scheduler
     writer_lock = RuntimeWriterLock(_runtime_paths.writer_lock) if _runtime_paths.configured else None
@@ -212,19 +192,31 @@ async def _lifespan(_app: FastAPI):
                     name="x_radar",
                     snapshot=_x_opportunity_radar.snapshot,
                     refresh=lambda: _x_opportunity_radar.refresh(country="korea", limit=20),
+                    active_start_hour=0,
+                    active_end_hour=0,
+                    interval_seconds=120,
+                    daily_call_cap=720,
                 ),
                 Lane(
                     name="fast_viral",
                     snapshot=_fast_viral_collector.snapshot,
-                    refresh=lambda: _fast_viral_collector.refresh(limit=12),
-                ),
-                Lane(
-                    name="breaking_news",
-                    kind="api",
-                    snapshot=_breaking_news_lane_snapshot,
-                    refresh=_refresh_breaking_news_lane,
+                    refresh=_refresh_fast_viral_lane,
                     active_start_hour=0,
                     active_end_hour=0,
+                    daily_call_cap=288,
+                ),
+                Lane(
+                    name="creator_reference",
+                    # yt-dlp reads public YouTube search metadata; it is a
+                    # scrape lane, not an authenticated API lane.  The explicit
+                    # conservative cap below remains authoritative.
+                    kind="scrape",
+                    snapshot=_reference_store.get_live_status,
+                    refresh=lambda: _reference_collector.refresh(per_keyword=3),
+                    active_start_hour=0,
+                    active_end_hour=0,
+                    interval_seconds=1800,
+                    daily_call_cap=48,
                 ),
             ]
         )
@@ -572,8 +564,25 @@ async def api_runs(limit: int = Query(20, ge=1, le=100)):
 def api_collection_scheduler():
     """서버측 수집 스케줄러 상태 — 가동 여부·주기·오늘 호출 수·마지막 판정 이유."""
     if _collection_scheduler is None:
-        return {"enabled": False, "running": False, "lanes": {}, "detail": "scheduler not initialized"}
-    return _collection_scheduler.status()
+        status = {"enabled": False, "running": False, "lanes": {}, "detail": "scheduler not initialized"}
+    else:
+        status = _collection_scheduler.status()
+        snapshots = {
+            "x_radar": _x_opportunity_radar.snapshot(),
+            "fast_viral": _fast_viral_collector.snapshot(),
+            "creator_reference": _reference_store.get_live_status(),
+        }
+        for name, snapshot in snapshots.items():
+            lane_status = status.get("lanes", {}).get(name)
+            if not isinstance(lane_status, dict):
+                continue
+            lane_status["collector_last_attempt_at"] = snapshot.get("last_attempt_at")
+            lane_status["last_success_at"] = snapshot.get("last_success_at") or snapshot.get("refreshed_at")
+            lane_status["collector_errors"] = list(snapshot.get("errors") or [])
+            lane_status["serving_last_good"] = bool(snapshot.get("is_stale"))
+            lane_status["source_health"] = dict(snapshot.get("source_health") or {})
+    status["video_queue_producer"] = _video_queue_producer.snapshot()
+    return status
 
 
 @app.get("/api/pipeline_status")

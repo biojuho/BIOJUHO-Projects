@@ -54,7 +54,7 @@ def canonicalize_source_url(value: str) -> str:
 class ReferenceItemCreate(BaseModel):
     """Metadata accepted when a creator adds a reference."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, extra="allow")
 
     title: str = Field(min_length=1, max_length=240)
     source_url: str = Field(min_length=1, max_length=2048)
@@ -276,6 +276,11 @@ class ReferenceLibraryStore:
         with self._lock:
             status = self._read_unlocked().get("live_status", {})
         return dict(status) if isinstance(status, dict) else {}
+
+    def get_live_items(self) -> list[dict]:
+        status = self.get_live_status()
+        items = status.get("items", [])
+        return [dict(item) for item in items if isinstance(item, dict)]
 
     def set_live_status(self, status: dict) -> dict:
         with self._lock:

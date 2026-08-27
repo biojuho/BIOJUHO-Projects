@@ -13,9 +13,14 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
+try:
+    from ..runtime_paths import resolve_runtime_paths
+except ImportError:
+    from runtime_paths import resolve_runtime_paths  # type: ignore[no-redef]
+
 HERE = Path(__file__).resolve().parent
 GETDAYTRENDS_DIR = HERE.parent
-DEFAULT_DB_PATH = GETDAYTRENDS_DIR / "data" / "filter_eval_shadow.sqlite3"
+DEFAULT_DB_PATH = resolve_runtime_paths().filter_eval_shadow
 DEFAULT_POLICY_PATH = GETDAYTRENDS_DIR / "content_filters.py"
 
 logger = logging.getLogger(__name__)

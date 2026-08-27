@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -35,7 +35,7 @@ CONFIG = SchedulerConfig(
 
 
 def at_kst(hour: int, minute: int = 0, day: int = 6) -> datetime:
-    return datetime(2026, 8, day, hour, minute, tzinfo=KST).astimezone(timezone.utc)
+    return datetime(2026, 8, day, hour, minute, tzinfo=KST).astimezone(UTC)
 
 
 def ago(now: datetime, **delta) -> str:
@@ -79,7 +79,7 @@ class TestActiveHours:
 
     def test_uses_local_timezone_not_utc(self):
         # UTC 03시는 KST 12시다. UTC로 판단하면 한낮에 쉬어 버린다.
-        noon_kst = datetime(2026, 8, 6, 3, 0, tzinfo=timezone.utc)
+        noon_kst = datetime(2026, 8, 6, 3, 0, tzinfo=UTC)
         assert CONFIG.is_active_hour(noon_kst)
 
 
@@ -113,6 +113,36 @@ class TestIntervalAndDuplication:
         result = decide(now_utc=now, last_refreshed_at=(now + timedelta(hours=1)).isoformat(), calls_today=0, config=CONFIG)
         assert result.collect
         assert result.reason == "clock_skew"
+
+    def test_lane_interval_override_controls_duplication_window(self):
+        now = at_kst(14)
+        recent = decide(
+            now_utc=now,
+            last_refreshed_at=ago(now, seconds=119),
+            calls_today=0,
+            config=CONFIG,
+            interval_seconds=120,
+        )
+        due = decide(
+            now_utc=now,
+            last_refreshed_at=ago(now, seconds=120),
+            calls_today=0,
+            config=CONFIG,
+            interval_seconds=120,
+        )
+        assert recent.reason == "recently_refreshed"
+        assert due.reason == "due"
+
+    def test_lane_interval_override_keeps_minimum_floor(self):
+        now = at_kst(14)
+        result = decide(
+            now_utc=now,
+            last_refreshed_at=ago(now, seconds=59),
+            calls_today=0,
+            config=CONFIG,
+            interval_seconds=1,
+        )
+        assert result.reason == "recently_refreshed"
 
 
 class TestDailyCap:
@@ -154,6 +184,9 @@ class TestDisabled:
         # 실수로 1초를 넣어도 외부 사이트를 두드리지 않게 바닥을 둔다.
         monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_INTERVAL_SECONDS", "1")
         assert SchedulerConfig.from_env().interval_seconds == 60
+
+    def test_direct_config_interval_has_the_same_floor(self):
+        assert SchedulerConfig(interval_seconds=1).interval_seconds == 60
 
     def test_env_garbage_falls_back_to_default(self, monkeypatch):
         monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_DAILY_CAP", "많이")
@@ -411,6 +444,145 @@ class TestPerLaneActiveHours:
     def test_other_names_keep_default_window(self, name):
         scheduler = CollectionScheduler([Lane(name, lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(3, 0))
         assert scheduler.status()["lanes"][name]["active_hours"] == "09-24"
+
+
+class TestPerLaneIntervals:
+    def test_lane_field_and_global_interval_are_reported_separately(self):
+        lanes = [
+            Lane("x_radar", lambda: {}, _noop, interval_seconds=120),
+            Lane("creator_reference", lambda: {}, _noop, interval_seconds=900),
+        ]
+        scheduler = CollectionScheduler(lanes, CONFIG, clock=lambda: at_kst(14))
+
+        status = scheduler.status()
+        assert status["interval_seconds"] == 300
+        assert status["loop_interval_seconds"] == 120
+        assert status["lanes"]["x_radar"]["interval_seconds"] == 120
+        assert status["lanes"]["creator_reference"]["interval_seconds"] == 900
+
+    def test_lane_interval_environment_override(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_INTERVAL_SECONDS", "180")
+        scheduler = CollectionScheduler([Lane("x_radar", lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["x_radar"]["interval_seconds"] == 180
+
+    def test_lane_field_interval_wins_over_environment(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_INTERVAL_SECONDS", "180")
+        lane = Lane("x_radar", lambda: {}, _noop, interval_seconds=120)
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["x_radar"]["interval_seconds"] == 120
+
+    def test_lane_interval_environment_uses_floor_and_invalid_falls_back(self, monkeypatch):
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_INTERVAL_SECONDS", "1")
+        scheduler = CollectionScheduler([Lane("x_radar", lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["x_radar"]["interval_seconds"] == 60
+
+        monkeypatch.setenv("GETDAYTRENDS_SCHEDULER_X_RADAR_INTERVAL_SECONDS", "빠르게")
+        scheduler = CollectionScheduler([Lane("x_radar", lambda: {}, _noop)], CONFIG, clock=lambda: at_kst(14))
+        assert scheduler.status()["lanes"]["x_radar"]["interval_seconds"] == CONFIG.interval_seconds
+
+    @pytest.mark.asyncio
+    async def test_tick_uses_each_lane_interval_for_recent_snapshot(self):
+        now = at_kst(14)
+        collected: list[str] = []
+
+        async def refresh(name: str):
+            collected.append(name)
+
+        lanes = [
+            Lane(
+                "x_radar",
+                lambda: {"refreshed_at": ago(now, seconds=90)},
+                lambda: refresh("x_radar"),
+                interval_seconds=120,
+            ),
+            Lane(
+                "creator_reference",
+                lambda: {"refreshed_at": ago(now, seconds=90)},
+                lambda: refresh("creator_reference"),
+                interval_seconds=60,
+            ),
+        ]
+        scheduler = CollectionScheduler(lanes, CONFIG, clock=lambda: now)
+
+        reasons = await scheduler.tick()
+
+        assert reasons == {"x_radar": "recently_refreshed", "creator_reference": "due"}
+        assert collected == ["creator_reference"]
+
+    @pytest.mark.asyncio
+    async def test_run_sleeps_at_fastest_lane_interval(self, monkeypatch):
+        scheduler = CollectionScheduler(
+            [
+                Lane("x_radar", lambda: {}, _noop, interval_seconds=120),
+                Lane("creator_reference", lambda: {}, _noop, interval_seconds=900),
+            ],
+            CONFIG,
+            clock=lambda: at_kst(14),
+        )
+        observed_timeouts: list[float] = []
+
+        async def fake_wait_for(awaitable, timeout):
+            observed_timeouts.append(timeout)
+            awaitable.close()
+            scheduler._stopping.set()
+            raise TimeoutError
+
+        monkeypatch.setattr(asyncio, "wait_for", fake_wait_for)
+        await scheduler._run()
+
+        assert observed_timeouts == [120]
+
+    @pytest.mark.asyncio
+    async def test_run_subtracts_tick_duration_from_next_wake(self, monkeypatch):
+        start = at_kst(14)
+        clock_values = iter([start, start + timedelta(seconds=45)])
+        scheduler = CollectionScheduler(
+            [Lane("x_radar", lambda: {}, _noop, interval_seconds=120)],
+            CONFIG,
+            clock=lambda: next(clock_values),
+        )
+        observed_timeouts: list[float] = []
+        # 수집에 45초를 썼으면 남은 75초만 쉰다.
+
+        async def fake_wait_for(awaitable, timeout):
+            observed_timeouts.append(timeout)
+            awaitable.close()
+            scheduler._stopping.set()
+            raise TimeoutError
+
+        monkeypatch.setattr(asyncio, "wait_for", fake_wait_for)
+        await scheduler._run()
+
+        assert observed_timeouts == [75]
+
+    def test_next_wake_uses_collector_completion_not_tick_start(self):
+        now = at_kst(14)
+        refreshed_at = now - timedelta(seconds=119.4)
+        lane = Lane(
+            "x_radar",
+            lambda: {"refreshed_at": refreshed_at.isoformat()},
+            _noop,
+            interval_seconds=120,
+        )
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: now)
+
+        assert scheduler._seconds_until_next_check() == pytest.approx(0.6)
+
+    @pytest.mark.asyncio
+    async def test_failed_attempt_sets_next_wake_even_when_snapshot_is_old(self):
+        now = at_kst(14)
+
+        async def fail():
+            raise RuntimeError("synthetic failure")
+
+        lane = Lane("x_radar", lambda: {"refreshed_at": ago(now, minutes=10)}, fail, interval_seconds=120)
+        scheduler = CollectionScheduler([lane], CONFIG, clock=lambda: now)
+
+        assert (await scheduler.tick())["x_radar"] == "error"
+        # The run loop uses last_attempt_at for its wake deadline, so it will
+        # not call tick again until the interval has elapsed.
+        assert scheduler._seconds_until_next_check() == 120
+        assert scheduler.status()["lanes"]["x_radar"]["calls_today"] == 1
 
 
 class TestPerLaneDailyCap:

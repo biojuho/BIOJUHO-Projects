@@ -8,7 +8,8 @@
 
 1. **가동 시간대** — 기본 09~24시(KST). lane별로 덮어쓸 수 있고, L0(기상청)·L1(연합뉴스)
    lane만 24시간 가동을 기본으로 연다(핸드오프 0065).
-2. **주기** — 기본 5분. 브라우저가 하던 2분보다 느슨하다.
+2. **주기** — 기본 5분. 브라우저가 하던 2분보다 느슨하다. lane별 `interval_seconds` 또는
+   `GETDAYTRENDS_SCHEDULER_<LANE>_INTERVAL_SECONDS`로 덮어쓸 수 있고, 최소 60초다.
 3. **일일 상한** — `scrape` lane(기본값)들만 전역 `daily_call_cap=200`을 lane 수로 균등
    배분해 쓴다. `api` lane은 전역 예산 밖에서 자기 상한(기본 300)을 갖는다.
    lane별로 환경변수·Lane 필드로 덮어쓸 수 있다.
@@ -17,10 +18,11 @@
 
 lane별 설정은 셋 중 앞선 것이 이긴다:
 
-1. `Lane(kind=…, active_start_hour=…, active_end_hour=…, daily_call_cap=…)` — 코드에서 직접
+1. `Lane(kind=…, active_start_hour=…, active_end_hour=…, daily_call_cap=…, interval_seconds=…)` — 코드에서 직접
    지정. `kind`는 `"scrape"`/`"api"` 둘 중 하나고 **기본은 `"scrape"`**다 — 모르는 lane을
    싸게 취급하면 위험하므로 안전한 쪽이 기본이다. `api` lane은 전역 예산에 들어가지 않는다.
-2. 환경변수 `GETDAYTRENDS_SCHEDULER_<LANE>_START_HOUR` · `_END_HOUR` · `_DAILY_CAP`
+2. 환경변수 `GETDAYTRENDS_SCHEDULER_<LANE>_START_HOUR` · `_END_HOUR` · `_DAILY_CAP` ·
+   `_INTERVAL_SECONDS`
    (lane 이름의 `-`는 `_`로 바꾸고 대문자로 읽는다. 예: `kma-weather` → `KMA_WEATHER`)
 3. 이름 기본값 — `kma-weather`·`yonhap-rss`(0063 shadow 소스 키, `_` 표기도 동일 취급)는
    24시간, 그 밖은 전역 `active_start_hour`~`active_end_hour`. 상한 기본값은 `scrape`가
@@ -37,9 +39,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable
+from contextlib import suppress
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 try:
     from .freshness import _parse as _parse_timestamp
@@ -49,11 +55,13 @@ except ImportError:  # 스크립트로 직접 실행할 때
 logger = logging.getLogger(__name__)
 
 DEFAULT_INTERVAL_SECONDS = 300
+MIN_INTERVAL_SECONDS = 60
 DEFAULT_ACTIVE_START_HOUR = 9
 DEFAULT_ACTIVE_END_HOUR = 24
 DEFAULT_DAILY_CALL_CAP = 200
 DEFAULT_API_DAILY_CALL_CAP = 300  # api lane은 전역 예산 밖 자기 상한 (헤더 판정 2026-08-16)
 DEFAULT_TZ_OFFSET_HOURS = 9  # KST
+MIN_WAKE_SECONDS = 0.25
 
 
 def _env_int(name: str, fallback: int) -> int:
@@ -94,6 +102,15 @@ def _lane_env_int(lane_name: str, key: str) -> int | None:
         return None
 
 
+def _minimum_interval_seconds(value: int, fallback: int = DEFAULT_INTERVAL_SECONDS) -> int:
+    """Return a safe scheduler interval, never shorter than one minute."""
+    try:
+        interval = int(value)
+    except (TypeError, ValueError):
+        interval = int(fallback)
+    return max(MIN_INTERVAL_SECONDS, interval)
+
+
 # 핸드오프 0065 — L0(기상청)·L1(연합뉴스) lane은 API·RSS라 호출이 싸고 「2시간 이내
 # 속보 탐지」 계약의 1차 소스다. 이 둘만 24시간 가동을 기본으로 연다. 이름은 0063
 # shadow 관측의 소스 키를 쓰고, '-'와 '_' 표기는 같게 정규화해 맞춘다.
@@ -122,11 +139,17 @@ class SchedulerConfig:
     daily_call_cap: int = DEFAULT_DAILY_CALL_CAP
     tz_offset_hours: int = DEFAULT_TZ_OFFSET_HOURS
 
+    def __post_init__(self) -> None:
+        # Direct construction must obey the same external-request floor as from_env().
+        object.__setattr__(self, "interval_seconds", _minimum_interval_seconds(self.interval_seconds))
+
     @classmethod
     def from_env(cls) -> SchedulerConfig:
         return cls(
             enabled=_env_bool("GETDAYTRENDS_SCHEDULER_ENABLED", True),
-            interval_seconds=max(60, _env_int("GETDAYTRENDS_SCHEDULER_INTERVAL_SECONDS", DEFAULT_INTERVAL_SECONDS)),
+            interval_seconds=_minimum_interval_seconds(
+                _env_int("GETDAYTRENDS_SCHEDULER_INTERVAL_SECONDS", DEFAULT_INTERVAL_SECONDS)
+            ),
             active_start_hour=_env_int("GETDAYTRENDS_SCHEDULER_START_HOUR", DEFAULT_ACTIVE_START_HOUR),
             active_end_hour=_env_int("GETDAYTRENDS_SCHEDULER_END_HOUR", DEFAULT_ACTIVE_END_HOUR),
             daily_call_cap=_env_int("GETDAYTRENDS_SCHEDULER_DAILY_CAP", DEFAULT_DAILY_CALL_CAP),
@@ -173,12 +196,18 @@ def decide(
     active_start_hour: int | None = None,
     active_end_hour: int | None = None,
     daily_call_cap: int | None = None,
+    interval_seconds: int | None = None,
 ) -> Decision:
     """이번 틱에 이 레인을 수집할지 판정한다(부작용 없음).
 
-    활동 시간·일일 상한 인자를 주면 lane별 값으로, 주지 않으면 전역 설정으로 판정한다.
+    활동 시간·일일 상한·주기 인자를 주면 lane별 값으로, 주지 않으면 전역 설정으로 판정한다.
     """
     cap = config.daily_call_cap if daily_call_cap is None else daily_call_cap
+    interval = (
+        config.interval_seconds
+        if interval_seconds is None
+        else _minimum_interval_seconds(interval_seconds, config.interval_seconds)
+    )
     if not config.enabled:
         return Decision(False, "disabled")
     if calls_today >= cap:
@@ -190,11 +219,11 @@ def decide(
     if parsed is None:
         return Decision(True, "never_collected")
 
-    age = (now_utc.astimezone(timezone.utc) - parsed).total_seconds()
+    age = (now_utc.astimezone(UTC) - parsed).total_seconds()
     if age < 0:
         # 시계가 어긋난 상태에서 무한정 쉬지 않도록 한 번 수집하고 시각을 다시 쓴다.
         return Decision(True, "clock_skew")
-    if age < config.interval_seconds:
+    if age < interval:
         # 브라우저가 방금 갱신했다 — 요청을 보태지 않는다.
         return Decision(False, "recently_refreshed")
     return Decision(True, "due")
@@ -204,7 +233,7 @@ def decide(
 class Lane:
     """수집 대상 한 갈래. 스냅샷에서 마지막 시각을 읽고, refresh로 한 번 수집한다.
 
-    활동 시간·일일 상한은 lane별로 덮어쓸 수 있다. None이면 환경변수
+    활동 시간·일일 상한·주기는 lane별로 덮어쓸 수 있다. None이면 환경변수
     (`GETDAYTRENDS_SCHEDULER_<LANE>_START_HOUR` 등) → 이름 기본값·전역 설정 순으로
     읽는다(모듈 docstring의 우선순위 참고).
     """
@@ -216,6 +245,7 @@ class Lane:
     active_start_hour: int | None = None
     active_end_hour: int | None = None
     daily_call_cap: int | None = None
+    interval_seconds: int | None = None
 
 
 @dataclass
@@ -236,6 +266,7 @@ class LaneSchedule:
     active_end_hour: int
     daily_call_cap: int
     kind: str = "scrape"
+    interval_seconds: int = DEFAULT_INTERVAL_SECONDS
 
     @property
     def active_hours_label(self) -> str:
@@ -254,7 +285,7 @@ class CollectionScheduler:
     ):
         self.config = config or SchedulerConfig.from_env()
         self.lanes = lanes
-        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._clock = clock or (lambda: datetime.now(UTC))
         self._states: dict[str, LaneState] = {lane.name: LaneState() for lane in lanes}
         scrape_count = sum(1 for lane in lanes if _lane_kind(lane) == "scrape")
         scrape_share = self.config.daily_call_cap // max(1, scrape_count)
@@ -274,6 +305,7 @@ class CollectionScheduler:
         env_start = _lane_env_int(lane.name, "START_HOUR")
         env_end = _lane_env_int(lane.name, "END_HOUR")
         env_cap = _lane_env_int(lane.name, "DAILY_CAP")
+        env_interval = _lane_env_int(lane.name, "INTERVAL_SECONDS")
         default_cap = scrape_share if kind == "scrape" else DEFAULT_API_DAILY_CALL_CAP
         return LaneSchedule(
             active_start_hour=(
@@ -298,7 +330,57 @@ class CollectionScheduler:
                 else default_cap
             ),
             kind=kind,
+            interval_seconds=_minimum_interval_seconds(
+                lane.interval_seconds
+                if lane.interval_seconds is not None
+                else env_interval
+                if env_interval is not None
+                else self.config.interval_seconds,
+                self.config.interval_seconds,
+            ),
         )
+
+    def _loop_interval_seconds(self) -> int:
+        """Wake often enough for the fastest lane; each lane still gates itself in decide()."""
+        return min(
+            (schedule.interval_seconds for schedule in self._lane_schedules.values()),
+            default=self.config.interval_seconds,
+        )
+
+    def _last_activity_at(
+        self,
+        lane: Lane,
+        state: LaneState,
+        snapshot: dict[str, Any] | None = None,
+    ) -> datetime | None:
+        """Newest collector refresh or scheduler attempt used for rate limiting."""
+        if snapshot is None:
+            try:
+                snapshot = lane.snapshot() or {}
+            except Exception:
+                snapshot = {}
+        refreshed_at = _parse_timestamp(snapshot.get("refreshed_at"))
+        candidates = [value.astimezone(UTC) for value in (refreshed_at, state.last_attempt_at) if value is not None]
+        return max(candidates, default=None)
+
+    def _seconds_until_next_check(self) -> float:
+        """Return the nearest lane due time from actual refresh/attempt timestamps.
+
+        A fixed sleep from tick start can wake a fraction before the collector's
+        own ``refreshed_at`` anniversary.  That early tick is skipped and used
+        to delay the next check by a full interval.  Calculating each remaining
+        duration directly catches the due time without busy polling.
+        """
+        now = self._clock().astimezone(UTC)
+        remaining: list[float] = []
+        for lane in self.lanes:
+            activity = self._last_activity_at(lane, self._states[lane.name])
+            if activity is None:
+                return MIN_WAKE_SECONDS
+            age_seconds = (now - activity).total_seconds()
+            interval = self._lane_schedules[lane.name].interval_seconds
+            remaining.append(max(MIN_WAKE_SECONDS, interval - age_seconds))
+        return min(remaining, default=float(self._loop_interval_seconds()))
 
     # ── 상태 ──────────────────────────────────────────────────────────────
     def status(self) -> dict[str, Any]:
@@ -307,6 +389,7 @@ class CollectionScheduler:
             "enabled": self.config.enabled,
             "running": self._task is not None and not self._task.done(),
             "interval_seconds": self.config.interval_seconds,
+            "loop_interval_seconds": self._loop_interval_seconds(),
             "active_hours": f"{self.config.active_start_hour:02d}-{self.config.active_end_hour:02d}",
             "timezone_offset_hours": self.config.tz_offset_hours,
             "daily_call_cap": self.config.daily_call_cap,
@@ -319,7 +402,13 @@ class CollectionScheduler:
                     "last_error": state.last_error,
                     "consecutive_errors": state.consecutive_errors,
                     "kind": self._lane_schedules[name].kind,
+                    "interval_seconds": self._lane_schedules[name].interval_seconds,
                     "active_hours": self._lane_schedules[name].active_hours_label,
+                    "within_active_hours": self.config.is_active_hour(
+                        now,
+                        self._lane_schedules[name].active_start_hour,
+                        self._lane_schedules[name].active_end_hour,
+                    ),
                     "daily_call_cap": self._lane_schedules[name].daily_call_cap,
                 }
                 for name, state in self._states.items()
@@ -353,6 +442,7 @@ class CollectionScheduler:
                 active_start_hour=self._lane_schedules[lane.name].active_start_hour,
                 active_end_hour=self._lane_schedules[lane.name].active_end_hour,
                 daily_call_cap=self._lane_schedules[lane.name].daily_call_cap,
+                interval_seconds=self._lane_schedules[lane.name].interval_seconds,
             )
             state.last_reason = decision.reason
             reasons[lane.name] = decision.reason
@@ -382,8 +472,9 @@ class CollectionScheduler:
             for name, schedule in self._lane_schedules.items()
         )
         logger.info(
-            "[scheduler] 수집 스케줄러 시작 — %s초 주기(UTC%+d), lane: %s",
+            "[scheduler] 수집 스케줄러 시작 — 전역 %s초, 최소 %s초 주기(UTC%+d), lane: %s",
             self.config.interval_seconds,
+            self._loop_interval_seconds(),
             self.config.tz_offset_hours,
             lanes_desc or "(없음)",
         )
@@ -395,9 +486,11 @@ class CollectionScheduler:
                     raise
                 except Exception as exc:  # 어떤 이유로도 루프가 죽지 않게
                     logger.exception("[scheduler] 틱 처리 중 예기치 못한 오류: %s", exc)
+                # 각 lane의 실제 완료/시도시각에서 다음 만기까지 남은 만큼만 쉰다.
+                remaining = self._seconds_until_next_check()
                 try:
-                    await asyncio.wait_for(self._stopping.wait(), timeout=self.config.interval_seconds)
-                except asyncio.TimeoutError:
+                    await asyncio.wait_for(self._stopping.wait(), timeout=remaining)
+                except TimeoutError:
                     continue
         finally:
             logger.info("[scheduler] 수집 스케줄러 정지")
@@ -418,7 +511,5 @@ class CollectionScheduler:
         if task is None or task.done():
             return
         task.cancel()
-        try:
+        with suppress(asyncio.CancelledError, Exception):
             await task
-        except (asyncio.CancelledError, Exception):  # noqa: B014 - 종료 경로에서 예외를 삼킨다
-            pass

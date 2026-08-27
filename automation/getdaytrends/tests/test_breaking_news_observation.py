@@ -533,9 +533,15 @@ async def test_radar_appends_unscored_breaking_lane_without_changing_legacy_ids(
     ).refresh(limit=10)
 
     baseline_ids = [item["id"] for item in baseline["items"]]
-    legacy_ids = [item["id"] for item in measured["items"] if item["lane"] != "속보·공적발표"]
+    # 0099: 직접 발표는 두 lane(속보·공적발표/최신 뉴스)으로 늘었으니 둘 다 제외하고
+    # 기존 점수 후보의 id·순서가 그대로인지 본다.
+    legacy_ids = [
+        item["id"]
+        for item in measured["items"]
+        if item["lane"] not in {"속보·공적발표", "최신 뉴스"}
+    ]
     assert legacy_ids == baseline_ids
-    breaking_items = [item for item in measured["items"] if item["lane"] == "속보·공적발표"]
+    breaking_items = [item for item in measured["items"] if item["lane"] in {"속보·공적발표", "최신 뉴스"}]
     assert [item["id"] for item in breaking_items] == ["yonhap-live", "kma-unknown-time"]
     assert measured["breaking_news_count"] == 2
     assert "product_candidates" not in measured["breaking_news_observation"]
@@ -573,7 +579,12 @@ def test_route_marks_unknown_age_explicitly_without_mutating_snapshot():
     assert "age_display" not in snapshot["items"][0]
 
 
-def test_breaking_lane_limit_interleaves_sources_without_scoring():
+def test_breaking_lane_orders_by_recency_and_keeps_items_unscored():
+    """0099: 속보 lane은 소스 교차(interleave)가 아니라 최신성으로 정렬한다.
+
+    게시 시각을 아는 글이 앞(나이 오름차순), 시각 미상은 계층 맨 뒤로 강등된다.
+    점수 필드는 계속 붙지 않는다(0053 규약).
+    """
     now = datetime(2026, 8, 16, tzinfo=UTC)
     raw = [
         {
@@ -595,8 +606,85 @@ def test_breaking_lane_limit_interleaves_sources_without_scoring():
 
     items = _breaking_lane_items(raw, now, limit=5)
 
-    assert [item["id"] for item in items] == ["yonhap-0", "kma-0", "yonhap-1", "yonhap-2", "yonhap-3"]
+    # 나이순: yonhap-0(1분), yonhap-1(2분), yonhap-2(3분)와 kma-0(3분)이 동률이면
+    # 원문 순서(안정 정렬)를 지키고, yonhap-3(4분)가 그 뒤를 따른다.
+    assert [item["id"] for item in items] == ["yonhap-0", "yonhap-1", "yonhap-2", "kma-0", "yonhap-3"]
     assert all("x_exposure_score" not in item and "opportunity_score" not in item for item in items)
+
+
+def test_breaking_lane_splits_urgent_and_latest_by_evidence():
+    """0099: 「최근 게시」≠「긴급 사건」. 사건·안전·긴급 증거가 있는 글만 지금 속보.
+
+    칼럼·전시·일상 날씨 같은 비긴급 최신 원문은 «최신 뉴스» lane으로 내려가고,
+    금지 주제(야구)는 방어 필터가 lane 안에서도 막는다(관측 단계 우회 주입 대비).
+    """
+    from collections import Counter
+
+    now = datetime(2026, 8, 16, 12, 0, tzinfo=UTC)
+    raw = [
+        {  # 긴급 — 화재, 시각 20분
+            "id": "fire-urgent",
+            "keyword": "울산 남구 아파트서 불…4명 연기흡입",
+            "source": "yonhap-rss",
+            "source_published_at": (now - timedelta(minutes=20)).isoformat(),
+        },
+        {  # 긴급 — KMA, 시각 미상
+            "id": "kma-no-time",
+            "keyword": "[기상청 호우특보 현황] 서울",
+            "source": "kma:getWthrWrnList",
+            "source_published_at": None,
+        },
+        {  # 긴급 — 실종, 시각 5분(가장 최신)
+            "id": "missing-urgent",
+            "keyword": "등산객 실종…구조대 출동",
+            "source": "yonhap-rss",
+            "source_published_at": (now - timedelta(minutes=5)).isoformat(),
+        },
+        {  # 비긴급 — 전시 칼럼, 시각 3분
+            "id": "exhibit-latest",
+            "keyword": "수어로 빚은 마음부터…갤러리현대 두 전시",
+            "source": "yonhap-rss",
+            "source_published_at": (now - timedelta(minutes=3)).isoformat(),
+        },
+        {  # 비긴급 — 일상 날씨, 시각 미상
+            "id": "weather-latest",
+            "keyword": "제주 해안 전역 또 열대야…성산 최저 28.5도",
+            "source": "yonhap-rss",
+            "source_published_at": None,
+        },
+        {  # 금지 주제 — 스포츠(만루). 방어 필터가 버려야 한다.
+            "id": "baseball-blocked",
+            "keyword": "삼성 김영웅 만루포",
+            "source": "yonhap-rss",
+            "source_published_at": (now - timedelta(minutes=1)).isoformat(),
+        },
+    ]
+
+    excluded: Counter[str] = Counter()
+    items = _breaking_lane_items(raw, now, limit=10, excluded_reasons=excluded)
+
+    assert [item["id"] for item in items] == [
+        "missing-urgent",  # 긴급 · 5분(최신)
+        "fire-urgent",  # 긴급 · 20분
+        "kma-no-time",  # 긴급 · 시각 미상 → 긴급 계층 맨 뒤
+        "exhibit-latest",  # 최신 · 3분
+        "weather-latest",  # 최신 · 시각 미상 → 최신 계층 맨 뒤
+    ]
+    urgent = items[:3]
+    latest = items[3:]
+    assert all(item["lane"] == "속보·공적발표" for item in urgent)
+    assert all(item["urgency"] == "urgent" for item in urgent)
+    assert all(item["qualification_mode"] == "public_source_breaking" for item in urgent)
+    assert all(item["lane"] == "최신 뉴스" for item in latest)
+    assert all(item["urgency"] == "latest" for item in latest)
+    assert all(item["qualification_mode"] == "public_source_latest" for item in latest)
+    # 긴급 근거가 응답에 보인다 — "왜 지금 속보인가"를 사람이 확인할 수 있어야 한다.
+    assert "실종" in urgent[0]["urgency_evidence"]
+    assert "기상청 특보·발표 계열" in urgent[2]["urgency_evidence"]
+    assert "긴급 증거 없음" in latest[0]["urgency_evidence"]
+    # 방어 필터: 관측 단계를 우회해 들어온 금지 주제도 lane이 스스로 막고 사유를 센다.
+    assert all(item["id"] != "baseball-blocked" for item in items)
+    assert excluded == {"스포츠 제외": 1}
 
 
 def test_get_route_exposes_breaking_source_time_and_derived_delay(monkeypatch):
@@ -693,3 +781,247 @@ async def test_radar_observer_without_product_candidates_only_exposes_source_hea
     assert data["source_health"]["yonhap_rss"] is True
     assert data["source_health"]["kma_weather"] is False
     assert "breaking_news" not in data["items"][0]
+
+
+@pytest.mark.asyncio
+async def test_radar_exposes_separate_urgent_latest_today_and_native_arrays():
+    """0099: 근거의 성격별 배열·count — 지금 속보 / 최신 뉴스 / 오늘 이슈 / X 네이티브.
+
+    `items`(호환)는 그대로 두고, 새 배열들이 긴급도와 근거를 섞지 않고 내놓는다.
+    """
+    published = datetime.now(UTC) - timedelta(minutes=10)
+
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return []
+
+    class FakeObserver:
+        async def observe(self, keywords, *, observed_at):
+            return {
+                "enabled": True,
+                "available": True,
+                "sources": {},
+                "product_candidates": [
+                    {
+                        "id": "urgent-fire",
+                        "keyword": "울산 남구 아파트서 불…4명 연기흡입",
+                        "source": "yonhap-rss",
+                        "source_published_at": published.isoformat(),
+                    },
+                    {
+                        "id": "latest-exhibit",
+                        "keyword": "수어로 빚은 마음부터…갤러리현대 두 전시",
+                        "source": "yonhap-rss",
+                        "source_published_at": published.isoformat(),
+                    },
+                ],
+            }
+
+    data = await XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        breaking_news_observer=FakeObserver(),
+    ).refresh(limit=10)
+
+    assert [item["id"] for item in data["breaking_now_items"]] == ["urgent-fire"]
+    assert data["breaking_now_count"] == 1
+    assert [item["id"] for item in data["latest_news_items"]] == ["latest-exhibit"]
+    assert data["latest_news_count"] == 1
+    # 호환 count는 urgent+latest 합계를 유지한다.
+    assert data["breaking_news_count"] == 2
+    # 루트 items에는 둘 다 그대로 실린다(호환).
+    assert {item["id"] for item in data["items"]} >= {"urgent-fire", "latest-exhibit"}
+    # 오늘 이슈 배열이 있고, 이 레이더에는 다른 이슈 소스가 없어 속보·최신과 겹치지 않는다.
+    assert data["today_issue_items"] == []
+    assert data["today_issue_count"] == 0
+    assert data["x_native_items"] == []
+    assert data["x_native_count"] == 0
+    assert data["cross_lane_dedupe_count"] == 0
+    assert data["breaking_filter_summary"] == {}
+
+
+@pytest.mark.asyncio
+async def test_news_ranking_age_cap_removes_old_and_demotes_unknown_time():
+    """0099: 랭킹 lane의 독립 나이 상한(360분) — 430분·1870분 표본 제거, 시각 미상 강등."""
+    now = datetime.now(UTC)
+
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return []
+
+    async def ranking_fetcher(session, limit):
+        return [
+            {
+                "title": "430분 표본 — 오래된 줌 랭킹 잔존",
+                "url": "https://news.zum.ai/old-430",
+                "source": "줌 뉴스",
+                "publisher": "테스트일보",
+                "rank": 4,
+                "source_published_at": (now - timedelta(minutes=430)).isoformat(),
+            },
+            {
+                "title": "1870분 표본 — 하루 넘게 남은 랭킹",
+                "url": "https://news.zum.ai/old-1870",
+                "source": "줌 뉴스",
+                "publisher": "테스트일보",
+                "rank": 5,
+                "source_published_at": (now - timedelta(minutes=1870)).isoformat(),
+            },
+            {
+                "title": "12분 신선 표본",
+                "url": "https://news.nate.com/fresh-12",
+                "source": "네이트 뉴스 랭킹",
+                "publisher": "테스트신문",
+                "rank": 2,
+                "source_published_at": (now - timedelta(minutes=12)).isoformat(),
+            },
+            {
+                "title": "시각 미상 표본 — 게시시각 열 없음",
+                "url": "https://news.nate.com/unknown-time",
+                "source": "네이트 뉴스 랭킹",
+                "publisher": "테스트신문",
+                "rank": 3,
+            },
+            {
+                "title": "실응답 누출 대조 — 만루 야구 기사",
+                "url": "https://news.nate.com/baseball",
+                "source": "네이트 뉴스 랭킹",
+                "publisher": "테스트신문",
+                "rank": 1,
+                "source_published_at": (now - timedelta(minutes=5)).isoformat(),
+            },
+        ]
+
+    data = await XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        news_ranking_fetcher=ranking_fetcher,
+    ).refresh(limit=10)
+
+    keywords = [item["keyword"] for item in data["today_issue_items"]]
+    # 430분·1870분 표본은 사라지고, 시각 미상은 살되 맨 뒤로 강등된다.
+    assert keywords == ["12분 신선 표본", "시각 미상 표본 — 게시시각 열 없음"]
+    assert data["news_ranking_count"] == 2
+    assert data["news_ranking_demoted_count"] == 1
+    demoted = data["today_issue_items"][1]
+    assert demoted["age_basis"] == "unknown"
+    assert demoted["age_display"] == "미상"
+    assert demoted["demotion_reason"] == "게시 시각 미상 — lane 하단 강등"
+    fresh = data["today_issue_items"][0]
+    assert "demotion_reason" not in fresh
+    # 제거·강등 사유가 filter summary에 count로 공개된다.
+    assert data["news_ranking_filter_summary"]["뉴스 랭킹 나이 상한(360분) 초과"] == 2
+    assert data["news_ranking_filter_summary"]["시각 미상 강등"] == 1
+    # 주제 필터 사유도 같은 summary에 섞인다(야구 1건).
+    assert data["news_ranking_filter_summary"]["스포츠 제외"] == 1
+
+
+@pytest.mark.asyncio
+async def test_cross_lane_dedupe_prefers_stronger_evidence_and_counts_reasons():
+    """0099: 같은 URL·정규제목이 여러 lane에 올라오면 강한 근거(직접 원문)가 이긴다."""
+    published = datetime.now(UTC) - timedelta(minutes=8)
+
+    async def google_fetcher(session, country, limit):
+        return []
+
+    async def x_fetcher(session, country, limit):
+        return []
+
+    class FakeObserver:
+        async def observe(self, keywords, *, observed_at):
+            return {
+                "enabled": True,
+                "available": True,
+                "sources": {},
+                "product_candidates": [
+                    {
+                        "id": "breaking-dup",
+                        "keyword": "울산 남구 아파트서 불…4명 연기흡입",
+                        "source": "yonhap-rss",
+                        "source_url": "https://www.yna.co.kr/a/fire-1",
+                        "source_published_at": published.isoformat(),
+                    },
+                ],
+            }
+
+    async def daum_fetcher(session, limit):
+        return (
+            "2026-08-27T10:00:00+09:00",
+            [
+                {
+                    # 정규제목이 지금 속보와 같은 다음 트렌드(공백·구두점만 다름).
+                    "keyword": "울산 남구 아파트서 불 4명 연기흡입",
+                    "rank": 1,
+                    "display_rank": 1,
+                    "status": "new",
+                }
+            ],
+        )
+
+    async def ranking_fetcher(session, limit):
+        return [
+            {
+                "title": "다음 실시간 대조 — 중복 없음",
+                "url": "https://news.nate.com/unique",
+                "source": "네이트 뉴스 랭킹",
+                "publisher": "테스트신문",
+                "rank": 1,
+            },
+            {
+                # URL이 Reddit 포스트와 같은 랭킹 기사.
+                "title": "URL 겹침 랭킹 기사",
+                "url": "https://v.redd.it/sample.mp4",
+                "source": "네이트 뉴스 랭킹",
+                "publisher": "테스트신문",
+                "rank": 2,
+            },
+        ]
+
+    async def reddit_fetcher(session, limit):
+        return [
+            {
+                "id": "reddit_viral_1",
+                "title": "URL 겹침 레딧 포스트",
+                "url": "https://v.redd.it/sample.mp4",
+                "permalink": "/r/videos/comments/sample/",
+                "subreddit": "videos",
+                "author": "video_poster",
+                "votes": 8500,
+                "comments": 420,
+            }
+        ]
+
+    data = await XOpportunityRadar(
+        google_fetcher,
+        x_fetcher,
+        news_fetcher=None,
+        news_ranking_fetcher=ranking_fetcher,
+        daum_realtime_fetcher=daum_fetcher,
+        reddit_fetcher=reddit_fetcher,
+        breaking_news_observer=FakeObserver(),
+    ).refresh(limit=10)
+
+    # 1) 정규제목 중복: 다음 실시간 사본이 버려지고 지금 속보(직접 원문)만 남는다.
+    #    (daum_trend_count·reddit_count는 lane이 «뽑은« 원시 수치라 그대로고,
+    #     실제 배열·items는 dedupe 뒤의 생존자만 실린다.)
+    assert data["breaking_now_count"] == 1
+    assert data["daum_trend_count"] == 1  # 원시 수집 수치
+    daum_survivors = [item for item in data["items"] if item["lane"] == "다음 실시간 트렌드"]
+    assert daum_survivors == []
+    # 2) URL 중복: 오늘 이슈(랭킹) 사본이 살고 Reddit 사본이 버려진다(우선순위 뒤쪽).
+    assert data["reddit_count"] == 1  # 원시 수집 수치
+    reddit_survivors = [item for item in data["items"] if item["lane"] == "Reddit 핫 포스트"]
+    assert reddit_survivors == []
+    assert "URL 겹침 랭킹 기사" in [item["keyword"] for item in data["today_issue_items"]]
+    # 3) 사유·총count가 응답에 공개된다.
+    assert data["cross_lane_dedupe_count"] == 2
+    assert data["cross_lane_dedupe_summary"]["정규제목 중복(오늘 이슈)"] == 1
+    assert data["cross_lane_dedupe_summary"]["URL 중복(오늘 이슈)"] == 1
+    # 중복 제거 뒤에도 루트 items에는 살아남은 사본이 정확히 한 번씩만 등장한다.
+    assert len([item for item in data["items"] if "울산" in item["keyword"]]) == 1

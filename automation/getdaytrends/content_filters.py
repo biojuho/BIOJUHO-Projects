@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-
 _SPORTS_TERMS = (
     "축구",
     "야구",
@@ -34,6 +33,9 @@ _SPORTS_TERMS = (
     "kbo",
     "mlb",
     "nba",
+    "nfl",
+    "nhl",
+    "wnba",
     "epl",
     "uefa",
     "afc",
@@ -79,6 +81,22 @@ _SPORTS_TERMS = (
     "승부차기",
     "프로야구",
     "프로축구",
+    "pro bowl",
+    "all-star game",
+    "premier league",
+    "champions league",
+    "american football",
+    # 2026-08-27 x-radar 실응답 누출(shadow store 실측). 구단·리그명 없이 야구
+    # 기록어만으로 통과한 KBO 표본(만루의 사나이·무사만루·만루포·타율·그랜드슬램),
+    # 배드민턴 안세영, 축구 홀란, 그리고 «국내 유일 돔구장» 야구장 사건 표본.
+    # 만 루(滿壘)·타율·그랜드슬램은 한국어에서 야구·스포츠 기록어로만 쓰인다.
+    "만루",
+    "무사만루",
+    "타율",
+    "그랜드슬램",
+    "홀란",
+    "안세영",
+    "돔구장",
 )
 
 _MARKET_TERMS = (
@@ -145,6 +163,17 @@ _MARKET_TERMS = (
     "가상자산 시세",
     "암호화폐 시세",
     "코인 시세",
+    # 2026-08-27 x-radar·fast-viral 실응답 누출. 잭슨홀·연준의장·통화정책 제목과
+    # 보험사 순익 9조·"매출 최적화" 인터뷰·"매출 9조 잭팟"이 통과했다. 통화정책·
+    # 순익·매출·관세는 한국어에서 기업·시장 문맥으로만 쓰인다.
+    "연준",
+    "통화정책",
+    "잭슨홀",
+    "순익",
+    "매출",
+    "관세",
+    "무역전쟁",
+    "무역 전쟁",
 )
 
 _REAL_ESTATE_TERMS = (
@@ -291,6 +320,9 @@ _POLITICS_TERMS = (
     "김민석",
     "정동영",
     "우원식",
+    # 2026-08-27 fast-viral IssueLink 실응답 누출. 정치유머 게시판 원문이
+    # 게시판 라벨 없이 들어오므로, 제목에 드러난 정치인 이름을 기존 실명 계약에 추가한다.
+    "민형배",
     # 2026-08-14 공급 진단: shadow 10,825건에서 친일 포함 행이 allow 119 / block 190으로
     # 갈렸다. 친일파·"친일 청산"만 막아 "친일 매국노"·"친일 성향"·붙여쓴 "친일청산"이 통과했다.
     # 친일은 2음절 합성어라 친일이 아닌 낱말에 하위문자열로 들어가는 경우가 코퍼스에 0건이라
@@ -299,6 +331,20 @@ _POLITICS_TERMS = (
     "친일파",
     "친일 청산",
     "역사 왜곡",
+    # 2026-08-27 x-radar 실응답 누출. 정부 AI 윤리원칙·대법관 제청 파장·북한
+    # 발사체·최저임금법·극우 음모론자 배상 판결이 통과했다. "정부"는 기존 문맥
+    # 패턴(정부+발표/추진…)이 잡던 것과 같은 성격의 정책 소식이므로 어간으로
+    # 넣는다. "법원"은 안 넣는다 — 재판·선고 사연은 유효한 사건 소재다(대법원만).
+    "정부",
+    "북한",
+    "대법원",
+    "대법관",
+    "대법원장",
+    "극우",
+    "극좌",
+    "음모론",
+    "독립유공자",
+    "최저임금",
 )
 
 _SPORTS_CONTEXT_PATTERNS = (
@@ -333,6 +379,13 @@ _MARKET_CONTEXT_PATTERNS = (
     re.compile(r"(?:주가|종목)\s*(?:가|는|도|를|급등|급락|상승|하락|전망)"),
     re.compile(r"(?:매출|실적)\s*(?:발표|전망|개선|악화|증가|감소|급증|급감)"),
     re.compile(r"(?:1|2|3|4)분기\s*(?:매출|실적|영업익|영업이익|순이익)"),
+    # 2026-08-27 fast-viral IssueLink 실응답 누출. 회사 이름만으로 일반 기술·노동
+    # 사연을 자르지 않고, 국내 커뮤니티의 종목 별칭 + 시장 행위가 함께 있을 때만 막는다.
+    re.compile(
+        r"(?:엔비디아|nvidia|sk\s*하이닉스|하이닉스|하닉).{0,24}"
+        r"(?:주가|매수|매도|수익|폭등|폭락|급등|급락|상승|하락|올라가|내려가|"
+        r"실적|어닝콜|컨퍼런스콜)"
+    ),
 )
 
 _REAL_ESTATE_CONTEXT_PATTERNS = (
@@ -341,13 +394,29 @@ _REAL_ESTATE_CONTEXT_PATTERNS = (
     re.compile(r"월세\s*(?:시세|상승|폭등|수익률|투자)"),
     re.compile(r"(?:집|주택)\s*(?:을|를)?\s*(?:샀|사서|산|팔았|판|매수|매도)"),
     re.compile(r"(?:전세|월세)\s*(?:끼고|계약|보증금|대출|시세)"),
+    # 2026-08-27 x-radar 뉴스 랭킹 누출(1,870분 표본): "산 깎아 지은 아파트…또
+    # 철렁". 시장 반응 동사가 붙은 아파트 기사만 잡는다 — "아파트서 불"(화재
+    # 사연)·"아파트 청소부 실종"은 살아 있어야 한다.
+    re.compile(r"아파트.{0,8}(?:철렁|울상|들썩|반등|급등|폭등|폭락)"),
 )
 
 _POLITICS_CONTEXT_PATTERNS = (
     re.compile(r"조국\s*(?:혁신당|전\s*장관|대표|사태)"),
     re.compile(r"(?:정부|장관|의원)\s*(?:발표|추진|비판|반박|사퇴|임명|해임|논란|출마)"),
-    re.compile(r"(?:법안|정책)\s*(?:발의|통과|폐기|강행|철회)"),
+    # 2026-08-27: "독립유공자 모욕 방지법 처리해야"가 통과했다. 법안 계열 명사에
+    # '처리·제정' 동사 조합을 더 넓힌다(입법 행위 문맥).
+    re.compile(r"(?:법안|정책|방지법|특별법|개정안|기본법)\s*(?:발의|통과|폐기|강행|철회|처리|제정)"),
     re.compile(r"(?:정부|지자체|서울시|경기도|광역시).{0,12}(?:예산|재정|부도|지원금)"),
+    # 글로벌 공개 피드를 붙인 뒤 실제 통과한 영어 정치 주제. 단어 경계와 행위 문맥을
+    # 함께 써서 ice cream·company president 같은 일상 표현은 삼키지 않는다.
+    re.compile(r"\b(?:congress|senate|parliament|supreme court|white house|republicans?|democrats?|prime minister)\b"),
+    re.compile(r"\b(?:politics|political|government|attorney general|legislature|senators?|congress(?:man|woman|person)?|lawmakers?)\b"),
+    re.compile(r"\b(?:labour|tories|conservative party|republican party|democratic party)(?:'s)?\b"),
+    re.compile(r"\b(?:trump|biden|environmental protection agency|epa)\b"),
+    re.compile(r"\b(?:election|runoff|ballot|mail voting|campaign trail|trade talks|sanctions)\b"),
+    re.compile(r"\bice\s+(?:arrests?|raids?|detention|deportation)\b"),
+    re.compile(r"\b(?:russia|ukraine|israel|gaza).{0,24}\b(?:war|strikes?|missiles?|drones?|ceasefire)\b"),
+    re.compile(r"\b(?:president|governor|mayor|minister)\b.{0,24}\b(?:election|policy|bill|court|government|campaign|vote|arrest)\b"),
 )
 
 
@@ -371,6 +440,11 @@ _GENDER_CONFLICT_TERMS = (
     "성별 갈등",
     "이대남",
     "이대녀",
+    # 2026-08-27 fast-viral 누출: "요즘 여초에서 많이 퍼진다는 기혼녀 혐오 주작".
+    # 여초·남초는 성별 진영 어휘로만 쓰인다. "혐오"는 단독으로 넣지 않는다 —
+    # (혐오주의) 음식 포스터 같은 컨셉물 대조군이 죽는다.
+    "여초",
+    "남초",
 )
 
 _GENDER_CONFLICT_CONTEXT_PATTERNS = (
@@ -413,6 +487,9 @@ _ANIME_TERMS = (
     #   "만화" 단독 → 「만화 같은 역전승」 관용구를 죽인다. 안 넣는다.
     #   "망가"  단독 → 「망가진」·「망가졌다」를 죽인다. 안 넣는다.
     #   "만화가" → 「만화가 아니라」를 죽인다. 안 넣는다.
+    # 2026-08-27 x-radar 다음 실시간 트렌드 누출: 웹툰 제목 "재혼황후". 나루토·
+    # 귀멸의 칼날처럼 특정 작품명은 일상 낱말과 겹치지 않으므로 제목으로 넣는다.
+    "재혼황후",
 )
 
 _ANIME_CONTEXT_PATTERNS = (
@@ -423,6 +500,7 @@ _ANIME_CONTEXT_PATTERNS = (
     # webtoon·anime 는 뺐다 — 한글 «웹툰»을 2026-08-06 에 뺀 것과 같은 이유로,
     # 그 낱말이 붙은 노동·갑질 사연이 X 소재로 유효하다.
     re.compile(r"\b(?:manhwa|manhua|manga|donghua|doujin)\b"),
+    re.compile(r"\b(?:comic strips?|graphic novels?)\b"),
 )
 
 

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -23,7 +23,7 @@ from automation.getdaytrends.freshness import (
     humanize_age,
 )
 
-NOW = datetime(2026, 8, 6, 14, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 6, 14, 0, 0, tzinfo=UTC)
 
 
 def _at(**delta) -> str:
@@ -97,15 +97,38 @@ class TestHumanize:
 
 
 class TestLaneWiring:
-    def test_lane_thresholds_cover_browser_polled_lanes(self):
-        assert set(LANE_THRESHOLDS) >= {"x_radar", "fast_viral"}
+    def test_lane_thresholds_cover_server_collected_lanes(self):
+        assert set(LANE_THRESHOLDS) >= {"x_radar", "fast_viral", "live_reference"}
         for warn_after, stale_after in LANE_THRESHOLDS.values():
             assert 0 < warn_after < stale_after
 
+    def test_thresholds_match_server_scheduler_cycles(self):
+        # 0099 배선: x_radar 120초 · fast_viral 300초 · live_reference 1800초.
+        # 임계는 회차 몇 번 놓쳐도 경고가 깜빡이지 않을 만큼 느슨해야 한다.
+        assert LANE_THRESHOLDS["x_radar"] == (360, 900)
+        assert LANE_THRESHOLDS["fast_viral"] == (900, 1800)
+        assert LANE_THRESHOLDS["live_reference"] == (2700, 5400)
+
     def test_two_minute_lane_tolerates_one_missed_cycle(self):
-        # 2분 주기 레인이 한 번 걸렀다고 경고가 뜨면 경고가 무뎌진다.
+        # 120초 주기 레인이 한 번 걸렀다고 경고가 뜨면 경고가 무뎌진다.
         assert describe_lane("x_radar", _at(seconds=150), now=NOW)["level"] == "fresh"
         assert describe_lane("x_radar", _at(minutes=20), now=NOW)["level"] == "stale"
+
+    def test_five_minute_lane_boundaries(self):
+        # 300초 주기: 한 회차(300초) 지나는 것은 fresh, 세 회차(900초)부터 경고.
+        assert describe_lane("fast_viral", _at(seconds=300), now=NOW)["level"] == "fresh"
+        assert describe_lane("fast_viral", _at(seconds=899), now=NOW)["level"] == "fresh"
+        assert describe_lane("fast_viral", _at(seconds=900), now=NOW)["level"] == "warn"
+        assert describe_lane("fast_viral", _at(seconds=1799), now=NOW)["level"] == "warn"
+        assert describe_lane("fast_viral", _at(seconds=1800), now=NOW)["level"] == "stale"
+
+    def test_live_reference_lane_boundaries(self):
+        # 1800초(30분) 주기: 한 회차 놓침(3600초)은 경고, 세 회차(5400초)부터 stale.
+        assert describe_lane("live_reference", _at(seconds=1800), now=NOW)["level"] == "fresh"
+        assert describe_lane("live_reference", _at(seconds=2699), now=NOW)["level"] == "fresh"
+        assert describe_lane("live_reference", _at(seconds=2700), now=NOW)["level"] == "warn"
+        assert describe_lane("live_reference", _at(seconds=5399), now=NOW)["level"] == "warn"
+        assert describe_lane("live_reference", _at(seconds=5400), now=NOW)["level"] == "stale"
 
     def test_unknown_lane_falls_back_to_defaults(self):
         assert describe_lane("nope", _at(seconds=30), now=NOW)["level"] == "fresh"
@@ -146,7 +169,7 @@ class TestRouteWiring:
 
     @staticmethod
     def _stale_iso() -> str:
-        return (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+        return (datetime.now(UTC) - timedelta(hours=3)).isoformat()
 
     def test_x_radar_snapshot_carries_freshness(self, client):
         import dashboard_routes_x_radar
@@ -187,7 +210,7 @@ class TestRouteWiring:
         import dashboard_routes_x_radar
 
         previous = dashboard_routes_x_radar._radar
-        payload = {"available": True, "items": [], "refreshed_at": datetime.now(timezone.utc).isoformat()}
+        payload = {"available": True, "items": [], "refreshed_at": datetime.now(UTC).isoformat()}
         dashboard_routes_x_radar.init_x_radar_router(
             SimpleNamespace(snapshot=lambda: payload, refresh=_async_returning(payload))
         )
@@ -203,7 +226,7 @@ class TestRouteWiring:
         import dashboard_routes_fast_viral
 
         previous = dashboard_routes_fast_viral._collector
-        payload = {"available": True, "items": [], "refreshed_at": datetime.now(timezone.utc).isoformat()}
+        payload = {"available": True, "items": [], "refreshed_at": datetime.now(UTC).isoformat()}
         dashboard_routes_fast_viral.init_fast_viral_router(
             SimpleNamespace(snapshot=lambda: payload, refresh=_async_returning(payload))
         )
@@ -221,8 +244,9 @@ class TestRouteWiring:
         assert "function freshnessParts" in page
         assert "live-dot.is-stale" in page
         assert "수집 멈춤" in page
-        # 라이브 점이 등급에 연동됐는지 — 두 레인 모두.
-        assert page.count('class="live-dot${fresh.dotClass}"') == 2
+        # 라이브 점이 등급에 연동됐는지 — 커뮤니티·영상 큐·X 레이더·YouTube 현재 큐
+        # 네 레인 모두.
+        assert page.count('class="live-dot${fresh.dotClass}"') == 4
 
     def test_snapshot_without_timestamp_reports_unknown(self, client):
         import dashboard_routes_x_radar
@@ -237,3 +261,35 @@ class TestRouteWiring:
             dashboard_routes_x_radar._radar = previous
 
         assert response.json()["freshness"]["level"] == "unknown"
+
+    def test_live_reference_status_carries_freshness(self, client, tmp_path):
+        # 자동 폴링이 읽는 GET /live/status 에 서버 판정 신선도가 실려야
+        # 화면이 자체 임의로 라이브 여부를 짐작하지 않는다.
+        import dashboard_routes_reference
+        from reference_library import ReferenceLibraryStore
+
+        previous_store = dashboard_routes_reference._store
+        previous_collector = dashboard_routes_reference._collector
+        store = ReferenceLibraryStore(tmp_path / "freshness-live.json")
+        store.set_live_status(
+            {
+                "items": [],
+                "last_success_at": self._stale_iso(),
+                # A failed attempt happened just now. Freshness must still be
+                # measured from last_success_at, not this attempt timestamp.
+                "refreshed_at": datetime.now(UTC).isoformat(),
+                "is_stale": True,
+            }
+        )
+        dashboard_routes_reference.init_reference_router(store, None)
+        try:
+            response = client.get("/api/reference-library/live/status")
+        finally:
+            dashboard_routes_reference._store = previous_store
+            dashboard_routes_reference._collector = previous_collector
+
+        assert response.status_code == 200
+        body = response.json()
+        # 30분 주기 레인의 임계(2700/5400초)에서 3시간은 확실히 stale.
+        assert body["freshness"]["level"] == "stale"
+        assert body["items"] == []

@@ -1,6 +1,9 @@
 """Tests for fail-open, minimal filter shadow storage."""
 
+import inspect
+import os
 import sqlite3
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -8,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from filter_eval.shadow_store import (  # noqa: E402
+    DEFAULT_DB_PATH,
     FilterShadowStore,
     record_filter_candidate_fail_open,
 )
@@ -24,6 +28,41 @@ def _record(store, *, source="x-radar", candidate_id="candidate-1", verdict="all
         filter_reason="정치 제외" if verdict == "block" else "",
         observed_at=datetime(2026, 8, 11, tzinfo=UTC),
     )
+
+
+def test_public_init_signature_and_import_time_data_dir_default(tmp_path):
+    parameter = inspect.signature(FilterShadowStore.__init__).parameters["db_path"]
+
+    assert parameter.annotation == "Path"
+    assert parameter.default == DEFAULT_DB_PATH
+
+    env = os.environ.copy()
+    env["GETDAYTRENDS_DATA_DIR"] = str(tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "\n".join(
+                [
+                    "import inspect",
+                    "from pathlib import Path",
+                    "from filter_eval.shadow_store import DEFAULT_DB_PATH, FilterShadowStore",
+                    f"expected = Path({str(tmp_path)!r}) / 'filter_eval_shadow.sqlite3'",
+                    "parameter = inspect.signature(FilterShadowStore.__init__).parameters['db_path']",
+                    "assert DEFAULT_DB_PATH == expected",
+                    "assert parameter.default == DEFAULT_DB_PATH",
+                    "assert FilterShadowStore(policy_fingerprint_value='policy').db_path == expected",
+                ]
+            ),
+        ],
+        cwd=Path(__file__).resolve().parent.parent,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_store_records_allow_and_block_deduplicates_and_separates_policy(tmp_path):

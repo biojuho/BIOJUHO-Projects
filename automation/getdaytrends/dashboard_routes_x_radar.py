@@ -53,31 +53,52 @@ def _x_radar() -> XOpportunityRadar:
     return _radar
 
 
+# 0099: 합성 `items`와 분리 배열 4개에 같은 나이 표시 규칙을 적용한다.
+# 한곳만 고치면 화면의 네 섹션이 서로 다른 나이 문법을 쓰는 일이 없다.
+_ITEM_ARRAY_KEYS = (
+    "items",
+    "breaking_now_items",
+    "latest_news_items",
+    "today_issue_items",
+    "x_native_items",
+)
+
+
+def _annotate_item_age(raw: object) -> dict[str, object] | None:
+    if not isinstance(raw, dict):
+        return None
+    item = dict(raw)
+    age = item.get("age_minutes")
+    has_age = isinstance(age, (int, float)) and not isinstance(age, bool)
+    item["age_basis"] = str(item.get("age_basis") or "unknown")
+    item["age_display"] = f"{age:g}분" if has_age else "미상"
+    if not has_age:
+        item["age_minutes"] = None
+    return item
+
+
 def _with_explicit_age(payload: dict[str, object]) -> dict[str, object]:
     """Copy response items and make unknown age visible instead of guessing it."""
     response = dict(payload)
-    raw_items = payload.get("items")
-    if not isinstance(raw_items, list):
-        return response
-    items: list[dict[str, object]] = []
-    for raw in raw_items:
-        if not isinstance(raw, dict):
+    for key in _ITEM_ARRAY_KEYS:
+        raw_items = payload.get(key)
+        if not isinstance(raw_items, list):
             continue
-        item = dict(raw)
-        age = item.get("age_minutes")
-        has_age = isinstance(age, (int, float)) and not isinstance(age, bool)
-        item["age_basis"] = str(item.get("age_basis") or "unknown")
-        item["age_display"] = f"{age:g}분" if has_age else "미상"
-        if not has_age:
-            item["age_minutes"] = None
-        items.append(item)
-    response["items"] = items
+        annotated = [item for item in map(_annotate_item_age, raw_items) if item is not None]
+        response[key] = annotated
     return response
 
 
 def _render_x_radar(payload: dict[str, object]) -> dict[str, object]:
     visible = _with_explicit_age(payload)
-    return attach_kernel_screen(attach_freshness(visible, "x_radar"), title_field="keyword")
+    # 0099 snapshots distinguish the last attempt from the last successful
+    # collection.  Keep compatibility with older snapshots, but a failed
+    # attempt must never turn a last-good response fresh again.
+    freshness_field = "last_success_at" if "last_success_at" in visible else "refreshed_at"
+    return attach_kernel_screen(
+        attach_freshness(visible, "x_radar", field=freshness_field),
+        title_field="keyword",
+    )
 
 
 @router.get("")

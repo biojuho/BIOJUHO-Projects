@@ -1,8 +1,8 @@
 """FastAPI route for the external video material queue snapshot.
 
-두 저장소가 코드로 엮이지 않게 파일 하나를 사이에 둔다 — 브램블 작업 저장소의
-video_candidates.py가 고정 경로에 JSON을 쓰고 이 라우트는 그 파일을 읽기만 한다.
-수집을 이쪽에서 돌리지 않으므로 refresh 엔드포인트는 없다(읽기 전용).
+두 저장소가 코드로 엮이지 않게 파일 하나를 사이에 둔다 — 서버 스케줄러의
+VideoQueueProducer가 브램블 CLI를 5분마다 실행해 고정 JSON을 원자 교체하고,
+이 라우트는 완성된 파일만 읽는다. 별도 수동 refresh 엔드포인트는 없다.
 """
 
 from __future__ import annotations
@@ -24,11 +24,9 @@ router = APIRouter(prefix="/api/video-queue", tags=["video-queue"])
 # 브램블 저장소가 내주는 고정 경로. 환경변수 VIDEO_QUEUE_JSON_PATH로 덮을 수 있다.
 DEFAULT_VIDEO_QUEUE_PATH = "/Users/ju-hopark/orca/workspaces/X/bramble/content/queue/latest-video.json"
 
-# 큐는 사람이 make 회차로 돌리는 산출물이라 2분 주기 수집 레인과 같은 임계를 쓰면
-# 거의 항상 "오래됨"으로 뜬다. 내용 자체가 최대 3시간 창을 다루므로 경고는 1시간,
-# 창을 벗어나는 3시간에 오래됨으로 띄운다(freshness.py 임계 재정의, 파일은 고치지 않는다).
-VIDEO_QUEUE_WARN_AFTER_SECONDS = 3600
-VIDEO_QUEUE_STALE_AFTER_SECONDS = 10800
+# 생산 주기는 5분이다. 세 회차를 놓치면 경고, 여섯 회차를 놓치면 오래됨으로 표시한다.
+VIDEO_QUEUE_WARN_AFTER_SECONDS = 900
+VIDEO_QUEUE_STALE_AFTER_SECONDS = 1800
 
 # 생성 시각 필드 이름은 산출 쪽(--json-out)과 맞춘다. 산출이 아직 정해 두지 않은
 # 이름일 수 있어 후보 순으로 찾는다.
@@ -52,8 +50,8 @@ def _generated_at(payload: dict[str, Any]) -> Any:
 def get_video_queue() -> dict[str, Any]:
     """고정 경로의 큐 스냅샷을 그대로 돌려준다.
 
-    파일이 없는 것은 실패가 아니라 "상대 저장소 산출 대기"다 — 오류로 죽지 않고
-    프론트가 "아직 생성되지 않았다"를 그릴 수 있게 한다.
+    파일이 없는 것은 첫 자동 회차 전의 정상 상태일 수 있다 — 오류로 죽지 않고
+    프론트가 "자동 생성 대기"를 그릴 수 있게 한다.
     """
     path = _queue_path()
     try:

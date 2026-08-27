@@ -9,19 +9,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from direct_community_sources import (  # noqa: E402
     DIRECT_COMMUNITY_SOURCES,
     parse_82cook_free,
-    parse_ppomppu_free,
-    parse_ppomppu_hot,
-    parse_todayhumor_best,
+    parse_bobaedream_accident,
     parse_bobaedream_best,
+    parse_bobaedream_dica,
     parse_bobaedream_freeb,
     parse_bobaedream_national,
     parse_bobaedream_strange,
+    parse_clien_board,
     parse_direct_community_source,
     parse_dogdrip_latest,
+    parse_ppomppu_free,
+    parse_ppomppu_hot,
     parse_ruliweb_best,
     parse_theqoo_hot,
+    parse_todayhumor_best,
 )
-
 
 NOW = datetime(2026, 8, 6, 0, 10, tzinfo=UTC)
 
@@ -360,6 +362,9 @@ def test_all_registered_sources_have_a_parser():
         "bobae_freeb",
         "bobae_national",
         "bobae_strange",
+        "bobae_accident",
+        "bobae_dica",
+        "clien_park",
         "ppomppu",
         "ppomppu_freeboard",
         "todayhumor",
@@ -611,3 +616,180 @@ def test_absence_of_marker_is_unknown_not_text():
     item = parse_bobaedream_best(html, now=NOW)[0]
     assert item["attachment_kind"] == "unknown"
     assert item["attachment_kind"] != "text"
+
+
+# --- 2026-08-27 소스 확대(0098-C). 실측 목록 구조를 그대로 옮긴 fixture. ---
+# accident·dica는 best/freeb와 같은 표를 쓰지만 링크가 rtn 파라미터를 물고 있고,
+# 사고 게시판은 vod 아이콘(블랙박스 영상)이 목록의 절반 가까이 온다.
+
+_ACCIDENT_HTML = """
+<table><tr itemscope="" itemtype="http://schema.org/Article">
+  <td class="c"></td>
+  <td class="pl14">
+    <a class="bsubject" href="/view?code=accident&amp;No=858985&amp;rtn=%2Fboard%2Fbulletin%2Flist.php%3Fcode%3Daccident" title="양산 이마트 무개념 모녀">양산 이마트 무개념 모녀</a>
+    <a href="/view?code=accident&amp;No=858985&amp;cmt=1"><span class="Comment">(<strong class="totreply">78</strong>)</span></a>
+    <img alt="첨부파일" class="jpg" src="//image.bobaedream.co.kr/newimg/vod.gif"/>
+  </td>
+  <td class="author02"><span class="author">글쓴이</span></td>
+  <td class="date">08/05</td>
+  <td class="recomm">808</td>
+  <td class="count">53,586</td>
+</tr></table>
+"""
+
+_DICA_HTML = """
+<table>
+  <tr>
+    <td class="pl14">
+      <a class="bsubject" href="/view?code=dica&amp;No=118421&amp;rtn=%2Fboard%2Fbulletin%2Flist.php%3Fcode%3Ddica" title="마린시티 지하에 방치된 라페라리 ㄷㄷ">마린시티 지하에 방치된 라페라리 ㄷㄷ</a>
+      <img alt="첨부파일" class="jpg" src="//image.bobaedream.co.kr/newimg/jpg.gif"/>
+    </td>
+    <td class="date">08/04</td>
+    <td class="recomm">44</td>
+    <td class="count">8,126</td>
+  </tr>
+  <tr>
+    <td class="pl14">
+      <a class="bsubject" href="/view?code=dica&amp;No=118424">자전거부대는 진짜…. 에효….</a>
+    </td>
+    <td class="date">09:05</td>
+    <td class="recomm">22</td>
+    <td class="count">2,871</td>
+  </tr>
+</table>
+"""
+
+
+def test_parse_bobaedream_accident_reads_incident_board_full_fields():
+    # NOW(UTC 00:10)는 KST 09:10. 08/05 00:00 KST → 1일 9시간 10분 = 1990분.
+    assert parse_bobaedream_accident(_ACCIDENT_HTML, now=NOW) == [
+        {
+            "id": "858985",
+            "title": "양산 이마트 무개념 모녀",
+            "category": "보배드림 교통사고/블박",
+            "community_source": "bobae_accident",
+            "community_label": "보배드림 사고",
+            "source_url": (
+                "https://www.bobaedream.co.kr/view?code=accident&No=858985"
+                "&rtn=%2Fboard%2Fbulletin%2Flist.php%3Fcode%3Daccident"
+            ),
+            "link_kind": "publisher_original",
+            "published_label": "08/05",
+            "age_minutes": 1990,
+            "views": 53_586,
+            "votes": 808,
+            "comments": 78,
+            "source_position": 0,
+            "signal_source": "직접 목록",
+            # 블랙박스 게시판답게 vod 아이콘이 영상으로 읽힌다.
+            "attachment_kind": "video",
+            "video_url": "",
+        }
+    ]
+
+
+def test_parse_bobaedream_dica_reads_photo_board_and_keeps_keys_separate():
+    dica = parse_bobaedream_dica(_DICA_HTML, now=NOW)
+    assert [item["id"] for item in dica] == ["118421", "118424"]
+    first, second = dica
+    assert first["community_source"] == "bobae_dica"
+    assert first["community_label"] == "보배드림 직찍"
+    assert first["category"] == "보배드림 직찍/특종발견"
+    assert first["attachment_kind"] == "image"
+    # 08/04 00:00 KST → 2일 9시간 10분 = 3430분.
+    assert first["age_minutes"] == 3430
+    assert first["views"] == 8_126
+    assert second["attachment_kind"] == "unknown"
+    assert second["age_minutes"] == 5
+
+    # 게시판 코드가 다르면 서로의 목록을 0건으로 내보낸다 — 소스 키 분리.
+    assert parse_bobaedream_accident(_DICA_HTML, now=NOW) == []
+    assert parse_bobaedream_dica(_ACCIDENT_HTML, now=NOW) == []
+
+
+def test_parse_clien_board_reads_full_timestamp_and_compact_hits():
+    # 2026-08-27 실측 구조: 공지(div.list_item.notice)·홍보 자리(#hongboInfoList)는
+    # symph_row 가 아니라 선택자에서 빠지고, 시각 칸에 전체 타임스탬프가 숨어 있다.
+    html = """
+    <div class="list_board">
+      <div class="list_item notice" data-board-sn="1">
+        <div class="list_title"><a class="list_subject" href="/service/board/annonce/19238259">
+          <span class="subject_fixed">[베타] 토픽 필터 기능을 추가합니다</span></a></div>
+        <div class="list_time"><span class="time popover">07-30<span class="timestamp">2026-07-30 15:51:11</span></span></div>
+      </div>
+      <div class="list_item hongbo" id="hongboInfoList"></div>
+      <div class="list_item symph_row" data-board-sn="19254103" data-comment-count="0">
+        <div class="list_symph view_symph"><span>7</span></div>
+        <div class="list_title"><a class="list_subject" href="/service/board/park/19254103?od=T31&amp;po=0">
+          <span class="subject_fixed" title="이해식 의원은 정무감각이 없는걸까요?">이해식 의원은 정무감각이 없는걸까요?</span></a></div>
+        <div class="list_hit"><span class="hit">31</span></div>
+        <div class="list_time"><span class="time popover">05:02<span class="timestamp">2026-08-06 09:03:53</span></span></div>
+      </div>
+      <div class="list_item symph_row" data-board-sn="19254102" data-comment-count="12">
+        <div class="list_symph view_symph"><span>146</span></div>
+        <div class="list_title"><a class="list_subject" href="/service/board/park/19254102?od=T31&amp;po=0">
+          <span class="subject_fixed" title="이재명 지지율 떨어지는 이유">이재명 지지율 떨어지는 이유</span></a></div>
+        <div class="list_hit"><span class="hit">14.7 k</span></div>
+        <div class="list_time"><span class="time popover">08-05<span class="timestamp">2026-08-05 23:00:00</span></span></div>
+      </div>
+      <div class="list_item symph_row" data-board-sn="19254090">
+        <div class="list_symph view_symph"><span>3</span></div>
+        <div class="list_title"><a class="list_subject" href="/service/board/park/19254090">
+          <span class="subject_fixed">현장 직찍.jpg</span></a></div>
+        <div class="list_hit"><span class="hit">258</span></div>
+        <div class="list_time"><span class="time popover">07-30</span></div>
+      </div>
+    </div>
+    """
+
+    items = parse_clien_board(html, now=NOW)
+    # 공지(data-board-sn=1)와 홍보 자리는 symph_row 가 아니므로 빠진다.
+    assert [item["id"] for item in items] == ["19254103", "19254102", "19254090"]
+
+    assert items[0] == {
+        "id": "19254103",
+        "title": "이해식 의원은 정무감각이 없는걸까요?",
+        "category": "클리앙 모두의공원",
+        "community_source": "clien_park",
+        "community_label": "클리앙 모두의공원",
+        "source_url": "https://www.clien.net/service/board/park/19254103?od=T31&po=0",
+        "link_kind": "publisher_original",
+        "published_label": "2026-08-06 09:03",
+        "age_minutes": 7,
+        "views": 31,
+        "votes": 7,
+        "comments": 0,
+        "source_position": 0,
+        "signal_source": "직접 목록",
+        "attachment_kind": "unknown",
+        "video_url": "",
+    }
+
+    # "14.7 k" 조밀 조회수와 전체 타임스탬프 계산, data-comment-count 댓글 수.
+    assert items[1]["views"] == 14_700
+    assert items[1]["comments"] == 12
+    assert items[1]["votes"] == 146
+    assert items[1]["published_label"] == "2026-08-05 23:00"
+    assert items[1]["age_minutes"] == 610
+
+    # 타임스탬프가 없으면 보이는 대시 월/일("07-30")로 그날 00:00 KST를 잡는다.
+    assert items[2]["published_label"] == "07-30"
+    assert items[2]["age_minutes"] == 10_630
+    assert items[2]["comments"] == 0
+    # 클리앙 목록엔 첨부 아이콘이 없다 — 제목 접미 표식만 영상/사진으로 읽는다.
+    assert items[2]["attachment_kind"] == "image"
+    assert items[0]["attachment_kind"] == "unknown"
+
+
+def test_new_sources_roundtrip_through_the_parser_registry():
+    # 등록 키로 실제 수집 경로(parse_direct_community_source)를 타고 파싱된다.
+    assert parse_direct_community_source("bobae_accident", _ACCIDENT_HTML, now=NOW)[0]["id"] == "858985"
+    assert parse_direct_community_source("bobae_dica", _DICA_HTML, now=NOW)[0]["id"] == "118421"
+    clien_html = """
+    <div class="list_item symph_row" data-board-sn="19254103" data-comment-count="0">
+      <div class="list_title"><a class="list_subject" href="/service/board/park/19254103">
+        <span class="subject_fixed">제목</span></a></div>
+      <div class="list_time"><span class="time popover">05:02<span class="timestamp">2026-08-06 09:03:53</span></span></div>
+    </div>
+    """
+    assert parse_direct_community_source("clien_park", clien_html, now=NOW)[0]["community_source"] == "clien_park"

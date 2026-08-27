@@ -62,13 +62,15 @@ from loguru import logger as log
 from getdaytrends.config import VERSION, AppConfig
 from getdaytrends.core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
 from getdaytrends.db import close_pg_pool, get_connection, get_trend_stats, init_db
+from getdaytrends.runtime_paths import initialize_runtime_segment, resolve_runtime_paths  # noqa: E402
 from getdaytrends.utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  프로세스 Lockfile (동시 실행 방지)
 # ══════════════════════════════════════════════════════
 
-_LOCK_FILE = Path(__file__).parent / "data" / "getdaytrends.lock"
+_RUNTIME_PATHS = resolve_runtime_paths()
+_LOCK_FILE = _RUNTIME_PATHS.writer_lock
 _LOCK_OWNER = threading.local()
 _LOCK_MUTEX = threading.Lock()
 
@@ -566,6 +568,8 @@ def main():
         sys.exit(1)
 
     try:
+        if not _skip_lock and _RUNTIME_PATHS.configured:
+            initialize_runtime_segment(_RUNTIME_PATHS)
         _main_body()
     except Exception as exc:
         try:

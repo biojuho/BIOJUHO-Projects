@@ -4,24 +4,26 @@
 판정을 서버에 두는 이유는 두 가지다 — 프론트에 흩어진 임계를 한곳에 모으고,
 파이썬 테스트로 경계값을 고정할 수 있게 하기 위해서다.
 
-수집은 대시보드 탭이 열려 있을 때만 도는 구조라(브라우저 setInterval) 자리를
-비우면 조용히 멈춘다. 화면의 라이브 표시가 계속 켜져 있으면 멈춘 걸 알 수 없으므로,
-이 모듈의 등급을 그 표시에 연동한다.
+수집은 서버 스케줄러가 맡고 화면은 GET 폴링으로 마지막 스냅샷만 읽는다(0099).
+스케줄러가 멈추면 스냅샷도 멈추므로, 화면의 라이브 표시가 계속 켜져 있으면
+멈춘 걸 알 수 없다. 이 모듈의 등급을 그 표시에 연동한다.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-# 레인별 임계(초). 브라우저 자동 갱신 주기의 3배와 7~8배를 기준으로 잡았다 —
-# 한 번 걸러도 경고가 뜨지 않고, 연속으로 놓치면 확실히 눈에 띄게 하기 위해서다.
+# 레인별 임계(초). 서버 스케줄러 주기(dashboard.py Lane 배선)를 기준으로 잡았다 —
+# 한두 번 걸러도 경고가 뜨지 않고, 연속으로 놓치면 확실히 눈에 띄게 한다.
+# 300초 주기에서 360초 경고는 정상 회차 사이에도 경고가 깜빡거릴 만큼 촘촘해서
+# 0099에서 느슨하게 다시 잡았다.
 LANE_THRESHOLDS: dict[str, tuple[int, int]] = {
     # 이름: (warn_after_seconds, stale_after_seconds)
-    "x_radar": (360, 900),  # 2분 주기
-    "fast_viral": (360, 900),  # 2분 주기
-    "live_reference": (1800, 3600),  # 10분 주기
+    "x_radar": (360, 900),  # 서버 120초 주기
+    "fast_viral": (900, 1800),  # 서버 300초 주기
+    "live_reference": (2700, 5400),  # 서버 1800초 주기
 }
 
 DEFAULT_WARN_AFTER = 360
@@ -51,8 +53,8 @@ def _parse(value: Any) -> datetime | None:
     # 타임존이 없는 값은 UTC로 본다. 이 저장소의 수집기는 tz-aware UTC로 기록하지만,
     # 예전 파일이나 손으로 만든 값이 섞여도 로컬 시간으로 오해하지 않게 한다.
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def humanize_age(age_seconds: int | None) -> str:
@@ -85,7 +87,7 @@ def describe_freshness(
     if parsed is None:
         return Freshness(None, "unknown", humanize_age(None)).as_dict()
 
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     age = int((current - parsed).total_seconds())
     if age < 0:
         level = "unknown"

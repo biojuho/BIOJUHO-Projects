@@ -11,27 +11,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import fast_viral_collector as fast_module  # noqa: E402
 from fast_viral_collector import (  # noqa: E402
     FastViralCollector,
-    _cooling_signal,
-    _direct_max_age_minutes,
-    _apply_og_second_pass,
     _annotate_community_clusters,
+    _apply_og_second_pass,
     _collapse_community_clusters,
     _community_titles_match,
-    _looks_blocked,
-    aggregator_quota,
     _community_x_exposure_assessment,
+    _cooling_signal,
+    _direct_max_age_minutes,
     _direct_signal_score,
     _is_brand_safe_title,
+    _is_recent_issuelink_item,
+    _issuelink_age_minutes,
+    _looks_blocked,
     _parse_count,
     _select_diverse_community_items,
     _select_unique_community_items,
     _unique_community_cluster_count,
     _velocity_score,
-    passes_spread_gate,
+    aggregator_quota,
     parse_fmkorea_latest,
     parse_issuelink_community_items,
     parse_issuelink_fmkorea_ids,
     parse_issuelink_fmkorea_items,
+    passes_spread_gate,
 )
 from og_enrich import OgEnrichmentReport, OgRequestEvent  # noqa: E402
 from source_backoff import SourceBackoff  # noqa: E402
@@ -81,9 +83,12 @@ def test_parse_issuelink_ids_and_brand_safety_gate():
 
 def test_parse_issuelink_items_provides_direct_fmkorea_fallback():
     html = """
-    <a href="https://www.issuelink.co.kr/community/go/fmkorea/123456789">
-      지금 여러 곳에서 퍼지는 새 소식 <small>[12]</small>
-    </a>
+    <table><tr><td>
+      <a href="https://www.issuelink.co.kr/community/go/fmkorea/123456789">
+        지금 여러 곳에서 퍼지는 새 소식 <small>[12]</small>
+      </a>
+      <div class="second_date"><span>펨코</span><span>(2 시간, 7 분전)</span></div>
+    </td></tr></table>
     <a href="https://www.issuelink.co.kr/community/go/fmkorea/123456789">중복</a>
     """
 
@@ -93,13 +98,35 @@ def test_parse_issuelink_items_provides_direct_fmkorea_fallback():
             "title": "지금 여러 곳에서 퍼지는 새 소식",
             "category": "IssueLink 백업",
             "source_url": "https://www.fmkorea.com/123456789",
-            "published_label": "",
-            "age_minutes": None,
+            "published_label": "(2 시간, 7 분전)",
+            "age_minutes": 127,
             "views": 0,
             "votes": 0,
             "comments": 12,
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("방금 전", 0),
+        ("(32 분전)", 32),
+        ("(2 시간전)", 120),
+        ("(2 시간, 56 분전)", 176),
+        ("(1 일, 2 시간, 3 분전)", 1563),
+        ("날짜 미확인", None),
+    ],
+)
+def test_issuelink_relative_age_parser(label, expected):
+    assert _issuelink_age_minutes(label) == expected
+
+
+def test_issuelink_age_gate_keeps_180_minutes_and_rejects_older_or_unknown():
+    assert _is_recent_issuelink_item({"age_minutes": 179}) is True
+    assert _is_recent_issuelink_item({"age_minutes": 180}) is True
+    assert _is_recent_issuelink_item({"age_minutes": 181}) is False
+    assert _is_recent_issuelink_item({"age_minutes": None}) is False
 
 
 def test_velocity_score_rewards_fresh_pre_aggregator_growth():
@@ -335,7 +362,7 @@ def test_cluster_collapse_keeps_one_representative_and_all_spread_evidence():
             "cross_community_sources": ["humoruniv", "inven"],
             "community_mentions": 2,
             "x_exposure_score": 40,
-            "kernel_screen": {"axis": "live_wrong"},
+            "kernel_screen": {"person": True, "axis": "live_wrong"},
         },
     ]
 
@@ -456,6 +483,33 @@ def test_final_selection_keeps_unique_clusters_and_the_issuelink_lane():
     assert len(selected) == 3
     assert _unique_community_cluster_count(selected) == 3
     assert any(item["signal_source"] == "IssueLink" for item in selected)
+
+
+def test_final_selection_drops_global_posts_and_keeps_domestic_twelve():
+    items = []
+    for lane, count in (
+        ("직접 목록", 6),
+        ("글로벌 공개 커뮤니티", 6),
+        ("IssueLink", 6),
+    ):
+        for index in range(count):
+            items.append(
+                {
+                    "title": f"{lane} 소재 {index}",
+                    "community_source": f"{lane}-{index}",
+                    "community_cluster_key": f"{lane}-{index}",
+                    "signal_source": lane,
+                    "x_exposure_score": 90 - index,
+                }
+            )
+
+    selected = _select_unique_community_items(items, 12)
+
+    assert len(selected) == 12
+    assert _unique_community_cluster_count(selected) == 12
+    assert sum(item["signal_source"] == "글로벌 공개 커뮤니티" for item in selected) == 0
+    assert sum(item["signal_source"] == "직접 목록" for item in selected) == 6
+    assert sum(item["signal_source"] == "IssueLink" for item in selected) == 6
 
 
 def test_community_cluster_key_is_independent_of_member_order():
@@ -687,8 +741,8 @@ async def test_collector_shadow_records_direct_and_issuelink_without_product_or_
             "source_url": "https://www.issuelink.co.kr/community/go/clien/201",
             "aggregator_url": "https://www.issuelink.co.kr/community/go/clien/201",
             "link_kind": "redirect_pending",
-            "published_label": "",
-            "age_minutes": None,
+            "published_label": "(10 분전)",
+            "age_minutes": 10,
             "views": 0,
             "votes": 0,
             "comments": 20,
@@ -703,12 +757,44 @@ async def test_collector_shadow_records_direct_and_issuelink_without_product_or_
             "source_url": "https://www.issuelink.co.kr/community/go/inven/202",
             "aggregator_url": "https://www.issuelink.co.kr/community/go/inven/202",
             "link_kind": "redirect_pending",
-            "published_label": "",
-            "age_minutes": None,
+            "published_label": "(10 분전)",
+            "age_minutes": 10,
             "views": 0,
             "votes": 0,
             "comments": 20,
             "source_position": 1,
+        },
+        {
+            "id": "203",
+            "title": "(민형배) 모두의 성장, 전남광주 반도체로 열겠습니다!",
+            "category": "IssueLink 집계 확인",
+            "community_source": "ruliweb",
+            "community_label": "루리웹",
+            "source_url": "https://www.issuelink.co.kr/community/go/ruliweb/203",
+            "aggregator_url": "https://www.issuelink.co.kr/community/go/ruliweb/203",
+            "link_kind": "redirect_pending",
+            "published_label": "(10 분전)",
+            "age_minutes": 10,
+            "views": 0,
+            "votes": 0,
+            "comments": 20,
+            "source_position": 2,
+        },
+        {
+            "id": "204",
+            "title": "오늘 하닉매도하면 수익 7억 찍을듯",
+            "category": "IssueLink 집계 확인",
+            "community_source": "fmkorea",
+            "community_label": "FMKorea",
+            "source_url": "https://www.issuelink.co.kr/community/go/fmkorea/204",
+            "aggregator_url": "https://www.issuelink.co.kr/community/go/fmkorea/204",
+            "link_kind": "redirect_pending",
+            "published_label": "(10 분전)",
+            "age_minutes": 10,
+            "views": 0,
+            "votes": 0,
+            "comments": 20,
+            "source_position": 3,
         },
     ]
 
@@ -785,13 +871,133 @@ async def test_collector_shadow_records_direct_and_issuelink_without_product_or_
 
     assert projection(measured) == projection(baseline)
     assert projection(failed) == projection(baseline)
+    # 국내 전용 계약: 기본 FMKorea·IssueLink 2회만 호출한다.
+    # shadow store 유무나 실패가 네트워크 수를 바꾸지 않는 것이 이 검사의 계약이다.
     assert baseline_calls == measured_calls == request_calls == 2
+    assert baseline["excluded_topic_counts"] == {
+        "정치 제외": 3,
+        "증시·실적 제외": 1,
+    }
     assert {(row["source"], row["filter_verdict"]) for row in store.rows} == {
         ("fast-viral:direct", "allow"),
         ("fast-viral:direct", "block"),
         ("fast-viral:issuelink", "allow"),
         ("fast-viral:issuelink", "block"),
     }
+
+
+@pytest.mark.asyncio
+async def test_collector_does_not_call_or_surface_foreign_community_sources(
+    monkeypatch, tmp_path
+):
+    class FakeResponse:
+        status_code = 200
+        text = "<html></html>"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, **kwargs):
+            return FakeResponse()
+
+    foreign_called = False
+
+    async def federated(session, *, now):
+        nonlocal foreign_called
+        foreign_called = True
+        del session, now
+        return {
+            "items": [
+                {
+                    "id": "at://did:plc:test/app.bsky.feed.post/1",
+                    "title": "Unexpected public rescue caught on camera",
+                    "category": "Bluesky 트렌드 · rescue",
+                    "community_source": "bluesky_trending",
+                    "community_label": "Bluesky 트렌드 피드",
+                    "source_url": "https://bsky.app/profile/example.test/post/1",
+                    "link_kind": "publisher_original",
+                    "published_label": "2026-08-27T00:00:00Z",
+                    "age_minutes": 10,
+                    "views": 0,
+                    "votes": 200,
+                    "comments": 20,
+                    "source_position": 0,
+                    "signal_source": "글로벌 공개 커뮤니티",
+                    "attachment_kind": "video",
+                    "video_url": "",
+                    "dedupe_key": "at://did:plc:test/app.bsky.feed.post/1",
+                    "reposts": 200,
+                    "likes": 400,
+                    "quotes": 5,
+                    "language": "en",
+                    "region": None,
+                    "sensitive": None,
+                    "political": None,
+                    "spoiler_text": "",
+                    "media_kinds": ["app.bsky.embed.video#view"],
+                }
+            ],
+            "source_health": {
+                "mastodon_trends": True,
+                "bluesky_trending": True,
+                "lemmy_hot": True,
+            },
+            "errors": [],
+        }
+
+    async def no_og(items, **kwargs):
+        return {}
+
+    monkeypatch.setattr(fast_module, "DIRECT_COMMUNITY_SOURCES", ())
+    monkeypatch.setattr(fast_module.httpx, "AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr(fast_module, "collect_federated_community_sources", federated, raising=False)
+    monkeypatch.setattr(fast_module, "parse_fmkorea_latest", lambda html, now: [])
+    monkeypatch.setattr(fast_module, "parse_issuelink_fmkorea_ids", lambda html: set())
+    monkeypatch.setattr(fast_module, "parse_issuelink_community_items", lambda html: [])
+    monkeypatch.setattr(fast_module, "_apply_og_second_pass", no_og)
+
+    snapshot = await FastViralCollector(tmp_path / "federated.json").refresh(limit=5)
+
+    assert foreign_called is False
+    assert snapshot["available"] is False
+    assert snapshot["poll_interval_seconds"] == 300
+    assert snapshot["collection_scope"] == "domestic_direct_only"
+    assert snapshot["foreign_sources_enabled"] is False
+    assert snapshot["total_federated_posts"] == 0
+    assert snapshot["federated_source_count"] == 0
+    assert snapshot["federated_source_total"] == 0
+    assert snapshot["federated_displayed_count"] == 0
+    assert snapshot["items"] == []
+    assert not any(key.endswith("_public") for key in snapshot["source_health"])
+
+
+def test_snapshot_boundary_filters_injected_foreign_items_and_health(tmp_path):
+    collector = FastViralCollector(tmp_path / "domestic-boundary.json")
+    collector._snapshot = {
+        "items": [
+            {"id": "kr", "signal_source": "직접 목록"},
+            {"id": "foreign", "signal_source": "글로벌 공개 커뮤니티"},
+        ],
+        "source_health": {"dogdrip_direct": True, "mastodon_trends_public": True},
+    }
+
+    snapshot = collector.snapshot()
+
+    assert [item["id"] for item in snapshot["items"]] == ["kr"]
+    assert snapshot["foreign_filtered_count"] == 1
+    assert snapshot["source_health"] == {"dogdrip_direct": True}
+    assert snapshot["collection_scope"] == "domestic_direct_only"
+    assert snapshot["foreign_sources_enabled"] is False
 
 
 class TestSpreadGate:
