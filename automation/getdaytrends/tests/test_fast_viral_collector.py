@@ -9,6 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import fast_viral_collector as fast_module  # noqa: E402
+import dashboard_routes_fast_viral as fast_routes  # noqa: E402
 from fast_viral_collector import (  # noqa: E402
     FastViralCollector,
     _annotate_community_clusters,
@@ -23,6 +24,7 @@ from fast_viral_collector import (  # noqa: E402
     _is_recent_issuelink_item,
     _issuelink_age_minutes,
     _looks_blocked,
+    _og_context_gate,
     _parse_count,
     _select_diverse_community_items,
     _select_unique_community_items,
@@ -222,14 +224,211 @@ async def test_og_second_pass_only_reads_weak_final_candidates_and_never_stores_
         items,
         source_backoff=SourceBackoff(),
         fetcher=fake_fetcher,
+        checked_at=datetime(2026, 8, 31, 3, 31, 23, tzinfo=UTC),
     )
 
     assert items[0]["kernel_screen"]["axis"] == "live_wrong"
     assert items[1]["kernel_screen"]["axis"] == "live_wrong"
+    assert items[0]["original_context_verified"] is True
+    assert items[0]["context_basis"] == "og_substantive"
+    assert items[0]["context_checked_at"] == "2026-08-31T03:31:23+00:00"
+    assert items[1]["original_context_verified"] is False
+    assert items[1]["context_basis"] == "og_not_requested"
+    assert "context_checked_at" not in items[1]
     assert all("description" not in key for item in items for key in item)
+    assert all("summary" not in item and "context" not in item for item in items)
     assert summary["requested_count"] == 1
     assert summary["enriched_count"] == 1
+    assert summary["context_gate"] == {
+        "min_chars": 20,
+        "candidate_count": 1,
+        "evaluated_count": 1,
+        "passed_count": 1,
+        "pass_ratio": 1.0,
+        "rejection_counts": {},
+    }
     assert "축의금" not in repr(summary)
+
+
+@pytest.mark.asyncio
+async def test_og_second_pass_fails_closed_when_original_context_was_not_read():
+    url = "https://www.dogdrip.net/dogdrip/789"
+    items = [
+        {
+            "title": "결혼식에서 있었던 이야기",
+            "source_url": url,
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+            # A stale/injected value must not survive a failed verification.
+            "original_context_verified": True,
+            "context_basis": "untrusted",
+            "context_checked_at": "2026-01-01T00:00:00+00:00",
+        }
+    ]
+
+    async def fake_fetcher(urls, **kwargs):
+        assert list(urls) == [url]
+        return OgEnrichmentReport(
+            events=[OgRequestEvent(host="www.dogdrip.net", status=200, outcome="missing_og")]
+        )
+
+    await _apply_og_second_pass(
+        items,
+        source_backoff=SourceBackoff(),
+        fetcher=fake_fetcher,
+        checked_at=datetime(2026, 8, 31, 3, 31, 23, tzinfo=UTC),
+    )
+
+    assert items[0]["original_context_verified"] is False
+    assert items[0]["context_basis"] == "og_missing"
+    assert "context_checked_at" not in items[0]
+    assert "summary" not in items[0]
+    assert "context" not in items[0]
+
+
+def test_og_context_gate_rejects_boilerplate_echo_and_short_but_keeps_real_context():
+    cases = [
+        (
+            "결혼식에서 있었던 이야기",
+            "이 콘텐츠는 저작권법의 보호를 받으며 무단전재 및 재배포 금지입니다. 콘텐츠 제공 안내",
+            (False, "og_boilerplate"),
+        ),
+        (
+            "일본인 여친과 동거하며 겪은 실제 생활비와 문화 차이 후기",
+            "일본인 여친과 동거하며 겪은 실제 생활비와 문화 차이 후기",
+            (False, "og_echoes_title"),
+        ),
+        (
+            "결혼식에서 있었던 이야기",
+            "남편의 일",
+            (False, "og_too_short"),
+        ),
+        (
+            "결혼식에서 있었던 이야기",
+            "남편이 가족 몰래 축의금을 가로채고 뒤늦게 거짓말한 실제 사연",
+            (True, "og_substantive"),
+        ),
+    ]
+
+    for title, description, expected in cases:
+        accepted, basis, measured_chars = _og_context_gate(title, description)
+        assert (accepted, basis) == expected
+        assert measured_chars == len(description)
+
+
+@pytest.mark.asyncio
+async def test_og_second_pass_records_all_gate_reasons_and_does_not_use_rejected_text():
+    urls = {
+        "missing": "https://www.dogdrip.net/dogdrip/missing",
+        "boilerplate": "https://www.dogdrip.net/dogdrip/boilerplate",
+        "echo": "https://www.dogdrip.net/dogdrip/echo",
+        "short": "https://www.dogdrip.net/dogdrip/short",
+        "substantive": "https://www.dogdrip.net/dogdrip/substantive",
+    }
+    items = [
+        {
+            "title": "결혼식에서 있었던 이야기",
+            "source_url": urls["missing"],
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+        },
+        {
+            "title": "결혼식에서 있었던 이야기",
+            "source_url": urls["boilerplate"],
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+        },
+        {
+            "title": "일본인 여친과 동거하며 겪은 실제 생활비와 문화 차이 후기",
+            "source_url": urls["echo"],
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+        },
+        {
+            "title": "결혼식에서 있었던 이야기",
+            "source_url": urls["short"],
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+        },
+        {
+            "title": "결혼식에서 있었던 이야기",
+            "source_url": urls["substantive"],
+            "link_kind": "publisher_original",
+            "community_source": "dogdrip",
+        },
+    ]
+
+    async def fake_fetcher(requested_urls, **kwargs):
+        assert list(requested_urls) == list(urls.values())
+        return OgEnrichmentReport(
+            descriptions={
+                urls["boilerplate"]: "이 콘텐츠는 저작권법의 보호를 받으며 무단전재 및 재배포 금지입니다. 콘텐츠 제공 안내",
+                urls["echo"]: "일본인 여친과 동거하며 겪은 실제 생활비와 문화 차이 후기",
+                urls["short"]: "남편의 일",
+                urls["substantive"]: "남편이 가족 몰래 축의금을 가로채고 뒤늦게 거짓말한 실제 사연",
+            },
+            events=[OgRequestEvent(host="www.dogdrip.net", status=200, outcome="enriched")],
+        )
+
+    summary = await _apply_og_second_pass(
+        items,
+        source_backoff=SourceBackoff(),
+        fetcher=fake_fetcher,
+        checked_at=datetime(2026, 8, 31, 3, 31, 23, tzinfo=UTC),
+    )
+
+    assert [item["context_basis"] for item in items] == [
+        "og_missing",
+        "og_boilerplate",
+        "og_echoes_title",
+        "og_too_short",
+        "og_substantive",
+    ]
+    assert [item["original_context_verified"] for item in items] == [False, False, False, False, True]
+    assert items[4]["context_checked_at"] == "2026-08-31T03:31:23+00:00"
+    assert all("summary" not in item and "description" not in item for item in items)
+    assert summary["context_gate"] == {
+        "min_chars": 20,
+        "candidate_count": 5,
+        "evaluated_count": 4,
+        "passed_count": 1,
+        "pass_ratio": 1 / 4,
+        "rejection_counts": {
+            "og_missing": 1,
+            "og_boilerplate": 1,
+            "og_echoes_title": 1,
+            "og_too_short": 1,
+        },
+    }
+
+
+def test_fast_viral_topic_api_preserves_only_non_body_context_provenance(tmp_path):
+    collector = FastViralCollector(tmp_path / "fast_viral_snapshot.json")
+    collector._snapshot = {
+        "available": True,
+        "items": [
+            {
+                "id": "verified-1",
+                "title": "남편이 결혼식에서 한 행동",
+                "source_url": "https://www.dogdrip.net/123",
+                "signal_source": "직접 목록",
+                "original_context_verified": True,
+                "context_basis": "og_substantive",
+                "context_checked_at": "2026-08-31T03:31:23+00:00",
+            }
+        ],
+        "refreshed_at": "2026-08-31T03:31:23+00:00",
+    }
+    fast_routes.init_fast_viral_router(collector)
+
+    payload = fast_routes.get_fast_viral()
+    item = payload["items"][0]
+
+    assert item["original_context_verified"] is True
+    assert item["context_basis"] == "og_substantive"
+    assert item["context_checked_at"] == "2026-08-31T03:31:23+00:00"
+    assert "summary" not in item
+    assert "context" not in item
 
 
 def test_direct_signal_score_supports_sources_without_view_counts():

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from difflib import SequenceMatcher
 import hashlib
 import json
 import math
@@ -41,6 +42,22 @@ if TYPE_CHECKING:
 FMKOREA_HUMOR_URL = "https://www.fmkorea.com/humor?category=486622"
 ISSUELINK_URL = "https://www.issuelink.co.kr/"
 _KST = timezone(timedelta(hours=9))
+
+# This is a gate on the transient OG input, not a claim that a page was
+# merely reachable.  The value is measured against the whitespace-normalized
+# description and is reported with every OG enrichment summary.  It was chosen
+# from the local gate corpus: the shorter/echo cases stayed out while the
+# substantive case in the same corpus stayed in.  It must be re-measured when
+# the corpus or the policy changes; it is not copied into item provenance.
+OG_CONTEXT_MIN_CHARS = 20
+_OG_BOILERPLATE_PATTERNS = (
+    re.compile(r"저작권|copyright|ⓒ", re.IGNORECASE),
+    re.compile(r"무단\s*(?:전재|복제)|재배포|재전송"),
+    re.compile(r"(?:콘텐츠|기사)\s*제공|제공\s*(?:안내|출처)"),
+    re.compile(r"구독(?:\s*(?:해주세요|하세요|신청|버튼|알림))?"),
+    re.compile(r"(?:앱|어플)\s*(?:설치|다운로드)"),
+    re.compile(r"로그인"),
+)
 
 # 화면에서 애그리게이터(IssueLink) 경유 항목에 내어 주는 비율.
 #
@@ -937,11 +954,60 @@ def _community_post_meta(
     }
 
 
+def _og_context_gate(title: object, description: object) -> tuple[bool, str, int]:
+    """Return whether an OG description contains usable context.
+
+    The description is deliberately inspected only in memory.  The returned
+    reason is safe provenance, while the description itself never leaves this
+    function's caller.  Boilerplate is checked before length so a long legal
+    notice cannot pass by satisfying the character minimum.
+    """
+    normalized_title = " ".join(str(title or "").split())
+    normalized_description = " ".join(str(description or "").split())
+    measured_chars = len(normalized_description)
+    if not normalized_description:
+        return False, "og_missing", measured_chars
+    if any(pattern.search(normalized_description) for pattern in _OG_BOILERPLATE_PATTERNS):
+        return False, "og_boilerplate", measured_chars
+
+    compact_title = re.sub(r"[\W_]+", "", normalized_title.casefold(), flags=re.UNICODE)
+    compact_description = re.sub(
+        r"[\W_]+", "", normalized_description.casefold(), flags=re.UNICODE
+    )
+    if compact_title and compact_description:
+        similarity = SequenceMatcher(None, compact_title, compact_description).ratio()
+        if compact_title == compact_description or similarity >= 0.9:
+            return False, "og_echoes_title", measured_chars
+
+    if measured_chars < OG_CONTEXT_MIN_CHARS:
+        return False, "og_too_short", measured_chars
+    return True, "og_substantive", measured_chars
+
+
+def _og_context_gate_summary(
+    *,
+    candidate_count: int = 0,
+    evaluated_count: int = 0,
+    passed_count: int = 0,
+    rejection_counts: dict[str, int] | None = None,
+) -> dict[str, object]:
+    """Expose counts and the measured pass ratio without exposing OG text."""
+    return {
+        "min_chars": OG_CONTEXT_MIN_CHARS,
+        "candidate_count": candidate_count,
+        "evaluated_count": evaluated_count,
+        "passed_count": passed_count,
+        "pass_ratio": (passed_count / evaluated_count) if evaluated_count else 0.0,
+        "rejection_counts": dict(rejection_counts or {}),
+    }
+
+
 async def _apply_og_second_pass(
     items: list[dict[str, Any]],
     *,
     source_backoff: SourceBackoff,
     fetcher: Any | None = None,
+    checked_at: datetime | None = None,
 ) -> dict[str, object]:
     """Apply OG only to final candidates whose title has no decisive signal.
 
@@ -952,22 +1018,33 @@ async def _apply_og_second_pass(
     candidates: list[tuple[dict[str, Any], str]] = []
     source_keys: dict[str, str] = {}
     for item in items:
+        # This boolean is provenance, not a guess from URL/metrics/title.  It
+        # becomes true only below, after a substantive publisher OG
+        # description was actually read and used for the second-pass screen.
+        item["original_context_verified"] = False
+        item.pop("context_basis", None)
+        item.pop("context_checked_at", None)
         screen = item.get("kernel_screen")
         if not isinstance(screen, dict):
             screen = screen_material(item.get("title", ""), community_label=item.get("community_label"))
             item["kernel_screen"] = screen
         if screen.get("axis") not in {"dead_flat", "unknown"}:
+            item["context_basis"] = "og_not_requested"
             continue
         if item.get("link_kind") != "publisher_original":
+            item["context_basis"] = "og_not_requested"
             continue
         url = str(item.get("source_url") or "").strip()
         if not url:
+            item["context_basis"] = "og_not_requested"
             continue
         candidates.append((item, url))
         source_keys[url] = str(item.get("community_source") or "unknown")
 
     if not candidates:
-        return OgEnrichmentReport().public_summary()
+        public_summary = OgEnrichmentReport().public_summary()
+        public_summary["context_gate"] = _og_context_gate_summary()
+        return public_summary
 
     fetch = fetcher or fetch_og_descriptions
     report = await fetch(
@@ -975,17 +1052,39 @@ async def _apply_og_second_pass(
         source_keys=source_keys,
         source_backoff=source_backoff,
     )
+    verified_at = checked_at or datetime.now(UTC)
+    evaluated_count = 0
+    passed_count = 0
+    rejection_counts: Counter[str] = Counter()
     for item, url in candidates:
         description = report.descriptions.get(url)
         if not description:
+            item["context_basis"] = "og_missing"
+            rejection_counts["og_missing"] += 1
+            continue
+        accepted, basis, _measured_chars = _og_context_gate(item.get("title"), description)
+        evaluated_count += 1
+        if not accepted:
+            item["context_basis"] = basis
+            rejection_counts[basis] += 1
             continue
         item["kernel_screen"] = screen_material(
             item.get("title", ""),
             community_label=item.get("community_label"),
             summary=description,
         )
+        item["original_context_verified"] = True
+        item["context_basis"] = basis
+        item["context_checked_at"] = verified_at.isoformat()
+        passed_count += 1
 
     public_summary = report.public_summary()
+    public_summary["context_gate"] = _og_context_gate_summary(
+        candidate_count=len(candidates),
+        evaluated_count=evaluated_count,
+        passed_count=passed_count,
+        rejection_counts=rejection_counts,
+    )
     report.descriptions.clear()
     return public_summary
 
