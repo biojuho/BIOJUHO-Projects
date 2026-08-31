@@ -328,6 +328,64 @@ class TestPersonNewsAndBoundary0080:
             ks._ACTOR_BOUNDARY_PATTERNS = saved_patterns
 
 
+class TestPersonArticleContext0104:
+    """0104: 뉴스 article 메타 문구와 운전 직무 「기사」를 문맥으로 가른다."""
+
+    def test_media_article_boilerplate_is_not_a_person(self):
+        titles = (
+            "연합뉴스 기사 제공 안내",
+            "한겨레신문 기사 저작권 안내",
+            "기사 원문 보기",
+            "콘텐츠 무단전재 및 재배포 관련 기사",
+        )
+        for title in titles:
+            result = screen_material(title)
+            assert result["person"] is False, title
+            assert result["person_terms"] == [], title
+
+    def test_driver_and_honorific_article_shapes_remain_people(self):
+        titles = (
+            "택시 기사가 승객을 두고 갔다",
+            "버스기사 폭언 신고",
+            "기사님이 분실물을 돌려줬다",
+            "기사분께서 먼저 사과했다",
+        )
+        for title in titles:
+            result = screen_material(title)
+            assert result["person"] is True, title
+            assert "기사" in result["person_terms"], title
+
+    def test_summary_article_boilerplate_does_not_add_person(self):
+        for title in (
+            "장사가 너무 잘돼서 오히려 망했다",
+            "옷차림이 중요해지는 이유",
+        ):
+            result = screen_material(title, summary="연합뉴스 기사 제공 안내")
+            assert result["person"] is False, title
+            assert result["person_terms"] == [], title
+            assert "person_source" not in result, title
+
+    def test_attach_legacy_screen_backfill_uses_article_context(self):
+        existing = {
+            "axis": "dead_flat",
+            "axis_label": "납작함 — 인용 이유 약함",
+        }
+        out = attach_kernel_screen(
+            {"items": [{"title": "연합뉴스 기사 제공 안내", "kernel_screen": existing}]},
+            sort=False,
+        )
+        result = out["items"][0]["kernel_screen"]
+        assert result["person"] is False
+        assert result["person_terms"] == []
+
+    def test_other_media_platform_roles_are_not_actor_terms(self):
+        from kernel_screen import _ACTOR_BOUNDARY_PATTERNS, _ACTOR_TERMS
+
+        actor_terms = set(_ACTOR_TERMS) | {term for _, term in _ACTOR_BOUNDARY_PATTERNS}
+        for term in ("기자", "앵커", "특파원", "구독자", "독자", "네티즌", "누리꾼"):
+            assert term not in actor_terms
+
+
 class TestAttach:
     def test_attach_adds_screen_and_summary_without_mutating(self):
         payload = {"items": [{"title": "팀장이 회식비 떠넘김"}, {"title": "이거 맞나요?"}]}

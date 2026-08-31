@@ -76,6 +76,7 @@ _ACTOR_TERMS = (
 # - 이웃: 이웃나라·이웃돕기. 이웃집은 사람이다.
 # - 알바: 알바레스(선수명 2건).
 # - 기사: [기사] 태그·나기사(캐릭터)·아기사자. 택시기사·기사님은 유지.
+#   0104: 기사(article) 메타 문구는 아래 문맥 패턴으로 한 번 더 거른다.
 # - 장인: 직장인(직+장인)·등장인물(등+장인). 직장인은 별도 사전 항.
 # - 사위: 조사위·법사위(위원회). 데릴사위·예비 사위는 유지.
 # - 선수: 세계선수권·선수권대회(대회명 25건). 선수단은 사람이다.
@@ -113,6 +114,19 @@ _ACTOR_BOUNDARY_PATTERNS = (
     (re.compile(r"운전자(?!보험)"), "운전자"),
     (re.compile(r"(?<!제)10대(?!\s*대표)"), "10대"),
     (re.compile(r"80대(?!\s*운영)"), "80대"),
+)
+
+# 0104(2026-08-31): 「기사」는 뉴스 article과 운전 직무가 동형이다. 사전에서 지우면
+# 「택시 기사가 승객을 두고 갔다」까지 죽으므로, 명시적인 운전 직무·존칭은 보존하고
+# 매체명 또는 article 보일러플레이트와 붙은 경우만 person에서 제외한다.
+_DRIVER_ARTICLE_CONTEXT_PATTERN = re.compile(
+    r"(?:택시|버스|운전|화물|배달|대리|트럭|콜밴)\s*기사"
+    r"|기사(?:님|분)(?=(?:이|가|은|는|을|를|에게|께서|도|만|과|와|의|들이?|랑)?(?:\s|$|[,.!?…'\"()]))"
+)
+_MEDIA_ARTICLE_CONTEXT_PATTERN = re.compile(
+    r"[가-힣a-z0-9]+(?:일보|신문|뉴스|통신|방송|미디어|저널|타임스)\s*(?:의\s*)?기사"
+    r"|기사\s*(?:제공|안내|저작권|무단\s*전재|재배포|재전송|콘텐츠|원문|전문|보기|출처)"
+    r"|(?:저작권|콘텐츠|무단\s*전재|재배포|재전송|출처|제공\s*자료|보도\s*자료).{0,8}기사"
 )
 
 _WRONGDOING_TERMS = (
@@ -243,8 +257,15 @@ def _actor_hits(text: str) -> list[str]:
     """
     hits = _hits(text, _ACTOR_TERMS)
     for pattern, term in _ACTOR_BOUNDARY_PATTERNS:
-        if term not in hits and pattern.search(text):
-            hits.append(term)
+        if term in hits or not pattern.search(text):
+            continue
+        if (
+            term == "기사"
+            and not _DRIVER_ARTICLE_CONTEXT_PATTERN.search(text)
+            and _MEDIA_ARTICLE_CONTEXT_PATTERN.search(text)
+        ):
+            continue
+        hits.append(term)
     return hits
 
 
