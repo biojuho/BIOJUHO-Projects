@@ -29,22 +29,13 @@ def __getattr__(name):
     _PG_ADAPTER_NAMES = {"_PgAdapter"}
 
     if name in _CONNECTION_NAMES:
-        try:
-            from .db_layer.connection import (
-                sqlite_write_lock, db_transaction, get_pg_pool,
-                close_pg_pool, get_connection,
-            )
-        except ImportError:
-            from db_layer.connection import (
-                sqlite_write_lock, db_transaction, get_pg_pool,
-                close_pg_pool, get_connection,
-            )
+        from db_layer.connection import (
+                        sqlite_write_lock, db_transaction, get_pg_pool,
+                        close_pg_pool, get_connection,
+                    )
         return locals()[name]
     if name in _PG_ADAPTER_NAMES:
-        try:
-            from .db_layer.pg_adapter import PgAdapter
-        except ImportError:
-            from db_layer.pg_adapter import PgAdapter
+        from db_layer.pg_adapter import PgAdapter
         return PgAdapter
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -238,18 +229,12 @@ async def _init_db_unlocked(conn) -> None:
     await conn.commit()
 
     # 버전 기반 마이그레이션 실행
-    try:
-        from .db_layer.migrations import run_migrations
-    except ImportError:
-        from db_layer.migrations import run_migrations
+    from db_layer.migrations import run_migrations
     await run_migrations(conn)
 
 
 async def init_db(conn) -> None:
-    try:
-        from .db_layer.connection import sqlite_write_lock
-    except ImportError:
-        from db_layer.connection import sqlite_write_lock
+    from db_layer.connection import sqlite_write_lock
     async with sqlite_write_lock(conn):
         await _init_db_unlocked(conn)
 

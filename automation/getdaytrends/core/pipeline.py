@@ -18,7 +18,7 @@ from shared.llm import get_client
 
 # ── Harness Governance (optional, graceful fallback) ──
 try:
-    from getdaytrends.harness_integration import (
+    from harness_integration import (
         get_pipeline_harness,
         governed_step,
         print_harness_summary,
@@ -30,11 +30,11 @@ except ImportError:
     governed_step = None  # type: ignore
     print_harness_summary = None  # type: ignore
 
-from getdaytrends.alerts import check_and_alert, check_watchlist
-from getdaytrends.analysis.scoring import _count_usable_context_sources, _has_usable_source_text
-from getdaytrends.analyzer import _analyze_trends_async
-from getdaytrends.config import AppConfig
-from getdaytrends.db import (
+from alerts import check_and_alert, check_watchlist
+from analysis.scoring import _count_usable_context_sources, _has_usable_source_text
+from analyzer import _analyze_trends_async
+from config import AppConfig
+from db import (
     cleanup_old_records,
     get_connection,
     get_meta,
@@ -45,9 +45,9 @@ from getdaytrends.db import (
     set_meta,
     update_run,
 )
-from getdaytrends.models import RunResult
-from getdaytrends.scraper import _async_collect_contexts, _async_collect_trends
-from getdaytrends.utils import run_async
+from models import RunResult
+from scraper import _async_collect_contexts, _async_collect_trends
+from utils import run_async
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
@@ -302,10 +302,7 @@ async def _step_refresh_tap_products(conn, config: AppConfig) -> dict:
         return {}
 
     try:
-        try:
-            from ..tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
-        except ImportError:
-            from tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
+        from tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
 
         summary = await refresh_tap_market_surfaces(conn, config, snapshot_source="pipeline")
         payload = summary.to_dict()
@@ -608,12 +605,8 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
 async def _step_genealogy(quality_trends: list, config: AppConfig) -> list:
     """Trend Genealogy 분석 — 실패 시 원본 리스트 반환."""
     try:
-        try:
-            from ..analyzer import analyze_trend_genealogy, enrich_trends_with_genealogy
-            from ..performance_tracker import PerformanceTracker
-        except ImportError:
-            from analyzer import analyze_trend_genealogy, enrich_trends_with_genealogy
-            from performance_tracker import PerformanceTracker
+        from analyzer import analyze_trend_genealogy, enrich_trends_with_genealogy
+        from performance_tracker import PerformanceTracker
 
         tracker = PerformanceTracker(db_path=config.db_path)
         history = await tracker.get_trend_history(
@@ -661,10 +654,7 @@ async def _step_canva_visuals(quality_trends: list, batch_results: list, config:
 async def _step_reasoning(quality_trends: list, config: AppConfig, conn, run: RunResult) -> None:
     """Cross-Trend Inductive Reasoning — 실패 시 무시."""
     try:
-        try:
-            from ..trend_reasoning import TrendReasoningAdapter
-        except ImportError:
-            from trend_reasoning import TrendReasoningAdapter
+        from trend_reasoning import TrendReasoningAdapter
 
         reasoner = TrendReasoningAdapter()
         if not (reasoner.is_available() and quality_trends):
@@ -708,10 +698,7 @@ async def _step_post_run(
         pipeline_config, "enable_golden_reference_qa", False
     ):
         try:
-            try:
-                from ..performance_tracker import PerformanceTracker
-            except ImportError:
-                from performance_tracker import PerformanceTracker
+            from performance_tracker import PerformanceTracker
 
             pt = PerformanceTracker(db_path=pipeline_config.db_path, bearer_token=pipeline_config.twitter_bearer_token)
             if getattr(pipeline_config, "enable_tiered_collection", False):
@@ -745,10 +732,7 @@ async def _step_post_run(
     await _adjust_schedule(scored_trends, orig_config, schedule_callback)
 
     try:
-        try:
-            from ..alerts import send_daily_cost_alert
-        except ImportError:
-            from alerts import send_daily_cost_alert
+        from alerts import send_daily_cost_alert
 
         send_daily_cost_alert(pipeline_config)
     except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError):
@@ -839,14 +823,7 @@ async def _step_score_and_alert(raw_trends, contexts, config: AppConfig, conn, r
 
 
 # -- step functions import --
-try:
-    from .pipeline_steps import (  # noqa: E402
-        _adjust_schedule,
-        _step_generate,
-        _step_save,
-    )
-except ImportError:
-    from core.pipeline_steps import (  # noqa: E402
+from .pipeline_steps import (  # noqa: E402
         _adjust_schedule,
         _step_generate,
         _step_save,
@@ -1017,10 +994,7 @@ async def maybe_send_weekly_cost_report(conn, config) -> None:
         elapsed = (datetime.now() - datetime.fromisoformat(last)).days
         if elapsed < 7:
             return
-    try:
-        from ..alerts import send_weekly_cost_report
-    except ImportError:
-        from alerts import send_weekly_cost_report
+    from alerts import send_weekly_cost_report
 
     if send_weekly_cost_report(config):
         await set_meta(conn, "last_weekly_cost_report", datetime.now().isoformat())

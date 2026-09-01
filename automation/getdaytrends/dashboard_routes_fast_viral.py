@@ -6,18 +6,11 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Query
 
-try:
-    from .freshness import attach_freshness
-    from .kernel_screen import attach_kernel_screen
-except ImportError:  # 스크립트로 직접 실행할 때
-    from freshness import attach_freshness
-    from kernel_screen import attach_kernel_screen
+from freshness import attach_freshness
+from kernel_screen import attach_kernel_screen
 
 if TYPE_CHECKING:
-    try:
-        from .fast_viral_collector import FastViralCollector
-    except ImportError:
-        from fast_viral_collector import FastViralCollector
+    from fast_viral_collector import FastViralCollector
 
 
 router = APIRouter(prefix="/api/fast-viral", tags=["fast-viral"])

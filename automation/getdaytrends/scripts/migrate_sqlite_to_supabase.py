@@ -96,8 +96,8 @@ _MIGRATION_TABLES = [
 
 async def _init_pg_schema(pg_pool: asyncpg.Pool) -> None:
     """Run init_db + supplementary DDL on PostgreSQL."""
-    from automation.getdaytrends.db_layer.pg_adapter import PgAdapter
-    from automation.getdaytrends.db_schema import init_db
+    from db_layer.pg_adapter import PgAdapter
+    from db_schema import init_db
 
     conn = await pg_pool.acquire()
     try:

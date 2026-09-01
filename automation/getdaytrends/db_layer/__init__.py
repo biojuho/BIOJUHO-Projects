@@ -12,40 +12,22 @@ try:
 except ImportError:
     _REDIS_OK = False
 
-try:
-    from .pg_adapter import PgAdapter as _PgAdapter
-    from .connection import (
+from .pg_adapter import PgAdapter as _PgAdapter
+from .connection import (
         close_pg_pool,
         db_transaction,
         get_connection,
         get_pg_pool,
         sqlite_write_lock,
     )
-    from ..db_schema import (
+from db_schema import (
         _backfill_fingerprints,
         _normalize_name,
         _normalize_volume,
         compute_fingerprint,
         init_db,
     )
-    from ..models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-except ImportError:
-    from db_layer.pg_adapter import PgAdapter as _PgAdapter
-    from db_layer.connection import (
-        close_pg_pool,
-        db_transaction,
-        get_connection,
-        get_pg_pool,
-        sqlite_write_lock,
-    )
-    from db_schema import (
-        _backfill_fingerprints,
-        _normalize_name,
-        _normalize_volume,
-        compute_fingerprint,
-        init_db,
-    )
-    from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
+from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
 
 _REVIEW_STATUS_BY_LIFECYCLE = {
     "drafted": "Draft",
@@ -81,7 +63,7 @@ def _json_list(value: str | None) -> list[str]:
 
 
 def _facade_module():
-    for name in ("db", "automation.getdaytrends.db"):
+    for name in ("db", "db"):
         module = sys.modules.get(name)
         if module is not None:
             return module

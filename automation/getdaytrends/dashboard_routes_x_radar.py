@@ -7,18 +7,11 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-try:
-    from .freshness import attach_freshness
-    from .kernel_screen import attach_kernel_screen
-except ImportError:  # 스크립트로 직접 실행할 때
-    from freshness import attach_freshness
-    from kernel_screen import attach_kernel_screen
+from freshness import attach_freshness
+from kernel_screen import attach_kernel_screen
 
 if TYPE_CHECKING:
-    try:
-        from .x_opportunity_radar import XOpportunityRadar
-    except ImportError:
-        from x_opportunity_radar import XOpportunityRadar
+    from x_opportunity_radar import XOpportunityRadar
 
 
 router = APIRouter(prefix="/api/x-radar", tags=["x-opportunity-radar"])

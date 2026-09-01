@@ -6,10 +6,7 @@ storage.py에서 분리됨.
 
 from datetime import datetime
 
-try:
-    from .models import ScoredTrend, TweetBatch
-except ImportError:
-    from models import ScoredTrend, TweetBatch
+from models import ScoredTrend, TweetBatch
 
 
 def _notion_page_exists(

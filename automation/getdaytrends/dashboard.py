@@ -37,9 +37,8 @@ except ImportError as e:
         "dashboard 실행을 위해 fastapi, uvicorn, httpx가 필요합니다:\n" "  pip install fastapi uvicorn[standard] httpx"
     ) from e
 
-try:
-    from .config import VERSION, AppConfig
-    from .db import (
+from config import VERSION, AppConfig
+from db import (
         get_tap_checkout_session_summary,
         get_connection,
         mark_tap_checkout_session_completed,
@@ -52,31 +51,7 @@ try:
         record_tap_deal_room_event,
         upsert_tap_checkout_session,
     )
-    from .tap import (
-        DealRoomRequest,
-        TapBoardRequest,
-        build_tap_deal_room_snapshot,
-        build_tap_board_snapshot,
-        dispatch_tap_alert_queue,
-        empty_tap_board,
-        get_latest_tap_board_snapshot,
-    )
-except ImportError:
-    from config import VERSION, AppConfig
-    from db import (
-        get_tap_checkout_session_summary,
-        get_connection,
-        mark_tap_checkout_session_completed,
-        get_review_queue_snapshot,
-        get_source_quality_summary,
-        get_tap_alert_queue_snapshot,
-        get_tap_deal_room_funnel,
-        get_trend_stats,
-        init_db,
-        record_tap_deal_room_event,
-        upsert_tap_checkout_session,
-    )
-    from tap import (
+from tap import (
         DealRoomRequest,
         TapBoardRequest,
         build_tap_deal_room_snapshot,
@@ -86,56 +61,25 @@ except ImportError:
         get_latest_tap_board_snapshot,
     )
 
-try:
-    from .dashboard_html import get_dashboard_html
-except ImportError:
-    from dashboard_html import get_dashboard_html
+from dashboard_html import get_dashboard_html
 
-try:
-    from .collection_scheduler import CollectionScheduler, Lane
-    from .dashboard_routes_fast_viral import init_fast_viral_router, router as fast_viral_router
-    from .dashboard_routes_reference import init_reference_router, router as reference_router
-    from .dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
-    from .fast_viral_collector import FastViralCollector
-    from .filter_eval.shadow_store import FilterShadowStore
-    from .live_reference_collector import YouTubeLiveReferenceCollector
-    from .reference_library import ReferenceLibraryStore
-    from .runtime_paths import RuntimeWriterLock, initialize_runtime_segment, resolve_runtime_paths
-    from .video_queue_producer import VideoQueueProducer
-    from .x_opportunity_radar import XOpportunityRadar
-except ImportError:
-    from collection_scheduler import CollectionScheduler, Lane
-    from dashboard_routes_fast_viral import init_fast_viral_router, router as fast_viral_router
-    from dashboard_routes_reference import init_reference_router, router as reference_router
-    from dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
-    from fast_viral_collector import FastViralCollector
-    from filter_eval.shadow_store import FilterShadowStore
-    from live_reference_collector import YouTubeLiveReferenceCollector
-    from reference_library import ReferenceLibraryStore
-    from runtime_paths import (  # type: ignore[no-redef]
+from collection_scheduler import CollectionScheduler, Lane
+from dashboard_routes_fast_viral import init_fast_viral_router, router as fast_viral_router
+from dashboard_routes_reference import init_reference_router, router as reference_router
+from dashboard_routes_x_radar import init_x_radar_router, router as x_radar_router
+from fast_viral_collector import FastViralCollector
+from filter_eval.shadow_store import FilterShadowStore
+from live_reference_collector import YouTubeLiveReferenceCollector
+from reference_library import ReferenceLibraryStore
+from runtime_paths import (  # type: ignore[no-redef]
         RuntimeWriterLock,
         initialize_runtime_segment,
         resolve_runtime_paths,
     )
-    from video_queue_producer import VideoQueueProducer
-    from x_opportunity_radar import XOpportunityRadar
+from video_queue_producer import VideoQueueProducer
+from x_opportunity_radar import XOpportunityRadar
 
-try:
-    from .stripe_helpers import (
-        _stripe_amount_divisor,
-        _format_stripe_price_anchor,
-        _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
-        _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
-    )
-except ImportError:
-    from stripe_helpers import (
+from stripe_helpers import (
         _stripe_amount_divisor,
         _format_stripe_price_anchor,
         _parse_tap_checkout_handle,
@@ -231,10 +175,7 @@ async def _lifespan(_app: FastAPI):
 
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION, lifespan=_lifespan)
 
-try:
-    from .dashboard_routes_tap import router as tap_router, init_tap_router
-except ImportError:
-    from dashboard_routes_tap import router as tap_router, init_tap_router
+from dashboard_routes_tap import router as tap_router, init_tap_router
 
 _config = AppConfig.from_env()
 logger = logging.getLogger(__name__)
@@ -255,15 +196,9 @@ _fast_viral_collector = FastViralCollector(
 )
 init_fast_viral_router(_fast_viral_collector)
 app.include_router(fast_viral_router)
-try:
-    from .dashboard_routes_video_queue import router as video_queue_router
-except ImportError:
-    from dashboard_routes_video_queue import router as video_queue_router
+from dashboard_routes_video_queue import router as video_queue_router
 app.include_router(video_queue_router)
-try:
-    from .runtime_identity import runtime_identity_router
-except ImportError:
-    from runtime_identity import runtime_identity_router
+from runtime_identity import runtime_identity_router
 app.include_router(runtime_identity_router)
 
 

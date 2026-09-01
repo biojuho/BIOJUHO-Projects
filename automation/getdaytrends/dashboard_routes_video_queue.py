@@ -13,10 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-try:
-    from .freshness import describe_freshness
-except ImportError:  # 스크립트로 직접 실행할 때
-    from freshness import describe_freshness
+from freshness import describe_freshness
 
 
 router = APIRouter(prefix="/api/video-queue", tags=["video-queue"])

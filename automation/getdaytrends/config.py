@@ -459,25 +459,13 @@ class AppConfig:
 
         """Load config from env vars. Delegates to config_env_loaders module."""
 
-        try:
+        from config_env_loaders import (
 
-            from .config_env_loaders import (
+                        storage_env, schedule_env, api_keys_env, alerts_env,
 
-                storage_env, schedule_env, api_keys_env, alerts_env,
+                        feature_flags_env, quality_env, scoring_env, platform_env,
 
-                feature_flags_env, quality_env, scoring_env, platform_env,
-
-            )
-
-        except ImportError:
-
-            from config_env_loaders import (
-
-                storage_env, schedule_env, api_keys_env, alerts_env,
-
-                feature_flags_env, quality_env, scoring_env, platform_env,
-
-            )
+                    )
 
 
 

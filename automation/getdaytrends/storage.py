@@ -10,14 +10,9 @@ Implementation modules:
 import time
 from typing import Any
 
-try:
-    from . import storage_content_hub as _storage_content_hub
-    from . import storage_gsheets as _storage_gsheets
-    from . import storage_notion as _storage_notion
-except ImportError:
-    import storage_content_hub as _storage_content_hub
-    import storage_gsheets as _storage_gsheets
-    import storage_notion as _storage_notion
+import storage_content_hub as _storage_content_hub
+import storage_gsheets as _storage_gsheets
+import storage_notion as _storage_notion
 
 APIResponseError = _storage_notion.APIResponseError
 NOTION_AVAILABLE = _storage_notion.NOTION_AVAILABLE

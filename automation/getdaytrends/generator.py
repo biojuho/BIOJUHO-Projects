@@ -22,35 +22,20 @@ from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
-try:
-    from .config import AppConfig
-    from .models import GeneratedTweet, ScoredTrend, TweetBatch
-    from .utils import run_async, sanitize_keyword
-except ImportError:
-    from config import AppConfig
-    from models import GeneratedTweet, ScoredTrend, TweetBatch
-    from utils import run_async, sanitize_keyword
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
+from utils import run_async, sanitize_keyword
 
 # [Phase 1] Instructor 구조화된 출력 (선택 의존성)
 try:
-    try:
-        from .structured_output import (
-            INSTRUCTOR_AVAILABLE as _INST_OK,
-        )
-        from .structured_output import (
-            TweetGenerationResponse,
-            TweetItem,
-            extract_structured,
-        )
-    except ImportError:
-        from structured_output import (
-            INSTRUCTOR_AVAILABLE as _INST_OK,
-        )
-        from structured_output import (
-            TweetGenerationResponse,
-            TweetItem,
-            extract_structured,
-        )
+    from structured_output import (
+                INSTRUCTOR_AVAILABLE as _INST_OK,
+            )
+    from structured_output import (
+                TweetGenerationResponse,
+                TweetItem,
+                extract_structured,
+            )
 except ImportError:
     _INST_OK = False
 
@@ -109,45 +94,11 @@ def _parse_tweets_to_batch(
 
 # -- prompt builder import --
 # -- 추출된 모듈 re-export (후방 호환) --
-try:
-    from .generation.marl import (  # noqa: F401
+from generation.marl import (  # noqa: F401
         _should_use_marl,
         generate_tweets_with_marl_async,
     )
-    from .prompt_builder import (  # noqa: F401
-        _LANG_NAME_MAP,
-        _REPORT_BLOG_SYSTEM,
-        _build_account_identity_section,
-        _build_ai_frame_guard_section,
-        _build_approved_post_bank_section,
-        _build_audience_format_section,
-        _build_available_facts_section,
-        _build_category_tone_hint,
-        _build_context_section,
-        _build_deep_why_section,
-        _build_diversity_section,
-        _build_fact_guardrail_section,
-        _build_golden_reference_section,
-        _build_pattern_weights_section,
-        _build_revision_feedback_section,
-        _build_scoring_section,
-        _parse_json,
-        _resolve_language,
-        _retry_generate,
-        _select_generation_tier,
-        _system_long_form,
-        _system_thread,
-        _system_threads,
-        _system_tweets,
-        _system_tweets_and_threads,
-        _use_report_profile,
-    )
-except ImportError:
-    from generation.marl import (  # noqa: F401
-        _should_use_marl,
-        generate_tweets_with_marl_async,
-    )
-    from prompt_builder import (  # noqa: F401
+from prompt_builder import (  # noqa: F401
         _LANG_NAME_MAP,
         _REPORT_BLOG_SYSTEM,
         _build_account_identity_section,
@@ -289,25 +240,13 @@ async def generate_tweets_async(
 
 
 # -- 추출된 모듈 re-export (후방 호환) --
-try:
-    from .generation.long_form import (  # noqa: F401
+from generation.long_form import (  # noqa: F401
         _BLOG_SYSTEM_JOONGYEON,
         _system_blog_post,
         generate_blog_async,
         generate_long_form_async,
     )
-    from .generation.threads import (
-        generate_thread_async,
-        generate_threads_content_async,
-    )
-except ImportError:
-    from generation.long_form import (  # noqa: F401
-        _BLOG_SYSTEM_JOONGYEON,
-        _system_blog_post,
-        generate_blog_async,
-        generate_long_form_async,
-    )
-    from generation.threads import (
+from generation.threads import (
         generate_thread_async,
         generate_threads_content_async,
     )
@@ -614,23 +553,12 @@ async def generate_ab_variant_async(
 
 
 # -- backward-compat re-exports --
-try:
-    from .content_qa import (  # noqa: F401
+from content_qa import (  # noqa: F401
         audit_generated_content,
         build_regeneration_feedback,
         regenerate_content_groups,
     )
-    from .generation.persona import _round_robin_counter, select_persona  # noqa: F401
-    from .multilang import (  # noqa: F401
-        generate_for_trend_multilang_async,
-    )
-except ImportError:
-    from content_qa import (  # noqa: F401
-        audit_generated_content,
-        build_regeneration_feedback,
-        regenerate_content_groups,
-    )
-    from generation.persona import _round_robin_counter, select_persona  # noqa: F401
-    from multilang import (  # noqa: F401
+from generation.persona import _round_robin_counter, select_persona
+from multilang import (  # noqa: F401
         generate_for_trend_multilang_async,
     )

@@ -51,7 +51,7 @@ async def _run_with_pool_cleanup(coro):
         return await coro
     finally:
         try:
-            from getdaytrends.db_layer.connection import close_pg_pool
+            from db_layer.connection import close_pg_pool
             await close_pg_pool()
         except Exception:
             pass

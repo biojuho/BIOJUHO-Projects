@@ -5,12 +5,8 @@ config.py에서 분리됨. AppConfig.from_env()에서 호출됩니다.
 
 import os
 
-try:
-    from .db_env import database_url_from_env
-    from .runtime_paths import resolve_runtime_paths
-except ImportError:
-    from db_env import database_url_from_env
-    from runtime_paths import resolve_runtime_paths  # type: ignore[no-redef]
+from db_env import database_url_from_env
+from runtime_paths import resolve_runtime_paths  # type: ignore[no-redef]
 
 
 def _env_flag(name: str, default: bool = False) -> bool:

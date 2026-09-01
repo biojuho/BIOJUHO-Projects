@@ -11,10 +11,7 @@ import sys
 from datetime import UTC, datetime, time, timedelta, timezone
 from pathlib import Path
 
-try:
-    from .shadow_store import DEFAULT_DB_PATH
-except ImportError:
-    from shadow_store import DEFAULT_DB_PATH
+from .shadow_store import DEFAULT_DB_PATH
 
 KST = timezone(timedelta(hours=9))
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "shadow-eval-set.tsv"

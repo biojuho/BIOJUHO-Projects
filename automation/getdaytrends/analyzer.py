@@ -15,8 +15,7 @@ from shared.llm import LLMClient, TaskTier, get_client
 from shared.llm.models import LLMPolicy
 
 # -- 추출된 모듈 re-export (후방 호환) --
-try:
-    from .analysis.parsing import (
+from analysis.parsing import (  # noqa: F401
         INSTRUCTOR_AVAILABLE,
         _default_scored_trend,
         _parse_json,
@@ -24,35 +23,16 @@ try:
         _parse_scored_trend_from_dict,
         _score_batch_instructor,
     )
-    from .config import AppConfig
-    from .db import compute_fingerprint, get_cached_score
-    from .models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
-    from .trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local
-    from .trend_genealogy import (
+from config import AppConfig
+from db import compute_fingerprint, get_cached_score
+from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
+from trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local
+from trend_genealogy import (  # noqa: F401
         analyze_trend_genealogy,
         detect_trend_patterns,
         enrich_trends_with_genealogy,
     )
-    from .utils import run_async, sanitize_keyword
-except ImportError:
-    from analysis.parsing import (  # noqa: F401
-        INSTRUCTOR_AVAILABLE,
-        _default_scored_trend,
-        _parse_json,
-        _parse_json_array,
-        _parse_scored_trend_from_dict,
-        _score_batch_instructor,
-    )
-    from config import AppConfig
-    from db import compute_fingerprint, get_cached_score
-    from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
-    from trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local  # noqa: F401
-    from trend_genealogy import (  # noqa: F401
-        analyze_trend_genealogy,
-        detect_trend_patterns,
-        enrich_trends_with_genealogy,
-    )
-    from utils import run_async, sanitize_keyword
+from utils import run_async, sanitize_keyword
 
 
 _PACKAGES_PATH_INJECTED = False  # B-013 fix: sys.path 중복 삽입 방지 플래그
@@ -277,14 +257,7 @@ _BATCH_SCORE_MAX_TOKENS_PER_ITEM = 900
 _BATCH_SCORE_RETRY_MAX_TOKENS_PER_ITEM = 1400
 
 
-try:
-    from .analysis.scoring import (
-        _compute_cross_source_confidence,
-        _compute_freshness_score,
-        _compute_signal_score,
-    )
-except ImportError:
-    from analysis.scoring import (  # noqa: F401
+from analysis.scoring import (  # noqa: F401
         _compute_cross_source_confidence,
         _compute_freshness_score,
         _compute_signal_score,
@@ -546,10 +519,7 @@ async def _batch_score_async(
                 vel = 0.0
                 if conn is not None:
                     try:
-                        try:
-                            from .db import get_volume_velocity
-                        except ImportError:
-                            from db import get_volume_velocity
+                        from db import get_volume_velocity
 
                         vel = await get_volume_velocity(conn, keyword)
                     except (ImportError, sqlite3.Error, ValueError):

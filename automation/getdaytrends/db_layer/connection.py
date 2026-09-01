@@ -13,10 +13,7 @@ import aiosqlite
 from loguru import logger as log
 
 from .pg_adapter import PgAdapter
-try:
-    from ..db_env import database_url_from_env
-except ImportError:
-    from db_env import database_url_from_env
+from db_env import database_url_from_env
 
 # === PostgreSQL 선택적 지원 ===
 try:

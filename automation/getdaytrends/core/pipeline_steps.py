@@ -11,10 +11,7 @@ Implementation modules:
 import schedule
 from loguru import logger as log
 
-try:
-    from ..config import AppConfig
-except ImportError:
-    from config import AppConfig
+from config import AppConfig
 
 # ── Re-export all public APIs so existing callers don't break ──
 from .steps_generate import (  # noqa: F401

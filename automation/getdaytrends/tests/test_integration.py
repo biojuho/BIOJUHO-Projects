@@ -212,7 +212,7 @@ class TestPipelineIntegration(unittest.TestCase):
 
 class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
     async def test_step_generate_regenerates_only_failed_blog_group(self):
-        from getdaytrends.core.pipeline_steps import _step_generate
+        from core.pipeline_steps import _step_generate
 
         trend = _trend(viral=75)
         trend.category = "테크"
@@ -256,15 +256,15 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
         }
 
         with (
-            patch("getdaytrends.core.steps_generate.get_cached_content", new_callable=AsyncMock) as mock_cached,
-            patch("getdaytrends.core.steps_generate.get_approved_post_bank", new_callable=AsyncMock) as mock_bank,
-            patch("getdaytrends.core.steps_generate.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent,
-            patch("getdaytrends.core.steps_generate.generate_for_trend_async", new_callable=AsyncMock) as mock_generate,
-            patch("getdaytrends.core.steps_generate.audit_generated_content", new_callable=AsyncMock) as mock_audit,
-            patch("getdaytrends.core.steps_generate.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
-            patch("getdaytrends.core.steps_generate.get_client") as mock_client_factory,
-            patch("getdaytrends.core.steps_generate._load_adaptive_voice", return_value=(None, None, "")),
-            patch("getdaytrends.core.steps_generate.compute_fingerprint", return_value="test_fp"),
+            patch("core.steps_generate.get_cached_content", new_callable=AsyncMock) as mock_cached,
+            patch("core.steps_generate.get_approved_post_bank", new_callable=AsyncMock) as mock_bank,
+            patch("core.steps_generate.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent,
+            patch("core.steps_generate.generate_for_trend_async", new_callable=AsyncMock) as mock_generate,
+            patch("core.steps_generate.audit_generated_content", new_callable=AsyncMock) as mock_audit,
+            patch("core.steps_generate.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
+            patch("core.steps_generate.get_client") as mock_client_factory,
+            patch("core.steps_generate._load_adaptive_voice", return_value=(None, None, "")),
+            patch("core.steps_generate.compute_fingerprint", return_value="test_fp"),
         ):
             mock_cached.return_value = None
             mock_bank.return_value = [{"body": "approved reference"}]

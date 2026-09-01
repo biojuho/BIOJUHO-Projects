@@ -15,7 +15,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from getdaytrends.db_schema import (
+from db_schema import (
     _PgAdapter,
     close_pg_pool,
     get_connection,
@@ -23,7 +23,7 @@ from getdaytrends.db_schema import (
 )
 
 # PG-related globals now live in db_layer.connection
-_PG_MODULE = "getdaytrends.db_layer.connection"
+_PG_MODULE = "db_layer.connection"
 
 
 # ── 1. Connection Routing ────────────────────────────────────────────
@@ -31,7 +31,7 @@ _PG_MODULE = "getdaytrends.db_layer.connection"
 @pytest.mark.asyncio
 async def test_get_connection_postgres_routing() -> None:
     """GETDAYTRENDS_DATABASE_URL이 설정되면 asyncpg Pool에서 _PgAdapter를 반환해야 한다."""
-    import getdaytrends.db_layer.connection as dbconn
+    import db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
     with patch.dict(os.environ, {"GETDAYTRENDS_DATABASE_URL": "postgresql://user:pass@localhost:5432/db"}), \
@@ -60,7 +60,7 @@ async def test_get_connection_postgres_routing() -> None:
 @pytest.mark.asyncio
 async def test_get_connection_postgres_scheme_variant() -> None:
     """postgres:// (without 'ql') 스킴도 PostgreSQL로 라우팅해야 한다."""
-    import getdaytrends.db_layer.connection as dbconn
+    import db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
     with patch.dict(os.environ, {"DATABASE_URL_GETDAYTRENDS": "postgres://u:p@host:5432/mydb"}), \
@@ -109,7 +109,7 @@ async def test_get_connection_ignores_shared_database_url_by_default(tmp_path) -
 @pytest.mark.asyncio
 async def test_get_connection_can_opt_in_to_shared_database_url() -> None:
     """명시 플래그가 있으면 기존 DATABASE_URL 배포도 계속 지원한다."""
-    import getdaytrends.db_layer.connection as dbconn
+    import db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
     with patch.dict(
@@ -145,7 +145,7 @@ async def test_get_connection_can_opt_in_to_shared_database_url() -> None:
 @pytest.mark.asyncio
 async def test_get_connection_raises_when_asyncpg_missing() -> None:
     """asyncpg 미설치 상태에서 PostgreSQL URL 사용 시 ImportError를 발생시켜야 한다."""
-    import getdaytrends.db_layer.connection as dbconn
+    import db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
     with patch.dict(os.environ, {"GETDAYTRENDS_DATABASE_URL": "postgresql://u:p@host/db"}), \
@@ -375,7 +375,7 @@ class TestSqliteWriteLock:
 @pytest.mark.asyncio
 async def test_pool_singleton_reuse() -> None:
     """풀이 열려 있으면 재생성하지 않고 기존 풀을 재사용해야 한다."""
-    import getdaytrends.db_layer.connection as dbconn
+    import db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
     with patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
@@ -385,7 +385,7 @@ async def test_pool_singleton_reuse() -> None:
         mock_pool._closed = False
         mock_asyncpg.create_pool = AsyncMock(return_value=mock_pool)
 
-        from getdaytrends.db_schema import get_pg_pool
+        from db_schema import get_pg_pool
 
         pool1 = await get_pg_pool("postgresql://u:p@h/db")
         pool2 = await get_pg_pool("postgresql://u:p@h/db")
@@ -400,7 +400,7 @@ async def test_pool_singleton_reuse() -> None:
 @pytest.mark.asyncio
 async def test_pool_recreation_after_close() -> None:
     """풀이 닫힌 후 다시 요청하면 새 풀을 생성해야 한다."""
-    import getdaytrends.db_layer.connection as dbconn
+    import db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
     with patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
@@ -412,7 +412,7 @@ async def test_pool_recreation_after_close() -> None:
         mock_pool2._closed = False
         mock_asyncpg.create_pool = AsyncMock(side_effect=[mock_pool1, mock_pool2])
 
-        from getdaytrends.db_schema import get_pg_pool
+        from db_schema import get_pg_pool
 
         pool1 = await get_pg_pool("postgresql://u:p@h/db")
         assert pool1 is mock_pool1

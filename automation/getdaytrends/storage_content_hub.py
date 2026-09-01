@@ -9,28 +9,12 @@ from typing import Any
 
 from loguru import logger as log
 
-try:
-    from .config import AppConfig
-    from .models import ScoredTrend, TweetBatch
-except ImportError:
-    from config import AppConfig
-    from models import ScoredTrend, TweetBatch
+from config import AppConfig
+from models import ScoredTrend, TweetBatch
 
-try:
-    from .notion_builder import _build_notion_body
-except ImportError:
-    from notion_builder import _build_notion_body
+from notion_builder import _build_notion_body
 
-try:
-    from .storage_notion import (
-        NOTION_AVAILABLE,
-        NotionClient,
-        _is_notion_provider_error,
-        _persist_content_hub_link,
-        _retry_notion_call,
-    )
-except ImportError:
-    from storage_notion import (
+from storage_notion import (
         NOTION_AVAILABLE,
         NotionClient,
         _is_notion_provider_error,

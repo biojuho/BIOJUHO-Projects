@@ -19,10 +19,7 @@ from urllib.parse import parse_qs, urlparse, urlunparse
 import httpx
 from bs4 import BeautifulSoup
 
-try:
-    from .source_backoff import SourceBackoff
-except ImportError:
-    from source_backoff import SourceBackoff
+from source_backoff import SourceBackoff
 
 
 LOGGER = logging.getLogger(__name__)

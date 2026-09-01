@@ -16,10 +16,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-try:
-    from .shadow_store import SCHEMA, record_filter_candidate_fail_open
-except ImportError:
-    from shadow_store import SCHEMA, record_filter_candidate_fail_open
+from .shadow_store import SCHEMA, record_filter_candidate_fail_open
 
 logger = logging.getLogger(__name__)
 

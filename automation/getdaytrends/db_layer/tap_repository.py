@@ -8,10 +8,7 @@ from uuid import uuid4
 
 from . import _json_text, sqlite_write_lock
 
-try:
-    from ..tap.product_feed import TapBoard, TapBoardItem
-except ImportError:
-    from tap.product_feed import TapBoard, TapBoardItem
+from tap.product_feed import TapBoard, TapBoardItem
 
 
 def _json_dict(value: str | None) -> dict:

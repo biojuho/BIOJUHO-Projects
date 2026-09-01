@@ -1,0 +1,332 @@
+{
+ "TOPLEVEL": [
+  {
+   "file": "breaking_news_observer.py",
+   "blocks": 1
+  },
+  {
+   "file": "collection_scheduler.py",
+   "blocks": 1
+  },
+  {
+   "file": "config.py",
+   "blocks": 2
+  },
+  {
+   "file": "config_env_loaders.py",
+   "blocks": 1
+  },
+  {
+   "file": "dashboard.py",
+   "blocks": 7
+  },
+  {
+   "file": "dashboard_routes_fast_viral.py",
+   "blocks": 2
+  },
+  {
+   "file": "dashboard_routes_reference.py",
+   "blocks": 1
+  },
+  {
+   "file": "dashboard_routes_tap.py",
+   "blocks": 2
+  },
+  {
+   "file": "dashboard_routes_video_queue.py",
+   "blocks": 1
+  },
+  {
+   "file": "dashboard_routes_x_radar.py",
+   "blocks": 2
+  },
+  {
+   "file": "db.py",
+   "blocks": 2
+  },
+  {
+   "file": "db_schema.py",
+   "blocks": 4
+  },
+  {
+   "file": "fast_viral_collector.py",
+   "blocks": 1
+  },
+  {
+   "file": "live_reference_collector.py",
+   "blocks": 1
+  },
+  {
+   "file": "news_origin_collector.py",
+   "blocks": 1
+  },
+  {
+   "file": "news_scraper.py",
+   "blocks": 1
+  },
+  {
+   "file": "og_enrich.py",
+   "blocks": 1
+  },
+  {
+   "file": "video_queue_producer.py",
+   "blocks": 1
+  },
+  {
+   "file": "x_opportunity_radar.py",
+   "blocks": 1
+  }
+ ],
+ "PACKAGE": [
+  {
+   "file": "collectors/__init__.py",
+   "blocks": 5
+  },
+  {
+   "file": "collectors/breaking_news.py",
+   "blocks": 1
+  },
+  {
+   "file": "collectors/context.py",
+   "blocks": 6
+  },
+  {
+   "file": "collectors/context_runtime.py",
+   "blocks": 5
+  },
+  {
+   "file": "collectors/google_news.py",
+   "blocks": 2
+  },
+  {
+   "file": "collectors/reddit.py",
+   "blocks": 1
+  },
+  {
+   "file": "collectors/sources.py",
+   "blocks": 1
+  },
+  {
+   "file": "collectors/twitter.py",
+   "blocks": 2
+  },
+  {
+   "file": "db_layer/__init__.py",
+   "blocks": 2
+  },
+  {
+   "file": "db_layer/connection.py",
+   "blocks": 2
+  },
+  {
+   "file": "db_layer/tap_repository.py",
+   "blocks": 1
+  },
+  {
+   "file": "filter_eval/shadow_store.py",
+   "blocks": 1
+  },
+  {
+   "file": "filter_eval/source_time_shadow.py",
+   "blocks": 1
+  },
+  {
+   "file": "tap/deal_room.py",
+   "blocks": 3
+  },
+  {
+   "file": "tap/product_feed.py",
+   "blocks": 1
+  },
+  {
+   "file": "tap/service.py",
+   "blocks": 4
+  }
+ ],
+ "OUT_OF_SCOPE_UNLOADED": [
+  {
+   "file": "alerts.py",
+   "blocks": 2
+  },
+  {
+   "file": "analysis/parsing.py",
+   "blocks": 4
+  },
+  {
+   "file": "analysis/scoring.py",
+   "blocks": 1
+  },
+  {
+   "file": "analyzer.py",
+   "blocks": 4
+  },
+  {
+   "file": "canva.py",
+   "blocks": 1
+  },
+  {
+   "file": "content_qa.py",
+   "blocks": 4
+  },
+  {
+   "file": "context_collector.py",
+   "blocks": 1
+  },
+  {
+   "file": "core/pipeline.py",
+   "blocks": 8
+  },
+  {
+   "file": "core/pipeline_steps.py",
+   "blocks": 1
+  },
+  {
+   "file": "core/steps_generate.py",
+   "blocks": 6
+  },
+  {
+   "file": "core/steps_save.py",
+   "blocks": 3
+  },
+  {
+   "file": "crawl4ai_adapter.py",
+   "blocks": 1
+  },
+  {
+   "file": "edape/__init__.py",
+   "blocks": 1
+  },
+  {
+   "file": "edape/prompt_injector.py",
+   "blocks": 2
+  },
+  {
+   "file": "fact_checker.py",
+   "blocks": 4
+  },
+  {
+   "file": "filter_eval/build_shadow_eval_set.py",
+   "blocks": 1
+  },
+  {
+   "file": "firecrawl_bridge.py",
+   "blocks": 2
+  },
+  {
+   "file": "generation/__init__.py",
+   "blocks": 1
+  },
+  {
+   "file": "generation/long_form.py",
+   "blocks": 1
+  },
+  {
+   "file": "generation/marl.py",
+   "blocks": 2
+  },
+  {
+   "file": "generation/persona.py",
+   "blocks": 1
+  },
+  {
+   "file": "generation/prompts.py",
+   "blocks": 3
+  },
+  {
+   "file": "generation/threads.py",
+   "blocks": 1
+  },
+  {
+   "file": "generator.py",
+   "blocks": 6
+  },
+  {
+   "file": "harness_integration.py",
+   "blocks": 2
+  },
+  {
+   "file": "main.py",
+   "blocks": 2
+  },
+  {
+   "file": "multilang.py",
+   "blocks": 1
+  },
+  {
+   "file": "notebooklm_api.py",
+   "blocks": 6
+  },
+  {
+   "file": "notebooklm_bridge.py",
+   "blocks": 1
+  },
+  {
+   "file": "notebooklm_health.py",
+   "blocks": 1
+  },
+  {
+   "file": "notebooklm_research.py",
+   "blocks": 1
+  },
+  {
+   "file": "notion_builder.py",
+   "blocks": 1
+  },
+  {
+   "file": "prompt_builder.py",
+   "blocks": 12
+  },
+  {
+   "file": "quality_eval.py",
+   "blocks": 1
+  },
+  {
+   "file": "scraper.py",
+   "blocks": 4
+  },
+  {
+   "file": "scripts/news_to_blog.py",
+   "blocks": 1
+  },
+  {
+   "file": "scripts/publishing_workflow.py",
+   "blocks": 1
+  },
+  {
+   "file": "scripts/setup_content_hub.py",
+   "blocks": 1
+  },
+  {
+   "file": "storage.py",
+   "blocks": 1
+  },
+  {
+   "file": "storage_content_hub.py",
+   "blocks": 3
+  },
+  {
+   "file": "storage_gsheets.py",
+   "blocks": 2
+  },
+  {
+   "file": "storage_notion.py",
+   "blocks": 4
+  },
+  {
+   "file": "trend_clustering.py",
+   "blocks": 1
+  },
+  {
+   "file": "trend_reasoning.py",
+   "blocks": 1
+  },
+  {
+   "file": "workflow_v2.py",
+   "blocks": 1
+  },
+  {
+   "file": "x_client.py",
+   "blocks": 3
+  }
+ ]
+}

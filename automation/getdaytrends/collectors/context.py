@@ -14,17 +14,10 @@ import asyncio
 import httpx
 from loguru import logger as log
 
-try:
-    from ..config import AppConfig
-    from ..models import MultiSourceContext, RawTrend, TrendSource
-except ImportError:
-    from config import AppConfig
-    from models import MultiSourceContext, RawTrend, TrendSource
+from config import AppConfig
+from models import MultiSourceContext, RawTrend, TrendSource
 
-try:
-    from . import twitter as _twitter
-except ImportError:
-    import collectors.twitter as _twitter
+from . import twitter as _twitter
 
 # ── Re-export all public APIs ──
 from .twitter import (  # noqa: F401
@@ -139,10 +132,7 @@ async def _async_fetch_single_source(
     if conn is not None:
         latency_ms = (time.perf_counter() - t0) * 1000
         quality_score = _calc_quality_score(result_text) if success else 0.0
-        try:
-            from ..db import record_source_quality
-        except ImportError:
-            from db import record_source_quality
+        from db import record_source_quality
 
         try:
             await record_source_quality(conn, source_name, success, latency_ms, 1 if success else 0, quality_score)
@@ -169,10 +159,7 @@ async def _async_collect_contexts(
     source_timeouts: dict[str, float] = {}
     if conn is not None and getattr(config, "enable_source_quality_tracking", True):
         try:
-            try:
-                from ..db import get_source_quality_summary
-            except ImportError:
-                from db import get_source_quality_summary
+            from db import get_source_quality_summary
 
             quality_summary = await get_source_quality_summary(conn, days=7)
             for src_name, stats in quality_summary.items():
@@ -280,10 +267,7 @@ async def _async_collect_contexts(
         news_insight = source_data.get("news", "")
 
         try:
-            try:
-                from ..news_scraper import enrich_news_context
-            except ImportError:
-                from news_scraper import enrich_news_context
+            from news_scraper import enrich_news_context
 
             news_insight = enrich_news_context(keyword, news_insight)
         except ImportError:

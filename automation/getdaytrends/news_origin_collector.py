@@ -11,10 +11,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-try:
-    from .content_filters import topic_is_allowed
-except ImportError:
-    from content_filters import topic_is_allowed
+from content_filters import topic_is_allowed
 
 
 BING_NEWS_RSS_URL = "https://www.bing.com/news/search"

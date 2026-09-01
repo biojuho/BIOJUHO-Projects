@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from automation.getdaytrends.freshness import (
+from freshness import (
     LANE_THRESHOLDS,
     attach_freshness,
     describe_freshness,

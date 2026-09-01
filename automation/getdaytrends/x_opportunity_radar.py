@@ -17,30 +17,17 @@ import httpx
 if TYPE_CHECKING:
     from pathlib import Path
 
-try:
-    from .breaking_news_observer import BreakingNewsObserver
-    from .collectors.daum_realtime import _async_fetch_daum_realtime
-    from .collectors.news_rankings import _async_fetch_news_rankings
-    from .collectors.reddit import _async_fetch_reddit_hot
-    from .collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
-    from .content_filters import excluded_topic_reason
-    from .exposure_observation_tracker import ExposureObservationTracker
-    from .filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
-    from .models import RawTrend
-    from .news_origin_collector import fetch_bing_news_origins
-    from .threads_signal_collector import ThreadsSignalCollector
-except ImportError:
-    from breaking_news_observer import BreakingNewsObserver
-    from collectors.daum_realtime import _async_fetch_daum_realtime
-    from collectors.news_rankings import _async_fetch_news_rankings
-    from collectors.reddit import _async_fetch_reddit_hot
-    from collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
-    from content_filters import excluded_topic_reason
-    from exposure_observation_tracker import ExposureObservationTracker
-    from filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
-    from models import RawTrend
-    from news_origin_collector import fetch_bing_news_origins
-    from threads_signal_collector import ThreadsSignalCollector
+from breaking_news_observer import BreakingNewsObserver
+from collectors.daum_realtime import _async_fetch_daum_realtime
+from collectors.news_rankings import _async_fetch_news_rankings
+from collectors.reddit import _async_fetch_reddit_hot
+from collectors.sources import _async_fetch_getdaytrends, _async_fetch_google_trends_rss
+from content_filters import excluded_topic_reason
+from exposure_observation_tracker import ExposureObservationTracker
+from filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
+from models import RawTrend
+from news_origin_collector import fetch_bing_news_origins
+from threads_signal_collector import ThreadsSignalCollector
 
 
 TrendFetcher = Callable[[httpx.AsyncClient, str, int], Awaitable[list[RawTrend]]]

@@ -15,12 +15,8 @@ from datetime import date
 
 from loguru import logger as log
 
-try:
-    from .config import AppConfig
-    from .models import ScoredTrend
-except ImportError:
-    from config import AppConfig
-    from models import ScoredTrend
+from config import AppConfig
+from models import ScoredTrend
 
 
 def _escape_md(text: str) -> str:
@@ -278,10 +274,7 @@ def check_watchlist(trends: list[ScoredTrend], config: AppConfig, conn=None) -> 
 
     if conn is not None:
         try:
-            try:
-                from .db import record_watchlist_hit
-            except ImportError:
-                from db import record_watchlist_hit
+            from db import record_watchlist_hit
 
             async def _persist_hits() -> None:
                 for trend, keyword in detected:

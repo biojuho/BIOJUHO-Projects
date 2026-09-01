@@ -13,10 +13,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-try:
-    from ..runtime_paths import resolve_runtime_paths
-except ImportError:
-    from runtime_paths import resolve_runtime_paths  # type: ignore[no-redef]
+from runtime_paths import resolve_runtime_paths  # type: ignore[no-redef]
 
 HERE = Path(__file__).resolve().parent
 GETDAYTRENDS_DIR = HERE.parent

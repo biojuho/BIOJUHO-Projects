@@ -21,7 +21,7 @@ class TestShouldSkipQA:
     """A-2: QA Audit 조건부 스킵 로직 검증."""
 
     def _skip(self, trend, is_cached: bool, config: AppConfig) -> bool:
-        from getdaytrends.core.pipeline_steps import _should_skip_qa
+        from core.pipeline_steps import _should_skip_qa
 
         return _should_skip_qa(trend, is_cached, config)
 
@@ -75,7 +75,7 @@ class TestIsAccelerating:
     """급상승 판별 로직 검증."""
 
     def _check(self, val: str) -> bool:
-        from getdaytrends.core.pipeline_steps import _is_accelerating
+        from core.pipeline_steps import _is_accelerating
 
         return _is_accelerating(val)
 
@@ -107,7 +107,7 @@ class TestBatchFromCache:
     """캐시 → TweetBatch 재구성 검증."""
 
     def test_basic_reconstruction(self):
-        from getdaytrends.core.pipeline_steps import _batch_from_cache
+        from core.pipeline_steps import _batch_from_cache
 
         rows = [
             {"tweet_type": "분석형", "content": "테스트 트윗", "content_type": "short"},
@@ -121,7 +121,7 @@ class TestBatchFromCache:
         assert batch.topic == "테스트"
 
     def test_deduplication(self):
-        from getdaytrends.core.pipeline_steps import _batch_from_cache
+        from core.pipeline_steps import _batch_from_cache
 
         rows = [
             {"tweet_type": "분석형", "content": "첫번째", "content_type": "short"},
@@ -139,11 +139,11 @@ class TestBatchFromCache:
 
 @pytest.mark.asyncio
 async def test_step_generate_handles_empty_trend_list():
-    from getdaytrends.core.pipeline_steps import _step_generate
+    from core.pipeline_steps import _step_generate
 
     cfg = AppConfig()
 
-    with patch("getdaytrends.core.steps_generate.get_client", return_value=MagicMock()):
+    with patch("core.steps_generate.get_client", return_value=MagicMock()):
         result = await _step_generate([], cfg, conn=MagicMock())
 
     assert result == []
@@ -151,7 +151,7 @@ async def test_step_generate_handles_empty_trend_list():
 
 @pytest.mark.asyncio
 async def test_run_fact_check_passes_fact_check_feedback_to_regeneration():
-    from getdaytrends.core.pipeline_steps import _run_fact_check
+    from core.pipeline_steps import _run_fact_check
 
     batch = MagicMock()
     trend = MagicMock()
@@ -173,8 +173,8 @@ async def test_run_fact_check_passes_fact_check_feedback_to_regeneration():
     fc_result.issues = ["[환각 의심] 수치: '87%' - 소스에서 확인 불가"]
 
     with (
-        patch("getdaytrends.core.steps_generate.verify_fact_batch", return_value={"tweets": fc_result}),
-        patch("getdaytrends.core.steps_generate.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
+        patch("core.steps_generate.verify_fact_batch", return_value={"tweets": fc_result}),
+        patch("core.steps_generate.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
     ):
         mock_regen.return_value = batch
         result = await _run_fact_check(batch, trend, cfg, client=MagicMock(), recent_tweets=[], approved_post_bank=[])

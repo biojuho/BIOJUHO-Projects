@@ -10,10 +10,7 @@ import urllib.parse
 import httpx
 from loguru import logger as log
 
-try:
-    from ..utils import run_async
-except ImportError:
-    from utils import run_async
+from utils import run_async
 
 # Timeout settings
 _DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=6.0)
@@ -52,10 +49,7 @@ async def _async_fetch_x_via_twikit_or_jina(
 ) -> str:
     """Twikit 우선 시도, 실패 시 Jina AI Reader 폴백."""
     try:
-        try:
-            from ..x_client import is_available, search_tweets_formatted
-        except ImportError:
-            from x_client import is_available, search_tweets_formatted
+        from x_client import is_available, search_tweets_formatted
 
         if is_available():
             result = await search_tweets_formatted(keyword, count=10)

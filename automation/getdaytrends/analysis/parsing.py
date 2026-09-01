@@ -5,20 +5,12 @@ import re
 
 from loguru import logger as log
 
-try:
-    from .scoring import _compute_cross_source_confidence, _compute_signal_score
-    from ..config import AppConfig
-    from ..models import MultiSourceContext, ScoredTrend, TrendContext, TrendSource
-except ImportError:
-    from analysis.scoring import _compute_cross_source_confidence, _compute_signal_score
-    from config import AppConfig
-    from models import MultiSourceContext, ScoredTrend, TrendContext, TrendSource
+from .scoring import _compute_cross_source_confidence, _compute_signal_score
+from config import AppConfig
+from models import MultiSourceContext, ScoredTrend, TrendContext, TrendSource
 
 try:
-    try:
-        from ..structured_output import ScoringResponseItem, extract_structured_list
-    except ImportError:
-        from structured_output import ScoringResponseItem, extract_structured_list
+    from structured_output import ScoringResponseItem, extract_structured_list
 
     INSTRUCTOR_AVAILABLE = True
 except ImportError:
@@ -217,10 +209,7 @@ def _apply_credibility_check(
     flags: list[str] = []
 
     try:
-        try:
-            from ..fact_checker import check_cross_source_consistency, compute_enhanced_confidence
-        except ImportError:
-            from fact_checker import check_cross_source_consistency, compute_enhanced_confidence
+        from fact_checker import check_cross_source_consistency, compute_enhanced_confidence
 
         news_insight = context.news_insight if context else ""
         _, credibility = compute_enhanced_confidence(hybrid_viral, context, news_insight)

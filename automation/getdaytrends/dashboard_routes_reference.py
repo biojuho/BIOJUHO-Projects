@@ -5,19 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-try:
-    from .freshness import attach_freshness
-    from .live_reference_collector import DEFAULT_LIVE_KEYWORDS, YouTubeLiveReferenceCollector
-    from .reference_library import (
-        DuplicateReferenceError,
-        ReferenceItemCreate,
-        ReferenceItemPatch,
-        ReferenceLibraryStore,
-    )
-except ImportError:
-    from freshness import attach_freshness
-    from live_reference_collector import DEFAULT_LIVE_KEYWORDS, YouTubeLiveReferenceCollector
-    from reference_library import (
+from freshness import attach_freshness
+from live_reference_collector import DEFAULT_LIVE_KEYWORDS, YouTubeLiveReferenceCollector
+from reference_library import (
         DuplicateReferenceError,
         ReferenceItemCreate,
         ReferenceItemPatch,

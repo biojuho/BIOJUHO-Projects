@@ -20,10 +20,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-try:
-    from .runtime_paths import RuntimeLockError, RuntimeWriterLock
-except ImportError:
-    from runtime_paths import RuntimeLockError, RuntimeWriterLock
+from runtime_paths import RuntimeLockError, RuntimeWriterLock
 
 
 DEFAULT_BRAMBLE_ROOT = Path("/Users/ju-hopark/orca/workspaces/X/bramble")

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from config import AppConfig
-from getdaytrends.core.pipeline import _step_genealogy, _step_post_run
+from core.pipeline import _step_genealogy, _step_post_run
 
 
 @pytest.mark.asyncio
@@ -53,10 +53,10 @@ async def test_step_genealogy_awaits_history_and_persistence(monkeypatch):
         assert len(genealogy) == 2
         return trends
 
-    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda db_path: tracker)
-    monkeypatch.setattr("getdaytrends.analyzer.analyze_trend_genealogy", fake_analyze)
-    monkeypatch.setattr("getdaytrends.analyzer.enrich_trends_with_genealogy", fake_enrich)
-    monkeypatch.setattr("getdaytrends.core.pipeline.get_client", lambda: object())
+    monkeypatch.setattr("performance_tracker.PerformanceTracker", lambda db_path: tracker)
+    monkeypatch.setattr("analyzer.analyze_trend_genealogy", fake_analyze)
+    monkeypatch.setattr("analyzer.enrich_trends_with_genealogy", fake_enrich)
+    monkeypatch.setattr("core.pipeline.get_client", lambda: object())
 
     result = await _step_genealogy(quality_trends, config)
 
@@ -81,8 +81,8 @@ async def test_step_post_run_awaits_golden_reference_update(monkeypatch):
     tracker = SimpleNamespace(auto_update_golden_references=AsyncMock(return_value=4))
     adjust_schedule = AsyncMock()
 
-    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda **kwargs: tracker)
-    monkeypatch.setattr("getdaytrends.core.pipeline._adjust_schedule", adjust_schedule)
+    monkeypatch.setattr("performance_tracker.PerformanceTracker", lambda **kwargs: tracker)
+    monkeypatch.setattr("core.pipeline._adjust_schedule", adjust_schedule)
 
     run = SimpleNamespace(
         run_id="run-12345678",
@@ -110,8 +110,8 @@ async def test_step_post_run_swallows_best_effort_tracker_failures(monkeypatch):
     tracker = SimpleNamespace(run_tiered_collection=AsyncMock(side_effect=Exception("missing analytics table")))
     adjust_schedule = AsyncMock()
 
-    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda **kwargs: tracker)
-    monkeypatch.setattr("getdaytrends.core.pipeline._adjust_schedule", adjust_schedule)
+    monkeypatch.setattr("performance_tracker.PerformanceTracker", lambda **kwargs: tracker)
+    monkeypatch.setattr("core.pipeline._adjust_schedule", adjust_schedule)
 
     run = SimpleNamespace(
         run_id="run-87654321",
@@ -140,7 +140,7 @@ async def test_step_genealogy_swallows_best_effort_tracker_failures(monkeypatch)
         save_trend_genealogy=AsyncMock(),
     )
 
-    monkeypatch.setattr("getdaytrends.performance_tracker.PerformanceTracker", lambda db_path: tracker)
+    monkeypatch.setattr("performance_tracker.PerformanceTracker", lambda db_path: tracker)
 
     result = await _step_genealogy(quality_trends, config)
 

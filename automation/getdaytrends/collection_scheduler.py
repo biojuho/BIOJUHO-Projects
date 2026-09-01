@@ -47,10 +47,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-try:
-    from .freshness import _parse as _parse_timestamp
-except ImportError:  # 스크립트로 직접 실행할 때
-    from freshness import _parse as _parse_timestamp
+from freshness import _parse as _parse_timestamp
 
 logger = logging.getLogger(__name__)
 

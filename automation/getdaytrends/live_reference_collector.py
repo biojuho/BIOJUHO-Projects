@@ -11,14 +11,7 @@ import urllib.parse
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-try:
-    from .reference_library import (
-        ReferenceItemCreate,
-        ReferenceLibraryStore,
-        canonicalize_source_url,
-    )
-except ImportError:
-    from reference_library import (
+from reference_library import (
         ReferenceItemCreate,
         ReferenceLibraryStore,
         canonicalize_source_url,

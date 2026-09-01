@@ -10,10 +10,7 @@ from datetime import UTC, datetime
 import httpx
 from loguru import logger as log
 
-try:
-    from ..utils import run_async
-except ImportError:
-    from utils import run_async
+from utils import run_async
 
 _SHORT_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 _MAX_TREND_NEWS_AGE_DAYS = 30
@@ -130,10 +127,7 @@ async def _async_fetch_google_trends_related(
     country: str = "korea",
 ) -> dict[str, list[str]]:
     """Reuse Google Trends RSS headlines as related-query hints."""
-    try:
-        from ..models import TrendSource
-    except ImportError:
-        from models import TrendSource
+    from models import TrendSource
 
     result: dict[str, list[str]] = {}
     for trend in trends:

@@ -16,39 +16,26 @@ from dataclasses import dataclass, field
 
 def _load_db_funcs():
     """Lazy import to break db <-> tap circular dependency."""
-    try:
-        from ..db import enqueue_tap_alerts, get_latest_tap_board_snapshot, save_tap_board_snapshot
-    except ImportError:
-        from db import enqueue_tap_alerts, get_latest_tap_board_snapshot, save_tap_board_snapshot
+    from db import enqueue_tap_alerts, get_latest_tap_board_snapshot, save_tap_board_snapshot
     return get_latest_tap_board_snapshot, save_tap_board_snapshot, enqueue_tap_alerts
 
 
 def _load_alert_queue_funcs():
     """Lazy import for TAP alert queue delivery helpers."""
 
-    try:
-        from ..db import get_tap_alert_delivery_batch, update_tap_alert_delivery_status
-    except ImportError:
-        from db import get_tap_alert_delivery_batch, update_tap_alert_delivery_status
+    from db import get_tap_alert_delivery_batch, update_tap_alert_delivery_status
     return get_tap_alert_delivery_batch, update_tap_alert_delivery_status
 
 
 def _load_alert_sender():
     """Lazy import for channel fan-out to keep import surfaces small."""
 
-    try:
-        from ..alerts import send_alert
-    except ImportError:
-        from alerts import send_alert
+    from alerts import send_alert
     return send_alert
 
 
-try:
-    from .detector import TrendArbitrageDetector
-    from .product_feed import TapBoard, TapBoardBuilder, empty_tap_board
-except ImportError:
-    from tap.detector import TrendArbitrageDetector
-    from tap.product_feed import TapBoard, TapBoardBuilder, empty_tap_board
+from .detector import TrendArbitrageDetector
+from .product_feed import TapBoard, TapBoardBuilder, empty_tap_board
 
 
 @dataclass(slots=True)

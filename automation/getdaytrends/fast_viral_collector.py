@@ -17,24 +17,14 @@ from urllib.parse import quote, urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
-try:
-    from .content_filters import excluded_topic_reason
-    from .direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
-    from .exposure_observation_tracker import ExposureObservationTracker
-    from .filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
-    from .kernel_screen import screen_material, sort_by_kernel
-    from .lead_time_tracker import LeadTimeTracker
-    from .og_enrich import OgEnrichmentReport, fetch_og_descriptions
-    from .source_backoff import SourceBackoff
-except ImportError:
-    from content_filters import excluded_topic_reason
-    from direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
-    from exposure_observation_tracker import ExposureObservationTracker
-    from filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
-    from kernel_screen import screen_material, sort_by_kernel
-    from lead_time_tracker import LeadTimeTracker
-    from og_enrich import OgEnrichmentReport, fetch_og_descriptions
-    from source_backoff import SourceBackoff
+from content_filters import excluded_topic_reason
+from direct_community_sources import DIRECT_COMMUNITY_SOURCES, parse_direct_community_source
+from exposure_observation_tracker import ExposureObservationTracker
+from filter_eval.shadow_store import FilterShadowStore, record_filter_candidate_fail_open
+from kernel_screen import screen_material, sort_by_kernel
+from lead_time_tracker import LeadTimeTracker
+from og_enrich import OgEnrichmentReport, fetch_og_descriptions
+from source_backoff import SourceBackoff
 
 if TYPE_CHECKING:
     from pathlib import Path

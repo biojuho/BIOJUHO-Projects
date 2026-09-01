@@ -15,12 +15,8 @@ from loguru import logger as log
 # B-003 fix: fire-and-forget Task가 GC에 수거되지 않도록 강한 참조 유지용 Set
 _bg_tasks: set[asyncio.Task] = set()
 
-try:
-    from .config import AppConfig
-    from .models import ScoredTrend, TweetBatch
-except ImportError:
-    from config import AppConfig
-    from models import ScoredTrend, TweetBatch
+from config import AppConfig
+from models import ScoredTrend, TweetBatch
 
 # Notion client (optional dependency)
 try:
@@ -39,13 +35,7 @@ _MAX_RETRIES = 4
 _BASE_DELAY = 1.0  # 초 (1s → 2s → 4s → 8s)
 
 # -- notion builder imports --
-try:
-    from .notion_builder import (
-        _build_notion_body,
-        _notion_page_exists,
-    )
-except ImportError:
-    from notion_builder import (
+from notion_builder import (
         _build_notion_body,
         _notion_page_exists,
     )
@@ -118,10 +108,7 @@ def _persist_content_hub_link(config: AppConfig, draft_id: str, page_id: str, re
     if not draft_id:
         return
     try:
-        try:
-            from .db import attach_draft_to_notion_page, get_connection, init_db
-        except ImportError:
-            from db import attach_draft_to_notion_page, get_connection, init_db
+        from db import attach_draft_to_notion_page, get_connection, init_db
 
         async def _runner() -> None:
             conn = await get_connection(config.db_path, database_url=config.database_url)

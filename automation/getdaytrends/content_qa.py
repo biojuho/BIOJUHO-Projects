@@ -13,22 +13,9 @@ from loguru import logger as log
 from shared.llm import LLMClient
 from shared.llm.models import LLMPolicy
 
-try:
-    from .config import AppConfig
-    from .models import GeneratedTweet, ScoredTrend, TweetBatch
-    from .multilang import (
-        _BLOG_REQUIRED_HEADINGS,
-        _GENERIC_ENTITY_ALLOWLIST,
-        _QA_CLICHE_PATTERNS,
-        _THREADS_BAIT_PATTERNS,
-        _build_allowed_fact_corpus,
-        _extract_candidate_entities,
-        _first_nonempty_lines,
-    )
-except ImportError:
-    from config import AppConfig
-    from models import GeneratedTweet, ScoredTrend, TweetBatch
-    from multilang import (
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
+from multilang import (
         _BLOG_REQUIRED_HEADINGS,
         _GENERIC_ENTITY_ALLOWLIST,
         _QA_CLICHE_PATTERNS,
@@ -450,22 +437,13 @@ async def regenerate_content_groups(
 
     # Import lazily to avoid circular imports while generator.py re-exports
     # these helpers from content_qa.py for backward compatibility.
-    try:
-        from .generator import (
-            _select_generation_tier,
-            generate_blog_async,
-            generate_long_form_async,
-            generate_threads_content_async,
-            generate_tweets_async,
-        )
-    except ImportError:
-        from generator import (
-            _select_generation_tier,
-            generate_blog_async,
-            generate_long_form_async,
-            generate_threads_content_async,
-            generate_tweets_async,
-        )
+    from generator import (
+                _select_generation_tier,
+                generate_blog_async,
+                generate_long_form_async,
+                generate_threads_content_async,
+                generate_tweets_async,
+            )
 
     def _merge_group_feedback(group_name: str) -> dict | None:
         merged: dict = {}
@@ -541,7 +519,4 @@ async def regenerate_content_groups(
 #  → generation/persona.py로 추출됨
 # ══════════════════════════════════════════════════════
 
-try:
-    from .generation.persona import _CATEGORY_PERSONA_MAP, _round_robin_counter, select_persona  # noqa: F401
-except ImportError:
-    from generation.persona import _CATEGORY_PERSONA_MAP, _round_robin_counter, select_persona  # noqa: F401
+from generation.persona import _CATEGORY_PERSONA_MAP, _round_robin_counter, select_persona  # noqa: F401

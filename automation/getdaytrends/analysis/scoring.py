@@ -5,10 +5,7 @@ from __future__ import annotations
 import math
 import re
 
-try:
-    from ..models import MultiSourceContext
-except ImportError:
-    from models import MultiSourceContext
+from models import MultiSourceContext
 
 
 _INVALID_SIGNAL_MARKERS = (

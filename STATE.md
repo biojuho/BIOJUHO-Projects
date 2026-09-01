@@ -9,7 +9,8 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-27 기준 1225 passed · 7 skipped — notebooklm_automation·수동 네트워크 probe·Kiwipiepy·Scrapling 미설치/비활성)
-- **갱신:** 2026-08-27 · by Codex 헤더 | Codex·Agy·GLM·Qwen·MiMo 실행 (0099 서버 소유 수집과 X/YouTube 큐 분리를 운영 반영. X 120초·국내 커뮤니티 300초·YouTube 1800초, 모두 24시간이며 커뮤니티 조기감지는 국내 직접 목록+IssueLink만 쓴다. PID 61078에서 X 121.062초 성공 간격과 YouTube 자동 회차를 확인)
+- **갱신:** 2026-09-01 · by Claude 헤더 | Codex(gpt-5.6-luna max) 실행 (0100 진입 뿌리 단일화 — 같은 파일을 네 뿌리로 로드하던 것을 top-level 하나로 모으고 죽은 이중 import 블록 123개를 제거. 이중 로드 7건→0건으로 `models` 클래스 19개가 갈리던 isinstance 위험을 닫았다. 77파일 변경, 1234 passed·7 skipped 불변, 8010 PID 26062 무사)
+- **이전 갱신:** 2026-08-27 · by Codex 헤더 | Codex·Agy·GLM·Qwen·MiMo 실행 (0099 서버 소유 수집과 X/YouTube 큐 분리를 운영 반영. X 120초·국내 커뮤니티 300초·YouTube 1800초, 모두 24시간이며 커뮤니티 조기감지는 국내 직접 목록+IssueLink만 쓴다. PID 61078에서 X 121.062초 성공 간격과 YouTube 자동 회차를 확인)
 - **이전 갱신:** 2026-08-27 · by Codex 헤더 | Codex·Agy·GLM·Qwen·MiMo 실행 (0098 글로벌 영상·커뮤니티 확대를 운영 반영. 0099에서 글로벌 커뮤니티는 조기감지 칸에서 제거했고 별도 사건 영상 큐의 공개 링크 메타만 유지)
 - **이전 갱신:** 2026-08-12 · by Codex 헤더·실행 (IssueLink 상대 게시시각을 파싱해 180분 이내만 허용하고 181분 이상·시각 미확인을 제외하는 로컬 구현 완료. 공개 HTML 51건 중 26건 통과·25건 시간 초과, 전체 1029 passed/7 skipped)
 - **이전 갱신:** 2026-08-12 · by Codex 헤더 (0037 단일 데이터 루트·segment manifest·WAL 안전 백업/복원 로컬 구현과 전체 1022 passed/7 skipped·Kiro/Grok 감사 PASS. 단, 헤더가 stale-lock TOCTOU와 backup/target 동일 경로 자기복원 반례 2건을 재현해 운영 수용 HOLD. PID 56188·실제 data·env·`/refresh`는 불변)
@@ -23,6 +24,27 @@
 > 설정은 `.env`의 `GETDAYTRENDS_SCHEDULER_*`, 상태는 `GET /api/collection-scheduler`에서 확인한다.
 
 ## 지금 진행 중
+
+> **0100 진입 뿌리 단일화 완료 (2026-09-01).** 이 패키지는 같은 파일을 top-level ·
+> `getdaytrends.*` · `automation.getdaytrends.*` · relative 네 뿌리로 로드해 왔고, 그래서
+> `try: from .x / except ImportError: from x` 이중 블록이 172개 쌓여 있었다. 그것을 «죽은
+> 코드»로 보고 지우려던 첫 발주는 **FAIL 로 되돌아왔다** — 이중 블록은 죽은 코드가 아니라
+> 네 뿌리를 잇는 호환 장치였다(relative level L 은 `__package__` 마디 수가 L 이상일 때만 산다).
+> 진짜 부채는 두 진입이 만날 때 파일이 두 모듈 객체로 로드되는 것이었고, `models.py` 가 두 벌이면
+> 클래스 22개 중 19개가 갈려 isinstance 검증이 깨진다. 이것은 잠재가 아니라 테스트 세션에서
+> 이미 일어나고 있었다. 진입 뿌리를 top-level 로 모아 **이중 로드 7건 → 0건**으로 닫았고,
+> 그제서야 죽은 이중 블록 123개를 지웠다. 1234 passed·7 skipped 불변, 8010(PID 26062) 불변.
+>
+> **보류(별건):** `core/steps_save.py:27` bound 불일치 1건, BOM 파일 13건,
+> `__init__.py` sys.path 주입 제거, `content_qa ↔ generator` 상호 import,
+> `collectors/context_runtime.py` 런타임 오버라이드(의도된 장치라 설계 결정 선행).
+>
+> **다음:** 0101 `refresh()` 분해(643줄 cx114 · 516줄 cx77), 0102 dashboard API 의
+> 조용한 실패 5자리를 source health 에 드러내기.
+>
+> **교정 하나 — 8011 검증은 `GETDAYTRENDS_SCHEDULER_ENABLED=0` 으로 띄운다.** 0100 검증 때
+> 8011 의 lifespan 이 수집 스케줄러를 자동 기동해 외부 수집을 시도했고, 사후에 그 행을 8010 것과
+> 갈라내지 못했다(shadow DB integrity 는 ok).
 
 > **0099 레이더 운영 안정화 완료.** 커뮤니티 조기감지는 사용자 정정에 따라 국내 직접 목록과
 > IssueLink만 표시한다. 최종 API 12건의 해외 항목·해외 health key는 각각 0이고

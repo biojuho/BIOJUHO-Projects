@@ -23,30 +23,17 @@ if TYPE_CHECKING:
         record_filter_candidate_with_source_time_fail_open,
     )
 else:
-    try:
-        from .collectors.breaking_news import (
-            AdapterResult,
-            KmaWeatherAdapter,
-            fetch_google_news_breaking,
-            fetch_yonhap_breaking,
-        )
-        from .content_filters import excluded_topic_reason
-        from .filter_eval.source_time_shadow import (
-            ensure_source_time_column_fail_open,
-            record_filter_candidate_with_source_time_fail_open,
-        )
-    except ImportError:
-        from collectors.breaking_news import (
-            AdapterResult,
-            KmaWeatherAdapter,
-            fetch_google_news_breaking,
-            fetch_yonhap_breaking,
-        )
-        from content_filters import excluded_topic_reason
-        from filter_eval.source_time_shadow import (
-            ensure_source_time_column_fail_open,
-            record_filter_candidate_with_source_time_fail_open,
-        )
+    from collectors.breaking_news import (
+                AdapterResult,
+                KmaWeatherAdapter,
+                fetch_google_news_breaking,
+                fetch_yonhap_breaking,
+            )
+    from content_filters import excluded_topic_reason
+    from filter_eval.source_time_shadow import (
+                ensure_source_time_column_fail_open,
+                record_filter_candidate_with_source_time_fail_open,
+            )
 
 GoogleFetcher = Callable[..., Awaitable[AdapterResult]]
 YonhapFetcher = Callable[..., Awaitable[AdapterResult]]

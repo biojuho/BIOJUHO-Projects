@@ -8,10 +8,7 @@ from typing import Any
 import httpx
 from loguru import logger as log
 
-try:
-    from ..utils import run_async
-except ImportError:
-    from utils import run_async
+from utils import run_async
 
 _SHORT_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 _DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=6.0)

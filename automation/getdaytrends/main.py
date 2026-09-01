@@ -59,11 +59,11 @@ if sys.platform == "win32":
 import schedule
 from loguru import logger as log
 
-from getdaytrends.config import VERSION, AppConfig
-from getdaytrends.core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
-from getdaytrends.db import close_pg_pool, get_connection, get_trend_stats, init_db
-from getdaytrends.runtime_paths import initialize_runtime_segment, resolve_runtime_paths  # noqa: E402
-from getdaytrends.utils import run_async
+from config import VERSION, AppConfig
+from core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
+from db import close_pg_pool, get_connection, get_trend_stats, init_db
+from runtime_paths import initialize_runtime_segment, resolve_runtime_paths  # noqa: E402
+from utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  프로세스 Lockfile (동시 실행 방지)
@@ -415,10 +415,7 @@ async def _refresh_tap_products_after_parallel_runs(config: AppConfig, countries
         return {}
 
     try:
-        try:
-            from .tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
-        except ImportError:
-            from tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
+        from tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
 
         tap_config = dataclasses.replace(
             config,
@@ -661,10 +658,7 @@ def _main_body():
         try:
             import uvicorn
 
-            try:
-                from .dashboard import app as _dashboard_app
-            except ImportError:
-                from dashboard import app as _dashboard_app
+            from dashboard import app as _dashboard_app
 
             print("\n  대시보드 서버 시작: http://localhost:8080\n")
             uvicorn.run(_dashboard_app, host="0.0.0.0", port=8080)

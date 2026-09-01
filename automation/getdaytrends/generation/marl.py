@@ -7,10 +7,9 @@ from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
-try:
-    from ..config import AppConfig
-    from ..models import GeneratedTweet, ScoredTrend, TweetBatch
-    from ..prompt_builder import (
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
+from prompt_builder import (
         _build_account_identity_section,
         _build_approved_post_bank_section,
         _build_category_tone_hint,
@@ -24,25 +23,7 @@ try:
         _resolve_language,
         _system_tweets,
     )
-    from ..utils import sanitize_keyword
-except ImportError:
-    from config import AppConfig
-    from models import GeneratedTweet, ScoredTrend, TweetBatch
-    from prompt_builder import (
-        _build_account_identity_section,
-        _build_approved_post_bank_section,
-        _build_category_tone_hint,
-        _build_context_section,
-        _build_deep_why_section,
-        _build_diversity_section,
-        _build_golden_reference_section,
-        _build_pattern_weights_section,
-        _build_scoring_section,
-        _parse_json,
-        _resolve_language,
-        _system_tweets,
-    )
-    from utils import sanitize_keyword
+from utils import sanitize_keyword
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
 
@@ -76,10 +57,7 @@ async def generate_tweets_with_marl_async(
     # Lazy import to avoid circular dependency
     from shared.llm.marl import MARLConfig, MARLPipeline
 
-    try:
-        from ..generator import generate_tweets_async
-    except ImportError:
-        from generator import generate_tweets_async
+    from generator import generate_tweets_async
 
     if not _should_use_marl(trend, config):
         return await generate_tweets_async(

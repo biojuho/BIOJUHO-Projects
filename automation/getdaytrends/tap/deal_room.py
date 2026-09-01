@@ -16,10 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-try:
-    from .product_feed import OpportunityTier, TapBoard, TapBoardItem
-except ImportError:
-    from product_feed import OpportunityTier, TapBoard, TapBoardItem
+from .product_feed import OpportunityTier, TapBoard, TapBoardItem
 
 
 FUTURE_TAP_DEAL_ROOM_DEPENDENCIES: tuple[str, ...] = (
@@ -429,15 +426,9 @@ async def build_tap_deal_room_snapshot(
 ) -> TapDealRoom:
     """Build a deal-room payload from the freshest TAP board snapshot."""
 
-    try:
-        from .service import TapBoardRequest, build_tap_board_snapshot
-    except ImportError:
-        from service import TapBoardRequest, build_tap_board_snapshot
+    from .service import TapBoardRequest, build_tap_board_snapshot
 
-    try:
-        from ..db import get_tap_checkout_session_summary, get_tap_deal_room_offer_stats
-    except ImportError:
-        from db import get_tap_checkout_session_summary, get_tap_deal_room_offer_stats
+    from db import get_tap_checkout_session_summary, get_tap_deal_room_offer_stats
 
     resolved = request or DealRoomRequest()
     board = await build_tap_board_snapshot(

@@ -7,14 +7,9 @@ import time
 
 import httpx
 
-try:
-    from . import context as context_mod
-    from ..config import AppConfig
-    from ..models import MultiSourceContext, RawTrend, TrendSource
-except ImportError:
-    import collectors.context as context_mod
-    from config import AppConfig
-    from models import MultiSourceContext, RawTrend, TrendSource
+from . import context as context_mod
+from config import AppConfig
+from models import MultiSourceContext, RawTrend, TrendSource
 
 
 async def _async_collect_contexts(
@@ -33,10 +28,7 @@ async def _async_collect_contexts(
     source_timeouts: dict[str, float] = {}
     if tracking_enabled:
         try:
-            try:
-                from ..db import get_source_quality_summary
-            except ImportError:
-                from db import get_source_quality_summary
+            from db import get_source_quality_summary
 
             quality_summary = await get_source_quality_summary(conn, days=7)
             for source_name, stats in quality_summary.items():
@@ -159,10 +151,7 @@ async def _async_collect_contexts(
 
     if tracking_enabled and source_metric_events:
         try:
-            try:
-                from ..db import record_source_quality
-            except ImportError:
-                from db import record_source_quality
+            from db import record_source_quality
 
             for source_name, success, latency_ms, item_count, quality_score in source_metric_events:
                 try:
@@ -186,10 +175,7 @@ async def _async_collect_contexts(
         news_insight = source_data.get("news", "")
 
         try:
-            try:
-                from ..news_scraper import enrich_news_context
-            except ImportError:
-                from news_scraper import enrich_news_context
+            from news_scraper import enrich_news_context
 
             news_insight = enrich_news_context(keyword, news_insight)
         except ImportError:

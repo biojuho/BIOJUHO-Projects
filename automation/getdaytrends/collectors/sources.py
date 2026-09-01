@@ -17,12 +17,8 @@ from datetime import UTC, datetime
 import httpx
 from loguru import logger as log
 
-try:
-    from ..models import RawTrend, TrendSource
-    from ..utils import run_async
-except ImportError:
-    from models import RawTrend, TrendSource
-    from utils import run_async
+from models import RawTrend, TrendSource
+from utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  공통 상수 & 유틸리티

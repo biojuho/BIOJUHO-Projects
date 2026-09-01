@@ -10,12 +10,8 @@ Phase 2.5: generator.py에서 추출된 퍼소나 선택 로직.
 - select_persona 함수
 """
 
-try:
-    from ..config import AppConfig
-    from ..models import ScoredTrend
-except ImportError:
-    from config import AppConfig
-    from models import ScoredTrend
+from config import AppConfig
+from models import ScoredTrend
 
 # 카테고리 → 퍼소나 매핑
 _CATEGORY_PERSONA_MAP: dict[str, str] = {

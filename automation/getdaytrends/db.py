@@ -14,54 +14,29 @@ try:
 except ImportError:
     _REDIS_OK = False
 
-try:
-    from .db_layer.pg_adapter import PgAdapter as _PgAdapter
-    from .db_layer.connection import (
+from db_layer.pg_adapter import PgAdapter as _PgAdapter
+from db_layer.connection import (
         close_pg_pool,
         db_transaction,
         get_connection,
         get_pg_pool,
         sqlite_write_lock,
     )
-    from .db_schema import (
+from db_schema import (
         _backfill_fingerprints,
         _normalize_name,
         _normalize_volume,
         compute_fingerprint,
         init_db,
     )
-    from .models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-    from .db_layer.run_repository import *
-    from .db_layer.trend_repository import *
-    from .db_layer.tweet_repository import *
-    from .db_layer.metrics_repository import *
-    from .db_layer.draft_repository import *
-    from .db_layer.tap_repository import *
-    from .db_layer.admin_repository import *
-except ImportError:
-    from db_layer.pg_adapter import PgAdapter as _PgAdapter
-    from db_layer.connection import (
-        close_pg_pool,
-        db_transaction,
-        get_connection,
-        get_pg_pool,
-        sqlite_write_lock,
-    )
-    from db_schema import (
-        _backfill_fingerprints,
-        _normalize_name,
-        _normalize_volume,
-        compute_fingerprint,
-        init_db,
-    )
-    from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-    from db_layer.run_repository import *
-    from db_layer.trend_repository import *
-    from db_layer.tweet_repository import *
-    from db_layer.metrics_repository import *
-    from db_layer.draft_repository import *
-    from db_layer.tap_repository import *
-    from db_layer.admin_repository import *
+from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
+from db_layer.run_repository import *
+from db_layer.trend_repository import *
+from db_layer.tweet_repository import *
+from db_layer.metrics_repository import *
+from db_layer.draft_repository import *
+from db_layer.tap_repository import *
+from db_layer.admin_repository import *
 
 _WORKFLOW_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "drafted": {"ready"},

@@ -8,12 +8,8 @@ from datetime import datetime
 
 from loguru import logger as log
 
-try:
-    from .config import AppConfig
-    from .models import ScoredTrend, TweetBatch
-except ImportError:
-    from config import AppConfig
-    from models import ScoredTrend, TweetBatch
+from config import AppConfig
+from models import ScoredTrend, TweetBatch
 
 # Google Sheets (optional dependency)
 try:

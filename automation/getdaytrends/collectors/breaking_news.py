@@ -29,10 +29,7 @@ import httpx
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-try:
-    from .google_news import _parse_rss_date
-except ImportError:
-    from google_news import _parse_rss_date
+from .google_news import _parse_rss_date
 
 GOOGLE_NEWS_SEARCH_BASE = "https://news.google.com/rss/search"
 YONHAP_RSS_URL = "https://www.yna.co.kr/rss/news.xml"

@@ -17,20 +17,13 @@ from shared.llm import get_client
 
 # Optional dependencies — gracefully degrade when unavailable
 try:
-    try:
-        from ..performance_tracker import PerformanceTracker
-    except ImportError:
-        from performance_tracker import PerformanceTracker
+    from performance_tracker import PerformanceTracker
 except ImportError:
     PerformanceTracker = None  # type: ignore[assignment,misc]
 
 try:
-    try:
-        from ..fact_checker import check_cross_source_consistency
-        from ..fact_checker import verify_batch as verify_fact_batch
-    except ImportError:
-        from fact_checker import check_cross_source_consistency
-        from fact_checker import verify_batch as verify_fact_batch
+    from fact_checker import check_cross_source_consistency
+    from fact_checker import verify_batch as verify_fact_batch
 except ImportError:
     check_cross_source_consistency = None  # type: ignore[assignment]
     verify_fact_batch = None  # type: ignore[assignment]
@@ -42,38 +35,21 @@ except ImportError:
     _cosine_similarity = None  # type: ignore[assignment]
     _embed_texts = None  # type: ignore[assignment]
 
-try:
-    from ..config import VERSION, AppConfig
-    from ..db import (
+from config import VERSION, AppConfig
+from db import (
         compute_fingerprint,
         get_cached_content,
         get_approved_post_bank,
         get_recent_tweet_contents,
         record_posting_time_stat,
     )
-    from ..generator import (
+from generator import (
         audit_generated_content,
         build_regeneration_feedback,
         generate_for_trend_async,
         regenerate_content_groups,
     )
-    from ..models import GeneratedTweet, TweetBatch
-except ImportError:
-    from config import VERSION, AppConfig
-    from db import (
-        compute_fingerprint,
-        get_cached_content,
-        get_approved_post_bank,
-        get_recent_tweet_contents,
-        record_posting_time_stat,
-    )
-    from generator import (
-        audit_generated_content,
-        build_regeneration_feedback,
-        generate_for_trend_async,
-        regenerate_content_groups,
-    )
-    from models import GeneratedTweet, TweetBatch
+from models import GeneratedTweet, TweetBatch
 
 
 # ══════════════════════════════════════════════════════

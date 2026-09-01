@@ -14,7 +14,7 @@ Usage:
 from __future__ import annotations
 
 try:
-    from getdaytrends.utils import run_async
+    from utils import run_async
 except ImportError:
     from utils import run_async
 

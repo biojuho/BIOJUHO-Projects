@@ -6,10 +6,7 @@ analyzer.py에서 분리됨.
 
 from loguru import logger as log
 
-try:
-    from .models import MultiSourceContext, RawTrend, TrendCluster
-except ImportError:
-    from models import MultiSourceContext, RawTrend, TrendCluster
+from models import MultiSourceContext, RawTrend, TrendCluster
 
 # ══════════════════════════════════════════════════════
 #  Similarity Helpers

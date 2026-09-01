@@ -18,10 +18,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-try:
-    from .detector import ArbitrageOpportunity
-except ImportError:
-    from detector import ArbitrageOpportunity
+from .detector import ArbitrageOpportunity
 
 
 FUTURE_LIBRARY_HINTS: tuple[str, ...] = (

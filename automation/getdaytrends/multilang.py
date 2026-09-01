@@ -11,28 +11,16 @@ from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
-try:
-    from .config import AppConfig
-    from .models import GeneratedTweet, ScoredTrend, TweetBatch
-    from .prompt_builder import (
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
+from prompt_builder import (
         _LANG_NAME_MAP,
         _build_context_section,
         _build_scoring_section,
         _parse_json,
         _system_tweets,
     )
-    from .utils import sanitize_keyword
-except ImportError:
-    from config import AppConfig
-    from models import GeneratedTweet, ScoredTrend, TweetBatch
-    from prompt_builder import (
-        _LANG_NAME_MAP,
-        _build_context_section,
-        _build_scoring_section,
-        _parse_json,
-        _system_tweets,
-    )
-    from utils import sanitize_keyword
+from utils import sanitize_keyword
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
 
