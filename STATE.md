@@ -9,7 +9,8 @@
 - **한 줄 정의:** X(트위터)·커뮤니티·뉴스 원문을 멀티소스로 수집해 바이럴 조기 신호를 점수화하고 로컬 대시보드로 보여주는 트렌드 레이더. 정본 경로는 `automation/getdaytrends/`.
 - **실행 방법:** `cd automation/getdaytrends && ../../.venv/bin/uvicorn dashboard:app --host 127.0.0.1 --port 8010` → http://127.0.0.1:8010
 - **테스트:** `.venv/bin/python -m pytest automation/getdaytrends/tests -q` (2026-08-27 기준 1225 passed · 7 skipped — notebooklm_automation·수동 네트워크 probe·Kiwipiepy·Scrapling 미설치/비활성)
-- **갱신:** 2026-09-01 · by Claude 헤더 | Codex(gpt-5.6-luna max) 실행 (0100 진입 뿌리 단일화 — 같은 파일을 네 뿌리로 로드하던 것을 top-level 하나로 모으고 죽은 이중 import 블록 123개를 제거. 이중 로드 7건→0건으로 `models` 클래스 19개가 갈리던 isinstance 위험을 닫았다. 77파일 변경, 1234 passed·7 skipped 불변, 8010 PID 26062 무사)
+- **갱신:** 2026-09-01 · by Claude 헤더 | Codex(gpt-5.6-luna max) 실행 (0100·0101·0102 — 진입 뿌리 단일화로 이중 로드 7→0, `refresh()` 643→119줄·516→60줄 분해, dashboard 의 조용한 실패 5자리를 health 에 드러냄. 1234 passed·7 skipped 불변, 8010 PID 26062 무사)
+- **이전 갱신:** 2026-09-01 (0100 진입 뿌리 단일화 — 같은 파일을 네 뿌리로 로드하던 것을 top-level 하나로 모으고 죽은 이중 import 블록 123개를 제거. 이중 로드 7건→0건으로 `models` 클래스 19개가 갈리던 isinstance 위험을 닫았다. 77파일 변경, 1234 passed·7 skipped 불변, 8010 PID 26062 무사)
 - **이전 갱신:** 2026-08-27 · by Codex 헤더 | Codex·Agy·GLM·Qwen·MiMo 실행 (0099 서버 소유 수집과 X/YouTube 큐 분리를 운영 반영. X 120초·국내 커뮤니티 300초·YouTube 1800초, 모두 24시간이며 커뮤니티 조기감지는 국내 직접 목록+IssueLink만 쓴다. PID 61078에서 X 121.062초 성공 간격과 YouTube 자동 회차를 확인)
 - **이전 갱신:** 2026-08-27 · by Codex 헤더 | Codex·Agy·GLM·Qwen·MiMo 실행 (0098 글로벌 영상·커뮤니티 확대를 운영 반영. 0099에서 글로벌 커뮤니티는 조기감지 칸에서 제거했고 별도 사건 영상 큐의 공개 링크 메타만 유지)
 - **이전 갱신:** 2026-08-12 · by Codex 헤더·실행 (IssueLink 상대 게시시각을 파싱해 180분 이내만 허용하고 181분 이상·시각 미확인을 제외하는 로컬 구현 완료. 공개 HTML 51건 중 26건 통과·25건 시간 초과, 전체 1029 passed/7 skipped)
@@ -39,8 +40,19 @@
 > `__init__.py` sys.path 주입 제거, `content_qa ↔ generator` 상호 import,
 > `collectors/context_runtime.py` 런타임 오버라이드(의도된 장치라 설계 결정 선행).
 >
-> **다음:** 0101 `refresh()` 분해(643줄 cx114 · 516줄 cx77), 0102 dashboard API 의
-> 조용한 실패 5자리를 source health 에 드러내기.
+> **0101 완료.** `x_opportunity_radar.refresh()` 643→**119줄**, `fast_viral_collector.refresh()`
+> 516→**60줄**. 각각 6개 단계 함수로 순수 추출했고 저장소 전체로 200줄 초과 함수 5→3,
+> 복잡도 40 초과 5→3 이다. **대조군이 진짜 구멍을 찾았다** — OG 뒤 `sort_by_kernel` 재정렬을
+> 제거해도 기존 테스트 58건이 전부 통과했다. 이 저장소가 같은 버그를 세 번 고쳤던 순서인데
+> 지키는 테스트가 없었고, 리팩터링 전에 회귀를 먼저 넣었다.
+>
+> **0102 완료.** `dashboard.py` 의 `except Exception: pass` 5건을 0 으로 만들고
+> `logger.warning(exc_info=True)` 와 자리별 `health.{status,reason,error_type}` 을 더했다.
+> fail-open 은 유지했고 기존 응답 키는 건드리지 않았다.
+>
+> **다음 후보:** `notion_builder._build_notion_body`(436줄)·`analyzer._analyze_trends_async`
+> (208줄 cx44)·`live_reference_collector.refresh()`(192줄) 분해, `content_qa ↔ generator`
+> 상호 import, `__init__.py` sys.path 주입 제거, BOM 파일 13블록.
 >
 > **교정 하나 — 8011 검증은 `GETDAYTRENDS_SCHEDULER_ENABLED=0` 으로 띄운다.** 0100 검증 때
 > 8011 의 lifespan 이 수집 스케줄러를 자동 기동해 외부 수집을 시도했고, 사후에 그 행을 8010 것과

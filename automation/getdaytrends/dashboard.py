@@ -407,6 +407,7 @@ async def api_stats():
         # LLM 비용 통합
         llm_cost_7d = 0.0
         llm_daily: list[dict] = []
+        health: dict[str, Any] | None = None
         try:
             from shared.llm.stats import _DB_PATH as llm_db_path
             from shared.llm.stats import CostTracker
@@ -417,14 +418,32 @@ async def api_stats():
                 tracker.close()
                 llm_daily = daily
                 llm_cost_7d = sum(r["cost_usd"] for r in daily)
-        except Exception:
-            pass
+        except Exception as exc:
+            # The LLM cost database may use a configured remote backend.  Keep
+            # the dashboard fail-open, but do not copy a possible connection
+            # string (and its credentials) into the log message.
+            logger.warning(
+                "Dashboard LLM 7-day cost aggregation failed (%s); using empty cost fallback",
+                type(exc).__name__,
+                exc_info=True,
+            )
+            health = {
+                "status": "degraded",
+                "llm_cost_7d": {
+                    "status": "degraded",
+                    "reason": "exception",
+                    "error_type": type(exc).__name__,
+                },
+            }
 
-        return {
+        payload = {
             **stats,
             "llm_cost_7d": round(llm_cost_7d, 6),
             "llm_daily": llm_daily,
         }
+        if health is not None:
+            payload["health"] = health
+        return payload
 
     return await _run_db_json_with_fallback("api_stats", _load_stats, _stats_fallback)
 
@@ -539,8 +558,22 @@ def api_pipeline_status():
             budget_info["today_cost_usd"] = round(today_cost, 6)
             if _config.daily_budget_usd > 0:
                 budget_info["budget_used_pct"] = round(today_cost / _config.daily_budget_usd * 100, 1)
-    except Exception:
-        pass
+    except Exception as exc:
+        # CostTracker can be backed by a configured database URL; its exception
+        # text must not be copied into the dashboard process log.
+        logger.warning(
+            "Dashboard today's LLM cost and budget aggregation failed (%s); using zero budget fallback",
+            type(exc).__name__,
+            exc_info=True,
+        )
+        status["health"] = {
+            "status": "degraded",
+            "llm_budget": {
+                "status": "degraded",
+                "reason": "exception",
+                "error_type": type(exc).__name__,
+            },
+        }
 
     status["budget"] = budget_info
     return JSONResponse(status)
@@ -674,6 +707,7 @@ async def api_review_queue(limit: int = Query(50, ge=1, le=200)):
 async def api_logs(limit: int = Query(50, ge=1, le=200)):
     """Loki 또는 로컬 파일에서 실시간 로그 수집."""
     logs = []
+    health: dict[str, Any] | None = None
     
     # 1. Try Loki first (if docker-compose monitoring is running)
     try:
@@ -691,8 +725,21 @@ async def api_logs(limit: int = Query(50, ge=1, le=200)):
                         for val in res.get("values", []):
                             logs.append(val[1])
                     return JSONResponse({"logs": logs[-limit:], "source": "loki"})
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "Dashboard Loki log query failed (%s: %s); falling back to local log file",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        health = {
+            "status": "degraded",
+            "loki": {
+                "status": "degraded",
+                "reason": "exception",
+                "error_type": type(exc).__name__,
+            },
+        }
 
     # 2. Fallback to local log file
     log_path = _dashboard_base_dir() / "tweet_bot.log"
@@ -701,16 +748,33 @@ async def api_logs(limit: int = Query(50, ge=1, le=200)):
             with open(log_path, encoding="utf-8") as f:
                 lines = f.readlines()
                 logs = [line.strip() for line in lines[-limit:]]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "Dashboard local log file read failed (%s: %s); serving empty local log list",
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+            if health is None:
+                health = {"status": "degraded"}
+            health["status"] = "degraded"
+            health["local_log_file"] = {
+                "status": "degraded",
+                "reason": "exception",
+                "error_type": type(exc).__name__,
+            }
 
-    return JSONResponse({"logs": logs, "source": "local"})
+    response = {"logs": logs, "source": "local"}
+    if health is not None:
+        response["health"] = health
+    return JSONResponse(response)
 
 
 @app.get("/api/ab_test")
 def api_ab_test():
     """A/B 테스트 결과 실제 데이터 반환 (DailyNews)."""
     ab_test_file = _dashboard_base_dir().parent / "DailyNews" / "output" / "ab_test_economy_kr_v2.json"
+    health: dict[str, Any] | None = None
     try:
         if ab_test_file.exists():
             with open(ab_test_file, encoding="utf-8") as f:
@@ -730,15 +794,31 @@ def api_ab_test():
                     "group_b": {"ctr": round(kpi_b / 10, 1), "conversion": round(kpi_b / 30, 2)}
                 }
             })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "Dashboard A/B metrics load failed (%s: %s); serving placeholder metrics",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        health = {
+            "status": "degraded",
+            "ab_test": {
+                "status": "degraded",
+                "reason": "exception",
+                "error_type": type(exc).__name__,
+            },
+        }
 
     # Fallback / Placeholder
-    return JSONResponse({
+    response = {
         "metrics": {
             "group_a": {"ctr": 2.1, "conversion": 0.8},
             "group_b": {"ctr": 4.5, "conversion": 2.2}
         }
-    })
+    }
+    if health is not None:
+        response["health"] = health
+    return JSONResponse(response)
 
 

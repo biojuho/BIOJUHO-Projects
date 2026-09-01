@@ -317,7 +317,9 @@ def test_og_context_gate_rejects_boilerplate_echo_and_short_but_keeps_real_conte
 
 
 @pytest.mark.asyncio
-async def test_og_second_pass_records_all_gate_reasons_and_does_not_use_rejected_text():
+async def test_og_second_pass_records_all_gate_reasons_and_does_not_use_rejected_text(
+    monkeypatch, tmp_path
+):
     urls = {
         "missing": "https://www.dogdrip.net/dogdrip/missing",
         "boilerplate": "https://www.dogdrip.net/dogdrip/boilerplate",
@@ -400,6 +402,73 @@ async def test_og_second_pass_records_all_gate_reasons_and_does_not_use_rejected
             "og_too_short": 1,
         },
     }
+    await _assert_refresh_resorts_after_og_second_pass(monkeypatch, tmp_path)
+
+
+async def _assert_refresh_resorts_after_og_second_pass(monkeypatch, tmp_path):
+    direct_items = [
+        {
+            "id": "high",
+            "title": "새벽 하늘의 이상한 빛 기록",
+            "category": "유머",
+            "source_url": "https://www.fmkorea.com/high",
+            "published_label": "",
+            "age_minutes": 10,
+            "views": 100_000,
+            "votes": 500,
+            "comments": 500,
+        },
+        {
+            "id": "weak",
+            "title": "주방 타일의 낯선 얼룩 관찰",
+            "category": "유머",
+            "source_url": "https://www.fmkorea.com/weak",
+            "published_label": "",
+            "age_minutes": 10,
+            "views": 2_000,
+            "votes": 20,
+            "comments": 20,
+        },
+    ]
+
+    class FakeResponse:
+        status_code = 200
+        text = "<html></html>"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, **kwargs):
+            return FakeResponse()
+
+    async def fake_og(items, **kwargs):
+        next(item for item in items if item["id"] == "weak")["kernel_screen"] = {
+            "person": True,
+            "axis": "live_wrong",
+        }
+        return {}
+
+    monkeypatch.setattr(fast_module, "DIRECT_COMMUNITY_SOURCES", ())
+    monkeypatch.setattr(fast_module.httpx, "AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr(fast_module, "parse_fmkorea_latest", lambda html, now: [dict(x) for x in direct_items])
+    monkeypatch.setattr(fast_module, "parse_issuelink_fmkorea_ids", lambda html: set())
+    monkeypatch.setattr(fast_module, "parse_issuelink_community_items", lambda html: [])
+    monkeypatch.setattr(fast_module, "_apply_og_second_pass", fake_og)
+
+    snapshot = await FastViralCollector(tmp_path / "og-resort.json").refresh(limit=5)
+
+    assert len(snapshot["items"]) == 2
+    assert [item["id"] for item in snapshot["items"]] == ["weak", "high"]
 
 
 def test_fast_viral_topic_api_preserves_only_non_body_context_provenance(tmp_path):

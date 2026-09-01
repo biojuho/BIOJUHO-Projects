@@ -1159,6 +1159,603 @@ class FastViralCollector:
         temp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         temp_path.replace(self.snapshot_path)
 
+    async def _collect_fast_viral_sources(
+        self,
+        *,
+        now: datetime,
+        headers: dict[str, str],
+    ) -> dict[str, Any]:
+        """Collect and normalize the domestic direct-source observations."""
+        errors: list[str] = []
+        async with httpx.AsyncClient(follow_redirects=True, headers=headers) as session:
+            # 연속 실패한 소스는 이번 회차를 건너뛴다(백오프). 82cook이 요청 빈도로
+            # IP 단위 차단을 걸었을 때 수집기가 5분마다 계속 찌르고 있었다.
+            active_sources = [
+                source for source in DIRECT_COMMUNITY_SOURCES
+                if not self._backoff.should_skip(str(source["key"]), now)
+            ]
+            skipped = [s for s in DIRECT_COMMUNITY_SOURCES if s not in active_sources]
+            results = await asyncio.gather(
+                session.get(FMKOREA_HUMOR_URL, timeout=httpx.Timeout(12.0, connect=5.0)),
+                session.get(ISSUELINK_URL, timeout=httpx.Timeout(12.0, connect=5.0)),
+                *(
+                    session.get(source["url"], timeout=httpx.Timeout(12.0, connect=5.0))
+                    for source in active_sources
+                ),
+                return_exceptions=True,
+            )
+
+        # 사용자 범위(2026-08-27): 이 레인은 국내 커뮤니티 전용이다.
+        # Mastodon·Bluesky·Lemmy 수집기는 다른 용도로 남겨 두되 여기서는 호출조차
+        # 하지 않는다. 별도 사건 소재 영상 큐의 공개 영상 메타 수집에는 영향 없다.
+        federated_result: dict[str, Any] = {"items": [], "source_health": {}, "errors": []}
+
+        fmkorea_items: list[dict[str, Any]] = []
+        issue_ids: set[str] = set()
+        issue_items: list[dict[str, Any]] = []
+        fmkorea_ok = False
+        issuelink_ok = False
+        direct_source_health: dict[str, bool] = {}
+        expanded_direct_items: list[dict[str, Any]] = []
+        federated_items = (
+            federated_result.get("items", [])
+            if isinstance(federated_result.get("items"), list)
+            else []
+        )
+        federated_source_health = (
+            federated_result.get("source_health", {})
+            if isinstance(federated_result.get("source_health"), dict)
+            else {}
+        )
+        federated_errors = (
+            federated_result.get("errors", [])
+            if isinstance(federated_result.get("errors"), list)
+            else []
+        )
+        errors.extend(str(error) for error in federated_errors)
+        if isinstance(results[0], Exception):
+            errors.append("FMKorea 직접 목록 수집 실패")
+        else:
+            # FMKorea는 자동 접근을 보안 시스템으로 막는다(2026-08-06 확인: HTTP 430 +
+            # "에펨코리아 보안 시스템" 페이지, robots.txt도 대부분의 봇에 메인만 허용).
+            # 헤더를 위장해 뚫지 않는다 — AAGAG를 robots 이유로 제외한 것과 같은 기준이다.
+            # 원인을 "파싱 실패"로 뭉개면 고칠 수 있는 버그처럼 보이므로 차단은 따로 적는다.
+            if _looks_blocked(results[0]):
+                errors.append("FMKorea 자동 접근 차단 — IssueLink 경유로만 확인")
+            else:
+                try:
+                    results[0].raise_for_status()
+                    fmkorea_items = parse_fmkorea_latest(results[0].text, now=now)
+                    fmkorea_ok = bool(fmkorea_items)
+                    if not fmkorea_items:
+                        errors.append("FMKorea 직접 목록이 비어 있음")
+                except Exception:
+                    errors.append("FMKorea 직접 목록 파싱 실패")
+        if isinstance(results[1], Exception):
+            errors.append("IssueLink 비교 수집 실패")
+        else:
+            try:
+                results[1].raise_for_status()
+                issue_ids = parse_issuelink_fmkorea_ids(results[1].text)
+                issue_items = parse_issuelink_community_items(results[1].text)
+                issuelink_ok = bool(issue_ids)
+            except Exception:
+                errors.append("IssueLink 비교 파싱 실패")
+
+        for source in skipped:
+            key = str(source["key"])
+            direct_source_health[key] = False
+            resume = self._backoff.status(now).get(key, {}).get("resume_in_minutes", 0)
+            errors.append(f"{source['label']} 연속 실패로 대기 중({resume}분 후 재시도)")
+
+        for source, result in zip(active_sources, results[2:], strict=True):
+            key = str(source["key"])
+            label = str(source["label"])
+            if isinstance(result, Exception):
+                direct_source_health[key] = False
+                self._backoff.record_failure(key, now)
+                errors.append(f"{label} 직접 목록 수집 실패")
+                continue
+            if _looks_blocked(result):
+                direct_source_health[key] = False
+                self._backoff.record_failure(key, now)
+                errors.append(f"{label} 자동 접근 차단 — 요청 간격을 늘려 재시도")
+                continue
+            try:
+                result.raise_for_status()
+                parsed = parse_direct_community_source(key, result.text, now=now)
+                direct_source_health[key] = bool(parsed)
+                expanded_direct_items.extend(parsed)
+                if parsed:
+                    self._backoff.record_success(key)
+                else:
+                    errors.append(f"{label} 직접 목록이 비어 있음")
+            except Exception:
+                direct_source_health[key] = False
+                errors.append(f"{label} 직접 목록 파싱 실패")
+
+        previous = self._load_previous()
+        previous_items = previous.get("items", {}) if isinstance(previous.get("items"), dict) else {}
+        previous_at_raw = str(previous.get("polled_at") or "")
+        try:
+            previous_at = datetime.fromisoformat(previous_at_raw)
+            if previous_at.tzinfo is None:
+                previous_at = previous_at.replace(tzinfo=UTC)
+            elapsed_minutes = max((now - previous_at.astimezone(UTC)).total_seconds() / 60, 0.1)
+        except ValueError:
+            elapsed_minutes = 0.0
+
+        direct_observations = [
+            {
+                **item,
+                "community_source": "fmkorea",
+                "community_label": "FMKorea",
+                "source_position": position,
+                "link_kind": "publisher_original",
+                "signal_source": "직접 목록",
+            }
+            for position, item in enumerate(fmkorea_items)
+        ] + expanded_direct_items
+        federated_observations = [
+            item
+            for item in federated_items
+            if isinstance(item, dict)
+            and item.get("id")
+            and item.get("title")
+            and item.get("source_url")
+        ]
+        all_observations = [*direct_observations, *federated_observations]
+        _annotate_community_clusters(all_observations)
+        self.lead_tracker.record_observations(direct_observations, issue_items, observed_at=now)
+        direct_keys = {_snapshot_item_key(item) for item in direct_observations}
+        issue_keys = {_snapshot_item_key(item) for item in issue_items}
+        return {
+            "errors": errors,
+            "fmkorea_ok": fmkorea_ok,
+            "issuelink_ok": issuelink_ok,
+            "direct_source_health": direct_source_health,
+            "federated_source_health": federated_source_health,
+            "issue_items": issue_items,
+            "direct_observations": direct_observations,
+            "federated_observations": federated_observations,
+            "all_observations": all_observations,
+            "previous_items": previous_items,
+            "elapsed_minutes": elapsed_minutes,
+            "direct_keys": direct_keys,
+            "issue_keys": issue_keys,
+        }
+
+    def _qualify_fast_viral_items(
+        self,
+        *,
+        all_observations: list[dict[str, Any]],
+        issue_items: list[dict[str, Any]],
+        issue_keys: set[str],
+        previous_items: dict[str, Any],
+        elapsed_minutes: float,
+        now: datetime,
+    ) -> dict[str, Any]:
+        """Apply the materiality and in-gate kernel spread checks."""
+        qualified: list[dict[str, Any]] = []
+        blocked_count = 0
+        excluded_topics: Counter[str] = Counter()
+        for item in all_observations:
+            is_federated = item.get("signal_source") == "글로벌 공개 커뮤니티"
+            age = item.get("age_minutes")
+            exclusion = excluded_topic_reason(item["title"], item.get("category"))
+            record_filter_candidate_fail_open(
+                self.filter_shadow_store,
+                source="fast-viral:federated" if is_federated else "fast-viral:direct",
+                candidate_id=_snapshot_item_key(item),
+                title=item["title"],
+                extra_text=item.get("category") or "",
+                filter_verdict="block" if exclusion else "allow",
+                filter_reason=exclusion or "",
+                observed_at=now,
+            )
+            if exclusion:
+                excluded_topics[exclusion] += 1
+                continue
+            max_age_minutes = _ISSUELINK_MAX_AGE_MINUTES if is_federated else _direct_max_age_minutes()
+            if (
+                age is None
+                or age > max_age_minutes
+                or not has_min_traction(item)
+                or not _is_brand_safe_title(item["title"])
+                or (is_federated and item.get("sensitive") is True)
+                or (is_federated and bool(str(item.get("spoiler_text") or "").strip()))
+            ):
+                blocked_count += 1
+                continue
+            source_key = str(item.get("community_source") or "fmkorea")
+            screen = screen_material(item["title"], community_label=item.get("community_label"))
+            item["kernel_screen"] = screen
+            observation_lane = "federated" if is_federated else "direct"
+            observation_key = f"community:{observation_lane}:{source_key}:{item['id']}"
+            observation = self.exposure_tracker.record(
+                observation_key,
+                {
+                    "original_count": 1,
+                    "source_count": 1,
+                    "mentions": 1,
+                    "comments": item["comments"],
+                },
+                observed_at=now,
+                score_version=_COMMUNITY_EXPOSURE_SCORE_VERSION,
+                post_meta=_community_post_meta(item, screen=screen),
+            )
+            cooling = _cooling_for_tracker(
+                self.exposure_tracker,
+                observation_key,
+                item=item,
+                now=now,
+            )
+            previous_item = previous_items.get(_snapshot_item_key(item), {})
+            if not previous_item and source_key == "fmkorea":
+                previous_item = previous_items.get(item["id"], {})
+            delta_rate = 0.0
+            if elapsed_minutes > 0 and isinstance(previous_item, dict):
+                delta_rate = max(0, item["views"] - int(previous_item.get("views") or 0)) / elapsed_minutes
+            aggregator_available = bool(issue_items)
+            before_issuelink = (
+                False
+                if is_federated
+                else aggregator_available and _snapshot_item_key(item) not in issue_keys
+            )
+            score, effective_rate = _direct_signal_score(
+                age_minutes=age,
+                views=item["views"],
+                comments=item["comments"],
+                votes=item["votes"],
+                delta_views_per_minute=delta_rate,
+                before_issuelink=before_issuelink,
+            )
+            # 커널 판정을 게이트 안으로 들인다. 예전에는 조회 속도로 12건을 고른 뒤
+            # 라우터에서 판정을 붙였기 때문에, 판정은 표시 순서만 바꾸고 무엇을 남길지에는
+            # 아무 영향이 없었다. 사는 축(가해자 명확·낙차)은 확산이 덜 붙었어도 통과시킨다 —
+            # X에서 판정이 붙는 소재는 조회가 늦게 오기 때문이다.
+            live_axis = str(screen.get("axis", "")).startswith("live")
+            if not passes_spread_gate(item, score=score, live_axis=live_axis):
+                continue
+            cross_source_count = int(item.get("cross_community_source_count") or 1)
+            cross_boost = min(15, max(0, cross_source_count - 1) * 8)
+            exposure_score = min(100, score + cross_boost)
+            encoded = quote(item["title"])
+            exposure_reasons = [
+                f"게시 후 {age}분",
+                (
+                    "글로벌 공개 트렌드 원문"
+                    if is_federated
+                    else "IssueLink 선행 감지"
+                    if before_issuelink
+                    else "IssueLink 노출 확인"
+                ),
+            ]
+            if effective_rate is not None:
+                exposure_reasons.insert(0, f"분당 조회 {effective_rate:.1f}")
+            else:
+                exposure_reasons.insert(0, f"추천·댓글 {item['votes'] + item['comments']:,}개")
+            if cross_source_count >= 2:
+                exposure_reasons.append(f"공개 커뮤니티 {cross_source_count}곳 동시 확산")
+            lead_metrics = (
+                {
+                    "first_seen_at": observation["observed_at"],
+                    "direct_first_seen_at": None,
+                    "aggregator_first_seen_at": None,
+                    "lead_seconds": None,
+                    "lead_minutes": None,
+                    "lead_status": "not_applicable",
+                    "lead_identity": f"{source_key}:{item['id']}",
+                }
+                if is_federated
+                else self.lead_tracker.metrics_for(item)
+            )
+            qualified.append(
+                {
+                    **item,
+                    "early_score": score,
+                    "x_exposure_score": exposure_score,
+                    "exposure_breakdown": {"direct_velocity": score, "cross_community": cross_boost},
+                    "exposure_reasons": exposure_reasons,
+                    "score_version": _COMMUNITY_EXPOSURE_SCORE_VERSION,
+                    "exposure_confidence": "high" if previous_item else "medium",
+                    "exposure_coverage": 1.0 if previous_item else 0.92,
+                    "observed_at": observation["observed_at"],
+                    "observation_delta": observation,
+                    **cooling,
+                    "views_per_minute": round(effective_rate, 1) if effective_rate is not None else None,
+                    "delta_views_per_minute": round(delta_rate, 1),
+                    "before_issuelink": before_issuelink,
+                    "issuelink_status": (
+                        "글로벌 공개 소스 — IssueLink 비교 비대상"
+                        if is_federated
+                        else "아직 IssueLink 미노출"
+                        if before_issuelink
+                        else (
+                            "IssueLink 노출 확인"
+                            if _snapshot_item_key(item) in issue_keys
+                            else "IssueLink 비교 불가"
+                        )
+                    ),
+                    "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
+                    "threads_search_url": f"https://www.threads.com/search?q={encoded}",
+                    **lead_metrics,
+                }
+            )
+        return {
+            "qualified": qualified,
+            "blocked_count": blocked_count,
+            "excluded_topics": excluded_topics,
+        }
+
+    async def _select_fast_viral_diverse_items(
+        self,
+        *,
+        qualified: list[dict[str, Any]],
+        issue_items: list[dict[str, Any]],
+        direct_keys: set[str],
+        limit: int,
+        now: datetime,
+        headers: dict[str, str],
+        fmkorea_ok: bool,
+        direct_source_health: dict[str, bool],
+        excluded_topics: Counter[str],
+        blocked_count: int,
+    ) -> dict[str, Any]:
+        """Choose a diverse pool and merge the IssueLink confirmation lane."""
+        qualified.sort(
+            key=lambda item: (
+                item["x_exposure_score"],
+                item["before_issuelink"],
+                item["views_per_minute"] or 0,
+            ),
+            reverse=True,
+        )
+        # 라운드로빈이 소스당 1건씩만 남기면 "오늘 유난히 좋은 소스"의 상위 글이 통째로
+        # 밀려난다. 풀을 넓게 잡아 뒤의 커널 정렬이 고를 여지를 남긴다.
+        qualified = _select_diverse_community_items(qualified, limit * 3)
+        any_direct_ok = fmkorea_ok or any(direct_source_health.values())
+        fallback_mode = not any_direct_ok and bool(issue_items)
+        resolved_originals = 0
+        # 애그리게이터 몫을 미리 떼어 둔다. 예전에는 직접 목록이 자리를 다 채우면
+        # IssueLink를 아예 보지 않았는데, 그러면 클리앙·인벤·뽐뿌·82cook처럼 직접
+        # 수집이 막혔거나 붙이지 않은 커뮤니티가 영영 화면에 오르지 못한다.
+        quota = aggregator_quota(limit, any_direct_ok=any_direct_ok)
+        if issue_items:
+            allowed_issue_items: list[dict[str, Any]] = []
+            for item in issue_items:
+                if _snapshot_item_key(item) in direct_keys:
+                    continue
+                # 라벨은 출처지 주제가 아니다. 넣으면 MLB파크가 "mlb"에 걸려 전량 사라진다.
+                exclusion = excluded_topic_reason(item["title"])
+                record_filter_candidate_fail_open(
+                    self.filter_shadow_store,
+                    source="fast-viral:issuelink",
+                    candidate_id=_snapshot_item_key(item),
+                    title=item["title"],
+                    extra_text="",
+                    filter_verdict="block" if exclusion else "allow",
+                    filter_reason=exclusion or "",
+                    observed_at=now,
+                )
+                if exclusion:
+                    excluded_topics[exclusion] += 1
+                    continue
+                if not _is_recent_issuelink_item(item):
+                    blocked_count += 1
+                    continue
+                if not _is_brand_safe_title(item["title"]):
+                    blocked_count += 1
+                    continue
+                allowed_issue_items.append(item)
+            _annotate_community_clusters(allowed_issue_items)
+            observations_by_cluster: dict[str, dict[str, Any]] = {}
+            cooling_by_cluster: dict[str, dict[str, bool | int | None]] = {}
+            for item in allowed_issue_items:
+                cluster_key = str(item["community_cluster_key"])
+                if cluster_key in observations_by_cluster:
+                    continue
+                cluster = [
+                    candidate
+                    for candidate in allowed_issue_items
+                    if candidate.get("community_cluster_key") == cluster_key
+                ]
+                representative = cluster[0]
+                screen = screen_material(
+                    representative["title"],
+                    community_label=representative.get("community_label"),
+                )
+                representative["kernel_screen"] = screen
+                observation_key = f"community:cluster:{cluster_key}"
+                observations_by_cluster[cluster_key] = self.exposure_tracker.record(
+                    observation_key,
+                    {
+                        "original_count": len(cluster),
+                        "source_count": len({candidate["community_source"] for candidate in cluster}),
+                        "mentions": len(cluster),
+                        "comments": sum(int(candidate.get("comments") or 0) for candidate in cluster),
+                    },
+                    observed_at=now,
+                    score_version=_COMMUNITY_EXPOSURE_SCORE_VERSION,
+                    post_meta=_community_post_meta(representative, screen=screen),
+                )
+                cooling_by_cluster[cluster_key] = _cooling_for_tracker(
+                    self.exposure_tracker,
+                    observation_key,
+                    item=representative,
+                    now=now,
+                )
+            for item in allowed_issue_items:
+                cluster_key = str(item["community_cluster_key"])
+                observation = observations_by_cluster[cluster_key]
+                (
+                    exposure_score,
+                    exposure_breakdown,
+                    exposure_reasons,
+                    exposure_confidence,
+                    exposure_coverage,
+                ) = _community_x_exposure_assessment(item, observation)
+                item["x_exposure_score"] = exposure_score
+                item["exposure_breakdown"] = exposure_breakdown
+                item["exposure_reasons"] = exposure_reasons
+                item["score_version"] = _COMMUNITY_EXPOSURE_SCORE_VERSION
+                item["exposure_confidence"] = exposure_confidence
+                item["exposure_coverage"] = exposure_coverage
+                item["observed_at"] = observation["observed_at"]
+                item["observation_delta"] = observation
+                item.update(cooling_by_cluster[cluster_key])
+            selected_issue_items = _select_diverse_community_items(allowed_issue_items, quota)
+            async with httpx.AsyncClient(headers=headers, follow_redirects=False) as redirect_session:
+                resolved_originals = await _resolve_community_origins(redirect_session, selected_issue_items)
+            for item in selected_issue_items:
+                encoded = quote(item["title"])
+                qualified.append(
+                    {
+                        **item,
+                        "early_score": None,
+                        "views_per_minute": None,
+                        "delta_views_per_minute": None,
+                        "before_issuelink": False,
+                        "issuelink_status": "IssueLink 집계 확인",
+                        "signal_source": "IssueLink",
+                        "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
+                        "threads_search_url": f"https://www.threads.com/search?q={encoded}",
+                        **self.lead_tracker.metrics_for(item),
+                    }
+                )
+        return {
+            "qualified": qualified,
+            "fallback_mode": fallback_mode,
+            "resolved_originals": resolved_originals,
+            "blocked_count": blocked_count,
+            "excluded_topics": excluded_topics,
+        }
+
+    def _cut_fast_viral_items(
+        self,
+        *,
+        qualified: list[dict[str, Any]],
+        all_observations: list[dict[str, Any]],
+        now: datetime,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Merge clusters and cut the candidate pool to the displayed limit."""
+        if all_observations:
+            self._save_current(now, all_observations)
+        self.exposure_tracker.save(now=now)
+        # 자를 때도 커널을 본다. 게이트에는 판정을 들였는데(passes_spread_gate) 마지막
+        # 자르기가 점수 순이라, 통과시킨 사는 축 소재가 여기서 다시 잘리고 있었다 —
+        # 확산이 덜 붙어 점수가 낮다는 것이 사는 축 소재의 정의라 언제나 맨 아래로 간다.
+        # 2026-08-07 실측: 게이트만 면제했을 때 화면의 사는 축은 여전히 2건이었다.
+        # IssueLink 경유 항목은 아직 판정이 없으니 여기서 붙여 같은 잣대로 겨루게 한다.
+        # 직접·IssueLink 풀을 합친 뒤 다시 묶어, 서로 다른 레인에서 잡힌 같은 사건도
+        # 한 자리에 합치고 확보한 자리는 다음 고유 소재로 채운다.
+        _annotate_community_clusters(qualified)
+        for item in qualified:
+            if "kernel_screen" not in item:
+                item["kernel_screen"] = screen_material(
+                    item.get("title", ""), community_label=item.get("community_label")
+                )
+        return _select_unique_community_items(qualified, limit)
+
+    async def _apply_fast_viral_og_and_resort(
+        self,
+        displayed: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Apply the second-pass context gate, then honor its kernel changes."""
+        # 0002: 제목만으로 약하게 판정된 소재는 본문(og:description)을 한 번 더 본다.
+        og_enrichment = await _apply_og_second_pass(
+            displayed,
+            source_backoff=self._backoff,
+        )
+        # 2차 판정이 축을 바꿀 수 있으므로 여기서 한 번 더 정렬한다. 이게 없으면
+        # 본문을 보고 사는 축으로 올라온 소재가 화면 맨 아래에 남는다 — 0002가
+        # 판정을 고쳐 놓고도 순서에는 반영되지 않는 셈이 된다.
+        displayed = sort_by_kernel(displayed)
+        return displayed, og_enrichment
+
+    def _assemble_fast_viral_snapshot(
+        self,
+        *,
+        now: datetime,
+        displayed: list[dict[str, Any]],
+        direct_observations: list[dict[str, Any]],
+        federated_observations: list[dict[str, Any]],
+        fmkorea_ok: bool,
+        direct_source_health: dict[str, bool],
+        federated_source_health: dict[str, bool],
+        issuelink_ok: bool,
+        blocked_count: int,
+        excluded_topics: Counter[str],
+        fallback_mode: bool,
+        resolved_originals: int,
+        errors: list[str],
+        og_enrichment: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build the API response after all collection stages complete."""
+        self._snapshot = {
+            "available": bool(displayed),
+            "items": displayed,
+            "collection_scope": "domestic_direct_only",
+            "foreign_sources_enabled": False,
+            "total_direct_posts": len(direct_observations),
+            "total_federated_posts": len(federated_observations),
+            "direct_source_count": sum(1 for healthy in {"fmkorea": fmkorea_ok, **direct_source_health}.values() if healthy),
+            # 분모를 화면에 하드코딩하면 소스를 늘려도 옛 숫자가 남는다. FMKorea 자리를 포함해 보낸다.
+            "direct_source_total": len(DIRECT_COMMUNITY_SOURCES) + 1,
+            "direct_displayed_count": sum(1 for item in displayed if item.get("signal_source") == "직접 목록"),
+            "federated_source_count": sum(
+                1 for healthy in federated_source_health.values() if healthy
+            ),
+            "federated_source_total": len(federated_source_health),
+            "federated_displayed_count": sum(
+                1
+                for item in displayed
+                if item.get("signal_source") == "글로벌 공개 커뮤니티"
+            ),
+            "qualified_count": len(displayed),
+            "before_issuelink_count": sum(1 for item in displayed if item["before_issuelink"]),
+            "filtered_count": max(0, len(direct_observations) - sum(1 for item in displayed if item.get("signal_source") == "직접 목록")),
+            "federated_filtered_count": max(
+                0,
+                len(federated_observations)
+                - sum(
+                    1
+                    for item in displayed
+                    if item.get("signal_source") == "글로벌 공개 커뮤니티"
+                ),
+            ),
+            "brand_safety_blocked_count": blocked_count,
+            "excluded_topic_counts": dict(excluded_topics),
+            "fallback_mode": fallback_mode,
+            "community_source_count": len({item.get("community_source") for item in displayed}),
+            "community_cluster_count": _unique_community_cluster_count(displayed),
+            "cooling_count": sum(1 for item in displayed if item.get("cooling") is True),
+            "resolved_original_count": resolved_originals,
+            "measured_lead_count": sum(1 for item in displayed if item.get("lead_status") == "measured"),
+            "refreshed_at": now.isoformat(),
+            "poll_interval_seconds": 300,
+            "source_health": {
+                "fmkorea_direct": fmkorea_ok,
+                **{f"{key}_direct": healthy for key, healthy in direct_source_health.items()},
+                **{
+                    f"{key}_public": bool(healthy)
+                    for key, healthy in federated_source_health.items()
+                },
+                "issuelink_confirmation": issuelink_ok,
+                "community_original_redirects": resolved_originals > 0,
+                "aagag": False,
+            },
+            "errors": errors,
+            "og_enrichment": og_enrichment,
+            "notice": (
+                "직접 커뮤니티 수집이 모두 제한 중입니다. IssueLink에서 확인한 원문만 표시하며 선행으로 계산하지 않습니다."
+                if fallback_mode
+                else "국내 직접 커뮤니티와 국내 커뮤니티 보완 신호(IssueLink)만 감지합니다. 해외 커뮤니티 소스는 이 레인에서 수집하지 않습니다."
+            ),
+        }
+        return self.snapshot()
+
     async def refresh(self, *, limit: int = 12) -> dict[str, Any]:
         limit = min(30, max(5, int(limit)))
         async with self._refresh_lock:
@@ -1168,7 +1765,6 @@ class FastViralCollector:
                 cached["cached"] = True
                 return cached
             self._last_attempt_at = now
-            errors: list[str] = []
             headers = {
                 "User-Agent": (
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -1176,503 +1772,47 @@ class FastViralCollector:
                 ),
                 "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.6",
             }
-            async with httpx.AsyncClient(follow_redirects=True, headers=headers) as session:
-                # 연속 실패한 소스는 이번 회차를 건너뛴다(백오프). 82cook이 요청 빈도로
-                # IP 단위 차단을 걸었을 때 수집기가 5분마다 계속 찌르고 있었다.
-                active_sources = [
-                    source for source in DIRECT_COMMUNITY_SOURCES
-                    if not self._backoff.should_skip(str(source["key"]), now)
-                ]
-                skipped = [s for s in DIRECT_COMMUNITY_SOURCES if s not in active_sources]
-                results = await asyncio.gather(
-                    session.get(FMKOREA_HUMOR_URL, timeout=httpx.Timeout(12.0, connect=5.0)),
-                    session.get(ISSUELINK_URL, timeout=httpx.Timeout(12.0, connect=5.0)),
-                    *(
-                        session.get(source["url"], timeout=httpx.Timeout(12.0, connect=5.0))
-                        for source in active_sources
-                    ),
-                    return_exceptions=True,
-                )
-
-            # 사용자 범위(2026-08-27): 이 레인은 국내 커뮤니티 전용이다.
-            # Mastodon·Bluesky·Lemmy 수집기는 다른 용도로 남겨 두되 여기서는 호출조차
-            # 하지 않는다. 별도 사건 소재 영상 큐의 공개 영상 메타 수집에는 영향 없다.
-            federated_result: dict[str, Any] = {"items": [], "source_health": {}, "errors": []}
-
-            fmkorea_items: list[dict[str, Any]] = []
-            issue_ids: set[str] = set()
-            issue_items: list[dict[str, Any]] = []
-            fmkorea_ok = False
-            issuelink_ok = False
-            direct_source_health: dict[str, bool] = {}
-            expanded_direct_items: list[dict[str, Any]] = []
-            federated_items = (
-                federated_result.get("items", [])
-                if isinstance(federated_result.get("items"), list)
-                else []
+            collected = await self._collect_fast_viral_sources(now=now, headers=headers)
+            gate = self._qualify_fast_viral_items(
+                all_observations=collected["all_observations"],
+                issue_items=collected["issue_items"],
+                issue_keys=collected["issue_keys"],
+                previous_items=collected["previous_items"],
+                elapsed_minutes=collected["elapsed_minutes"],
+                now=now,
             )
-            federated_source_health = (
-                federated_result.get("source_health", {})
-                if isinstance(federated_result.get("source_health"), dict)
-                else {}
+            selected = await self._select_fast_viral_diverse_items(
+                qualified=gate["qualified"],
+                issue_items=collected["issue_items"],
+                direct_keys=collected["direct_keys"],
+                limit=limit,
+                now=now,
+                headers=headers,
+                fmkorea_ok=collected["fmkorea_ok"],
+                direct_source_health=collected["direct_source_health"],
+                excluded_topics=gate["excluded_topics"],
+                blocked_count=gate["blocked_count"],
             )
-            federated_errors = (
-                federated_result.get("errors", [])
-                if isinstance(federated_result.get("errors"), list)
-                else []
+            displayed = self._cut_fast_viral_items(
+                qualified=selected["qualified"],
+                all_observations=collected["all_observations"],
+                now=now,
+                limit=limit,
             )
-            errors.extend(str(error) for error in federated_errors)
-            if isinstance(results[0], Exception):
-                errors.append("FMKorea 직접 목록 수집 실패")
-            else:
-                # FMKorea는 자동 접근을 보안 시스템으로 막는다(2026-08-06 확인: HTTP 430 +
-                # "에펨코리아 보안 시스템" 페이지, robots.txt도 대부분의 봇에 메인만 허용).
-                # 헤더를 위장해 뚫지 않는다 — AAGAG를 robots 이유로 제외한 것과 같은 기준이다.
-                # 원인을 "파싱 실패"로 뭉개면 고칠 수 있는 버그처럼 보이므로 차단은 따로 적는다.
-                if _looks_blocked(results[0]):
-                    errors.append("FMKorea 자동 접근 차단 — IssueLink 경유로만 확인")
-                else:
-                    try:
-                        results[0].raise_for_status()
-                        fmkorea_items = parse_fmkorea_latest(results[0].text, now=now)
-                        fmkorea_ok = bool(fmkorea_items)
-                        if not fmkorea_items:
-                            errors.append("FMKorea 직접 목록이 비어 있음")
-                    except Exception:
-                        errors.append("FMKorea 직접 목록 파싱 실패")
-            if isinstance(results[1], Exception):
-                errors.append("IssueLink 비교 수집 실패")
-            else:
-                try:
-                    results[1].raise_for_status()
-                    issue_ids = parse_issuelink_fmkorea_ids(results[1].text)
-                    issue_items = parse_issuelink_community_items(results[1].text)
-                    issuelink_ok = bool(issue_ids)
-                except Exception:
-                    errors.append("IssueLink 비교 파싱 실패")
-
-            for source in skipped:
-                key = str(source["key"])
-                direct_source_health[key] = False
-                resume = self._backoff.status(now).get(key, {}).get("resume_in_minutes", 0)
-                errors.append(f"{source['label']} 연속 실패로 대기 중({resume}분 후 재시도)")
-
-            for source, result in zip(active_sources, results[2:], strict=True):
-                key = str(source["key"])
-                label = str(source["label"])
-                if isinstance(result, Exception):
-                    direct_source_health[key] = False
-                    self._backoff.record_failure(key, now)
-                    errors.append(f"{label} 직접 목록 수집 실패")
-                    continue
-                if _looks_blocked(result):
-                    direct_source_health[key] = False
-                    self._backoff.record_failure(key, now)
-                    errors.append(f"{label} 자동 접근 차단 — 요청 간격을 늘려 재시도")
-                    continue
-                try:
-                    result.raise_for_status()
-                    parsed = parse_direct_community_source(key, result.text, now=now)
-                    direct_source_health[key] = bool(parsed)
-                    expanded_direct_items.extend(parsed)
-                    if parsed:
-                        self._backoff.record_success(key)
-                    else:
-                        errors.append(f"{label} 직접 목록이 비어 있음")
-                except Exception:
-                    direct_source_health[key] = False
-                    errors.append(f"{label} 직접 목록 파싱 실패")
-
-            previous = self._load_previous()
-            previous_items = previous.get("items", {}) if isinstance(previous.get("items"), dict) else {}
-            previous_at_raw = str(previous.get("polled_at") or "")
-            try:
-                previous_at = datetime.fromisoformat(previous_at_raw)
-                if previous_at.tzinfo is None:
-                    previous_at = previous_at.replace(tzinfo=UTC)
-                elapsed_minutes = max((now - previous_at.astimezone(UTC)).total_seconds() / 60, 0.1)
-            except ValueError:
-                elapsed_minutes = 0.0
-
-            direct_observations = [
-                {
-                    **item,
-                    "community_source": "fmkorea",
-                    "community_label": "FMKorea",
-                    "source_position": position,
-                    "link_kind": "publisher_original",
-                    "signal_source": "직접 목록",
-                }
-                for position, item in enumerate(fmkorea_items)
-            ] + expanded_direct_items
-            federated_observations = [
-                item
-                for item in federated_items
-                if isinstance(item, dict)
-                and item.get("id")
-                and item.get("title")
-                and item.get("source_url")
-            ]
-            all_observations = [*direct_observations, *federated_observations]
-            _annotate_community_clusters(all_observations)
-            self.lead_tracker.record_observations(direct_observations, issue_items, observed_at=now)
-            direct_keys = {_snapshot_item_key(item) for item in direct_observations}
-            issue_keys = {_snapshot_item_key(item) for item in issue_items}
-
-            qualified: list[dict[str, Any]] = []
-            blocked_count = 0
-            excluded_topics: Counter[str] = Counter()
-            for item in all_observations:
-                is_federated = item.get("signal_source") == "글로벌 공개 커뮤니티"
-                age = item.get("age_minutes")
-                exclusion = excluded_topic_reason(item["title"], item.get("category"))
-                record_filter_candidate_fail_open(
-                    self.filter_shadow_store,
-                    source="fast-viral:federated" if is_federated else "fast-viral:direct",
-                    candidate_id=_snapshot_item_key(item),
-                    title=item["title"],
-                    extra_text=item.get("category") or "",
-                    filter_verdict="block" if exclusion else "allow",
-                    filter_reason=exclusion or "",
-                    observed_at=now,
-                )
-                if exclusion:
-                    excluded_topics[exclusion] += 1
-                    continue
-                max_age_minutes = (
-                    _ISSUELINK_MAX_AGE_MINUTES if is_federated else _direct_max_age_minutes()
-                )
-                if (
-                    age is None
-                    or age > max_age_minutes
-                    or not has_min_traction(item)
-                    or not _is_brand_safe_title(item["title"])
-                    or (is_federated and item.get("sensitive") is True)
-                    or (is_federated and bool(str(item.get("spoiler_text") or "").strip()))
-                ):
-                    blocked_count += 1
-                    continue
-                source_key = str(item.get("community_source") or "fmkorea")
-                screen = screen_material(item["title"], community_label=item.get("community_label"))
-                item["kernel_screen"] = screen
-                observation_lane = "federated" if is_federated else "direct"
-                observation_key = f"community:{observation_lane}:{source_key}:{item['id']}"
-                observation = self.exposure_tracker.record(
-                    observation_key,
-                    {
-                        "original_count": 1,
-                        "source_count": 1,
-                        "mentions": 1,
-                        "comments": item["comments"],
-                    },
-                    observed_at=now,
-                    score_version=_COMMUNITY_EXPOSURE_SCORE_VERSION,
-                    post_meta=_community_post_meta(item, screen=screen),
-                )
-                cooling = _cooling_for_tracker(
-                    self.exposure_tracker,
-                    observation_key,
-                    item=item,
-                    now=now,
-                )
-                previous_item = previous_items.get(_snapshot_item_key(item), {})
-                if not previous_item and source_key == "fmkorea":
-                    previous_item = previous_items.get(item["id"], {})
-                delta_rate = 0.0
-                if elapsed_minutes > 0 and isinstance(previous_item, dict):
-                    delta_rate = max(0, item["views"] - int(previous_item.get("views") or 0)) / elapsed_minutes
-                aggregator_available = bool(issue_items)
-                before_issuelink = (
-                    False
-                    if is_federated
-                    else aggregator_available and _snapshot_item_key(item) not in issue_keys
-                )
-                score, effective_rate = _direct_signal_score(
-                    age_minutes=age,
-                    views=item["views"],
-                    comments=item["comments"],
-                    votes=item["votes"],
-                    delta_views_per_minute=delta_rate,
-                    before_issuelink=before_issuelink,
-                )
-                # 커널 판정을 게이트 안으로 들인다. 예전에는 조회 속도로 12건을 고른 뒤
-                # 라우터에서 판정을 붙였기 때문에, 판정은 표시 순서만 바꾸고 무엇을 남길지에는
-                # 아무 영향이 없었다. 사는 축(가해자 명확·낙차)은 확산이 덜 붙었어도 통과시킨다 —
-                # X에서 판정이 붙는 소재는 조회가 늦게 오기 때문이다.
-                live_axis = str(screen.get("axis", "")).startswith("live")
-                if not passes_spread_gate(item, score=score, live_axis=live_axis):
-                    continue
-                cross_source_count = int(item.get("cross_community_source_count") or 1)
-                cross_boost = min(15, max(0, cross_source_count - 1) * 8)
-                exposure_score = min(100, score + cross_boost)
-                encoded = quote(item["title"])
-                exposure_reasons = [
-                    f"게시 후 {age}분",
-                    (
-                        "글로벌 공개 트렌드 원문"
-                        if is_federated
-                        else "IssueLink 선행 감지"
-                        if before_issuelink
-                        else "IssueLink 노출 확인"
-                    ),
-                ]
-                if effective_rate is not None:
-                    exposure_reasons.insert(0, f"분당 조회 {effective_rate:.1f}")
-                else:
-                    exposure_reasons.insert(0, f"추천·댓글 {item['votes'] + item['comments']:,}개")
-                if cross_source_count >= 2:
-                    exposure_reasons.append(f"공개 커뮤니티 {cross_source_count}곳 동시 확산")
-                lead_metrics = (
-                    {
-                        "first_seen_at": observation["observed_at"],
-                        "direct_first_seen_at": None,
-                        "aggregator_first_seen_at": None,
-                        "lead_seconds": None,
-                        "lead_minutes": None,
-                        "lead_status": "not_applicable",
-                        "lead_identity": f"{source_key}:{item['id']}",
-                    }
-                    if is_federated
-                    else self.lead_tracker.metrics_for(item)
-                )
-                qualified.append(
-                    {
-                        **item,
-                        "early_score": score,
-                        "x_exposure_score": exposure_score,
-                        "exposure_breakdown": {"direct_velocity": score, "cross_community": cross_boost},
-                        "exposure_reasons": exposure_reasons,
-                        "score_version": _COMMUNITY_EXPOSURE_SCORE_VERSION,
-                        "exposure_confidence": "high" if previous_item else "medium",
-                        "exposure_coverage": 1.0 if previous_item else 0.92,
-                        "observed_at": observation["observed_at"],
-                        "observation_delta": observation,
-                        **cooling,
-                        "views_per_minute": round(effective_rate, 1) if effective_rate is not None else None,
-                        "delta_views_per_minute": round(delta_rate, 1),
-                        "before_issuelink": before_issuelink,
-                        "issuelink_status": (
-                            "글로벌 공개 소스 — IssueLink 비교 비대상"
-                            if is_federated
-                            else "아직 IssueLink 미노출"
-                            if before_issuelink
-                            else (
-                                "IssueLink 노출 확인"
-                                if _snapshot_item_key(item) in issue_keys
-                                else "IssueLink 비교 불가"
-                            )
-                        ),
-                        "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
-                        "threads_search_url": f"https://www.threads.com/search?q={encoded}",
-                        **lead_metrics,
-                    }
-                )
-
-            qualified.sort(
-                key=lambda item: (
-                    item["x_exposure_score"],
-                    item["before_issuelink"],
-                    item["views_per_minute"] or 0,
-                ),
-                reverse=True,
+            displayed, og_enrichment = await self._apply_fast_viral_og_and_resort(displayed)
+            return self._assemble_fast_viral_snapshot(
+                now=now,
+                displayed=displayed,
+                direct_observations=collected["direct_observations"],
+                federated_observations=collected["federated_observations"],
+                fmkorea_ok=collected["fmkorea_ok"],
+                direct_source_health=collected["direct_source_health"],
+                federated_source_health=collected["federated_source_health"],
+                issuelink_ok=collected["issuelink_ok"],
+                blocked_count=selected["blocked_count"],
+                excluded_topics=selected["excluded_topics"],
+                fallback_mode=selected["fallback_mode"],
+                resolved_originals=selected["resolved_originals"],
+                errors=collected["errors"],
+                og_enrichment=og_enrichment,
             )
-            # 라운드로빈이 소스당 1건씩만 남기면 "오늘 유난히 좋은 소스"의 상위 글이 통째로
-            # 밀려난다. 풀을 넓게 잡아 뒤의 커널 정렬이 고를 여지를 남긴다.
-            qualified = _select_diverse_community_items(qualified, limit * 3)
-            any_direct_ok = fmkorea_ok or any(direct_source_health.values())
-            fallback_mode = not any_direct_ok and bool(issue_items)
-            resolved_originals = 0
-            # 애그리게이터 몫을 미리 떼어 둔다. 예전에는 직접 목록이 자리를 다 채우면
-            # IssueLink를 아예 보지 않았는데, 그러면 클리앙·인벤·뽐뿌·82cook처럼 직접
-            # 수집이 막혔거나 붙이지 않은 커뮤니티가 영영 화면에 오르지 못한다.
-            quota = aggregator_quota(limit, any_direct_ok=any_direct_ok)
-            if issue_items:
-                allowed_issue_items: list[dict[str, Any]] = []
-                for item in issue_items:
-                    if _snapshot_item_key(item) in direct_keys:
-                        continue
-                    # 라벨은 출처지 주제가 아니다. 넣으면 MLB파크가 "mlb"에 걸려 전량 사라진다.
-                    exclusion = excluded_topic_reason(item["title"])
-                    record_filter_candidate_fail_open(
-                        self.filter_shadow_store,
-                        source="fast-viral:issuelink",
-                        candidate_id=_snapshot_item_key(item),
-                        title=item["title"],
-                        extra_text="",
-                        filter_verdict="block" if exclusion else "allow",
-                        filter_reason=exclusion or "",
-                        observed_at=now,
-                    )
-                    if exclusion:
-                        excluded_topics[exclusion] += 1
-                        continue
-                    if not _is_recent_issuelink_item(item):
-                        blocked_count += 1
-                        continue
-                    if not _is_brand_safe_title(item["title"]):
-                        blocked_count += 1
-                        continue
-                    allowed_issue_items.append(item)
-                _annotate_community_clusters(allowed_issue_items)
-                observations_by_cluster: dict[str, dict[str, Any]] = {}
-                cooling_by_cluster: dict[str, dict[str, bool | int | None]] = {}
-                for item in allowed_issue_items:
-                    cluster_key = str(item["community_cluster_key"])
-                    if cluster_key in observations_by_cluster:
-                        continue
-                    cluster = [
-                        candidate
-                        for candidate in allowed_issue_items
-                        if candidate.get("community_cluster_key") == cluster_key
-                    ]
-                    representative = cluster[0]
-                    screen = screen_material(
-                        representative["title"],
-                        community_label=representative.get("community_label"),
-                    )
-                    representative["kernel_screen"] = screen
-                    observation_key = f"community:cluster:{cluster_key}"
-                    observations_by_cluster[cluster_key] = self.exposure_tracker.record(
-                        observation_key,
-                        {
-                            "original_count": len(cluster),
-                            "source_count": len({candidate["community_source"] for candidate in cluster}),
-                            "mentions": len(cluster),
-                            "comments": sum(int(candidate.get("comments") or 0) for candidate in cluster),
-                        },
-                        observed_at=now,
-                        score_version=_COMMUNITY_EXPOSURE_SCORE_VERSION,
-                        post_meta=_community_post_meta(representative, screen=screen),
-                    )
-                    cooling_by_cluster[cluster_key] = _cooling_for_tracker(
-                        self.exposure_tracker,
-                        observation_key,
-                        item=representative,
-                        now=now,
-                    )
-                for item in allowed_issue_items:
-                    cluster_key = str(item["community_cluster_key"])
-                    observation = observations_by_cluster[cluster_key]
-                    (
-                        exposure_score,
-                        exposure_breakdown,
-                        exposure_reasons,
-                        exposure_confidence,
-                        exposure_coverage,
-                    ) = _community_x_exposure_assessment(item, observation)
-                    item["x_exposure_score"] = exposure_score
-                    item["exposure_breakdown"] = exposure_breakdown
-                    item["exposure_reasons"] = exposure_reasons
-                    item["score_version"] = _COMMUNITY_EXPOSURE_SCORE_VERSION
-                    item["exposure_confidence"] = exposure_confidence
-                    item["exposure_coverage"] = exposure_coverage
-                    item["observed_at"] = observation["observed_at"]
-                    item["observation_delta"] = observation
-                    item.update(cooling_by_cluster[cluster_key])
-                selected_issue_items = _select_diverse_community_items(allowed_issue_items, quota)
-                async with httpx.AsyncClient(headers=headers, follow_redirects=False) as redirect_session:
-                    resolved_originals = await _resolve_community_origins(redirect_session, selected_issue_items)
-                for item in selected_issue_items:
-                    encoded = quote(item["title"])
-                    qualified.append(
-                        {
-                            **item,
-                            "early_score": None,
-                            "views_per_minute": None,
-                            "delta_views_per_minute": None,
-                            "before_issuelink": False,
-                            "issuelink_status": "IssueLink 집계 확인",
-                            "signal_source": "IssueLink",
-                            "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
-                            "threads_search_url": f"https://www.threads.com/search?q={encoded}",
-                            **self.lead_tracker.metrics_for(item),
-                        }
-                    )
-            if all_observations:
-                self._save_current(now, all_observations)
-            self.exposure_tracker.save(now=now)
-            # 자를 때도 커널을 본다. 게이트에는 판정을 들였는데(passes_spread_gate) 마지막
-            # 자르기가 점수 순이라, 통과시킨 사는 축 소재가 여기서 다시 잘리고 있었다 —
-            # 확산이 덜 붙어 점수가 낮다는 것이 사는 축 소재의 정의라 언제나 맨 아래로 간다.
-            # 2026-08-07 실측: 게이트만 면제했을 때 화면의 사는 축은 여전히 2건이었다.
-            # IssueLink 경유 항목은 아직 판정이 없으니 여기서 붙여 같은 잣대로 겨루게 한다.
-            # 직접·IssueLink 풀을 합친 뒤 다시 묶어, 서로 다른 레인에서 잡힌 같은 사건도
-            # 한 자리에 합치고 확보한 자리는 다음 고유 소재로 채운다.
-            _annotate_community_clusters(qualified)
-            for item in qualified:
-                if "kernel_screen" not in item:
-                    item["kernel_screen"] = screen_material(
-                        item.get("title", ""), community_label=item.get("community_label")
-                    )
-            displayed = _select_unique_community_items(qualified, limit)
-            # 0002: 제목만으로 약하게 판정된 소재는 본문(og:description)을 한 번 더 본다.
-            og_enrichment = await _apply_og_second_pass(
-                displayed,
-                source_backoff=self._backoff,
-            )
-            # 2차 판정이 축을 바꿀 수 있으므로 여기서 한 번 더 정렬한다. 이게 없으면
-            # 본문을 보고 사는 축으로 올라온 소재가 화면 맨 아래에 남는다 — 0002가
-            # 판정을 고쳐 놓고도 순서에는 반영되지 않는 셈이 된다.
-            displayed = sort_by_kernel(displayed)
-            self._snapshot = {
-                "available": bool(displayed),
-                "items": displayed,
-                "collection_scope": "domestic_direct_only",
-                "foreign_sources_enabled": False,
-                "total_direct_posts": len(direct_observations),
-                "total_federated_posts": len(federated_observations),
-                "direct_source_count": sum(1 for healthy in {"fmkorea": fmkorea_ok, **direct_source_health}.values() if healthy),
-                # 분모를 화면에 하드코딩하면 소스를 늘려도 옛 숫자가 남는다. FMKorea 자리를 포함해 보낸다.
-                "direct_source_total": len(DIRECT_COMMUNITY_SOURCES) + 1,
-                "direct_displayed_count": sum(1 for item in displayed if item.get("signal_source") == "직접 목록"),
-                "federated_source_count": sum(
-                    1 for healthy in federated_source_health.values() if healthy
-                ),
-                "federated_source_total": len(federated_source_health),
-                "federated_displayed_count": sum(
-                    1
-                    for item in displayed
-                    if item.get("signal_source") == "글로벌 공개 커뮤니티"
-                ),
-                "qualified_count": len(displayed),
-                "before_issuelink_count": sum(1 for item in displayed if item["before_issuelink"]),
-                "filtered_count": max(0, len(direct_observations) - sum(1 for item in displayed if item.get("signal_source") == "직접 목록")),
-                "federated_filtered_count": max(
-                    0,
-                    len(federated_observations)
-                    - sum(
-                        1
-                        for item in displayed
-                        if item.get("signal_source") == "글로벌 공개 커뮤니티"
-                    ),
-                ),
-                "brand_safety_blocked_count": blocked_count,
-                "excluded_topic_counts": dict(excluded_topics),
-                "fallback_mode": fallback_mode,
-                "community_source_count": len({item.get("community_source") for item in displayed}),
-                "community_cluster_count": _unique_community_cluster_count(displayed),
-                "cooling_count": sum(1 for item in displayed if item.get("cooling") is True),
-                "resolved_original_count": resolved_originals,
-                "measured_lead_count": sum(1 for item in displayed if item.get("lead_status") == "measured"),
-                "refreshed_at": now.isoformat(),
-                "poll_interval_seconds": 300,
-                "source_health": {
-                    "fmkorea_direct": fmkorea_ok,
-                    **{f"{key}_direct": healthy for key, healthy in direct_source_health.items()},
-                    **{
-                        f"{key}_public": bool(healthy)
-                        for key, healthy in federated_source_health.items()
-                    },
-                    "issuelink_confirmation": issuelink_ok,
-                    "community_original_redirects": resolved_originals > 0,
-                    "aagag": False,
-                },
-                "errors": errors,
-                "og_enrichment": og_enrichment,
-                "notice": (
-                    "직접 커뮤니티 수집이 모두 제한 중입니다. IssueLink에서 확인한 원문만 표시하며 선행으로 계산하지 않습니다."
-                    if fallback_mode
-                    else "국내 직접 커뮤니티와 국내 커뮤니티 보완 신호(IssueLink)만 감지합니다. 해외 커뮤니티 소스는 이 레인에서 수집하지 않습니다."
-                ),
-            }
-            return self.snapshot()

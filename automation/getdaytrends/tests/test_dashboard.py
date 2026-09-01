@@ -1,6 +1,7 @@
 """Tests for C-3 dashboard enhancement endpoints."""
 
 import importlib.util
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -82,11 +83,36 @@ class TestExistingEndpoints:
         assert "tap-outcome-list" in resp.text
         assert "tap-deal-room" in resp.text
 
-    def test_pipeline_status(self, client):
+    def test_pipeline_status(self, client, caplog):
         resp = client.get("/api/pipeline_status")
         assert resp.status_code == 200
         data = resp.json()
         assert "state" in data
+
+        from shared.llm import stats as llm_stats
+
+        llm_db_path = MagicMock()
+        llm_db_path.exists.return_value = True
+        with (
+            patch.object(llm_stats, "_DB_PATH", llm_db_path, create=True),
+            patch.object(llm_stats, "CostTracker", side_effect=RuntimeError("synthetic budget failure")),
+            caplog.at_level(logging.WARNING, logger="dashboard"),
+        ):
+            degraded = client.get("/api/pipeline_status")
+
+        assert degraded.status_code == 200
+        degraded_data = degraded.json()
+        assert set(degraded_data["budget"]) == {"daily_budget_usd", "today_cost_usd", "budget_used_pct"}
+        assert degraded_data["health"] == {
+            "status": "degraded",
+            "llm_budget": {
+                "status": "degraded",
+                "reason": "exception",
+                "error_type": "RuntimeError",
+            },
+        }
+        assert any("Dashboard today's LLM cost and budget aggregation failed" in record.getMessage() for record in caplog.records)
+        assert any("RuntimeError" in record.getMessage() for record in caplog.records)
 
 
 class TestC3TrendsToday:
@@ -151,7 +177,7 @@ class TestC3Watchlist:
 class TestDashboardEnhancements:
     """Tests for newly added log/A-B dashboard helpers."""
 
-    def test_logs_endpoint_falls_back_to_local_file(self, client, local_tmp_path):
+    def test_logs_endpoint_falls_back_to_local_file(self, client, local_tmp_path, caplog):
         base_dir = local_tmp_path / "getdaytrends"
         base_dir.mkdir(parents=True)
         (base_dir / "tweet_bot.log").write_text("line-1\nline-2\nline-3\n", encoding="utf-8")
@@ -163,12 +189,49 @@ class TestDashboardEnhancements:
             mock_config.base_dir = base_dir
             mock_client_cls.return_value.__aenter__.return_value = mock_http_client
 
-            resp = client.get("/api/logs?limit=2")
+            with caplog.at_level(logging.WARNING, logger="dashboard"):
+                resp = client.get("/api/logs?limit=2")
 
         assert resp.status_code == 200
-        assert resp.json() == {"logs": ["line-2", "line-3"], "source": "local"}
+        assert resp.json() == {
+            "logs": ["line-2", "line-3"],
+            "source": "local",
+            "health": {
+                "status": "degraded",
+                "loki": {
+                    "status": "degraded",
+                    "reason": "exception",
+                    "error_type": "RuntimeError",
+                },
+            },
+        }
+        assert any("Dashboard Loki log query failed" in record.getMessage() for record in caplog.records)
+        assert any("loki unavailable" in record.getMessage() for record in caplog.records)
 
-    def test_ab_test_endpoint_reads_dailynews_results(self, client, local_tmp_path):
+        with patch("dashboard._config") as mock_config, patch("dashboard.httpx.AsyncClient") as mock_client_cls:
+            mock_config.base_dir = base_dir
+            mock_client_cls.return_value.__aenter__.return_value = mock_http_client
+
+            with (
+                patch("builtins.open", side_effect=OSError("local log unavailable")),
+                caplog.at_level(logging.WARNING, logger="dashboard"),
+            ):
+                local_failure = client.get("/api/logs?limit=2")
+
+        assert local_failure.status_code == 200
+        local_failure_body = local_failure.json()
+        assert local_failure_body["logs"] == []
+        assert local_failure_body["source"] == "local"
+        assert local_failure_body["health"]["status"] == "degraded"
+        assert local_failure_body["health"]["local_log_file"] == {
+            "status": "degraded",
+            "reason": "exception",
+            "error_type": "OSError",
+        }
+        assert any("Dashboard local log file read failed" in record.getMessage() for record in caplog.records)
+        assert any("local log unavailable" in record.getMessage() for record in caplog.records)
+
+    def test_ab_test_endpoint_reads_dailynews_results(self, client, local_tmp_path, caplog):
         workspace_dir = local_tmp_path / "workspace"
         base_dir = workspace_dir / "getdaytrends"
         ab_dir = workspace_dir / "DailyNews" / "output"
@@ -198,6 +261,29 @@ class TestDashboardEnhancements:
                 "group_b": {"ctr": 9.0, "conversion": 3.0},
             }
         }
+
+        (ab_dir / "ab_test_economy_kr_v2.json").write_text("{invalid json", encoding="utf-8")
+        with patch("dashboard._config") as mock_config:
+            mock_config.base_dir = base_dir
+            with caplog.at_level(logging.WARNING, logger="dashboard"):
+                degraded = client.get("/api/ab_test")
+
+        assert degraded.status_code == 200
+        degraded_body = degraded.json()
+        assert degraded_body["metrics"] == {
+            "group_a": {"ctr": 2.1, "conversion": 0.8},
+            "group_b": {"ctr": 4.5, "conversion": 2.2},
+        }
+        assert degraded_body["health"] == {
+            "status": "degraded",
+            "ab_test": {
+                "status": "degraded",
+                "reason": "exception",
+                "error_type": "JSONDecodeError",
+            },
+        }
+        assert any("Dashboard A/B metrics load failed" in record.getMessage() for record in caplog.records)
+        assert any("JSONDecodeError" in record.getMessage() for record in caplog.records)
 
     def test_review_queue_endpoint_returns_snapshot(self, client):
         payload = {
@@ -237,7 +323,7 @@ class TestDashboardGracefulDegradation:
         assert resp.headers["x-dashboard-degraded"] == "1"
         assert resp.headers["x-dashboard-degraded-reason"] == "dependency_unavailable"
 
-    def test_stats_endpoint_returns_zeroed_payload_when_db_connection_fails(self, client):
+    def test_stats_endpoint_returns_zeroed_payload_when_db_connection_fails(self, client, caplog):
         with patch("dashboard._get_conn", side_effect=RuntimeError("db unavailable")):
             resp = client.get("/api/stats")
 
@@ -257,6 +343,33 @@ class TestDashboardGracefulDegradation:
         }
         assert resp.headers["x-dashboard-degraded"] == "1"
         assert resp.headers["x-dashboard-degraded-source"] == "api_stats"
+
+        from shared.llm import stats as llm_stats
+
+        llm_db_path = MagicMock()
+        llm_db_path.exists.return_value = True
+        with (
+            patch.object(llm_stats, "_DB_PATH", llm_db_path, create=True),
+            patch.object(llm_stats, "CostTracker", side_effect=RuntimeError("synthetic stats failure")),
+            patch("dashboard.get_trend_stats", new_callable=AsyncMock, return_value={}),
+            caplog.at_level(logging.WARNING, logger="dashboard"),
+        ):
+            degraded = client.get("/api/stats")
+
+        assert degraded.status_code == 200
+        degraded_body = degraded.json()
+        assert degraded_body["llm_cost_7d"] == 0.0
+        assert degraded_body["llm_daily"] == []
+        assert degraded_body["health"] == {
+            "status": "degraded",
+            "llm_cost_7d": {
+                "status": "degraded",
+                "reason": "exception",
+                "error_type": "RuntimeError",
+            },
+        }
+        assert any("Dashboard LLM 7-day cost aggregation failed" in record.getMessage() for record in caplog.records)
+        assert any("RuntimeError" in record.getMessage() for record in caplog.records)
 
     @pytest.mark.parametrize(
         ("path", "expected"),
@@ -1087,4 +1200,3 @@ class TestTapOpportunities:
             "session_id": "cs_test_123",
         }
         mock_record.assert_not_awaited()
-

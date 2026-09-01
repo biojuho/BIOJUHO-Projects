@@ -1248,6 +1248,794 @@ class XOpportunityRadar:
     def snapshot(self) -> dict[str, Any]:
         return dict(self._snapshot)
 
+    async def _collect_radar_sources(
+        self,
+        *,
+        country: str,
+        limit: int,
+        force_refresh: bool,
+    ) -> dict[str, Any]:
+        """Run the source fetchers and retain their positional results."""
+        async with httpx.AsyncClient(follow_redirects=True) as session:
+            is_production_fetchers = (
+                self.google_fetcher is _async_fetch_google_trends_rss
+                and self.x_fetcher is _async_fetch_getdaytrends
+            )
+            ranking_fetcher = self.news_ranking_fetcher
+            daum_fetcher = self.daum_realtime_fetcher
+            reddit_fetcher = self.reddit_fetcher
+            if is_production_fetchers and ranking_fetcher is None:
+                # 대시보드는 두 생산 fetcher를 쓰므로 랭킹 lane을 자동으로 켠다.
+                # 단위 테스트의 커스텀 fetcher 세션은 자동으로 꺼져 hermetical을 유지한다.
+                ranking_fetcher = _async_fetch_news_rankings
+            if is_production_fetchers and daum_fetcher is None:
+                # 1순위 소스도 같은 생산 조건에서 자동으로 켠다.
+                daum_fetcher = _async_fetch_daum_realtime
+            if is_production_fetchers and reddit_fetcher is None:
+                # Reddit 핫 포스트도 같은 생산 조건에서 자동으로 켠다.
+                reddit_fetcher = _async_fetch_reddit_hot
+            if self.x_fetcher is _async_fetch_getdaytrends:
+                x_request = self.x_fetcher(
+                    session,
+                    country,
+                    max(limit, 20),
+                    force_refresh=force_refresh,
+                )
+            else:
+                x_request = self.x_fetcher(session, country, max(limit, 20))
+            gather_tasks: list[Awaitable[object]] = [
+                self.google_fetcher(session, country, max(limit, 20)),
+                x_request,
+            ]
+            result_index: dict[str, int | None] = {"ranking": None, "daum": None, "reddit": None}
+            if ranking_fetcher is not None:
+                result_index["ranking"] = len(gather_tasks)
+                gather_tasks.append(ranking_fetcher(session, max(limit, 20)))
+            if daum_fetcher is not None:
+                result_index["daum"] = len(gather_tasks)
+                gather_tasks.append(daum_fetcher(session, max(limit, 20)))
+            if reddit_fetcher is not None:
+                result_index["reddit"] = len(gather_tasks)
+                gather_tasks.append(reddit_fetcher(session, max(limit, 20)))
+            gathered = await asyncio.gather(*gather_tasks, return_exceptions=True)
+            return {
+                "google_result": gathered[0],
+                "x_result": gathered[1],
+                "ranking_result": (
+                    gathered[result_index["ranking"]]
+                    if result_index["ranking"] is not None
+                    else []
+                ),
+                "daum_result": (
+                    gathered[result_index["daum"]]
+                    if result_index["daum"] is not None
+                    else (None, [])
+                ),
+                "reddit_result": (
+                    gathered[result_index["reddit"]]
+                    if result_index["reddit"] is not None
+                    else []
+                ),
+                "ranking_enabled": ranking_fetcher is not None,
+                "daum_enabled": daum_fetcher is not None,
+                "reddit_enabled": reddit_fetcher is not None,
+            }
+
+    def _normalize_radar_sources(
+        self,
+        collected: dict[str, Any],
+        *,
+        now: datetime,
+    ) -> dict[str, Any]:
+        """Normalize source results and compose the cross-source candidates."""
+        errors: list[str] = []
+        google_trends: list[RawTrend] = []
+        x_trends: list[RawTrend] = []
+        x_fallback_count = 0
+        ranking_raw: list[dict[str, Any]] = []
+        daum_updated_at: str | None = None
+        daum_raw: list[dict[str, Any]] = []
+        reddit_raw: list[dict[str, Any]] = []
+        google_result = collected["google_result"]
+        x_result = collected["x_result"]
+        ranking_result = collected["ranking_result"]
+        daum_result = collected["daum_result"]
+        reddit_result = collected["reddit_result"]
+        if isinstance(google_result, Exception):
+            errors.append(f"Google Trends: {str(google_result)[:180]}")
+        else:
+            google_trends = list(google_result)
+        if isinstance(ranking_result, Exception):
+            errors.append(f"뉴스 랭킹 수집: {str(ranking_result)[:180]}")
+        elif collected["ranking_enabled"]:
+            ranking_raw = [item for item in ranking_result if isinstance(item, dict)]
+        if isinstance(daum_result, Exception):
+            errors.append(f"다음 실시간 트렌드: {str(daum_result)[:180]}")
+        elif collected["daum_enabled"]:
+            if isinstance(daum_result, tuple) and len(daum_result) == 2:
+                daum_updated_at, daum_raw = daum_result
+            elif isinstance(daum_result, list):
+                daum_raw = daum_result
+        if isinstance(reddit_result, Exception):
+            errors.append(f"Reddit 핫 포스트 수집: {str(reddit_result)[:180]}")
+        elif collected["reddit_enabled"]:
+            reddit_raw = [item for item in reddit_result if isinstance(item, dict)]
+        if isinstance(x_result, Exception):
+            errors.append(f"공개 X 트렌드: {str(x_result)[:180]}")
+        else:
+            x_trends = [
+                item
+                for item in x_result
+                if item.name not in _FALLBACK_X_TOPICS and item.link.startswith("https://getdaytrends.com/")
+            ]
+            # 0072: fallback은 이름 목록 우연 일치가 아니라 표식으로 감지한다.
+            # `_FALLBACK_X_TOPICS`는 sources.py의 `_fallback_trends()`와 다른
+            # 파일·레인이 관리해 내용이 어긋나도 조용히 지나쳐 왔다.
+            x_fallback_count = sum(
+                1
+                for item in x_result
+                if (item.extra or {}).get("_is_fallback") or (item.extra or {}).get("is_fallback")
+            )
+
+        # 교차 확인(3번 강등)이 스팸의 1차 방어선이다. 패턴은 보조 —
+        # 목록을 추격하지 않고, 판정된 단어에 라벨만 달아둔다.
+        spam_flagged: list[dict[str, Any]] = []
+        spam_reason_by_rank: dict[int, str] = {}
+        for x_rank, trend in enumerate(x_trends):
+            reason = _spam_trend_reason(trend.name)
+            if reason:
+                spam_flagged.append({"keyword": trend.name, "x_rank": x_rank, "reason": reason})
+                spam_reason_by_rank[x_rank] = reason
+
+        daum_excluded_reasons: Counter[str] = Counter()
+        daum_items = _daum_trend_items(
+            daum_raw,
+            now,
+            filter_shadow_store=self.filter_shadow_store,
+            excluded_reasons=daum_excluded_reasons,
+        )
+        ranking_excluded_reasons: Counter[str] = Counter()
+        ranking_items = _news_ranking_items(
+            ranking_raw,
+            now,
+            filter_shadow_store=self.filter_shadow_store,
+            excluded_reasons=ranking_excluded_reasons,
+        )
+        # 0099: 나이 상한(360분)과 시각 미상 강등은 정규화 뒤 정책 계층에서.
+        ranking_items, news_ranking_demoted_count = _apply_news_ranking_freshness_policy(
+            ranking_items,
+            excluded_reasons=ranking_excluded_reasons,
+        )
+        matched_x_ranks = _attach_x_signals_to_rankings(
+            x_trends,
+            [*daum_items, *ranking_items],
+            spam_reason_by_rank=spam_reason_by_rank,
+        )
+        x_sample_id = next(
+            (
+                str((trend.extra or {}).get("_getdaytrends_sample_id") or "")
+                for trend in x_trends
+                if (trend.extra or {}).get("_getdaytrends_sample_id")
+            ),
+            "",
+        )
+        if x_trends and not x_sample_id and self.x_fetcher is not _async_fetch_getdaytrends:
+            x_sample_id = f"custom:{now.isoformat()}"
+        candidates: dict[str, dict[str, Any]] = {}
+        for trend in google_trends:
+            key = _normalize_keyword(trend.name)
+            if not key:
+                continue
+            candidates[key] = {
+                "keyword": trend.name,
+                "google": trend,
+                "x": None,
+                "x_rank": None,
+                "age_minutes": _age_minutes(trend.published_at, now),
+            }
+        for rank, trend in enumerate(x_trends):
+            if rank in matched_x_ranks:
+                continue
+            key = _similar_key(trend.name, candidates) or _normalize_keyword(trend.name)
+            if not key:
+                continue
+            candidate = candidates.setdefault(
+                key,
+                {
+                    "keyword": trend.name,
+                    "google": None,
+                    "x": None,
+                    "x_rank": None,
+                    "age_minutes": None,
+                },
+            )
+            candidate["x"] = trend
+            candidate["x_rank"] = rank
+        return {
+            "errors": errors,
+            "google_trends": google_trends,
+            "x_trends": x_trends,
+            "x_fallback_count": x_fallback_count,
+            "ranking_raw": ranking_raw,
+            "daum_updated_at": daum_updated_at,
+            "daum_raw": daum_raw,
+            "reddit_raw": reddit_raw,
+            "spam_flagged": spam_flagged,
+            "spam_reason_by_rank": spam_reason_by_rank,
+            "daum_items": daum_items,
+            "daum_excluded_reasons": daum_excluded_reasons,
+            "ranking_items": ranking_items,
+            "ranking_excluded_reasons": ranking_excluded_reasons,
+            "news_ranking_demoted_count": news_ranking_demoted_count,
+            "x_sample_id": x_sample_id,
+            "candidates": candidates,
+        }
+
+    async def _enrich_radar_candidates(
+        self,
+        candidates: dict[str, dict[str, Any]],
+        *,
+        errors: list[str],
+        now: datetime,
+        limit: int,
+    ) -> dict[str, Any]:
+        """Apply topic filtering and optional Threads/news evidence."""
+        breaking_news_observation: dict[str, Any] = {
+            "enabled": self.breaking_news_observer is not None,
+            "available": False,
+            "sources": {},
+        }
+        breaking_product_candidates: object = []
+        if self.breaking_news_observer is not None:
+            try:
+                breaking_news_observation = await self.breaking_news_observer.observe(
+                    (candidate["keyword"] for candidate in candidates.values()),
+                    observed_at=now,
+                )
+                breaking_product_candidates = breaking_news_observation.pop("product_candidates", [])
+            except Exception:
+                # The additive lane must never affect the existing radar
+                # response path when its observer fails.
+                errors.append("L0/L1 shadow 관찰 실패")
+        breaking_excluded_reasons: Counter[str] = Counter()
+        breaking_items = _breaking_lane_items(
+            breaking_product_candidates,
+            now,
+            limit=limit,
+            excluded_reasons=breaking_excluded_reasons,
+        )
+
+        for candidate in candidates.values():
+            google = candidate.get("google")
+            headlines = list((google.extra or {}).get("news_headlines", [])) if google else []
+            candidate["excluded_topic_reason"] = excluded_topic_reason(candidate["keyword"], *headlines)
+            keyword = candidate["keyword"]
+            record_filter_candidate_fail_open(
+                self.filter_shadow_store,
+                source="x-radar",
+                candidate_id=hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
+                title=keyword,
+                extra_text=" ".join(headlines),
+                filter_verdict="block" if candidate["excluded_topic_reason"] else "allow",
+                filter_reason=candidate["excluded_topic_reason"] or "",
+                observed_at=now,
+            )
+
+        eligible_candidates = [
+            candidate for candidate in candidates.values() if not candidate.get("excluded_topic_reason")
+        ]
+        google_candidates = [candidate for candidate in eligible_candidates if candidate.get("google")][:8]
+        x_only_candidates = [
+            candidate for candidate in eligible_candidates if candidate.get("x") and not candidate.get("google")
+        ][:5]
+        threads_targets = google_candidates + x_only_candidates
+        if self.threads_collector.available and threads_targets:
+            semaphore = asyncio.Semaphore(4)
+
+            async def fetch_threads(candidate: dict[str, Any]):
+                async with semaphore:
+                    return await self.threads_collector.search(session, candidate["keyword"], limit=5)
+
+            async with httpx.AsyncClient(follow_redirects=True) as session:
+                threads_results = await asyncio.gather(
+                    *(fetch_threads(candidate) for candidate in threads_targets),
+                    return_exceptions=True,
+                )
+            thread_errors = 0
+            for candidate, result in zip(threads_targets, threads_results, strict=True):
+                if isinstance(result, Exception):
+                    thread_errors += 1
+                    candidate["threads_posts"] = []
+                else:
+                    candidate["threads_posts"] = result
+            if thread_errors:
+                errors.append(f"Threads 공식 검색 일부 실패 ({thread_errors}건)")
+
+        news_origin_ok = False
+        expanded_news_count = 0
+        if self.news_fetcher and google_candidates:
+            news_semaphore = asyncio.Semaphore(4)
+
+            async def fetch_news(candidate: dict[str, Any]):
+                async with news_semaphore:
+                    return await self.news_fetcher(news_session, candidate["keyword"], 8)
+
+            async with httpx.AsyncClient(follow_redirects=True) as news_session:
+                news_results = await asyncio.gather(
+                    *(fetch_news(candidate) for candidate in google_candidates),
+                    return_exceptions=True,
+                )
+            news_errors = 0
+            for candidate, result in zip(google_candidates, news_results, strict=True):
+                if isinstance(result, Exception):
+                    news_errors += 1
+                    candidate["expanded_news_items"] = []
+                else:
+                    candidate["expanded_news_items"] = result
+                    expanded_news_count += len(result)
+                    news_origin_ok = True
+            if news_errors:
+                errors.append(f"게시사 원문 확대 일부 실패 ({news_errors}건)")
+        return {
+            "breaking_news_observation": breaking_news_observation,
+            "breaking_items": breaking_items,
+            "breaking_excluded_reasons": breaking_excluded_reasons,
+            "google_candidates": google_candidates,
+            "news_origin_ok": news_origin_ok,
+            "expanded_news_count": expanded_news_count,
+        }
+
+    def _build_radar_items(
+        self,
+        candidates: dict[str, dict[str, Any]],
+        *,
+        focus: list[str],
+        now: datetime,
+        x_sample_id: str,
+        spam_reason_by_rank: dict[int, str],
+    ) -> dict[str, Any]:
+        """Turn eligible candidates into qualified and observation-only items."""
+        items: list[dict[str, Any]] = []
+        observed_only_items: list[dict[str, Any]] = []
+        filtered_reasons: Counter[str] = Counter()
+        previous_native_keywords = {
+            _normalize_keyword(str(item.get("keyword") or ""))
+            for item in self._snapshot.get("items", [])
+            if item.get("qualification_mode") == "x_native_history"
+        }
+        previous_native_keywords |= {
+            _normalize_keyword(str(item.get("keyword") or ""))
+            for item in self._snapshot.get("observed_only_items", [])
+        }
+        for candidate in candidates.values():
+            if candidate.get("excluded_topic_reason"):
+                filtered_reasons[candidate["excluded_topic_reason"]] += 1
+                continue
+            google = candidate.get("google")
+            x_trend = candidate.get("x")
+            keyword = candidate["keyword"]
+            headlines = list((google.extra or {}).get("news_headlines", [])) if google else []
+            trend_news_items = list((google.extra or {}).get("news_items", [])) if google else []
+            news_items = _merge_news_items(trend_news_items, list(candidate.get("expanded_news_items", [])))
+            threads_posts = list(candidate.get("threads_posts", []))
+            coherent_news = _coherent_news_items(keyword, news_items)
+            observation_key = f"x:{_normalize_keyword(keyword)}"
+            first_seen_at = _first_seen_at(self.exposure_tracker, observation_key, now)
+            observation = self.exposure_tracker.record(
+                observation_key,
+                {
+                    "x_rank": candidate.get("x_rank"),
+                    "original_count": len(coherent_news),
+                    "source_count": _independent_source_count(coherent_news),
+                    "threads_authors": _threads_author_count(threads_posts),
+                    "volume": google.volume_numeric if google else 0,
+                    "sample_id": x_sample_id if x_trend else None,
+                    "first_seen_at": first_seen_at,
+                },
+                observed_at=now,
+                score_version=_X_EXPOSURE_SCORE_VERSION,
+            )
+            source_published_at = _timestamp(google.published_at) if google and google.published_at else None
+            age_minutes, age_basis, age_display = _age_fields(
+                source_published_at=source_published_at,
+                first_seen_at=first_seen_at,
+                now=now,
+            )
+            candidate["age_minutes"] = age_minutes
+            candidate["age_basis"] = age_basis
+            candidate["first_seen_at"] = first_seen_at
+            lane = _lane(candidate)
+            score, reasons, materiality_pass, gate_reason = _materiality_assessment(
+                candidate,
+                focus,
+                news_items,
+                threads_posts,
+            )
+            cached_native_replay = bool(
+                not materiality_pass
+                and observation.get("sample_advanced") is False
+                and _normalize_keyword(keyword) in previous_native_keywords
+            )
+            x_native_pass = bool(
+                not materiality_pass and (_x_native_gate(candidate, observation, now) or cached_native_replay)
+            )
+            if not materiality_pass and not x_native_pass:
+                filtered_reasons[gate_reason] += 1
+                continue
+            if x_native_pass:
+                (
+                    x_exposure_score,
+                    exposure_breakdown,
+                    exposure_signals,
+                    exposure_confidence,
+                    exposure_coverage,
+                ) = _x_native_assessment(candidate, threads_posts, observation)
+                lane = "X 네이티브 급등"
+                category = "X 네이티브"
+                score = x_exposure_score
+                reasons = [
+                    "90초 캐시에서 직전 검증 결과 재표시"
+                    if cached_native_replay
+                    else "뉴스 원문 없이 공개 X 순위 이력으로만 통과"
+                ]
+            else:
+                (
+                    x_exposure_score,
+                    exposure_breakdown,
+                    exposure_signals,
+                    exposure_confidence,
+                    exposure_coverage,
+                ) = _x_exposure_assessment(
+                    candidate,
+                    news_items,
+                    threads_posts,
+                    now,
+                    observation,
+                )
+                category = _topic_category(keyword, headlines)
+            encoded = quote(keyword)
+            primary_url = next(
+                (str(item.get("url") or "") for item in news_items if item.get("url")),
+                str(threads_posts[0].get("permalink") or "")
+                if threads_posts
+                else (x_trend.link if x_trend else (google.link if google else "")),
+            )
+            first_report = next((article for article in news_items if article.get("is_first_report")), None)
+            item = {
+                "id": hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
+                "keyword": keyword,
+                "materiality_score": score,
+                "opportunity_score": score,
+                "x_exposure_score": x_exposure_score,
+                "exposure_breakdown": exposure_breakdown,
+                "exposure_signals": exposure_signals,
+                "score_version": _X_EXPOSURE_SCORE_VERSION,
+                "exposure_confidence": exposure_confidence,
+                "exposure_coverage": exposure_coverage,
+                "observed_at": observation["observed_at"],
+                "observation_delta": observation,
+                "materiality_pass": True,
+                "qualification_mode": "x_native_history" if x_native_pass else "cross_source_evidence",
+                "context_level": "low" if x_native_pass else "verified",
+                "lane": lane,
+                "category": category,
+                "volume": google.volume if google else "N/A",
+                "volume_numeric": google.volume_numeric if google else 0,
+                "age_minutes": candidate.get("age_minutes"),
+                "age_basis": candidate["age_basis"],
+                "age_display": age_display,
+                "first_seen_at": candidate["first_seen_at"],
+                "source_published_at": (
+                    source_published_at.astimezone(UTC).isoformat() if source_published_at is not None else None
+                ),
+                "sources": [
+                    source
+                    for source, present in (
+                        ("Google Trends", bool(google)),
+                        ("공개 X 트렌드", bool(x_trend)),
+                        ("Threads", bool(threads_posts)),
+                    )
+                    if present
+                ],
+                "news_headlines": headlines,
+                "news_items": news_items,
+                "first_report": first_report,
+                "threads_posts": threads_posts,
+                "threads_author_count": _threads_author_count(threads_posts),
+                "reasons": reasons,
+                "published_at": google.published_at.isoformat() if google and google.published_at else None,
+                "source_url": primary_url,
+                "trend_url": google.link if google and google.link else (x_trend.link if x_trend else ""),
+                "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
+                "threads_search_url": f"https://www.threads.com/search?q={encoded}",
+                "news_search_url": f"https://news.google.com/search?q={encoded}&hl=ko&gl=KR&ceid=KR%3Ako",
+            }
+            if item["context_level"] == "low" and not headlines and not first_report:
+                # 「왜 후보인가」가 없는 항목은 지우지 않고 관측만 칸으로 강등한다.
+                filtered_reasons["맥락 없음 관측만 강등"] += 1
+                observed_only_items.append(
+                    {
+                        "id": item["id"],
+                        "keyword": keyword,
+                        "x_rank": candidate.get("x_rank"),
+                        "observed_at": item["observed_at"],
+                        "context_level": "low",
+                        "news_headlines": [],
+                        "first_report": None,
+                        "demotion_reason": "뉴스 맥락 없음(다음 트렌드·랭킹 문장 매칭 없음, 제목·최초 보도 없음)",
+                        "spam_likely_reason": spam_reason_by_rank.get(candidate.get("x_rank")),
+                        "trend_url": item["trend_url"],
+                        "x_search_url": item["x_search_url"],
+                    }
+                )
+                continue
+            items.append(item)
+
+        items.sort(
+            key=lambda item: (
+                item["x_exposure_score"],
+                item["materiality_score"],
+                item["volume_numeric"],
+            ),
+            reverse=True,
+        )
+        return {
+            "items": items,
+            "observed_only_items": observed_only_items,
+            "filtered_reasons": filtered_reasons,
+        }
+
+    def _assemble_radar_lanes(
+        self,
+        *,
+        breaking_items: list[dict[str, Any]],
+        daum_items: list[dict[str, Any]],
+        ranking_items: list[dict[str, Any]],
+        legacy_items: list[dict[str, Any]],
+        reddit_raw: list[dict[str, Any]],
+        breaking_excluded_reasons: Counter[str],
+        now: datetime,
+    ) -> dict[str, Any]:
+        """Split the qualified items into the four response lanes."""
+        reddit_excluded_reasons: Counter[str] = Counter()
+        reddit_items = _reddit_items(
+            reddit_raw,
+            now,
+            filter_shadow_store=self.filter_shadow_store,
+            excluded_reasons=reddit_excluded_reasons,
+        )
+        # 0099: 근거의 성격별 배열 — 지금 속보 / 최신 뉴스 / 오늘 이슈 / X 네이티브.
+        # `items`는 기존 조성 순서를 그대로 유지한다(호환), 새 배열이 소비처다.
+        breaking_now_items = [item for item in breaking_items if item.get("urgency") == "urgent"]
+        latest_news_items = [item for item in breaking_items if item.get("urgency") == "latest"]
+        today_core_items = [*daum_items, *ranking_items, *legacy_items, *reddit_items]
+        x_native_items = [
+            item for item in today_core_items if item.get("qualification_mode") == "x_native_history"
+        ]
+        today_issue_items = [
+            item for item in today_core_items if item.get("qualification_mode") != "x_native_history"
+        ]
+        cross_lane_dedupe_summary: Counter[str] = Counter()
+        dedupe_survivors = _dedupe_items_across_lanes(
+            [
+                ("지금 속보", breaking_now_items),
+                ("최신 뉴스", latest_news_items),
+                ("오늘 이슈", today_issue_items),
+                ("X 네이티브", x_native_items),
+            ],
+            dropped=cross_lane_dedupe_summary,
+        )
+        breaking_now_items = [item for item in breaking_now_items if id(item) in dedupe_survivors]
+        latest_news_items = [item for item in latest_news_items if id(item) in dedupe_survivors]
+        today_issue_items = [item for item in today_issue_items if id(item) in dedupe_survivors]
+        x_native_items = [item for item in x_native_items if id(item) in dedupe_survivors]
+        visible_items = [
+            item
+            for item in [*daum_items, *ranking_items, *legacy_items, *breaking_items, *reddit_items]
+            if id(item) in dedupe_survivors
+        ]
+        self.exposure_tracker.save(now=now)
+        return {
+            "reddit_items": reddit_items,
+            "reddit_excluded_reasons": reddit_excluded_reasons,
+            "breaking_now_items": breaking_now_items,
+            "latest_news_items": latest_news_items,
+            "today_issue_items": today_issue_items,
+            "x_native_items": x_native_items,
+            "breaking_filter_summary": dict(breaking_excluded_reasons),
+            "cross_lane_dedupe_summary": cross_lane_dedupe_summary,
+            "visible_items": visible_items,
+        }
+
+    def _finalize_radar_snapshot(
+        self,
+        *,
+        previous_snapshot: dict[str, Any],
+        country: str,
+        focus: list[str],
+        force_refresh: bool,
+        now: datetime,
+        errors: list[str],
+        google_trends: list[RawTrend],
+        x_trends: list[RawTrend],
+        x_sample_id: str,
+        x_fallback_count: int,
+        daum_enabled: bool,
+        daum_items: list[dict[str, Any]],
+        daum_raw: list[dict[str, Any]],
+        daum_updated_at: str | None,
+        daum_excluded_reasons: Counter[str],
+        ranking_items: list[dict[str, Any]],
+        ranking_raw: list[dict[str, Any]],
+        ranking_excluded_reasons: Counter[str],
+        news_ranking_demoted_count: int,
+        reddit_items: list[dict[str, Any]],
+        reddit_raw: list[dict[str, Any]],
+        reddit_excluded_reasons: Counter[str],
+        news_origin_ok: bool,
+        expanded_news_count: int,
+        breaking_news_observation: dict[str, Any],
+        breaking_items: list[dict[str, Any]],
+        breaking_now_items: list[dict[str, Any]],
+        latest_news_items: list[dict[str, Any]],
+        today_issue_items: list[dict[str, Any]],
+        x_native_items: list[dict[str, Any]],
+        breaking_filter_summary: dict[str, Any],
+        cross_lane_dedupe_summary: Counter[str],
+        visible_items: list[dict[str, Any]],
+        candidates: dict[str, dict[str, Any]],
+        qualified_items: list[dict[str, Any]],
+        observed_only_items: list[dict[str, Any]],
+        filtered_reasons: Counter[str],
+        spam_flagged: list[dict[str, Any]],
+        legacy_items: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Build the health/snapshot response and preserve last-good behavior."""
+        source_health = {
+            "google_trends": bool(google_trends),
+            # 0072: 항목 수가 아니라 «원천에서 왔다는 표식이 있는 항목»으로 판정한다.
+            # `_getdaytrends_sample_id`는 실제 수집에만 붙고 fallback에는 없으며,
+            # 주입 fetcher는 x_sample_id가 custom: 로 지정된다. fallback이 이름을
+            # 바꿔 살아남아도 표식이 없으면 false다(fail-closed).
+            "public_x_trends": bool(x_trends) and bool(x_sample_id),
+            "daum_realtime": bool(daum_items),
+            "news_rankings": bool(ranking_items),
+            "reddit": bool(reddit_items),
+            "threads_api": self.threads_collector.available,
+            "publisher_news_origins": news_origin_ok,
+        }
+        breaking_sources = breaking_news_observation.get("sources")
+        if not isinstance(breaking_sources, dict):
+            breaking_sources = {}
+        for response_key, source_key in (
+            ("google_news_rss", "google-news-rss"),
+            ("yonhap_rss", "yonhap-rss"),
+            ("kma_weather", "kma-weather"),
+        ):
+            source_status = breaking_sources.get(source_key)
+            source_health[response_key] = bool(isinstance(source_status, dict) and source_status.get("available"))
+        if not google_trends:
+            errors.append("Google Trends 결과 없음")
+        # 0072: fallback 발동을 화면·응답에 보이게 한다. 사용자는 로그를 안 본다.
+        if x_fallback_count:
+            errors.append(
+                f"공개 X 트렌드: 원천 수집 실패로 fallback {x_fallback_count}건이 대체 반환됨(원천 항목 0)"
+            )
+        if not x_trends:
+            errors.append("공개 X 트렌드 결과 없음")
+        elif not x_sample_id:
+            errors.append("공개 X 트렌드: 원천 표식(_getdaytrends_sample_id) 없는 항목만 감지 — health 미반영")
+        if daum_enabled and not daum_raw:
+            errors.append("다음 실시간 트렌드 결과 없음")
+        attempt_at = now.isoformat()
+        next_snapshot = {
+            "available": bool(visible_items),
+            "country": country,
+            "items": visible_items,
+            "total_candidates": len(candidates),
+            "news_ranking_count": len(ranking_items),
+            "news_ranking_raw_count": len(ranking_raw),
+            "news_ranking_filter_summary": dict(ranking_excluded_reasons),
+            "news_ranking_demoted_count": news_ranking_demoted_count,
+            "daum_trend_count": len(daum_items),
+            "daum_raw_count": len(daum_raw),
+            "daum_updated_at": daum_updated_at,
+            "daum_trend_filter_summary": dict(daum_excluded_reasons),
+            "reddit_count": len(reddit_items),
+            "reddit_raw_count": len(reddit_raw),
+            "reddit_filter_summary": dict(reddit_excluded_reasons),
+            "qualified_candidates": len(qualified_items),
+            "breaking_news_count": len(breaking_items),
+            # 0099: 긴급도·근거별 분리 배열. breaking_news_count는 호환을 위해
+            # urgent+latest 합계로 유지하고, 세부는 아래 count로 읽는다.
+            "breaking_now_items": breaking_now_items,
+            "breaking_now_count": len(breaking_now_items),
+            "latest_news_items": latest_news_items,
+            "latest_news_count": len(latest_news_items),
+            "today_issue_items": today_issue_items,
+            "today_issue_count": len(today_issue_items),
+            "x_native_items": x_native_items,
+            "breaking_filter_summary": breaking_filter_summary,
+            "cross_lane_dedupe_count": sum(cross_lane_dedupe_summary.values()),
+            "cross_lane_dedupe_summary": dict(cross_lane_dedupe_summary),
+            "filtered_out_count": len(candidates) - len(qualified_items),
+            "filter_summary": dict(filtered_reasons),
+            "strict_materiality": True,
+            "x_native_count": len(x_native_items),
+            "expanded_news_count": expanded_news_count,
+            "observed_only_count": len(observed_only_items),
+            "observed_only_items": observed_only_items,
+            "spam_flagged_count": len(spam_flagged),
+            "spam_flagged_items": spam_flagged,
+            "breaking_news_observation": breaking_news_observation,
+            "x_cache_ttl_seconds": 90,
+            "force_refresh_requested": bool(force_refresh),
+            "capabilities": {
+                "threads_keyword_search": {
+                    "available": self.threads_collector.available,
+                    "mode": "official_api" if self.threads_collector.available else "manual_search_link",
+                }
+            },
+            "focus_keywords": focus,
+            "refreshed_at": attempt_at,
+            "last_attempt_at": attempt_at,
+            "source_health": source_health,
+            "errors": errors,
+            "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 연합뉴스·기상청 직접 원문은 사건·안전·긴급 증거가 있는 것만 «지금 속보»로 올리고 나머지는 «최신 뉴스» lane에 둡니다. 뉴스 랭킹은 게시 360분 상한을 넘으면 걷어내고 게시 시각 미상은 lane 하단으로 강등합니다. 다음 실시간 트렌드(순위 변동 포함)·뉴스 랭킹·Reddit 핫 포스트를 점수 없는 후보로 앞세우고, X 트렌드 단어는 같은 사건의 후보에 「X에서도 뜨고 있음」 신호로 붙입니다. 맥락 없는 X 단어는 관측만 칸으로 강등합니다. 같은 URL·제목이 여러 lane에 올라오면 강한 근거 쪽만 남깁니다.",
+        }
+
+        # A successful cycle means at least one collection source actually
+        # returned usable source data. Capability flags (for example a
+        # configured Threads token) do not count as a successful fetch.
+        collection_succeeded = any(
+            bool(source_health.get(key))
+            for key in (
+                "google_trends",
+                "public_x_trends",
+                "daum_realtime",
+                "news_rankings",
+                "reddit",
+                "publisher_news_origins",
+                "google_news_rss",
+                "yonhap_rss",
+                "kma_weather",
+            )
+        )
+        if collection_succeeded:
+            next_snapshot["last_success_at"] = attempt_at
+            next_snapshot["is_stale"] = False
+            next_snapshot["serving_last_good"] = False
+            self._snapshot = next_snapshot
+            return self.snapshot()
+
+        last_success_at = previous_snapshot.get("last_success_at") or previous_snapshot.get("refreshed_at")
+        if last_success_at:
+            # Keep the arrays/counts from the last successful response, but
+            # expose diagnostics from this failed attempt.  This prevents a
+            # transient all-source outage from blanking the private queue.
+            preserved = dict(previous_snapshot)
+            preserved.update(
+                {
+                    "last_attempt_at": attempt_at,
+                    "last_success_at": last_success_at,
+                    "is_stale": True,
+                    "serving_last_good": True,
+                    "source_health": source_health,
+                    "errors": errors or ["모든 외부 소스가 결과를 반환하지 않음"],
+                    "force_refresh_requested": bool(force_refresh),
+                }
+            )
+            self._snapshot = preserved
+            return self.snapshot()
+
+        next_snapshot["last_success_at"] = None
+        next_snapshot["is_stale"] = True
+        next_snapshot["serving_last_good"] = False
+        if not next_snapshot["errors"]:
+            next_snapshot["errors"] = ["모든 외부 소스가 결과를 반환하지 않음"]
+        self._snapshot = next_snapshot
+        return self.snapshot()
+
     async def refresh(
         self,
         *,
@@ -1258,637 +2046,112 @@ class XOpportunityRadar:
     ) -> dict[str, Any]:
         focus = [value.strip() for value in (focus_keywords or []) if value.strip()][:8]
         limit = min(30, max(5, int(limit)))
-
         async with self._refresh_lock:
             previous_snapshot = self.snapshot()
-            async with httpx.AsyncClient(follow_redirects=True) as session:
-                is_production_fetchers = (
-                    self.google_fetcher is _async_fetch_google_trends_rss
-                    and self.x_fetcher is _async_fetch_getdaytrends
-                )
-                ranking_fetcher = self.news_ranking_fetcher
-                daum_fetcher = self.daum_realtime_fetcher
-                reddit_fetcher = self.reddit_fetcher
-                if is_production_fetchers and ranking_fetcher is None:
-                    # 대시보드는 두 생산 fetcher를 쓰므로 랭킹 lane을 자동으로 켠다.
-                    # 단위 테스트의 커스텀 fetcher 세션은 자동으로 꺼져 hermetical을 유지한다.
-                    ranking_fetcher = _async_fetch_news_rankings
-                if is_production_fetchers and daum_fetcher is None:
-                    # 1순위 소스도 같은 생산 조건에서 자동으로 켠다.
-                    daum_fetcher = _async_fetch_daum_realtime
-                if is_production_fetchers and reddit_fetcher is None:
-                    # Reddit 핫 포스트도 같은 생산 조건에서 자동으로 켠다.
-                    reddit_fetcher = _async_fetch_reddit_hot
-                if self.x_fetcher is _async_fetch_getdaytrends:
-                    x_request = self.x_fetcher(
-                        session,
-                        country,
-                        max(limit, 20),
-                        force_refresh=force_refresh,
-                    )
-                else:
-                    x_request = self.x_fetcher(session, country, max(limit, 20))
-                gather_tasks: list[Awaitable[object]] = [
-                    self.google_fetcher(session, country, max(limit, 20)),
-                    x_request,
-                ]
-                result_index: dict[str, int | None] = {"ranking": None, "daum": None, "reddit": None}
-                if ranking_fetcher is not None:
-                    result_index["ranking"] = len(gather_tasks)
-                    gather_tasks.append(ranking_fetcher(session, max(limit, 20)))
-                if daum_fetcher is not None:
-                    result_index["daum"] = len(gather_tasks)
-                    gather_tasks.append(daum_fetcher(session, max(limit, 20)))
-                if reddit_fetcher is not None:
-                    result_index["reddit"] = len(gather_tasks)
-                    gather_tasks.append(reddit_fetcher(session, max(limit, 20)))
-                gathered = await asyncio.gather(*gather_tasks, return_exceptions=True)
-                google_result, x_result = gathered[0], gathered[1]
-                ranking_result = gathered[result_index["ranking"]] if result_index["ranking"] is not None else []
-                daum_result = gathered[result_index["daum"]] if result_index["daum"] is not None else (None, [])
-                reddit_result = gathered[result_index["reddit"]] if result_index["reddit"] is not None else []
-
-            errors: list[str] = []
-            google_trends: list[RawTrend] = []
-            x_trends: list[RawTrend] = []
-            x_fallback_count = 0
-            ranking_raw: list[dict[str, Any]] = []
-            daum_updated_at: str | None = None
-            daum_raw: list[dict[str, Any]] = []
-            reddit_raw: list[dict[str, Any]] = []
-            if isinstance(google_result, Exception):
-                errors.append(f"Google Trends: {str(google_result)[:180]}")
-            else:
-                google_trends = list(google_result)
-            if isinstance(ranking_result, Exception):
-                errors.append(f"뉴스 랭킹 수집: {str(ranking_result)[:180]}")
-            elif ranking_fetcher is not None:
-                ranking_raw = [item for item in ranking_result if isinstance(item, dict)]
-            if isinstance(daum_result, Exception):
-                errors.append(f"다음 실시간 트렌드: {str(daum_result)[:180]}")
-            elif daum_fetcher is not None:
-                if isinstance(daum_result, tuple) and len(daum_result) == 2:
-                    daum_updated_at, daum_raw = daum_result
-                elif isinstance(daum_result, list):
-                    daum_raw = daum_result
-            if isinstance(reddit_result, Exception):
-                errors.append(f"Reddit 핫 포스트 수집: {str(reddit_result)[:180]}")
-            elif reddit_fetcher is not None:
-                reddit_raw = [item for item in reddit_result if isinstance(item, dict)]
-            if isinstance(x_result, Exception):
-                errors.append(f"공개 X 트렌드: {str(x_result)[:180]}")
-            else:
-                x_trends = [
-                    item
-                    for item in x_result
-                    if item.name not in _FALLBACK_X_TOPICS and item.link.startswith("https://getdaytrends.com/")
-                ]
-                # 0072: fallback은 이름 목록 우연 일치가 아니라 표식으로 감지한다.
-                # `_FALLBACK_X_TOPICS`는 sources.py의 `_fallback_trends()`와 다른
-                # 파일·레인이 관리해 내용이 어긋나도 조용히 지나쳐 왔다.
-                x_fallback_count = sum(
-                    1
-                    for item in x_result
-                    if (item.extra or {}).get("_is_fallback") or (item.extra or {}).get("is_fallback")
-                )
-
-            # 교차 확인(3번 강등)이 스팸의 1차 방어선이다. 패턴은 보조 —
-            # 목록을 추격하지 않고, 판정된 단어에 라벨만 달아둔다.
-            spam_flagged: list[dict[str, Any]] = []
-            spam_reason_by_rank: dict[int, str] = {}
-            for x_rank, trend in enumerate(x_trends):
-                reason = _spam_trend_reason(trend.name)
-                if reason:
-                    spam_flagged.append({"keyword": trend.name, "x_rank": x_rank, "reason": reason})
-                    spam_reason_by_rank[x_rank] = reason
-
+            collected = await self._collect_radar_sources(
+                country=country,
+                limit=limit,
+                force_refresh=force_refresh,
+            )
             now = _utc_now()
-            daum_excluded_reasons: Counter[str] = Counter()
-            daum_items = _daum_trend_items(
-                daum_raw,
-                now,
-                filter_shadow_store=self.filter_shadow_store,
-                excluded_reasons=daum_excluded_reasons,
+            normalized = self._normalize_radar_sources(collected, now=now)
+            errors = normalized["errors"]
+            google_trends = normalized["google_trends"]
+            x_trends = normalized["x_trends"]
+            x_fallback_count = normalized["x_fallback_count"]
+            ranking_raw = normalized["ranking_raw"]
+            daum_updated_at = normalized["daum_updated_at"]
+            daum_raw = normalized["daum_raw"]
+            reddit_raw = normalized["reddit_raw"]
+            spam_flagged = normalized["spam_flagged"]
+            spam_reason_by_rank = normalized["spam_reason_by_rank"]
+            daum_items = normalized["daum_items"]
+            daum_excluded_reasons = normalized["daum_excluded_reasons"]
+            ranking_items = normalized["ranking_items"]
+            ranking_excluded_reasons = normalized["ranking_excluded_reasons"]
+            news_ranking_demoted_count = normalized["news_ranking_demoted_count"]
+            x_sample_id = normalized["x_sample_id"]
+            candidates = normalized["candidates"]
+
+            enriched = await self._enrich_radar_candidates(
+                candidates,
+                errors=errors,
+                now=now,
+                limit=limit,
             )
-            ranking_excluded_reasons: Counter[str] = Counter()
-            ranking_items = _news_ranking_items(
-                ranking_raw,
-                now,
-                filter_shadow_store=self.filter_shadow_store,
-                excluded_reasons=ranking_excluded_reasons,
-            )
-            # 0099: 나이 상한(360분)과 시각 미상 강등은 정규화 뒤 정책 계층에서.
-            ranking_items, news_ranking_demoted_count = _apply_news_ranking_freshness_policy(
-                ranking_items,
-                excluded_reasons=ranking_excluded_reasons,
-            )
-            matched_x_ranks = _attach_x_signals_to_rankings(
-                x_trends,
-                [*daum_items, *ranking_items],
+            breaking_news_observation = enriched["breaking_news_observation"]
+            breaking_items = enriched["breaking_items"]
+            breaking_excluded_reasons = enriched["breaking_excluded_reasons"]
+            news_origin_ok = enriched["news_origin_ok"]
+            expanded_news_count = enriched["expanded_news_count"]
+            built = self._build_radar_items(
+                candidates,
+                focus=focus,
+                now=now,
+                x_sample_id=x_sample_id,
                 spam_reason_by_rank=spam_reason_by_rank,
             )
-            x_sample_id = next(
-                (
-                    str((trend.extra or {}).get("_getdaytrends_sample_id") or "")
-                    for trend in x_trends
-                    if (trend.extra or {}).get("_getdaytrends_sample_id")
-                ),
-                "",
-            )
-            if x_trends and not x_sample_id and self.x_fetcher is not _async_fetch_getdaytrends:
-                x_sample_id = f"custom:{now.isoformat()}"
-            candidates: dict[str, dict[str, Any]] = {}
-            for trend in google_trends:
-                key = _normalize_keyword(trend.name)
-                if not key:
-                    continue
-                candidates[key] = {
-                    "keyword": trend.name,
-                    "google": trend,
-                    "x": None,
-                    "x_rank": None,
-                    "age_minutes": _age_minutes(trend.published_at, now),
-                }
-            for rank, trend in enumerate(x_trends):
-                if rank in matched_x_ranks:
-                    continue
-                key = _similar_key(trend.name, candidates) or _normalize_keyword(trend.name)
-                if not key:
-                    continue
-                candidate = candidates.setdefault(
-                    key,
-                    {
-                        "keyword": trend.name,
-                        "google": None,
-                        "x": None,
-                        "x_rank": None,
-                        "age_minutes": None,
-                    },
-                )
-                candidate["x"] = trend
-                candidate["x_rank"] = rank
-
-            breaking_news_observation: dict[str, Any] = {
-                "enabled": self.breaking_news_observer is not None,
-                "available": False,
-                "sources": {},
-            }
-            breaking_product_candidates: object = []
-            if self.breaking_news_observer is not None:
-                try:
-                    breaking_news_observation = await self.breaking_news_observer.observe(
-                        (candidate["keyword"] for candidate in candidates.values()),
-                        observed_at=now,
-                    )
-                    breaking_product_candidates = breaking_news_observation.pop("product_candidates", [])
-                except Exception:
-                    # The additive lane must never affect the existing radar
-                    # response path when its observer fails.
-                    errors.append("L0/L1 shadow 관찰 실패")
-            breaking_excluded_reasons: Counter[str] = Counter()
-            breaking_items = _breaking_lane_items(
-                breaking_product_candidates,
-                now,
-                limit=limit,
-                excluded_reasons=breaking_excluded_reasons,
-            )
-
-            for candidate in candidates.values():
-                google = candidate.get("google")
-                headlines = list((google.extra or {}).get("news_headlines", [])) if google else []
-                candidate["excluded_topic_reason"] = excluded_topic_reason(candidate["keyword"], *headlines)
-                keyword = candidate["keyword"]
-                record_filter_candidate_fail_open(
-                    self.filter_shadow_store,
-                    source="x-radar",
-                    candidate_id=hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
-                    title=keyword,
-                    extra_text=" ".join(headlines),
-                    filter_verdict="block" if candidate["excluded_topic_reason"] else "allow",
-                    filter_reason=candidate["excluded_topic_reason"] or "",
-                    observed_at=now,
-                )
-
-            eligible_candidates = [
-                candidate for candidate in candidates.values() if not candidate.get("excluded_topic_reason")
-            ]
-            google_candidates = [candidate for candidate in eligible_candidates if candidate.get("google")][:8]
-            x_only_candidates = [
-                candidate for candidate in eligible_candidates if candidate.get("x") and not candidate.get("google")
-            ][:5]
-            threads_targets = google_candidates + x_only_candidates
-            if self.threads_collector.available and threads_targets:
-                semaphore = asyncio.Semaphore(4)
-
-                async def fetch_threads(candidate: dict[str, Any]):
-                    async with semaphore:
-                        return await self.threads_collector.search(session, candidate["keyword"], limit=5)
-
-                async with httpx.AsyncClient(follow_redirects=True) as session:
-                    threads_results = await asyncio.gather(
-                        *(fetch_threads(candidate) for candidate in threads_targets),
-                        return_exceptions=True,
-                    )
-                thread_errors = 0
-                for candidate, result in zip(threads_targets, threads_results, strict=True):
-                    if isinstance(result, Exception):
-                        thread_errors += 1
-                        candidate["threads_posts"] = []
-                    else:
-                        candidate["threads_posts"] = result
-                if thread_errors:
-                    errors.append(f"Threads 공식 검색 일부 실패 ({thread_errors}건)")
-
-            news_origin_ok = False
-            expanded_news_count = 0
-            if self.news_fetcher and google_candidates:
-                news_semaphore = asyncio.Semaphore(4)
-
-                async def fetch_news(candidate: dict[str, Any]):
-                    async with news_semaphore:
-                        return await self.news_fetcher(news_session, candidate["keyword"], 8)
-
-                async with httpx.AsyncClient(follow_redirects=True) as news_session:
-                    news_results = await asyncio.gather(
-                        *(fetch_news(candidate) for candidate in google_candidates),
-                        return_exceptions=True,
-                    )
-                news_errors = 0
-                for candidate, result in zip(google_candidates, news_results, strict=True):
-                    if isinstance(result, Exception):
-                        news_errors += 1
-                        candidate["expanded_news_items"] = []
-                    else:
-                        candidate["expanded_news_items"] = result
-                        expanded_news_count += len(result)
-                        news_origin_ok = True
-                if news_errors:
-                    errors.append(f"게시사 원문 확대 일부 실패 ({news_errors}건)")
-
-            items: list[dict[str, Any]] = []
-            observed_only_items: list[dict[str, Any]] = []
-            filtered_reasons: Counter[str] = Counter()
-            previous_native_keywords = {
-                _normalize_keyword(str(item.get("keyword") or ""))
-                for item in self._snapshot.get("items", [])
-                if item.get("qualification_mode") == "x_native_history"
-            }
-            previous_native_keywords |= {
-                _normalize_keyword(str(item.get("keyword") or ""))
-                for item in self._snapshot.get("observed_only_items", [])
-            }
-            for candidate in candidates.values():
-                if candidate.get("excluded_topic_reason"):
-                    filtered_reasons[candidate["excluded_topic_reason"]] += 1
-                    continue
-                google = candidate.get("google")
-                x_trend = candidate.get("x")
-                keyword = candidate["keyword"]
-                headlines = list((google.extra or {}).get("news_headlines", [])) if google else []
-                trend_news_items = list((google.extra or {}).get("news_items", [])) if google else []
-                news_items = _merge_news_items(trend_news_items, list(candidate.get("expanded_news_items", [])))
-                threads_posts = list(candidate.get("threads_posts", []))
-                coherent_news = _coherent_news_items(keyword, news_items)
-                observation_key = f"x:{_normalize_keyword(keyword)}"
-                first_seen_at = _first_seen_at(self.exposure_tracker, observation_key, now)
-                observation = self.exposure_tracker.record(
-                    observation_key,
-                    {
-                        "x_rank": candidate.get("x_rank"),
-                        "original_count": len(coherent_news),
-                        "source_count": _independent_source_count(coherent_news),
-                        "threads_authors": _threads_author_count(threads_posts),
-                        "volume": google.volume_numeric if google else 0,
-                        "sample_id": x_sample_id if x_trend else None,
-                        "first_seen_at": first_seen_at,
-                    },
-                    observed_at=now,
-                    score_version=_X_EXPOSURE_SCORE_VERSION,
-                )
-                source_published_at = _timestamp(google.published_at) if google and google.published_at else None
-                age_minutes, age_basis, age_display = _age_fields(
-                    source_published_at=source_published_at,
-                    first_seen_at=first_seen_at,
-                    now=now,
-                )
-                candidate["age_minutes"] = age_minutes
-                candidate["age_basis"] = age_basis
-                candidate["first_seen_at"] = first_seen_at
-                lane = _lane(candidate)
-                score, reasons, materiality_pass, gate_reason = _materiality_assessment(
-                    candidate,
-                    focus,
-                    news_items,
-                    threads_posts,
-                )
-                cached_native_replay = bool(
-                    not materiality_pass
-                    and observation.get("sample_advanced") is False
-                    and _normalize_keyword(keyword) in previous_native_keywords
-                )
-                x_native_pass = bool(
-                    not materiality_pass and (_x_native_gate(candidate, observation, now) or cached_native_replay)
-                )
-                if not materiality_pass and not x_native_pass:
-                    filtered_reasons[gate_reason] += 1
-                    continue
-                if x_native_pass:
-                    (
-                        x_exposure_score,
-                        exposure_breakdown,
-                        exposure_signals,
-                        exposure_confidence,
-                        exposure_coverage,
-                    ) = _x_native_assessment(candidate, threads_posts, observation)
-                    lane = "X 네이티브 급등"
-                    category = "X 네이티브"
-                    score = x_exposure_score
-                    reasons = [
-                        "90초 캐시에서 직전 검증 결과 재표시"
-                        if cached_native_replay
-                        else "뉴스 원문 없이 공개 X 순위 이력으로만 통과"
-                    ]
-                else:
-                    (
-                        x_exposure_score,
-                        exposure_breakdown,
-                        exposure_signals,
-                        exposure_confidence,
-                        exposure_coverage,
-                    ) = _x_exposure_assessment(
-                        candidate,
-                        news_items,
-                        threads_posts,
-                        now,
-                        observation,
-                    )
-                    category = _topic_category(keyword, headlines)
-                encoded = quote(keyword)
-                primary_url = next(
-                    (str(item.get("url") or "") for item in news_items if item.get("url")),
-                    str(threads_posts[0].get("permalink") or "")
-                    if threads_posts
-                    else (x_trend.link if x_trend else (google.link if google else "")),
-                )
-                first_report = next((article for article in news_items if article.get("is_first_report")), None)
-                item = {
-                    "id": hashlib.sha256(keyword.casefold().encode("utf-8")).hexdigest()[:16],
-                    "keyword": keyword,
-                    "materiality_score": score,
-                    "opportunity_score": score,
-                    "x_exposure_score": x_exposure_score,
-                    "exposure_breakdown": exposure_breakdown,
-                    "exposure_signals": exposure_signals,
-                    "score_version": _X_EXPOSURE_SCORE_VERSION,
-                    "exposure_confidence": exposure_confidence,
-                    "exposure_coverage": exposure_coverage,
-                    "observed_at": observation["observed_at"],
-                    "observation_delta": observation,
-                    "materiality_pass": True,
-                    "qualification_mode": "x_native_history" if x_native_pass else "cross_source_evidence",
-                    "context_level": "low" if x_native_pass else "verified",
-                    "lane": lane,
-                    "category": category,
-                    "volume": google.volume if google else "N/A",
-                    "volume_numeric": google.volume_numeric if google else 0,
-                    "age_minutes": candidate.get("age_minutes"),
-                    "age_basis": candidate["age_basis"],
-                    "age_display": age_display,
-                    "first_seen_at": candidate["first_seen_at"],
-                    "source_published_at": (
-                        source_published_at.astimezone(UTC).isoformat() if source_published_at is not None else None
-                    ),
-                    "sources": [
-                        source
-                        for source, present in (
-                            ("Google Trends", bool(google)),
-                            ("공개 X 트렌드", bool(x_trend)),
-                            ("Threads", bool(threads_posts)),
-                        )
-                        if present
-                    ],
-                    "news_headlines": headlines,
-                    "news_items": news_items,
-                    "first_report": first_report,
-                    "threads_posts": threads_posts,
-                    "threads_author_count": _threads_author_count(threads_posts),
-                    "reasons": reasons,
-                    "published_at": google.published_at.isoformat() if google and google.published_at else None,
-                    "source_url": primary_url,
-                    "trend_url": google.link if google and google.link else (x_trend.link if x_trend else ""),
-                    "x_search_url": f"https://x.com/search?q={encoded}&src=typed_query&f=live",
-                    "threads_search_url": f"https://www.threads.com/search?q={encoded}",
-                    "news_search_url": f"https://news.google.com/search?q={encoded}&hl=ko&gl=KR&ceid=KR%3Ako",
-                }
-                if item["context_level"] == "low" and not headlines and not first_report:
-                    # 「왜 후보인가」가 없는 항목은 지우지 않고 관측만 칸으로 강등한다.
-                    filtered_reasons["맥락 없음 관측만 강등"] += 1
-                    observed_only_items.append(
-                        {
-                            "id": item["id"],
-                            "keyword": keyword,
-                            "x_rank": candidate.get("x_rank"),
-                            "observed_at": item["observed_at"],
-                            "context_level": "low",
-                            "news_headlines": [],
-                            "first_report": None,
-                            "demotion_reason": "뉴스 맥락 없음(다음 트렌드·랭킹 문장 매칭 없음, 제목·최초 보도 없음)",
-                            "spam_likely_reason": spam_reason_by_rank.get(candidate.get("x_rank")),
-                            "trend_url": item["trend_url"],
-                            "x_search_url": item["x_search_url"],
-                        }
-                    )
-                    continue
-                items.append(item)
-
-            items.sort(
-                key=lambda item: (
-                    item["x_exposure_score"],
-                    item["materiality_score"],
-                    item["volume_numeric"],
-                ),
-                reverse=True,
-            )
+            items = built["items"]
+            observed_only_items = built["observed_only_items"]
+            filtered_reasons = built["filtered_reasons"]
             legacy_items = items[:limit]
-            reddit_excluded_reasons: Counter[str] = Counter()
-            reddit_items = _reddit_items(
-                reddit_raw,
-                now,
-                filter_shadow_store=self.filter_shadow_store,
-                excluded_reasons=reddit_excluded_reasons,
+            lanes = self._assemble_radar_lanes(
+                breaking_items=breaking_items,
+                daum_items=daum_items,
+                ranking_items=ranking_items,
+                legacy_items=legacy_items,
+                reddit_raw=reddit_raw,
+                breaking_excluded_reasons=breaking_excluded_reasons,
+                now=now,
             )
-            # 0099: 근거의 성격별 배열 — 지금 속보 / 최신 뉴스 / 오늘 이슈 / X 네이티브.
-            # `items`는 기존 조성 순서를 그대로 유지한다(호환), 새 배열이 소비처다.
-            breaking_now_items = [item for item in breaking_items if item.get("urgency") == "urgent"]
-            latest_news_items = [item for item in breaking_items if item.get("urgency") == "latest"]
-            today_core_items = [*daum_items, *ranking_items, *legacy_items, *reddit_items]
-            x_native_items = [
-                item for item in today_core_items if item.get("qualification_mode") == "x_native_history"
-            ]
-            today_issue_items = [
-                item for item in today_core_items if item.get("qualification_mode") != "x_native_history"
-            ]
-            cross_lane_dedupe_summary: Counter[str] = Counter()
-            dedupe_survivors = _dedupe_items_across_lanes(
-                [
-                    ("지금 속보", breaking_now_items),
-                    ("최신 뉴스", latest_news_items),
-                    ("오늘 이슈", today_issue_items),
-                    ("X 네이티브", x_native_items),
-                ],
-                dropped=cross_lane_dedupe_summary,
+            reddit_items = lanes["reddit_items"]
+            reddit_excluded_reasons = lanes["reddit_excluded_reasons"]
+            breaking_now_items = lanes["breaking_now_items"]
+            latest_news_items = lanes["latest_news_items"]
+            today_issue_items = lanes["today_issue_items"]
+            x_native_items = lanes["x_native_items"]
+            breaking_filter_summary = lanes["breaking_filter_summary"]
+            cross_lane_dedupe_summary = lanes["cross_lane_dedupe_summary"]
+            visible_items = lanes["visible_items"]
+
+            return self._finalize_radar_snapshot(
+                previous_snapshot=previous_snapshot,
+                country=country,
+                focus=focus,
+                force_refresh=force_refresh,
+                now=now,
+                errors=errors,
+                google_trends=google_trends,
+                x_trends=x_trends,
+                x_sample_id=x_sample_id,
+                x_fallback_count=x_fallback_count,
+                daum_enabled=collected["daum_enabled"],
+                daum_items=daum_items,
+                daum_raw=daum_raw,
+                daum_updated_at=daum_updated_at,
+                daum_excluded_reasons=daum_excluded_reasons,
+                ranking_items=ranking_items,
+                ranking_raw=ranking_raw,
+                ranking_excluded_reasons=ranking_excluded_reasons,
+                news_ranking_demoted_count=news_ranking_demoted_count,
+                reddit_items=reddit_items,
+                reddit_raw=reddit_raw,
+                reddit_excluded_reasons=reddit_excluded_reasons,
+                news_origin_ok=news_origin_ok,
+                expanded_news_count=expanded_news_count,
+                breaking_news_observation=breaking_news_observation,
+                breaking_items=breaking_items,
+                breaking_now_items=breaking_now_items,
+                latest_news_items=latest_news_items,
+                today_issue_items=today_issue_items,
+                x_native_items=x_native_items,
+                breaking_filter_summary=breaking_filter_summary,
+                cross_lane_dedupe_summary=cross_lane_dedupe_summary,
+                visible_items=visible_items,
+                candidates=candidates,
+                qualified_items=items,
+                observed_only_items=observed_only_items,
+                filtered_reasons=filtered_reasons,
+                spam_flagged=spam_flagged,
+                legacy_items=legacy_items,
             )
-            breaking_now_items = [item for item in breaking_now_items if id(item) in dedupe_survivors]
-            latest_news_items = [item for item in latest_news_items if id(item) in dedupe_survivors]
-            today_issue_items = [item for item in today_issue_items if id(item) in dedupe_survivors]
-            x_native_items = [item for item in x_native_items if id(item) in dedupe_survivors]
-            visible_items = [
-                item
-                for item in [*daum_items, *ranking_items, *legacy_items, *breaking_items, *reddit_items]
-                if id(item) in dedupe_survivors
-            ]
-            self.exposure_tracker.save(now=now)
-            source_health = {
-                "google_trends": bool(google_trends),
-                # 0072: 항목 수가 아니라 «원천에서 왔다는 표식이 있는 항목»으로 판정한다.
-                # `_getdaytrends_sample_id`는 실제 수집에만 붙고 fallback에는 없으며,
-                # 주입 fetcher는 x_sample_id가 custom: 로 지정된다. fallback이 이름을
-                # 바꿔 살아남아도 표식이 없으면 false다(fail-closed).
-                "public_x_trends": bool(x_trends) and bool(x_sample_id),
-                "daum_realtime": bool(daum_items),
-                "news_rankings": bool(ranking_items),
-                "reddit": bool(reddit_items),
-                "threads_api": self.threads_collector.available,
-                "publisher_news_origins": news_origin_ok,
-            }
-            breaking_sources = breaking_news_observation.get("sources")
-            if not isinstance(breaking_sources, dict):
-                breaking_sources = {}
-            for response_key, source_key in (
-                ("google_news_rss", "google-news-rss"),
-                ("yonhap_rss", "yonhap-rss"),
-                ("kma_weather", "kma-weather"),
-            ):
-                source_status = breaking_sources.get(source_key)
-                source_health[response_key] = bool(isinstance(source_status, dict) and source_status.get("available"))
-            if not google_trends:
-                errors.append("Google Trends 결과 없음")
-            # 0072: fallback 발동을 화면·응답에 보이게 한다. 사용자는 로그를 안 본다.
-            if x_fallback_count:
-                errors.append(
-                    f"공개 X 트렌드: 원천 수집 실패로 fallback {x_fallback_count}건이 대체 반환됨(원천 항목 0)"
-                )
-            if not x_trends:
-                errors.append("공개 X 트렌드 결과 없음")
-            elif not x_sample_id:
-                errors.append("공개 X 트렌드: 원천 표식(_getdaytrends_sample_id) 없는 항목만 감지 — health 미반영")
-            if daum_fetcher is not None and not daum_raw:
-                errors.append("다음 실시간 트렌드 결과 없음")
-            attempt_at = now.isoformat()
-            next_snapshot = {
-                "available": bool(visible_items),
-                "country": country,
-                "items": visible_items,
-                "total_candidates": len(candidates),
-                "news_ranking_count": len(ranking_items),
-                "news_ranking_raw_count": len(ranking_raw),
-                "news_ranking_filter_summary": dict(ranking_excluded_reasons),
-                "news_ranking_demoted_count": news_ranking_demoted_count,
-                "daum_trend_count": len(daum_items),
-                "daum_raw_count": len(daum_raw),
-                "daum_updated_at": daum_updated_at,
-                "daum_trend_filter_summary": dict(daum_excluded_reasons),
-                "reddit_count": len(reddit_items),
-                "reddit_raw_count": len(reddit_raw),
-                "reddit_filter_summary": dict(reddit_excluded_reasons),
-                "qualified_candidates": len(items),
-                "breaking_news_count": len(breaking_items),
-                # 0099: 긴급도·근거별 분리 배열. breaking_news_count는 호환을 위해
-                # urgent+latest 합계로 유지하고, 세부는 아래 count로 읽는다.
-                "breaking_now_items": breaking_now_items,
-                "breaking_now_count": len(breaking_now_items),
-                "latest_news_items": latest_news_items,
-                "latest_news_count": len(latest_news_items),
-                "today_issue_items": today_issue_items,
-                "today_issue_count": len(today_issue_items),
-                "x_native_items": x_native_items,
-                "breaking_filter_summary": dict(breaking_excluded_reasons),
-                "cross_lane_dedupe_count": sum(cross_lane_dedupe_summary.values()),
-                "cross_lane_dedupe_summary": dict(cross_lane_dedupe_summary),
-                "filtered_out_count": len(candidates) - len(items),
-                "filter_summary": dict(filtered_reasons),
-                "strict_materiality": True,
-                "x_native_count": len(x_native_items),
-                "expanded_news_count": expanded_news_count,
-                "observed_only_count": len(observed_only_items),
-                "observed_only_items": observed_only_items,
-                "spam_flagged_count": len(spam_flagged),
-                "spam_flagged_items": spam_flagged,
-                "breaking_news_observation": breaking_news_observation,
-                "x_cache_ttl_seconds": 90,
-                "force_refresh_requested": bool(force_refresh),
-                "capabilities": {
-                    "threads_keyword_search": {
-                        "available": self.threads_collector.available,
-                        "mode": "official_api" if self.threads_collector.available else "manual_search_link",
-                    }
-                },
-                "focus_keywords": focus,
-                "refreshed_at": attempt_at,
-                "last_attempt_at": attempt_at,
-                "source_health": source_health,
-                "errors": errors,
-                "notice": "스포츠·정치·증시·기업 실적·부동산을 제외합니다. 연합뉴스·기상청 직접 원문은 사건·안전·긴급 증거가 있는 것만 «지금 속보»로 올리고 나머지는 «최신 뉴스» lane에 둡니다. 뉴스 랭킹은 게시 360분 상한을 넘으면 걷어내고 게시 시각 미상은 lane 하단으로 강등합니다. 다음 실시간 트렌드(순위 변동 포함)·뉴스 랭킹·Reddit 핫 포스트를 점수 없는 후보로 앞세우고, X 트렌드 단어는 같은 사건의 후보에 「X에서도 뜨고 있음」 신호로 붙입니다. 맥락 없는 X 단어는 관측만 칸으로 강등합니다. 같은 URL·제목이 여러 lane에 올라오면 강한 근거 쪽만 남깁니다.",
-            }
-
-            # A successful cycle means at least one collection source actually
-            # returned usable source data. Capability flags (for example a
-            # configured Threads token) do not count as a successful fetch.
-            collection_succeeded = any(
-                bool(source_health.get(key))
-                for key in (
-                    "google_trends",
-                    "public_x_trends",
-                    "daum_realtime",
-                    "news_rankings",
-                    "reddit",
-                    "publisher_news_origins",
-                    "google_news_rss",
-                    "yonhap_rss",
-                    "kma_weather",
-                )
-            )
-            if collection_succeeded:
-                next_snapshot["last_success_at"] = attempt_at
-                next_snapshot["is_stale"] = False
-                next_snapshot["serving_last_good"] = False
-                self._snapshot = next_snapshot
-                return self.snapshot()
-
-            last_success_at = previous_snapshot.get("last_success_at") or previous_snapshot.get("refreshed_at")
-            if last_success_at:
-                # Keep the arrays/counts from the last successful response, but
-                # expose diagnostics from this failed attempt.  This prevents a
-                # transient all-source outage from blanking the private queue.
-                preserved = dict(previous_snapshot)
-                preserved.update(
-                    {
-                        "last_attempt_at": attempt_at,
-                        "last_success_at": last_success_at,
-                        "is_stale": True,
-                        "serving_last_good": True,
-                        "source_health": source_health,
-                        "errors": errors or ["모든 외부 소스가 결과를 반환하지 않음"],
-                        "force_refresh_requested": bool(force_refresh),
-                    }
-                )
-                self._snapshot = preserved
-                return self.snapshot()
-
-            next_snapshot["last_success_at"] = None
-            next_snapshot["is_stale"] = True
-            next_snapshot["serving_last_good"] = False
-            if not next_snapshot["errors"]:
-                next_snapshot["errors"] = ["모든 외부 소스가 결과를 반환하지 않음"]
-            self._snapshot = next_snapshot
-            return self.snapshot()
